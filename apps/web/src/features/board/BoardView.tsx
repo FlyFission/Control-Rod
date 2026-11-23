@@ -41,6 +41,7 @@ import { LensBar } from "./LensBar.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { type SavedView, deleteView, loadViews, saveView } from "./savedViews.js";
 import { DaemonNotice } from "../../components/DaemonNotice.js";
+import { attentionFirst } from "./boardOrder.js";
 import { type BoardCard, useBoardData } from "./useBoardData.js";
 import { readString, writeString } from "../../lib/storage.js";
 import "./board.css";
@@ -389,7 +390,7 @@ export function BoardView() {
         // The tone is shown only while the stream is live and the card's reads are current, so a card
         // whose state is unknown is never offered as needing you.
         const marked = titles.filter((t) => {
-          const tone = t.closest<HTMLElement>("article.bd-card")?.dataset["tone"];
+          const tone = t.closest<HTMLElement>("article.bd-card, .bd-list-row")?.dataset["tone"];
           return tone === "needs" || tone === "block";
         });
         const next = marked.find((t) => titles.indexOf(t) > idx) ?? marked[0];
@@ -436,7 +437,7 @@ export function BoardView() {
 
   const renderColumns = (cards: BoardCard[], includeReadyExtras: boolean, Heading: "h2" | "h3", idPrefix: string) =>
     COLUMNS.map((c) => {
-      const here = cards.filter((x) => x.column === c.id);
+      const here = attentionFirst(cards.filter((x) => x.column === c.id), data.status);
       const headingId = `${idPrefix}-${c.id}`;
       const colKey = `${idPrefix}:${c.id}`;
       const isExpanded = Boolean(expandedCols[colKey]);
@@ -519,6 +520,7 @@ export function BoardView() {
               next={x.next}
               column={x.column}
               stream={data.status}
+              runRunning={x.runRunning === true}
               lastKnown={x.lastKnown}
               nuclear={x.nuclear}
               selected={selectedId === x.pkg.id}

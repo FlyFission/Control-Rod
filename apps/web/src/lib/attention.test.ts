@@ -26,11 +26,17 @@ describe("new arrivals", () => {
 
 describe("notification text", () => {
   it("names one item by its kind and the record's own title", () => {
-    expect(notificationText([item()])).toEqual({ title: "Needs you: Accept", body: "Accept WP-1 Pump sizing" });
+    expect(notificationText([item()])).toEqual({ title: "Needs you: Accept", body: "Open Control Rod to see it." });
   });
-  it("counts several and lists at most three titles", () => {
+  it("counts several without listing their titles", () => {
     const four = ["A", "B", "C", "D"].map((t, i) => item({ title: t, package_id: `WP-${i}` }));
-    expect(notificationText(four)).toEqual({ title: "4 new items need you", body: "A\nB\nC" });
+    expect(notificationText(four)).toEqual({ title: "4 new items need you", body: "Open Control Rod to see them." });
+  });
+  it("never carries a record's title or a SCRAM reason", () => {
+    const scram = item({ kind: "scram", title: "SCRAM: secret-project leaked a token", scram_id: "S-1" });
+    const text = notificationText([scram]);
+    expect(text?.title).toBe("Needs you: SCRAM");
+    expect(JSON.stringify(text)).not.toContain("secret-project");
   });
   it("says nothing when nothing arrived", () => {
     expect(notificationText([])).toBeNull();

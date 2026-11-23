@@ -1,7 +1,7 @@
 import type { AttentionItem } from "../api/types.js";
 
 /**
- * Attention signals (pattern AW1 to AW3, docs/patterns/agent-workbenches.md): the tab title count and
+ * Attention signals (AW1 to AW3, .nuclear/changes/board-attention): the tab title count and
  * the opt-in browser notification. Both read only the viewer's own Inbox items (OV-01), and both say
  * only what a successful read of those records says; neither claims an outcome.
  */
@@ -31,12 +31,17 @@ export function newArrivals(before: ReadonlySet<string>, items: readonly Attenti
   return items.filter((i) => !before.has(attentionKey(i)));
 }
 
-/** What a notification says: the record's own title for one item, a count for several. */
+/**
+ * What a notification says: the kind and a count, never the record's own title or reason. A desktop
+ * notification can stay on screen, or in the system's notification list, after the person signs out
+ * or walks away from a shared machine, so it carries nothing the Inbox would only show after sign-in.
+ */
 export function notificationText(arrived: readonly AttentionItem[]): { title: string; body: string } | null {
   const first = arrived[0];
   if (first === undefined) return null;
-  if (arrived.length === 1) return { title: `Needs you: ${ATTENTION_LABEL[first.kind]}`, body: first.title };
-  return { title: `${arrived.length} new items need you`, body: arrived.map((i) => i.title).slice(0, 3).join("\n") };
+  const body = "Open Control Rod to see it.";
+  if (arrived.length === 1) return { title: `Needs you: ${ATTENTION_LABEL[first.kind]}`, body };
+  return { title: `${arrived.length} new items need you`, body: "Open Control Rod to see them." };
 }
 
 /** Notifications are each person's own choice on this browser, off until they turn them on. */

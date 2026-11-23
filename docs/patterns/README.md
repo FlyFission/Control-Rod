@@ -15,7 +15,6 @@ Each pattern file starts with a provenance header: the source, its license, the 
 
 ## Files
 
-- `agent-workbenches.md`: Orchestrator.inc (Apache-2.0), Vibe Kanban (Apache-2.0), Paradev (MIT) and the Claude Code desktop app (proprietary; public docs only). How these tools organise a person's attention and the review-to-merge workflow; AW1 to AW4 (tab count, opt-in notifications, `N` to the next card that needs you, the `?` shortcut list) are built. Change record: `agent-workbench-patterns`.
 - `headroom.md`: Headroom, a local layer that shrinks what coding agents send to a model (Apache-2.0). Ideas on instruction files written from transcripts, fail-closed release evidence, paired benchmarks and byte-for-byte gateway forwarding; read only part of the repo. Change record: `headroom-patterns`.
 - `kandev.md`: Kandev, an open workbench for coding agents (AGPL-3.0). Decision: ADR 0019.
 - `openharness.md`: openharness, a multi-agent harness (MIT, with some GPL and AGPL parts). Plan to port a few pinned pieces; see the build plan in the file.

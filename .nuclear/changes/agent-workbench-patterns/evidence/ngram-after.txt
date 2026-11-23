@@ -1,3 +1,0 @@
-n=6 note=agent-workbenches.md sources=['Paradev.README.md', 'vibe-kanban.README.md', 'agent-orchestrator.README.md', 'ao-arch.md']
-shared 6-word grams: 2; maximal runs: 1
-- (7 words) failed checks review comments and merge conflicts

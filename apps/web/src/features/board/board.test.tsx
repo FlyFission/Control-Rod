@@ -42,7 +42,7 @@ function Page() {
 
 const accept: ActionDescriptor = { command: "accept", label: "Accept", allowed: true, signature: "direct" };
 
-type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded" | "stopping"> };
+type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded" | "stopping" | "queued" | "held"> };
 function api(s: Setup) {
   const pkgs = s.packages.map((p) => ({ ...p, mode: "software" as const }));
   server.use(
@@ -60,7 +60,13 @@ function api(s: Setup) {
       return HttpResponse.json({
         ...view({}, p),
         originators: s.originators?.[id] ?? ["ben"],
-        runs: run ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: run === "stopping" ? "running" : run, ...(run === "stopping" ? { stop_requested_at: "2026-11-21T10:00:00Z" } : {}) }] : [],
+        runs: run
+          ? [
+              run === "held"
+                ? { id: "R-1", package_id: id, package_revision: 0, role: "pre-check", status: "queued", waiting_reason: "Waiting for an independent runtime" }
+                : { id: "R-1", package_id: id, package_revision: 0, role: "author", status: run === "stopping" ? "running" : run, ...(run === "stopping" ? { stop_requested_at: "2026-11-21T10:00:00Z" } : {}) },
+            ]
+          : [],
       });
     }),
   );
@@ -222,6 +228,43 @@ describe("BoardView", () => {
     expect(within(screen.getByRole("menu", { name: "Move to, Running one" })).getByRole("menuitem", { name: "Stop run" })).toBeTruthy();
     const stopping = screen.getByText("Stopping one").closest("article")!;
     expect(within(stopping).queryByRole("button", { name: /Move to/ })).toBeNull();
+  });
+
+  it("turns the run spinner only for a run that is running, never for a queued or held one", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-R", title: "Running one", status: "in-work" }),
+        pkg({ id: "WP-Q", title: "Queued one", status: "in-work" }),
+        pkg({ id: "WP-H", title: "Held one", status: "in-work" }),
+      ],
+      actions: { "WP-R": [], "WP-Q": [], "WP-H": [] },
+      runs: { "WP-R": "running", "WP-Q": "queued", "WP-H": "held" },
+    });
+    await renderPage(<Page />);
+    const running = (await screen.findByText("Running one")).closest("article")!;
+    await waitFor(() => expect(within(running).getByRole("img", { name: "Agent running" })).toBeTruthy());
+    const queued = screen.getByText("Queued one").closest("article")!;
+    const held = screen.getByText("Held one").closest("article")!;
+    expect(within(queued).queryByRole("img", { name: "Agent running" })).toBeNull();
+    expect(within(held).queryByRole("img", { name: "Agent running" })).toBeNull();
+  });
+
+  it("puts cards that need you at the top of their column, keeping order otherwise", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "First quiet", status: "in-verification" }),
+        pkg({ id: "WP-2", title: "Needs a yes", status: "in-verification" }),
+        pkg({ id: "WP-3", title: "Second quiet", status: "in-verification" }),
+      ],
+      actions: { "WP-1": [], "WP-2": [accept], "WP-3": [] },
+    });
+    await renderPage(<Page />);
+    const needs = (await screen.findByText("Needs a yes")).closest("article")!;
+    await waitFor(() => expect(needs.dataset["tone"]).toBe("needs"));
+    const col = needs.closest("section")!;
+    const titles = within(col).getAllByRole("button").filter((b) => b.classList.contains("bd-title")).map((b) => b.textContent);
+    expect(titles.indexOf("Needs a yes")).toBeLessThan(titles.indexOf("First quiet"));
+    expect(titles.indexOf("First quiet")).toBeLessThan(titles.indexOf("Second quiet"));
   });
 
   it("does not tag a General service package", async () => {

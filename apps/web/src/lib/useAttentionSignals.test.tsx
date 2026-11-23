@@ -71,12 +71,26 @@ describe("notifications", () => {
     expect(FakeNotification.shown).toEqual([]);
   });
 
-  it("notifies once with the record's title when a new item arrives while the tab is hidden", () => {
+  it("notifies once, without the record's title, when a new item arrives while the tab is hidden", () => {
     const { rerender, open } = mount("ben", ok([item()]));
     rerender({ u: "ben", read: ok([item(), item({ kind: "dispute", package_id: "WP-7", title: "Pre-check disputes WP-7" })]) });
-    expect(FakeNotification.shown).toEqual([{ title: "Needs you: Dispute", body: "Pre-check disputes WP-7", tag: "cr-inbox" }]);
+    expect(FakeNotification.shown).toEqual([{ title: "Needs you: Dispute", body: "Open Control Rod to see it.", tag: "cr-inbox" }]);
     last!.onclick!();
     expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes its notification when the person changes or the shell goes away (sign-out)", () => {
+    const { rerender, unmount } = mount("ben", ok([]));
+    rerender({ u: "ben", read: ok([item()]) });
+    const first = last!;
+    writeNotifyChoice("dora", true);
+    rerender({ u: "dora", read: ok([]) });
+    expect(first.close).toHaveBeenCalled();
+    rerender({ u: "dora", read: ok([item({ package_id: "WP-9" })]) });
+    const second = last!;
+    expect(second).not.toBe(first);
+    unmount();
+    expect(second.close).toHaveBeenCalled();
   });
 
   it("stays quiet while the tab is in view", () => {

@@ -1,7 +1,0 @@
-# 2026-11-22T19:39:24Z nuclear-grade-context-engineering @ 8122269a5b55e5694c8f998ad17955e7ce45798a
-$ python3.11 -I .ng/tools/ng.py validate --strict-custody .nuclear/changes/agent-workbench-patterns/
-OK: .nuclear/changes/agent-workbench-patterns
-exit 0
-$ python3 tools/check_owner_decisions.py
-owner decision check passed
-exit 0

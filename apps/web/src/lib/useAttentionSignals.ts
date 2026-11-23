@@ -20,6 +20,9 @@ export function useAttentionSignals(user: string | undefined, inbox: InboxRead, 
   const seen = useRef<{ user: string | undefined; keys: Set<string> } | null>(null);
   const open = useRef(onOpenInbox);
   open.current = onOpenInbox;
+  // The one notification this tab showed, closed again when the person changes or the shell unmounts
+  // (sign-out), so nothing stays up for the next person at this browser.
+  const shown = useRef<Notification | null>(null);
 
   if (base.current === null && typeof document !== "undefined") base.current = document.title.replace(COUNT_PREFIX, "");
 
@@ -37,6 +40,14 @@ export function useAttentionSignals(user: string | undefined, inbox: InboxRead, 
     [],
   );
 
+  useEffect(
+    () => () => {
+      shown.current?.close();
+      shown.current = null;
+    },
+    [user],
+  );
+
   useEffect(() => {
     if (!fresh) return;
     const items = inbox.data!.items;
@@ -51,11 +62,14 @@ export function useAttentionSignals(user: string | undefined, inbox: InboxRead, 
     const text = notificationText(arrived);
     if (text === null) return;
     try {
+      shown.current?.close();
       const n = new window.Notification(text.title, { body: text.body, tag: "cr-inbox" });
+      shown.current = n;
       n.onclick = () => {
         window.focus();
         open.current();
         n.close();
+        if (shown.current === n) shown.current = null;
       };
     } catch {
       // Some browsers only allow notifications from a service worker; the title count still shows.

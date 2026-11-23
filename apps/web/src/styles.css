@@ -2159,3 +2159,11 @@ select {
 .notify-toggle {
   margin: 0 0 12px;
 }
+
+/* A run answered by a different model than it asked for (fallback seat, ADR 0024). */
+.run-rerouted {
+  margin: 4px 0;
+  padding: 4px 8px;
+  border-left: 3px solid var(--needs);
+  color: var(--text);
+}

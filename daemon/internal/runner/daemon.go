@@ -130,8 +130,11 @@ type Daemon struct {
 	// quit ends when Run is asked to stop; completion retries stop waiting then.
 	quit context.Context
 
-	probeMu       sync.Mutex
-	status        []RuntimeStatus
+	probeMu sync.Mutex
+	status  []RuntimeStatus
+	// probeTimeouts counts, per runtime, the probe passes in a row it was held ready through a
+	// timeout (holdThroughTimeout).
+	probeTimeouts map[string]int
 	subscriptions *SubscriptionReport
 
 	activeMu    sync.Mutex
@@ -358,9 +361,19 @@ func (d *Daemon) preflight(ctx context.Context, rt string) error {
 // probe checks every runtime found on PATH and logs, in one plain sentence each, any that is
 // not ready or has become ready again. Only ready runtimes are offered for work.
 func (d *Daemon) probe(ctx context.Context) {
+	d.probeMu.Lock()
+	last := map[string]RuntimeStatus{}
+	for _, s := range d.status {
+		last[s.Runtime] = s
+	}
+	d.probeMu.Unlock()
 	next := make([]RuntimeStatus, 0, len(d.cfg.Runtimes))
 	for _, rt := range d.cfg.Runtimes {
 		st := Probe(ctx, rt, d.cfg.Version, d.cfg.Probe)
+		if held, ok := d.holdThroughTimeout(rt, st, last[rt]); ok {
+			next = append(next, held)
+			continue
+		}
 		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
 		if st.Ready {
 			if err := d.preflight(ctx, rt); err != nil {
@@ -394,6 +407,31 @@ func (d *Daemon) probe(ctx context.Context) {
 	if len(notYet) > 0 {
 		d.log.Info("found " + strings.Join(notYet, ", ") + ": not supported yet, so never started until Control Rod can sandbox them")
 	}
+}
+
+// probeTimeoutGrace is how many probe passes in a row a ready runtime may time out and still be
+// offered for work. One slow pass (a host under load, a CLI updating itself) does not take a
+// runtime away; a second one does. Any answer that says the runtime is not ready, a sign-out
+// included, takes it away at once.
+const probeTimeoutGrace = 1
+
+// holdThroughTimeout returns the runtime's last ready status when this pass only timed out and the
+// grace is not used up. It reports false, and resets the count, in every other case.
+func (d *Daemon) holdThroughTimeout(rt string, st, last RuntimeStatus) (RuntimeStatus, bool) {
+	d.probeMu.Lock()
+	defer d.probeMu.Unlock()
+	if d.probeTimeouts == nil {
+		d.probeTimeouts = map[string]int{}
+	}
+	if st.Ready || !st.timedOut || !last.Ready || d.probeTimeouts[rt] >= probeTimeoutGrace {
+		if st.Ready || !st.timedOut {
+			delete(d.probeTimeouts, rt)
+		}
+		return RuntimeStatus{}, false
+	}
+	d.probeTimeouts[rt]++
+	d.log.Info(displayName(rt)+" did not answer its probe in time; it stays offered until the next probe, which must answer.", "runtime", rt)
+	return last, true
 }
 
 // awaitingConfinement reports whether a runtime is detected but never started (AwaitingConfinement).

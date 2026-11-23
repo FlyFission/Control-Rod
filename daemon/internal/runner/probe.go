@@ -25,6 +25,10 @@ type RuntimeStatus struct {
 	Artifact *RuntimeArtifact `json:"artifact,omitempty"`
 	// Models are the model names or aliases discovered for this CLI on this host.
 	Models []string `json:"models,omitempty"`
+	// timedOut is set when the probe stopped because one of its commands ran past probeTimeout, not
+	// because the CLI answered. It is never reported: it only lets the daemon tell a slow host from
+	// a runtime that is gone (see Daemon.probe).
+	timedOut bool
 }
 
 // CommandRunner runs a short command and returns its combined output and exit code. err is set
@@ -53,7 +57,8 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 	return string(out), 0, nil
 }
 
-const probeTimeout = 10 * time.Second
+// probeTimeout bounds each probe command. A var so tests can shorten it.
+var probeTimeout = 10 * time.Second
 
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
@@ -93,8 +98,14 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 // Claude and Codex they are the same string, so the sentences stay the ones the probes used
 // before the registry. login, when set, runs after a version answer and reports whether the probe
 // should stop before the runtime is marked ready.
-func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) RuntimeStatus {
-	st := RuntimeStatus{Runtime: id}
+func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) (st RuntimeStatus) {
+	st = RuntimeStatus{Runtime: id}
+	timedOut := false
+	defer func() {
+		if !st.Ready && timedOut {
+			st.timedOut = true
+		}
+	}()
 	// Identify the executable before running anything: a launcher Control Rod cannot pin is never
 	// executed, not even for its version.
 	if art, aerr := resolveArtifact(binary); aerr == nil {
@@ -109,7 +120,13 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 	call := func(args ...string) (string, int, error) {
 		c, cancel := context.WithTimeout(ctx, probeTimeout)
 		defer cancel()
-		return run(c, binary, args...)
+		out, code, err := run(c, binary, args...)
+		// Only this command's own deadline counts: a daemon shutting down cancels ctx, which is not
+		// a slow host.
+		if errors.Is(c.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
+			timedOut = true
+		}
+		return out, code, err
 	}
 	out, code, err := call("--version")
 	if err != nil || code != 0 || firstLine(out) == "" {

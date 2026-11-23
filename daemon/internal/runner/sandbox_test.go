@@ -636,3 +636,15 @@ func TestQualifiedPlatformCoversLinuxAndMacOS(t *testing.T) {
 		t.Fatalf("%s: qualified=%v, got %v", runtime.GOOS, qualified, err)
 	}
 }
+
+// Codex 0.171.0's real `features list` (Control Rod's switches applied, no user config), captured
+// from the published npm package. Every feature it leaves on is qualified.
+func TestCodex0171FeaturesAreQualified(t *testing.T) {
+	b, err := os.ReadFile("testdata/codex-0.171.0-features.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if extra := unqualifiedCodexFeatures(string(b)); len(extra) != 0 {
+		t.Fatalf("Codex 0.171.0 would be refused for %v", extra)
+	}
+}

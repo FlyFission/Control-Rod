@@ -26,6 +26,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `check.recheck-override` | member | direct | Override a sticky checker fail | `work.ts` recordRecheckOverride | `POST /packages/:id/recheck-overrides` |
 | `runtime.report-status` | agent-via-daemon | none | Probe runtime | `subscriptions.ts` recordSubscriptionReport<br>`work.ts` recordRuntimeStatus | `POST /runner/claim` |
 | `runtime.report-agent-updates` | agent-via-daemon | none | Probe runtime (agent updates) | `agent-updates.ts` recordAgentUpdates | `POST /runner/claim` |
+| `setup.record` | member | none | Record agent setup (seats and check-in) | `setup.ts` recordSeat<br>`setup.ts` recordSetup | `PUT /setup/seats/:runtime`, `PUT /setup` |
 | `verification.record-person` | member | direct | Record person verification | `person-verification.ts` recordPersonVerification | `POST /packages/:id/person-verifications` |
 | `preparation.confirm` | member | direct | Confirm requirements | `preparation/subjects.ts` confirmRequirements | `POST /packages/:id/preparation/confirm` |
 | `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |

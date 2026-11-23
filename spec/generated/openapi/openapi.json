@@ -7254,6 +7254,218 @@
         }
       }
     },
+    "/setup": {
+      "get": {
+        "operationId": "setup",
+        "description": "First-run setup (docs/patterns/onboarding.md): which agents the person seats and when Control Rod\nchecks with them. Nothing is recorded until the person confirms what was read back to them.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSetupView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "recordSetup",
+        "description": "Records the person's confirmed setup. Seat changes are events on the chain; the check-in answer is a preference and is not.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSetupView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentSetupRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/setup/seats/{runtime}": {
+      "put": {
+        "operationId": "recordSeat",
+        "description": "One Agents roster switch: changes that seat only, and does not confirm setup.",
+        "parameters": [
+          {
+            "name": "runtime",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSetupView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "seated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "seated"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/subscriptions": {
       "get": {
         "operationId": "subscriptions",
@@ -8086,6 +8298,72 @@
         },
         "description": "One agent on the office floor (AgentFigure, specification 13 and 18; plan task 4.6), projected only\nfrom recorded data: the package (or, for intake, the capture), its latest run at the current\nrevision, what the Inbox routes to the viewer, SCRAM holds, effective markings, recorded\ndependencies and the revisions a preparation basis pinned. Never guessed from terminal output."
       },
+      "AgentSeat": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "seated"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "A runtime id as the daemon names it (claude, codex, grok, opencode, agy, ollama)."
+          },
+          "seated": {
+            "type": "boolean",
+            "description": "False benches the agent: no new run is offered to it. Benching never makes a checker the author's runtime."
+          }
+        }
+      },
+      "AgentSetupRequest": {
+        "type": "object",
+        "required": [
+          "seats"
+        ],
+        "properties": {
+          "seats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSeat"
+            },
+            "maxItems": 20,
+            "description": "Only the seats the person changed. A seat not named keeps its saved value."
+          },
+          "check_in": {
+            "$ref": "#/components/schemas/CheckIn",
+            "description": "Left out when the person did not change it; the saved answer stays."
+          }
+        }
+      },
+      "AgentSetupView": {
+        "type": "object",
+        "required": [
+          "confirmed",
+          "seats",
+          "check_in"
+        ],
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "description": "False until the person has confirmed setup once. The app opens on setup until then."
+          },
+          "confirmed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "seats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSeat"
+            },
+            "description": "Runtimes not listed here are seated."
+          },
+          "check_in": {
+            "$ref": "#/components/schemas/CheckIn"
+          }
+        }
+      },
       "ApiError": {
         "type": "object",
         "required": [
@@ -8462,6 +8740,15 @@
             "description": "Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified."
           }
         }
+      },
+      "CheckIn": {
+        "type": "string",
+        "enum": [
+          "start",
+          "start-and-merge",
+          "every-step"
+        ],
+        "description": "When Control Rod should stop and check with the person (ADR 0024 decision 7). The middle answer is\nthe default and matches today's stops: a passkey to release and to accept."
       },
       "ControlRod.Preparation.BasisRef": {
         "type": "object",

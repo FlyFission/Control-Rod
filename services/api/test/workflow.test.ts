@@ -35,6 +35,7 @@ describe("captureProject", () => {
     expect(captureProject("[mode:software]\n[project:prj_1]")).toBeUndefined();
     expect(captureProject("[project:a] [project:b]")).toBeUndefined();
     expect(captureProject("Ship it for [project:prj_1] today")).toBeUndefined();
+    expect(captureProject("[mode:software] [project:Plant [Phase 2]] [workflow:pocock]\n\nx")).toBe("Plant [Phase 2]");
     expect(captureProject("[project:  ]")).toBeUndefined();
     expect(captureProject(undefined)).toBeUndefined();
   });
@@ -59,6 +60,8 @@ describe("captureWorkflow", () => {
     // A tag inside the person's own first-line prose is not a header (blind review of #148).
     expect(captureWorkflow("Please use [workflow:pocock] for this")).toBeUndefined();
     expect(captureWorkflow("[workflow:pocock] and then build it\n\nmore")).toBeUndefined();
+    // A project name with brackets keeps the header a header (re-review of the fix).
+    expect(captureWorkflow("[mode:software] [project:Plant [Phase 2]] [workflow:pocock]\n\nx")).toBe("pocock");
     expect(captureWorkflow("workflow:pocock")).toBeUndefined();
     expect(captureWorkflow("[workflow: pocock]")).toBeUndefined();
     expect(captureWorkflow("[Workflow:pocock]")).toBeUndefined();

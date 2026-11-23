@@ -356,7 +356,10 @@ describe("workflows at intake", () => {
   });
 
   it("runs the playbook when the named project is not one of the request's organization's", async () => {
-    const { job, ids } = await intake("[mode:software] [project:No Such Project]\n\nBuild", [draft("NOPROJ")]);
+    // A real project of another organization, with a default, carries that name.
+    await h.admin.query("insert into organizations (body) values ($1) on conflict do nothing", [{ id: "org_wf_other", name: "Other" }]);
+    await h.admin.query("insert into projects (body) values ($1)", [{ id: "prj_wf_foreign_named", org_id: "org_wf_other", name: "Foreign Named", default_workflow: "pocock" }]);
+    const { job, ids } = await intake("[mode:software] [project:Foreign Named]\n\nBuild", [draft("NOPROJ")]);
     expect(input(job, "BRIEF.md")).not.toContain("Workflow:");
     expect((await bodyOf(ids[0]!)).workflow).toBe("playbook");
   });

@@ -36,10 +36,13 @@ export function resolveWorkflow(pkg: Json | undefined, project: Json | null | un
  * with anything outside a tag is the person's own prose: a tag written inside a sentence selects
  * nothing.
  */
+/** One `[key:value]` tag; the value may hold one level of brackets, as in `[project:Plant [Phase 2]]`. */
+const TAG = /\[[a-z][a-z-]*:(?:[^[\]]|\[[^[\]]*\])*\]/g;
+
 export function tagHeader(text: unknown): string | undefined {
   if (typeof text !== "string") return undefined;
   const first = text.split(/\r?\n/, 1)[0] ?? "";
-  if (!first.trim() || first.replace(/\[[a-z][a-z-]*:[^\]]*\]/g, "").trim() !== "") return undefined;
+  if (!first.trim() || first.replace(TAG, "").trim() !== "") return undefined;
   return first;
 }
 
@@ -72,7 +75,7 @@ export function captureWorkflow(text: unknown): Workflow | undefined {
 export function captureProject(text: unknown): string | undefined {
   const first = tagHeader(text);
   if (first === undefined) return undefined;
-  const found = new Set([...first.matchAll(/\[project:([^\]]+)\]/g)].map((m) => m[1]!.trim()).filter(Boolean));
+  const found = new Set([...first.matchAll(/\[project:((?:[^[\]]|\[[^[\]]*\])+)\]/g)].map((m) => m[1]!.trim()).filter(Boolean));
   return found.size === 1 ? [...found][0] : undefined;
 }
 

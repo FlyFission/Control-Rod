@@ -57,6 +57,7 @@ Claim: four statements, one per bullet.
 - Implementation status per item is in the note's "Status after the first build attempt" section.
 - Blind check by a different vendor than the author (Codex, read-only) at `c280eb6b`: FIX FIRST, 2 P1 and 3 P2, all reasoned. Fixed in the next commit: this summary said "checks pass" with a public-claims finding and no strict-custody result (now stated as above); the workbench note said AW1 to AW4 were done in this change (they are in #159); `ngram.py` could leave an overlapping run unlisted (fixed; E-03's listing is shown complete); `AO-5` had no outcome (added). The wording check by a person is still open and is the merge condition.
 - Blind check (Codex, read-only) at `5f7d5413`: FIX FIRST, 1 P1 and 3 P2, all reasoned. Fixed in the next commit: the overlap listing was claimed complete on evidence that cannot show it (the claim is withdrawn; the script now finds runs per source); the workbench record's validation log predates its packet (now stated; CI is the current result); AW11 had two gates (one now). Open, and only a person can close it: the wording check, the P1.
+- Blind check (Codex, read-only) at `35347e7e`: FIX FIRST, 1 P1 and 3 P2, all reasoned. Fixed in the next commit: the scanner could join separate passages into one item (each run now exists whole in one source); E-03 was marked decisive (now partial, not decisive); AW9 said four tools and named three (now three). Open: the wording check, the P1, which only a person can close.
 
 ## Reviewer note
 

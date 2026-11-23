@@ -1,7 +1,8 @@
 """Shared n-word runs between a note and source texts (copied-wording check).
 
-Runs are found per source, so every listed run exists whole in the source named beside it, and a
-scan resumes at the first start that did not match, so overlapping runs are never skipped.
+For each source, a run is the longest stretch of the note, starting at a matching n-word gram, whose
+whole text appears in that source. A run that sits inside an earlier run is not listed again, so
+two separate passages are two runs, and overlapping passages are both listed.
 """
 import re, sys
 from pathlib import Path
@@ -12,19 +13,19 @@ mine = words(note.read_text())
 print(f"n={N} note={note.name} sources={[s.name for s in sources]}")
 total = 0
 for s in sources:
-    src = grams(words(s.read_text(errors="ignore")))
+    sw = words(s.read_text(errors="ignore"))
+    text = " " + " ".join(sw) + " "
+    src = grams(sw)
     hits = sorted(g for g in grams(mine) if g in src)
-    runs, i = [], 0
-    while i <= len(mine) - N:
-        if " ".join(mine[i:i+N]) in src:
-            j = i
-            while j <= len(mine) - N and " ".join(mine[j:j+N]) in src: j += 1
-            # A run of consecutive matching starts can still join two separate source passages;
-            # keep it whole only when its full text is in the source, else list its grams apart.
-            run = " ".join(mine[i:j+N-1])
-            runs.append(run if run in " ".join(words(s.read_text(errors="ignore"))) else " | ".join(" ".join(mine[k:k+N]) for k in range(i, j)))
-            i = j
-        else: i += 1
+    runs, end = [], 0
+    for i in range(len(mine) - N + 1):
+        if " ".join(mine[i:i+N]) not in src:
+            continue
+        j = i + N
+        while j < len(mine) and f" {' '.join(mine[i:j+1])} " in text:
+            j += 1
+        if j > end:
+            runs.append(" ".join(mine[i:j])); end = j
     total += len(runs)
     print(f"{s.name}: shared {N}-word grams: {len(hits)}; runs: {len(runs)}")
     for r in runs: print(f"- ({len(r.split())} words) {r}")

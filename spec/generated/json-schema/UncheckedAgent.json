@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "UncheckedAgent.json",
+    "type": "object",
+    "properties": {
+        "agent": {
+            "$ref": "AgentId.json"
+        },
+        "installed": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$"
+        }
+    },
+    "required": [
+        "agent"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "An agent found whose update check could not finish, with the installed version the daemon read\n(strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent\nonly while that row's installed version is this one, so a CLI updated since is never offered\nan older version."
+}

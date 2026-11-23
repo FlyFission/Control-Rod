@@ -26,6 +26,9 @@ import { OFFICE_THEMES } from "../src/features/office/registry.js";
 
 /** Every theme the repository carries: the default, the structural test theme and the fifteen worlds. */
 const THEMES = OFFICE_THEMES.map((t) => t.id);
+/** The plant draws a fourteenth plate, the reactor building's; the office draws thirteen. */
+const plates = (theme: string) => (OFFICE_THEMES.find((t) => t.id === theme)?.layout === "plant" ? 14 : 13);
+/** The plant is quiet when normal: no figure pulses, so nothing animates in a steady scene. */
 const PLATE = { r: 10, g: 10, b: 12 };
 const measurements: Record<string, unknown> = {};
 
@@ -279,7 +282,7 @@ test.describe("office theme quality harness", () => {
         const withMarks = await page.evaluate(() => ({ safety: document.querySelectorAll(".office-figure-safety").length, flags: document.querySelectorAll(".office-figure-flags").length }));
         expect(withMarks.safety).toBeGreaterThan(0);
         expect(withMarks.flags).toBeGreaterThan(0);
-        expect(result.summary.counted).toEqual({ plate: 13, code: 40, mark: 40, outline: 40, body: 40, tint: 0, ...withMarks });
+        expect(result.summary.counted).toEqual({ plate: plates(theme), code: 40, mark: 40, outline: 40, body: 40, tint: 0, ...withMarks });
         expect(Object.keys(result.summary.shapes).sort()).toEqual(["changed", "needs", "stuck", "waiting", "working"]);
       });
 
@@ -330,7 +333,7 @@ test.describe("office theme quality harness", () => {
         const result = await page.evaluate(measureLegibility);
         measurements[`${theme}/legibility`] = { boxes: result.boxes, smallestTextPx: result.smallest };
         expect(result.failures).toEqual([]);
-        expect(result.boxes).toBe(53);
+        expect(result.boxes).toBe(40 + plates(theme));
       });
 
       test("frame time smoke check and event to screen time with 40 agents", async ({ page }) => {
@@ -373,6 +376,23 @@ test.describe("office theme quality harness", () => {
         await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
         await setVisibility("visible");
         await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
+        if (OFFICE_THEMES.find((t) => t.id === theme)?.layout === "plant") {
+          // A window that comes on flashes; hiding the tab ends the flash at once, so showing it again
+          // never restarts it. The flash's timer is set to ten minutes here, so the flash can only have
+          // ended because the tab hid.
+          await open(page, `theme=${theme}&agents=40&flash=600000`);
+          await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
+          await page.locator('[data-harness="scram"]').click();
+          await expect(page.locator('.plant-window[data-window="scram"][data-flash]')).toHaveCount(1);
+          await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBeGreaterThan(moving);
+          await setVisibility("hidden");
+          await expect(page.locator(".plant-annunciator")).toHaveAttribute("data-motion", "paused");
+          await expect(page.locator(".plant-window[data-flash]")).toHaveCount(0, { timeout: 500 });
+          await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
+          await setVisibility("visible");
+          await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
+          expect(await page.locator(".plant-window[data-flash]").count()).toBe(0);
+        }
         await page.emulateMedia({ reducedMotion: "reduce" });
         await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
         measurements[`${theme}/motion`] = { animationsInFullMotion: moving, hidden: 0, reduced: 0 };
@@ -982,10 +1002,17 @@ function measureLegibility() {
     return { name, l: Math.min(...rs.map((r) => r.left)), t: Math.min(...rs.map((r) => r.top)), r: Math.max(...rs.map((r) => r.right)), b: Math.max(...rs.map((r) => r.bottom)) };
   };
   const boxes: Box[] = [];
-  // The corridor: between the bottom of the top row of regions and the top of the bottom row.
-  const regionBoxes = [...document.querySelectorAll(".office-region")].map((r) => r.getBoundingClientRect());
-  const corridorTop = Math.max(...regionBoxes.filter((r) => r.top < stage.top + stage.height / 2).map((r) => r.bottom));
-  const corridorBottom = Math.min(...regionBoxes.filter((r) => r.top >= stage.top + stage.height / 2).map((r) => r.top));
+  // The lane a queued figure must stand in: the corridor (or the plant's walkway) on its own region's
+  // door side, from that region's wall to the next regions across, among those sharing its columns.
+  // Taken from the region, never from where the figure happens to be, so a figure queued in the wrong
+  // lane fails.
+  const regionEls = [...document.querySelectorAll(".office-region")];
+  const laneOf = (regionEl: Element) => {
+    const own = regionEl.getBoundingClientRect();
+    const cols = regionEls.filter((r) => r !== regionEl).map((r) => r.getBoundingClientRect()).filter((r) => r.left < own.right && r.right > own.left);
+    if (regionEl.getAttribute("data-door") === "top") return { top: Math.max(stage.top, ...cols.filter((r) => r.bottom <= own.top).map((r) => r.bottom)), bottom: own.top };
+    return { top: own.bottom, bottom: Math.min(stage.bottom, ...cols.filter((r) => r.top >= own.bottom).map((r) => r.top)) };
+  };
   for (const f of document.querySelectorAll(".office-figure")) {
     const box = union(`figure ${f.getAttribute("data-figure")}`, [...f.querySelectorAll(".office-figure-outline, .office-figure-safety, .office-figure-flags, .office-figure-mark, .office-figure-code")]);
     // At most five marks on a figure (OV-08): the state shape, and the gate flag, changed input
@@ -996,10 +1023,11 @@ function measureLegibility() {
     // Seated: inside its own region, clear of the name plate band. Queued: inside the corridor.
     const region = document.querySelector(`.office-region[data-region="${f.getAttribute("data-region")}"]`)!.getBoundingClientRect();
     const plate = document.querySelector(`.office-region[data-region="${f.getAttribute("data-region")}"] .office-plate`)!.getBoundingClientRect();
-    const cy = (box.t + box.b) / 2;
-    const seated = cy >= region.top && cy <= region.bottom;
+    // Seated or queued as the fixture placed it, never as the marker happens to render.
+    const seated = !f.hasAttribute("data-queued");
     if (seated && (box.l < region.left || box.r > region.right || box.t < plate.bottom || box.b > region.bottom)) failures.push(`${box.name} leaves its seat in ${f.getAttribute("data-region")}`);
-    if (!seated && (box.t < corridorTop || box.b > corridorBottom)) failures.push(`${box.name} queues outside the corridor`);
+    const corridor = laneOf(document.querySelector(`.office-region[data-region="${f.getAttribute("data-region")}"]`)!);
+    if (!seated && (box.t < corridor.top || box.b > corridor.bottom)) failures.push(`${box.name} queues outside the corridor`);
     const outline = f.querySelector(".office-figure-outline")!.getBoundingClientRect();
     if (outline.width < 24 || outline.height < 24) failures.push(`figure ${f.getAttribute("data-figure")} is smaller than a 24px target`);
   }

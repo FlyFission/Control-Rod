@@ -1,0 +1,81 @@
+## R9-1 a changed binary drops the cached update (mutated)
+--- FAIL: TestAChangedBinaryDropsTheCachedUpdate (0.00s)
+    updates_test.go:179: after grok and claude changed: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{runner.AgentUpdate{Agent:"grok", Name:"Grok CLI", Installed:"1.0.77", Latest:"1.0.92", NpmGlobal:true, Note:""}, runner.AgentUpdate{Agent:"opencode", Name:"OpenCode", Installed:"1.19.5", Latest:"1.19.6", NpmGlobal:true, Note:""}}, Unchecked:[]runner.UncheckedAgent{runner.UncheckedAgent{Agent:"claude", Installed:""}}}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.008s
+## R9-1 a changed binary drops the cached update (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.008s
+## R9-1 a changed binary clears the unchecked installed version (mutated)
+--- FAIL: TestAChangedBinaryDropsTheCachedUpdate (0.00s)
+    updates_test.go:179: after grok and claude changed: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{runner.AgentUpdate{Agent:"opencode", Name:"OpenCode", Installed:"1.19.5", Latest:"1.19.6", NpmGlobal:true, Note:""}}, Unchecked:[]runner.UncheckedAgent{runner.UncheckedAgent{Agent:"claude", Installed:"2.0.0"}}}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.008s
+## R9-1 a changed binary clears the unchecked installed version (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	(cached)
+## R9-1 the check stamps each agent (mutated)
+--- FAIL: TestCheckStampsEachAgent (0.00s)
+    agentupdate_test.go:285: stamp not taken: []agentupdate.Status{agentupdate.Status{Agent:agentupdate.Agent{ID:"grok", Name:"Grok CLI", Binary:"grok", Package:"@xai-official/grok"}, Path:"/tmp/TestCheckStampsEachAgent3309704312/001/grok", Installed:"1.0.77", Latest:"1.0.92", Command:[]string(nil), Note:"installed outside npm (/tmp/TestCheckStampsEachAgent3309704312/001/grok); update it with the tool you installed it with", Stamp:""}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.009s
+## R9-1 the check stamps each agent (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.006s
+## R9-3 an install already at latest is skipped (mutated)
+--- FAIL: TestUpdateRereadsTheInstalledVersionAfterTheYes (0.00s)
+    agents_test.go:159: code 0, ran [npm install --global @xai-official/grok@1.0.92 npm install --global opencode-ai@1.19.6]:
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.010s
+## R9-3 an install already at latest is skipped (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	(cached)
+## R9-3 an unreadable version is not installed (mutated)
+--- FAIL: TestUpdateRereadsTheInstalledVersionAfterTheYes (0.00s)
+    agents_test.go:166: code 0, ran []:
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
+## R9-3 an unreadable version is not installed (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	(cached)
+## R9-2 the API stores only real updates (mutated)
+     × shows what the daemon reported, dropping malformed entries 27ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 6 passed (7)
+## R9-2 the API stores only real updates (restored)
+      Tests  7 passed (7)
+## R9-2 API precedence compares numeric identifiers by value (mutated)
+     × follows SemVer precedence in both directions 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 6 passed (7)
+## R9-2 API precedence compares numeric identifiers by value (restored)
+      Tests  7 passed (7)
+## R9-2 API precedence ranks a prerelease below its release (mutated)
+     × follows SemVer precedence in both directions 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 6 passed (7)
+## R9-2 API precedence ranks a prerelease below its release (restored)
+      Tests  7 passed (7)
+## R9-2 the panel shows and builds only real updates (mutated)
+     × shows no entry and no command unless latest is newer than installed 1006ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+          [0m×[0m
+              [0m×[0m
+## R9-2 the panel shows and builds only real updates (restored)
+      Tests  9 passed (9)
+## R9-2 panel precedence compares numeric identifiers by value (mutated)
+     × follows SemVer precedence in both directions 8ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 8 passed (9)
+## R9-2 panel precedence compares numeric identifiers by value (restored)
+      Tests  9 passed (9)
+## R9-1 surviving mutation: the "no recorded stamp counts as changed" branch was dead (every reported agent is recorded by the check that reported it). Removed.
+## R9-1 the stamp sees a replaced file (mutated)
+--- FAIL: TestStampSeesAReplacedBinary (0.00s)
+    agentupdate_test.go:266: replaced binary kept stamp "/tmp/TestStampSeesAReplacedBinary39116782/001/grok"
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.009s
+## R9-1 the stamp sees a replaced file (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	(cached)
+## R9-3 an agent named twice is installed once (mutated)
+--- FAIL: TestUpdateNamedTwiceRunsOnce (0.00s)
+    agents_test.go:146: code 0, ran [npm install --global @xai-official/grok@1.0.92 npm install --global @xai-official/grok@1.0.92]:
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+## R9-3 an agent named twice is installed once (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	(cached)

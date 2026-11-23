@@ -35,13 +35,14 @@ describe("first-run setup", () => {
     expect(r.json()).toEqual({ confirmed: false, seats: [], check_in: "start-and-merge" });
   });
 
-  it("refuses an unknown agent, a missing answer, a duplicate and the test runtime before writing anything", async () => {
+  it("refuses an unknown agent, an unknown answer, a runtime that is not a name, a duplicate and the test runtime before writing anything", async () => {
     for (const bad of [
       { seats: [{ runtime: "skynet", seated: true }], check_in: "start" },
       { seats: [{ runtime: "codex", seated: true }], check_in: "sometimes" },
       { seats: [{ runtime: "codex", seated: true }, { runtime: "codex", seated: false }], check_in: "start" },
       { seats: [{ runtime: "fake", seated: false }], check_in: "start" },
       { seats: [{ runtime: "codex" }], check_in: "start" },
+      { seats: [{ runtime: ["codex"], seated: false }], check_in: "start" },
     ]) {
       const r = await put(bad);
       expect(r.statusCode, JSON.stringify(bad)).toBe(400);
@@ -140,24 +141,45 @@ describe("first-run setup", () => {
     expect(first.statusCode, first.body).toBe(200);
   });
 
-  it("checks authority after the dispatch lock, so a Member suspended while the write waited is refused", async () => {
-    const holder = await h.admin.connect();
-    const before = (await get()).json();
-    try {
-      await holder.query("begin");
-      await holder.query("select pg_advisory_xact_lock(hashtext('controlrod-budget'))");
-      const pending = h.app.inject({ method: "PUT", url: "/setup/seats/claude", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
-      await new Promise((r) => setTimeout(r, 300));
-      await h.admin.query("alter table members disable trigger user");
-      await h.admin.query("update members set body = jsonb_set(body, '{status}', '\"suspended\"') where id = (select id from members order by created_at limit 1)");
-      await holder.query("commit");
-      const r = await pending;
-      expect(r.statusCode, r.body).toBe(403);
-    } finally {
-      await h.admin.query("update members set body = jsonb_set(body, '{status}', '\"active\"') where id = (select id from members order by created_at limit 1)");
-      await h.admin.query("alter table members enable trigger user");
-      holder.release();
+  // The first Member (ben) is the only one with a cookie here; a suspension is modeled the way runAdmin
+  // makes one: holding the organization's administration lock, then changing the member row.
+  const FIRST = "(select id from members order by created_at limit 1)";
+  const setStatus = (c: { query: (q: string) => Promise<unknown> }, status: string) =>
+    c.query(`update members set body = jsonb_set(body, '{status}', '"${status}"') where id = ${FIRST}`);
+  /** Resolves once some session in this test database is waiting on an advisory lock. */
+  async function waitingOnLock() {
+    for (let i = 0; i < 200; i++) {
+      const r = await h.admin.query("select 1 from pg_locks l join pg_database d on d.oid = l.database where d.datname = current_database() and l.locktype = 'advisory' and not l.granted");
+      if (r.rowCount) return;
+      await new Promise((res) => setTimeout(res, 10));
     }
-    expect((await get()).json()).toEqual(before);
-  });
+    throw new Error("the seat write never waited on the lock");
+  }
+
+  for (const [lock, sql] of [
+    ["administration", `select pg_advisory_xact_lock(hashtext('controlrod-admin:' || (select org_id from members where id = ${FIRST})))`],
+    ["dispatch", "select pg_advisory_xact_lock(hashtext('controlrod-budget'))"],
+  ] as const) {
+    it(`refuses a seat write from a Member suspended while it waited on the ${lock} lock`, async () => {
+      const before = (await get()).json();
+      const holder = await h.admin.connect();
+      await h.admin.query("alter table members disable trigger user");
+      try {
+        await holder.query("begin");
+        await holder.query(sql);
+        const pending = h.app.inject({ method: "PUT", url: "/setup/seats/claude", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
+        await waitingOnLock();
+        await setStatus(holder, "suspended");
+        await holder.query("commit");
+        const r = await pending;
+        expect(r.statusCode, r.body).toBe(403);
+      } finally {
+        await holder.query("rollback").catch(() => undefined);
+        await setStatus(h.admin, "active");
+        await h.admin.query("alter table members enable trigger user");
+        holder.release();
+      }
+      expect((await get()).json()).toEqual(before);
+    });
+  }
 });

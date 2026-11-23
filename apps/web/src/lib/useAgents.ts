@@ -9,13 +9,20 @@ export function useAgents() {
   const runtimes = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
   const subs = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions });
   const setup = useQuery({ queryKey: ["setup"], queryFn: api.setup });
+  // A read of /setup sent before a write may answer after it; cancel it so it cannot replace what the write returned.
+  const settle = async (view: AgentSetupView) => {
+    await qc.cancelQueries({ queryKey: ["setup"] });
+    qc.setQueryData(["setup"], view);
+  };
   const save = useMutation({
     mutationFn: (body: AgentSetupRequest) => api.recordSetup(body),
-    onSuccess: (view: AgentSetupView) => qc.setQueryData(["setup"], view),
+    onMutate: () => qc.cancelQueries({ queryKey: ["setup"] }),
+    onSuccess: settle,
   });
   const seat = useMutation({
     mutationFn: ({ runtime, seated }: { runtime: AgentId; seated: boolean }) => api.recordSeat(runtime, seated),
-    onSuccess: (view: AgentSetupView) => qc.setQueryData(["setup"], view),
+    onMutate: () => qc.cancelQueries({ queryKey: ["setup"] }),
+    onSuccess: settle,
   });
   const rows: AgentRow[] = agentRows(runtimes.data?.runtimes, subs.data, setup.data);
   return {

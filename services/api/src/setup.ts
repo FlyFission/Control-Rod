@@ -73,7 +73,8 @@ export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in
   const seats: AgentSeat[] = [];
   const seen = new Set<string>();
   for (const raw of b.seats as Json[]) {
-    const runtime = String(raw?.runtime ?? "");
+    if (typeof raw?.runtime !== "string") throw new Refusal(400, "invalid-setup", "Name each agent by its runtime");
+    const runtime = raw.runtime;
     if (!SEATABLE.includes(runtime as never)) throw new Refusal(400, "invalid-setup", `There is no agent called ${runtime.slice(0, 40)}`);
     if (typeof raw?.seated !== "boolean") throw new Refusal(400, "invalid-setup", `Say whether ${runtime} is seated`);
     if (seen.has(runtime)) throw new Refusal(400, "invalid-setup", `${runtime} is listed twice`);
@@ -93,9 +94,7 @@ export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in
 export async function recordSetup(db: Db, caller: Caller, body: unknown): Promise<AgentSetupView> {
   const req = parseSetupRequest(body);
   return command(db, "setup.record", async (c) => {
-    // Authority is checked once the lock is held, so a Member suspended while this write waited cannot still change seats.
-    await c.query(DISPATCH_LOCK);
-    await authorizeInstallSetting(c, caller);
+    await lockForSetup(c, caller);
     const before = await setupView(c);
     const view: AgentSetupView = { confirmed: true, confirmed_at: new Date().toISOString(), seats: merge(before.seats, req.seats), check_in: req.check_in ?? before.check_in };
     await write(c, view);
@@ -110,15 +109,25 @@ export async function recordSeat(db: Db, caller: Caller, runtime: string, body: 
   const seated = (body as Json | undefined)?.seated;
   if (typeof seated !== "boolean") throw new Refusal(400, "invalid-setup", `Say whether ${runtime} is seated`);
   return command(db, "setup.record", async (c) => {
-    // Authority is checked once the lock is held, so a Member suspended while this write waited cannot still change seats.
-    await c.query(DISPATCH_LOCK);
-    await authorizeInstallSetting(c, caller);
+    await lockForSetup(c, caller);
     const before = await setupView(c);
     const view: AgentSetupView = { ...before, seats: merge(before.seats, [{ runtime, seated }]) };
     await write(c, view);
     await seatEvent(c, caller, before, view);
     return view;
   });
+}
+
+/**
+ * Serializes a setup write with administration, then with claims, and only then checks authority.
+ * The administration lock is the one every suspension, removal and qualification change takes
+ * (admin.ts runAdmin, authority.ts lockSigner), so none can commit between this check and the write.
+ * It is taken first, as lockSigner's callers do, so the two locks are always taken in one order.
+ */
+async function lockForSetup(c: Tx, caller: Caller) {
+  await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || $1))", [caller.orgId]);
+  await c.query(DISPATCH_LOCK);
+  await authorizeInstallSetting(c, caller);
 }
 
 /** Saved seats with these changes applied, in the dispatcher's order. */

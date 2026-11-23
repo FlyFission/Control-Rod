@@ -19,8 +19,8 @@ const STAMPED = new Set(["schema_version"]);
 /** The brief's bullet for a field, so a nested record's fields are looked for where that record is described. */
 const bullet = (field: string) => brief.split("\n").find((l) => l.startsWith(`- \`${field}\``)) ?? "";
 const named = (text: string, f: string) => new RegExp("`" + f + "[`:]").test(text);
-/** A top-level field opens a bullet, or follows another top-level field's short value on it (`revision`: 0, `status`: ...). */
-const topLevel = (f: string) => brief.split("\n").some((l) => new RegExp("^- (`[a-z_]+`: [^,`]*, )?`" + f + "`:").test(l));
+/** A top-level field opens its own bullet; a field named inside another field's bullet does not count. */
+const topLevel = (f: string) => brief.split("\n").some((l) => l.startsWith(`- \`${f}\`:`));
 
 /** A draft written to the brief field by field, as an agent would, then stamped the way finishIntake does. */
 const minimal = () => ({

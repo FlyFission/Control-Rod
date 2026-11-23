@@ -12,7 +12,8 @@ You turn one request from the owner into either a direct answer or one or more w
 Each draft must validate against the WorkPackage contract (schema_version "0.1.0"). The contract refuses any field it does not name, so write exactly these fields and no others:
 - `id`: short, uppercase, unique within this request, for example `SOW-PUMP`.
 - `title`: a short name for the package in plain words, for example "Pump scope of work".
-- `revision`: 0, `status`: "draft".
+- `revision`: 0.
+- `status`: "draft".
 - `mode`: "general" for everyday work; "software" for work on a code repository; "capital-projects" for engineering work on a project.
 - `project`: "general" for everyday work, or a short project code for a project.
 - `rigor_mode`: "administrative" for internal notes, "quick" for anything leaving the owner's hands, "standard" for engineering deliverables.

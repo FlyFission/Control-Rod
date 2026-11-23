@@ -4,8 +4,9 @@ Release decision: **pull request for owner review; no merge or release is author
 
 - **Proposed:** merge to main.
 - **Not claimed:** no live Codex run on macOS; doctor's agent section checked on Linux only.
+- **Known (blind check, P2):** doctor prints a CLI's own probe diagnostics as is, so a path a CLI prints on a failed `--version` would appear in copied doctor output (no token content was found); doctor can judge a runtime with an older built daemon than `start` then rebuilds, and without `start`'s `bin` on PATH.
 
-Rollback: revert the commit. The allowlist returns to refusing Codex 0.171.0.
+Rollback: revert the commit. This removes `controlrod runtimes`, doctor's agent section, the quieter start and the evidence; the nine features stay allowed, because #156 already put them in `CodexSafeFeatures`. To refuse Codex 0.171.0 again, remove those nine from the list in its own change.
 
 Monitoring after merge: a Codex feature found to reach further than classified; a new Codex release refused for new features (each needs the same qualification).
 

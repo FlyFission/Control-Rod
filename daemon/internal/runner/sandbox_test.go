@@ -647,4 +647,29 @@ func TestCodex0171FeaturesAreQualified(t *testing.T) {
 	if extra := unqualifiedCodexFeatures(string(b)); len(extra) != 0 {
 		t.Fatalf("Codex 0.171.0 would be refused for %v", extra)
 	}
+	// The fixture must still be the real capture: each of the nine features that 0.171.0 turns on
+	// is listed as enabled there, and each is on the allowlist.
+	enabled := map[string]bool{}
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 2 && f[len(f)-1] == "true" {
+			enabled[f[0]] = true
+		}
+	}
+	safe := map[string]bool{}
+	for _, f := range CodexSafeFeatures {
+		safe[f] = true
+	}
+	for _, f := range []string{
+		"code_mode_host_grpc", "code_mode_host_output_truncation", "guardian_include_additional_context",
+		"incremental_tools_legacy", "incremental_tools_legacy_gcp", "retain_client_tool_outputs",
+		"tui_workspace", "unified_image_budget", "untrusted_as_tool_output",
+	} {
+		if !enabled[f] {
+			t.Errorf("the captured 0.171.0 list does not show %s enabled", f)
+		}
+		if !safe[f] {
+			t.Errorf("%s is not in CodexSafeFeatures", f)
+		}
+	}
 }

@@ -3,6 +3,7 @@ import { STATE_INFO, StateMark } from "../../components/StateMark.js";
 import type { OfficeThemeV1 } from "./contract.js";
 import { REGION, REGIONS, type RegionId } from "./layout.js";
 import type { PlantLayout, ZoneId } from "./plant-layout.js";
+import { marksInWords } from "./OfficeStage.js";
 
 /**
  * The Plant as a list (plant view design, section 10): every figure, none folded, grouped by zone and
@@ -38,13 +39,18 @@ export function PlantList({ figures, layout, labels, selected, onSelect }: { fig
                     .get(p)!
                     .slice()
                     .sort((a, b) => Date.parse(a.since) - Date.parse(b.since) || a.package_id.localeCompare(b.package_id))
-                    .map((f) => (
-                      <li key={f.id}>
-                        <button type="button" className="link" aria-pressed={selected === f.id} onClick={() => onSelect(f.id)}>
-                          <StateMark kind={f.state} size={10} /> {f.package_id}: {STATE_INFO[f.state].label}. {f.cause}
-                        </button>
-                      </li>
-                    ))}
+                    .map((f) => {
+                      // The same marks the drawing carries, in words: gate, changed input, round, Safety grade.
+                      const marks = marksInWords({ gate: f.marks.gate, changed: Boolean(f.marks.changed_input), ...(f.marks.loop ? { loop: f.marks.loop } : {}), safety: f.marks.safety });
+                      return (
+                        <li key={f.id}>
+                          <button type="button" className="link" aria-pressed={selected === f.id} onClick={() => onSelect(f.id)}>
+                            <StateMark kind={f.state} size={10} /> {f.package_id}: {STATE_INFO[f.state].label}. {f.cause}
+                            {marks && <> <span className="plant-list-marks">Marks: {marks}.</span></>}
+                          </button>
+                        </li>
+                      );
+                    })}
                 </ul>
               </div>
             ))}

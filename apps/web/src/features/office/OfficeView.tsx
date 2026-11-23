@@ -52,6 +52,8 @@ const rememberedTheme = (member: string | undefined) => {
 /** The stage's minimum width (0.8 of its canvas) and the card's column beside it. */
 const STAGE_MIN = 960;
 const CARD = 280 + 16;
+/** The container width below which the plant shows as a list (plant view design, section 10). */
+const LIST_BELOW = 1024;
 
 /**
  * How wide the view's own column is, so the drawing is shown only where it fits at its minimum zoom
@@ -127,7 +129,10 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const [measure, width] = useWidth();
   const [listChosen, setListChosen] = useState<boolean>();
   // An unmeasured width (no layout engine, as in tests) draws the plant.
-  const showList = listChosen ?? (width !== undefined && width < STAGE_MIN);
+  // Below LIST_BELOW the drawing would drop under its 0.8 zoom beside the card (design, section 10),
+  // so the list shows whatever was picked; the pick is kept for when the drawing fits again.
+  const fits = width === undefined || width >= LIST_BELOW;
+  const showList = !fits || (listChosen ?? false);
   const stack = width !== undefined && width < STAGE_MIN + CARD;
   // Why a lens cannot be chosen now: its own reason, or presenting, which shows no spend.
   const why = (l: (typeof LENSES)[number]) => l.unavailable ?? (presenting && l.id === "spend" ? "Spend is not shown while presenting." : undefined);
@@ -190,7 +195,17 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           </div>
           <div role="radiogroup" aria-label="Show" className="office-lenses">
             {(["plant", "list"] as const).map((v) => (
-              <button key={v} type="button" role="radio" aria-checked={(v === "list") === showList} className={(v === "list") === showList ? "btn small active" : "btn small"} onClick={() => setListChosen(v === "list")}>
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={(v === "list") === showList}
+                className={(v === "list") === showList ? "btn small active" : "btn small"}
+                // The drawing cannot be picked where it does not fit; the list says why.
+                disabled={v === "plant" && !fits}
+                {...(v === "plant" && !fits ? { title: "The drawing needs a wider window; the list shows every agent." } : {})}
+                onClick={() => setListChosen(v === "list")}
+              >
                 {v === "plant" ? (isPlant ? "Plant" : "Floor") : "List"}
               </button>
             ))}
@@ -222,7 +237,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           Presenting. {floor.hidden === 0 ? "No work above the internal lane is on the floor." : `${floor.hidden} ${floor.hidden === 1 ? "agent" : "agents"} on work above the internal lane ${floor.hidden === 1 ? "is" : "are"} hidden.`} Spend is not shown.
         </p>
       )}
-      {floor && floor.figures.length > EXCEPTIONS_AT && (
+      {floor && floor.figures.length > EXCEPTIONS_AT && !showList && (
         <div className="office-banner" role="status">
           {exceptions.active ? (
             <>

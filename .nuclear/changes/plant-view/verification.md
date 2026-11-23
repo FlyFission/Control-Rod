@@ -4,7 +4,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web suite: 761 tests pass, including the plant layout, instrument and view tests. Local machine only. | `evidence/web-suite.log` |
+| E-01 | pass | Web suite: 763 tests pass, including the plant layout, instrument and view tests. Local machine only. | `evidence/web-suite.log` |
 | E-02 | pass | Web typecheck exits 0. | `evidence/typecheck.log` |
 | E-03 | pass | Office theme harness on Chromium: 146 passed, 18 skipped, covering the plant at minimum zoom with 40 agents, every lens, the worst case, theme switching, and motion stopping with reduced motion and in a hidden tab, plus every archived theme. Run through a local config that points at the machine's Chromium and is not committed. | `evidence/plant-harness-chromium.log` |
 | E-04 | pass | Repository checks: theme assets, originality and public claims. | `evidence/check_theme_assets.log`, `evidence/check_originality.log`, `evidence/check_public_claims.log` |
@@ -13,6 +13,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-08 | pass | Codex blind check of the code at f9ef354: HOLD with four findings, all fixed (T-12). | Landing thread, `land-out/pr153-r2-f9ef354.md` on the owner's machine |
 | E-09 | pass | Codex blind check of the code at f97d401: HOLD with three P2 and two P3 findings, all fixed (T-13). | Landing thread, `land-out/pr153-r3-f97d401.md` on the owner's machine |
 | E-10 | pass | Codex blind check of the code at df45884: HOLD with two P2 and one P3 findings, all fixed (T-14). | Landing thread, `land-out/pr153-r4-df45884.md` on the owner's machine |
+| E-11 | pass | Codex blind check of the code at 8648b81: HOLD with two P2 and one P3 findings, all fixed (T-15). | Landing thread, `land-out/pr153-r5-8648b81.md` on the owner's machine |
 | E-06 | open | Independent design review of the plan by two reviewers from different vendors (done, `evidence/design-review.md`); the third reviewer, Firefox and WebKit runs and the owner's review are not done. | Owner review |
 
 ## Evidence custody and coupling
@@ -28,6 +29,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-08 | T-12 | yes | land-out/pr153-r2-f9ef354.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-09 | T-13 | yes | land-out/pr153-r3-f97d401.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-10 | T-14 | yes | land-out/pr153-r4-df45884.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
+| E-11 | T-15 | yes | land-out/pr153-r5-8648b81.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-06 | T-09 | yes | evidence/design-review.md | Implementing agent | Independent reviewers | Owner | Implementing agent | Owner's machine | Packet and export | Implementing agent | Independent reviewers (plan only) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -41,6 +43,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-08 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-09 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-10 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
+| E-11 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-06 | separated: reviewers from other vendors | separated: blind to the author's reasoning | partially separated: model review of the plan, not the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the reviewers' raw output is not retained here; the code itself has had no independent review yet  [Ship limits](ship.md) |
 
 No human independent review has been done yet.

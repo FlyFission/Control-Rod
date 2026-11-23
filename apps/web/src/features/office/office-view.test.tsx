@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import type { AgentFigure } from "../../api/types.js";
@@ -332,6 +332,55 @@ describe("the Plant and the archived office themes", () => {
     await user.click(within(site).getByRole("button", { name: /WP-Q: Stuck\. Held by SCRAM/ }));
     expect(within(screen.getByRole("complementary", { name: "Selected agent" })).getByText("Held by SCRAM")).toBeTruthy();
     expect(within(screen.getByRole("region", { name: "Auxiliary building" })).getByRole("button", { name: /WP-0001: Working/ })).toBeTruthy();
+  });
+
+  it("lists the same marks the drawing carries", async () => {
+    server.use(
+      http.get("*/office/figures", () =>
+        HttpResponse.json({ figures: [figure({ marks: { gate: true, safety: true, changed_input: "WP-9" } as AgentFigure["marks"] })], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() }),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderPage(<OfficeView drafts={false} />);
+    await screen.findByRole("button", { name: /^WP-0001/ });
+    await user.click(screen.getByRole("radio", { name: "List" }));
+    expect(within(screen.getByRole("region", { name: "Auxiliary building" })).getByRole("button", { name: /WP-0001: Working\. .* Marks: a gate decision waits, an input changed, Safety grade\./ })).toBeTruthy();
+  });
+
+  it("shows the list wherever the drawing does not fit, whatever was picked, and keeps the pick for when it fits again", async () => {
+    // A ResizeObserver the test drives: the view measures its own width with it.
+    const observers: ((width: number) => void)[] = [];
+    const real = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe() {
+        observers.push((width) => this.cb([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver));
+      }
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+    try {
+      server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })));
+      const user = userEvent.setup();
+      await renderPage(<OfficeView drafts={false} />);
+      await screen.findByRole("button", { name: /^WP-0001/ });
+      const resize = (w: number) => act(() => observers.forEach((o) => o(w)));
+      const plant = () => screen.getByRole("radio", { name: "Plant" }) as HTMLButtonElement;
+      resize(1440);
+      await user.click(plant());
+      expect(plant().getAttribute("aria-checked")).toBe("true");
+      // Narrowed below 1024 px: the list, though the drawing was picked, and the drawing cannot be picked.
+      resize(1000);
+      expect(screen.getByRole("radio", { name: "List" }).getAttribute("aria-checked")).toBe("true");
+      expect(plant().disabled).toBe(true);
+      expect(screen.getByLabelText("Every agent, by place")).toBeTruthy();
+      // Wide again: the pick returns.
+      resize(1024);
+      expect(plant().getAttribute("aria-checked")).toBe("true");
+      expect(screen.queryByLabelText("Every agent, by place")).toBeNull();
+    } finally {
+      globalThis.ResizeObserver = real;
+    }
   });
 
   it("never draws the core as dark, or the rods as withdrawn, when it could not read them", async () => {

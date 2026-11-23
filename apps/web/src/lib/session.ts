@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { Session } from "../api/types.js";
 import { resetLiveStatus } from "./live.js";
+import { clearRunPreferences } from "./runPreferences.js";
 
 /**
  * One identity transition. Whenever the signed-in identity (the user, or whether anyone is signed
@@ -48,6 +49,7 @@ const notSession = { predicate: (q: { queryKey: readonly unknown[] }) => q.query
 /** The transition itself. Synchronous, so nothing can observe the new identity alongside the earlier one's data. */
 function beginNewIdentity(qc: QueryClient): void {
   generation += 1;
+  clearRunPreferences();
   // The event stream's state (status and last event id) belonged to the earlier identity too.
   resetLiveStatus();
   void qc.cancelQueries(notSession);

@@ -210,6 +210,14 @@ model WorkPackage {
    */
   context_profile?: "light" | "nuclear";
 
+  /**
+   * How the work is sequenced: the plain playbook, or a ported skill workflow (Superpowers, Matt
+   * Pocock's skills, or the hybrid of the two). Absent means the project default, then the playbook.
+   * Separate from context_profile: a package carries one workflow and one context profile, and
+   * workflows never stack.
+   */
+  workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
+
   status: PackageStatus;
   rigor_mode: RigorMode;
   data_lane: DataLane;

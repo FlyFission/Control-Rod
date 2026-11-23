@@ -121,6 +121,7 @@ describe("CardActions", () => {
     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Move to/ }));
+    await user.click(screen.getByRole("menuitem", { name: /Unavailable \(1\)/ }));
     const item = screen.getByRole("menuitem", { name: /Accept/ });
     expect(item.getAttribute("aria-disabled")).toBe("true");
     // The refused item says why and what would change it before it is chosen.

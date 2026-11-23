@@ -21,6 +21,7 @@ import { sealChain } from "./seals.js";
 import { checkBudget } from "./budgets.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
+import { archiveWorkspaceProject, createWorkspaceProject, updateWorkspaceProject } from "./workspace-projects.js";
 
 /**
  * Administrative commands (specification 10.2; workbench plan task 1.5). Each declares how it is
@@ -411,8 +412,34 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
         default_rigor: str(p, "default_rigor")! as never, lanes: arr<DataLane>(p, "lanes"), qa_overlays: arr<string>(p, "qa_overlays"),
         autonomy_level: 0, status: "active",
         ...(p.default_context_profile !== undefined ? { default_context_profile: str(p, "default_context_profile")! as never } : {}),
+        ...(p.default_workflow !== undefined ? { default_workflow: str(p, "default_workflow")! as never } : {}),
       }, actorOf(caller));
     },
+  },
+
+  "project.workspace-create": {
+    label: "Create a workspace project",
+    catalog: "admin.project-create", signature: "direct", need: "administrator",
+    run: createWorkspaceProject,
+  },
+
+  "project.workspace-update": {
+    label: "Update workspace project defaults",
+    catalog: "admin.project-update", signature: "direct", need: "administrator",
+    async run(c, caller, p) {
+      const id = str(p, "project_id")!;
+      const { patch } = p;
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+        throw new Refusal(400, "invalid", "A workspace project update needs a patch object");
+      }
+      return updateWorkspaceProject(c, caller, id, patch as Record<string, unknown>);
+    },
+  },
+
+  "project.workspace-archive": {
+    label: "Archive a workspace project",
+    catalog: "admin.project-update", signature: "direct", need: "administrator",
+    run: (c, caller, p) => archiveWorkspaceProject(c, caller, str(p, "project_id")!),
   },
 
   "project.update": {
@@ -423,7 +450,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const r = await c.query<{ body: Record<string, unknown> }>("select body from projects where id = $1 and org_id = $2 for update", [id, caller.orgId]);
       if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
       const next = { ...r.rows[0].body };
-      for (const k of ["name", "default_rigor", "default_context_profile", "lanes", "qa_overlays"]) if (p[k] !== undefined) next[k] = p[k];
+      for (const k of ["name", "default_rigor", "default_context_profile", "default_workflow", "lanes", "qa_overlays"]) if (p[k] !== undefined) next[k] = p[k];
       checkSchema("Project.json", next);
       await c.query("update projects set body = $2 where id = $1", [id, next]);
       await appendEvent(c, "project.updated", id, actorOf(caller), { fields: Object.keys(p).filter((k) => k !== "project_id").sort() });

@@ -72,25 +72,22 @@ func agents(args []string) int {
 		return cmd.Run()
 	}
 	env := hostEnv()
-	installedNow := func(s agentupdate.Status) string {
+	recheck := func(s agentupdate.Status) string {
 		c, cancel := context.WithTimeout(context.Background(), agentupdate.CheckTimeout)
 		defer cancel()
-		out, err := env.Version(c, s.Path)
-		if err != nil {
-			return ""
-		}
-		return agentupdate.ParseVersion(out)
+		_, why := agentupdate.Recheck(c, env, s)
+		return why
 	}
-	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), run, installedNow)
+	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), run, recheck)
 }
 
 // update chooses the agents to update, shows each command, asks, and runs only what was agreed.
 // It is the person's own terminal action, like running the npm command themselves: a run using the
 // CLI at that moment keeps whatever npm leaves, so the confirmation says to update between runs.
-// Each agent is updated at most once, however often it is named. installedNow, when set, reads the
-// installed version again right before each install, after the yes: if it can't be read, or is no
-// longer older than the latest found, nothing is installed for that agent.
-func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, run func(string, []string) error, installedNow func(agentupdate.Status) string) int {
+// Each agent is updated at most once, however often it is named. recheck, when set, looks at the
+// agent again right before its install, after the yes (agentupdate.Recheck: the same executable on
+// PATH, still npm's global copy, still older than latest) and returns why not to install, or "".
+func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, run func(string, []string) error, recheck func(agentupdate.Status) string) int {
 	outdated := agentupdate.Outdated(sts)
 	var chosen []agentupdate.Status
 	switch {
@@ -165,15 +162,10 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 			fmt.Fprintln(w, "  skipped")
 			continue
 		}
-		if installedNow != nil {
-			now := installedNow(s)
-			if now == "" {
-				fmt.Fprintf(w, "  not updated: the installed version could not be read again\n")
+		if recheck != nil {
+			if why := recheck(s); why != "" {
+				fmt.Fprintf(w, "  not updated: %s\n", why)
 				failed++
-				continue
-			}
-			if !agentupdate.Newer(s.Latest, now) {
-				fmt.Fprintf(w, "  not updated: %s is now installed, which is not older than %s\n", now, s.Latest)
 				continue
 			}
 		}

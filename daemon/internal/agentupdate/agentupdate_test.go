@@ -285,3 +285,43 @@ func TestCheckStampsEachAgent(t *testing.T) {
 		t.Fatalf("stamp not taken: %#v", sts)
 	}
 }
+
+// Recheck refuses when the executable on PATH moved, is no longer npm's global copy, can't give a
+// version, or is no longer older than latest; it passes the unchanged case.
+func TestRecheckLooksAtTheSameExecutable(t *testing.T) {
+	grok := Catalog[4]
+	bin := "/usr/lib/node_modules/@xai-official/grok/bin/grok"
+	s := Status{Agent: grok, Path: bin, Installed: "1.0.77", Latest: "1.0.92", Command: []string{"npm"}}
+	env := fakeEnv(map[string]string{"grok": bin}, map[string]string{bin: "grok 1.0.77"}, nil)
+	if v, why := Recheck(context.Background(), env, s); why != "" || v != "1.0.77" {
+		t.Fatalf("unchanged: %q %q", v, why)
+	}
+	cases := map[string]Env{
+		"no longer on PATH": fakeEnv(nil, nil, nil),
+		"is now /opt/grok":  fakeEnv(map[string]string{"grok": "/opt/grok"}, map[string]string{"/opt/grok": "grok 1.0.77"}, nil),
+		"could not be read": fakeEnv(map[string]string{"grok": bin}, nil, nil),
+		"not older than":    fakeEnv(map[string]string{"grok": bin}, map[string]string{bin: "grok 1.0.92"}, nil),
+	}
+	moved := fakeEnv(map[string]string{"grok": bin}, map[string]string{bin: "grok 1.0.77"}, nil)
+	moved.NpmRoot = func(context.Context) (string, error) { return "/home/me/.npm-global/lib/node_modules", nil }
+	cases["no longer npm's global copy"] = moved
+	for want, e := range cases {
+		if _, why := Recheck(context.Background(), e, s); !strings.Contains(why, want) {
+			t.Errorf("%s: got %q", want, why)
+		}
+	}
+}
+
+// Check resolves each binary once: the stamp and the version describe the same path.
+func TestCheckStampsTheProbedPath(t *testing.T) {
+	calls := 0
+	env := fakeEnv(map[string]string{"grok": "/a/grok"}, map[string]string{"/a/grok": "1.0.77"}, map[string]string{"@xai-official/grok": "1.0.92"})
+	look := env.LookPath
+	env.LookPath = func(b string) (string, error) { calls++; return look(b) }
+	var stamped []string
+	env.Stat = func(p string) (os.FileInfo, error) { stamped = append(stamped, p); return os.Stat(os.Args[0]) }
+	sts := Check(context.Background(), env, []Agent{Catalog[4]})
+	if calls != 1 || len(stamped) != 1 || stamped[0] != "/a/grok" || sts[0].Path != "/a/grok" {
+		t.Fatalf("lookups %d, stamped %v, status %#v", calls, stamped, sts)
+	}
+}

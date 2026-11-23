@@ -12,7 +12,9 @@
 --- PASS: TestParseVersionReadsOnlyStrictSemVer (0.00s)
 --- PASS: TestStampSeesAReplacedBinary (0.00s)
 --- PASS: TestCheckStampsEachAgent (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.007s
+--- PASS: TestRecheckLooksAtTheSameExecutable (0.00s)
+--- PASS: TestCheckStampsTheProbedPath (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.011s
 --- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
 --- PASS: TestUpdateOneAgentByName (0.00s)
 --- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
@@ -23,8 +25,8 @@ ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.007s
 --- PASS: TestNoCheckableAgentIsNotUpToDate (0.00s)
 --- PASS: TestMixedCaseSaysAntigravityWasNotChecked (0.00s)
 --- PASS: TestUpdateNamedTwiceRunsOnce (0.00s)
---- PASS: TestUpdateRereadsTheInstalledVersionAfterTheYes (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.009s
+--- PASS: TestUpdateRechecksAfterTheYes (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.024s
 --- PASS: TestRegistry (0.00s)
 --- PASS: TestAgentEnvDropsProviderProvenance (0.00s)
 --- PASS: TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv (0.00s)
@@ -32,15 +34,15 @@ ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.009s
 --- PASS: TestAWriteBetweenCheckAndStartIsBlockedAndCaught (0.00s)
 --- PASS: TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart (0.00s)
 --- PASS: TestRunnerRejectsIncompleteSuccessReplies (0.01s)
---- PASS: TestClientRereadsTokenFileAfterUnauthorized (0.00s)
---- PASS: TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet (0.51s)
+--- PASS: TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet (0.52s)
 --- PASS: TestAgentLaunchesRefuseWithoutASandboxPolicy (0.00s)
 --- PASS: TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand (0.00s)
 --- PASS: TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt (0.02s)
 --- PASS: TestAgentEnvKeepsOnlyTheAllowlist (0.00s)
+--- PASS: TestStagedRuntimesAreCopiedOutsideHomeAndRechecked (0.00s)
 --- PASS: TestDaemonStartupCheckReachesTheClaim (0.03s)
 --- PASS: TestAnIncompleteCheckKeepsAKnownUpdate (0.00s)
 --- PASS: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
 --- PASS: TestAnUpdatedCLIDropsTheKnownUpdate (0.00s)
 --- PASS: TestAChangedBinaryDropsTheCachedUpdate (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.610s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.613s

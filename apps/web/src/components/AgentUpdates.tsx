@@ -59,7 +59,8 @@ function writeDismissed(keys: string[]) {
 }
 
 export function AgentUpdates() {
-  const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
+  // Coming back to the window refetches, so a card the control plane has cleared goes away (no timer).
+  const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes, refetchOnWindowFocus: "always" });
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -73,9 +74,17 @@ export function AgentUpdates() {
     setDismissed(next);
     writeDismissed(next);
   };
+  // Copy asks the control plane first and copies only if the same agent and version are still
+  // offered with the same command; otherwise the refetched list has already hidden the card.
   const copy = async (u: AgentUpdate) => {
+    const fresh = await q.refetch();
+    const still = (fresh.data?.agent_updates ?? []).find((o) => keyOf(o) === keyOf(u) && isUpdate(o) && npmCommand(o) === npmCommand(u));
+    if (!still || fresh.isError) {
+      setCopied(null);
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(npmCommand(u)!);
+      await navigator.clipboard.writeText(npmCommand(still)!);
       setCopied(keyOf(u));
     } catch {
       setCopied(null); /* the command stays on screen to copy by hand */

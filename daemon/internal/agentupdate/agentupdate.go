@@ -91,17 +91,34 @@ type Env struct {
 // no longer be the one installed. It runs no process and makes no network call. "" when the binary
 // is not found or env.Stat is nil.
 func Stamp(env Env, binary string) string {
-	if env.Stat == nil || env.LookPath == nil {
+	p, err := resolve(env, binary)
+	if err != nil {
 		return ""
+	}
+	return stampPath(env, p)
+}
+
+// resolve finds binary on PATH and resolves its symlinks: the one executable a check reads.
+func resolve(env Env, binary string) (string, error) {
+	if env.LookPath == nil {
+		return "", errors.New("no PATH lookup")
 	}
 	p, err := env.LookPath(binary)
 	if err != nil {
-		return ""
+		return "", err
 	}
 	if env.EvalSymlinks != nil {
 		if real, rerr := env.EvalSymlinks(p); rerr == nil {
 			p = real
 		}
+	}
+	return p, nil
+}
+
+// stampPath stamps an already resolved executable.
+func stampPath(env Env, p string) string {
+	if env.Stat == nil {
+		return ""
 	}
 	fi, err := env.Stat(p)
 	if err != nil {
@@ -212,25 +229,15 @@ func allDigits(s string) bool {
 // Check looks at every agent in the catalog that is on PATH. Agents not installed are left out.
 func Check(ctx context.Context, env Env, agents []Agent) []Status {
 	out := []Status{}
-	npmRoot := ""
-	if env.NpmRoot != nil {
-		if r, err := env.NpmRoot(ctx); err == nil && filepath.IsAbs(strings.TrimSpace(r)) {
-			npmRoot = strings.TrimSpace(r)
-			if real, rerr := env.EvalSymlinks(npmRoot); rerr == nil {
-				npmRoot = real
-			}
-		}
-	}
+	npmRoot := npmRootOf(ctx, env)
 	for _, a := range agents {
-		p, err := env.LookPath(a.Binary)
+		// One resolution: the stamp, the version and npm's provenance all describe this path. The
+		// stamp is taken before the version is read, so an install in between shows as a change.
+		p, err := resolve(env, a.Binary)
 		if err != nil {
 			continue
 		}
-		if real, rerr := env.EvalSymlinks(p); rerr == nil {
-			p = real
-		}
-		// The stamp is taken before the version is read, so an install in between shows as a change.
-		st := Status{Agent: a, Path: p, Stamp: Stamp(env, a.Binary)}
+		st := Status{Agent: a, Path: p, Stamp: stampPath(env, p)}
 		if v, verr := env.Version(ctx, p); verr == nil {
 			st.Installed = ParseVersion(v)
 		}
@@ -259,6 +266,52 @@ func Check(ctx context.Context, env Env, agents []Agent) []Status {
 		out = append(out, st)
 	}
 	return out
+}
+
+// npmRootOf is npm's global node_modules folder, symlinks resolved, or "" when npm gave none.
+func npmRootOf(ctx context.Context, env Env) string {
+	if env.NpmRoot == nil {
+		return ""
+	}
+	r, err := env.NpmRoot(ctx)
+	r = strings.TrimSpace(r)
+	if err != nil || !filepath.IsAbs(r) {
+		return ""
+	}
+	if env.EvalSymlinks != nil {
+		if real, rerr := env.EvalSymlinks(r); rerr == nil {
+			r = real
+		}
+	}
+	return r
+}
+
+// Recheck reads an outdated agent again right before its install: the executable on PATH must
+// still be the one checked, still npm's global copy when the command is npm's, and its version
+// must still be older than s.Latest. It returns the installed version now, or why the install
+// should not run. No registry call is made.
+func Recheck(ctx context.Context, env Env, s Status) (installed, why string) {
+	p, err := resolve(env, s.Agent.Binary)
+	if err != nil {
+		return "", fmt.Sprintf("%s is no longer on PATH", s.Agent.Binary)
+	}
+	if p != s.Path {
+		return "", fmt.Sprintf("the %s on PATH is now %s, not the %s that was checked", s.Agent.Binary, p, s.Path)
+	}
+	if s.Command != nil && !npmGlobal(p, npmRootOf(ctx, env), s.Agent.Package) {
+		return "", fmt.Sprintf("%s is no longer npm's global copy", p)
+	}
+	v, err := env.Version(ctx, p)
+	if err == nil {
+		installed = ParseVersion(v)
+	}
+	if installed == "" {
+		return "", "the installed version could not be read again"
+	}
+	if !Newer(s.Latest, installed) {
+		return installed, fmt.Sprintf("%s is now installed, which is not older than %s", installed, s.Latest)
+	}
+	return installed, ""
 }
 
 // npmGlobal reports whether the resolved executable lies inside npm's global node_modules, in the

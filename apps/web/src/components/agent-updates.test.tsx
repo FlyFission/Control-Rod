@@ -135,6 +135,39 @@ describe("Agent updates", () => {
     expect(npmCommand({ agent: "codex", name: "Codex CLI", installed: "0.170.0", latest: "0.171.0", npm_global: true })).toBe("npm install --global @openai/codex@0.171.0");
   });
 
+  it("asks again before copying, and copies nothing for an update the server has cleared", async () => {
+    const user = userEvent.setup();
+    await navigator.clipboard.writeText("before");
+    updates = [grok, opencode];
+    await renderPage(<AgentUpdates />);
+    const panel = await screen.findByRole("region", { name: "2 agent updates" });
+    const g = within(panel).getByText("Grok CLI").closest("li")!;
+    // Grok was updated elsewhere: the server no longer offers it.
+    updates = [opencode];
+    const before = served;
+    await user.click(within(g).getByRole("button", { name: "Copy command" }));
+    expect(served).toBeGreaterThan(before);
+    expect(await screen.findByRole("region", { name: "1 agent update" })).toBeTruthy();
+    expect(screen.queryByText("Grok CLI")).toBeNull();
+    expect(await navigator.clipboard.readText()).toBe("before");
+    // A newer latest for the same agent is a different offer: nothing is copied for the old one.
+    updates = [{ ...opencode, latest: "1.19.7" }];
+    const o = screen.getByText("OpenCode").closest("li")!;
+    await user.click(within(o).getByRole("button", { name: "Copy command" }));
+    await waitFor(() => expect(screen.getByText("OpenCode").closest("li")!.textContent).toContain("1.19.7"));
+    expect(await navigator.clipboard.readText()).toBe("before");
+  });
+
+  it("refetches when the window regains focus", async () => {
+    updates = [grok];
+    await renderPage(<AgentUpdates />);
+    expect(await screen.findByRole("region", { name: "1 agent update" })).toBeTruthy();
+    updates = [];
+    window.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new FocusEvent("focus"));
+    await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
+  });
+
   it("disappears when a refetch finds every agent current", async () => {
     updates = [grok];
     const { qc } = await renderPage(<AgentUpdates />);

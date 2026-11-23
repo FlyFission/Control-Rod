@@ -147,22 +147,14 @@ func TestUpdateNamedTwiceRunsOnce(t *testing.T) {
 	}
 }
 
-// After the yes, the installed version is read again: one already at or past latest, or one that
-// can no longer be read, is not installed.
-func TestUpdateRereadsTheInstalledVersionAfterTheYes(t *testing.T) {
-	now := map[string]string{"grok": "1.0.92", "opencode": "1.19.5"}
-	reread := func(s agentupdate.Status) string { return now[s.Agent.ID] }
+// After the yes, the agent is looked at again; whatever the recheck refuses is not installed.
+func TestUpdateRechecksAfterTheYes(t *testing.T) {
+	refuse := map[string]string{"grok": "1.0.92 is now installed, which is not older than 1.0.92"}
+	recheck := func(s agentupdate.Status) string { return refuse[s.Agent.ID] }
 	var out bytes.Buffer
 	r := &recorder{}
-	code := update(&out, strings.NewReader(""), outdated(), nil, true, true, false, r.run, reread)
-	if code != 0 || len(r.ran) != 1 || !strings.Contains(r.ran[0], "opencode-ai@1.19.6") || !strings.Contains(out.String(), "1.0.92 is now installed") {
-		t.Fatalf("code %d, ran %v:\n%s", code, r.ran, out.String())
-	}
-	now = map[string]string{"grok": "1.0.99"}
-	out.Reset()
-	r = &recorder{}
-	code = update(&out, strings.NewReader(""), outdated(), nil, true, true, false, r.run, reread)
-	if code != 1 || len(r.ran) != 0 || !strings.Contains(out.String(), "could not be read again") {
+	code := update(&out, strings.NewReader(""), outdated(), nil, true, true, false, r.run, recheck)
+	if code != 1 || len(r.ran) != 1 || !strings.Contains(r.ran[0], "opencode-ai@1.19.6") || !strings.Contains(out.String(), "not updated: 1.0.92 is now installed") {
 		t.Fatalf("code %d, ran %v:\n%s", code, r.ran, out.String())
 	}
 }

@@ -744,7 +744,9 @@ func TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath(t *test
 	}
 }
 
-func TestCheckerMountKeepsHostCredentialsReadOnly(t *testing.T) {
+// The login directory stays read-only; the credential file is bound writable, so a sign-in a
+// checker refreshes reaches the host (main's custody; see four-cli-workspace landing-review L3).
+func TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential(t *testing.T) {
 	for _, tc := range []struct {
 		runtime, env, name string
 	}{
@@ -760,9 +762,9 @@ func TestCheckerMountKeepsHostCredentialsReadOnly(t *testing.T) {
 			}
 			ws, _ := prepareCheckerFixture(t)
 			ws.CheckerRuntime = tc.runtime
-			script := `test "$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")" = fixture`
+			script := `test "$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")" = fixture && printf refreshed > "$CLAUDE_CONFIG_DIR/.credentials.json"`
 			if tc.runtime == RuntimeCodex {
-				// A refreshed sign-in is saved to the private copy; the host file is unchanged.
+				// A refreshed sign-in is saved through to the host file.
 				script = `test "$(cat "$CODEX_HOME/auth.json")" = fixture && printf refreshed > "$CODEX_HOME/auth.json" && touch "$CODEX_HOME/checker-state"`
 			}
 			cmd := exec.Command("/bin/sh", "-c", script)
@@ -783,16 +785,16 @@ func TestCheckerMountKeepsHostCredentialsReadOnly(t *testing.T) {
 			if !strings.Contains(joined, "--ro-bind\n"+root+"\n"+root+"\n") {
 				t.Fatal("host login directory lacks a read-only bind")
 			}
-			if strings.Contains("\n"+joined, "\n--bind\n"+credential+"\n") {
-				t.Fatal("host credential has a writable bind")
+			if !strings.Contains("\n"+joined, "\n--bind\n"+credential+"\n"+credential+"\n") {
+				t.Fatal("host credential lacks its writable bind")
 			}
 			home := envAny(cmd, tc.env)
 			if tc.runtime == RuntimeCodex {
 				if home == root || !strings.Contains(joined, "\n--bind\n"+home+"\n"+home+"\n") {
 					t.Fatal("isolated login state lacks a writable bind")
 				}
-				if strings.Contains(joined, "\n"+credential+"\n"+filepath.Join(home, tc.name)+"\n") {
-					t.Fatal("the host credential is bound into the isolated login home instead of copied")
+				if !strings.Contains(joined, "\n--bind\n"+credential+"\n"+filepath.Join(home, tc.name)+"\n") {
+					t.Fatal("isolated login home lacks the writable credential bind")
 				}
 			}
 			if output, err := cmd.CombinedOutput(); err != nil {
@@ -802,9 +804,9 @@ func TestCheckerMountKeepsHostCredentialsReadOnly(t *testing.T) {
 				if _, err := os.Stat(filepath.Join(home, "checker-state")); err != nil {
 					t.Fatal(err)
 				}
-				if b, err := os.ReadFile(credential); err != nil || string(b) != "fixture" {
-					t.Fatalf("host credential changed: %q %v", b, err)
-				}
+			}
+			if b, err := os.ReadFile(credential); err != nil || string(b) != "refreshed" {
+				t.Fatalf("refreshed credential did not reach the host: %q %v", b, err)
 			}
 		})
 	}

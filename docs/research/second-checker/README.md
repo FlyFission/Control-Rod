@@ -1,0 +1,13 @@
+# The research behind Control Rod: figures and sources
+
+The README's "The research behind it" section quotes eight published papers and one METR research note. Figures offered by other assistants were checked against each paper before use; two that could not be found in the source (a ~75% ChatDev failure rate and a +14% gain from Cemri et al.) are left out. This folder holds what it quotes and how the chart is drawn, so anyone can check each number against its source.
+
+- [`inputs.json`](inputs.json): each figure exactly as published, with the paper, the table or sentence it comes from, its license and the conditions it was measured under. Retrieved 2026-11-23.
+- [`build.py`](build.py): draws [`docs/assets/readme/second-checker.svg`](../../assets/readme/second-checker.svg) from `inputs.json`. It types no numbers. Run `python3 docs/research/second-checker/build.py`.
+- [`outputs.json`](outputs.json): the values the chart shows, with the sha256 of the inputs and of the SVG.
+
+## Limits
+
+- The chart's "outside checker" is a sound program (it checks graph colorings and arithmetic exactly), not a second language model. The papers show that self-checking can hurt (it helped on one task, Blocksworld) and that models favor themselves and similar models. None of them measures one vendor's agent reviewing another vendor's code.
+- The chart and the self-checking figures come from puzzles, math, question answering and summarization, not software changes. METR is the only cited study in which maintainers reviewed generated patches, and it is about test-passing patches, not self-checking.
+- The chart is redrawn from Table 1's values; no figure image from any paper is copied.

@@ -1,0 +1,362 @@
+[
+{
+"repo": "paperclipai_paperclip",
+"n": 187,
+"react": 82,
+"title": "Feature Request: Support for Local LLMs via Ollama"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 673,
+"react": 52,
+"title": "[Feature]: Disable oh-my-opencode via cli command"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 1637,
+"react": 50,
+"title": "[Feature]: Native OpenRouter provider support"
+},
+{
+"repo": "paperclipai_paperclip",
+"n": 49,
+"react": 49,
+"title": "Chat with agents much needed feature"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 306,
+"react": 47,
+"title": "Any plans for mobile access to Herdr App?"
+},
+{
+"repo": "paperclipai_paperclip",
+"n": 2092,
+"react": 44,
+"title": "feat: Add GitHub Copilot CLI adapter (copilot_local)"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 172,
+"react": 42,
+"title": "Windows: choose a default local profile/environment, including WSL"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 406,
+"react": 39,
+"title": "Reboot does not visibly restore spaces or resume supported agent sessions"
+},
+{
+"repo": "paperclipai_paperclip",
+"n": 6559,
+"react": 37,
+"title": "add antigravity CLI"
+},
+{
+"repo": "paperclipai_paperclip",
+"n": 1068,
+"react": 36,
+"title": "Openrouter support"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 854,
+"react": 35,
+"title": "[Feature]: Add `/omo-spec` — A Unified Spec‑Driven Workflow for Oh‑My‑OpenCode"
+},
+{
+"repo": "herdrdev_herdr",
+"n": 1134,
+"react": 34,
+"title": "60Hz Limit"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 63,
+"react": 34,
+"title": "Share agents between Herdr TUI and the app?"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 1366,
+"react": 34,
+"title": "Vibe CLI: November Plan"
+},
+{
+"repo": "BloopAI_vibe-kanban",
+"n": 2687,
+"react": 33,
+"title": "Bring back old UI"
+},
+{
+"repo": "ParadevAI_Paradev",
+"n": 1513,
+"react": 33,
+"title": "[feat] use in ssh server"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 429,
+"react": 33,
+"title": "Restore each pane's Pi session after reboot, as supported by the legacy TUI"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 150,
+"react": 32,
+"title": "bug: Copy and Paste not working in Linux"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 531,
+"react": 31,
+"title": "feat: add BeforeTool hook to intercept bash commands before execution"
+},
+{
+"repo": "multica-ai_multica",
+"n": 1014,
+"react": 31,
+"title": "[Feature]: Add OIDC login support"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 1114,
+"react": 30,
+"title": "[Feature]: Multi-provider model fallback for agents"
+},
+{
+"repo": "herdrdev_herdr",
+"n": 1340,
+"react": 29,
+"title": "Relicensing herdr from AGPL-3.0 to Apache-2.0 - I need your permission"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 2191,
+"react": 28,
+"title": "Startup output leaks into OpenCode TUI (bun install + config-context warning)"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 3649,
+"react": 28,
+"title": "docs: Add DeepSeek V4 Pro/Flash support to agent-model-matching guide"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 8485,
+"react": 28,
+"title": "feat: OpenCode V2 plugin API support"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 6169,
+"react": 27,
+"title": "OpenCode V2 plugin API migration: timeline and plan?"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 233,
+"react": 27,
+"title": "bug: eating a pain au chocolat"
+},
+{
+"repo": "paperclipai_paperclip",
+"n": 1858,
+"react": 27,
+"title": "feat: Company-level knowledge layer (wiki, role context, shared strategy docs)"
+},
+{
+"repo": "BloopAI_vibe-kanban",
+"n": 1697,
+"react": 26,
+"title": "Feature request: Add self-hosted Gitlab support"
+},
+{
+"repo": "multica-ai_multica",
+"n": 1634,
+"react": 25,
+"title": "[Feature]: JIRA integration"
+},
+{
+"repo": "herdrdev_herdr",
+"n": 261,
+"react": 24,
+"title": "Support placeholders in [worktrees].directory for sibling-folder layouts"
+},
+{
+"repo": "paperclipai_paperclip",
+"n": 3028,
+"react": 24,
+"title": "Universal SSO / OIDC Support"
+},
+{
+"repo": "ParadevAI_Paradev",
+"n": 405,
+"react": 23,
+"title": "Linux support"
+},
+{
+"repo": "ParadevAI_Paradev",
+"n": 2685,
+"react": 23,
+"title": "[feat]  Make login non-required"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 493,
+"react": 23,
+"title": "websearch_exa MCP timeout after opencode reinstall"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 475,
+"react": 23,
+"title": "Support multiple Herdr App windows connected to separate hc sessions"
+},
+{
+"repo": "multica-ai_multica",
+"n": 1943,
+"react": 23,
+"title": "[Feature]: Workflow Orchestration"
+},
+{
+"repo": "ParadevAI_Paradev",
+"n": 2364,
+"react": 22,
+"title": "[feat] Support multiple repositories in a single project"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 703,
+"react": 22,
+"title": "[Feature]: Support multiple fallback models for a single Agent (Model Failover Strategy)"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 275,
+"react": 22,
+"title": "bug: Usage rate limits unclear"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 120,
+"react": 21,
+"title": "macOS: add native Notification Center alerts when agents finish or need input"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 415,
+"react": 21,
+"title": "bug: Stuck on \"generating\""
+},
+{
+"repo": "BloopAI_vibe-kanban",
+"n": 1946,
+"react": 20,
+"title": "Ralph Wiggum mode"
+},
+{
+"repo": "herdrdev_herdr",
+"n": 1307,
+"react": 20,
+"title": "`theme = \"terminal\"` unreadable with Ghostty light theme"
+},
+{
+"repo": "multica-ai_multica",
+"n": 4490,
+"react": 20,
+"title": "[Feature]: Feature request: Add a plugin / extension system to Multica"
+},
+{
+"repo": "BloopAI_vibe-kanban",
+"n": 765,
+"react": 19,
+"title": "[Feature Request] Configurable automatic cleanup of worktrees"
+},
+{
+"repo": "BloopAI_vibe-kanban",
+"n": 3396,
+"react": 19,
+"title": "Support for self-hosted projects and better export"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 1301,
+"react": 19,
+"title": "Vibe CLI 3.0.0"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 1303,
+"react": 19,
+"title": "bug: regression: voice capture no longer works on Linux after v3.0.0 (Rust TUI ships without voice)"
+},
+{
+"repo": "multica-ai_multica",
+"n": 815,
+"react": 19,
+"title": "Discussion: Multica still manages AI the way it manages people"
+},
+{
+"repo": "multica-ai_multica",
+"n": 3989,
+"react": 19,
+"title": "[Feature]: Add oh-my-pi (omp) as a supported agent runtime"
+},
+{
+"repo": "paperclipai_paperclip",
+"n": 2004,
+"react": 19,
+"title": "Allow linking remote channels to talk to the CEO via telegram/whatsApp"
+},
+{
+"repo": "ParadevAI_Paradev",
+"n": 2861,
+"react": 18,
+"title": "[bug] Performance regression: periodic input lag"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 359,
+"react": 18,
+"title": "[Feature] Add Mode Task Planning with beads"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 1153,
+"react": 18,
+"title": "Feature Request: Add native Zellij terminal multiplexer support"
+},
+{
+"repo": "code-yeongyu_oh-my-openagent",
+"n": 1189,
+"react": 18,
+"title": "[Bug]:  please stop overengineering shit"
+},
+{
+"repo": "herdrdev_herdr",
+"n": 1170,
+"react": 18,
+"title": "Remote sessions don't appear in `agents` section"
+},
+{
+"repo": "herdrdev_herdr",
+"n": 1282,
+"react": 18,
+"title": "Line wrapped links are not properly highlighted and clickable"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 117,
+"react": 18,
+"title": "No command to resize a pane in a split"
+},
+{
+"repo": "multica-ai_multica",
+"n": 1120,
+"react": 18,
+"title": "Sync GitHub issues/PRs with Multica issues for linked repos"
+}
+]

@@ -382,7 +382,7 @@ func (d *Daemon) probe(ctx context.Context) {
 		st := Probe(ctx, rt, d.cfg.Version, d.cfg.Probe)
 		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
 		if st.Ready {
-			if err := d.preflight(ctx, rt); err != nil {
+			if err := d.preflight(preflightContext(ctx, st), rt); err != nil {
 				st.Ready, st.Reason = false, err.Error()
 			}
 		}

@@ -66,14 +66,16 @@ export function agentRows(runtimes: RuntimeStatus[] | undefined, subs: Subscript
       return { ...base, state: "not-found", status: "Not found on this computer.", ...(info.install ? { fix: info.install } : {}) };
     if (probe?.auth === "signed-out")
       return { ...base, state: "signed-out", status: "Installed, but not signed in.", ...(info.signIn ? { fix: info.signIn } : {}) };
-    const why = rt?.reason ? plainReason(rt.reason) : "Control Rod's last check did not pass, and the check gave no reason.";
+    const why = rt?.reason ? plainReason(rt.reason, info.id) : "Control Rod's last check did not pass, and the check gave no reason.";
     return { ...base, state: "held", status: `Installed${probe?.auth === "signed-in" ? " and signed in" : ""}, but Control Rod won't give it work yet. ${why}` };
   });
 }
 
 /** The daemon's reason, as one sentence ending in a full stop. It is already written in plain words. */
-function plainReason(reason: string): string {
-  const r = reason.trim();
+function plainReason(reason: string, runtime: string): string {
+  // The daemon's sentence often opens with "<runtime> is installed, but", which the row already says.
+  let r = reason.trim().replace(new RegExp(`^${runtime} is installed,? but\\s+`, "i"), "");
+  r = r.charAt(0).toUpperCase() + r.slice(1);
   return /[.!?]$/.test(r) ? r : `${r}.`;
 }
 

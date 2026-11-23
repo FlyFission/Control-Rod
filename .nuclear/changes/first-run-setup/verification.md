@@ -1,0 +1,22 @@
+# Verification: First-run setup and the Agents roster
+
+| Evidence ID | Status | Claim and limit | Artifact |
+|---|---|---|---|
+| E-01 | pass | Web: 706 tests in 53 files, including the new setup/roster tests. `tsc` clean. | `evidence/web.log` |
+| E-02 | pass with 2 environmental failures | API: 837 pass. SEC-01 and SEC-03 in `command-boundary.test.ts` fail identically on unchanged main with this host's test server (its superuser is not the `controlrod` login those tests expect). | `evidence/api.log` |
+| E-03 | pass | Running app (`pnpm cr start`, Linux container, stand-in `claude`/`codex` scripts so the daemon has something to refuse): first run lands on Setup; Looks right saves; the roster switch benches Codex; phone width reflows. The status text is the daemon's real refusal of a script launcher. | `evidence/*.png` |
+| E-04 | pending | Blind check of the diff by a different vendor (Codex). | PR comment |
+
+Not done here: a macOS run with real signed-in CLIs, and the Playwright e2e suite (not in CI).
+
+## Required links
+
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
+
+## Exit criteria
+
+A first run opens on Setup; the person confirms seats and one check-in answer before anything is saved; the Agents roster shows one switch per runnable agent and says in plain words why an agent cannot work, from the same probes as Provider CLIs; a benched agent is never offered work; the intake brief names every field the WorkPackage contract requires. API and web tests pass.
+
+## Source-lineage note
+
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

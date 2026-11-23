@@ -61,9 +61,15 @@ describe("agent rows", () => {
     const codex = rows.find((r) => r.info.id === "codex")!;
     expect(codex.state).toBe("held");
     expect(codex.seated).toBe(true);
-    expect(codex.status).toBe("Installed and signed in, but Control Rod won't give it work yet. codex 0.171.0 is not a qualified version.");
+    expect(codex.status).toBe("Installed and signed in, but Control Rod won't give it work yet. Codex 0.171.0 is not a qualified version.");
     expect(rows.find((r) => r.info.id === "claude")!.state).toBe("ready");
     expect(rows.find((r) => r.info.id === "grok")!.state).toBe("not-yet");
+  });
+
+  it("does not repeat \"installed\" when the daemon's reason already opens with it", () => {
+    const rt = [{ runtime: "codex", ready: false, login_checked: true, reason: "codex is installed, but Control Rod can only run a runtime it can identify by digest" }];
+    const codex = agentRows(rt, subscriptions as never, fresh as never).find((r) => r.info.id === "codex")!;
+    expect(codex.status).toBe("Installed and signed in, but Control Rod won't give it work yet. Control Rod can only run a runtime it can identify by digest.");
   });
 
   it("reads back who writes and who checks, following the dispatcher", () => {
@@ -92,7 +98,7 @@ describe("first-run setup", () => {
     const sent: unknown[] = [];
     api(fresh, (b) => sent.push(b));
     await renderPage(<Setup />);
-    expect(await screen.findByText(/won't give it work yet\. codex 0\.171\.0 is not a qualified version\./)).toBeTruthy();
+    expect(await screen.findByText(/won't give it work yet\. Codex 0\.171\.0 is not a qualified version\./)).toBeTruthy();
     expect(screen.getByRole("radio", { name: /At the start and before merge/ })).toHaveProperty("checked", true);
 
     await user.click(screen.getByRole("switch", { name: "Claude Code" }));

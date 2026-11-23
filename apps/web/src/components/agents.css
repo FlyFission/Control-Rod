@@ -119,8 +119,11 @@
   gap: 8px;
 }
 .checkin-choice {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  justify-items: start;
+  text-align: left;
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--line-2);
@@ -132,7 +135,10 @@
   background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 .checkin-choice input {
-  margin-top: 4px;
+  width: auto;
+  margin: 4px 0 0;
+  padding: 0;
+  accent-color: var(--accent);
 }
 .checkin-choice .tag {
   margin-left: 8px;

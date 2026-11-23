@@ -121,20 +121,20 @@ test("keyboard: skip link, every place, palette open, choose and return", async 
   await page.keyboard.press("Tab");
   const first = await page.evaluate(() => document.activeElement?.textContent?.trim());
   const stops: string[] = [first ?? ""];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 20; i++) {
     await page.keyboard.press("Tab");
     stops.push(await page.evaluate(() => (document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent || "").trim().slice(0, 30)));
   }
   console.log("TAB " + stops.join(" > "));
   expect(stops[0]).toBe("Skip to content");
-  for (const place of ["Inbox", "Office", "Packages", "Registers", "Explore", "Roster", "Usage", "Records", "Policies"])
+  for (const place of ["Inbox", "Office", "Packages", "Snapshots", "Registers", "Usage", "Records", "Setup", "Agents roster", "Policies"])
     expect(stops.some((s) => s.startsWith(place))).toBe(true);
   await page.keyboard.press("Control+k");
   await page.keyboard.type("roster");
   await page.keyboard.press("Enter");
-  await page.waitForURL("**/roster");
+  await page.waitForURL("**/agents");
   console.log("PALETTE navigated to " + new URL(page.url()).pathname);
-  expect(new URL(page.url()).pathname).toBe("/roster");
+  expect(new URL(page.url()).pathname).toBe("/agents");
 });
 
 test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page, browserName }) => {

@@ -785,6 +785,9 @@ func TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential(
 			if !strings.Contains(joined, "--ro-bind\n"+root+"\n"+root+"\n") {
 				t.Fatal("host login directory lacks a read-only bind")
 			}
+			if strings.Contains("\n"+joined, "\n--bind\n"+root+"\n") || strings.Contains("\n"+joined, "\n--bind-try\n"+root+"\n") {
+				t.Fatal("host login directory has a writable bind that would override its read-only one")
+			}
 			if !strings.Contains("\n"+joined, "\n--bind\n"+credential+"\n"+credential+"\n") {
 				t.Fatal("host credential lacks its writable bind")
 			}

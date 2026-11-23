@@ -748,8 +748,8 @@ op runtimes(): {
   pins: RuntimePin[];
 
   /**
-   * Agent CLIs with a newer version, as the daemon found when it started, with the command the
-   * person can run in a terminal. Nothing in Control Rod runs it from the browser.
+   * Agent CLIs with a newer version, as the daemon found when it started. The app shows the npm
+   * command, built from fixed parts, for the person to run in a terminal; nothing installs from the browser.
    */
   agent_updates?: Runner.AgentUpdate[];
 };
@@ -1387,20 +1387,25 @@ namespace Runner {
 
   /**
    * An agent CLI with a newer published version, as the daemon's startup check found it. The check
-   * runs when the daemon starts, never on a timer. The command is shown for the person to run in a
-   * terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.
+   * runs when the daemon starts, never on a timer. The app shows the npm command for the person to run
+   * in a terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.
    */
   @extension("unevaluatedProperties", false)
   model AgentUpdate {
     agent: AgentId;
     @maxLength(60) name: string;
     @maxLength(64) installed?: string;
-    @maxLength(64) latest: string;
+    /** The latest published version: strict SemVer 2.0 without build metadata. */
+    @maxLength(64) @pattern("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$") latest: string;
 
-    /** The package-manager command, one argument per item. Absent when Control Rod will not offer one (not an npm global install). */
-    @maxItems(8) command?: string[];
+    /**
+     * True when the installed executable is npm's global copy of the agent's package, so
+     * `npm install --global <package>@<latest>` updates it. The app builds that command itself from
+     * a fixed package per agent and `latest`; no command text is reported or shown from the daemon.
+     */
+    npm_global?: boolean;
 
-    /** Why there is no command, in a sentence. */
+    /** Why no command is offered, in a sentence. */
     @maxLength(300) note?: string;
   }
   @minLength(1)

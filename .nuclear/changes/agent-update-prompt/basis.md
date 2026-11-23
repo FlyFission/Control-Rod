@@ -21,8 +21,8 @@ The owner asked (2026-11-22) for the startup prompt Orchestrator (agent-orchestr
 
 The owner chose, on 2026-11-22, to extend the contract for a panel in the web app. `spec/api.tsp` gains `Runner.AgentUpdate` and `Runner.AgentId`, an optional `agent_updates` on the daemon's claim, and an optional `agent_updates` on `GET /runtimes`. All are additive; no field changes meaning and no major version moves.
 
-- The daemon reports, on its claims, each outdated agent with the npm command that installs it; nothing before its startup check finishes, and an empty list once nothing is outdated.
-- The app shows a card when it opens: each agent with installed and latest version and the exact command, with a Copy button. Dismissing hides that version in this browser.
+- The daemon reports, on its claims, each outdated agent and whether npm's global copy is installed (`npm_global`), never command text; nothing before its startup check finishes, and an empty list once nothing is outdated.
+- The app shows a card when it opens: each agent with installed and latest version and the npm command, which the app builds from a fixed package per agent and the strict SemVer `latest`, with a Copy button. Dismissing hides that version in this browser.
 - Nothing in the browser or the control plane installs anything. An earlier version let an administrator ask the daemon to install (a signed `runtime.update`, a take route, a daemon id and an install lock); four rounds of independent review kept finding gaps in running installs on a host from the browser, so on 2026-11-23 it was narrowed to showing the command. The person runs it in a terminal, or runs `controlrod agents update`, which asks first.
 
 The idea is Orchestrator's; no code was copied (THIRD_PARTY_NOTICES.md).

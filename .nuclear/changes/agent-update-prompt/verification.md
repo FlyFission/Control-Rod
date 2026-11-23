@@ -8,6 +8,7 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-02 | pass | With the strict version check removed, the injection test fails; with the per-agent confirmation removed, the consent test fails; both pass when restored. | `evidence/mutation.log` |
 | E-03 | pass | API agent-update, refusal and runtime tests pass. The full API suite has 27 failures in 4 files on this host that fail identically without this change (preparation grants, command boundary, database deadline). | `evidence/green-api.log` |
 | E-04 | pass | The panel tests and the design guards (contrast, type scale) pass in jsdom; the whole web suite passes. Not a real browser. | `evidence/green-web.log` |
+| E-07 | pass | Review fixes on the narrowed panel: with the app's fixed-package build, the not-SemVer filter, the contract's refusal of command text, SemVer prerelease precedence, the keep-known merge, or the could-not-check message removed, a test fails; each passes when restored. | `evidence/mutation-show-command.log` |
 
 ## Evidence custody and coupling
 
@@ -17,6 +18,7 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-02 | AU-02 | yes | evidence/mutation.log | Implementing agent | go test | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-03 | AU-05 | yes | evidence/green-api.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-04 | AU-06 | yes | evidence/green-web.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
+| E-07 | AU-05 | yes | evidence/mutation-show-command.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
@@ -24,6 +26,7 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | fakes, no real install  [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | PostgreSQL 16, not the pinned 17  [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
+| E-07 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
 
 Independent blind checks (Codex, four rounds) reviewed an earlier version in which the app could ask the daemon to install. On 2026-11-23 that path was removed in favor of showing the command; the remaining code has not been re-checked independently since.
 

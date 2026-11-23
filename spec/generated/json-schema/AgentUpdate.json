@@ -16,20 +16,18 @@
         },
         "latest": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$",
+            "description": "The latest published version: strict SemVer 2.0 without build metadata."
         },
-        "command": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            },
-            "maxItems": 8,
-            "description": "The package-manager command, one argument per item. Absent when Control Rod will not offer one (not an npm global install)."
+        "npm_global": {
+            "type": "boolean",
+            "description": "True when the installed executable is npm's global copy of the agent's package, so\n`npm install --global <package>@<latest>` updates it. The app builds that command itself from\na fixed package per agent and `latest`; no command text is reported or shown from the daemon."
         },
         "note": {
             "type": "string",
             "maxLength": 300,
-            "description": "Why there is no command, in a sentence."
+            "description": "Why no command is offered, in a sentence."
         }
     },
     "required": [
@@ -37,6 +35,6 @@
         "name",
         "latest"
     ],
-    "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The command is shown for the person to run in a\nterminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.",
+    "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The app shows the npm command for the person to run\nin a terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.",
     "unevaluatedProperties": false
 }

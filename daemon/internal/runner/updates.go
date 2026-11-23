@@ -9,15 +9,15 @@ import (
 )
 
 // AgentUpdate is an agent CLI with a newer version, as the daemon reports it (spec
-// Runner.AgentUpdate). Command is what the person can run in a terminal to install it; the daemon
-// never runs it, and the control plane never sends one.
+// Runner.AgentUpdate). No command text is reported: NpmGlobal says the npm command applies, and the
+// app builds it from a fixed package per agent and Latest. The daemon never installs.
 type AgentUpdate struct {
-	Agent     string   `json:"agent"`
-	Name      string   `json:"name"`
-	Installed string   `json:"installed,omitempty"`
-	Latest    string   `json:"latest"`
-	Command   []string `json:"command,omitempty"`
-	Note      string   `json:"note,omitempty"`
+	Agent     string `json:"agent"`
+	Name      string `json:"name"`
+	Installed string `json:"installed,omitempty"`
+	Latest    string `json:"latest"`
+	NpmGlobal bool   `json:"npm_global,omitempty"`
+	Note      string `json:"note,omitempty"`
 }
 
 // agentUpdates holds what the startup check found.
@@ -27,19 +27,33 @@ type agentUpdates struct {
 	list    []AgentUpdate
 }
 
+// set replaces the list with what a check found. An agent the check could not finish (no answer
+// from the registry, or no version from the CLI) keeps what was known before, so an incomplete check
+// never hides an update already found.
 func (u *agentUpdates) set(sts []agentupdate.Status) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
+	prev := u.list
 	u.checked = true
-	u.list = u.list[:0]
-	for _, s := range agentupdate.Outdated(sts) {
-		u.list = append(u.list, AgentUpdate{Agent: s.Agent.ID, Name: s.Agent.Name, Installed: s.Installed, Latest: s.Latest,
-			Command: s.Command, Note: clipTo(s.Note, 300)})
+	next := []AgentUpdate{}
+	for _, s := range sts {
+		switch {
+		case s.Outdated():
+			next = append(next, AgentUpdate{Agent: s.Agent.ID, Name: s.Agent.Name, Installed: s.Installed, Latest: s.Latest,
+				NpmGlobal: s.Command != nil, Note: clipTo(s.Note, 300)})
+		case s.Incomplete():
+			for _, p := range prev {
+				if p.Agent == s.Agent.ID {
+					next = append(next, p)
+				}
+			}
+		}
 	}
+	u.list = next
 }
 
 // report is what the next claim carries: nil until the startup check has finished, so the control
-// plane keeps what it had; the list (possibly empty) once it has.
+// plane keeps what it had; the list (possibly empty, sent as []) once it has.
 func (u *agentUpdates) report() []AgentUpdate {
 	u.mu.Lock()
 	defer u.mu.Unlock()

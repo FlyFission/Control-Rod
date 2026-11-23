@@ -15,6 +15,28 @@ const DISMISSED = "controlrod.agent-updates.dismissed";
 
 const keyOf = (u: AgentUpdate) => `${u.agent}@${u.latest}`;
 
+/** The npm package each built-in agent is published as. Antigravity has none. */
+const PACKAGE: Partial<Record<AgentUpdate["agent"], string>> = {
+  claude: "@anthropic-ai/claude-code",
+  codex: "@openai/codex",
+  opencode: "opencode-ai",
+  grok: "@xai-official/grok",
+};
+/** SemVer 2.0 without build metadata, the same pattern as the contract's `latest`. */
+const SEMVER = /^(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})(-(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?$/;
+
+/**
+ * The command shown and copied, built here from fixed parts: never text from the daemon or the
+ * control plane. Undefined unless the daemon found npm's global copy and `latest` is strict SemVer.
+ */
+const validVersion = (v: string) => v.length <= 64 && SEMVER.test(v);
+
+export function npmCommand(u: AgentUpdate): string | undefined {
+  const pkg = PACKAGE[u.agent];
+  if (!u.npm_global || !pkg || !validVersion(u.latest)) return undefined;
+  return `npm install --global ${pkg}@${u.latest}`;
+}
+
 function readDismissed(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(DISMISSED) ?? "[]");
@@ -37,7 +59,8 @@ export function AgentUpdates() {
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const shown = (q.data?.agent_updates ?? []).filter((u) => !dismissed.includes(keyOf(u)));
+  // An entry whose version is not strict SemVer is not shown at all.
+  const shown = (q.data?.agent_updates ?? []).filter((u) => validVersion(u.latest) && !dismissed.includes(keyOf(u)));
   if (shown.length === 0) return null;
 
   const dismiss = (keys: string[]) => {
@@ -47,7 +70,7 @@ export function AgentUpdates() {
   };
   const copy = async (u: AgentUpdate) => {
     try {
-      await navigator.clipboard.writeText(u.command!.join(" "));
+      await navigator.clipboard.writeText(npmCommand(u)!);
       setCopied(u.agent);
     } catch {
       setCopied(null); /* the command stays on screen to copy by hand */
@@ -81,15 +104,15 @@ export function AgentUpdates() {
               <span className="mono small">
                 <span className="muted">{u.installed ? `v${u.installed}` : "unknown"}</span> → <strong>v{u.latest}</strong>
               </span>
-              {u.command?.length ? (
+              {npmCommand(u) ? (
                 <button type="button" className="btn small" onClick={() => void copy(u)}>
                   {copied === u.agent ? "Copied" : "Copy command"}
                 </button>
               ) : null}
             </div>
-            {u.command?.length ? (
+            {npmCommand(u) ? (
               <p className="small muted">
-                Run in a terminal: <code>{u.command.join(" ")}</code>
+                Run in a terminal: <code>{npmCommand(u)}</code>
               </p>
             ) : (
               <p className="small muted">{u.note ?? "Update it with the tool you installed it with."}</p>

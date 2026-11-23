@@ -104,7 +104,7 @@ func daemon(args []string) int {
 		Logger:    logger,
 	}
 	// Once, at startup, never on a timer: the daemon says which agent CLIs have a newer version.
-	// It installs one only when an administrator asks from the app, and only with its own command.
+	// It never installs; the person runs `controlrod agents update` or the command the app shows.
 	if !*noUpdateCheck && !updateCheckOff(os.Getenv) {
 		cfg.UpdateCheck = func(ctx context.Context) []agentupdate.Status {
 			return agentupdate.Check(ctx, hostEnv(), agentupdate.Catalog)

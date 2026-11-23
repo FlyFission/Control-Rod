@@ -101,6 +101,10 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		chosen = outdated
 	}
 	if len(chosen) == 0 {
+		if unknown := incomplete(sts); len(unknown) > 0 {
+			fmt.Fprintf(w, "No update found, but %s could not be checked (run `controlrod agents` to see why).\n", strings.Join(unknown, ", "))
+			return 1
+		}
 		fmt.Fprintln(w, "Every agent is up to date.")
 		return 0
 	}
@@ -164,10 +168,13 @@ func printStatuses(w io.Writer, sts []agentupdate.Status) {
 		return
 	}
 	n := len(agentupdate.Outdated(sts))
-	switch n {
-	case 0:
+	unknown := incomplete(sts)
+	switch {
+	case n == 0 && len(unknown) > 0:
+		fmt.Fprintf(w, "No update found, but %s could not be checked.\n", strings.Join(unknown, ", "))
+	case n == 0:
 		fmt.Fprintln(w, "Every agent found is up to date.")
-	case 1:
+	case n == 1:
 		fmt.Fprintln(w, "1 agent update. Newer versions bring bug fixes, new models and features.")
 	default:
 		fmt.Fprintf(w, "%d agent updates. Newer versions bring bug fixes, new models and features.\n", n)
@@ -178,9 +185,12 @@ func printStatuses(w io.Writer, sts []agentupdate.Status) {
 			installed = "unknown"
 		}
 		line := fmt.Sprintf("  %-16s %s", s.Agent.Name, installed)
-		if s.Outdated() {
+		switch {
+		case s.Outdated():
 			line += " -> " + s.Latest
-		} else if s.Latest != "" {
+		case s.Incomplete() && s.Agent.Package != "":
+			line += " (could not check)"
+		case s.Latest != "":
 			line += " (latest)"
 		}
 		fmt.Fprintln(w, line)
@@ -193,6 +203,17 @@ func printStatuses(w io.Writer, sts []agentupdate.Status) {
 	if n > 0 {
 		fmt.Fprintln(w, "Run `controlrod agents update` to review each command, or `controlrod agents update --all`.")
 	}
+}
+
+// incomplete names the agents whose check could not compare versions.
+func incomplete(sts []agentupdate.Status) []string {
+	var out []string
+	for _, s := range sts {
+		if s.Incomplete() && s.Agent.Package != "" {
+			out = append(out, s.Agent.Name)
+		}
+	}
+	return out
 }
 
 func isTerminal(f *os.File) bool {

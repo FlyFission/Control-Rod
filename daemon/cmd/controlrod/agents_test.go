@@ -83,3 +83,20 @@ func TestUpdateCheckOff(t *testing.T) {
 		t.Error("the check is on by default")
 	}
 }
+
+// A registry that did not answer, or a CLI that gave no version, is "could not check", never
+// "up to date".
+func TestCouldNotCheckIsNotUpToDate(t *testing.T) {
+	grok := agentupdate.Catalog[4]
+	sts := []agentupdate.Status{{Agent: grok, Installed: "1.0.77", Note: "latest version unavailable: timeout"}}
+	var out bytes.Buffer
+	printStatuses(&out, sts)
+	if s := out.String(); strings.Contains(s, "up to date") || !strings.Contains(s, "Grok CLI could not be checked") || !strings.Contains(s, "(could not check)") {
+		t.Fatalf("agents:\n%s", s)
+	}
+	out.Reset()
+	r := &recorder{}
+	if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, r.run); code != 1 || strings.Contains(out.String(), "up to date") || len(r.ran) != 0 {
+		t.Fatalf("agents update: code %d, ran %v:\n%s", code, r.ran, out.String())
+	}
+}

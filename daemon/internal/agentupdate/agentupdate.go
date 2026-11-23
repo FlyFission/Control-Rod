@@ -62,6 +62,13 @@ func (s Status) Outdated() bool {
 	return s.Installed != "" && s.Latest != "" && Newer(s.Latest, s.Installed)
 }
 
+// Incomplete reports whether the check could not compare versions: the CLI gave no version, or a
+// package is known but its latest version could not be read. Such a status is neither current nor
+// outdated, and is reported as "could not check".
+func (s Status) Incomplete() bool {
+	return s.Installed == "" || (s.Agent.Package != "" && s.Latest == "")
+}
+
 // Env is what a check reads from the host. Tests replace every field.
 type Env struct {
 	LookPath     func(string) (string, error)
@@ -84,15 +91,17 @@ var strictVersion = regexp.MustCompile(`^(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})\.(0|
 	`(-(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?$`)
 
 // StrictVersion reports whether v may be put into an install command.
-func StrictVersion(v string) bool { return len(v) <= 80 && strictVersion.MatchString(v) }
+func StrictVersion(v string) bool { return len(v) <= 64 && strictVersion.MatchString(v) }
 
 // ParseVersion returns the first x.y.z[-pre] in s, or "".
 func ParseVersion(s string) string {
 	return semverRe.FindString(s)
 }
 
-// Newer reports whether version a is greater than b. A prerelease of x.y.z is older than x.y.z;
-// two prereleases of the same x.y.z are not ordered (neither is newer).
+// Newer reports whether version a has higher SemVer 2.0 precedence than b (section 11): major,
+// minor and patch numerically; a prerelease is lower than its release; two prereleases compare
+// identifier by identifier, numeric ones numerically and below alphanumeric ones, which compare in
+// ASCII order, and a shorter list of equal identifiers is lower.
 func Newer(a, b string) bool {
 	ma, mb := semverRe.FindStringSubmatch(a), semverRe.FindStringSubmatch(b)
 	if ma == nil || mb == nil {
@@ -105,7 +114,47 @@ func Newer(a, b string) bool {
 			return x > y
 		}
 	}
-	return ma[4] == "" && mb[4] != ""
+	pa, pb := strings.TrimPrefix(ma[4], "-"), strings.TrimPrefix(mb[4], "-")
+	switch {
+	case pa == pb:
+		return false
+	case pa == "":
+		return true
+	case pb == "":
+		return false
+	}
+	ia, ib := strings.Split(pa, "."), strings.Split(pb, ".")
+	for i := 0; i < len(ia) && i < len(ib); i++ {
+		if c := compareIdent(ia[i], ib[i]); c != 0 {
+			return c > 0
+		}
+	}
+	return len(ia) > len(ib)
+}
+
+// compareIdent orders two prerelease identifiers: -1, 0 or 1.
+func compareIdent(x, y string) int {
+	nx, ex := strconv.ParseUint(x, 10, 64)
+	ny, ey := strconv.ParseUint(y, 10, 64)
+	switch {
+	case ex == nil && ey == nil:
+		return cmpUint(nx, ny)
+	case ex == nil:
+		return -1 // numeric identifiers are lower than alphanumeric ones
+	case ey == nil:
+		return 1
+	}
+	return strings.Compare(x, y)
+}
+
+func cmpUint(a, b uint64) int {
+	switch {
+	case a < b:
+		return -1
+	case a > b:
+		return 1
+	}
+	return 0
 }
 
 // Check looks at every agent in the catalog that is on PATH. Agents not installed are left out.

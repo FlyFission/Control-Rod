@@ -170,3 +170,41 @@ func TestOnlyTheGlobalNpmCopyGetsACommand(t *testing.T) {
 		t.Error("without npm's global root no command may be offered")
 	}
 }
+
+// SemVer 2.0 section 11's own example order, plus the case a release candidate update relies on.
+func TestNewerFollowsSemVerPrereleasePrecedence(t *testing.T) {
+	order := []string{"1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-alpha.beta", "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0-rc.1", "1.0.0"}
+	for i := range order {
+		for j := range order {
+			if got, want := Newer(order[i], order[j]), i > j; got != want {
+				t.Errorf("Newer(%q, %q) = %v, want %v", order[i], order[j], got, want)
+			}
+		}
+	}
+	if !Newer("1.2.3-rc.2", "1.2.3-rc.1") || Newer("1.2.3-rc.1", "1.2.3-rc.2") {
+		t.Error("rc.2 must be newer than rc.1")
+	}
+	if Newer("1.2.3-rc.1", "1.2.3-rc.1") {
+		t.Error("a version is not newer than itself")
+	}
+}
+
+// The strict check agrees with the spec's 64-byte cap on latest.
+func TestStrictVersionFitsTheSpecLimit(t *testing.T) {
+	v := "1.0.0-" + strings.Repeat("a", 58) // 64 bytes
+	if !StrictVersion(v) || StrictVersion(v+"a") {
+		t.Fatalf("64 bytes must pass and 65 must not: %d", len(v))
+	}
+}
+
+func TestIncompleteIsNeitherCurrentNorOutdated(t *testing.T) {
+	grok := Catalog[4]
+	for _, s := range []Status{{Agent: grok, Installed: "1.0.77"}, {Agent: grok, Latest: "1.0.92"}} {
+		if !s.Incomplete() || s.Outdated() {
+			t.Errorf("%+v: incomplete %v, outdated %v", s, s.Incomplete(), s.Outdated())
+		}
+	}
+	if (Status{Agent: grok, Installed: "1.0.92", Latest: "1.0.92"}).Incomplete() {
+		t.Error("a full check counted incomplete")
+	}
+}

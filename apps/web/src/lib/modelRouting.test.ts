@@ -14,6 +14,10 @@ describe("model routing line", () => {
       text: "Model claude-opus-5-5 (requested opus)",
     });
   });
+  it("flags a different variant of a versioned model, which is not an alias", () => {
+    expect(modelRouting({ requested_model: "gpt-5.4", reported_model: "gpt-5.4-mini" }, true).kind).toBe("rerouted");
+    expect(modelRouting({ requested_model: "pus", reported_model: "claude-opus-5-5" }, true).kind).toBe("rerouted");
+  });
   it("names the model once when it is the one requested", () => {
     expect(modelRouting({ requested_model: "opus", reported_model: "opus" }, true)).toEqual({ kind: "same", text: "Model opus" });
   });

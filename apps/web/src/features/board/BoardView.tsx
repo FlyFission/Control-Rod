@@ -42,7 +42,7 @@ import { QuickAdd } from "./QuickAdd.js";
 import { type SavedView, deleteView, loadViews, saveView } from "./savedViews.js";
 import { DaemonNotice } from "../../components/DaemonNotice.js";
 import { attentionFirst } from "./boardOrder.js";
-import { singleKeysOn } from "../../lib/singleKeys.js";
+import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
 import { type BoardCard, useBoardData } from "./useBoardData.js";
 import { readString, writeString } from "../../lib/storage.js";
 import "./board.css";
@@ -381,7 +381,7 @@ export function BoardView() {
           target.tagName === "SELECT" ||
           target.isContentEditable);
       if (inField || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (document.querySelector("dialog[open], .palette")) return;
+      if (document.querySelector(OPEN_MODAL)) return;
       if (!singleKeysOn()) return;
       const key = e.key.toLowerCase();
       if (key !== "j" && key !== "k" && key !== "n") return;

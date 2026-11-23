@@ -22,6 +22,12 @@ describe("new arrivals", () => {
     const before = new Set([attentionKey(item())]);
     expect(newArrivals(before, [item({ kind: "dispute" })])).toHaveLength(1);
   });
+  it("treats a run lost again on the same revision as a new item", () => {
+    const lost = item({ kind: "lost", since: "2026-11-23T10:00:00Z" });
+    const before = new Set([attentionKey(lost)]);
+    expect(newArrivals(before, [lost])).toEqual([]);
+    expect(newArrivals(before, [item({ kind: "lost", since: "2026-11-23T11:00:00Z" })])).toHaveLength(1);
+  });
 });
 
 describe("notification text", () => {

@@ -14,10 +14,12 @@ export function modelRouting(trace: { requested_model?: string; reported_model?:
   // "default" means the run left the choice to the runtime, so whatever answered is not a fallback.
   const requested = asked === "default" ? "" : asked;
   const reported = trace?.reported_model?.trim() ?? "";
-  // A CLI reports the concrete model behind an alias it was asked for ("opus" -> "claude-opus-5-5"):
-  // the requested name inside the reported one is the alias resolving, not a fallback.
+  // A CLI reports the concrete model behind an alias it was asked for ("opus" -> "claude-opus-5-5").
+  // Only a bare family word (letters only, no version) counts as an alias, and only when it is a
+  // whole dash-separated part of the reported name: "gpt-5.4" answered by "gpt-5.4-mini" is a
+  // different model and is flagged.
   if (reported && requested && reported !== requested) {
-    if (reported.toLowerCase().includes(requested.toLowerCase())) return { kind: "same", text: `Model ${reported} (requested ${requested})` };
+    if (isAliasOf(requested, reported)) return { kind: "same", text: `Model ${reported} (requested ${requested})` };
     return { kind: "rerouted", text: `Answered by ${reported} (requested ${requested})` };
   }
   if (reported) return { kind: "same", text: `Model ${reported}` };
@@ -26,4 +28,10 @@ export function modelRouting(trace: { requested_model?: string; reported_model?:
   if (requested) return { kind: "same", text: `Requested ${requested}` };
   if (asked === "default" && finished) return { kind: "unreported", text: "Model not reported (runtime default)" };
   return { kind: "none" };
+}
+
+function isAliasOf(requested: string, reported: string): boolean {
+  const alias = requested.toLowerCase();
+  if (!/^[a-z]+$/.test(alias)) return false;
+  return reported.toLowerCase().split(/[-_/.:]/).includes(alias);
 }

@@ -96,7 +96,8 @@ export function ShortcutHelp({ open, mac, onClose }: { open: boolean; mac: boole
             checked={keysOn}
             onChange={(e) => {
               setSingleKeys(e.target.checked);
-              setKeysOn(e.target.checked);
+              // Show what the key handlers will read, not what was clicked.
+              setKeysOn(singleKeysOn());
             }}
           />{" "}
           Single-key shortcuts (C, J, K, N, ?) on this browser. Turn them off if a stray key or speech input moves you around; {mac ? "⌘" : "Ctrl"} K and Esc still work, and the Shortcuts button opens this list.

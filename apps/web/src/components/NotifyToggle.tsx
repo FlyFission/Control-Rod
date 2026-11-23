@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NOTIFY_CHOICE_EVENT, type NotifySupport, notifySupport, readNotifyChoice, writeNotifyChoice } from "../lib/attention.js";
+import { NOTIFY_CHOICE_EVENT, type NotifySupport, notifyKey, notifySupport, readNotifyChoice, writeNotifyChoice } from "../lib/attention.js";
 
 /**
  * The opt-in for browser notifications (pattern AW2). Off until the person turns it on; the browser
@@ -17,8 +17,16 @@ export function NotifyToggle({ user }: { user: string | undefined }) {
       setSupport(notifySupport());
     };
     sync();
+    // Same-tab changes fire NOTIFY_CHOICE_EVENT; another tab's change arrives as a storage event.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === null || e.key === notifyKey(user)) sync();
+    };
     window.addEventListener(NOTIFY_CHOICE_EVENT, sync);
-    return () => window.removeEventListener(NOTIFY_CHOICE_EVENT, sync);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(NOTIFY_CHOICE_EVENT, sync);
+      window.removeEventListener("storage", onStorage);
+    };
   }, [user]);
 
   if (support === "unsupported" || user === undefined) return null;

@@ -65,6 +65,18 @@ describe("agent updates", () => {
     expect((await take()).json()).toEqual({ requests: [] });
   });
 
+  it("a signature over one version cannot carry another, and extra fields are refused", async () => {
+    await claim([grok]);
+    const a = { agents: [{ agent: "grok", version: "1.0.92" }] };
+    const o = await post("/admin/commands/runtime.update/options", { payload: a });
+    const assertion = key.assert(o.json().options);
+    const swapped = await post("/admin/commands/runtime.update", { payload: { agents: [{ agent: "grok", version: "1.0.93" }] }, assertion });
+    expect(swapped.statusCode).toBeGreaterThanOrEqual(400);
+    expect((await take()).json()).toEqual({ requests: [] });
+    expect((await signed("runtime.update", { agents: [{ agent: "grok", version: "1.0.92", command: ["sh"] }] })).statusCode).toBe(400);
+    expect((await take()).json()).toEqual({ requests: [] });
+  });
+
   it("drops a pending request once the daemon reports the agent current", async () => {
     await claim([grok]);
     await signed("runtime.update", { agents: [{ agent: "grok", version: "1.0.92" }] });

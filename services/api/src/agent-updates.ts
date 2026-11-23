@@ -77,10 +77,11 @@ export async function takeAgentUpdates(db: Db): Promise<{ requests: Request[] }>
  */
 export async function requestAgentUpdates(c: Tx, p: Json): Promise<{ requested: string[] }> {
   const asked: unknown[] = Array.isArray(p.agents) ? p.agents : [];
-  const valid = (r: Json) => r && typeof r === "object" && typeof r.agent === "string" && AGENTS.includes(r.agent) && typeof r.version === "string" && r.version.length <= 64;
+  // Exactly { agent, version }: nothing else a signature covered is carried to the daemon.
+  const valid = (r: Json) => r && typeof r === "object" && !Array.isArray(r) && Object.keys(r).every((k) => k === "agent" || k === "version") && typeof r.agent === "string" && AGENTS.includes(r.agent) && typeof r.version === "string" && r.version.length <= 64;
   if (!asked.length || asked.length > AGENTS.length || !asked.every(valid) || new Set(asked.map((r: Json) => r.agent)).size !== asked.length)
     throw new Refusal(400, "invalid", "agents must list each agent once, as { agent, version }, from claude, codex, agy, opencode and grok");
-  const reqs = asked as Request[];
+  const reqs: Request[] = (asked as Request[]).map((r) => ({ agent: r.agent, version: r.version }));
   await c.query(LOCK);
   const listed: Json[] = (await readSetting(c, "agent_updates")) ?? [];
   for (const r of reqs) {

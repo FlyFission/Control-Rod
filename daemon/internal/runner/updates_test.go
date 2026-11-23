@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
 )
@@ -41,12 +43,31 @@ func (a *updateAPI) handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func updateDaemon(t *testing.T, api *updateAPI, latest *string, ran *[]string) *Daemon {
-	var sink [][]string
-	return updateDaemonChecked(t, api, latest, ran, &sink)
+// fakeHost is the host an update test runs on: grok installed at one version, the registry at
+// another, and every probe command recorded.
+type fakeHost struct {
+	mu        sync.Mutex
+	installed string
+	latest    string
+	ran       []string
+	failRun   bool
 }
 
-func updateDaemonChecked(t *testing.T, api *updateAPI, latest *string, ran *[]string, checked *[][]string) *Daemon {
+func updateDaemon(t *testing.T, api *updateAPI, latest *string, ran *[]string) *Daemon {
+	h := &fakeHost{installed: "1.0.77", latest: *latest}
+	d := hostDaemon(t, api, h)
+	t.Cleanup(func() { *ran = h.ran })
+	// The tests below read ran directly, so mirror it on every run.
+	run := d.cfg.UpdateRun
+	d.cfg.UpdateRun = func(ctx context.Context, name string, args []string) (string, error) {
+		out, err := run(ctx, name, args)
+		*ran = append([]string(nil), h.ran...)
+		return out, err
+	}
+	return d
+}
+
+func hostDaemon(t *testing.T, api *updateAPI, h *fakeHost) *Daemon {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(api.handler))
 	t.Cleanup(srv.Close)
@@ -54,14 +75,24 @@ func updateDaemonChecked(t *testing.T, api *updateAPI, latest *string, ran *[]st
 	return New(Config{
 		API: srv.URL, Token: "t", Home: t.TempDir(), Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Container: &Container{},
+		Runtimes:  []string{RuntimeClaude, RuntimeCodex, RuntimeGrok},
+		Probe: func(context.Context, string, ...string) (string, int, error) {
+			return "", 127, errors.New("not installed in this test")
+		},
 		UpdateCheck: func(_ context.Context, only []string) []agentupdate.Status {
-			*checked = append(*checked, only)
-			return []agentupdate.Status{{Agent: grok, Installed: "1.0.77", Latest: *latest,
-				Command: []string{"npm", "install", "--global", "@xai-official/grok@" + *latest}}}
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			return []agentupdate.Status{{Agent: grok, Installed: h.installed, Latest: h.latest,
+				Command: []string{"npm", "install", "--global", "@xai-official/grok@" + h.latest}}}
 		},
 		UpdateRun: func(_ context.Context, name string, args []string) (string, error) {
-			*ran = append(*ran, name+" "+strings.Join(args, " "))
-			*latest = "1.0.77" // installed now matches: the re-check finds nothing outdated
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			h.ran = append(h.ran, name+" "+strings.Join(args, " "))
+			if h.failRun {
+				return "npm error EACCES", errors.New("exit status 243")
+			}
+			h.installed = h.latest
 			return "added 1 package", nil
 		},
 	})
@@ -139,7 +170,8 @@ func TestAgentUpdateWaitsWhileARunIsActive(t *testing.T) {
 	}
 }
 
-// A job counts from the moment its claim returns, before its goroutine registers it as active.
+// A job counts from the moment its claim returns, before its goroutine registers it as active:
+// startJob is what the claim loop calls.
 func TestAgentUpdateWaitsForAClaimedJobNotYetActive(t *testing.T) {
 	api := &updateAPI{requested: []AgentUpdateRequest{{"grok", "1.0.92"}}}
 	latest := "1.0.92"
@@ -147,10 +179,23 @@ func TestAgentUpdateWaitsForAClaimedJobNotYetActive(t *testing.T) {
 	d := updateDaemon(t, api, &latest, &ran)
 	ctx := context.Background()
 	d.checkAgentUpdates(ctx)
-	d.inFlight.Add(1)
+	release, done := make(chan struct{}), make(chan struct{})
+	d.startJob(func() { <-release })
 	d.takeAgentUpdates(ctx)
 	if len(ran) != 0 || api.takes != 0 {
 		t.Fatalf("updated with a claimed job in flight: ran %v, takes %d", ran, api.takes)
+	}
+	go func() {
+		for d.inFlight.Load() != 0 {
+			time.Sleep(time.Millisecond)
+		}
+		close(done)
+	}()
+	close(release)
+	<-done
+	d.takeAgentUpdates(ctx)
+	if len(ran) != 1 {
+		t.Fatalf("did not update once the job finished: %v", ran)
 	}
 }
 
@@ -175,23 +220,70 @@ func TestAgentUpdateWaitsWhileAReceiptRemains(t *testing.T) {
 	}
 }
 
-// After an update only the agents just installed are checked again.
-func TestAgentUpdateRechecksOnlyWhatItInstalled(t *testing.T) {
+// After an update only the runtime whose command ran is probed again, a failed command included;
+// a refused request probes nothing.
+func TestAgentUpdateProbesOnlyWhatItRan(t *testing.T) {
 	api := &updateAPI{}
-	latest := "1.0.92"
-	var ran []string
-	var checked [][]string
-	d := updateDaemonChecked(t, api, &latest, &ran, &checked)
+	h := &fakeHost{installed: "1.0.77", latest: "1.0.92", failRun: true}
+	d := hostDaemon(t, api, h)
 	ctx := context.Background()
 	d.checkAgentUpdates(ctx)
+	mark := func() {
+		d.probeMu.Lock()
+		d.status = []RuntimeStatus{{Runtime: RuntimeClaude, Reason: "kept"}, {Runtime: RuntimeCodex, Reason: "kept"}, {Runtime: RuntimeGrok, Reason: "kept"}}
+		d.probeMu.Unlock()
+	}
+	reasons := func() map[string]string {
+		out := map[string]string{}
+		for _, s := range d.runtimeStatus() {
+			out[s.Runtime] = s.Reason
+		}
+		return out
+	}
+	mark()
 	api.requested = []AgentUpdateRequest{{"grok", "1.0.99"}}
 	d.takeAgentUpdates(ctx)
-	if len(checked) != 1 {
-		t.Fatalf("checked again although nothing installed: %v", checked)
+	for rt, r := range reasons() {
+		if r != "kept" {
+			t.Fatalf("probed %s although nothing ran", rt)
+		}
 	}
 	api.requested = []AgentUpdateRequest{{"grok", "1.0.92"}}
 	d.takeAgentUpdates(ctx)
-	if len(checked) != 2 || len(checked[1]) != 1 || checked[1][0] != "grok" {
-		t.Fatalf("re-check scope: %v", checked)
+	got := reasons()
+	if len(h.ran) != 1 || got[RuntimeGrok] == "kept" || got[RuntimeClaude] != "kept" || got[RuntimeCodex] != "kept" {
+		t.Fatalf("after a failed grok install: ran %v, statuses %v", h.ran, got)
+	}
+}
+
+// Someone updated the CLI by hand past the version an administrator signed for: the daemon checks
+// again just before installing and refuses the older target.
+func TestAgentUpdateNeverDowngrades(t *testing.T) {
+	api := &updateAPI{}
+	h := &fakeHost{installed: "1.0.77", latest: "1.0.92"}
+	d := hostDaemon(t, api, h)
+	ctx := context.Background()
+	d.checkAgentUpdates(ctx)
+	h.mu.Lock()
+	h.installed = "1.0.95" // upgraded by hand; the registry still says 1.0.92
+	h.mu.Unlock()
+	api.requested = []AgentUpdateRequest{{"grok", "1.0.92"}}
+	d.takeAgentUpdates(ctx)
+	if len(h.ran) != 0 {
+		t.Fatalf("installed an older version over a newer one: %v", h.ran)
+	}
+}
+
+// With nothing to check an unconfirmed run by, updates wait for a restart.
+func TestAgentUpdateWaitsForARestartAfterAnUnknownStop(t *testing.T) {
+	api := &updateAPI{requested: []AgentUpdateRequest{{"grok", "1.0.92"}}}
+	h := &fakeHost{installed: "1.0.77", latest: "1.0.92"}
+	d := hostDaemon(t, api, h)
+	ctx := context.Background()
+	d.checkAgentUpdates(ctx)
+	d.noteUncontained("R-2")
+	d.takeAgentUpdates(ctx)
+	if len(h.ran) != 0 || api.takes != 0 {
+		t.Fatalf("updated after an unknown stop: ran %v", h.ran)
 	}
 }

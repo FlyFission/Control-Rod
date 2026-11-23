@@ -153,6 +153,12 @@ type Daemon struct {
 	updates agentUpdates
 	// inFlight counts claimed jobs from the moment the claim returns until Handle finishes.
 	inFlight atomic.Int64
+	// unconfirmed holds, under activeMu, the containment of each run whose stop could not be
+	// confirmed, whether or not its receipt reached disk; an agent update waits until it is gone.
+	unconfirmed map[string]SpawnReceipt
+	// unknownHold is set when a run ended unconfirmed with nothing to check it by: no agent update
+	// runs again until the daemon restarts (and its orphan sweep has run).
+	unknownHold atomic.Bool
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -322,13 +328,11 @@ claim:
 		}
 		backoff = d.cfg.PollInterval
 		wg.Add(1)
-		d.inFlight.Add(1)
-		go func() {
+		d.startJob(func() {
 			defer wg.Done()
 			defer func() { <-slots }()
-			defer d.inFlight.Add(-1)
 			d.Handle(jobsCtx, job)
-		}()
+		})
 	}
 	done := make(chan struct{})
 	go func() { wg.Wait(); close(done) }()
@@ -377,9 +381,23 @@ func (d *Daemon) preflight(ctx context.Context, rt string) error {
 
 // probe checks every runtime found on PATH and logs, in one plain sentence each, any that is
 // not ready or has become ready again. Only ready runtimes are offered for work.
-func (d *Daemon) probe(ctx context.Context) {
+func (d *Daemon) probe(ctx context.Context) { d.probeSome(ctx, nil) }
+
+// probeSome probes the configured runtimes named in only (all of them when only is nil) and keeps
+// the last status of the rest.
+func (d *Daemon) probeSome(ctx context.Context, only []string) {
+	kept := map[string]RuntimeStatus{}
+	if only != nil {
+		for _, s := range d.runtimeStatus() {
+			kept[s.Runtime] = s
+		}
+	}
 	next := make([]RuntimeStatus, 0, len(d.cfg.Runtimes))
 	for _, rt := range d.cfg.Runtimes {
+		if s, ok := kept[rt]; ok && !slices.Contains(only, rt) {
+			next = append(next, s)
+			continue
+		}
 		st := Probe(ctx, rt, d.cfg.Version, d.cfg.Probe)
 		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
 		if st.Ready {
@@ -1180,6 +1198,7 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 		// Not over: keep the receipt and send nothing. The lease lapses, the control plane holds the
 		// outcome as unknown, and the orphan sweep keeps trying until the unit is confirmed empty.
 		d.log.Error("run completion withheld because its processes could not be confirmed stopped", "run", job.Run.ID, "err", err)
+		d.noteUncontained(job.Run.ID)
 		return
 	}
 	comp.ClaimToken = job.Claim.Token
@@ -1452,7 +1471,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					}
 					return verified.Ready()
 				},
-				Started: func(pid int) (*SpawnReceipt, error) {
+				Started: d.holdIfUnconfirmed(job.Run.ID, func(pid int) (*SpawnReceipt, error) {
 					u, lerr := d.container.Locate(pid, unit)
 					if lerr != nil {
 						// Not seen in its scope: end whatever the scope holds, by name.
@@ -1487,7 +1506,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					buf.setReceipt(r.Wire())
 					spawned = &r
 					return &r, nil
-				}})
+				})})
 		}
 	}
 	// The process is gone: nothing can settle it any more.

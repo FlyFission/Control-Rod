@@ -1,4 +1,3 @@
-go version go1.24.7 linux/amd64
 --- PASS: TestNewer (0.00s)
 --- PASS: TestCheckOffersNpmCommandOnlyForNpmInstalls (0.00s)
 --- PASS: TestCheckRefusesAVersionThatCouldCarryArguments (0.00s)
@@ -6,15 +5,16 @@ go version go1.24.7 linux/amd64
 --- PASS: TestRegistryLatest (0.00s)
 --- PASS: TestStrictVersionIsSemVer (0.00s)
 --- PASS: TestOnlyTheGlobalNpmCopyGetsACommand (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.006s
 --- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
 --- PASS: TestUpdateOneAgentByName (0.00s)
 --- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
 --- PASS: TestUpdateRefusesWithoutTerminalOrYes (0.00s)
 --- PASS: TestUpdateSkipsAgentWithNoCommand (0.00s)
 --- PASS: TestUpdateCheckOff (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
---- PASS: TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree (0.01s)
+--- PASS: TestUpdateRunsNothingWhileADaemonHoldsItsHome (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.009s
+--- PASS: TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree (0.00s)
 --- PASS: TestCodexTreeRefusesLinks (0.00s)
 --- PASS: TestNormalizesCodexJSON (0.00s)
 --- PASS: TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode (0.00s)
@@ -23,9 +23,12 @@ ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
 --- SKIP: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.00s)
 --- PASS: TestCodex0171FeaturesAreQualified (0.00s)
 --- PASS: TestACodexTurnThatCompletedButDidNotExitEndsOnItsResult (0.35s)
---- PASS: TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked (0.00s)
+--- PASS: TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked (0.26s)
 --- PASS: TestAgentUpdateWaitsWhileARunIsActive (0.00s)
---- PASS: TestAgentUpdateWaitsForAClaimedJobNotYetActive (0.00s)
+--- PASS: TestAgentUpdateWaitsForAClaimedJobNotYetActive (0.26s)
 --- PASS: TestAgentUpdateWaitsWhileAReceiptRemains (0.00s)
---- PASS: TestAgentUpdateRechecksOnlyWhatItInstalled (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.389s
+--- PASS: TestAgentUpdateProbesOnlyWhatItRan (0.00s)
+--- PASS: TestAgentUpdateNeverDowngrades (0.00s)
+--- PASS: TestAgentUpdateWaitsForARestartAfterAnUnknownStop (0.00s)
+--- PASS: TestAgentUpdateWaitsForAnUnconfirmedStopWithoutAReceipt (0.26s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	1.165s

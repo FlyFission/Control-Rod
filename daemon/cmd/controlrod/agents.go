@@ -76,11 +76,20 @@ func agents(args []string) int {
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 		return cmd.Run()
 	}
-	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), run)
+	lock := func() (func(), error) {
+		home, err := runner.Home(os.Getenv)
+		if err != nil {
+			return nil, err
+		}
+		return runner.LockHome(home)
+	}
+	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), lock, run)
 }
 
 // update chooses the agents to update, shows each command, asks, and runs only what was agreed.
-func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, run func(string, []string) error) int {
+// Before the first command it takes the daemon's home lock, so nothing is installed while a daemon
+// on this home may be running a job with the same CLI; the app's Update waits for it to be idle.
+func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, lock func() (func(), error), run func(string, []string) error) int {
 	outdated := agentupdate.Outdated(sts)
 	var chosen []agentupdate.Status
 	switch {
@@ -128,6 +137,12 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		yes = true
 	}
 	failed := 0
+	var unlock func()
+	defer func() {
+		if unlock != nil {
+			unlock()
+		}
+	}()
 	for _, s := range chosen {
 		fmt.Fprintf(w, "%s %s -> %s\n", s.Agent.Name, s.Installed, s.Latest)
 		if s.Command == nil {
@@ -138,6 +153,14 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		if !yes && !confirm(w, reader, "  Run it? [y/N] ") {
 			fmt.Fprintln(w, "  skipped")
 			continue
+		}
+		if unlock == nil {
+			u, err := lock()
+			if err != nil {
+				fmt.Fprintf(w, "Nothing was run: %v.\nA running daemon may be using this CLI. Update from the app's agent updates card (the daemon waits until no run is active), or stop the daemon and run this again.\n", strings.TrimRight(err.Error(), "."))
+				return 1
+			}
+			unlock = u
 		}
 		if err := run(s.Command[0], s.Command[1:]); err != nil {
 			fmt.Fprintf(w, "  failed: %v\n", err)

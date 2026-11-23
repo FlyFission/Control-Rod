@@ -141,6 +141,12 @@ func (r SpawnReceipt) Alive() bool {
 	return r.Matches() || (r.PGID > 0 && r.bootMatches() && groupExists(r.PGID))
 }
 
+// mayRemain is Alive for a containment kept without a full identity (the receipt was never
+// completed): a process group recorded without a boot is counted while the group exists at all.
+func (r SpawnReceipt) mayRemain() bool {
+	return r.Alive() || (r.Containment != ContainCgroup && r.BootID == "" && r.PGID > 0 && groupExists(r.PGID))
+}
+
 // Pinned returns the receipt marked as held unreaped by this daemon (see waitExitNoReap).
 func (r SpawnReceipt) Pinned() SpawnReceipt { r.pinned = true; return r }
 

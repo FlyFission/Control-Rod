@@ -46,3 +46,6 @@ func processExists(int) bool { return false }
 
 // Pinned is a no-op here.
 func (r SpawnReceipt) Pinned() SpawnReceipt { return r }
+
+// mayRemain: no run starts on this platform, so nothing remains.
+func (r SpawnReceipt) mayRemain() bool { return false }

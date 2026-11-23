@@ -1,0 +1,46 @@
+## P0: hold after an unknown unconfirmed stop (mutated)
+--- FAIL: TestAgentUpdateWaitsForARestartAfterAnUnknownStop (0.26s)
+    updates_test.go:287: updated after an unknown stop: ran [npm install --global @xai-official/grok@1.0.92]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	1.089s
+FAIL
+## P0: hold after an unknown unconfirmed stop (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.797s
+## P0: hold while an unconfirmed run's group remains (mutated)
+--- FAIL: TestAgentUpdateWaitsForAnUnconfirmedStopWithoutAReceipt (0.26s)
+    updates_unix_test.go:38: updated while an unconfirmed run's processes remained: ran [npm install --global @xai-official/grok@1.0.92]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.786s
+FAIL
+## P0: hold while an unconfirmed run's group remains (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.860s
+## P1: re-check before install (no downgrade) (mutated)
+--- FAIL: TestAgentUpdateNeverDowngrades (0.26s)
+    updates_test.go:273: installed an older version over a newer one: [npm install --global @xai-official/grok@1.0.92]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	1.046s
+FAIL
+## P1: re-check before install (no downgrade) (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.788s
+## P1: probe only what ran (mutated)
+--- FAIL: TestAgentUpdateProbesOnlyWhatItRan (0.27s)
+    updates_test.go:255: after a failed grok install: ran [npm install --global @xai-official/grok@1.0.92], statuses map[claude:claude is installed but `claude --version` did not answer (exit 127): not installed in this test codex:codex cannot be found or its executable read to record which version it is: codex is not on the agent PATH grok:grok cannot be found or its executable read to record which version it is: grok is not on the agent PATH]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	1.093s
+FAIL
+## P1: probe only what ran (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.872s
+## P1: local update takes the daemon's home lock (mutated)
+--- FAIL: TestUpdateRunsNothingWhileADaemonHoldsItsHome (0.00s)
+    agents_test.go:99: code 0, ran [npm install --global @xai-official/grok@1.0.92 npm install --global opencode-ai@1.19.6]:
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+FAIL
+## P1: local update takes the daemon's home lock (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.009s
+## P2: extra signed fields refused (mutated)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/agent-updates.test.ts > agent updates > a signature over one version cannot carry another, and extra fields are refused
+      Tests  1 failed | 6 passed (7)
+## P2: extra signed fields refused (restored)
+      Tests  7 passed (7)

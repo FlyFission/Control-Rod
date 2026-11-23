@@ -159,9 +159,10 @@ type AgentUpdateRequest struct {
 
 // updateIdle reports whether nothing could be using an agent CLI: no job claimed and not yet
 // finished (counted in the claim loop before its goroutine starts, so a job never slips in between),
-// no active run, and no spawn receipt, which stays while a run's processes are not confirmed stopped.
+// no active run, no spawn receipt (kept while a run's processes are not confirmed stopped), and no
+// run whose stop was unconfirmed without a receipt (see holdIfUnconfirmed).
 func (d *Daemon) updateIdle() bool {
-	if d.inFlight.Load() > 0 || d.activeCount() > 0 {
+	if d.inFlight.Load() > 0 || d.activeCount() > 0 || d.unconfirmedBusy() {
 		return false
 	}
 	// Any receipt file counts, readable or not: List skips an unreadable one.
@@ -192,18 +193,24 @@ func (d *Daemon) takeAgentUpdates(ctx context.Context) {
 		d.log.Warn("agent update requests could not be read", "err", err)
 		return
 	}
-	var installed []string
+	// ran lists each agent whose command ran, finished or failed: either may have changed its files.
+	var ran []string
 	for _, r := range reqs {
+		// Checked again just before installing: someone may have updated it by hand since the last
+		// check, and an older target must never replace a newer CLI.
+		cc, ccancel := context.WithTimeout(ctx, agentupdate.CheckTimeout)
+		d.updates.merge([]string{r.Agent}, d.cfg.UpdateCheck(cc, []string{r.Agent}))
+		ccancel()
 		argv := d.updates.runnable(r.Agent, r.Version)
 		if argv == nil {
-			d.updates.record(r.Agent, "failed", "the version signed for is not the one this daemon would install; check again and sign the version shown", time.Now())
+			d.updates.record(r.Agent, "failed", "the version signed for is not newer than the installed one, or not the one this daemon would install now; check again and sign the version shown", time.Now())
 			continue
 		}
 		d.log.Info("updating an agent CLI at an administrator's request", "agent", r.Agent, "command", strings.Join(argv, " "))
 		c, cancel := context.WithTimeout(ctx, UpdateTimeout)
 		out, err := d.cfg.UpdateRun(c, argv[0], argv[1:])
 		cancel()
-		installed = append(installed, r.Agent)
+		ran = append(ran, r.Agent)
 		if err != nil {
 			d.log.Warn("agent update failed", "agent", r.Agent, "err", err)
 			d.updates.record(r.Agent, "failed", fmt.Sprintf("%v: %s", err, lastLine(out)), time.Now())
@@ -211,12 +218,12 @@ func (d *Daemon) takeAgentUpdates(ctx context.Context) {
 		}
 		d.updates.record(r.Agent, "done", lastLine(out), time.Now())
 	}
-	if len(installed) > 0 {
-		// The new executables are probed (and preflighted) before any run can launch them, and only
-		// the agents just installed are checked again.
-		d.probe(ctx)
+	if len(ran) > 0 {
+		// Only the runtimes just touched are probed (and preflighted) again, before any run can
+		// launch them, and only they are checked again.
+		d.probeSome(ctx, ran)
 		c, cancel := context.WithTimeout(ctx, agentupdate.CheckTimeout)
-		d.updates.merge(installed, d.cfg.UpdateCheck(c, installed))
+		d.updates.merge(ran, d.cfg.UpdateCheck(c, ran))
 		cancel()
 	}
 }
@@ -249,4 +256,66 @@ func (c *Client) TakeAgentUpdates(ctx context.Context) ([]AgentUpdateRequest, er
 		return nil, err
 	}
 	return body.Requests, nil
+}
+
+// holdIfUnconfirmed wraps a Started hook: when it fails with the run's containment in hand (the
+// receipt write or the identity confirm failed, so Execute will stop the run and may not confirm
+// it), that containment is kept so an agent update waits until the run's processes are gone.
+func (d *Daemon) holdIfUnconfirmed(runID string, started func(int) (*SpawnReceipt, error)) func(int) (*SpawnReceipt, error) {
+	return func(pid int) (*SpawnReceipt, error) {
+		r, err := started(pid)
+		if err != nil && r != nil {
+			d.activeMu.Lock()
+			if d.unconfirmed == nil {
+				d.unconfirmed = map[string]SpawnReceipt{}
+			}
+			d.unconfirmed[runID] = *r
+			d.activeMu.Unlock()
+		}
+		return r, err
+	}
+}
+
+// noteUncontained is called when a run ends with its stop unconfirmed. Its receipt on disk, or the
+// containment holdIfUnconfirmed kept, keeps updates waiting; with neither, nothing can show when its
+// processes are gone, so updates wait for a restart.
+func (d *Daemon) noteUncontained(runID string) {
+	d.activeMu.Lock()
+	_, held := d.unconfirmed[runID]
+	d.activeMu.Unlock()
+	if held {
+		return
+	}
+	if _, err := os.Stat(d.receipts.path(runID)); err == nil {
+		return
+	}
+	d.unknownHold.Store(true)
+	d.log.Warn("agent updates wait for a daemon restart: a run's processes could not be confirmed stopped and left nothing to check them by", "run", runID)
+}
+
+// unconfirmedBusy reports whether a run whose stop was not confirmed may still have processes,
+// forgetting each one confirmed gone.
+func (d *Daemon) unconfirmedBusy() bool {
+	if d.unknownHold.Load() {
+		return true
+	}
+	d.activeMu.Lock()
+	defer d.activeMu.Unlock()
+	for id, r := range d.unconfirmed {
+		if r.mayRemain() {
+			return true
+		}
+		delete(d.unconfirmed, id)
+	}
+	return false
+}
+
+// startJob runs a claimed job in its own goroutine, counted in inFlight from before the goroutine
+// starts until it returns, so takeAgentUpdates never sees a claimed job as idle.
+func (d *Daemon) startJob(run func()) {
+	d.inFlight.Add(1)
+	go func() {
+		defer d.inFlight.Add(-1)
+		run()
+	}()
 }

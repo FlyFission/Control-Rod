@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
 	"io"
 	"log/slog"
 	"net"
@@ -21,8 +20,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
 )
 
 // Config is everything the daemon needs. The token is held here and in the client only.
@@ -77,14 +77,9 @@ type Config struct {
 	Container *Container
 	// Breaker sets the runaway breaker's thresholds; nil means DefaultBreakerPolicy.
 	Breaker *BreakerPolicy
-	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts and
-	// after an update, never on a timer; nil turns agent updates off.
-	UpdateCheck func(ctx context.Context, only []string) []agentupdate.Status
-	// AgentLock is the agent install lock (agentupdate.LockPath): each run holds it shared, each
-	// update exclusively. Empty means none (npm's global folder is unknown, so no update is offered).
-	AgentLock string
-	// UpdateRun runs a package-manager command and returns its combined output.
-	UpdateRun func(ctx context.Context, name string, args []string) (string, error)
+	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts, never
+	// on a timer; nil turns the check off. The daemon only reports what it finds: it never installs.
+	UpdateCheck func(ctx context.Context) []agentupdate.Status
 }
 
 // RunCeiling is the longest a run lasts in this daemon: its timeout, then the graceful stop ladder
@@ -141,7 +136,6 @@ type Daemon struct {
 	quit context.Context
 
 	probeMu       sync.Mutex
-	probeRun      sync.Mutex
 	status        []RuntimeStatus
 	subscriptions *SubscriptionReport
 
@@ -155,14 +149,6 @@ type Daemon struct {
 	retry *retryGate
 	// updates is what the startup agent-update check found.
 	updates agentUpdates
-	// inFlight counts claimed jobs from the moment the claim returns until Handle finishes.
-	inFlight atomic.Int64
-	// unconfirmed holds, under activeMu, the containment of each run whose stop could not be
-	// confirmed, whether or not its receipt reached disk; an agent update waits until it is gone.
-	unconfirmed map[string]SpawnReceipt
-	// unknownHold is set when a run ended unconfirmed with nothing to check it by: no agent update
-	// runs again until the daemon restarts (and its orphan sweep has run).
-	unknownHold atomic.Bool
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -232,7 +218,6 @@ func New(cfg Config) *Daemon {
 	if cfg.TokenFile != "" {
 		client.WithTokenFile(cfg.TokenFile)
 	}
-	client.daemonID = DaemonID(cfg.Home)
 	return &Daemon{cfg: cfg, client: client, log: cfg.Logger, outbox: NewOutbox(cfg.Home),
 		receipts: NewReceipts(cfg.Home), container: k, ns: ns, quit: context.Background(),
 		retry: newRetryGate(cfg.OutboxInterval, max(cfg.RetryLimit, cfg.OutboxInterval))}
@@ -309,10 +294,6 @@ claim:
 		status := d.runtimeStatus()
 		claimSent := time.Now()
 		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport(), d.updates.report()...)
-		if job == nil {
-			// Only while idle: an update never replaces a CLI a run is using.
-			d.takeAgentUpdates(ctx)
-		}
 		if job != nil {
 			job.claimSent = claimSent
 		}
@@ -333,11 +314,11 @@ claim:
 		}
 		backoff = d.cfg.PollInterval
 		wg.Add(1)
-		d.startJob(func() {
+		go func() {
 			defer wg.Done()
 			defer func() { <-slots }()
 			d.Handle(jobsCtx, job)
-		})
+		}()
 	}
 	done := make(chan struct{})
 	go func() { wg.Wait(); close(done) }()
@@ -386,27 +367,9 @@ func (d *Daemon) preflight(ctx context.Context, rt string) error {
 
 // probe checks every runtime found on PATH and logs, in one plain sentence each, any that is
 // not ready or has become ready again. Only ready runtimes are offered for work.
-func (d *Daemon) probe(ctx context.Context) { d.probeSome(ctx, nil) }
-
-// probeSome probes the configured runtimes named in only (all of them when only is nil) and keeps
-// the last status of the rest.
-func (d *Daemon) probeSome(ctx context.Context, only []string) {
-	// One probe at a time: a partial probe must not overwrite a full one's newer results with the
-	// statuses it kept.
-	d.probeRun.Lock()
-	defer d.probeRun.Unlock()
-	kept := map[string]RuntimeStatus{}
-	if only != nil {
-		for _, s := range d.runtimeStatus() {
-			kept[s.Runtime] = s
-		}
-	}
+func (d *Daemon) probe(ctx context.Context) {
 	next := make([]RuntimeStatus, 0, len(d.cfg.Runtimes))
 	for _, rt := range d.cfg.Runtimes {
-		if s, ok := kept[rt]; ok && !slices.Contains(only, rt) {
-			next = append(next, s)
-			continue
-		}
 		st := Probe(ctx, rt, d.cfg.Version, d.cfg.Probe)
 		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
 		if st.Ready {
@@ -1219,7 +1182,6 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 		// Not over: keep the receipt and send nothing. The lease lapses, the control plane holds the
 		// outcome as unknown, and the orphan sweep keeps trying until the unit is confirmed empty.
 		d.log.Error("run completion withheld because its processes could not be confirmed stopped", "run", job.Run.ID, "err", err)
-		d.noteUncontained(job.Run.ID)
 		return
 	}
 	comp.ClaimToken = job.Claim.Token
@@ -1496,7 +1458,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					}
 					return verified.Ready()
 				},
-				Started: d.holdIfUnconfirmed(job.Run.ID, func(pid int) (*SpawnReceipt, error) {
+				Started: func(pid int) (*SpawnReceipt, error) {
 					u, lerr := d.container.Locate(pid, unit)
 					if lerr != nil {
 						// Not seen in its scope: end whatever the scope holds, by name.
@@ -1531,7 +1493,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					buf.setReceipt(r.Wire())
 					spawned = &r
 					return &r, nil
-				})})
+				}})
 		}
 	}
 	// The process is gone: nothing can settle it any more.

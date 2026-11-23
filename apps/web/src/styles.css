@@ -2016,7 +2016,7 @@ select {
 .agent-updates .au-item p { margin: 6px 0 0; overflow-wrap: anywhere; }
 .agent-updates .au-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .agent-updates .au-row + .au-row { margin-top: 6px; }
-.agent-updates .au-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line-2); }
+.agent-updates .au-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-top: 1px solid var(--line-2); }
 .agent-updates .au-foot:empty { display: none; }
 .agent-updates .au-close { background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; }
 .today-grid {

@@ -4,8 +4,7 @@
 2. Add `controlrod agents` and `controlrod agents update` with tests for consent, update all, no terminal, and an install outside npm.
 3. Run the check once when the daemon starts, behind an opt-out flag and variable.
 4. Remove the version guard and the confirmation in turn and record the failing tests (`evidence/mutation.log`).
-5. After the owner's yes (2026-11-22): extend `spec/api.tsp` and regenerate; report updates on claims and take requests in the daemon; record them and add `runtime.update` in the API; add the card to the app shell.
-6. Remove the idle guard in the daemon and the command check in the API in turn and record the failing tests (`evidence/mutation-panel.log`).
+5. After the owner's yes (2026-11-22): extend `spec/api.tsp` and regenerate; report updates on claims; store and show them in the API and the app shell, with the command to copy (narrowed 2026-11-23: no install from the browser).
 
 ## Required links
 
@@ -13,7 +12,7 @@
 
 ## Exit criteria
 
-AU-01 to AU-07 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
+AU-01 to AU-06 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
 
 ## Source-lineage note
 

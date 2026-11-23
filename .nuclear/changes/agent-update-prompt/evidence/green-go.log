@@ -12,8 +12,7 @@ ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
 --- PASS: TestUpdateRefusesWithoutTerminalOrYes (0.00s)
 --- PASS: TestUpdateSkipsAgentWithNoCommand (0.00s)
 --- PASS: TestUpdateCheckOff (0.00s)
---- PASS: TestUpdateRunsNothingWhileADaemonHoldsItsHome (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.009s
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.011s
 --- PASS: TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree (0.00s)
 --- PASS: TestCodexTreeRefusesLinks (0.00s)
 --- PASS: TestNormalizesCodexJSON (0.00s)
@@ -23,16 +22,6 @@ ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.009s
 --- SKIP: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.00s)
 --- PASS: TestCodex0171FeaturesAreQualified (0.00s)
 --- PASS: TestACodexTurnThatCompletedButDidNotExitEndsOnItsResult (0.35s)
---- PASS: TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked (0.26s)
---- PASS: TestAgentUpdateWaitsWhileARunIsActive (0.00s)
---- PASS: TestAgentUpdateWaitsForAClaimedJobNotYetActive (0.26s)
---- PASS: TestAgentUpdateWaitsWhileAReceiptRemains (0.00s)
---- PASS: TestAgentUpdateProbesOnlyWhatItRan (0.00s)
---- PASS: TestAgentUpdateNeverDowngrades (0.00s)
---- PASS: TestAgentUpdateWaitsForARestartAfterAnUnknownStop (0.00s)
---- PASS: TestAgentUpdateKeepsTheCandidateThroughARegistryOutage (0.26s)
---- PASS: TestAgentUpdateKeepsAFailedUpdateWhenTheRecheckCannotReachTheRegistry (0.27s)
---- PASS: TestAgentUpdateWaitsForAnUnconfirmedStopWithoutAReceipt (0.26s)
---- PASS: TestAgentUpdateHoldsWhenTheBootCannotBeRead (0.00s)
---- PASS: TestAgentUpdateWaitsForARunOfAnotherDaemonHome (0.26s)
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	1.938s
+--- PASS: TestAgentUpdatesAreReportedNeverRun (0.00s)
+--- PASS: TestAgentUpdatesReportEmptyOnceCurrent (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.371s

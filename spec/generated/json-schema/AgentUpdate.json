@@ -24,15 +24,12 @@
                 "type": "string"
             },
             "maxItems": 8,
-            "description": "The package-manager command, one argument per item. Absent when the daemon will not run one."
+            "description": "The package-manager command, one argument per item. Absent when Control Rod will not offer one (not an npm global install)."
         },
         "note": {
             "type": "string",
             "maxLength": 300,
             "description": "Why there is no command, in a sentence."
-        },
-        "last_attempt": {
-            "$ref": "AgentUpdateAttempt.json"
         }
     },
     "required": [
@@ -40,6 +37,6 @@
         "name",
         "latest"
     ],
-    "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The command is the daemon's own: it is shown so\nthe person sees what will run, and the control plane never sends a command to the daemon.",
+    "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The command is shown for the person to run in a\nterminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.",
     "unevaluatedProperties": false
 }

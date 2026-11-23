@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { AgentUpdate } from "../api/types.js";
-import { type Passkeys, browserPasskeys, signAdmin } from "../lib/decide.js";
 
 /**
  * Agent updates (change record agent-update-prompt). When the app opens, the daemon's startup check
  * says which agent CLIs have a newer version. Each shows installed and latest version and the exact
- * command the daemon would run. Update and Update all are signed requests; the daemon runs only its
- * own command, while no run is active. Nothing here runs on a timer, and nothing installs unasked.
+ * command to run in a terminal, with a Copy button. Nothing here installs anything: the person runs
+ * the command, or `controlrod agents update`, which asks before each one. Nothing runs on a timer.
  *
  * The idea is from Orchestrator (agent-orchestrator, Apache-2.0); no code was copied.
  */
@@ -33,28 +32,26 @@ function writeDismissed(keys: string[]) {
   }
 }
 
-export function AgentUpdates({ passkeys = browserPasskeys }: { passkeys?: Passkeys } = {}) {
-  const qc = useQueryClient();
+export function AgentUpdates() {
   const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
-  const admin = useQuery({ queryKey: ["admin"], queryFn: api.admin });
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
-  const update = useMutation({
-    // The signature names the version shown, so the daemon never installs one the person did not see.
-    mutationFn: (list: AgentUpdate[]) => signAdmin("runtime.update", { agents: list.map((u) => ({ agent: u.agent, version: u.latest })) }, passkeys),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["runtimes"] }),
-  });
+  const [copied, setCopied] = useState<string | null>(null);
 
-  const requested = new Set<string>(q.data?.agent_updates_requested ?? []);
   const shown = (q.data?.agent_updates ?? []).filter((u) => !dismissed.includes(keyOf(u)));
   if (shown.length === 0) return null;
 
-  const may = admin.data?.actions.find((a) => a.command === "runtime.update");
-  const allowed = may?.allowed === true;
-  const updatable = shown.filter((u) => u.command?.length && !requested.has(u.agent));
   const dismiss = (keys: string[]) => {
     const next = [...new Set([...dismissed, ...keys])];
     setDismissed(next);
     writeDismissed(next);
+  };
+  const copy = async (u: AgentUpdate) => {
+    try {
+      await navigator.clipboard.writeText(u.command!.join(" "));
+      setCopied(u.agent);
+    } catch {
+      setCopied(null); /* the command stays on screen to copy by hand */
+    }
   };
   const noun = shown.length === 1 ? "agent update" : "agent updates";
 
@@ -65,7 +62,7 @@ export function AgentUpdates({ passkeys = browserPasskeys }: { passkeys?: Passke
           <h2 id="agent-updates-title">
             {shown.length} {noun}
           </h2>
-          <p className="muted small">Newer versions bring bug fixes, new models and features.</p>
+          <p className="muted small">Newer versions bring bug fixes, new models and features. Update between runs.</p>
         </div>
         <button type="button" className="au-close" aria-label="Dismiss agent updates" onClick={() => dismiss(shown.map(keyOf))}>
           ×
@@ -85,55 +82,25 @@ export function AgentUpdates({ passkeys = browserPasskeys }: { passkeys?: Passke
                 <span className="muted">{u.installed ? `v${u.installed}` : "unknown"}</span> → <strong>v{u.latest}</strong>
               </span>
               {u.command?.length ? (
-                requested.has(u.agent) ? (
-                  <span className="small muted">Queued</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn small primary"
-                    disabled={!allowed || update.isPending}
-                    title={allowed ? undefined : may?.reason}
-                    onClick={() => update.mutate([u])}
-                  >
-                    Update
-                  </button>
-                )
+                <button type="button" className="btn small" onClick={() => void copy(u)}>
+                  {copied === u.agent ? "Copied" : "Copy command"}
+                </button>
               ) : null}
             </div>
             {u.command?.length ? (
               <p className="small muted">
-                Runs <code>{u.command.join(" ")}</code>
+                Run in a terminal: <code>{u.command.join(" ")}</code>
               </p>
             ) : (
               <p className="small muted">{u.note ?? "Update it with the tool you installed it with."}</p>
-            )}
-            {requested.has(u.agent) && <p className="small muted">The daemon updates it when no run is active.</p>}
-            {u.last_attempt?.outcome === "failed" && (
-              <p className="small error" role="alert">
-                The last update failed{u.last_attempt.detail ? `: ${u.last_attempt.detail}` : "."}
-              </p>
             )}
           </li>
         ))}
       </ul>
       <footer className="au-foot">
-        {may !== undefined && !allowed && <p className="small muted">{may.reason}</p>}
-        {update.error && (
-          <p className="small error" role="alert">
-            {update.error.message}
-          </p>
-        )}
-        {updatable.length > 1 && (
-          <button
-            type="button"
-            className="btn small primary"
-            disabled={!allowed || update.isPending}
-            title={allowed ? undefined : may?.reason}
-            onClick={() => update.mutate(updatable)}
-          >
-            Update all
-          </button>
-        )}
+        <p className="small muted">
+          Or run <code>controlrod agents update</code> to review and install each one.
+        </p>
       </footer>
     </section>
   );

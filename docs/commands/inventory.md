@@ -27,7 +27,6 @@ checks the static rules and that this catalog matches the commands executed.
 | `check.recheck-override` | member | direct | Override a sticky checker fail | `work.ts` recordRecheckOverride | `POST /packages/:id/recheck-overrides` |
 | `runtime.report-status` | agent-via-daemon | none | Probe runtime | `subscriptions.ts` recordSubscriptionReport<br>`work.ts` recordRuntimeStatus | `POST /runner/claim` |
 | `runtime.report-agent-updates` | agent-via-daemon | none | Probe runtime (agent updates) | `agent-updates.ts` recordAgentUpdates | `POST /runner/claim` |
-| `runtime.take-agent-updates` | agent-via-daemon | none | Update runtime (daemon takes request) | `agent-updates.ts` takeAgentUpdates | `POST /runner/agent-updates/take` |
 | `verification.record-person` | member | direct | Record person verification | `person-verification.ts` recordPersonVerification | `POST /packages/:id/person-verifications` |
 | `preparation.confirm` | member | direct | Confirm requirements | `preparation/subjects.ts` confirmRequirements | `POST /packages/:id/preparation/confirm` |
 | `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |
@@ -57,7 +56,6 @@ checks the static rules and that this catalog matches the commands executed.
 | `admin.scram-review` | member | direct | SCRAM (quarantine review) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.scram-restart` | member | direct | SCRAM (staged restart) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.runtime-rollback` | member | direct | Pin runtime (rollback) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
-| `admin.runtime-update` | member | direct | Update runtime (request) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.budget-set` | member | direct | Set budget | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.theme-select` | member | none | Select office theme | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.chain-seal` | member | direct | Seal chain | `admin.ts` runAdmin | `POST /admin/commands/:name` |

@@ -6028,116 +6028,6 @@
         }
       }
     },
-    "/runner/agent-updates/take": {
-      "post": {
-        "operationId": "Runner_takeAgentUpdates",
-        "description": "The updates an administrator asked for, taken by the daemon: each is returned once. The daemon\nasks only while it holds an update with a command and nothing could be using an agent CLI, and\nruns only its own command, for the version signed for.",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "The request has succeeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "requests": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Runner.AgentUpdateRequest"
-                      }
-                    }
-                  },
-                  "required": [
-                    "requests"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The server could not understand the request due to invalid syntax.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Access is unauthorized.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Access is forbidden.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The server cannot find the requested resource.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The request conflicts with the current state of the server.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "428": {
-            "description": "Client error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "daemon_id": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{32}$",
-                    "description": "The same name the daemon sends with its agent updates; only its own approvals are returned."
-                  }
-                },
-                "required": [
-                  "daemon_id"
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
     "/runner/claim": {
       "post": {
         "operationId": "Runner_claim",
@@ -6254,11 +6144,6 @@
                     },
                     "maxItems": 10,
                     "description": "Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current."
-                  },
-                  "daemon_id": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{32}$",
-                    "description": "The daemon's own random name, sent with `agent_updates`. An administrator's approval is bound\nto the daemon whose report it was signed against and taken only by it. Not a credential."
                   }
                 },
                 "required": [
@@ -6977,14 +6862,7 @@
                       "items": {
                         "$ref": "#/components/schemas/Runner.AgentUpdate"
                       },
-                      "description": "Agent CLIs with a newer version, as the daemon found when it started. The daemon alone decides\nthe command; an administrator's `runtime.update` only asks it to run the one shown here."
-                    },
-                    "agent_updates_requested": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Runner.AgentId"
-                      },
-                      "description": "Agents an administrator asked to update that the daemon has not yet taken."
+                      "description": "Agent CLIs with a newer version, as the daemon found when it started, with the command the\nperson can run in a terminal. Nothing in Control Rod runs it from the browser."
                     }
                   },
                   "required": [
@@ -13698,60 +13576,15 @@
               "type": "string"
             },
             "maxItems": 8,
-            "description": "The package-manager command, one argument per item. Absent when the daemon will not run one."
+            "description": "The package-manager command, one argument per item. Absent when Control Rod will not offer one (not an npm global install)."
           },
           "note": {
             "type": "string",
             "maxLength": 300,
             "description": "Why there is no command, in a sentence."
-          },
-          "last_attempt": {
-            "$ref": "#/components/schemas/Runner.AgentUpdateAttempt"
           }
         },
-        "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The command is the daemon's own: it is shown so\nthe person sees what will run, and the control plane never sends a command to the daemon."
-      },
-      "Runner.AgentUpdateAttempt": {
-        "type": "object",
-        "required": [
-          "outcome",
-          "at"
-        ],
-        "properties": {
-          "outcome": {
-            "type": "string",
-            "enum": [
-              "done",
-              "failed"
-            ]
-          },
-          "detail": {
-            "type": "string",
-            "maxLength": 300
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "description": "How the last update the daemon ran for an agent ended."
-      },
-      "Runner.AgentUpdateRequest": {
-        "type": "object",
-        "required": [
-          "agent",
-          "version"
-        ],
-        "properties": {
-          "agent": {
-            "$ref": "#/components/schemas/Runner.AgentId"
-          },
-          "version": {
-            "type": "string",
-            "maxLength": 64
-          }
-        },
-        "description": "An administrator's signed request to update one agent to the version they were shown. The\ndaemon runs its own command only when that command installs exactly this version."
+        "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The command is shown for the person to run in a\nterminal (`controlrod agents update` runs the same one after asking); the daemon never runs it."
       },
       "Runner.Completion": {
         "type": "object",

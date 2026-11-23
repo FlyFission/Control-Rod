@@ -47,23 +47,6 @@ var Catalog = []Agent{
 	{ID: "grok", Name: "Grok CLI", Binary: "grok", Package: "@xai-official/grok"},
 }
 
-// Select returns the catalog entries named in ids, in catalog order; nil ids means all of them.
-func Select(ids []string) []Agent {
-	if ids == nil {
-		return Catalog
-	}
-	out := []Agent{}
-	for _, a := range Catalog {
-		for _, id := range ids {
-			if a.ID == id {
-				out = append(out, a)
-				break
-			}
-		}
-	}
-	return out
-}
-
 // Status is what a check found for one installed agent.
 type Status struct {
 	Agent     Agent
@@ -185,15 +168,6 @@ func npmGlobal(path, npmRoot, pkg string) bool {
 	}
 	prefix := filepath.ToSlash(filepath.Clean(npmRoot)) + "/" + pkg + "/"
 	return strings.HasPrefix(filepath.ToSlash(filepath.Clean(path)), prefix)
-}
-
-// LockPath is the agent install lock beside npm's global packages: every run holds it shared and
-// every install exclusively, whichever daemon home or terminal starts them.
-func LockPath(npmRoot string) string {
-	if npmRoot == "" {
-		return ""
-	}
-	return filepath.Join(npmRoot, ".controlrod-agents.lock")
 }
 
 // Outdated returns the statuses with a newer version published.

@@ -748,13 +748,10 @@ op runtimes(): {
   pins: RuntimePin[];
 
   /**
-   * Agent CLIs with a newer version, as the daemon found when it started. The daemon alone decides
-   * the command; an administrator's `runtime.update` only asks it to run the one shown here.
+   * Agent CLIs with a newer version, as the daemon found when it started, with the command the
+   * person can run in a terminal. Nothing in Control Rod runs it from the browser.
    */
   agent_updates?: Runner.AgentUpdate[];
-
-  /** Agents an administrator asked to update that the daemon has not yet taken. */
-  agent_updates_requested?: Runner.AgentId[];
 };
 
 /**
@@ -1389,27 +1386,9 @@ namespace Runner {
   union AgentId { "claude", "codex", "agy", "opencode", "grok" }
 
   /**
-   * An administrator's signed request to update one agent to the version they were shown. The
-   * daemon runs its own command only when that command installs exactly this version.
-   */
-  @extension("unevaluatedProperties", false)
-  model AgentUpdateRequest {
-    agent: AgentId;
-    @maxLength(64) version: string;
-  }
-
-  /** How the last update the daemon ran for an agent ended. */
-  @extension("unevaluatedProperties", false)
-  model AgentUpdateAttempt {
-    outcome: "done" | "failed";
-    @maxLength(300) detail?: string;
-    at: utcDateTime;
-  }
-
-  /**
    * An agent CLI with a newer published version, as the daemon's startup check found it. The check
-   * runs when the daemon starts, never on a timer. The command is the daemon's own: it is shown so
-   * the person sees what will run, and the control plane never sends a command to the daemon.
+   * runs when the daemon starts, never on a timer. The command is shown for the person to run in a
+   * terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.
    */
   @extension("unevaluatedProperties", false)
   model AgentUpdate {
@@ -1418,13 +1397,11 @@ namespace Runner {
     @maxLength(64) installed?: string;
     @maxLength(64) latest: string;
 
-    /** The package-manager command, one argument per item. Absent when the daemon will not run one. */
+    /** The package-manager command, one argument per item. Absent when Control Rod will not offer one (not an npm global install). */
     @maxItems(8) command?: string[];
 
     /** Why there is no command, in a sentence. */
     @maxLength(300) note?: string;
-
-    last_attempt?: AgentUpdateAttempt;
   }
   @minLength(1)
   @maxLength(100)
@@ -1464,12 +1441,6 @@ namespace Runner {
 
     /** Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
     @maxItems(10) agent_updates?: AgentUpdate[];
-
-    /**
-     * The daemon's own random name, sent with `agent_updates`. An administrator's approval is bound
-     * to the daemon whose report it was signed against and taken only by it. Not a credential.
-     */
-    @pattern("^[0-9a-f]{32}$") daemon_id?: string;
   }): Job | {
     @statusCode _: 204;
   } | Refused;
@@ -1492,18 +1463,6 @@ namespace Runner {
      */
     @minValue(0) events_from?: int32;
   }): LogReply | Refused;
-
-  /**
-   * The updates an administrator asked for, taken by the daemon: each is returned once. The daemon
-   * asks only while it holds an update with a command and nothing could be using an agent CLI, and
-   * runs only its own command, for the version signed for.
-   */
-  @route("/agent-updates/take") @post op takeAgentUpdates(@body body: {
-    /** The same name the daemon sends with its agent updates; only its own approvals are returned. */
-    @pattern("^[0-9a-f]{32}$") daemon_id: string;
-  }): {
-    requests: AgentUpdateRequest[];
-  } | Refused;
 
   /**
    * After a restart the daemon reports, from its retained receipts, runs whose process it found gone

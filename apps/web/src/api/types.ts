@@ -120,7 +120,6 @@ export type Metrics = S["Metrics"];
 export type ApiErrorBody = S["ApiError"];
 export type RuntimeStatus = S["Runner.RuntimeStatus"];
 export type AgentUpdate = S["Runner.AgentUpdate"];
-export type AgentId = S["Runner.AgentId"];
 export type WorkspaceProject = S["WorkspaceProjects.WorkspaceProject"];
 export type WorkspaceProjectCreatePayload = S["WorkspaceProjects.CreateProjectPayload"];
 export type WorkspaceProjectUpdatePayload = S["WorkspaceProjects.UpdateProjectPayload"];

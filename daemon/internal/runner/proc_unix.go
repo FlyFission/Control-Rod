@@ -141,27 +141,6 @@ func (r SpawnReceipt) Alive() bool {
 	return r.Matches() || (r.PGID > 0 && r.bootMatches() && groupExists(r.PGID))
 }
 
-// holdBootID reads the current boot for mayRemain; tests replace it.
-var holdBootID = bootID
-
-// mayRemain is Alive for a containment that holds agent updates, failing closed: a process group is
-// counted while it exists at all unless the boot is known to have changed (a group recorded without
-// a boot, or a current boot that cannot be read, proves nothing).
-func (r SpawnReceipt) mayRemain() bool {
-	if r.Containment == ContainCgroup {
-		return r.Alive()
-	}
-	if r.PGID <= 0 {
-		return r.Alive()
-	}
-	if r.BootID != "" {
-		if boot, err := holdBootID(); err == nil && boot != r.BootID {
-			return false // a new boot: nothing of the old one runs
-		}
-	}
-	return groupExists(r.PGID) || r.Matches()
-}
-
 // Pinned returns the receipt marked as held unreaped by this daemon (see waitExitNoReap).
 func (r SpawnReceipt) Pinned() SpawnReceipt { r.pinned = true; return r }
 

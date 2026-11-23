@@ -31,9 +31,6 @@ type Client struct {
 	// each time it starts, so a 401 re-reads it once: a daemon that outlives a control-plane restart
 	// keeps working instead of being refused forever.
 	tokenFile string
-	// daemonID names this daemon to the control plane alongside its agent updates, so an approval
-	// is taken only by the daemon whose report it was signed against (see DaemonID).
-	daemonID string
 }
 
 // NewClient returns a client for the control plane at base.
@@ -129,8 +126,6 @@ type ClaimRequest struct {
 	SubscriptionReport *SubscriptionReport `json:"subscription_report,omitempty"`
 	// AgentUpdates is nil until the startup update check finishes; then always sent, even empty.
 	AgentUpdates *[]AgentUpdate `json:"agent_updates,omitempty"`
-	// DaemonID is sent with AgentUpdates.
-	DaemonID string `json:"daemon_id,omitempty"`
 }
 
 // Claim asks for one job, offering only ready runtimes. It returns ErrNoWork on HTTP 204. The
@@ -142,7 +137,6 @@ func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeS
 	req := ClaimRequest{Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report}
 	if updates != nil {
 		req.AgentUpdates = &updates
-		req.DaemonID = c.daemonID
 	}
 	resp, err := c.post(ctx, "/runner/claim", req, 30*time.Second)
 	if err != nil {

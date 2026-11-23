@@ -1042,27 +1042,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runner/agent-updates/take": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * @description The updates an administrator asked for, taken by the daemon: each is returned once. The daemon
-         *     asks only while it holds an update with a command and nothing could be using an agent CLI, and
-         *     runs only its own command, for the version signed for.
-         */
-        post: operations["Runner_takeAgentUpdates"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/runner/claim": {
         parameters: {
             query?: never;
@@ -3290,35 +3269,18 @@ export interface components {
         "Runner.AgentId": "claude" | "codex" | "agy" | "opencode" | "grok";
         /**
          * @description An agent CLI with a newer published version, as the daemon's startup check found it. The check
-         *     runs when the daemon starts, never on a timer. The command is the daemon's own: it is shown so
-         *     the person sees what will run, and the control plane never sends a command to the daemon.
+         *     runs when the daemon starts, never on a timer. The command is shown for the person to run in a
+         *     terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.
          */
         "Runner.AgentUpdate": {
             agent: components["schemas"]["Runner.AgentId"];
             name: string;
             installed?: string;
             latest: string;
-            /** @description The package-manager command, one argument per item. Absent when the daemon will not run one. */
+            /** @description The package-manager command, one argument per item. Absent when Control Rod will not offer one (not an npm global install). */
             command?: string[];
             /** @description Why there is no command, in a sentence. */
             note?: string;
-            last_attempt?: components["schemas"]["Runner.AgentUpdateAttempt"];
-        };
-        /** @description How the last update the daemon ran for an agent ended. */
-        "Runner.AgentUpdateAttempt": {
-            /** @enum {string} */
-            outcome: "done" | "failed";
-            detail?: string;
-            /** Format: date-time */
-            at: string;
-        };
-        /**
-         * @description An administrator's signed request to update one agent to the version they were shown. The
-         *     daemon runs its own command only when that command installs exactly this version.
-         */
-        "Runner.AgentUpdateRequest": {
-            agent: components["schemas"]["Runner.AgentId"];
-            version: string;
         };
         "Runner.Completion": {
             claim_token: string;
@@ -8037,89 +7999,6 @@ export interface operations {
             };
         };
     };
-    Runner_takeAgentUpdates: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description The same name the daemon sends with its agent updates; only its own approvals are returned. */
-                    daemon_id: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        requests: components["schemas"]["Runner.AgentUpdateRequest"][];
-                    };
-                };
-            };
-            /** @description The server could not understand the request due to invalid syntax. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Access is unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Access is forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description The server cannot find the requested resource. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description The request conflicts with the current state of the server. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Client error */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-        };
-    };
     Runner_claim: {
         parameters: {
             query?: never;
@@ -8142,11 +8021,6 @@ export interface operations {
                     run_ceiling_seconds?: number;
                     /** @description Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
                     agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
-                    /**
-                     * @description The daemon's own random name, sent with `agent_updates`. An administrator's approval is bound
-                     *     to the daemon whose report it was signed against and taken only by it. Not a credential.
-                     */
-                    daemon_id?: string;
                 };
             };
         };
@@ -8766,12 +8640,10 @@ export interface operations {
                         /** @description The active pins, per runtime and role. */
                         pins: components["schemas"]["ControlRod.Records.RuntimePin"][];
                         /**
-                         * @description Agent CLIs with a newer version, as the daemon found when it started. The daemon alone decides
-                         *     the command; an administrator's `runtime.update` only asks it to run the one shown here.
+                         * @description Agent CLIs with a newer version, as the daemon found when it started, with the command the
+                         *     person can run in a terminal. Nothing in Control Rod runs it from the browser.
                          */
                         agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
-                        /** @description Agents an administrator asked to update that the daemon has not yet taken. */
-                        agent_updates_requested?: components["schemas"]["Runner.AgentId"][];
                     };
                 };
             };

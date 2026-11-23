@@ -15,7 +15,6 @@ import { isLane } from "./disclosure.js";
 import { configuredClosure, covers, declassify, downstreamOf, effectiveLane, ensureMarking } from "./markings.js";
 import { teach } from "./refusals.js";
 import { pinRuntime, rollbackRuntime } from "./runtimes.js";
-import { requestAgentUpdates } from "./agent-updates.js";
 import { enrollDaemonKey, retireDaemonKey } from "./run-attestation.js";
 import { pullScram, restartAfterScram, reviewQuarantine } from "./scram.js";
 import { sealChain } from "./seals.js";
@@ -680,16 +679,6 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     catalog: "admin.runtime-rollback", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       return { pins: await rollbackRuntime(c, caller.orgId, p, actorOf(caller)) };
-    },
-  },
-
-  "runtime.update": {
-    label: "Update agent CLIs",
-    // Installing software on the daemon's host: an administrator signs for it. The daemon runs only
-    // the command it reported for each agent, and only while no run is active.
-    catalog: "admin.runtime-update", signature: "direct", need: "administrator",
-    async run(c, _caller, p) {
-      return requestAgentUpdates(c, p);
     },
   },
 

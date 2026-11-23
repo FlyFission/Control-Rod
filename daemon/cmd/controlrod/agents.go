@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -39,31 +38,10 @@ func hostEnv() agentupdate.Env {
 	}
 }
 
-// agentLockPath is the agent install lock beside npm's global packages (symlinks resolved, so the
-// daemon and a terminal agree), or "" when npm's global folder is unknown.
-func agentLockPath() string {
-	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	root, err := hostEnv().NpmRoot(c)
-	if err != nil || !filepath.IsAbs(root) {
-		return ""
-	}
-	if real, rerr := filepath.EvalSymlinks(root); rerr == nil {
-		root = real
-	}
-	return agentupdate.LockPath(root)
-}
-
 // updateCheckOff reports whether the person turned the startup check off.
 func updateCheckOff(getenv func(string) string) bool {
 	v := strings.ToLower(strings.TrimSpace(getenv("CONTROLROD_UPDATE_CHECK")))
 	return v == "0" || v == "off" || v == "false" || v == "no"
-}
-
-// runUpdate runs a package-manager command for the daemon, with no shell, and returns its output.
-func runUpdate(ctx context.Context, name string, args []string) (string, error) {
-	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
-	return string(out), err
 }
 
 // agents runs `controlrod agents [check]` and `controlrod agents update [--all] [--yes] [agent...]`.
@@ -92,20 +70,13 @@ func agents(args []string) int {
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 		return cmd.Run()
 	}
-	lock := func() (func(), error) {
-		p := agentLockPath()
-		if p == "" {
-			return nil, errors.New("npm's global folder could not be found")
-		}
-		return runner.TryLockAgentsExclusive(p)
-	}
-	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), lock, run)
+	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), run)
 }
 
 // update chooses the agents to update, shows each command, asks, and runs only what was agreed.
-// Before the first command it takes the agent install lock exclusively, so nothing is installed
-// while any daemon's run on this host holds it; the app's Update waits for the daemon to be idle.
-func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, lock func() (func(), error), run func(string, []string) error) int {
+// It is the person's own terminal action, like running the npm command themselves: a run using the
+// CLI at that moment keeps whatever npm leaves, so the confirmation says to update between runs.
+func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, run func(string, []string) error) int {
 	outdated := agentupdate.Outdated(sts)
 	var chosen []agentupdate.Status
 	switch {
@@ -139,6 +110,7 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		return 2
 	}
 	reader := bufio.NewReader(in)
+	fmt.Fprintln(w, "Update between runs: a run using one of these CLIs right now may fail.")
 	if all && !yes {
 		// Update all: every command is shown first, then one yes covers exactly those.
 		for _, s := range chosen {
@@ -153,12 +125,6 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		yes = true
 	}
 	failed := 0
-	var unlock func()
-	defer func() {
-		if unlock != nil {
-			unlock()
-		}
-	}()
 	for _, s := range chosen {
 		fmt.Fprintf(w, "%s %s -> %s\n", s.Agent.Name, s.Installed, s.Latest)
 		if s.Command == nil {
@@ -169,14 +135,6 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		if !yes && !confirm(w, reader, "  Run it? [y/N] ") {
 			fmt.Fprintln(w, "  skipped")
 			continue
-		}
-		if unlock == nil {
-			u, err := lock()
-			if err != nil {
-				fmt.Fprintf(w, "Nothing was run: %v.\nA run may be using this CLI. Update from the app's agent updates card (the daemon waits until no run is active), or run this again when no run is active.\n", strings.TrimRight(err.Error(), "."))
-				return 1
-			}
-			unlock = u
 		}
 		if err := run(s.Command[0], s.Command[1:]); err != nil {
 			fmt.Fprintf(w, "  failed: %v\n", err)

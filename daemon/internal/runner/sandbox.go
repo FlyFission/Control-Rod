@@ -382,6 +382,12 @@ var CodexSafeFeatures = []string{
 	"instant_interrupt", "mcp_oauth_refresh_coordination", "mentions_v2", "prediction_preserve_parent_tools",
 	"reasoning_effort_override", "shell_tool", "sleep_tool", "system_proxy_fallback", "ultrafast_mode",
 	"unbounded_connection_retries", "unified_exec", "unified_exec_tty", "write_stdin_approval",
+	// Qualified for Codex 0.171.0 from codex-rs/features/src/lib.rs at rust-v0.171.0 (change record
+	// agent-update-prompt, evidence/codex-0.171.0-features.md): transport, context rendering, image
+	// budgets, Bedrock/GCP tool publishing and TUI-only behavior; none adds a tool or reach.
+	"code_mode_host_grpc", "code_mode_host_output_truncation", "guardian_include_additional_context",
+	"incremental_tools_legacy", "incremental_tools_legacy_gcp", "retain_client_tool_outputs", "tui_workspace",
+	"unified_image_budget", "untrusted_as_tool_output",
 }
 
 // CodexPolicyArgs is Codex's permission profile for a run, passed as overrides so the user's

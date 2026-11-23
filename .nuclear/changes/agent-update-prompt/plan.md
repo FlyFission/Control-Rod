@@ -5,6 +5,7 @@
 3. Run the check once when the daemon starts, behind an opt-out flag and variable.
 4. Remove the version guard and the confirmation in turn and record the failing tests (`evidence/mutation.log`).
 5. After the owner's yes (2026-11-22): extend `spec/api.tsp` and regenerate; report updates on claims and take requests in the daemon; record them and add `runtime.update` in the API; add the card to the app shell.
+7. (2026-11-23) Qualify Codex 0.171.0 features against a captured list; add `controlrod runtimes` and call it from doctor; quiet the startup log.
 6. Remove the idle guard in the daemon and the command check in the API in turn and record the failing tests (`evidence/mutation-panel.log`).
 
 ## Required links
@@ -13,7 +14,7 @@
 
 ## Exit criteria
 
-AU-01 to AU-07 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
+AU-01 to AU-09 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
 
 ## Source-lineage note
 

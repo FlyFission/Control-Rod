@@ -15,6 +15,7 @@
 | R-07 | Someone without authority installs software on the daemon's host from the browser. | `runtime.update` is a Direct command: a passkey signature over the exact agent names and administrator authority (test: unsigned refused; panel disables the buttons with the reason). | An update requested without a verified signature. |
 | R-08 | The control plane (or anyone who can write to it) makes the daemon run a command. | Only agent names cross to the daemon; it runs the command it computed itself and refuses a name it holds no command for (test). The API also refuses an agent without a command (test; check removal fails it). | Any command text accepted from the control plane. |
 | R-09 | An update replaces a CLI a run is using. | The daemon takes requests only while no run is active, and claims nothing while a command runs (test; guard removal fails it). | An update started while a run is active. |
+| R-10 | Qualifying a Codex feature lets an agent action reach further. | Each of the nine is classified from its upstream doc comment as transport, rendering, budget or TUI behavior; none adds a tool; the reasoning is recorded per feature. The refusal for anything else is unchanged. | A qualified feature found to add a tool, a network path or a host process. |
 | R-06 | The check sends data to a third party. | One GET per package to the npm registry (or the configured mirror) for the package's latest tag; no identifiers beyond what an HTTP request carries. | Any other outbound call. |
 
 ## Selected mode
@@ -28,7 +29,7 @@
 
 ## Exit criteria
 
-AU-01 to AU-07 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
+AU-01 to AU-09 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
 
 ## Source-lineage note
 

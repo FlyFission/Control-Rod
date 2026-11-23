@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -257,7 +258,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel, "containment", d.container.Mode)
 	if d.container.Mode != ContainCgroup {
-		d.log.Warn("runs are contained by process group only: a process that leaves its group is not tracked. Cgroup containment needs Linux with a systemd user manager.")
+		if runtime.GOOS == "linux" {
+			d.log.Warn("runs are contained by process group only: a process that leaves its group is not tracked. Cgroup containment needs Linux with a systemd user manager.")
+		} else {
+			// Cgroups are Linux only: on macOS the process group is the containment, as qualified.
+			d.log.Info("runs are tracked by process group on this platform (cgroup containment is Linux only)")
+		}
 	}
 	d.quit = ctx
 	// One daemon per home: two would each treat the other's runs as orphans.
@@ -387,15 +393,39 @@ func (d *Daemon) probe(ctx context.Context) {
 	d.status = next
 	d.subscriptions = &report
 	d.probeMu.Unlock()
+	var notYet []string
 	for _, s := range next {
 		was, seen := prev[s.Runtime]
 		switch {
+		case !s.Ready && !seen && awaitingConfinement(s.Runtime):
+			// Expected: detected, never started until its sandbox exists. One line for all of them.
+			notYet = append(notYet, displayName(s.Runtime))
 		case !s.Ready && (!seen || was):
-			d.log.Warn(s.Reason+". It is not offered for work.", "runtime", s.Runtime)
+			d.log.Warn(strings.TrimRight(s.Reason, ".")+". It is not offered for work.", "runtime", s.Runtime)
 		case s.Ready && seen && !was:
 			d.log.Info(s.Runtime+" is ready again and offered for work.", "runtime", s.Runtime, "version", s.Version)
 		}
 	}
+	if len(notYet) > 0 {
+		d.log.Info("found " + strings.Join(notYet, ", ") + ": not supported yet, so never started until Control Rod can sandbox them")
+	}
+}
+
+// awaitingConfinement reports whether a runtime is detected but never started (AwaitingConfinement).
+func awaitingConfinement(rt string) bool {
+	a, ok := AdapterFor(rt)
+	if !ok {
+		return false
+	}
+	_, waiting := a.(AwaitingConfinement)
+	return waiting
+}
+
+func displayName(rt string) string {
+	if a, ok := AdapterFor(rt); ok {
+		return a.DisplayName()
+	}
+	return rt
 }
 
 // markNotReady withdraws a runtime from offers without running anything, until the next probe.

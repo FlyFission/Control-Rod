@@ -15,7 +15,7 @@ Monitoring after merge: reports of a wrong version comparison or a command offer
 
 ## Exit criteria
 
-AU-01 to AU-07 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
+AU-01 to AU-09 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
 
 ## Source-lineage note
 

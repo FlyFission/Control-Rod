@@ -5,6 +5,7 @@
 //	controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR [--home DIR] [--daemon-home DIR]
 //	controlrod attestation-public
 //	controlrod agents [check] | controlrod agents update [--all] [--yes] [agent...]
+//	controlrod runtimes
 //
 // The daemon claims jobs from the control plane, runs an agent runtime in a per-job workspace
 // and reports outputs with an execution trace. It never makes a decision.
@@ -29,7 +30,7 @@ import (
 	"github.com/flyfission/control-rod/daemon/internal/version"
 )
 
-const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR | controlrod attestation-public | controlrod agents [check|update]"
+const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR | controlrod attestation-public | controlrod agents [check|update] | controlrod runtimes"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -47,6 +48,8 @@ func main() {
 		os.Exit(attestationPublic())
 	case "agents":
 		os.Exit(agents(os.Args[2:]))
+	case "runtimes":
+		os.Exit(runtimesCheck())
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)

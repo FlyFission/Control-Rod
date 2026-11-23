@@ -6,6 +6,8 @@
 | AU-02 Nothing installs without the person's yes; the command is shown first; update all asks once. | `update` in `agents.go` | `TestUpdateRunsNothingWithoutYes`, `TestUpdateOneAgentByName`, `TestUpdateAllAsksOnceForExactlyTheShownCommands`, `TestUpdateRefusesWithoutTerminalOrYes` | implemented and tested; mutation checked |
 | AU-03 Only a strict version reaches a command, and only for an npm install of the named package. | `strictVersion`, `npmInstalled` | `TestCheckRefusesAVersionThatCouldCarryArguments`, `TestUpdateSkipsAgentWithNoCommand` | implemented and tested; mutation checked |
 | AU-04 The check runs at startup or on the person's command only, and can be turned off. | `daemon` in `main.go`, `updateCheckOff`; `Daemon.checkAgentUpdates` | `TestUpdateCheckOff` | implemented and tested |
+| AU-08 Codex 0.171.0 passes the feature preflight; any other unqualified feature is still refused. | `CodexSafeFeatures` in `sandbox.go` | `TestCodex0171FeaturesAreQualified` (captured list), existing preflight tests | implemented and tested; failed first |
+| AU-09 `pnpm cr doctor` reports each agent as the daemon will find it. | `CheckRuntimes` (`runner/check.go`), `controlrod runtimes`, `agentChecks` in `scripts/cr.mjs` | manual run (verification E-06) | implemented, checked by hand |
 | AU-05 An administrator's signed request reaches the daemon as names only, once; an agent with no command or no reported update is refused; a request the daemon no longer needs is dropped. | `services/api/src/agent-updates.ts`; `runtime.update` in `admin.ts`; routes in `app.ts` | `services/api/test/agent-updates.test.ts` | implemented and tested; mutation checked |
 | AU-06 The daemon runs only its own command, only while no run is active, then probes and checks again. | `daemon/internal/runner/updates.go` | `TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked`, `TestAgentUpdateWaitsWhileARunIsActive` | implemented and tested; mutation checked |
 | AU-07 The app shows each outdated agent with the exact command, Update and Update all as signed requests, disabled with the reason without authority, and dismissible per version. | `apps/web/src/components/AgentUpdates.tsx` in `Shell.tsx` | `apps/web/src/components/agent-updates.test.tsx` | implemented and tested (jsdom) |
@@ -16,7 +18,7 @@
 
 ## Exit criteria
 
-AU-01 to AU-07 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
+AU-01 to AU-09 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
 
 ## Source-lineage note
 

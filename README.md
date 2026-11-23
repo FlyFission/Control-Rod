@@ -20,20 +20,31 @@ Control Rod is a free, open-source workspace that runs on your own machine. You 
 - **You choose where you come in** *(planned)*. Today you step in twice: when work is released and when a result is accepted. Next, you pick your own stops, from one yes at the start to a look at every stage, and any check that falls back to something weaker is logged and flagged so you can step in before it merges.
 - **One board for everything.** Every task, what it is waiting on and who has it, in one place, with a big red **SCRAM** button that stops runs on the record when you need everything to halt.
 
-## Why a second model, not the same one
+## The research behind it
 
-Published research keeps finding the same thing: a model is a poor judge of its own work.
+Control Rod's three core moves, locked work, an independent check and your sign-off, each answer a failure that published research keeps measuring.
 
 **When GPT-4 checked its own graph-coloring answers, it solved 2% of them, down from 16% with no check at all. With a checker outside the model, it solved 38%.**
 
 ![Bar chart from Stechly et al. 2024, Table 1. Graph coloring: answers alone 16%, GPT-4 checks itself 2%, outside checker 38%. Game of 24: 5%, 3% and 36%.](docs/assets/readme/second-checker.svg)
 
-- **Checking itself can make a model worse.** Asked to review its own answers with no outside feedback, GPT-4 went from **95.5%** to **89.0%** on grade-school math, and GPT-3.5 went from **75.8%** to **38.1%** on common-sense questions ([Huang et al., 2024](https://arxiv.org/abs/2310.01798), Table 3).
+**Why the work is locked before an agent starts**
+
+- **Models get lost in long back-and-forth.** Across 15 models and six generation tasks, giving the same instructions over several turns instead of all at once cut performance by an average of **39%** ([Laban et al., 2025](https://arxiv.org/abs/2505.06120)). Control Rod gives each agent one complete, signed brief.
+- **Clear roles help the same model do better.** In a study of why multi-agent systems fail, tightening the agents' role specifications alone raised ChatDev's success rate by **+9.4%**, with the same prompt and the same model, GPT-4o ([Cemri et al., 2025](https://arxiv.org/abs/2503.13657)).
+
+**Why a different model checks, without seeing the author's reasoning**
+
+- **Checking itself can make a model worse.** Asked to review its own answers with no outside feedback, GPT-4 went from **95.5%** to **89.0%** on grade-school math, and GPT-3.5 went from **75.8%** to **38.1%** on common-sense questions ([Huang et al., 2024](https://arxiv.org/abs/2310.01798), Table 3). A survey of the field found self-correction "works well in tasks that can use reliable external feedback" ([Kamoi et al., 2024](https://arxiv.org/abs/2406.01297)).
 - **Models recognize their own work and go easy on it.** GPT-4 picked out its own writing from other models' and people's **73.5%** of the time, and models that recognize themselves better also favor themselves more ([Panickssery et al., 2024](https://arxiv.org/abs/2404.13076)).
-- **Passing the tests is not the same as being right.** Maintainers of scikit-learn, Sphinx and pytest reviewed **296** AI-written pull requests that passed SWE-bench Verified's tests, and **roughly half** would not have been merged, even after adjusting for noise in their own decisions ([METR, 2026](https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/)). That is why a person still accepts the result.
+- **Models bend to whoever is talking to them.** Challenged on a correct answer, Claude 1.3 wrongly admitted a mistake on **98%** of questions, and a user suggesting a wrong answer cut accuracy by up to **27%** (LLaMA 2) ([Sharma et al., 2023](https://arxiv.org/abs/2310.13548)). The checker never sees the author's pitch, only the work and the evidence.
 - **Look-alike models share blind spots.** AI judges gave higher scores to models more similar to themselves, measured by how often they make the same mistakes (average Pearson **r = 0.84**), and mistakes are getting more alike as models get more capable ([Goel et al., 2025](https://arxiv.org/abs/2502.04313)).
 
-That is why Control Rod's checker comes from a different vendor and never sees the author's reasoning, and why it stops at one author and one checker by default: more agents is not automatically better, and each one costs time and money. To be clear about the evidence: the outside checker in the chart is a program that checks answers exactly, not a second AI model, and none of these studies measures one vendor's agent reviewing another's code. That is the bet Control Rod makes, and its records let you measure how it pays off on your own work. The figures, their conditions and the script that draws the chart are in [docs/research/second-checker](docs/research/second-checker/).
+**Why a person signs off**
+
+- **Passing the tests is not the same as being right.** Maintainers of scikit-learn, Sphinx and pytest reviewed **296** AI-written pull requests that passed SWE-bench Verified's tests, and **roughly half** would not have been merged, even after adjusting for noise in their own decisions ([METR, 2026](https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/)).
+
+Control Rod stops at one author and one checker by default: more agents is not automatically better, and each one costs time and money. To be clear about the evidence: the outside checker in the chart is a program that checks answers exactly, not a second AI model, and none of these studies measures one vendor's agent reviewing another's code. That is the bet Control Rod makes, and its records let you measure how it pays off on your own work. Every figure, its conditions and the script that draws the chart are in [docs/research/second-checker](docs/research/second-checker/).
 
 ## The table
 

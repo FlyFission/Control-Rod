@@ -41,6 +41,38 @@
       "where": "Summary: 4 active maintainers from 3 SWE-bench Verified repositories reviewed 296 AI-generated PRs; 'roughly half of test-passing SWE-bench Verified PRs' would not be merged, 'even after adjusting for noise in maintainer merge decisions'. Main results: grader averages about 24.2 percentage points (SE 2.7) above the maintainer merge decision.",
       "license": "(c) 2026 METR, all rights reserved; facts quoted with attribution, nothing reproduced",
       "conditions": "scikit-learn, Sphinx, pytest; agents from mid-2024 to late 2025, mostly Anthropic models; scores normalized to the golden-patch merge rate (about 68%); maintainers had no CI."
+    },
+    "laban2025": {
+      "title": "LLMs Get Lost In Multi-Turn Conversation",
+      "authors": "Philippe Laban, Hiroaki Hayashi, Yingbo Zhou, Jennifer Neville",
+      "url": "https://arxiv.org/abs/2505.06120",
+      "where": "Abstract: 'with an average drop of 39% across six generation tasks'. Introduction: '15 LLMs'. (Figure 1 caption says -35%; the README uses the abstract's figure.)",
+      "license": "CC BY 4.0",
+      "conditions": "Simulated sharded (multi-turn) vs fully specified single-turn instructions; six generation tasks."
+    },
+    "cemri2025": {
+      "title": "Why Do Multi-Agent LLM Systems Fail?",
+      "authors": "Mert Cemri et al.",
+      "url": "https://arxiv.org/abs/2503.13657",
+      "where": "Section 4 (FC1): 'improving agent role specifications alone yields a +9.4% success rate increase for ChatDev' 'with the same user prompt and LLM (GPT-4o)'.",
+      "license": "CC BY-NC-ND 4.0 (fact quoted with attribution, nothing reproduced)",
+      "conditions": "ChatDev on ProgramDev. Not used: a ~75% ChatDev failure rate and a +14% figure, which were not found in the text."
+    },
+    "kamoi2024": {
+      "title": "When Can LLMs Actually Correct Their Own Mistakes? A Critical Survey of Self-Correction of LLMs",
+      "authors": "Ryo Kamoi et al. (TACL 2024)",
+      "url": "https://arxiv.org/abs/2406.01297",
+      "where": "Abstract: 'self-correction works well in tasks that can use reliable external feedback'.",
+      "license": "CC BY 4.0",
+      "conditions": "Survey; qualitative finding."
+    },
+    "sharma2023": {
+      "title": "Towards Understanding Sycophancy in Language Models",
+      "authors": "Mrinank Sharma et al.",
+      "url": "https://arxiv.org/abs/2310.13548",
+      "where": "Section 3.2: 'Claude 1.3 wrongly admits mistakes on 98% of questions.' Section 3.3: 'The user suggesting an incorrect answer can reduce accuracy by up to 27% (LLaMA 2; Fig. 3).'",
+      "license": "CC BY 4.0",
+      "conditions": "Five assistants: claude-1.3, claude-2.0, gpt-3.5-turbo, gpt-4, llama-2-70b-chat."
     }
   },
   "chart": {
@@ -108,6 +140,26 @@
       "source": "metr2026",
       "value": "roughly half",
       "unit": "share of test-passing PRs maintainers would not merge, golden-adjusted"
+    },
+    "laban_multi_turn_drop": {
+      "source": "laban2025",
+      "value": 39,
+      "unit": "% average performance drop, 15 LLMs, six tasks"
+    },
+    "cemri_role_spec_gain": {
+      "source": "cemri2025",
+      "value": "+9.4%",
+      "unit": "ChatDev success rate, GPT-4o"
+    },
+    "sharma_claude13_false_admit": {
+      "source": "sharma2023",
+      "value": 98,
+      "unit": "% of questions"
+    },
+    "sharma_llama2_accuracy_drop": {
+      "source": "sharma2023",
+      "value": 27,
+      "unit": "% maximum accuracy reduction"
     }
   }
 }

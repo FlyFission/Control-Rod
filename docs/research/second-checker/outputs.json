@@ -1,5 +1,5 @@
 {
-  "inputs_sha256": "4d3be20b50b01c92afdb04983c3e1273d54d7091736103a2988c248c94c41472",
+  "inputs_sha256": "240bb4630befb67bfb2d1a227cf3edaee6b22d5e59ceeecb5b83a784d11700c1",
   "svg": "docs/assets/readme/second-checker.svg",
   "svg_sha256": "38f54b68b8697360a6fb1735cf7931183e63c9313064e541d757a4ad80cfefe4",
   "chart_values": {
@@ -46,6 +46,26 @@
       "source": "metr2026",
       "value": "roughly half",
       "unit": "share of test-passing PRs maintainers would not merge, golden-adjusted"
+    },
+    "laban_multi_turn_drop": {
+      "source": "laban2025",
+      "value": 39,
+      "unit": "% average performance drop, 15 LLMs, six tasks"
+    },
+    "cemri_role_spec_gain": {
+      "source": "cemri2025",
+      "value": "+9.4%",
+      "unit": "ChatDev success rate, GPT-4o"
+    },
+    "sharma_claude13_false_admit": {
+      "source": "sharma2023",
+      "value": 98,
+      "unit": "% of questions"
+    },
+    "sharma_llama2_accuracy_drop": {
+      "source": "sharma2023",
+      "value": 27,
+      "unit": "% maximum accuracy reduction"
     }
   }
 }

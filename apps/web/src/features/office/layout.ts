@@ -101,7 +101,7 @@ export const SEAT_CLEARANCE = { above: 35, below: 36, left: 30, right: 30 } as c
  */
 export const FIGURE_SPAN = { x: 62.5, y: 65 } as const;
 
-function grid(x: number, y: number, w: number, h: number, cols: number, rows: number): Point[] {
+export function grid(x: number, y: number, w: number, h: number, cols: number, rows: number): Point[] {
   const top = y + NAME_BAND + SEAT_CLEARANCE.above;
   const usable = h - NAME_BAND - SEAT_CLEARANCE.above - SEAT_CLEARANCE.below;
   // Columns run from the first seat a figure fits at to the last, never centred in equal cells.
@@ -150,21 +150,24 @@ export function route(from: RegionId, to: RegionId): Point[] {
   return [a, { x: a.x, y: CORRIDOR_Y }, { x: b.x, y: CORRIDOR_Y }, b];
 }
 
+type Rect = { x: number; y: number; w: number; h: number };
+const inside = (p: Point, r: Rect) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
 /**
- * Checks the graph's invariants: every region inside the canvas and clear of every other, every seat
- * and queue point inside its own region (or, for queues, on the corridor) and clear of the name band,
- * every door on its region's corridor edge, and every region reachable from every other.
+ * The invariants every layout shares, the office's and the plant's: every region known, of the right
+ * kind, once, inside the canvas, big enough to seat anyone and named; every seat inside its region and
+ * clear of the name band and walls; no two places closer than a fully marked figure; no two regions
+ * overlapping. `places` adds a layout's extra standing places (queues) to the spacing check.
  */
-export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
+export function checkRegionGeometry(regions: readonly Region[], canvas: { width: number; height: number }): string[] {
   const problems: string[] = [];
-  const inside = (p: Point, r: { x: number; y: number; w: number; h: number }) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
   const ids = new Set<string>();
   for (const r of regions) {
     if (!(REGION_IDS as readonly string[]).includes(r.id)) problems.push(`${r.id} is not a region of the office`);
     else if (r.kind !== ((CUBE_SETS as readonly string[]).includes(r.id) ? "cube-set" : "room")) problems.push(`${r.id} has the wrong kind`);
     if (ids.has(r.id)) problems.push(`${r.id} appears twice`);
     ids.add(r.id);
-    if (r.x < 0 || r.y < 0 || r.x + r.w > CANVAS.width || r.y + r.h > CANVAS.height) problems.push(`${r.id} leaves the canvas`);
+    if (r.x < 0 || r.y < 0 || r.x + r.w > canvas.width || r.y + r.h > canvas.height) problems.push(`${r.id} leaves the canvas`);
     if (r.w <= 0 || r.h <= NAME_BAND + 48) problems.push(`${r.id} is too small to seat anyone`);
     if (!r.name.trim()) problems.push(`${r.id} has no functional name`);
     for (const s of r.seats) {
@@ -173,12 +176,6 @@ export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
       if (s.y + SEAT_CLEARANCE.below > r.y + r.h) problems.push(`${r.id} has a seat too close to its far wall`);
       if (s.x - SEAT_CLEARANCE.left < r.x || s.x + SEAT_CLEARANCE.right > r.x + r.w) problems.push(`${r.id} has a seat too close to a side wall`);
     }
-    for (const q of r.queue) {
-      // In the corridor a queued figure needs its own reach above (no name plate to clear there).
-      if (q.y - (SEAT_CLEARANCE.above - 5) <= TOP_Y + TOP_H || q.y + SEAT_CLEARANCE.below >= BOTTOM_Y || q.x < 0 || q.x > CANVAS.width) problems.push(`${r.id} queues outside the corridor`);
-    }
-    const onEdge = r.kind === "cube-set" ? r.door.y === r.y + r.h : r.door.y === r.y;
-    if (!onEdge || r.door.x < r.x || r.door.x > r.x + r.w) problems.push(`${r.id} has its door off its corridor edge`);
   }
   for (const id of REGION_IDS) if (!ids.has(id)) problems.push(`${id} is missing`);
   // Fully marked figures in neighbouring places never meet.
@@ -194,6 +191,23 @@ export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
       const b = regions[j]!;
       if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) problems.push(`${a.id} overlaps ${b.id}`);
     }
+  return problems;
+}
+
+/**
+ * Checks the office graph's invariants: the shared geometry (checkRegionGeometry), every queue place
+ * on the corridor, every door on its region's corridor edge, and every region reachable from every other.
+ */
+export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
+  const problems = checkRegionGeometry(regions, CANVAS);
+  for (const r of regions) {
+    for (const q of r.queue) {
+      // In the corridor a queued figure needs its own reach above (no name plate to clear there).
+      if (q.y - (SEAT_CLEARANCE.above - 5) <= TOP_Y + TOP_H || q.y + SEAT_CLEARANCE.below >= BOTTOM_Y || q.x < 0 || q.x > CANVAS.width) problems.push(`${r.id} queues outside the corridor`);
+    }
+    const onEdge = r.kind === "cube-set" ? r.door.y === r.y + r.h : r.door.y === r.y;
+    if (!onEdge || r.door.x < r.x || r.door.x > r.x + r.w) problems.push(`${r.id} has its door off its corridor edge`);
+  }
   // Reachability: every door touches the corridor, which spans the canvas, so every route is a path
   // door, corridor, door; check each route stays inside the canvas and ends at its target's door.
   // Routes are walked only once every region is known, so a malformed graph returns problems, never throws.
@@ -210,3 +224,13 @@ export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
 
 /** Seats and queue places across the whole office: the floor must hold at least 40 figures before folding. */
 export const CAPACITY = REGIONS.reduce((n, r) => n + r.seats.length + r.queue.length, 0);
+
+/** A layout a stage can draw: its canvas and its 13 regions. The office and the plant are the two. */
+export interface StageLayout {
+  id: "office" | "plant";
+  canvas: { width: number; height: number };
+  regions: readonly Region[];
+  region: Readonly<Record<RegionId, Region>>;
+}
+
+export const OFFICE_LAYOUT: StageLayout = { id: "office", canvas: CANVAS, regions: REGIONS, region: REGION };

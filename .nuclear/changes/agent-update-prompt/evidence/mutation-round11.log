@@ -1,0 +1,34 @@
+## R11-1 the daemon's kept row offers no command (mutated)
+--- FAIL: TestAnIncompleteCheckKeepsAKnownUpdate (0.00s)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.047s
+FAIL
+## R11-1 the daemon's kept row offers no command (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.051s
+## R11-2 a turned-off check clears the report (mutated)
+--- FAIL: TestTurnedOffCheckClearsTheReport (0.02s)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.047s
+FAIL
+## R11-2 a turned-off check clears the report (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	(cached)
+## R11-1 the API's kept row offers no command (mutated)
+     × keeps the known row for an agent a fresh daemon could not check 17ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 4 passed (5)
+## R11-1 the API's kept row offers no command (restored)
+      Tests  5 passed (5)
+## R11-3 the command shows only from data fetched since focus (mutated)
+     × shows the command only from data fetched since the window regained focus 1015ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+            [0m×[0m
+                [0m×[0m
+## R11-3 the command shows only from data fetched since focus (restored)
+      Tests  10 passed (10)
+## R11-3 coming back to the window refetches (mutated)
+     × shows the command only from data fetched since the window regained focus 1018ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+          [0m×[0m
+              [0m×[0m
+## R11-3 coming back to the window refetches (restored)
+      Tests  10 passed (10)

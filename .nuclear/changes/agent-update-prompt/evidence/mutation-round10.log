@@ -1,0 +1,66 @@
+## R10-1 the check stamps the probed path, resolving once (mutated)
+--- FAIL: TestCheckStampsTheProbedPath (0.00s)
+    agentupdate_test.go:325: lookups 2, stamped [/a/grok], status []agentupdate.Status{agentupdate.Status{Agent:agentupdate.Agent{ID:"grok", Name:"Grok CLI", Binary:"grok", Package:"@xai-official/grok"}, Path:"/a/grok", Installed:"1.0.77", Latest:"1.0.92", Command:[]string(nil), Note:"installed outside npm (/a/grok); update it with the tool you installed it with", Stamp:"/a/grok|7160100|-rwxr-xr-x|1795467069641494882"}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.004s
+FAIL
+## R10-1 the check stamps the probed path, resolving once (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.004s
+## R10-2 recheck refuses a moved executable (mutated)
+--- FAIL: TestRecheckLooksAtTheSameExecutable (0.00s)
+    agentupdate_test.go:310: is now /opt/grok: got "/opt/grok is no longer npm's global copy"
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+FAIL
+## R10-2 recheck refuses a moved executable (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	(cached)
+## R10-2 recheck refuses a copy no longer npm's (mutated)
+--- FAIL: TestRecheckLooksAtTheSameExecutable (0.00s)
+    agentupdate_test.go:310: no longer npm's global copy: got ""
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.006s
+FAIL
+## R10-2 recheck refuses a copy no longer npm's (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	(cached)
+## R10-2 recheck refuses a version at or past latest (mutated)
+--- FAIL: TestRecheckLooksAtTheSameExecutable (0.00s)
+    agentupdate_test.go:310: not older than: got ""
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.004s
+FAIL
+## R10-2 recheck refuses a version at or past latest (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	(cached)
+## R10-2 recheck refuses an unreadable version (mutated)
+--- FAIL: TestRecheckLooksAtTheSameExecutable (0.00s)
+    agentupdate_test.go:310: could not be read: got " is now installed, which is not older than 1.0.92"
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+FAIL
+## R10-2 recheck refuses an unreadable version (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	(cached)
+## R10-2 the CLI skips what the recheck refuses (mutated)
+--- FAIL: TestUpdateRechecksAfterTheYes (0.00s)
+    agents_test.go:158: code 0, ran [npm install --global @xai-official/grok@1.0.92 npm install --global opencode-ai@1.19.6]:
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+## R10-2 the CLI skips what the recheck refuses (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+## R10-3 the panel refetches on focus (mutated)
+     × refetches when the window regains focus 1015ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+            [0m×[0m
+                [0m×[0m
+## R10-3 the panel refetches on focus (restored)
+      Tests  9 passed (9)
+## R10-3 Copy asks the control plane first (mutated)
+     × asks again before copying, and copies nothing for an update the server has cleared 20ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 8 passed (9)
+## R10-3 Copy asks the control plane first (restored)
+      Tests  9 passed (9)
+## R10-3 Copy copies only an offer still made (guard off, copies the old offer) (mutated)
+     × asks again before copying, and copies nothing for an update the server has cleared 31ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 8 passed (9)
+## R10-3 Copy copies only an offer still made (restored)
+      Tests  9 passed (9)

@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
 )
 
 // Config is everything the daemon needs. The token is held here and in the client only.
@@ -75,6 +77,16 @@ type Config struct {
 	Container *Container
 	// Breaker sets the runaway breaker's thresholds; nil means DefaultBreakerPolicy.
 	Breaker *BreakerPolicy
+	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts, never
+	// on a timer; nil turns the check off. The daemon only reports what it finds: it never installs.
+	UpdateCheck func(ctx context.Context) []agentupdate.Status
+	// UpdateCheckOff says the person turned the check off. The daemon then reports an empty list on
+	// its claims, so an update an earlier daemon reported is cleared rather than shown forever.
+	UpdateCheckOff bool
+	// UpdateStamp says what an agent's binary on PATH is now (agentupdate.Stamp). Before each claim
+	// the cached report drops any agent whose binary changed since the check read its version, so an
+	// update installed while the daemon runs is never offered again. nil skips that.
+	UpdateStamp func(binary string) string
 }
 
 // RunCeiling is the longest a run lasts in this daemon: its timeout, then the graceful stop ladder
@@ -142,6 +154,8 @@ type Daemon struct {
 	ns string
 	// retry spaces out outbox deliveries and evidence reports that keep failing.
 	retry *retryGate
+	// updates is what the startup agent-update check found.
+	updates agentUpdates
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -267,6 +281,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.sweepOrphans(ctx)
 	d.probe(ctx)
 	go d.probeLoop(ctx)
+	if d.cfg.UpdateCheck != nil {
+		go d.checkAgentUpdates(ctx)
+	} else if d.cfg.UpdateCheckOff {
+		d.updates.set(nil)
+	}
 	outboxDone := make(chan struct{})
 	go func() { d.outboxLoop(ctx); close(outboxDone) }()
 	jobsCtx, cancelJobs := context.WithCancelCause(context.Background())
@@ -283,7 +302,7 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport())
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport(), d.updates.report(d.cfg.UpdateStamp)...)
 		if job != nil {
 			job.claimSent = claimSent
 		}

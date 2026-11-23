@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { useState } from "react";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -190,6 +191,37 @@ describe("Agent updates", () => {
     const after = await screen.findByRole("region", { name: "1 agent update" });
     await waitFor(() => expect(after.textContent).toContain("npm install --global opencode-ai@1.19.6"));
     expect(after.textContent).not.toContain("grok");
+  });
+
+  it("a remount with a cached list shows no command until a fresh response arrives", async () => {
+    const user = userEvent.setup();
+    function Toggle() {
+      const [on, setOn] = useState(true);
+      return (
+        <>
+          <button type="button" onClick={() => setOn(!on)}>
+            toggle
+          </button>
+          {on ? <AgentUpdates /> : null}
+        </>
+      );
+    }
+    updates = [grok];
+    const { qc } = await renderPage(<Toggle />);
+    await waitFor(() => expect(screen.getByRole("region", { name: "1 agent update" }).textContent).toContain("npm install --global @xai-official/grok@1.0.92"));
+    await user.click(screen.getByRole("button", { name: "toggle" }));
+    expect(qc.getQueryData(["runtimes"])).toBeTruthy(); // the list stays cached
+    // Mount again while the refetch is held: the cached row shows no command.
+    let release!: () => void;
+    gate = new Promise<void>((r) => (release = r));
+    await user.click(screen.getByRole("button", { name: "toggle" }));
+    const panel = await screen.findByRole("region", { name: "1 agent update" });
+    expect(panel.textContent).not.toContain("npm install");
+    expect(screen.queryByRole("button", { name: "Copy command" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Check again" })).toBeTruthy();
+    release();
+    gate = null;
+    await waitFor(() => expect(screen.getByRole("region").textContent).toContain("npm install --global @xai-official/grok@1.0.92"));
   });
 
   it("disappears when a refetch finds every agent current", async () => {

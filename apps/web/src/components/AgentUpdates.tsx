@@ -59,13 +59,14 @@ function writeDismissed(keys: string[]) {
 }
 
 export function AgentUpdates() {
-  // Coming back to the window refetches, so a card the control plane has cleared goes away (no timer).
-  const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes, refetchOnWindowFocus: "always" });
+  // Mounting and coming back to the window refetch, so a card the control plane has cleared goes away (no timer).
+  const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes, refetchOnWindowFocus: "always", refetchOnMount: "always" });
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [copied, setCopied] = useState<string | null>(null);
   // When the person last came back to the window. A command is shown only from data fetched after
   // that, so a cached list never offers a command the control plane may already have cleared.
-  const [focusedAt, setFocusedAt] = useState(0);
+  // Starts at mount: a list already cached when the panel mounts must be fetched again first.
+  const [focusedAt, setFocusedAt] = useState(() => Date.now());
   const qc = useQueryClient();
   useEffect(() => {
     const back = () => {

@@ -70,7 +70,7 @@ Verdicts as in [workbench-donors.md](workbench-donors.md): **adopt** (take as is
 
 1. **Built in #159 (record `board-attention`), not in this note's change:** AW1 to AW4, web app only.
 2. **Next, no gate:** AW5 (Today agrees with the Inbox) and AW7 (collapse old Accepted). Each is a web-only change with its own record.
-3. **With their gates:** AW9 and AW11 with slice M6; AW10 with M5; AW16 after a threat-model row and a red-team case.
+3. **With their gates:** AW9 with slice M6; AW11 after M6, with its spec addition; AW10 with M5; AW16 after a threat-model row and a red-team case.
 4. **Not planned:** AW15 and AW18 until the sandbox and deployment work they depend on exists.
 
 ## Where Control Rod should not follow

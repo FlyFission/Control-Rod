@@ -72,7 +72,7 @@ func TestAHardLinkedLockFileIsRefusedAndTheOtherNameLeftAlone(t *testing.T) {
 	if err := os.Link(other, filepath.Join(home, "daemon.lock")); err != nil {
 		t.Skipf("hard links unavailable here: %v", err)
 	}
-	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "single name") {
+	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "single name") || !strings.Contains(err.Error(), "first, then remove") {
 		t.Fatalf("a hard-linked daemon.lock must be refused: %v", err)
 	}
 	if b, _ := os.ReadFile(other); string(b) != "keep me\n" {

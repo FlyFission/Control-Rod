@@ -136,7 +136,10 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 		// a slow host.
 		// A command that exited on its own (a code of 0 or more) answered, even if the deadline passed
 		// at the same moment: a sign-out at the deadline is a sign-out, not a slow host.
-		if errors.Is(c.Err(), context.DeadlineExceeded) && ctx.Err() == nil && (err != nil || code < 0) {
+		// A definite error (the executable is gone) is an answer too: only a command the deadline
+		// stopped, or one that could not start because the deadline had passed, is a timeout.
+		stopped := (err == nil && code < 0) || errors.Is(err, context.DeadlineExceeded)
+		if errors.Is(c.Err(), context.DeadlineExceeded) && ctx.Err() == nil && stopped {
 			timedOut = true
 		}
 		return out, code, err

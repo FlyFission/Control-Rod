@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -300,5 +301,26 @@ func TestACLIThatExitsWhileAHelperHoldsItsOutputKeepsItsExitCode(t *testing.T) {
 	out, code, err := ExecRunner(context.Background(), "signedin")
 	if code != 0 || err != nil || !strings.Contains(out, "Logged in") {
 		t.Fatalf("a CLI that exited 0 must read as exit 0: out %q, code %d, err %v", out, code, err)
+	}
+}
+
+func TestADefiniteErrorAtTheDeadlineIsNotATimeout(t *testing.T) {
+	stubArtifact(t)
+	shortProbes(t)
+	// The executable is gone: the start fails with "not found", just as the deadline passes.
+	gone := func(ctx context.Context, _ string, _ ...string) (string, int, error) {
+		<-ctx.Done()
+		return "", -1, exec.ErrNotFound
+	}
+	if st := Probe(context.Background(), "mycli", "", gone); st.Ready || st.timedOut {
+		t.Fatalf("a removed executable is an answer, not a slow host: %+v", st)
+	}
+	// A start refused because the deadline had already passed is a timeout.
+	late := func(ctx context.Context, _ string, _ ...string) (string, int, error) {
+		<-ctx.Done()
+		return "", -1, ctx.Err()
+	}
+	if st := Probe(context.Background(), "mycli", "", late); !st.timedOut {
+		t.Fatalf("a start the deadline stopped is a timeout: %+v", st)
 	}
 }

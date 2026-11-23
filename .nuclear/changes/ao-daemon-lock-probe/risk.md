@@ -40,7 +40,7 @@
 ## Required proof
 
 - Command/check/eval to run: four checks.
-  - `cd daemon && go test -race ./internal/runner -run 'TestASecondDaemon|TestANewHolder|TestAHomeThatCannot|TestASymlinked|TestAHardLinked|TestACleanRelease|TestOneDaemonPerHome|TestAProbe|TestOneSlowProbe|TestACodex|TestASignOut|TestAWithdrawal|TestANewExecutable|TestTheDaemonOffersOnlyReadyRuntimes|TestProbe' -count=1`
+  - `cd daemon && go test -race ./internal/runner -run 'TestASecondDaemon|TestANewHolder|TestAHomeThatCannot|TestASymlinked|TestAHardLinked|TestACleanRelease|TestOneDaemonPerHome|TestAProbe|TestOneSlowProbe|TestACodex|TestASignOut|TestAWithdrawal|TestANewExecutable|TestACLIThatExits|TestADefiniteError|TestTheDaemonOffersOnlyReadyRuntimes|TestProbe' -count=1`
   - `cd daemon && go test ./internal/runner -count=1`, compared with the same run on `origin/main`
   - `python3 tools/check_originality.py`
   - `git diff --check origin/main`

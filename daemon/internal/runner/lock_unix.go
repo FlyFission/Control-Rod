@@ -40,8 +40,15 @@ func LockHome(home string) (func(), error) {
 	}
 	// One name only: a hard link would let the PID write change another file.
 	if fi, serr := f.Stat(); serr != nil || !fi.Mode().IsRegular() || hardLinked(fi) {
+		pid := readHolderPID(f)
 		f.Close()
-		return nil, fmt.Errorf("%s is not a plain file with a single name; Control Rod will not start until it is (remove it)", path)
+		// Removing a lock file another daemon still holds would let a second daemon lock a new file
+		// at the same path: stop the holder first.
+		who := "any Control Rod daemon using this home"
+		if pid > 0 && processExists(pid) {
+			who = fmt.Sprintf("the Control Rod daemon using this home (daemon.lock records pid %d)", pid)
+		}
+		return nil, fmt.Errorf("%s is not a plain file with a single name; Control Rod will not start until it is. Stop %s first, then remove %s", path, who, path)
 	}
 	if err := flockHome(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		// A new holder writes its PID right after it wins the lock; give it that moment, so a crashed

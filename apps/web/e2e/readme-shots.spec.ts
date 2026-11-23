@@ -1,6 +1,6 @@
 /**
- * Front-page screenshots (README tour): the office under a released world, the inbox with its
- * sign-off drawer open, and the packages list, from a release build against the same recorded sample
+ * Front-page screenshots (README tour): the board at home, the office under a released world, the
+ * inbox with its sign-off drawer open, and the packages list, from a release build against the same recorded sample
  * fixtures as phase3-exit.spec.ts. Skipped unless SHOTS_DIR is set. The readme-shots workflow runs it
  * and keeps the pictures as a build artifact:
  *   THEME_TEST_RELEASE=true SHOTS_DIR=/tmp/shots pnpm exec playwright test e2e/readme-shots.spec.ts --project=chromium
@@ -111,6 +111,64 @@ const figs = () => {
   ], needs_me: 1, inbox_items: 2, hidden: 0, generated_at: new Date().toISOString() };
 };
 
+/** Sample software cards for the board shot: one in each column, a running author, a pre-checked
+ * card waiting on a signature, and an unclassified capture in Ready. */
+const boardBase = {
+  schema_version: "0.1.0", revision: 1, project: "web-app", mode: "software", rigor_mode: "standard", data_lane: "internal",
+  objective: "Do the work.", design_inputs: [], acceptance_criteria: ["Tests pass"],
+  agent_assignment: [{ role: "author", agent_baseline: "software-author", baseline_revision: 1 }],
+  verification: { method: "agent-pre-check", verifier: "checker-codex", verifier_receives: ["deliverable"], required_custody: { decisive_evidence_generated_by: "verifier", preparer_may_present: false } },
+};
+const patch = [{ id: "D1", type: "patch", format: ["diff"] }];
+const boardCards = [
+  { ...boardBase, id: "WP-0031", title: "Add dark mode to settings", status: "draft", grade: "general-service", deliverables: patch },
+  { ...boardBase, id: "WP-0032", title: "Rate-limit the public API", status: "draft", grade: "general-service", deliverables: patch },
+  { ...boardBase, id: "WP-0033", title: "Fix the login redirect", status: "in-work", grade: "general-service", deliverables: patch },
+  { ...boardBase, id: "WP-0034", title: "Upgrade to Node 22", status: "in-work", grade: "general-service", deliverables: patch },
+  { ...boardBase, id: "WP-0035", title: "Flaky checkout test", status: "in-verification", grade: "general-service", deliverables: patch },
+  { ...boardBase, id: "WP-0036", title: "Write the API changelog", status: "in-verification", grade: "general-service", deliverables: [{ id: "D1", type: "document", format: ["md"] }] },
+  { ...boardBase, id: "WP-0037", title: "Rotate the signing keys", status: "in-verification", grade: "safety", deliverables: patch },
+  { ...boardBase, id: "WP-0030", title: "Cache the search index", status: "accepted", grade: "general-service", deliverables: patch },
+];
+const running = new Set(["WP-0033", "WP-0034", "WP-0035"]);
+async function mockBoard(page: import("@playwright/test").Page) {
+  const html = (r: import("@playwright/test").Route) => (r.request().headers()["accept"] ?? "").includes("text/html");
+  await page.route("**/packages", (r) => (html(r) ? r.fallback() : r.fulfill(json(boardCards))));
+  await page.route("**/packages/WP-003*", (r) => {
+    if (html(r)) return r.fallback();
+    const id = new URL(r.request().url()).pathname.split("/")[2];
+    const pkg = boardCards.find((x) => x.id === id);
+    const runs = running.has(id ?? "")
+      ? [{ id: `R-${id}`, package_id: id, package_revision: 1, role: id === "WP-0035" ? "checker" : "author", status: "running", round: 1, agent_baseline: id === "WP-0035" ? "checker-codex" : "software-author", runtime: { kind: "local", provider: id === "WP-0034" ? "codex" : id === "WP-0035" ? "codex" : "claude", model: "any" }, queued_at: new Date(Date.now() - 900e3).toISOString(), started_at: new Date(Date.now() - 880e3).toISOString() }]
+      : [];
+    return r.fulfill(json({ package: pkg, runs, outputs: [], decisions: [], subject_digest: { algorithm: "sha256", value: "0".repeat(64) }, originators: ["ben"] }));
+  });
+  await page.route("**/packages/WP-003*/actions", (r) => {
+    const id = new URL(r.request().url()).pathname.split("/")[2];
+    const pkg = boardCards.find((x) => x.id === id);
+    return r.fulfill(json(pkg?.status === "in-verification" && id !== "WP-0035"
+      ? [{ command: "accept", label: "Accept", allowed: true, signature: "direct" }, { command: "return", label: "Return for revision", allowed: true, signature: "direct" }]
+      : pkg?.status === "draft" ? [{ command: "release", label: "Release", allowed: true, signature: "direct" }] : []));
+  });
+  await page.route("**/packages/*/person-verifications", (r) => r.fulfill(json([])));
+  // The checker passed two cards: the changelog waits on a signature, the Safety card on a person.
+  await page.route("**/office", (r) => (html(r) ? r.fallback() : r.fulfill(json(["WP-0036", "WP-0037"].map((id) => ({ kind: "accept", package_id: id, package_revision: 1, title: id, detail: "Pre-check passed.", since: new Date(Date.now() - 1200e3).toISOString() }))))));
+  // The daemon reported a moment ago with both agents ready, so the board shows no daemon notice.
+  await page.route("**/runtimes", (r) => (html(r) ? r.fallback() : r.fulfill(json({ reported_at: new Date().toISOString(), runtimes: [{ runtime: "claude", ready: true, version: "2.1.316 (Claude Code)", login_checked: true }, { runtime: "codex", ready: true, version: "0.167.0", login_checked: true }], pins: [] }))));
+  await page.route("**/captures", (r) => (html(r) ? r.fallback() : r.fulfill(json([{ schema_version: "0.1.0", id: "C-1", text: "Sign-up form drops the referral code", source: "web", created_at: new Date(Date.now() - 600e3).toISOString() }]))));
+  // A stream that opens and stays open, so the board reads live.
+  await page.addInitScript(() => {
+    class OpenSource {
+      listeners = new Map<string, ((e: Event) => void)[]>();
+      constructor() { queueMicrotask(() => setTimeout(() => this.emit("open"), 0)); }
+      emit(type: string) { (this.listeners.get(type) ?? []).forEach((fn) => fn(new Event(type))); }
+      addEventListener(type: string, fn: (e: Event) => void) { this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]); }
+      close() {}
+    }
+    Object.defineProperty(window, "EventSource", { value: OpenSource, configurable: true });
+  });
+}
+
 test("readme shots", async ({ page, browserName }) => {
   test.skip(!OUT || browserName !== "chromium");
   test.setTimeout(180_000);
@@ -142,4 +200,9 @@ test("readme shots", async ({ page, browserName }) => {
   await page.goto("/packages");
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${OUT}/packages.png` });
+  // The board last: its routes for the sample software cards replace the packages list above.
+  await mockBoard(page);
+  await page.goto("/");
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: `${OUT}/board.png` });
 });

@@ -500,36 +500,84 @@
 }
 
 /*
- * The Plant (plant view design, sections 6 and 7). One plan drawing, quiet when normal: no figure
- * pulses, and motion is a single fade on a change of state, none with reduced motion or a hidden tab.
- * Plates keep their opaque dark face; on the plant's dark art the ring is a cool grey rather than
- * white, which the quality harness holds to 3:1 against the scene like any other ring.
+ * The Plant (plant view design, sections 6 and 7). A control room console at night: a framed drawing
+ * with grid references and a status bar, a lit reactor, and light only where something is on. Motion is
+ * slow and only on things that are running (the core's glow, the crane, a newly lit annunciator
+ * window), and none with reduced motion or a hidden tab. Plates keep their opaque dark face; on the
+ * plant's dark art the ring is a cool grey, which the quality harness holds to 3:1 like any other ring.
  */
 .office-stage[data-layout="plant"] {
   --office-ring: #b8c7d6;
-  border-radius: 10px;
-  box-shadow: 0 0 0 1px #1d2b3b, 0 18px 48px -24px #000000;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px #1d2b3b;
 }
 .office-stage[data-layout="plant"] .office-figure[data-state="working"] .office-figure-outline {
   animation: none;
 }
+/* Each figure stands in the light of its state: a pool drawn in the scene layer, under the figure. */
+.plant-figure-light {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgb(70 211 255 / 0.4), rgb(70 211 255 / 0) 68%);
+}
+.plant-figure-light:is([data-state="needs"], [data-state="changed"]) {
+  background: radial-gradient(circle, rgb(255 179 71 / 0.45), rgb(255 179 71 / 0) 68%);
+}
+.plant-figure-light[data-state="stuck"] {
+  background: radial-gradient(circle, rgb(255 93 93 / 0.45), rgb(255 93 93 / 0) 68%);
+}
+.plant-figure-light[data-state="waiting"] {
+  background: radial-gradient(circle, rgb(167 139 250 / 0.35), rgb(167 139 250 / 0) 68%);
+}
+/* Plates: the opaque plate with an accent bar, inside the ring, for the zone they stand in. */
 .office-stage[data-layout="plant"] .office-plate {
+  --plate-accent: #46d3ff;
+  padding-left: 11px;
+  border-radius: 3px;
   box-shadow: 0 0 0 1.5px var(--office-ring);
-  border-radius: 4px;
+}
+.office-stage[data-layout="plant"] .office-plate::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: 3px;
+  border-radius: 1px;
+  background: var(--plate-accent);
+}
+.office-stage[data-layout="plant"] .office-plate-name {
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 .office-stage[data-layout="plant"] .office-plate-label {
-  font-variant: small-caps;
-  letter-spacing: 0.04em;
+  color: #8fdcff;
+}
+.office-stage[data-layout="plant"] .office-region:is([data-region="process"], [data-region="mechanical"], [data-region="electrical"], [data-region="civil"], [data-region="assurance"], [data-region="project-controls"]) .office-plate {
+  --plate-accent: #7f9fc0;
+}
+.office-stage[data-layout="plant"] .office-region:is([data-region="bench"], [data-region="document-control"]) .office-plate {
+  --plate-accent: #c9b48a;
+}
+.office-stage[data-layout="plant"] .office-region[data-region="quarantine"] .office-plate {
+  --plate-accent: #ffb347;
+}
+.office-stage[data-layout="plant"] .office-region[data-region="your-office"] .office-plate {
+  --plate-accent: #ffd59a;
 }
 .plant-zone-name {
   position: absolute;
   transform: translateY(-50%);
   padding: 0 6px;
-  background: #060a10;
-  color: #a9bbcc;
+  background: #04070c;
+  color: #8fb3cf;
+  font-family: var(--mono);
   font-size: var(--fs-chip);
-  font-variant: small-caps;
-  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
   line-height: 1.3;
   white-space: nowrap;
   pointer-events: none;
@@ -541,7 +589,14 @@
   /* Sits above the wall line so the bays' plates below never cover it. */
   transform: translateY(-78%);
   z-index: 3;
-  background: #080e16;
+  background: #070d15;
+}
+/* The scene's finish: faint scan lines and a vignette, part of the art layer and under every plate. */
+.plant-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(0deg, rgb(255 255 255 / 0.018) 0 1px, rgb(0 0 0 / 0) 1px 3px), radial-gradient(ellipse at 50% 42%, rgb(0 0 0 / 0) 58%, rgb(0 0 0 / 0.5) 100%);
 }
 .plant-reactor {
   pointer-events: none;
@@ -551,14 +606,14 @@
 }
 .plant-rods-caption {
   position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 4px;
+  left: 8px;
+  right: 8px;
+  bottom: 5px;
   margin: 0;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 3px;
   background: #0a0a0c;
-  box-shadow: 0 0 0 1.5px var(--office-ring);
+  box-shadow: 0 0 0 1px var(--office-ring), inset 3px 0 0 #ff5d5d;
   color: #e8f0f8;
   font-size: var(--fs-chip);
   line-height: 1.25;
@@ -569,131 +624,407 @@
 }
 .plant-core-svg {
   display: block;
+  overflow: visible;
+}
+.plant-core-buttress {
+  fill: #22303f;
+  stroke: #4a6580;
+  stroke-width: 0.8;
+}
+.plant-core-ticks {
+  fill: none;
+  stroke: #4a6580;
+  stroke-width: 1;
+}
+.plant-core-crane {
+  transform-box: view-box;
+  transform-origin: 140px 102px;
+}
+.plant-core-vessel {
+  fill: none;
+  stroke: #7f9fc0;
+  stroke-width: 2.4;
+  transition: stroke 600ms ease;
 }
 .plant-core-cell {
-  fill: #141e2b;
-  stroke: #233246;
-  stroke-width: 0.8;
-  transition: fill 600ms ease;
-}
-.plant-core-glow {
-  opacity: 0;
-  transition: opacity 600ms ease;
+  fill: #132031;
+  stroke: #26394e;
+  stroke-width: 0.6;
+  transition: fill 900ms ease;
 }
 .plant-core-svg[data-lit="lit"] .plant-core-cell {
-  fill: #2a6db6;
-  stroke: #4f93dc;
+  stroke: #d8f2ff;
+  stroke-opacity: 0.35;
+}
+.plant-core-svg[data-lit="unknown"] .plant-core-cell {
+  fill: #0e151e;
+  stroke: #1f2c3b;
+  stroke-dasharray: 2 2;
+}
+.plant-core-glow,
+.plant-core-bloom {
+  opacity: 0;
+  transition: opacity 900ms ease;
 }
 .plant-core-svg[data-lit="lit"] .plant-core-glow {
   opacity: 1;
 }
-.plant-core-svg[data-lit="unknown"] .plant-core-cell {
-  fill: #10161f;
-  stroke: #1c2735;
-  stroke-dasharray: 2 2;
+.plant-core-svg[data-lit="lit"] .plant-core-bloom {
+  opacity: 0.85;
 }
 .plant-core-rod {
-  fill: #0a0f16;
-  stroke: #8ea4ba;
+  fill: #070b11;
+  stroke: #a9bdd1;
   stroke-width: 1;
 }
 .plant-core-rod[data-inserted] {
-  fill: #e8f0f8;
-  stroke: #e8f0f8;
+  fill: #f4f8ff;
+  stroke: #ffffff;
+}
+.plant-core-rod-halo {
+  fill: #ff6a4d;
+  opacity: 0.85;
 }
 .plant-core-rod[data-drill] {
   fill: none;
+  stroke: #ffb347;
   stroke-dasharray: 1.5 1.5;
 }
-/* The main control room's light: the only warm thing on the page, and only while something waits on you. */
+/* A SCRAM in force: the vessel rings red and the core is drawn shut down. */
+.plant-core-svg:is([data-rods="inserted"], [data-rods="bank"]) .plant-core-vessel {
+  stroke: #ff5d5d;
+  filter: drop-shadow(0 0 4px rgb(255 93 93 / 0.8));
+}
+.plant-core-svg[data-rods="inserted"] .plant-core-assemblies {
+  filter: saturate(0.25) brightness(0.55);
+}
+.plant-core-svg[data-rods="inserted"] .plant-core-bloom {
+  opacity: 0.2;
+}
+/* The main control room's light: warm, and only while something waits on you. */
 .plant-control-light {
   position: absolute;
   border-radius: 6px;
   opacity: 0;
-  background: radial-gradient(ellipse at 50% 35%, rgb(255 179 71 / 0.32), rgb(255 179 71 / 0.08) 60%, rgb(255 179 71 / 0) 80%);
-  box-shadow: inset 0 0 0 1.5px rgb(255 179 71 / 0.55);
+  background: radial-gradient(ellipse at 50% 55%, rgb(255 179 71 / 0.26), rgb(255 179 71 / 0.07) 60%, rgb(255 179 71 / 0) 82%);
+  box-shadow: inset 0 0 0 1.5px rgb(255 179 71 / 0.7), 0 0 22px rgb(255 179 71 / 0.25);
   transition: opacity 600ms ease;
 }
 .plant-control-light[data-lit] {
   opacity: 1;
 }
-.office-stage[data-motion="paused"] :is(.plant-control-light, .plant-core-cell, .plant-core-glow) {
+@keyframes plant-breathe {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes plant-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.plant-core-svg[data-lit="lit"] .plant-core-bloom {
+  animation: plant-breathe 5s ease-in-out infinite;
+}
+.plant-core-svg[data-lit="lit"] .plant-core-crane {
+  animation: plant-turn 120s linear infinite;
+}
+.office-stage[data-motion="paused"] :is(.plant-control-light, .plant-core-cell, .plant-core-glow, .plant-core-bloom, .plant-core-crane, .plant-core-vessel) {
   transition: none;
+  animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.plant-control-light, .plant-core-cell, .plant-core-glow) {
+  :is(.plant-control-light, .plant-core-cell, .plant-core-glow, .plant-core-bloom, .plant-core-crane, .plant-core-vessel) {
     transition: none;
+    animation: none;
+  }
+  .plant-core-svg[data-lit] :is(.plant-core-bloom, .plant-core-crane) {
+    animation: none;
   }
 }
 
-/* The annunciator: page HTML in the app's own colours, so it reads in every look, light ones included. */
+/* The console around the drawing. It stays dark in every look: it is an instrument, not page chrome. */
+.plant-console {
+  padding: 0 12px 12px;
+  border: 1px solid #1b2836;
+  border-radius: 12px;
+  background-color: #05080d;
+  background-image: linear-gradient(180deg, #0a1018, #05080d 40px);
+  box-shadow: 0 30px 60px -30px #000000, inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+.plant-console-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  padding: 10px 2px 8px 16px;
+  color: #9fb3c8;
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.plant-console-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #c5d6e6;
+}
+.plant-console-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #43e08a;
+  box-shadow: 0 0 8px #43e08a;
+}
+.plant-console[data-status="scram"] .plant-console-dot {
+  background: #ff5d5d;
+  box-shadow: 0 0 8px #ff5d5d;
+}
+.plant-console-readouts {
+  display: inline-flex;
+  gap: 18px;
+}
+.plant-console-readout {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.plant-console-readout-name {
+  color: #8195aa;
+}
+.plant-console-readout-value {
+  color: #7fe0ff;
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px rgb(70 211 255 / 0.55);
+}
+.plant-console-status {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid #2a3b4f;
+  border-radius: 3px;
+  background-color: #0b1118;
+  color: #9fb3c8;
+}
+.plant-console-status[data-tone="lit"] {
+  border-color: #1f6f96;
+  background-color: #06131d;
+  color: #7fe0ff;
+  box-shadow: 0 0 14px rgb(70 211 255 / 0.25);
+}
+.plant-console-status[data-tone="scram"] {
+  border-color: #ff5d5d;
+  background-color: #4a0d0d;
+  color: #ffe3e3;
+  box-shadow: 0 0 16px rgb(255 93 93 / 0.45);
+}
+.plant-console-status[data-tone="drill"] {
+  border-color: #ffb347;
+  border-style: dashed;
+  background-color: #1f1606;
+  color: #ffe7c2;
+}
+.plant-console-status[data-tone="unknown"] {
+  border-style: dashed;
+}
+.plant-console-frame {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-rows: 18px auto;
+}
+.plant-console-ruler {
+  position: relative;
+  color: #7a8ea3;
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  line-height: 1;
+}
+.plant-console-ruler[data-edge="top"] {
+  grid-column: 2;
+  grid-row: 1;
+  border-bottom: 1px solid #1b2836;
+  background-image: repeating-linear-gradient(90deg, #22344a 0 1px, rgb(0 0 0 / 0) 1px calc(100% / 12));
+  background-size: 100% 4px;
+  background-position: bottom;
+  background-repeat: no-repeat;
+}
+.plant-console-ruler[data-edge="left"] {
+  grid-column: 1;
+  grid-row: 2;
+  border-right: 1px solid #1b2836;
+}
+.plant-console-ruler span {
+  position: absolute;
+}
+.plant-console-ruler[data-edge="top"] span {
+  top: 3px;
+  transform: translateX(-50%);
+}
+.plant-console-ruler[data-edge="left"] span {
+  left: 4px;
+  transform: translateY(-50%);
+}
+.plant-console-screen {
+  position: relative;
+  grid-column: 2;
+  grid-row: 2;
+}
+.plant-console-corner {
+  position: absolute;
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  border: 0 solid #46d3ff;
+  opacity: 0.8;
+  pointer-events: none;
+}
+.plant-console-corner[data-corner="tl"] {
+  top: -4px;
+  left: -4px;
+  border-top-width: 2px;
+  border-left-width: 2px;
+}
+.plant-console-corner[data-corner="tr"] {
+  top: -4px;
+  right: -4px;
+  border-top-width: 2px;
+  border-right-width: 2px;
+}
+.plant-console-corner[data-corner="bl"] {
+  bottom: -4px;
+  left: -4px;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+}
+.plant-console-corner[data-corner="br"] {
+  bottom: -4px;
+  right: -4px;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+}
+
+/*
+ * The annunciator: backlit windows behind dark glass, as on a control board. Dark when clear, the
+ * name engraved; lit, the window glows amber (red for SCRAM) and flashes three times when it comes on.
+ * It stays dark in every look: it is an instrument.
+ */
 .plant-annunciator {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin: 0;
-  padding: 0;
+  padding: 8px;
+  border: 1px solid #1b2836;
+  border-radius: 10px;
+  background-color: #05080d;
   list-style: none;
+  box-shadow: inset 0 2px 8px #000000;
 }
 .plant-window {
-  min-width: 128px;
-  border: 1px solid var(--line-2, #33404d);
-  border-radius: 6px;
-  color: var(--muted, #a7b6c4);
-  background: transparent;
+  flex: 1 1 150px;
+  max-width: 240px;
+  border: 1px solid #1f2d3c;
+  border-radius: 4px;
+  background-color: #0b1118;
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0) 45%);
+  color: #8fa3b6;
   font-size: var(--fs-label);
   line-height: 1.25;
+  box-shadow: inset 0 -10px 18px rgb(0 0 0 / 0.35);
+  transition: background-color 300ms ease, box-shadow 300ms ease, border-color 300ms ease;
 }
 .plant-window-body {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  column-gap: 8px;
-  padding: 6px 10px;
+  column-gap: 10px;
+  padding: 7px 12px;
   color: inherit;
   text-decoration: none;
-  border-radius: 5px;
+  border-radius: 3px;
 }
 .plant-window-count {
   grid-row: span 2;
   min-width: 2ch;
-  font-size: 20px;
+  font-family: var(--mono);
+  font-size: 22px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
-  color: var(--text-2, #c5d0dc);
+  color: #c5d0dc;
 }
 .plant-window-label {
+  font-family: var(--mono);
   font-weight: 600;
-  font-variant: small-caps;
-  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 .plant-window-note {
   font-size: var(--fs-chip);
 }
 .plant-window[data-state="lit"] {
-  border-color: var(--changed);
-  box-shadow: inset 4px 0 0 var(--changed);
-  background: var(--panel);
-  color: var(--text);
+  border-color: #ffb347;
+  background-color: #3a2606;
+  background-image: radial-gradient(ellipse at 50% 40%, rgb(255 196 110 / 0.35), rgb(255 179 71 / 0.08) 70%);
+  color: #ffe7c2;
+  box-shadow: 0 0 18px rgb(255 179 71 / 0.35), inset 0 0 14px rgb(255 179 71 / 0.25);
+  animation: plant-flash 0.8s ease-in-out 3;
 }
-.plant-window[data-state="lit"] .plant-window-body {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  column-gap: 8px;
-  padding: 6px 10px;
-  color: inherit;
-  text-decoration: none;
-  border-radius: 5px;
+.plant-window[data-state="lit"]:is([data-window="scram"], [data-window="stuck"]) {
+  border-color: #ff5d5d;
+  background-color: #3a0b0b;
+  background-image: radial-gradient(ellipse at 50% 40%, rgb(255 120 120 / 0.38), rgb(255 93 93 / 0.1) 70%);
+  color: #ffe3e3;
+  box-shadow: 0 0 20px rgb(255 93 93 / 0.45), inset 0 0 14px rgb(255 93 93 / 0.3);
 }
-.plant-window-count {
-  color: var(--text, #e8f0f8);
+.plant-window[data-state="lit"] .plant-window-count {
+  color: #ffffff;
+  text-shadow: 0 0 10px rgb(255 214 150 / 0.8);
 }
 .plant-window[data-state="unavailable"],
 .plant-window[data-state="loading"] {
   border-style: dashed;
 }
+/* Flow in the pipe rack along the inner walkway: moves while the core is lit. */
+.plant-flow {
+  position: absolute;
+  opacity: 0;
+  background-image: repeating-linear-gradient(90deg, rgb(70 211 255 / 0.85) 0 10px, rgb(70 211 255 / 0) 10px 46px);
+  transition: opacity 900ms ease;
+}
+.plant-flow[data-lit] {
+  opacity: 0.7;
+  animation: plant-flow 3s linear infinite;
+}
+@keyframes plant-flow {
+  to {
+    background-position: -46px 0;
+  }
+}
+.office-stage[data-motion="paused"] .plant-flow[data-lit] {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .plant-flow[data-lit] {
+    animation: none;
+  }
+}
+@keyframes plant-flash {
+  50% {
+    filter: brightness(1.5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plant-window[data-state="lit"] {
+    animation: none;
+  }
+}
+
 .plant-legend {
   display: flex;
   flex-wrap: wrap;

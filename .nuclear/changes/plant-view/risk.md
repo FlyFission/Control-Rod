@@ -12,6 +12,7 @@
 | R-03 | The drawing cannot be used on a narrow screen or by a screen reader. | A list view grouped by zone, opened automatically below the width where the drawing fits; the drawing's regions carry names and purposes; the annunciator speaks counts and announces changes politely. | A figure reachable only on the drawing. |
 | R-04 | Layout regressions: figures overlap, queues spill off walkways, a door opens onto nothing. | `validatePlantLayout` and `checkRegionGeometry` run in unit tests; the harness fills every place with 40 agents. | A validator or harness failure. |
 | R-05 | People lose a theme they chose. | Office themes kept under Advanced; an archived choice is still honored and says how to return to the Plant; the old storage key is ignored, not deleted. | A chosen archived theme that no longer loads. |
+| R-07 | Effects distract, cost frames, or carry meaning alone. | Motion only while the core is lit and on a newly lit window; all of it stops with reduced motion or a hidden tab (harness); the figure light pools sit in the scene layer under the plate and ring, which the harness measures; frame time is checked with 40 agents. | A harness motion, contrast or frame time failure. |
 | R-06 | Nuclear imagery is read as a claim of real plant status or safety. | Words name work, never power or safety: no percentages, units or trust words; zones use plain building names. | Any reading that implies a physical quantity. |
 
 ## Selected mode

@@ -6,9 +6,9 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 |---|---|---|---|
 | E-01 | pass | Web suite: 720 tests in 54 files pass, including the plant layout, instrument and view tests. Local machine only. | `evidence/web-suite.log` |
 | E-02 | pass | Web typecheck exits 0. | `evidence/typecheck.log` |
-| E-03 | pass | Office theme harness on Chromium: 146 passed, 18 skipped, covering the plant at minimum zoom with 40 agents, every lens, the worst case and quiet motion, plus every archived theme. Run through a local config that points at the machine's Chromium and is not committed. | `evidence/plant-harness-chromium.log` |
+| E-03 | pass | Office theme harness on Chromium: 146 passed, 18 skipped, covering the plant at minimum zoom with 40 agents, every lens, the worst case, theme switching, and motion stopping with reduced motion and in a hidden tab, plus every archived theme. Run through a local config that points at the machine's Chromium and is not committed. | `evidence/plant-harness-chromium.log` |
 | E-04 | pass | Repository checks: theme assets, originality and public claims. | `evidence/check_theme_assets.log`, `evidence/check_originality.log`, `evidence/check_public_claims.log` |
-| E-05 | pass | Screenshots of the real page against a mocked API at 1440, 1100 (opens on the list) and 390 wide, and at 1440 with an organization SCRAM in force. Visual judgment only. | `evidence/screenshots/` |
+| E-05 | pass | Screenshots of the real page against a mocked API at 1440 and 390 wide (opens on the list), and at 1440 with an organization SCRAM in force. Visual judgment only. | `evidence/screenshots/` |
 | E-06 | open | Independent design review of the plan by two reviewers from different vendors (done, `evidence/design-review.md`); the third reviewer, Firefox and WebKit runs and the owner's review are not done. | Owner review |
 
 ## Evidence custody and coupling

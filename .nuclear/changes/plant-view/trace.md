@@ -9,8 +9,9 @@
 | T-05 | The view opens on the Plant; office themes are under Advanced; the old storage key is ignored; `/office` redirects to `/plant`. | `office-view.test.tsx`; `places.test.tsx`; `contract.test.ts` | implemented and tested |
 | T-06 | Every figure is reachable in the list view, grouped by zone. | `office-view.test.tsx` | implemented and tested |
 | T-07 | The plant theme passes the contract validator and the allowlisted SVG check. | `contract.test.ts` | implemented and tested |
-| T-08 | Contrast, state shapes, lenses, the worst case of every place filled with every mark, and quiet motion hold on the plant at minimum zoom in a real browser. | `e2e/office-harness.spec.ts` | implemented; run on Chromium (E-03) |
-| T-09 | The real page reads well at 1440, 1100 and 390 wide and with an organization SCRAM in force. | Screenshots (E-05) | captured; owner review open |
+| T-08 | Contrast, state shapes, lenses, the worst case of every place filled with every mark, and motion that stops with reduced motion and in a hidden tab hold on the plant at minimum zoom in a real browser. | `e2e/office-harness.spec.ts` | implemented; run on Chromium (E-03) |
+| T-09 | The real page reads well at 1440 and 390 wide and with an organization SCRAM in force, after the visual overhaul the owner asked for. | Screenshots (E-05) | captured; owner review open |
+| T-10 | Switching between the Plant and an archived theme keeps every figure's element (the console frame keeps one element tree). | `e2e/office-harness.spec.ts` "a theme switch keeps selection" | implemented; run on Chromium (E-03) |
 
 ## Required links
 

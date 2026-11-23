@@ -29,7 +29,6 @@ const THEMES = OFFICE_THEMES.map((t) => t.id);
 /** The plant draws a fourteenth plate, the reactor building's; the office draws thirteen. */
 const plates = (theme: string) => (OFFICE_THEMES.find((t) => t.id === theme)?.layout === "plant" ? 14 : 13);
 /** The plant is quiet when normal: no figure pulses, so nothing animates in a steady scene. */
-const loops = (theme: string) => OFFICE_THEMES.find((t) => t.id === theme)?.layout !== "plant";
 const PLATE = { r: 10, g: 10, b: 12 };
 const measurements: Record<string, unknown> = {};
 
@@ -366,14 +365,6 @@ test.describe("office theme quality harness", () => {
       test("motion stops with reduced motion and in a hidden tab", async ({ page }) => {
         await open(page, `theme=${theme}&agents=40`);
         const moving = await page.evaluate(() => document.getAnimations().length);
-        if (!loops(theme)) {
-          // Quiet when normal (plant view design, section 7): nothing loops, so there is nothing to stop.
-          expect(moving).toBe(0);
-          await page.emulateMedia({ reducedMotion: "reduce" });
-          expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
-          measurements[`${theme}/motion`] = { animationsInFullMotion: 0, hidden: 0, reduced: 0 };
-          return;
-        }
         expect(moving).toBeGreaterThan(0);
         const setVisibility = (state: "hidden" | "visible") =>
           page.evaluate((s) => {

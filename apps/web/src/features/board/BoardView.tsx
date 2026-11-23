@@ -415,7 +415,7 @@ export function BoardView() {
         });
         const next = marked.find((t) => titles.indexOf(t) > idx) ?? marked[0];
         if (next === undefined) {
-          setJumpNote("No card on this view is marked Needs you or Blocked.");
+          setJumpNote("No card on this view is currently marked Needs you or Blocked.");
           return;
         }
         setJumpNote(null);

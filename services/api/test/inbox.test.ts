@@ -211,6 +211,35 @@ describe("waiting agents", () => {
   });
 });
 
+describe("a run that ended without finished_at", () => {
+  it("gives the same since on every read, from the stop event, not the read time", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-NOFIN', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-IN-NOFIN", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
+    const r = { schema_version: "0.1.0", id: "R-in-nofin", package_id: "WP-IN-NOFIN", package_revision: 0, role: "pre-check", agent_baseline: "author-claude",
+      runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "stopped", queued_at: ago(3), generation: 1 };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, 'WP-IN-NOFIN', 0, 'pre-check', 1, 'stopped', $2, $3)", [r.id, r, r.queued_at]);
+    const since = async () => (await get("/inbox")).items.find((i: Json) => i.package_id === "WP-IN-NOFIN")?.since;
+    // With no stop event, the run row's own creation time.
+    const first = await since();
+    expect(first).toBe(new Date(r.queued_at).toISOString());
+    await new Promise((res) => setTimeout(res, 15));
+    expect(await since()).toBe(first);
+    // With a stop event, its recorded time, on every read.
+    const c = await h.admin.connect();
+    let at: string;
+    try {
+      await c.query("begin");
+      at = (await appendEvent(c as never, "run.stopped", r.id, { kind: "system" as const, id: "control-plane" }, { package: r.package_id })).at;
+      await c.query("commit");
+    } finally {
+      c.release();
+    }
+    expect(await since()).toBe(at);
+    await new Promise((res) => setTimeout(res, 15));
+    expect(await since()).toBe(at);
+  });
+});
+
 describe("recovery under SCRAM", () => {
   it("never counts recovery work as yours when SCRAM holds it and you cannot settle it", async () => {
     // An author run stopped: requeueing it settles the dispute, which any member may do, unless SCRAM holds the work.

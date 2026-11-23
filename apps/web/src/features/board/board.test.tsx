@@ -818,10 +818,10 @@ describe("BoardView", () => {
     await waitFor(() => expect(quiet.closest("article")?.getAttribute("data-tone")).toBe("wait"));
     await user.keyboard("n");
     // Screen readers hear it from a status region; everyone else sees the same words under the header.
-    expect(screen.getAllByRole("status").some((s) => s.textContent === "No card on this view is marked Needs you or Blocked.")).toBe(true);
+    expect(screen.getAllByRole("status").some((s) => s.textContent === "No card on this view is currently marked Needs you or Blocked.")).toBe(true);
     expect(document.activeElement).not.toBe(quiet);
     await user.keyboard("j");
-    expect(screen.queryAllByText("No card on this view is marked Needs you or Blocked.")).toHaveLength(0);
+    expect(screen.queryAllByText("No card on this view is currently marked Needs you or Blocked.")).toHaveLength(0);
   });
 
   it("stays loading while captures are pending even after packages arrive", async () => {

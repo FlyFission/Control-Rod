@@ -17,8 +17,9 @@ import (
 // LockHome takes the home's daemon lock, so only one daemon at a time owns its receipts and its
 // run scopes. The lock is released when the returned function runs or the process exits.
 //
-// The holder writes its PID into daemon.lock after it wins the lock, and a second daemon names that
-// PID when it refuses to start, so "already running" says which process to stop. The file is
+// The holder writes its PID into daemon.lock after it wins the lock, and a second daemon mentions
+// that PID when it refuses to start, as an unverified hint only: it may be stale or reused, so the
+// refusal asks the operator to check the process list rather than naming a process to stop. The file is
 // opened without O_TRUNC, so a daemon that loses never erases the holder's PID. A filesystem that
 // cannot lock fails closed: two daemons on one home would share receipts.
 //

@@ -26,6 +26,14 @@ The owner asked (2026-11-22) for a complete overhaul of the README and landing p
 
 The owner asked (2026-11-23) for "the end user decides where they come into the picture" as a README selling point. It is not built; ADR 0024 (draft PR #150) records the decision. The README adds it as one bullet marked *(planned)*, and states what is true today: a person signs at release and at acceptance. When it ships, drop the marker.
 
+## Revision 3 (2026-11-23): ground the "why" in published research
+
+The owner asked (2026-11-23) to quantify why a separate checker beats self-checking, with research figures and a chart. The README adds a "Why a second model" section quoting four arXiv papers (Stechly et al. 2024, Huang et al. 2024, Panickssery et al. 2024, Goel et al. 2025) and one METR research note (2026) on maintainer review of test-passing pull requests, then Laban et al. 2025, Cemri et al. 2025, Kamoi et al. 2024 and Sharma et al. 2023, each checked against the paper. Each figure is copied as published into `docs/research/second-checker/inputs.json` with its table or sentence; `build.py` draws the chart from it (AGENTS rule 5). No paper reports a "percent more errors caught" by a different-vendor model, so the README states that limit instead of inventing one.
+
+## Revision 4 (2026-11-23): drop the Codespaces path
+
+The owner asked (2026-11-23) to remove the README's "Try it" Codespaces badge: people should try Control Rod on their own setups, and agent runs often cannot start in a container (bubblewrap, see `docs/getting-started.md`). The README's Try it section now covers only installing on your own machine. `.devcontainer/` and its notes in `docs/getting-started.md` stay as a contributor tool.
+
 ## Assumptions and invalidation triggers
 
 | Assumption | Basis | Invalidation trigger |

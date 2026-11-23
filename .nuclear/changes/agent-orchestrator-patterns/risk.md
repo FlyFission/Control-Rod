@@ -19,7 +19,7 @@
 
 ## Scope
 
-- Affected files/configs/docs: `docs/patterns/agent-orchestrator.md` (new), `docs/patterns/README.md` (one entry), this record (`risk.md` and `proof.md`).
+- Affected files/configs/docs: `docs/patterns/agent-orchestrator.md` (new), `docs/patterns/README.md` (two entries), `docs/patterns/agent-workbenches.md` with its own record `agent-workbench-patterns`, and this record (`risk.md` and `proof.md`).
 - Controlled items touched: pattern note (design input) and pattern index.
   - Not touched: `.github/workflows/`, `policies/`, `tests/redteam/`, `spec/`, `kernel/`, `docs/adr/`.
 - User-visible behavior changed? yes/no: no.
@@ -34,7 +34,7 @@
 | Reversibility | Instant: revert the commit. |
 | Detectability | High. Every pattern cites source files/lines and maps to tracked issues (`#118`–`#133`) or board slices (`M5`–`M8`). |
 | Exposure | Repository documentation only. |
-| Uncertainty | Low to moderate: summarizes a pinned snapshot (`7c65ce3cfc0fc0cd9c71d00ad94391d7bf2bc771`) from an offline review dossier without running upstream code. |
+| Uncertainty | Low to moderate: summarizes a pinned snapshot (`7c65ce3cfc0fc0cd9c71d00ad94391d7bf2bc771`) without running upstream code; every citation is a file and line range at that public commit. |
 | Why Quick is enough | Docs-only design input; no trust surface, contract, dependency, runtime path, or public assurance claim changes. |
 
 ## Required proof
@@ -44,7 +44,7 @@
   - `python3 tools/check_public_claims.py`;
   - `git diff --check`;
   - `git diff origin/main --stat -- .github/workflows policies tests/redteam spec kernel docs/adr`;
-  - `python3 /home/flyfission/projects/Nuclear-grade/tools/ng.py validate .nuclear/changes/agent-orchestrator-patterns/`.
+  - the pinned `ng.py validate --strict-custody` run by the CI `change-records` job.
 - Expected result: one per check.
   - `originality check passed`;
   - `public claims check passed`;

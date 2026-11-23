@@ -25,6 +25,7 @@
     "022-checker-no-truncate": "decc2317d97ae8ea5c7cba6930510bc1208df83d1edb799a974fecddcf83d02d",
     "023-run-attestation": "a6514e7f3914477239bfc8f8080320d76f34ade8cd96d03889e0a6d3eb4537b6",
     "024-context-profile": "b28e3e8f43b486e1f1bc5b1eb6fd713200630392c7ca7ee9688f2d2c8e32871e",
-    "025-dependency-provenance": "c41ce2bc51834dfcb17cb44147542f9acc8aef8a4022f90210eb326beb144fa0"
+    "025-dependency-provenance": "c41ce2bc51834dfcb17cb44147542f9acc8aef8a4022f90210eb326beb144fa0",
+    "026-default-workflow": "c47831866647e3f36bdc75d0231341de221d5a7762019b438ce6d399b2ce24f3"
   }
 }

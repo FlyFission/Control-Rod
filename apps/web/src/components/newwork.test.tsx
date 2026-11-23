@@ -149,6 +149,174 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(capturedBody!.text).toContain("[checker:codex/sol-6.1@medium]");
   });
 
+  it("adds a [workflow:<id>] tag only when a workflow is chosen", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null })),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string; lane?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-w", received_at: "2026-11-15T12:00:00Z", lane: b.lane ?? "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    const select = screen.getByLabelText("Workflow") as HTMLSelectElement;
+    expect(select.value).toBe("");
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual(["Project default", "Playbook", "Superpowers", "Pocock", "Pocock Superpowers"]);
+    await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry to the sync job.");
+    await user.click(screen.getByRole("button", { name: /^Capture/ }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).not.toContain("[workflow:");
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.selectOptions(screen.getByLabelText("Workflow"), "pocock");
+    await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry to the sync job.");
+    await user.click(screen.getByRole("button", { name: /^Capture/ }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toContain("[workflow:pocock]");
+  });
+
+  it("refuses a project name with brackets, so a name can never carry a tag", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null })),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-b", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    await user.type(screen.getByLabelText("Project / Workstream"), "Plant] [[workflow:pocock");
+    await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry.");
+    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    expect(await screen.findByText("A project name can't contain [ or ].")).toBeTruthy();
+    expect(bodies).toEqual([]);
+  });
+
+  it("refuses a branch name with brackets before any workspace is prepared, so a branch can never carry a tag", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-c", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
+    await user.selectOptions(await screen.findByLabelText("Repository"), "Control-Rod");
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    await user.type(screen.getByLabelText("Branch name"), "cr/x] [[workflow:pocock");
+    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    expect(await screen.findByText("A branch name can't contain [ or ].")).toBeTruthy();
+    expect(bodies).toEqual([]);
+  });
+
+  it("refuses a local clone whose folder name has brackets, so a folder name can never carry a tag", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    const name = "CR] [workflow:pocock";
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name, path: `/home/flyfission/projects/${name}`, branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-d", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
+    await user.selectOptions(await screen.findByLabelText("Repository"), name);
+    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    expect(await screen.findByText(/This repository's name contains \[ or \]/)).toBeTruthy();
+    expect(bodies).toEqual([]);
+  });
+
+  it("refuses a prepared workspace whose path has brackets, so a path can never carry a tag", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch"; mode?: string };
+        return HttpResponse.json({
+          ok: true,
+          strategy: body.strategy,
+          mode: body.mode,
+          repo: body.repo,
+          branch: body.branch,
+          local_path: "/home/flyfission/x] [workflow:pocock/w",
+        });
+      }),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-e", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
+    await user.selectOptions(await screen.findByLabelText("Repository"), "Control-Rod");
+    await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+    expect(await screen.findByText(/Ready:/i)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    expect(await screen.findByText(/This workspace's path contains \[ or \]/)).toBeTruthy();
+    expect(bodies).toEqual([]);
+  });
+
   it("pairs reasoning effort levels to runnable CLI ecosystems and models", async () => {
     saveMode("software");
     resetWorkDefaults("software");

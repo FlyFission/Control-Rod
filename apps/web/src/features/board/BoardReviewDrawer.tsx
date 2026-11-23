@@ -10,6 +10,8 @@ import { needsIndependentCheck } from "../../lib/board.js";
 import { shortDigest, STATUS_LABEL } from "../../lib/format.js";
 import { MODE_COPY, type EngineeringMode } from "../../lib/mode.js";
 import { ContextSwitch } from "./ContextSwitch.js";
+import { WorkflowSwitch } from "./WorkflowSwitch.js";
+import { projectWorkflowDefault } from "../../lib/workflow.js";
 
 interface BoardReviewDrawerProps {
   packageId: string;
@@ -78,6 +80,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
               {pkg.discipline && <span className="bd-chip">{pkg.discipline}</span>}
             </div>
             <ContextSwitch pkg={pkg} view={view} projectDefault={projectContextDefault(admin.data?.projects, pkg.project)} />
+            <WorkflowSwitch pkg={pkg} view={view} projectDefault={projectWorkflowDefault(admin.data?.projects, pkg.project)} />
 
             {view && view.runs.length > 0 && (
               <section className="bd-drawer-sec">

@@ -10394,6 +10394,16 @@
             ],
             "description": "The context profile packages carry when they name none. Absent means light."
           },
+          "default_workflow": {
+            "type": "string",
+            "enum": [
+              "playbook",
+              "superpowers",
+              "pocock",
+              "pocock-superpowers"
+            ],
+            "description": "The workflow packages carry when they name none. Absent means the playbook."
+          },
           "lanes": {
             "type": "array",
             "items": {
@@ -11485,6 +11495,16 @@
               "nuclear"
             ],
             "description": "Which context the brief carries. Absent means the project default; Safety and Material grades\nand trust-surface scopes are always nuclear."
+          },
+          "workflow": {
+            "type": "string",
+            "enum": [
+              "playbook",
+              "superpowers",
+              "pocock",
+              "pocock-superpowers"
+            ],
+            "description": "How the work is sequenced: the plain playbook, or a ported skill workflow (Superpowers, Matt\nPocock's skills, or the hybrid of the two). Absent means the project default, then the playbook.\nSeparate from context_profile: a package carries one workflow and one context profile, and\nworkflows never stack."
           },
           "status": {
             "$ref": "#/components/schemas/ControlRod.Records.PackageStatus"

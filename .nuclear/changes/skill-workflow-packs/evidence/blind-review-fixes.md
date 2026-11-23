@@ -33,4 +33,14 @@ Codex re-reviewed `13273d8`.
 
 New cases for each in `test/workflow.test.ts`.
 
+## Third re-review
+
+Codex re-reviewed `bbaa385` and named the root cause behind rows 6 to 10: New work wrote the project name and workspace path into the header unescaped, so any parser rule leaves an edge.
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| 11 | P1 | A `]` in a project name or workspace path could end its tag early and smuggle in another. | Fixed at the source: New work refuses a project name, or a prepared workspace path, that contains `[` or `]`, with the reason in words. Other header values cannot hold brackets (fixed choices, Git refs, model ids). Test "refuses a project name with brackets, so a name can never carry a tag" in `apps/web/src/components/newwork.test.tsx`. |
+| 12 | P2 | The stray-bracket parser case fails outright rather than testing a shifted boundary. | Accepted as is: with brackets refused at the source, a shifted boundary cannot come from the form. |
+| 13 | P2 | The "ambiguous tags run the playbook" test checks only the parser, not intake. | Accepted: the intake path is covered by the cross-organization and project-default tests in `test/workflow-brief.test.ts`. |
+
 Local run after both rounds (PostgreSQL 16, Linux container): `test/workflow.test.ts`, `test/workflow-brief.test.ts`, `test/workflow-real-pack.test.ts`: 56 passed. API typecheck exits 0.

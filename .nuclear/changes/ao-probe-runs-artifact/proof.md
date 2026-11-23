@@ -25,7 +25,7 @@
 ## Result
 
 - Status: pass, with the gap below.
-- `TestEveryCodexProbeCommandRunsTheResolvedArtifactWithItsEnvironment`, `TestAProbeRunsTheArtifactItIdentifiedWithoutResolvingAgain` and `TestExecRunnerFallsBackToThePATHEntry` pass under `-race`. With `ExecRunner` made to ignore the probed artifact, the Codex test fails (`--- FAIL`), so it tests the change.
+- `TestEveryCodexProbeCommandRunsTheResolvedArtifactWithItsEnvironment`, `TestAProbeRunsTheArtifactItIdentifiedWithoutResolvingAgain`, `TestTheCodexFeatureCheckRefusesAnExecutableThatChangedSinceTheProbe`, `TestTheCodexPreflightRunsTheProbedNativeArtifactNotTheWrapper` and `TestExecRunnerFallsBackToThePATHEntry` pass under `-race`. With the preflight branch in `ExecRunner` turned off, the preflight test fails with "Codex is not signed in" (the node-less wrapper ran), so it tests the round-6 fix. With `ExecRunner` made to ignore the probed artifact, the Codex test fails (`--- FAIL`), so it tests the change.
 - Full runner suite: fails on the same 16 tests on this branch and on `origin/main` on this host (bubblewrap checker tests and `TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun`, which need a sandbox this container lacks).
 - `check_originality.py`: `originality check passed`. `git diff --check origin/main`: no output.
 
@@ -38,6 +38,7 @@
   - At `25b0086c`: FIX FIRST, 2 P1 and 1 P2, all reasoned. Fixed in the next commit: the preflight resolved again and could check a different file (it now gets the probed artifact, and so does `CodexEffectiveFeatures`); the fallback outside a probe could hash inside a deadline and pick a refused launcher (it now runs the PATH entry, as on main); the test covered one version command (it now covers all three Codex commands and the environment). Not changed: a binary replaced at the same path between hash and start. That window cannot be closed by reopening a path; the launch's own digest check is the guard, stated in risk.
   - At `4d51e605`: FIX FIRST, 1 P1 and 2 P2, all reasoned. Fixed in the next commit: the feature check ran the cached path without checking it (it now resolves, hashes and compares to the probed digest before running); the test exercised helpers, not the consumer (it now runs `CodexEffectiveFeatures`); the record described a PATH fallback for an unresolvable runtime (corrected: not ready, nothing runs).
   - At `33c320e8`: FIX FIRST, 1 P1 and 2 P2, all reasoned. Fixed in the next commit: preflight's own `login status` ran the cached path before any digest check (preflight now gets the artifact as a reference only and its commands run as on main); a matching digest at another path was accepted (path now compared too); the probe test passed without `login status` running (it now records the run).
+  - At `8b90c413`: HOLD, 1 P1 and 2 P2, all reasoned. Fixed in the next commit: readiness still ran preflight's `login status` through the PATH wrapper and failed without `node` (preflight commands now run the freshly resolved artifact when it matches the probe, tested through `Probe` then `PreflightCLI`); the different-path rejection did not check that nothing ran, and the positive case dropped its error (both asserted now); the PATH-entry test did not prove resolution was skipped (it counts resolver calls, 0).
   - The next check is recorded here before merge.
 
 ## Reviewer note

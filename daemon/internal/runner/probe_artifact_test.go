@@ -83,8 +83,13 @@ func TestTheCodexFeatureCheckRefusesAnExecutableThatChangedSinceTheProbe(t *test
 	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err == nil {
 		t.Fatal("the same bytes at another path are another installation and must be refused")
 	}
+	if _, err := os.Stat(ran); err == nil {
+		t.Fatal("an executable at another path ran")
+	}
 	probed.Artifact.Path = native
-	_, _ = CodexEffectiveFeatures(preflightContext(context.Background(), probed))
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err != nil {
+		t.Fatalf("the probed executable, unchanged, must be listed: %v", err)
+	}
 	if _, err := os.Stat(ran); err != nil {
 		t.Fatal("the probed executable, unchanged, must run")
 	}
@@ -97,11 +102,15 @@ func TestExecRunnerFallsBackToThePATHEntry(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "tool"), []byte("#!/bin/sh\necho path-entry\n"), 0o755)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+"/usr/bin:/bin")
 	old := resolveArtifact
-	resolveArtifact = func(string) (RuntimeArtifact, error) { return RuntimeArtifact{}, ErrUnsupportedLauncher }
+	resolved := 0
+	resolveArtifact = func(string) (RuntimeArtifact, error) { resolved++; return RuntimeArtifact{}, ErrUnsupportedLauncher }
 	t.Cleanup(func() { resolveArtifact = old })
 	out, code, err := ExecRunner(context.Background(), "tool")
 	if err != nil || code != 0 || strings.TrimSpace(out) != "path-entry" {
 		t.Fatalf("ExecRunner ran %q (exit %d, %v); want the PATH entry", out, code, err)
+	}
+	if resolved != 0 {
+		t.Fatalf("outside a probe or preflight, ExecRunner must not resolve (it resolved %d times)", resolved)
 	}
 }
 
@@ -129,5 +138,61 @@ func TestAProbeRunsTheArtifactItIdentifiedWithoutResolvingAgain(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("resolveArtifact ran %d times; a probe resolves once", calls)
+	}
+}
+
+// The readiness path after a ready probe: Codex's preflight runs `codex login status` and lists its
+// features. On a daemon PATH without node, the npm wrapper cannot run, so both must use the native
+// artifact the probe found, checked again; a replacement since the probe is refused unrun.
+func TestTheCodexPreflightRunsTheProbedNativeArtifactNotTheWrapper(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin")
+	if err := os.Mkdir(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(bin, "codex"), []byte("#!/usr/bin/env no-such-node\n"), 0o755)
+	native := filepath.Join(dir, "native-codex")
+	writeFile(t, native, []byte(`#!/bin/sh
+[ "$CODEX_MANAGED_BY_NPM" = 1 ] || exit 3
+touch "$0.ran"
+case "$1 $2" in
+  "--version ") echo "codex-cli native" ;;
+  "login --help") printf 'Commands:\n  status  Show login status\n' ;;
+  "login status") echo "Logged in" ;;
+  "features list") cat "$0.features" ;;
+  *) exit 2 ;;
+esac
+`), 0o755)
+	features, err := os.ReadFile("testdata/codex-0.171.0-features.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, native+".features", features, 0o644)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+"/usr/bin:/bin")
+	t.Setenv("HOME", t.TempDir())
+	digest := func(v string) Digest { return Digest{Algorithm: "sha256", Value: strings.Repeat(v, 64)} }
+	now := RuntimeArtifact{Path: native, Digest: digest("a"), Env: []string{"CODEX_MANAGED_BY_NPM=1"}}
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) { return now, nil }
+	t.Cleanup(func() { resolveArtifact = old })
+
+	st := Probe(context.Background(), RuntimeCodex, "", ExecRunner)
+	if !st.Ready {
+		t.Fatalf("setup: the native Codex must probe ready: %+v", st)
+	}
+	pre := codexAdapter{}.withFeatures(CodexEffectiveFeatures)
+	if err := pre.PreflightCLI(preflightContext(context.Background(), st), ExecRunner); err != nil {
+		t.Fatalf("the preflight must run the probed native artifact, not the node wrapper: %v", err)
+	}
+	// An upgrade since the probe: the preflight refuses, and the replacement never runs.
+	if err := os.Remove(native + ".ran"); err != nil {
+		t.Fatal(err)
+	}
+	now.Digest = digest("b")
+	if err := pre.PreflightCLI(preflightContext(context.Background(), st), ExecRunner); err == nil {
+		t.Fatal("a Codex replaced since the probe must be refused")
+	}
+	if _, err := os.Stat(native + ".ran"); err == nil {
+		t.Fatal("the replaced executable ran during preflight")
 	}
 }

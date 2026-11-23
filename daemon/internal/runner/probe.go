@@ -58,6 +58,14 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 		}
 		path = art.Path
 		env = append(env, art.Env...)
+	} else if art, ok, err := preflightArtifact(ctx, name); ok {
+		// A sandbox preflight after a ready probe: run the executable resolved and hashed now, and
+		// only if it is the one the probe found (same path and digest).
+		if err != nil {
+			return "", -1, err
+		}
+		path = art.Path
+		env = append(env, art.Env...)
 	} else {
 		p, err := LookPathAgent(name)
 		if err != nil {
@@ -238,11 +246,27 @@ func withProbeArtifact(ctx context.Context, art RuntimeArtifact) context.Context
 	return context.WithValue(ctx, probeArtifactKey{}, art)
 }
 
-// preflightArtifactKey carries a probed status's artifact into its preflight as a reference only:
-// the preflight's commands do not run it (ExecRunner ignores this key and runs the PATH entry, as on
-// main), and the Codex feature check, which resolves again, refuses to run unless what it resolved
-// is that same file and digest.
+// preflightArtifactKey carries a probed status's artifact into its preflight as a reference: every
+// preflight command (ExecRunner's and the Codex feature check) resolves and hashes again and runs
+// the resolved executable only if it is that same file and digest, never the PATH wrapper.
 type preflightArtifactKey struct{}
+
+// preflightArtifact resolves binary again when ctx carries a preflight reference, and returns the
+// resolved artifact only if it is the referenced one. ok is false when there is no reference.
+func preflightArtifact(ctx context.Context, binary string) (art RuntimeArtifact, ok bool, err error) {
+	probed, ok := ctx.Value(preflightArtifactKey{}).(RuntimeArtifact)
+	if !ok {
+		return RuntimeArtifact{}, false, nil
+	}
+	a, err := resolveArtifact(binary)
+	if err != nil {
+		return RuntimeArtifact{}, true, err
+	}
+	if probed.Digest.Value != a.Digest.Value || probed.Path != a.Path {
+		return RuntimeArtifact{}, true, fmt.Errorf("%s changed after it was probed (%s at %s, now %s at %s); it is probed again before it is offered", binary, short(probed.Digest.Value), probed.Path, short(a.Digest.Value), a.Path)
+	}
+	return a, true, nil
+}
 
 // preflightContext carries a probed status's artifact into its preflight (preflightArtifactKey).
 func preflightContext(ctx context.Context, st RuntimeStatus) context.Context {

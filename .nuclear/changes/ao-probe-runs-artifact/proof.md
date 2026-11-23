@@ -11,6 +11,7 @@
 
 - `ExecRunner` runs the resolved artifact with its environment, not a PATH wrapper that needs a program the PATH lacks.
 - A name that resolves to no artifact still runs from the agent PATH.
+- A probe resolves its artifact once and runs that one for every command, even when a second resolution would find nothing (an upgrade in between).
 
 ## Method
 
@@ -31,7 +32,10 @@
 ### Gaps
 
 - Not run on macOS with a real nvm-installed Codex. The fix follows the path `CodexEffectiveFeatures` already uses there.
-- The independent blind check by a different vendor than the author is recorded here before merge.
+- Not proven: launch parity beyond path and environment. A launch stages a private copy; the probe runs the installed file.
+- Blind checks by a different vendor than the author (Codex, read-only):
+  - At `3eecd059`: FIX FIRST, 1 P1 and 2 P2, all reasoned. Fixed in the next commit: a second resolution in `ExecRunner` could run a different binary after an upgrade or fall back to the PATH entry (the probe now passes its artifact); the rehash ran inside each command's deadline (gone with the second resolution); the record claimed the probe runs exactly what launch runs (narrowed above).
+  - The next check is recorded here before merge.
 
 ## Reviewer note
 

@@ -32,22 +32,37 @@ type RuntimeStatus struct {
 type CommandRunner func(ctx context.Context, name string, args ...string) (out string, code int, err error)
 
 // ExecRunner runs a CLI the way a run would find and start it: from the agent PATH, with the
-// agent environment (AgentEnv). When the name resolves to a runtime artifact, the probe runs that
-// artifact with the artifact's own environment, exactly what a launch runs. Codex installed through
-// npm is a Node wrapper on the PATH; a launch skips the wrapper and runs the platform binary, so a
-// probe through the wrapper could fail for want of `node` on a daemon's minimal PATH (launchd,
-// systemd) while every launch would have worked, or the other way round.
+// agent environment (AgentEnv). It runs the runtime artifact rather than the PATH entry: the
+// executable a launch resolves, with the artifact's own environment. Codex installed through npm is
+// a Node wrapper on the PATH; a launch skips the wrapper and runs the platform binary, so a probe
+// through the wrapper could fail for want of `node` on a daemon's minimal PATH (launchd, systemd)
+// while every launch would have worked, or the other way round.
+//
+// A probe passes the artifact it already identified (withProbeArtifact), and that artifact is run:
+// never a second resolution, which could find a different binary after an upgrade, rehash it inside
+// the command's deadline, or quietly fall back to the PATH entry. Other callers resolve here and
+// fall back to the PATH entry when the name is not a runtime artifact.
 func ExecRunner(ctx context.Context, name string, args ...string) (string, int, error) {
 	// The same PATH and allowlisted environment as a launch, so a login the run could not see (an
 	// API key in the daemon's environment) never makes a runtime look ready.
 	env := AgentEnv(os.Environ())
-	path, err := LookPathAgent(name)
-	if err != nil {
-		return "", -1, err
-	}
-	if art, aerr := resolveArtifact(name); aerr == nil && art.Path != "" {
+	var path string
+	if art, ok := ctx.Value(probeArtifactKey{}).(RuntimeArtifact); ok {
+		if art.Path == "" {
+			return "", -1, fmt.Errorf("%s: the probed artifact has no path", name)
+		}
 		path = art.Path
 		env = append(env, art.Env...)
+	} else {
+		p, err := LookPathAgent(name)
+		if err != nil {
+			return "", -1, err
+		}
+		path = p
+		if art, aerr := resolveArtifact(name); aerr == nil && art.Path != "" {
+			path = art.Path
+			env = append(env, art.Env...)
+		}
 	}
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Env = env
@@ -115,8 +130,9 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 		st.Reason = fmt.Sprintf("%s cannot be found or its executable read to record which version it is: %v", binary, aerr)
 		return st
 	}
+	probed := withProbeArtifact(ctx, *st.Artifact)
 	call := func(args ...string) (string, int, error) {
-		c, cancel := context.WithTimeout(ctx, probeTimeout)
+		c, cancel := context.WithTimeout(probed, probeTimeout)
 		defer cancel()
 		return run(c, binary, args...)
 	}
@@ -211,4 +227,12 @@ func discoverCodexModels(home string, getenv func(string) string) []string {
 		}
 	}
 	return sanitizeModelList(out)
+}
+
+// probeArtifactKey carries the artifact a probe identified to the CommandRunner, so the probe's
+// commands run that artifact and the digest on the status is the one that answered.
+type probeArtifactKey struct{}
+
+func withProbeArtifact(ctx context.Context, art RuntimeArtifact) context.Context {
+	return context.WithValue(ctx, probeArtifactKey{}, art)
 }

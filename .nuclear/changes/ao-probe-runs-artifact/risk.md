@@ -13,7 +13,7 @@
 - PR / issue: #141, reworked 2026-11-23 on branch `feat/ao-s4-adapter-seam`
 - Owner: Ben Huffer (decision owner); reworked by Claude Code in the project thread "Rework the agent-orchestrator PRs"
 - Date: 2026-11-23
-- Summary: `ExecRunner`, which runs every probe and sign-in check, now runs the runtime artifact that `ResolveArtifact` finds, with the artifact's own environment, which is exactly what a launch runs. Before, it ran the PATH entry. For Codex installed through npm, that entry is a Node wrapper. A launch skips the wrapper and runs the platform binary, so on a daemon whose PATH has no `node` (launchd, systemd) the probe said "did not answer" while every launch would have worked. A name that resolves to no artifact still runs from the agent PATH, as before.
+- Summary: `ExecRunner`, which runs every probe and sign-in check, now runs the runtime artifact that `ResolveArtifact` finds, with the artifact's own environment: the same installed executable and digest a launch resolves. A probe passes the artifact it identified to every one of its commands, so it never resolves (or hashes) a second time and never falls back to the PATH entry. A launch may also stage a private copy of that executable and checks the copy again; the probe does not stage, so a staging failure still shows at launch, not at probe. Before, it ran the PATH entry. For Codex installed through npm, that entry is a Node wrapper. A launch skips the wrapper and runs the platform binary, so on a daemon whose PATH has no `node` (launchd, systemd) the probe said "did not answer" while every launch would have worked. A name that resolves to no artifact still runs from the agent PATH, as before.
 - Dropped from #141:
   - `daemon/internal/binaryutil` and `daemon/internal/authprobe`. Their resolvers had no production caller and skipped pinning.
   - The Node PATH augmentation. It made probes pass where launches would fail, which was the review's main finding.
@@ -42,7 +42,7 @@
 ## Required proof
 
 - Command/check/eval to run: three checks.
-  - `cd daemon && go test ./internal/runner -run 'TestExecRunner' -count=1`, and the same test against `origin/main`'s `probe.go`, where it must fail
+  - `cd daemon && go test ./internal/runner -run 'TestExecRunner|TestAProbeRunsTheArtifact' -count=1`, and the same test against `origin/main`'s `probe.go`, where it must fail
   - `cd daemon && go test ./internal/runner -count=1`, compared with the same run on `origin/main`
   - `python3 tools/check_originality.py` and `git diff --check origin/main`
 - Expected result: the new tests pass and the artifact test fails on main's `probe.go`; the full runner suite fails on exactly the tests that fail on `origin/main` on the same host; originality passes; no whitespace errors.

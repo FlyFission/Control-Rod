@@ -5,6 +5,7 @@ import { type EventRecord, eventDigest } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import { formatPrReceipt, normalizeProvider, prReceiptFromBundleText } from "../src/pr-receipt.js";
 import { type InclusionBundle, keyDigest, sealChallenge, sealSubject } from "../src/seals.js";
+import { verifyBundleText } from "../src/verify-bundle.js";
 
 type Json = Record<string, any>;
 
@@ -214,6 +215,33 @@ describe("PR receipt", () => {
     expect(bad.code).toBe(1);
     expect(bad.markdown).toBeUndefined();
     expect(bad.lines[0]).toContain("FAIL  WP-99");
+  });
+
+  it("emits a binding marker and a --receipt command, and the generated receipt verifies against its bundle (revision 0)", async () => {
+    const digestVal = { algorithm: "sha256", value: "e".repeat(64) };
+    const diff = "d".repeat(64);
+    const head = "c".repeat(40);
+    const sealed = makeSealedBundle("WP-RT-1", [
+      { type: "package.created", subject: "WP-RT-1" },
+      { type: "run.succeeded", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-RT-1", role: "author", round: 1, head_sha: head, outputs: [{ name: "diff.patch", sha256: diff }] } },
+      { type: "package.pre-checked", subject: "WP-RT-1", actor: { kind: "agent", id: "codex" }, data: { revision: 0, round: 1, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-RT-1", actor: { kind: "human", id: "mem_owner" }, data: { revision: 0, decision: "D-1", subject_digest: digestVal } },
+    ]);
+    const res = await prReceiptFromBundleText(JSON.stringify(sealed), "rt.json");
+    expect(res.code, res.lines.join("\n")).toBe(0);
+    expect(res.markdown).toContain("<!-- controlrod-check-binding:");
+    expect(res.markdown).toContain("pnpm cr verify --receipt pr-receipt.md rt.json");
+    const v = await verifyBundleText(JSON.stringify(sealed), { receiptText: res.markdown! });
+    expect(v.code, v.lines.join("\n")).toBe(0);
+    expect(v.lines.join("\n")).toContain("Acceptance link holds");
+    // The same receipt does not verify against another package's bundle.
+    const other = makeSealedBundle("WP-RT-2", [
+      { type: "package.created", subject: "WP-RT-2" },
+      { type: "run.succeeded", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-RT-2", role: "author", round: 1, head_sha: head, outputs: [{ name: "diff.patch", sha256: diff }] } },
+      { type: "package.pre-checked", subject: "WP-RT-2", actor: { kind: "agent", id: "codex" }, data: { revision: 0, round: 1, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-RT-2", actor: { kind: "human", id: "mem_owner" }, data: { revision: 0, decision: "D-1", subject_digest: digestVal } },
+    ]);
+    expect((await verifyBundleText(JSON.stringify(other), { receiptText: res.markdown! })).code).toBe(1);
   });
 
   it("distinguishes bundle-key seals from external trust anchors and verifies human/revision/latest rules", async () => {

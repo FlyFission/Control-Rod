@@ -579,6 +579,29 @@ test("check-action defaults git mode head to the pull request head SHA, not the 
   }
 });
 
+test("check-action attaches no head SHA to a custom diff file and says the head is not verified", () => {
+  const { byId } = loadActionSteps();
+  const dir = mkdtempSync(join(tmpdir(), "check-action-diffhead-"));
+  try {
+    const modeFile = join(dir, "mode");
+    const argsLog = join(dir, "args.log");
+    const controlrodBin = join(dir, "controlrod");
+    makeFakeControlrod(controlrodBin, modeFile, argsLog);
+    writeFileSync(modeFile, "pass", "utf8");
+    const out = join(dir, "out");
+    writeFileSync(out, "", "utf8");
+    const r = runBash(byId.get("run").run, {
+      ...baseRunEnv(controlrodBin, dir, out, join(dir, "sum")),
+      PR_HEAD_SHA: "2222222222222222222222222222222222222222",
+    });
+    assert.equal(r.code, 0, r.stderr);
+    assert.ok(!readFileSync(argsLog, "utf8").includes("--head-sha"));
+    assert.ok(readFileSync(parseOutputs(out).receipt, "utf8").includes("head not verified"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("check-action diffs from merge-base when base advances after PR branch-off", () => {
   const { byId } = loadActionSteps();
   const runStep = byId.get("run");

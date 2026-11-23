@@ -96,7 +96,7 @@ export async function verifyBundleText(text: string, opts?: VerifyBundleOptions)
   return { code: 0, lines };
 }
 
-function parseVerifyCliArgs(argv: string[]): { files: string[]; opts: VerifyBundleOptions; error?: string } {
+export function parseVerifyCliArgs(argv: string[]): { files: string[]; opts: VerifyBundleOptions; error?: string } {
   const files: string[] = [];
   const opts: VerifyBundleOptions = {};
   for (let i = 0; i < argv.length; i++) {
@@ -126,7 +126,7 @@ function parseVerifyCliArgs(argv: string[]): { files: string[]; opts: VerifyBund
     if (a === "--revision") {
       const val = argv[++i]?.trim();
       const num = Number(val);
-      if (!val || !Number.isInteger(num) || num <= 0) return { files, opts, error: "--revision requires a positive integer" };
+      if (!val || !Number.isInteger(num) || num < 0) return { files, opts, error: "--revision requires a non-negative integer" };
       opts.expectedRevision = num;
       continue;
     }

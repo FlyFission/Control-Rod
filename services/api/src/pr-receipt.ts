@@ -49,6 +49,10 @@ export interface PrReceiptProof {
   bundleDigest?: string;
   headSeq?: number;
   headDigest?: string;
+  /** Single accepted diff digest when the bundle records exactly one; used for the receipt binding marker. */
+  diffSha256?: string;
+  /** Single recorded head commit when the bundle records exactly one. */
+  headSha?: string;
   sealedBy?: string;
   sealedAt?: string;
   witnessed: false;
@@ -225,7 +229,20 @@ export function formatPrReceipt(input: PrReceiptInput): string {
       .filter(Boolean)
       .join(", ");
     const digestPart = digests ? `${digests}; ` : "";
-    lines.push(`- **Verify offline:** \`pnpm cr verify ${sanitizeCode(p.bundlePath)}\` (${digestPart}${sealText}; ${NOT_WITNESSED})`);
+    if (p.authenticated && input.acceptance && p.diffSha256 && /^[0-9a-f]{64}$/i.test(p.diffSha256)) {
+      const binding = JSON.stringify({
+        package_id: input.packageId,
+        ...(input.revision !== undefined ? { revision: input.revision } : {}),
+        ...(p.headSha ? { head_sha: p.headSha } : {}),
+        diff_sha256: p.diffSha256.toLowerCase(),
+      })
+        .replaceAll("<", "\\u003c")
+        .replaceAll(">", "\\u003e");
+      lines.splice(1, 0, `<!-- controlrod-check-binding: ${binding} -->`);
+      lines.push(`- **Verify offline:** save this receipt as \`pr-receipt.md\`, then \`pnpm cr verify --receipt pr-receipt.md ${sanitizeCode(p.bundlePath)}\` (checks this receipt's package, revision and diff against the bundle; ${digestPart}${sealText}; ${NOT_WITNESSED})`);
+    } else {
+      lines.push(`- **Verify offline:** \`pnpm cr verify ${sanitizeCode(p.bundlePath)}\` (${digestPart}${sealText}; ${NOT_WITNESSED})`);
+    }
   } else {
     lines.push("- **Verify offline:** no inclusion proof attached");
   }
@@ -508,6 +525,8 @@ export function extractBundleInspection(
         bundleDigest,
         ...(headSeq !== undefined ? { headSeq } : {}),
         ...(headDigest ? { headDigest } : {}),
+        ...(latestOutputs.size === 1 ? { diffSha256: [...latestOutputs][0]! } : {}),
+        ...(recordedHeadShas.size === 1 ? { headSha: [...recordedHeadShas][0]! } : {}),
         ...(authenticated && bundle.seal
           ? {
               sealedBy: String(bundle.seal.id ?? ""),
@@ -527,7 +546,7 @@ export function parseReceiptBinding(text: string): ReceiptBindingExpectation | n
       const obj = JSON.parse(trimmed) as Record<string, unknown>;
       const diffObj = obj.diff_digest as Record<string, unknown> | undefined;
       const diffVal = readSubjectDigest(diffObj?.value ?? obj.diff_sha256);
-      const rev = typeof obj.revision === "number" && Number.isInteger(obj.revision) && obj.revision > 0 ? obj.revision : undefined;
+      const rev = typeof obj.revision === "number" && Number.isInteger(obj.revision) && obj.revision >= 0 ? obj.revision : undefined;
       const headSha = typeof obj.head_sha === "string" && /^[0-9a-f]{7,64}$/i.test(obj.head_sha.trim()) ? obj.head_sha.trim().toLowerCase() : undefined;
       const packageId = typeof obj.package_id === "string" && obj.package_id ? obj.package_id : undefined;
       if (diffVal || rev !== undefined || headSha) {
@@ -542,7 +561,7 @@ export function parseReceiptBinding(text: string): ReceiptBindingExpectation | n
     try {
       const obj = JSON.parse(m[1]) as Record<string, unknown>;
       const diffVal = readSubjectDigest(obj.diff_sha256);
-      const rev = typeof obj.revision === "number" && Number.isInteger(obj.revision) && obj.revision > 0 ? obj.revision : undefined;
+      const rev = typeof obj.revision === "number" && Number.isInteger(obj.revision) && obj.revision >= 0 ? obj.revision : undefined;
       const headSha = typeof obj.head_sha === "string" && /^[0-9a-f]{7,64}$/i.test(obj.head_sha.trim()) ? obj.head_sha.trim().toLowerCase() : undefined;
       const packageId = typeof obj.package_id === "string" && obj.package_id ? obj.package_id : undefined;
       if (diffVal || rev !== undefined || headSha) {

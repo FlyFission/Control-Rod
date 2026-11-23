@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { type EventRecord, eventDigest } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import { type InclusionBundle, keyDigest, sealChallenge, sealSubject } from "../src/seals.js";
-import { verifyBundleText } from "../src/verify-bundle.js";
+import { parseVerifyCliArgs, verifyBundleText } from "../src/verify-bundle.js";
 
 /** The offline bundle check behind `pnpm cr verify` (docs/auditing.md). The sealed case is in seals.test.ts. */
 type Json = Record<string, any>;
@@ -216,6 +216,14 @@ describe("pnpm cr verify", () => {
     const badDigest = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"diff_sha256":"not-a-digest"} -->\n`;
     expect((await verifyBundleText(JSON.stringify(proofA), { receiptText: badDigest })).code).toBe(1);
     expect((await verifyBundleText(JSON.stringify(proofA), { expectedRevision: 1 })).code).toBe(1);
+
+    // Revision 0 is a real revision: a receipt for revision 0 must not verify against revision 1.
+    const rev0 = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":0,"diff_sha256":"${diffA}"} -->\n`;
+    const rev0R = await verifyBundleText(JSON.stringify(proofA), { receiptText: rev0 });
+    expect(rev0R.code).toBe(1);
+    expect(rev0R.lines[0]).toContain("not expected revision 0");
+    expect(parseVerifyCliArgs(["--revision", "0", "p.json"]).error).toBeUndefined();
+    expect(parseVerifyCliArgs(["--revision", "-1", "p.json"]).error).toBeDefined();
 
     // A recorded head commit that differs still fails.
     const wrongHead = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headB}","diff_sha256":"${diffA}"} -->\n`;

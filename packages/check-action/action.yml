@@ -170,9 +170,8 @@ runs:
         fi
         if [ -n "$DIFF_FILE" ]; then
           ARGS+=(--diff "$DIFF_FILE")
-          if [ -n "${PR_HEAD_SHA:-}" ]; then
-            ARGS+=(--head-sha "$PR_HEAD_SHA")
-          fi
+          # A diff file is not tied to any commit, so no head SHA is attached: the
+          # verdict is labelled with a diff file and its head is not verified.
         else
           if [[ "$BASE" == -* ]] || [[ "$HEAD_REF" == -* ]]; then
             echo "Invalid git ref: leading '-' is disallowed" >&2
@@ -275,6 +274,10 @@ runs:
               fi
             fi
           fi
+        fi
+
+        if [ -n "$DIFF_FILE" ] && [ -f "$RECEIPT_FILE" ]; then
+          printf '\n> **Diff file, head not verified:** this check used a supplied diff file; no head commit is attached or verified.\n' >> "$RECEIPT_FILE"
         fi
 
         if [ -f "$RECEIPT_FILE" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then

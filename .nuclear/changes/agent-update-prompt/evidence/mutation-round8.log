@@ -1,0 +1,43 @@
+## R8-1 the daemon keeps an update only while installed is unchanged (mutated)
+--- FAIL: TestAnUpdatedCLIDropsTheKnownUpdate (0.00s)
+    updates_test.go:161: a newer install kept the old update: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{runner.AgentUpdate{Agent:"grok", Name:"Grok CLI", Installed:"1.0.77", Latest:"1.0.92", NpmGlobal:true, Note:""}}, Unchecked:[]runner.UncheckedAgent{runner.UncheckedAgent{Agent:"grok", Installed:"1.0.95"}}}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.021s
+FAIL
+## R8-1 the daemon keeps an update only while installed is unchanged (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.037s
+## R8-1 the daemon reports the installed version it read (mutated)
+--- FAIL: TestAnIncompleteCheckKeepsAKnownUpdate (0.00s)
+    updates_test.go:115: an incomplete check wiped the known update: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{runner.AgentUpdate{Agent:"grok", Name:"Grok CLI", Installed:"1.0.77", Latest:"1.0.92", NpmGlobal:true, Note:""}}, Unchecked:[]runner.UncheckedAgent{runner.UncheckedAgent{Agent:"grok", Installed:""}}}}
+--- FAIL: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
+    updates_test.go:137: fresh incomplete check: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{}, Unchecked:[]runner.UncheckedAgent{runner.UncheckedAgent{Agent:"grok", Installed:""}, runner.UncheckedAgent{Agent:"claude", Installed:""}, runner.UncheckedAgent{Agent:"codex", Installed:""}}}}
+--- FAIL: TestAnUpdatedCLIDropsTheKnownUpdate (0.00s)
+## R8-1 the daemon reports the installed version it read (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	(cached)
+## R8-1 only a strict installed version is reported (mutated)
+--- FAIL: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
+    updates_test.go:137: fresh incomplete check: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{}, Unchecked:[]runner.UncheckedAgent{runner.UncheckedAgent{Agent:"grok", Installed:"1.0.77"}, runner.UncheckedAgent{Agent:"claude", Installed:"1.0.9999999999999999999999999999999999999999999999999999999999999999999999"}, runner.UncheckedAgent{Agent:"codex", Installed:"0.170.0+build"}}}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.023s
+FAIL
+## R8-1 only a strict installed version is reported (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	(cached)
+## R8-1 the API keeps a row only while installed is unchanged (mutated)
+     × never keeps an update once the installed version has moved 18ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 4 passed (5)
+## R8-1 the API keeps a row only while installed is unchanged (restored)
+      Tests  5 passed (5)
+## R8-2 the panel goes when a refetch is empty (mutated)
+     × dismissing hides that version only, and the panel is gone when nothing is shown 1040ms
+     × disappears when a refetch finds every agent current 1017ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+            [0m×[0m
+## R8-2 the panel goes when a refetch is empty (restored)
+      Tests  6 passed (6)
+## R8-1 the API refuses a non-strict installed version (mutated)
+     × never keeps an update once the installed version has moved 61ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 4 passed (5)
+## R8-1 the API refuses a non-strict installed version (restored)
+      Tests  5 passed (5)

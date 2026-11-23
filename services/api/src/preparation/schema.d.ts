@@ -3327,6 +3327,32 @@ export interface components {
             digest: components["schemas"]["ControlRod.Records.Digest"];
             content: string;
         };
+        /**
+         * @description A built-in agent CLI the daemon can check for a newer version.
+         * @enum {string}
+         */
+        "Runner.AgentId": "claude" | "codex" | "agy" | "opencode" | "grok";
+        /**
+         * @description An agent CLI with a newer published version, as the daemon's startup check found it. The check
+         *     runs when the daemon starts, never on a timer. The app shows the npm command for the person to run
+         *     in a terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.
+         */
+        "Runner.AgentUpdate": {
+            agent: components["schemas"]["Runner.AgentId"];
+            name: string;
+            /** @description The installed version: strict SemVer 2.0 without build metadata; `latest` is newer. */
+            installed: string;
+            /** @description The latest published version: strict SemVer 2.0 without build metadata. */
+            latest: string;
+            /**
+             * @description True when the installed executable is npm's global copy of the agent's package, so
+             *     `npm install --global <package>@<latest>` updates it. The app builds that command itself from
+             *     a fixed package per agent and `latest`; no command text is reported or shown from the daemon.
+             */
+            npm_global?: boolean;
+            /** @description Why no command is offered, in a sentence. */
+            note?: string;
+        };
         "Runner.Completion": {
             claim_token: string;
             /** @description Chosen by the daemon once per completion and kept across retries. */
@@ -3441,6 +3467,16 @@ export interface components {
             artifact?: components["schemas"]["Runner.RuntimeArtifact"];
             /** @description Model names or aliases the daemon discovered for the CLI. */
             models?: components["schemas"]["Runner.RuntimeModel"][];
+        };
+        /**
+         * @description An agent found whose update check could not finish, with the installed version the daemon read
+         *     (strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent
+         *     only while that row's installed version is this one, so a CLI updated since is never offered
+         *     an older version.
+         */
+        "Runner.UncheckedAgent": {
+            agent: components["schemas"]["Runner.AgentId"];
+            installed?: string;
         };
         /** @description A SCRAM as presenting mode shows it: that it holds and over what, never its reason or runs. */
         ScramPresented: {
@@ -8064,6 +8100,14 @@ export interface operations {
                      * @description The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations.
                      */
                     run_ceiling_seconds?: number;
+                    /** @description Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
+                    agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
+                    /**
+                     * @description Agents found whose check could not finish (the registry did not answer, or the CLI gave no
+                     *     strict version). Sent with `agent_updates`; the control plane keeps its earlier row for each
+                     *     only while the installed version is unchanged.
+                     */
+                    agent_updates_unchecked?: components["schemas"]["Runner.UncheckedAgent"][];
                 };
             };
         };
@@ -8682,6 +8726,11 @@ export interface operations {
                         runtimes: components["schemas"]["Runner.RuntimeStatus"][];
                         /** @description The active pins, per runtime and role. */
                         pins: components["schemas"]["ControlRod.Records.RuntimePin"][];
+                        /**
+                         * @description Agent CLIs with a newer version, as the daemon found when it started. The app shows the npm
+                         *     command, built from fixed parts, for the person to run in a terminal; nothing installs from the browser.
+                         */
+                        agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
                     };
                 };
             };

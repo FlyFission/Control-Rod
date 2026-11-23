@@ -1,4 +1,5 @@
 import { type ReactNode, useContext, useEffect, useState } from "react";
+import { AgentUpdates } from "./AgentUpdates.js";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
@@ -312,6 +313,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       </aside>
 
       <div className="main">
+        <AgentUpdates />
         <header className="topbar">
           <div className="top-left">
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>

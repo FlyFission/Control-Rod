@@ -73,11 +73,11 @@ Each card can run with **Light** context, which keeps the agent's brief short, o
 
 When the checker passes something, it shows up in your **Inbox** with the result, the evidence and the checker's findings. Accept it, send it back with notes, or reject it. Your signature covers exactly what you looked at, and the history keeps every step.
 
-### The office
+### The Plant
 
-![Fifteen office worlds, each with its own cast of six agents at their desks.](docs/assets/readme/office-worlds.png)
+![The Plant: an annunciator strip of four windows over a plan view of the facility, with the main control room, the reactor, verification, work control and the review board inside the plant fence, six work bays in the auxiliary building, and the staging yard, records vault and hold yard outside.](docs/assets/readme/plant.png)
 
-Watch your agents at their desks. Each figure's state comes from the real run, so you can see at a glance who is working, who is being checked and what is waiting on you. Pick one of fifteen worlds from the **Theme** menu, from The Coffee House Crew to Starport Shipyard; a world changes the look and never the facts. **Presenting mode** hides spend, so you can put it on a shared screen.
+Watch your agents across one facility drawn in plan. Each figure's state comes from the real run, so you can see at a glance who is working, who is being checked and what is waiting on you. The **annunciator** across the top stays dark while the plant is normal and lights a window for work waiting on you, stuck work, changed inputs or a SCRAM in force. The reactor core is lit while any agent is working, and its control rods go in when you pull a SCRAM. Every place also has a plain list view, and the older office themes are kept under **Advanced**. **Presenting mode** hides spend, so you can put it on a shared screen.
 
 ### And the rest
 

@@ -1,5 +1,5 @@
 Command: node apps/web/scripts/check-contrast.mjs
-Date: 2026-11-06
+Date: 2026-11-23
 Source: apps/web/src/design/tokens.css (:root = look a, [data-look=b], [data-look=c])
 Rule: WCAG 2.x contrast ratio, text tokens on surface tokens, minimum 4.5:1
 

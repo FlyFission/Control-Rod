@@ -4,6 +4,7 @@ Release decision: **draft pull request for owner review; no merge is authorized 
 
 - Rollback: revert the merge. The `agent_setup` settings key can stay; nothing else reads it. No migration.
 - Merge order: land #137 first (Codex 0.171.0 qualification). This PR touches `Shell.tsx` in two lines that #137 and #153 also edit nearby; expect a trivial rebase.
+- Monitoring after merge: on a fresh install, the app opens on Setup, and the Agents roster rows match the daemon's startup log line for each runtime. A benched agent must receive no new claim. Re-run intake on any card that failed with "Completion refused (invalid)".
 - After merge: on a fresh install, the app opens on Setup. Re-run intake on any card that failed with "Completion refused (invalid)".
 
 ## Required links

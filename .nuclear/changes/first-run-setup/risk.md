@@ -13,6 +13,11 @@
 | R-05 | Any member of an organization can bench an agent for the whole install. | Owner-local install with one person today; recorded on the chain with who did it. Revisit if multi-member installs ship. | A multi-member install shipping without a role check here. |
 | R-06 | The intake brief change makes agents write fields the contract refuses. | Drift test validates a brief-shaped draft against `WorkPackage.json` and checks every required field is named. | That test failing. |
 
+## Selected mode
+
+- **Mode:** Standard
+- Basis: an additive API route and setting, a dispatch filter that can only remove candidates, and web pages. Reversible by revert. No protected surface.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

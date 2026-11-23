@@ -598,7 +598,7 @@ describe("pre-check independence", () => {
       owner_override: { by: "ben", reason: "No Codex on this Mac yet" },
     });
     expect(after.pre_check.evidence[0].custody.coupling.mechanism).toBe("shared");
-  });
+  }, 30_000); // Signs several passkey assertions; under a loaded CI runner it has run past the 5 s default.
 
   it("records a pre-check on another runtime as independent, with no override", async () => {
     const id = await releasedPackage("INDEP2");

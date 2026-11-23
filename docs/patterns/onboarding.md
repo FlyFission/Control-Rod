@@ -30,11 +30,8 @@ Named examples, by reactions: "Make login non-required" (Paradev, 23), "Why do I
 | One shell line per OS (`curl … \| sh`, PowerShell `irm … \| iex`), plus Homebrew | herdr, herdr-app, agent-of-empires, Mistral Vibe | A prebuilt binary with the web app embedded and the database bundled, installed by one line per OS and by `brew` |
 | A desktop download for every OS, with the daemon run for you | Orchestrator, emdash, Nimbalyst, Paradev (macOS first) | The desktop shell in the plan's craft track, later; the one-line install comes first |
 | `npx <name>` with nothing else | Vibe Kanban, Paperclip | Optional, and only if it does not make Node a requirement for people who install the binary |
-| Run it inside a project and start by describing the job | (idea from the issue titles; no README used) | First run opens on the Planner box in the current folder's repository |
 | Detect installed agent CLIs automatically | emdash, Orchestrator, herdr | Find every supported CLI on PATH and its sign-in state; seat them by default |
 | The one prerequisite is an agent CLI you are already signed in to | Paradev (plus Git) | Same, and say so in one line on the install page |
-| Bring work over from the tool you used before | (idea, not from a README in this set) | An importer for Vibe Kanban boards (already in the plan) |
-| Running the install line again updates it | (idea, not from a README in this set) | Same line updates; the in-app update panel also works |
 | Hand the install guide to your agent | Paperclip | Only if the guide is plain commands. A captured issue title in another project reports a prompt-injection complaint about its install guide |
 
 Not adopted: install-time analytics (Nimbalyst sends an anonymous ID, opt-out), a required account (Paradev's remote access needs a Pro plan), and Docker as a requirement.

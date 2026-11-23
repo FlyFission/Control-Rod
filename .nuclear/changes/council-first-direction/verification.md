@@ -11,7 +11,7 @@ Evidence is in `evidence/`; `evidence/SHA256SUMS` holds each file's digest from 
 
 | Evidence | File | What it shows |
 |---|---|---|
-| E-001 | `reproduce.log` | `docs/research/user-demand-2026-11/reproduce.sh` re-ran every script from the committed inputs, including the issue snapshots, and every output was identical. |
+| E-001 | `reproduce.log` | `docs/research/user-demand-2026-11/reproduce.sh` re-ran every script from the committed inputs, including the redacted issue snapshots: every output identical, exit 0. A forced one-byte mismatch on a copy exits 1. |
 | E-002 | `public-claims.log` | The public-claims check passes on every file this pull request changes. After merging main it reports one finding in `AgentPanel.tsx`, which came from main and is not touched here. |
 | E-003 | `originality.log` | The originality check passed. |
 | E-004 | Owner read on the pull request | The owner checks ADR 0024 against his messages and the evidence. |

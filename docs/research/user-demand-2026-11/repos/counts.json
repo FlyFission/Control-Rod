@@ -1,8 +1,8 @@
 {
  "digests": {
   "rules.json": "a97bd3b4d2fbf559eaffd0be775bdd3f21154532de7bc16346ec98cefa07c9a4",
-  "snapshots/code-yeongyu_oh-my-openagent.json.gz": "524ca9ced1063551af5427ad80922763d6f41fc3f62d1beca181d50eb9af5426",
-  "snapshots/herdrdev_herdr.json.gz": "eae88fd58bbd174f2a1e7ffdeec88cd4c1d18c52d0154faa5a0424e07f759eb3"
+  "snapshots/code-yeongyu_oh-my-openagent.json.gz": "bba285efcba5ebcd2ca706fe7548d3a40bddc951b4e50d03de490290235a62af",
+  "snapshots/herdrdev_herdr.json.gz": "d414edfcd40633937bd4f81d0bafc16a3119962ca4daa8ccd1fbd32592ab3dfb"
  },
  "omo.json": {
   "issues": 5876,

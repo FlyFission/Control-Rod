@@ -1,19 +1,19 @@
 {
  "digests": {
   "rules_all.json": "14defeb378a9c92e9c6b295381016abbf2d2ed2ced7fded1d75852d4a041aef5",
-  "snapshots/BloopAI_vibe-kanban.json.gz": "17d34561d362ebe051d34a9d7fd432e42cb270aabb5030fe6423350db142dfff",
+  "snapshots/BloopAI_vibe-kanban.json.gz": "6c0b590bf39eec541483986d12dd4fb3561593723673f17c820fe8d342c0c487",
   "snapshots/OrchestratorInc_agent-orchestrator.json.gz": "becd5f62440441655a2ed0ece1b467ff278d6b2538acc046596bf79c7eddbb9c",
-  "snapshots/ParadevAI_Paradev.json.gz": "3edc444f4df6b1230959784007c664ab9005aa1826290a5b0b1894f91f0af705",
-  "snapshots/agent-of-empires_agent-of-empires.json.gz": "97d316bd6859bb0f7cd5ca6a5fe306d3dd8396d309db2248209b305d2c4968b2",
-  "snapshots/code-yeongyu_oh-my-openagent.json.gz": "524ca9ced1063551af5427ad80922763d6f41fc3f62d1beca181d50eb9af5426",
+  "snapshots/ParadevAI_Paradev.json.gz": "93e5101934524da886821094cf555fd10c0bd9449dc6be794fcbdd8ca73153a6",
+  "snapshots/agent-of-empires_agent-of-empires.json.gz": "8d71d90a870752db19a2ea1ce990e4b1f89749d6c615f510fb740a2beb63d3bf",
+  "snapshots/code-yeongyu_oh-my-openagent.json.gz": "bba285efcba5ebcd2ca706fe7548d3a40bddc951b4e50d03de490290235a62af",
   "snapshots/generalaction_emdash.json.gz": "cffa753e243dc0702b2c0fcf1a15d83c664cfb04bda240ec4f5ce125d4ac1f84",
   "snapshots/herdrdev_herdr-app.json.gz": "266841d14706041aa641d3bbc5a148f6134290dd23d160454350abe89fe234fe",
-  "snapshots/herdrdev_herdr.json.gz": "eae88fd58bbd174f2a1e7ffdeec88cd4c1d18c52d0154faa5a0424e07f759eb3",
+  "snapshots/herdrdev_herdr.json.gz": "d414edfcd40633937bd4f81d0bafc16a3119962ca4daa8ccd1fbd32592ab3dfb",
   "snapshots/kdlbs_kandev.json.gz": "77502e697161c3814b23e7f5383c95704d26f5cfca3cdb3061dd7f5bc8689f23",
   "snapshots/mistralai_mistral-vibe.json.gz": "60570786496b3f5650b66d58598bdf6c9568dde5843aaa2ceb1328bc7ae856f9",
-  "snapshots/multica-ai_multica.json.gz": "fa2cd2085e45f6525f26206f6556db6a9fdde603c2049264c0344ccae2de4bb8",
-  "snapshots/nimbalyst_nimbalyst.json.gz": "fbaca8814bfed9100c07e0a4325a02a009f9ea438310e0cf1dc9c9d5f7760989",
-  "snapshots/paperclipai_paperclip.json.gz": "aed6192956bfff335461f8063c22b79751defadefdf32a12111dfd84812b9bb3",
+  "snapshots/multica-ai_multica.json.gz": "77f9a25143b3c2763d773783ec3b7134a2e62fe493913344f698847f21adc864",
+  "snapshots/nimbalyst_nimbalyst.json.gz": "c6e1de967faeec317f13a4b7ca3a7951d16ba53eb09a9525575aaf0455015e07",
+  "snapshots/paperclipai_paperclip.json.gz": "b587230881586a382339166683ecbcb2b2b6d8aa6619a6217f139baeeac06dd1",
   "snapshots/smtg-ai_claude-squad.json.gz": "b288d7868f0f720f4cc6d63a6f0453ac41745b0e3a5571e897b52cc468640548",
   "snapshots/stravu_crystal.json.gz": "1fc70f96b97d844e6c89d539080fcb62ffa8f622c4226b57b9b249d5052ae81b"
  },
@@ -84,7 +84,7 @@
      "fr_reactions": 25
     },
     "Board, kanban, issues, projects": {
-     "issues": 135,
+     "issues": 134,
      "fr": 38,
      "fr_reactions": 79
     },

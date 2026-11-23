@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestASecondDaemonNamesTheHolderPID(t *testing.T) {
@@ -19,9 +20,9 @@ func TestASecondDaemonNamesTheHolderPID(t *testing.T) {
 	}
 	defer unlock()
 	_, err = LockHome(home)
-	want := "records pid " + strconv.Itoa(os.Getpid()) + " "
-	if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "already running") {
-		t.Fatalf("the refusal must name the holder %s: %v", want, err)
+	want := "names pid " + strconv.Itoa(os.Getpid()) + ", which may be that daemon or an unrelated process"
+	if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "may already be running") || !strings.Contains(err.Error(), "Check the process list") {
+		t.Fatalf("the refusal must name the PID as a lead, not as the daemon, and ask for a check (%s): %v", want, err)
 	}
 	// Losing must not erase the holder's PID.
 	b, rerr := os.ReadFile(filepath.Join(home, "daemon.lock"))
@@ -72,7 +73,7 @@ func TestAHardLinkedLockFileIsRefusedAndTheOtherNameLeftAlone(t *testing.T) {
 	if err := os.Link(other, filepath.Join(home, "daemon.lock")); err != nil {
 		t.Skipf("hard links unavailable here: %v", err)
 	}
-	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "single name") || !strings.Contains(err.Error(), "first, then remove") {
+	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "single name") || !strings.Contains(err.Error(), "Check the process list for a Control Rod daemon using home") || !strings.Contains(err.Error(), "then remove") {
 		t.Fatalf("a hard-linked daemon.lock must be refused: %v", err)
 	}
 	if b, _ := os.ReadFile(other); string(b) != "keep me\n" {
@@ -104,7 +105,7 @@ func TestACleanReleaseLeavesNoPIDAndADeadPIDIsNotNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = LockHome(home)
-	if err == nil || strings.Contains(err.Error(), "pid") || !strings.Contains(err.Error(), "already running") {
+	if err == nil || strings.Contains(err.Error(), "pid") || !strings.Contains(err.Error(), "may already be running") {
 		t.Fatalf("a dead PID must not be named: %v", err)
 	}
 }
@@ -115,5 +116,42 @@ func TestAHomeThatCannotLockFailsClosed(t *testing.T) {
 	defer func() { flockHome = orig }()
 	if _, err := LockHome(t.TempDir()); err == nil || !strings.Contains(err.Error(), "will not start") {
 		t.Fatalf("an unlockable home must refuse to start: %v", err)
+	}
+}
+
+// A lock path that is not a regular file is refused without reading it: a PID read from a FIFO (or
+// a device) could block. The refusal names a PID only from a regular file, and always asks for a
+// check that no daemon uses the home before the path is removed.
+func TestAFIFOLockPathIsRefusedWithoutBlocking(t *testing.T) {
+	home := t.TempDir()
+	if err := syscall.Mkfifo(filepath.Join(home, "daemon.lock"), 0o600); err != nil {
+		t.Skipf("mkfifo unavailable here: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := LockHome(home); done <- err }()
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "not a plain file") || strings.Contains(err.Error(), "pid") || !strings.Contains(err.Error(), "Check the process list") {
+			t.Fatalf("a FIFO daemon.lock must be refused, naming no PID: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("LockHome blocked on a FIFO daemon.lock")
+	}
+}
+
+// The not-a-plain-file refusal with a live PID in the file names it only as a lead.
+func TestAHardLinkedLockFileWithALivePIDNamesItAsALeadOnly(t *testing.T) {
+	home := t.TempDir()
+	other := filepath.Join(home, "other")
+	if err := os.WriteFile(other, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(other, filepath.Join(home, "daemon.lock")); err != nil {
+		t.Skipf("hard links unavailable here: %v", err)
+	}
+	_, err := LockHome(home)
+	want := "daemon.lock names pid " + strconv.Itoa(os.Getpid()) + ", which may be that daemon or an unrelated process"
+	if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "Check the process list for a Control Rod daemon using home") || strings.Contains(err.Error(), "the Control Rod daemon using this home (") {
+		t.Fatalf("the PID must be a lead, not presented as the daemon: %v", err)
 	}
 }

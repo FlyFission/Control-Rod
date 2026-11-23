@@ -31,7 +31,8 @@ func LockHome(home string) (func(), error) {
 		return nil, err
 	}
 	path := filepath.Join(home, "daemon.lock")
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
+	// O_NONBLOCK: if the path is a FIFO or a device, opening it must not wait; it is refused below.
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0o600)
 	if err != nil {
 		if errors.Is(err, syscall.ELOOP) {
 			return nil, fmt.Errorf("%s is a symbolic link; Control Rod will not start until it is a plain file in the home (remove the link)", path)
@@ -40,15 +41,15 @@ func LockHome(home string) (func(), error) {
 	}
 	// One name only: a hard link would let the PID write change another file.
 	if fi, serr := f.Stat(); serr != nil || !fi.Mode().IsRegular() || hardLinked(fi) {
-		pid := readHolderPID(f)
+		// Read a PID only from a regular file: reading a FIFO or a device could block or have effects.
+		pid := 0
+		if serr == nil && fi.Mode().IsRegular() {
+			pid = readHolderPID(f)
+		}
 		f.Close()
 		// Removing a lock file another daemon still holds would let a second daemon lock a new file
-		// at the same path: stop the holder first.
-		who := "any Control Rod daemon using this home"
-		if pid > 0 && processExists(pid) {
-			who = fmt.Sprintf("the Control Rod daemon using this home (daemon.lock records pid %d)", pid)
-		}
-		return nil, fmt.Errorf("%s is not a plain file with a single name; Control Rod will not start until it is. Stop %s first, then remove %s", path, who, path)
+		// at the same path: check first that no daemon uses this home.
+		return nil, fmt.Errorf("%s is not a plain file with a single name; Control Rod will not start until it is. %s, then remove %s", path, checkNoDaemon(home, pid), path)
 	}
 	if err := flockHome(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		// A new holder writes its PID right after it wins the lock; give it that moment, so a crashed
@@ -60,12 +61,7 @@ func LockHome(home string) (func(), error) {
 		}
 		f.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
-			if holder > 0 {
-				// The PID is what the file records; a holder that crashed leaves its PID behind until the
-				// next holder rewrites it, so the sentence asks for a check, not a kill.
-				return nil, fmt.Errorf("another Control Rod daemon is already running with home %s; daemon.lock records pid %d (check that this process is a Control Rod daemon using this home, then stop it)", home, holder)
-			}
-			return nil, fmt.Errorf("another Control Rod daemon is already running with home %s; stop it first", home)
+			return nil, fmt.Errorf("a Control Rod daemon may already be running with home %s: another process holds its lock. %s before starting another", home, checkNoDaemon(home, holder))
 		}
 		return nil, fmt.Errorf("cannot lock the daemon home %s, so Control Rod will not start (two daemons would share its receipts): %w", home, err)
 	}
@@ -80,6 +76,17 @@ func LockHome(home string) (func(), error) {
 		_ = flockHome(int(f.Fd()), syscall.LOCK_UN)
 		f.Close()
 	}, nil
+}
+
+// checkNoDaemon tells the operator how to find the daemon using home. A PID read from daemon.lock
+// is only a lead: it may be stale or reused by an unrelated process, so it is never presented as
+// the daemon.
+func checkNoDaemon(home string, pid int) string {
+	s := fmt.Sprintf("Check the process list for a Control Rod daemon using home %s and stop it", home)
+	if pid > 0 && processExists(pid) {
+		s += fmt.Sprintf(" (daemon.lock names pid %d, which may be that daemon or an unrelated process that reused the number)", pid)
+	}
+	return s
 }
 
 // holderWriteWait is how long a refused contender waits before it reads the holder's PID.

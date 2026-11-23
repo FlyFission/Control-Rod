@@ -80,6 +80,9 @@ type Config struct {
 	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts, never
 	// on a timer; nil turns the check off. The daemon only reports what it finds: it never installs.
 	UpdateCheck func(ctx context.Context) []agentupdate.Status
+	// UpdateCheckOff says the person turned the check off. The daemon then reports an empty list on
+	// its claims, so an update an earlier daemon reported is cleared rather than shown forever.
+	UpdateCheckOff bool
 	// UpdateStamp says what an agent's binary on PATH is now (agentupdate.Stamp). Before each claim
 	// the cached report drops any agent whose binary changed since the check read its version, so an
 	// update installed while the daemon runs is never offered again. nil skips that.
@@ -280,6 +283,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 	go d.probeLoop(ctx)
 	if d.cfg.UpdateCheck != nil {
 		go d.checkAgentUpdates(ctx)
+	} else if d.cfg.UpdateCheckOff {
+		d.updates.set(nil)
 	}
 	outboxDone := make(chan struct{})
 	go func() { d.outboxLoop(ctx); close(outboxDone) }()

@@ -111,7 +111,7 @@ func TestAnIncompleteCheckKeepsAKnownUpdate(t *testing.T) {
 	}
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Latest: "1.0.92", Command: []string{"npm"}}})
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Note: "latest version unavailable: timeout"}})
-	if r := u.report(nil); len(r) != 1 || len(r[0].List) != 1 || r[0].List[0].Latest != "1.0.92" || uncheckedIDs(r[0].Unchecked) != "grok@1.0.77" {
+	if r := u.report(nil); len(r) != 1 || len(r[0].List) != 1 || r[0].List[0].Latest != "1.0.92" || r[0].List[0].NpmGlobal || uncheckedIDs(r[0].Unchecked) != "grok@1.0.77" {
 		t.Fatalf("an incomplete check wiped the known update: %#v", r)
 	}
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.92", Latest: "1.0.92"}})
@@ -187,5 +187,39 @@ func TestAChangedBinaryDropsTheCachedUpdate(t *testing.T) {
 	delete(now, "opencode")
 	if r := u.report(stamp); len(r[0].List) != 0 {
 		t.Fatalf("a removed binary kept its update: %#v", r)
+	}
+}
+
+// With the check turned off, the first claim already carries an empty report, so an update an
+// earlier daemon reported is cleared.
+func TestTurnedOffCheckClearsTheReport(t *testing.T) {
+	api := &updateAPI{}
+	srv := httptest.NewServer(http.HandlerFunc(api.handler))
+	t.Cleanup(srv.Close)
+	d := New(Config{
+		API: srv.URL, Token: "t", Home: t.TempDir(), Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Container: &Container{}, PollInterval: 20 * time.Millisecond, Runtimes: []string{RuntimeFake},
+		UpdateCheckOff: true,
+	})
+	ctx, stop := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- d.Run(ctx) }()
+	deadline := time.Now().Add(10 * time.Second)
+	var first string
+	for time.Now().Before(deadline) && first == "" {
+		api.mu.Lock()
+		if len(api.claims) > 0 {
+			first = string(api.claims[0]["agent_updates"])
+			if first == "" {
+				first = "<absent>"
+			}
+		}
+		api.mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
+	}
+	stop()
+	<-done
+	if first != "[]" {
+		t.Fatalf("first claim with the check off carried agent_updates %s", first)
 	}
 }

@@ -15,18 +15,21 @@ const brew = { agent: "codex", name: "Codex CLI", installed: "0.170.0", latest: 
 describe("Agent updates", () => {
   let updates: object[] = [];
   let served = 0;
+  let gate: Promise<void> | null = null;
   const posts: string[] = [];
   beforeEach(() => {
     updates = [grok, opencode, brew];
     posts.length = 0;
     served = 0;
+    gate = null;
     try {
       localStorage.clear();
     } catch {
       /* none */
     }
     server.use(
-      http.get("*/runtimes", () => {
+      http.get("*/runtimes", async () => {
+        if (gate) await gate;
         served++;
         return HttpResponse.json({ runtimes: [], pins: [], agent_updates: updates });
       }),
@@ -166,6 +169,27 @@ describe("Agent updates", () => {
     window.dispatchEvent(new Event("visibilitychange"));
     window.dispatchEvent(new FocusEvent("focus"));
     await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
+  });
+
+  it("shows the command only from data fetched since the window regained focus", async () => {
+    updates = [grok, opencode];
+    await renderPage(<AgentUpdates />);
+    const panel = await screen.findByRole("region", { name: "2 agent updates" });
+    expect(panel.textContent).toContain("npm install --global @xai-official/grok@1.0.92");
+    // Back to the window: until the refetch answers, the cached list shows no command to copy.
+    let release!: () => void;
+    gate = new Promise<void>((r) => (release = r));
+    updates = [opencode];
+    window.dispatchEvent(new FocusEvent("focus"));
+    await waitFor(() => expect(screen.getByRole("region").textContent).not.toContain("npm install"));
+    expect(screen.queryByRole("button", { name: "Copy command" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Check again" }).length).toBe(2);
+    // The answer arrives: Grok was cleared, OpenCode's command is shown again.
+    release();
+    gate = null;
+    const after = await screen.findByRole("region", { name: "1 agent update" });
+    await waitFor(() => expect(after.textContent).toContain("npm install --global opencode-ai@1.19.6"));
+    expect(after.textContent).not.toContain("grok");
   });
 
   it("disappears when a refetch finds every agent current", async () => {

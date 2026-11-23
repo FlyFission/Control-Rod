@@ -69,6 +69,8 @@ func (u *agentUpdates) set(sts []agentupdate.Status) {
 			unchecked = append(unchecked, UncheckedAgent{Agent: s.Agent.ID, Installed: installed})
 			for _, p := range prev {
 				if p.Agent == s.Agent.ID && installed != "" && p.Installed == installed {
+					// This check did not verify npm's provenance, so no command is offered for it.
+					p.NpmGlobal = false
 					next = append(next, p)
 				}
 			}

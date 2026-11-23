@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { newer, strictVersion } from "../lib/semver.js";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { AgentUpdate } from "../api/types.js";
 
@@ -63,6 +63,24 @@ export function AgentUpdates() {
   const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes, refetchOnWindowFocus: "always" });
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [copied, setCopied] = useState<string | null>(null);
+  // When the person last came back to the window. A command is shown only from data fetched after
+  // that, so a cached list never offers a command the control plane may already have cleared.
+  const [focusedAt, setFocusedAt] = useState(0);
+  const qc = useQueryClient();
+  useEffect(() => {
+    const back = () => {
+      if (document.visibilityState === "hidden") return;
+      setFocusedAt(Date.now());
+      void qc.refetchQueries({ queryKey: ["runtimes"] });
+    };
+    window.addEventListener("focus", back);
+    document.addEventListener("visibilitychange", back);
+    return () => {
+      window.removeEventListener("focus", back);
+      document.removeEventListener("visibilitychange", back);
+    };
+  }, [qc]);
+  const fresh = q.isSuccess && !q.isError && q.dataUpdatedAt >= focusedAt;
 
   // An entry whose version is not strict SemVer is not shown at all, and one agent at one version
   // is shown once.
@@ -118,16 +136,22 @@ export function AgentUpdates() {
               <span className="mono small">
                 <span className="muted">v{u.installed}</span> → <strong>v{u.latest}</strong>
               </span>
-              {npmCommand(u) ? (
+              {npmCommand(u) && fresh ? (
                 <button type="button" className="btn small" onClick={() => void copy(u)}>
                   {copied === keyOf(u) ? "Copied" : "Copy command"}
                 </button>
+              ) : npmCommand(u) ? (
+                <button type="button" className="btn small" onClick={() => void q.refetch()}>
+                  Check again
+                </button>
               ) : null}
             </div>
-            {npmCommand(u) ? (
+            {npmCommand(u) && fresh ? (
               <p className="small muted">
                 Run in a terminal: <code>{npmCommand(u)}</code>
               </p>
+            ) : npmCommand(u) ? (
+              <p className="small muted">Checking that this update is still current before showing its command.</p>
             ) : (
               <p className="small muted">{u.note ?? "Update it with the tool you installed it with."}</p>
             )}

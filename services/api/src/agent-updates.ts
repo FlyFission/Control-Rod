@@ -53,7 +53,8 @@ export async function recordAgentUpdates(db: Db, raw: unknown, rawUnchecked?: un
       // A row is kept only while its installed version is the one read now: a CLI updated (or
       // changed) since is never offered the older row's version.
       for (const u of Array.isArray(kept) ? kept : []) {
-        if (!reported.has(u?.agent) && unchecked.has(u.agent) && u.installed === unchecked.get(u.agent)) list.push(u);
+        // This check did not verify npm's provenance: the version notice stays, the command does not.
+        if (!reported.has(u?.agent) && unchecked.has(u.agent) && u.installed === unchecked.get(u.agent)) list.push({ ...u, npm_global: false });
       }
     }
     await c.query("insert into settings (key, value) values ('agent_updates', $1) on conflict (key) do update set value = excluded.value", [JSON.stringify(list)]);

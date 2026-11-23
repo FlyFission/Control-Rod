@@ -14,7 +14,7 @@
 --- PASS: TestCheckStampsEachAgent (0.00s)
 --- PASS: TestRecheckLooksAtTheSameExecutable (0.00s)
 --- PASS: TestCheckStampsTheProbedPath (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.011s
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.018s
 --- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
 --- PASS: TestUpdateOneAgentByName (0.00s)
 --- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
@@ -26,7 +26,7 @@ ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.011s
 --- PASS: TestMixedCaseSaysAntigravityWasNotChecked (0.00s)
 --- PASS: TestUpdateNamedTwiceRunsOnce (0.00s)
 --- PASS: TestUpdateRechecksAfterTheYes (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.024s
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.018s
 --- PASS: TestRegistry (0.00s)
 --- PASS: TestAgentEnvDropsProviderProvenance (0.00s)
 --- PASS: TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv (0.00s)
@@ -34,10 +34,10 @@ ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.024s
 --- PASS: TestAWriteBetweenCheckAndStartIsBlockedAndCaught (0.00s)
 --- PASS: TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart (0.00s)
 --- PASS: TestRunnerRejectsIncompleteSuccessReplies (0.01s)
---- PASS: TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet (0.52s)
+--- PASS: TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet (0.51s)
 --- PASS: TestAgentLaunchesRefuseWithoutASandboxPolicy (0.00s)
 --- PASS: TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand (0.00s)
---- PASS: TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt (0.02s)
+--- PASS: TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt (0.01s)
 --- PASS: TestAgentEnvKeepsOnlyTheAllowlist (0.00s)
 --- PASS: TestStagedRuntimesAreCopiedOutsideHomeAndRechecked (0.00s)
 --- PASS: TestDaemonStartupCheckReachesTheClaim (0.03s)
@@ -45,4 +45,5 @@ ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.024s
 --- PASS: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
 --- PASS: TestAnUpdatedCLIDropsTheKnownUpdate (0.00s)
 --- PASS: TestAChangedBinaryDropsTheCachedUpdate (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.613s
+--- PASS: TestTurnedOffCheckClearsTheReport (0.02s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.627s

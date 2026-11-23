@@ -54,7 +54,8 @@ describe("agent updates", () => {
     await claim([grok, brew]);
     // A restarted daemon: grok's registry lookup timed out, codex is now current.
     await claim([], [{ agent: "grok", installed: "1.0.77" }]);
-    expect((await view()).agent_updates).toEqual([grok]);
+    // The version notice stays, but this check did not verify npm's provenance: no command.
+    expect((await view()).agent_updates).toEqual([{ ...grok, npm_global: false }]);
     // A newer report for grok replaces its row; an unknown agent name is ignored.
     const newer = { ...grok, latest: "1.0.93" };
     await claim([newer], [{ agent: "grok", installed: "1.0.77" }, { agent: "rm -rf" }]);

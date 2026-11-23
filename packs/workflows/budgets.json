@@ -12,7 +12,7 @@
     },
     {
       "path": "services/api/src/workflow.ts",
-      "sha256": "a43211d0f7703f5241113688a9f1288d6bd64ebe19308c47a4d07280711b2610"
+      "sha256": "ccce63e175c22990c17a690ddea0c01f2aeeac12366e73f7e857df860c709ede"
     },
     {
       "path": "packs/workflows/superpowers/workflow.json",
@@ -71,7 +71,7 @@
       "sha256": "ec77a08ad603f45950ff3623b45eb89796e77bf49c84a010316ab6ab92c69421"
     }
   ],
-  "inputs_sha256": "2eab89efb5ef8f57bee21c538b84399133e7a4cbf61530a97b7c62da6625a420",
+  "inputs_sha256": "26e4f1d3a50e6d5015e5c9b6a904b12d89b3d84892d4ab501696d5ec361bb01d",
   "stages": [
     {
       "workflow": "superpowers",

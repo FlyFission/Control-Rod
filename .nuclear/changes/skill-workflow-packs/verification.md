@@ -35,7 +35,7 @@ Built by subagents under D3: Codex wrote the generator, check, sync script and t
 | E-03 | separated: controller reran builder tests | coupled: same session | separated: deterministic tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, no browser  [Ship limits](ship.md) |
 | E-04 | separated: controller reran builder tests | coupled: same session | separated: deterministic tools | separated: owner retains merge decision | coupled: local machine | self-check | NGCE tests skipped  [Ship limits](ship.md) |
 | E-05 | coupled: controller | coupled: same session | separated: deterministic checks | separated: owner retains merge decision | coupled: local machine | self-check | two known register problems  [Ship limits](ship.md) |
-| E-07 | separated: different-vendor reviewer | separated: reviewer saw only the diff | separated: deterministic tests | separated: owner retains merge decision | coupled: local machine | independent check | fixes not re-reviewed by a person  [Ship limits](ship.md) |
+| E-07 | separated: different-vendor reviewer | separated: reviewer saw only the diff | separated: deterministic tests | separated: owner retains merge decision | coupled: local machine | diverse verification | fixes not re-reviewed by a person  [Ship limits](ship.md) |
 | E-06 | coupled: controller | coupled: same session | separated: deterministic validators | separated: owner retains merge decision | coupled: local machine | self-check | format checks only  [Ship limits](ship.md) |
 
 No independent human review was done.

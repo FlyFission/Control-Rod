@@ -1,5 +1,5 @@
 {
-  "inputs_sha256": "4c11d062b9a2d31bda7e382754c7d1916241781a1057a46aff1dbc20415e7a43",
+  "inputs_sha256": "925331f763bbb9fb490d9c51af9f52a5e1442130b3ee2b712251bb3ded326ecb",
   "svg": "docs/assets/readme/second-checker.svg",
   "svg_sha256": "38f54b68b8697360a6fb1735cf7931183e63c9313064e541d757a4ad80cfefe4",
   "chart_values": {
@@ -54,8 +54,8 @@
     },
     "cemri_role_spec_gain": {
       "source": "cemri2025",
-      "value": "+9.4%",
-      "unit": "ChatDev success rate, GPT-4o"
+      "value": 9.4,
+      "unit": "percentage points, ChatDev success rate on ProgramDev, GPT-4o"
     },
     "sharma_claude13_false_admit": {
       "source": "sharma2023",

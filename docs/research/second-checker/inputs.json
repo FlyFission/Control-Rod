@@ -48,7 +48,7 @@
       "url": "https://arxiv.org/abs/2505.06120",
       "where": "Abstract: 'with an average drop of 39% across six generation tasks'. Introduction: '15 LLMs'. (Figure 1 caption says -35%; the README uses the abstract's figure.)",
       "license": "CC BY 4.0",
-      "conditions": "Simulated sharded (multi-turn) vs fully specified single-turn instructions; six generation tasks."
+      "conditions": "Simulated sharded (multi-turn) vs fully specified single-turn instructions; six generation tasks. Applies to simulated multi-turn tasks, not long chats in general."
     },
     "cemri2025": {
       "title": "Why Do Multi-Agent LLM Systems Fail?",
@@ -56,7 +56,7 @@
       "url": "https://arxiv.org/abs/2503.13657",
       "where": "Section 4 (FC1): 'improving agent role specifications alone yields a +9.4% success rate increase for ChatDev' 'with the same user prompt and LLM (GPT-4o)'.",
       "license": "CC BY-NC-ND 4.0 (fact quoted with attribution, nothing reproduced)",
-      "conditions": "ChatDev on ProgramDev. Not used: a ~75% ChatDev failure rate and a +14% figure, which were not found in the text."
+      "conditions": "ChatDev on ProgramDev. Not used: a ~75% ChatDev failure rate and a +14% figure, which were not found in the text. The +9.4% is percentage points: the reviewer read Table 5 (ChatDev, ProgramDev-v0) as 25.0% to 34.4%; the change was to the agents' role prompts."
     },
     "kamoi2024": {
       "title": "When Can LLMs Actually Correct Their Own Mistakes? A Critical Survey of Self-Correction of LLMs",
@@ -148,8 +148,8 @@
     },
     "cemri_role_spec_gain": {
       "source": "cemri2025",
-      "value": "+9.4%",
-      "unit": "ChatDev success rate, GPT-4o"
+      "value": 9.4,
+      "unit": "percentage points, ChatDev success rate on ProgramDev, GPT-4o"
     },
     "sharma_claude13_false_admit": {
       "source": "sharma2023",

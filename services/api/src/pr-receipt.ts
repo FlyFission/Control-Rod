@@ -437,11 +437,9 @@ export function extractBundleInspection(
       if (rev !== undefined && currentRevision !== undefined && rev < currentRevision) continue;
       if (rev !== undefined) currentRevision = rev;
       preCheckRevision = rev;
-      if (round !== undefined) {
-        latestAuthorOutput = authorByRound.get(round);
-        const rDigests = authorOutputsByRound.get(round);
-        if (rDigests && rDigests.size > 0) latestOutputs = new Set(rDigests);
-      }
+      // Only patch outputs of the accepted pre-check's own round bind; a round with no patch has no diff binding.
+      latestOutputs = new Set(round !== undefined ? (authorOutputsByRound.get(round) ?? []) : []);
+      if (round !== undefined) latestAuthorOutput = authorByRound.get(round);
       collectOutputsAndRefs(data, latestOutputs, recordedHeadShas);
       const outcome =
         data.outcome === "pass" || data.outcome === "fail" || data.outcome === "inconclusive"
@@ -592,10 +590,15 @@ function isStandaloneSummary(md: string): boolean {
   return lines.filter((l) => l.startsWith("- **Accepted by:**")).every((l) => l === STANDALONE_ACCEPTED);
 }
 
-const CLAIM_LINE = /^(?:### Control Rod receipt$|- \*\*(?:Package|Written by|Checked blind by|Checked by|Accepted by):\*\*|> \*\*(?:UNAUTHENTICATED|UNVERIFIED SEAL KEY))/;
+const VERIFY_LINE = "- **Verify offline:**";
 
-function receiptClaimLines(md: string): string[] {
-  return md.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => CLAIM_LINE.test(l));
+/** Normalises line endings and trailing space; the single path-dependent verify line is masked. */
+function receiptSectionLines(md: string): string[] {
+  return md
+    .replace(/\r\n?/g, "\n")
+    .replace(/\s+$/, "")
+    .split("\n")
+    .map((l) => (l.startsWith(VERIFY_LINE) ? VERIFY_LINE : l));
 }
 
 export function checkBundleReceiptBinding(
@@ -658,14 +661,14 @@ export function checkBundleReceiptBinding(
     /<!--\s*controlrod-check-binding:/.test(expect.receiptText) &&
     !isStandaloneSummary(expect.receiptText)
   ) {
-    // A Control Rod bundle receipt is regenerated from the bundle; its claim block must match exactly,
-    // so an edited verdict, checker or accepting person cannot verify.
+    // A Control Rod bundle receipt is regenerated from the bundle and must equal it line for line
+    // (only the path-dependent verify line is masked): no extra lines, no fences, no edits.
     const trusted = isSealKeyTrusted(bundle, authenticated, resolved.trustedSealKeys ? { trustedSealKeys: resolved.trustedSealKeys } : undefined);
     const regenerated = formatPrReceipt(extractBundleInspection(bundle, authenticated, trusted, "", "").input);
-    const want = receiptClaimLines(regenerated);
-    const got = receiptClaimLines(expect.receiptText);
+    const want = receiptSectionLines(regenerated);
+    const got = receiptSectionLines(expect.receiptText);
     if (want.length !== got.length || want.some((l, i) => l !== got[i])) {
-      return { problem: "the receipt's claims (package, writer, checker, verdict, accepting person) do not match what this bundle shows" };
+      return { problem: "the receipt's claims (package, writer, checker, verdict, accepting person) do not match what this bundle shows (the receipt must equal the section regenerated from the bundle, with no extra or fenced lines)" };
     }
   }
 

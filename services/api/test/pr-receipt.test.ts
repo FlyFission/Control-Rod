@@ -251,6 +251,27 @@ describe("PR receipt", () => {
     // A platform receipt relabelled as a standalone summary still fails while it names a person.
     const relabelled = md.replace("### Control Rod receipt", "### Control Rod check summary (standalone, unaccepted)").replace("mem_owner", "mem_other");
     expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: relabelled })).code).toBe(1);
+    // Strict section: a fenced copy of the real claims plus an extra visible bullet, or any extra line, fails.
+    const fenced = md.replace("### Control Rod receipt", "### Control Rod receipt\n```\n" + md.split("\n").filter((l) => l.startsWith("- **")).join("\n") + "\n```");
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: fenced.replace("- **Accepted by:** recorded", "- **Accepted by:** `mem_other` x") })).code).toBe(1);
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: md + "- **Accepted by:** `mem_other`\n" })).code).toBe(1);
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: md + "extra\n" })).code).toBe(1);
+    // CRLF line endings are normalised.
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: md.replaceAll("\n", "\r\n") })).code).toBe(0);
+
+    // A patch from an earlier round does not bind when the accepted pre-check round has none.
+    const staleRound = makeSealedBundle("WP-RT-4", [
+      { type: "package.created", subject: "WP-RT-4" },
+      { type: "run.succeeded", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-RT-4", role: "author", round: 1, outputs: [{ name: "diff.patch", sha256: diff }] } },
+      { type: "run.succeeded", subject: "R-2", actor: { kind: "agent", id: "claude" }, data: { package: "WP-RT-4", role: "author", round: 2, outputs: [{ name: "notes.txt", sha256: "9".repeat(64) }] } },
+      { type: "package.pre-checked", subject: "WP-RT-4", actor: { kind: "agent", id: "codex" }, data: { revision: 0, round: 2, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-RT-4", actor: { kind: "human", id: "mem_owner" }, data: { revision: 0, decision: "D-1", subject_digest: digestVal } },
+    ]);
+    const sr = await prReceiptFromBundleText(JSON.stringify(staleRound), "sr.json");
+    expect(sr.markdown).not.toContain("controlrod-check-binding");
+    const srv = await verifyBundleText(JSON.stringify(staleRound), { expectedDiffSha256: diff, expectedRevision: 0 });
+    expect(srv.code).toBe(1);
+
     // Explicit options that disagree with the receipt's binding fail instead of overriding it.
     const conflict = await verifyBundleText(JSON.stringify(sealed), { receiptText: md, expectedDiffSha256: "f".repeat(64) });
     expect(conflict.code).toBe(1);

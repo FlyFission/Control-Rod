@@ -1095,10 +1095,13 @@ async function intakeWorkflow(c: Tx, captureId: string, text: unknown): Promise<
   if (captureNamesWorkflow(text)) return { workflow: "playbook" };
   const named = captureProject(text);
   if (!named) return { workflow: "playbook" };
-  const rows = (await c.query<{ body: Json }>(
-    `select p.body from projects p
+  const all = (await c.query<{ id: string; body: Json }>(
+    `select p.id, p.body from projects p
        join object_owners o on o.object_kind = 'capture' and o.object_id = $1 and o.org_id = p.org_id
       where p.id = $2 or p.body->>'name' = $2`, [captureId, named])).rows;
+  // An exact id wins over a name, as it does when the drafts are filed; names must be unambiguous.
+  const byId = all.filter((r) => r.id === named);
+  const rows = byId.length ? byId : all;
   if (rows.length !== 1) return { workflow: "playbook" };
   const r = resolveWorkflow(undefined, rows[0]!.body);
   return r.reason ? { ...r, reason: `${r.reason} (the request names project ${named})` } : r;

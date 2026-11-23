@@ -1,0 +1,172 @@
+{
+  "retrieved": "2026-11-23",
+  "note": "Every value is copied from the cited table or sentence as published. Nothing is rounded, combined or extrapolated.",
+  "sources": {
+    "stechly2024": {
+      "title": "On the Self-Verification Limitations of Large Language Models on Reasoning and Planning Tasks",
+      "authors": "Kaya Stechly, Karthik Valmeekam, Subbarao Kambhampati",
+      "url": "https://arxiv.org/abs/2402.08115",
+      "where": "Table 1, arXiv HTML v2: 'Accuracy across prompting schemes over 100 instances per domain.' Model: GPT-4.",
+      "license": "arXiv.org perpetual non-exclusive license (values redrawn from the table, no figure copied)",
+      "conditions": "GPT-4, 100 instances per domain. 'LLM+LLM' is GPT-4 critiquing its own answers; 'LLM+Sound Critique, B.F.' is a sound program checker giving binary feedback, not a second language model."
+    },
+    "huang2024": {
+      "title": "Large Language Models Cannot Self-Correct Reasoning Yet",
+      "authors": "Jie Huang et al.",
+      "url": "https://arxiv.org/abs/2310.01798",
+      "where": "Table 3, arXiv HTML v2: 'Results of GPT-3.5 and GPT-4 on reasoning benchmarks with intrinsic self-correction.'",
+      "license": "CC BY 4.0",
+      "conditions": "Intrinsic self-correction: the model reviews its own answer with no external feedback."
+    },
+    "panickssery2024": {
+      "title": "LLM Evaluators Recognize and Favor Their Own Generations",
+      "authors": "Arjun Panickssery, Samuel R. Bowman, Shi Feng",
+      "url": "https://arxiv.org/abs/2404.13076",
+      "where": "Introduction, finding 2: 'GPT-4 is 73.5% accurate distinguishing itself from two other LLMs and humans.'",
+      "license": "CC BY 4.0",
+      "conditions": "Summarization (XSUM, CNN/DailyMail), out of the box, no fine-tuning. Measures recognizing its own authorship, not review accuracy."
+    },
+    "goel2025": {
+      "title": "Great Models Think Alike and this Undermines AI Oversight",
+      "authors": "Shashwat Goel et al.",
+      "url": "https://arxiv.org/abs/2502.04313",
+      "where": "Section 3.2: 'a significant (p < 0.01) positive correlation (average Pearson r=0.84) between LLM-as-a-judge scores and model similarity'. Figure 6 caption: 'LM mistakes are getting more correlated with increasing capabilities'.",
+      "license": "arXiv.org perpetual non-exclusive license",
+      "conditions": "Similarity measured by CAPA (overlap in mistakes). The capability trend has no single published coefficient. Cross-sectional across current models, not a trend over time; CAPA adjusts for chance agreement."
+    },
+    "metr2026": {
+      "title": "Many SWE-bench-Passing PRs Would Not Be Merged into Main",
+      "authors": "Parker Whitfill, Cheryl Wu, Joel Becker, Nate Rush (METR)",
+      "url": "https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/",
+      "where": "Summary: 4 active maintainers from 3 SWE-bench Verified repositories reviewed 296 AI-generated PRs; 'roughly half of test-passing SWE-bench Verified PRs' would not be merged, 'even after adjusting for noise in maintainer merge decisions'. Main results: grader averages about 24.2 percentage points (SE 2.7) above the maintainer merge decision.",
+      "license": "(c) 2026 METR, all rights reserved; facts quoted with attribution, nothing reproduced",
+      "conditions": "scikit-learn, Sphinx, pytest; agents from mid-2024 to late 2025, mostly Anthropic models; scores normalized to the golden-patch merge rate (about 68%); maintainers had no CI."
+    },
+    "laban2025": {
+      "title": "LLMs Get Lost In Multi-Turn Conversation",
+      "authors": "Philippe Laban, Hiroaki Hayashi, Yingbo Zhou, Jennifer Neville",
+      "url": "https://arxiv.org/abs/2505.06120",
+      "where": "Abstract: 'with an average drop of 39% across six generation tasks'. Introduction: '15 LLMs'. (Figure 1 caption says -35%; the README uses the abstract's figure.)",
+      "license": "CC BY 4.0",
+      "conditions": "Simulated sharded (multi-turn) vs fully specified single-turn instructions; six generation tasks. Applies to simulated multi-turn tasks, not long chats in general."
+    },
+    "cemri2025": {
+      "title": "Why Do Multi-Agent LLM Systems Fail?",
+      "authors": "Mert Cemri et al.",
+      "url": "https://arxiv.org/abs/2503.13657",
+      "where": "Section 4 (FC1): 'improving agent role specifications alone yields a +9.4% success rate increase for ChatDev' 'with the same user prompt and LLM (GPT-4o)'.",
+      "license": "CC BY-NC-ND 4.0 (fact quoted with attribution, nothing reproduced)",
+      "conditions": "ChatDev on ProgramDev. Not used: a ~75% ChatDev failure rate and a +14% figure, which were not found in the text. Table 5 (ChatDev, ProgramDev-v0): 25.0% baseline and 34.4% with the improved role prompts; Section 4 (FC1) states the gain, so +9.4% is percentage points. Table 5 cells were confirmed in the PR's blind check."
+    },
+    "kamoi2024": {
+      "title": "When Can LLMs Actually Correct Their Own Mistakes? A Critical Survey of Self-Correction of LLMs",
+      "authors": "Ryo Kamoi et al. (TACL 2024)",
+      "url": "https://arxiv.org/abs/2406.01297",
+      "where": "Abstract: 'self-correction works well in tasks that can use reliable external feedback'.",
+      "license": "CC BY 4.0",
+      "conditions": "Survey; qualitative finding."
+    },
+    "sharma2023": {
+      "title": "Towards Understanding Sycophancy in Language Models",
+      "authors": "Mrinank Sharma et al.",
+      "url": "https://arxiv.org/abs/2310.13548",
+      "where": "Section 3.2: 'Claude 1.3 wrongly admits mistakes on 98% of questions.' Section 3.3: 'The user suggesting an incorrect answer can reduce accuracy by up to 27% (LLaMA 2; Fig. 3).'",
+      "license": "CC BY 4.0",
+      "conditions": "Five assistants: claude-1.3, claude-2.0, gpt-3.5-turbo, gpt-4, llama-2-70b-chat."
+    }
+  },
+  "chart": {
+    "source": "stechly2024",
+    "title": "GPT-4 checking itself vs. an outside checker",
+    "series": [
+      "Answers alone",
+      "GPT-4 checks itself",
+      "Outside checker"
+    ],
+    "series_columns": [
+      "S.P.",
+      "LLM+LLM",
+      "LLM+Sound Critique B.F."
+    ],
+    "rows": [
+      {
+        "domain": "Graph coloring",
+        "values": [
+          16,
+          2,
+          38
+        ]
+      },
+      {
+        "domain": "Game of 24",
+        "values": [
+          5,
+          3,
+          36
+        ]
+      }
+    ],
+    "unit": "% of 100 problems solved"
+  },
+  "facts": {
+    "huang_gpt4_gsm8k": {
+      "source": "huang2024",
+      "standard": 95.5,
+      "self_correct_round_2": 89.0,
+      "unit": "% accuracy"
+    },
+    "huang_gpt35_csqa": {
+      "source": "huang2024",
+      "standard": 75.8,
+      "self_correct_round_1": 38.1,
+      "unit": "% accuracy"
+    },
+    "panickssery_gpt4_self_recognition": {
+      "source": "panickssery2024",
+      "value": 73.5,
+      "unit": "% accuracy"
+    },
+    "goel_judge_similarity_r": {
+      "source": "goel2025",
+      "value": 0.84,
+      "unit": "average Pearson r"
+    },
+    "metr_prs_reviewed": {
+      "source": "metr2026",
+      "value": 296,
+      "unit": "AI-generated pull requests"
+    },
+    "metr_not_merged": {
+      "source": "metr2026",
+      "value": "roughly half",
+      "unit": "share of test-passing PRs maintainers would not merge, golden-adjusted"
+    },
+    "laban_multi_turn_drop": {
+      "source": "laban2025",
+      "value": 39,
+      "unit": "% average performance drop, 15 LLMs, six tasks"
+    },
+    "cemri_role_spec_gain": {
+      "source": "cemri2025",
+      "value": 9.4,
+      "unit": "percentage points, ChatDev success rate on ProgramDev, GPT-4o"
+    },
+    "sharma_claude13_false_admit": {
+      "source": "sharma2023",
+      "value": 98,
+      "unit": "% of questions"
+    },
+    "sharma_llama2_accuracy_drop": {
+      "source": "sharma2023",
+      "value": 27,
+      "unit": "% maximum accuracy reduction"
+    },
+    "stechly_blocksworld": {
+      "source": "stechly2024",
+      "standard": 40,
+      "self_check": 55,
+      "outside_checker_binary": 60,
+      "unit": "% of 100 problems solved"
+    }
+  }
+}

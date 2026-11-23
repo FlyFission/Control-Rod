@@ -762,7 +762,8 @@ func TestCheckerMountKeepsHostCredentialsReadOnly(t *testing.T) {
 			ws.CheckerRuntime = tc.runtime
 			script := `test "$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")" = fixture`
 			if tc.runtime == RuntimeCodex {
-				script = `test "$(cat "$CODEX_HOME/auth.json")" = fixture && touch "$CODEX_HOME/checker-state"`
+				// A refreshed sign-in is saved to the private copy; the host file is unchanged.
+				script = `test "$(cat "$CODEX_HOME/auth.json")" = fixture && printf refreshed > "$CODEX_HOME/auth.json" && touch "$CODEX_HOME/checker-state"`
 			}
 			cmd := exec.Command("/bin/sh", "-c", script)
 			cmd.Dir = ws.Dir
@@ -790,8 +791,8 @@ func TestCheckerMountKeepsHostCredentialsReadOnly(t *testing.T) {
 				if home == root || !strings.Contains(joined, "\n--bind\n"+home+"\n"+home+"\n") {
 					t.Fatal("isolated login state lacks a writable bind")
 				}
-				if !strings.Contains(joined, "\n--ro-bind\n"+credential+"\n"+filepath.Join(home, tc.name)+"\n") {
-					t.Fatal("isolated login home lacks a read-only credential bind")
+				if strings.Contains(joined, "\n"+credential+"\n"+filepath.Join(home, tc.name)+"\n") {
+					t.Fatal("the host credential is bound into the isolated login home instead of copied")
 				}
 			}
 			if output, err := cmd.CombinedOutput(); err != nil {
@@ -800,6 +801,9 @@ func TestCheckerMountKeepsHostCredentialsReadOnly(t *testing.T) {
 			if tc.runtime == RuntimeCodex {
 				if _, err := os.Stat(filepath.Join(home, "checker-state")); err != nil {
 					t.Fatal(err)
+				}
+				if b, err := os.ReadFile(credential); err != nil || string(b) != "fixture" {
+					t.Fatalf("host credential changed: %q %v", b, err)
 				}
 			}
 		})

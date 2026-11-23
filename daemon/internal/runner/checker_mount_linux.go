@@ -307,9 +307,9 @@ func loginMounts(plan loginPlan) []string {
 }
 
 // mountIsolatedLoginHome creates a per-run writable directory under the checker's disposable
-// login parent, bind-mounts the verified credential file read-only inside it, and points envName
-// (e.g. CODEX_HOME) at it so the CLI's ephemeral app-server/SQLite state works while the host
-// login directory remains strictly read-only.
+// login parent, puts a private writable copy of the verified credential file inside it, and points
+// envName (e.g. CODEX_HOME) at it so the CLI's ephemeral app-server/SQLite state and a refreshed
+// sign-in can be written while the host login directory, credential included, stays read-only.
 func mountIsolatedLoginHome(cmd *exec.Cmd, ws *Workspace, plan loginPlan, envName string) ([]string, error) {
 	base := ws.LoginDisposable
 	if base == "" {
@@ -326,11 +326,17 @@ func mountIsolatedLoginHome(cmd *exec.Cmd, ws *Workspace, plan loginPlan, envNam
 	}
 	out := []string{"--bind", homeDir, homeDir}
 	if plan.Credential != "" {
-		dest := filepath.Join(homeDir, filepath.Base(plan.Credential))
-		if err := os.WriteFile(dest, nil, 0o600); err != nil {
+		// A private copy, not a bind: the CLI must save a sign-in it refreshes mid-check before it
+		// retries (Codex aborts the check otherwise), and the copy takes that write while the
+		// host's credential stays untouched and read-only. The copy is removed with the run.
+		b, err := os.ReadFile(plan.Credential)
+		if err != nil {
 			return nil, err
 		}
-		out = append(out, "--ro-bind", plan.Credential, dest)
+		dest := filepath.Join(homeDir, filepath.Base(plan.Credential))
+		if err := os.WriteFile(dest, b, 0o600); err != nil {
+			return nil, err
+		}
 	}
 	prefix := envName + "="
 	filtered := make([]string, 0, len(cmd.Env)+1)

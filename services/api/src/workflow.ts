@@ -100,7 +100,10 @@ export function captureNamesWorkflow(text: unknown): boolean {
 export function captureProject(text: unknown): string | undefined {
   const tags = captureTags(text);
   if (!tags) return undefined;
-  const found = new Set(tags.filter((t) => t.key === "project" || t.key === "project-id").map((t) => t.value.trim()).filter(Boolean));
+  // A workspace id wins over a name, because promotion files the drafts under that id.
+  const values = (key: string) => new Set(tags.filter((t) => t.key === key).map((t) => t.value.trim()).filter(Boolean));
+  const ids = values("project-id");
+  const found = ids.size ? ids : values("project");
   return found.size === 1 ? [...found][0] : undefined;
 }
 

@@ -31,6 +31,8 @@ describe("captureProject", () => {
     expect(captureProject("[mode:software] [project:Plant Works] [stage:design]\n\nx")).toBe("Plant Works");
     expect(captureProject("[project:prj_1]")).toBe("prj_1");
     expect(captureProject("[mode:software] [project-id:prj_ws1] [stage:design]")).toBe("prj_ws1");
+    // The workspace id wins over a name, as it does when the drafts are filed.
+    expect(captureProject("[project:Other Name] [project-id:prj_ws1] [mode:software]")).toBe("prj_ws1");
   });
   it("reads nothing past the first line, and two different projects are none", () => {
     expect(captureProject("[mode:software]\n[project:prj_1]")).toBeUndefined();

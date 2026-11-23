@@ -19,7 +19,9 @@ it("binds a reported eligible model without weakening the grade gate", () => {
 
 it("admits a chosen checker model only through the same registry and grade filter as the default", () => {
   expect(checkerModelAdmitted("claude", "general-service", "claude-haiku-4-5")).toBe(true);
-  expect(checkerModelAdmitted("claude", "safety", "claude-haiku-4-5")).toBe(defaultCheckerModel("claude", "safety", ["claude-haiku-4-5"]) === "claude-haiku-4-5");
+  // Haiku is registered but not a deciding model, so it may not decide a Safety check.
+  expect(checkerModelAdmitted("claude", "safety", "claude-haiku-4-5")).toBe(false);
+  expect(checkerModelAdmitted("claude", "safety", "claude-opus-4-6")).toBe(true);
   expect(checkerModelAdmitted("claude", "general-service", "unregistered-model")).toBe(false);
   expect(checkerModelAdmitted("codex", "general-service", "claude-haiku-4-5")).toBe(false);
 });

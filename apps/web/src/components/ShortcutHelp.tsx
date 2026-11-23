@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { setSingleKeys, singleKeysOn } from "../lib/singleKeys.js";
+import { SINGLE_KEYS_EVENT, setSingleKeys, singleKeysOn } from "../lib/singleKeys.js";
 
 export type Shortcut = { keys: string[]; what: string; where: string };
 
@@ -25,6 +25,12 @@ export function ShortcutHelp({ open, mac, onClose }: { open: boolean; mac: boole
   const toggle = useRef<HTMLInputElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
   const [keysOn, setKeysOn] = useState(singleKeysOn);
+  // A change made in another tab reaches the key handlers; the open list shows it too.
+  useEffect(() => {
+    const sync = () => setKeysOn(singleKeysOn());
+    window.addEventListener(SINGLE_KEYS_EVENT, sync);
+    return () => window.removeEventListener(SINGLE_KEYS_EVENT, sync);
+  }, []);
 
   useEffect(() => {
     if (!open) return;

@@ -22,6 +22,11 @@ describe("new arrivals", () => {
     const before = new Set([attentionKey(item())]);
     expect(newArrivals(before, [item({ kind: "dispute" })])).toHaveLength(1);
   });
+  it("tells apart two captures held by the same SCRAM", () => {
+    const one = item({ kind: "scram", scram_id: "S-1", capture_id: "C-1" });
+    const before = new Set([attentionKey(one)]);
+    expect(newArrivals(before, [item({ kind: "scram", scram_id: "S-1", capture_id: "C-2" })])).toHaveLength(1);
+  });
   it("treats a run lost again on the same revision as a new item", () => {
     const lost = item({ kind: "lost", since: "2026-11-23T10:00:00Z" });
     const before = new Set([attentionKey(lost)]);

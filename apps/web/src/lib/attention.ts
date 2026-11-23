@@ -21,7 +21,8 @@ export const ATTENTION_LABEL: Record<AttentionItem["kind"], string> = {
 export const attentionKey = (i: AttentionItem): string =>
   // A lost run is one run: a requeued run that is lost again on the same revision is a new item,
   // told apart by when it became lost.
-  `${i.kind}-${i.package_id ?? i.scram_id ?? i.capture_id}-${i.package_revision ?? ""}${i.kind === "lost" ? `-${i.since}` : ""}`;
+  // Every id the item carries is part of it, so two captures held by one SCRAM are two items.
+  `${i.kind}-${i.package_id ?? ""}-${i.scram_id ?? ""}-${i.capture_id ?? ""}-${i.package_revision ?? ""}${i.kind === "lost" ? `-${i.since}` : ""}`;
 
 /** The tab title: a count in front only when it is known and above zero. */
 export function titleWithCount(base: string, count: number | undefined): string {

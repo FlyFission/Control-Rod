@@ -14,6 +14,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-09 | pass | Codex blind check of the code at f97d401: HOLD with three P2 and two P3 findings, all fixed (T-13). | Landing thread, `land-out/pr153-r3-f97d401.md` on the owner's machine |
 | E-10 | pass | Codex blind check of the code at df45884: HOLD with two P2 and one P3 findings, all fixed (T-14). | Landing thread, `land-out/pr153-r4-df45884.md` on the owner's machine |
 | E-11 | pass | Codex blind check of the code at 8648b81: HOLD with two P2 and one P3 findings, all fixed (T-15). | Landing thread, `land-out/pr153-r5-8648b81.md` on the owner's machine |
+| E-12 | pass | Codex blind check of the fixes since 8648b81 at 870a060: MERGE-WITH-P3S. Its one P3 (the crowded-floor test did not cover list mode) is fixed in the crowded-floor test. Rounds 1 to 6 confirm every earlier finding fixed (T-11 to T-15). | Landing thread, `land-out/pr153-r6-870a060.md` on the owner's machine |
 | E-06 | open | Independent design review of the plan by two reviewers from different vendors (done, `evidence/design-review.md`); the third reviewer, Firefox and WebKit runs and the owner's review are not done. | Owner review |
 
 ## Evidence custody and coupling
@@ -30,6 +31,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-09 | T-13 | yes | land-out/pr153-r3-f97d401.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-10 | T-14 | yes | land-out/pr153-r4-df45884.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-11 | T-15 | yes | land-out/pr153-r5-8648b81.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
+| E-12 | T-15 | yes | land-out/pr153-r6-870a060.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-06 | T-09 | yes | evidence/design-review.md | Implementing agent | Independent reviewers | Owner | Implementing agent | Owner's machine | Packet and export | Implementing agent | Independent reviewers (plan only) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -44,6 +46,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-09 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-10 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-11 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
+| E-12 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-06 | separated: reviewers from other vendors | separated: blind to the author's reasoning | partially separated: model review of the plan, not the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the reviewers' raw output is not retained here; the code itself has had no independent review yet  [Ship limits](ship.md) |
 
 No human independent review has been done yet.

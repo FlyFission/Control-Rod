@@ -242,6 +242,12 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
     expect(screen.getByRole("button", { name: /^WP-N: Needs you/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^WP-W0: Working/ })).toBeNull();
     expect(screen.getByRole("table", { name: "Portfolio" })).toBeTruthy();
+    // The list never folds anyone, so neither the folded counts nor Show everyone are offered there.
+    await userEvent.click(screen.getByRole("radio", { name: "List" }));
+    expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show everyone" })).toBeNull();
+    expect(within(screen.getByLabelText("Every agent, by place")).getByRole("button", { name: /^Working WP-W0: Working/ })).toBeTruthy();
+    await userEvent.click(screen.getByRole("radio", { name: /^(Plant|Floor)$/ }));
     await userEvent.click(screen.getByRole("button", { name: "Show everyone" }));
     expect(screen.getByRole("button", { name: /^WP-W0: Working/ })).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();

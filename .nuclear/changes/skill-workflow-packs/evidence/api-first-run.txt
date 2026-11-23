@@ -1,0 +1,6 @@
+# first full API run, same tree: one timeout (kept for the record)
+ FAIL  test/preparation-grants.test.ts > migrations 009 and 010 preserve grant history (review R14)
+Error: Test timed out in 5000ms.
+ Test Files  1 failed | 72 passed (73)
+      Tests  1 failed | 878 passed (879)
+# that file alone: 19 passed; second full run: 879 passed (api.log)

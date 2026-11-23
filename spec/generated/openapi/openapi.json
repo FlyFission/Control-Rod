@@ -956,6 +956,94 @@
         }
       }
     },
+    "/captures/{id}/dismiss": {
+      "post": {
+        "operationId": "Captures_dismiss",
+        "description": "Dismiss a pending capture and stop its queued intake work. The capture record is retained.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Capture"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/events": {
       "get": {
         "operationId": "Events_list",
@@ -3605,10 +3693,106 @@
         }
       }
     },
+    "/packages/{id}/runs/{runId}": {
+      "get": {
+        "operationId": "Packages_run",
+        "description": "The exact attempt, including attempts from earlier revisions.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/runs/{runId}/events": {
       "get": {
         "operationId": "Packages_runEvents",
-        "description": "The run's story: its normalized events in order, after a sequence number.",
+        "description": "Events in chronological order. Choose at most one of after, before, or recent.",
         "parameters": [
           {
             "name": "id",
@@ -3632,7 +3816,40 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "minimum": 0
+            },
+            "explode": false
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1
+            },
+            "explode": false
+          },
+          {
+            "name": "recent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "explode": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 2000
             },
             "explode": false
           }
@@ -3774,6 +3991,218 @@
                   "required": [
                     "lines"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/runs/{runId}/outputs": {
+      "get": {
+        "operationId": "Packages_runOutputs",
+        "description": "Read at most 200 admitted files from the exact author attempt, ordered by path.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunOutput"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/runs/{runId}/outputs/preview": {
+      "get": {
+        "operationId": "Packages_runOutputPreview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOutputPreview"
                 }
               }
             }
@@ -6432,6 +6861,87 @@
         }
       }
     },
+    "/runs/active": {
+      "get": {
+        "operationId": "activeRunSummaries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActiveRunSummary"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runtimes": {
       "get": {
         "operationId": "runtimes",
@@ -6961,6 +7471,367 @@
           }
         }
       }
+    },
+    "/workspace/projects": {
+      "get": {
+        "operationId": "WorkspaceProjects_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceProjects.WorkspaceProject"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "WorkspaceProjects_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProjects.WorkspaceProject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceProjects.CreateProject"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspace/projects/{id}": {
+      "patch": {
+        "operationId": "WorkspaceProjects_update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProjects.WorkspaceProject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceProjects.SignedProjectUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspace/projects/{id}/archive": {
+      "post": {
+        "operationId": "WorkspaceProjects_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProjects.ArchivedProject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceProjects.SignedProjectArchive"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7020,6 +7891,77 @@
           }
         },
         "description": "One command for an object and the viewing Member (workbench specification 5.7): allowed or\nrefused, why in words, what would change it, how it is signed and the authority it needs."
+      },
+      "ActiveRunSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "package_id",
+          "package_revision",
+          "role",
+          "runtime",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "role": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunRole"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/ControlRod.Records.RuntimeRef"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Short label the runner writes for the office view. Never raw model text."
+          },
+          "stop_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The owner asked to stop this run. It shows as stopping until the daemon confirms."
+          },
+          "waiting_reason": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why a queued run is not being handed out, in plain words."
+          },
+          "waiting_cause": {
+            "type": "string",
+            "enum": [
+              "scram",
+              "lane",
+              "runtime-pin",
+              "independent-runtime",
+              "preparation",
+              "budget",
+              "sandbox"
+            ],
+            "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "The beginning of the recorded package title, bounded for the switcher."
+          }
+        },
+        "description": "A bounded projection for the workspace. The title describes the run's recorded package revision."
       },
       "AdminCommandInfo": {
         "type": "object",
@@ -10531,6 +11473,16 @@
             ],
             "description": "The context profile packages carry when they name none. Absent means light."
           },
+          "default_workflow": {
+            "type": "string",
+            "enum": [
+              "playbook",
+              "superpowers",
+              "pocock",
+              "pocock-superpowers"
+            ],
+            "description": "The workflow packages carry when they name none. Absent means the playbook."
+          },
           "lanes": {
             "type": "array",
             "items": {
@@ -11623,6 +12575,16 @@
             ],
             "description": "Which context the brief carries. Absent means the project default; Safety and Material grades\nand trust-surface scopes are always nuclear."
           },
+          "workflow": {
+            "type": "string",
+            "enum": [
+              "playbook",
+              "superpowers",
+              "pocock",
+              "pocock-superpowers"
+            ],
+            "description": "How the work is sequenced: the plain playbook, or a ported skill workflow (Superpowers, Matt\nPocock's skills, or the hybrid of the two). Absent means the project default, then the playbook.\nSeparate from context_profile: a package carries one workflow and one context profile, and\nworkflows never stack."
+          },
           "status": {
             "$ref": "#/components/schemas/ControlRod.Records.PackageStatus"
           },
@@ -12655,6 +13617,47 @@
         },
         "description": "One run role on the Roster: what it does, who has run it, and its pins."
       },
+      "RunOutput": {
+        "type": "object",
+        "required": [
+          "path",
+          "digest",
+          "size_bytes"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "Metadata for a stored author output. The digest is verified when its bytes are read."
+      },
+      "RunOutputPreview": {
+        "type": "object",
+        "required": [
+          "path",
+          "digest",
+          "content"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "description": "An integrity-checked, bounded UTF-8 preview. Render its content as plain text."
+      },
       "Runner.AgentId": {
         "type": "string",
         "enum": [
@@ -12985,6 +13988,12 @@
         },
         "description": "A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform\nbinary with helper files (Codex) is identified by a digest over that whole platform directory.\nScript launchers whose own digest would not identify what runs are refused."
       },
+      "Runner.RuntimeModel": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[a-zA-Z0-9._:/@-]+$"
+      },
       "Runner.RuntimePinRef": {
         "type": "object",
         "required": [
@@ -13032,6 +14041,14 @@
           "artifact": {
             "$ref": "#/components/schemas/Runner.RuntimeArtifact",
             "description": "The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this."
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Runner.RuntimeModel"
+            },
+            "maxItems": 50,
+            "description": "Model names or aliases the daemon discovered for the CLI."
           }
         },
         "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."
@@ -13439,6 +14456,280 @@
             "items": {
               "$ref": "#/components/schemas/SubscriptionPin"
             }
+          }
+        }
+      },
+      "WorkspaceProjects.ArchiveProjectPayload": {
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkspaceProjects.ArchivedProject": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "archived"
+            ]
+          }
+        }
+      },
+      "WorkspaceProjects.CreateProject": {
+        "type": "object",
+        "required": [
+          "payload",
+          "assertion"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/WorkspaceProjects.CreateProjectPayload"
+          },
+          "assertion": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "description": "The passkey challenge binds the payload through the project.workspace-create admin command."
+      },
+      "WorkspaceProjects.CreateProjectPayload": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "software",
+              "capital-projects",
+              "nuclear-grade"
+            ]
+          },
+          "repo": {
+            "type": "string"
+          },
+          "repoStrategy": {
+            "type": "string",
+            "enum": [
+              "worktree",
+              "fresh-clone",
+              "branch"
+            ]
+          },
+          "workspaceRoot": {
+            "type": "string"
+          },
+          "lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane"
+          },
+          "author": {
+            "$ref": "#/components/schemas/WorkspaceProjects.RuntimeSelection"
+          },
+          "checker": {
+            "$ref": "#/components/schemas/WorkspaceProjects.RuntimeSelection"
+          },
+          "laneAgents": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WorkspaceProjects.RuntimeSelection": {
+        "type": "object",
+        "required": [
+          "ecosystem",
+          "model",
+          "reasoning"
+        ],
+        "properties": {
+          "ecosystem": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkspaceProjects.SignedProjectArchive": {
+        "type": "object",
+        "required": [
+          "payload",
+          "assertion"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/WorkspaceProjects.ArchiveProjectPayload"
+          },
+          "assertion": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "description": "The project.workspace-archive admin challenge binds the project ID."
+      },
+      "WorkspaceProjects.SignedProjectUpdate": {
+        "type": "object",
+        "required": [
+          "payload",
+          "assertion"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/WorkspaceProjects.UpdateProjectPayload"
+          },
+          "assertion": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "description": "The project.workspace-update admin challenge binds the project ID and patch."
+      },
+      "WorkspaceProjects.UpdateProject": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "repoStrategy": {
+            "type": "string",
+            "enum": [
+              "worktree",
+              "fresh-clone",
+              "branch"
+            ]
+          },
+          "workspaceRoot": {
+            "type": "string"
+          },
+          "lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane"
+          },
+          "author": {
+            "$ref": "#/components/schemas/WorkspaceProjects.RuntimeSelection"
+          },
+          "checker": {
+            "$ref": "#/components/schemas/WorkspaceProjects.RuntimeSelection"
+          },
+          "laneAgents": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null clears the configured lane overrides."
+          }
+        }
+      },
+      "WorkspaceProjects.UpdateProjectPayload": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "patch"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/WorkspaceProjects.UpdateProject"
+          }
+        }
+      },
+      "WorkspaceProjects.WorkspaceProject": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "mode",
+          "status",
+          "repo",
+          "repoStrategy",
+          "workspaceRoot",
+          "lane",
+          "author",
+          "checker",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "software",
+              "capital-projects",
+              "nuclear-grade"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "repoStrategy": {
+            "type": "string",
+            "enum": [
+              "worktree",
+              "fresh-clone",
+              "branch"
+            ]
+          },
+          "workspaceRoot": {
+            "type": "string"
+          },
+          "lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane"
+          },
+          "author": {
+            "$ref": "#/components/schemas/WorkspaceProjects.RuntimeSelection"
+          },
+          "checker": {
+            "$ref": "#/components/schemas/WorkspaceProjects.RuntimeSelection"
+          },
+          "laneAgents": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

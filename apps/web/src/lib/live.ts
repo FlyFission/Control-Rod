@@ -155,6 +155,7 @@ export function useLiveEvents(enabled: boolean): void {
         "subscriptions",
         "roster",
         "usage",
+        "active-runs",
         "run-events",
         "office-figures",
         "scrams",

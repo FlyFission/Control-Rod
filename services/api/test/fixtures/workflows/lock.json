@@ -1,0 +1,19 @@
+{
+  "note": "fixture lock, written by generate.mjs",
+  "files": {
+    "pocock-superpowers/stages/author.md": "sha256:e22fa6295dcec13b965a3505c2cdfb4b9db7f8ed0766b95d773362b51a73b987",
+    "pocock-superpowers/stages/intake.md": "sha256:14b8c40c1bdb5c6ee21ae0d80c576e679bae3c3415b9e266ac14c4407df253c0",
+    "pocock-superpowers/stages/pre-check.md": "sha256:b2f3b22af1568c18736713a170978b282343c7514d48cf0ea123fb2a26cb1d66",
+    "pocock-superpowers/workflow.json": "sha256:fdd69d0ea3115841b78cedbfd2bc696f4e82d7875dc86ed8be1951ef382c1726",
+    "pocock/manifest.json": "sha256:f39cded52035565de76c1e0a309533f92a16d878cef7ff5fe9cb72f50958bbf4",
+    "pocock/stages/author.md": "sha256:13b84622334ff20a011d805b6571505a5919a1f2b8663e6d80c1b1cd8b2d6024",
+    "pocock/stages/intake.md": "sha256:9d30fcab0b1b2684bc5fa32ad16e57738bfc032fa992c2efc54fbea663b8610e",
+    "pocock/stages/pre-check.md": "sha256:a8130dc3d535f322fe86bd950d3d9bba821038ebbe9653b699405f4a1d167f9d",
+    "pocock/workflow.json": "sha256:357cd3726e3b1d40f043594bd30c68fe58f7f8426148e543a8de48f74aee8ceb",
+    "superpowers/manifest.json": "sha256:f0426fb8c313dc73c925453540ca9c8234c9e4d18b7ae0deef8f7d01d5bea763",
+    "superpowers/stages/author.md": "sha256:938222048e1bebf781fa814f19883f01bebd792e669c814254497cd5e9761edf",
+    "superpowers/stages/intake.md": "sha256:ddeab3b48c3f1a4b038ee40919cdda7c66e23f0f0272d24170328a3116e76164",
+    "superpowers/stages/pre-check.md": "sha256:9d1e270b53460425d18bd924ac8c11a6195740ca7aae1f84ba9a4d150559ba55",
+    "superpowers/workflow.json": "sha256:d48898fe9ee16615fb3d184b06673f67d6f9922821c86f58da213e3c694a4d20"
+  }
+}

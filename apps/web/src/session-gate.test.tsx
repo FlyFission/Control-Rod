@@ -9,6 +9,16 @@ import { renderPage } from "./test/render.js";
 import { SessionGate } from "./router.js";
 import { sessionGeneration } from "./lib/session.js";
 
+function workspaceProject(id: string, name: string) {
+  return {
+    id, name, mode: "software", status: "active", repo: "", repoStrategy: "worktree",
+    workspaceRoot: "", lane: "internal",
+    author: { ecosystem: "claude", model: "default", reasoning: "default" },
+    checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    createdAt: "2026-11-22T00:00:00Z",
+  };
+}
+
 /** A place holding component state, the way an editor holds a draft and its tag. */
 function Draft() {
   const [text, setText] = useState("");
@@ -20,6 +30,49 @@ function Draft() {
  * different person signs in, and this tab learns of it only when the session query refetches.
  */
 describe("the session gate when the signed-in person changes behind it", () => {
+  it("keeps cached projects and selection within the signed-in identity", async () => {
+    let who = "ben";
+    let failProjectLoad = false;
+    const benProject = workspaceProject("prj_ben", "Ben project");
+    const doraProject = workspaceProject("prj_dora", "Dora project");
+    localStorage.setItem("cr.projects.v1", JSON.stringify([workspaceProject("prj_legacy", "Legacy project")]));
+    localStorage.setItem("cr.active-project", "prj_legacy");
+    server.use(
+      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: who })),
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/workspace/projects", () =>
+        failProjectLoad ? new HttpResponse(null, { status: 503 }) : HttpResponse.json(who === "ben" ? [benProject] : [doraProject]),
+      ),
+    );
+    const { qc } = await renderPage(<SessionGate><Draft /></SessionGate>);
+    const user = userEvent.setup();
+    try {
+      await user.click(await screen.findByRole("button", { name: "Ben project" }));
+      expect(screen.getByRole("button", { name: "Ben project" }).getAttribute("aria-pressed")).toBe("true");
+
+      who = "dora";
+      failProjectLoad = true;
+      await act(() => qc.invalidateQueries({ queryKey: ["session"] }));
+      await screen.findByText("dora");
+      expect(screen.queryByRole("button", { name: "Ben project" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Legacy project" })).toBeNull();
+      expect(screen.getByRole("button", { name: "All Software" }).getAttribute("aria-pressed")).toBe("true");
+
+      failProjectLoad = false;
+      await act(() => qc.invalidateQueries({ queryKey: ["workspace-projects"] }));
+      await user.click(await screen.findByRole("button", { name: "Dora project" }));
+
+      who = "ben";
+      failProjectLoad = true;
+      await act(() => qc.invalidateQueries({ queryKey: ["session"] }));
+      await screen.findByText("ben");
+      expect(screen.queryByRole("button", { name: "Dora project" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Ben project" }).getAttribute("aria-pressed")).toBe("true");
+    } finally {
+      localStorage.clear();
+    }
+  });
+
   it("treats a refetched session for someone else as a new session: clears the earlier data and remounts the app", async () => {
     let who = "ben";
     server.use(

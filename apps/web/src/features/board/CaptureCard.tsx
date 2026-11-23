@@ -24,12 +24,42 @@ export function captureLine(c: CaptureView): CaptureLine {
  * Until classified, the lane choices are inline and no AI runtime sees the text. Once intake lists its
  * package ids the capture card gives way to those packages' cards (useBoardData).
  */
-export function CaptureCard({ capture }: { capture: CaptureView }) {
+/** Strips a leading NewWorkModal metadata header line (`[mode:...] [stage:...]`) for card display. */
+export function captureSummaryText(raw: string): string {
+  const trimmed = raw.trim();
+  const nl = trimmed.indexOf("\n");
+  if (nl > 0) {
+    const first = trimmed.slice(0, nl).trim();
+    const rest = trimmed.slice(nl + 1).trim();
+    if (rest.length > 0 && /^(\[[a-z0-9_-]+:[^\]]+\]\s*)+$/i.test(first)) {
+      return rest;
+    }
+  }
+  return trimmed;
+}
+
+export function CaptureCard({
+  capture,
+  selected = false,
+  onOpen,
+  onDismiss,
+  onDragStartCard,
+  onDragEndCard,
+}: {
+  capture: CaptureView;
+  selected?: boolean;
+  onOpen?: () => void;
+  onDismiss?: () => void;
+  onDragStartCard?: () => void;
+  onDragEndCard?: () => void;
+}) {
   const qc = useQueryClient();
   const shown = splitAttachments(capture.text);
+  const displayTitle = captureSummaryText(shown.text);
   const line = captureLine(capture);
   const titleId = `bd-capture-${capture.id}`;
   const [lane, setLane] = useState<DataLane>("internal");
+  const [showErrorDetail, setShowErrorDetail] = useState(false);
   const self = useRef<HTMLElement>(null);
   const classify = useMutation({
     mutationFn: () => api.classifyCapture(capture.id, lane),
@@ -47,23 +77,68 @@ export function CaptureCard({ capture }: { capture: CaptureView }) {
   });
   const symbol = line.tone === "needs" ? "▲" : line.tone === "block" ? "✕" : "○";
   const word = line.tone === "needs" ? "Needs you" : line.tone === "block" ? "Blocked" : "Waiting";
+  const hasLongDetail = line.tone === "block" && Boolean(capture.intake?.error) && line.text.length > 72;
+  const compactStatus = hasLongDetail ? `Intake ${capture.intake!.status}` : line.text;
   return (
-    <article ref={self} tabIndex={-1} aria-labelledby={titleId} className="bd-card bd-capture" data-tone={line.tone}>
+    <article
+      ref={self}
+      tabIndex={-1}
+      aria-labelledby={titleId}
+      className={selected ? "bd-card bd-capture selected" : "bd-card bd-capture"}
+      data-tone={line.tone}
+      draggable={Boolean(onDragStartCard)}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("application/x-cr-card", JSON.stringify({ kind: "capture", id: capture.id }));
+        e.dataTransfer.effectAllowed = "move";
+        onDragStartCard?.();
+      }}
+      onDragEnd={() => onDragEndCard?.()}
+    >
       <div className="bd-kinds">
         <span className="bd-kind">Capture</span>
-        {capture.effective_lane !== undefined && <span className="bd-chip">{capture.effective_lane} lane</span>}
+        {capture.effective_lane !== undefined && <span className="bd-chip">{capture.effective_lane}</span>}
+        <span className="bd-id mono small muted">{capture.id}</span>
+        {onDismiss && (
+          <button
+            type="button"
+            className="bd-card-dismiss"
+            aria-label={`Dismiss ${capture.id}`}
+            title="Dismiss capture from board"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss();
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
-      <p id={titleId} className="bd-title bd-capture-title">
-        {shown.text.length > 0 ? shown.text : shown.files.join(", ")}
-      </p>
-      <span className="bd-id mono small muted">{capture.id}</span>
-      <p className="bd-next">
+      <button
+        type="button"
+        id={titleId}
+        className="bd-title bd-capture-title"
+        title={displayTitle || shown.files.join(", ")}
+        onClick={onOpen}
+      >
+        {displayTitle.length > 0 ? displayTitle : shown.files.join(", ")}
+      </button>
+      <p className="bd-next" title={line.text}>
         <span className="bd-sym">
           <span aria-hidden="true">{symbol} </span>
           <span className="bd-word">{word}: </span>
         </span>
-        <span>{line.text}</span>
+        <span>{showErrorDetail ? line.text : compactStatus}</span>
       </p>
+      {hasLongDetail && (
+        <button
+          type="button"
+          className="bd-detail-toggle"
+          aria-expanded={showErrorDetail}
+          onClick={() => setShowErrorDetail((v) => !v)}
+        >
+          {showErrorDetail ? "Hide details ▴" : "Show error details ▾"}
+        </button>
+      )}
       {!capture.lane && (
         <div className="bd-capture-classify">
           <LanePicker id={`bd-lane-${capture.id}`} value={lane} onChange={setLane} />

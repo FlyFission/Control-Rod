@@ -1,14 +1,15 @@
 import { useSyncExternalStore } from "react";
+import type { ColumnId } from "./board.js";
 import { readString, writeString } from "./storage.js";
 
 /**
- * Workspace engineering mode (matches spec Mode = "general" | "software" | "capital-projects").
+ * Workspace engineering mode (Software, Capital Projects, or Nuclear-Grade PRO).
  * Controls terminology, board column titles, custody roles, project stages, and deliverable issue lists.
  */
-export type EngineeringMode = "software" | "capital-projects";
+export type EngineeringMode = "software" | "capital-projects" | "nuclear-grade";
 
 const MODE_KEY = "cr.mode";
-const MODES: readonly EngineeringMode[] = ["software", "capital-projects"];
+const MODES: readonly EngineeringMode[] = ["software", "capital-projects", "nuclear-grade"];
 
 export function loadMode(): EngineeringMode {
   const v = readString(MODE_KEY);
@@ -160,4 +161,187 @@ export const MODE_COPY: Record<EngineeringMode, ModeCopy> = {
     ],
     disciplines: ["Unspecified", "Process", "Mechanical", "Electrical", "I&C", "Civil / Structural", "Piping"],
   },
+  "nuclear-grade": {
+    id: "nuclear-grade",
+    label: "Nuclear-Grade",
+    shortLabel: "Nuclear-Grade",
+    newCta: "New packet",
+    modalTitle: "New change packet",
+    projectPlaceholder: "e.g., control-rod / auth-boundary",
+    objectiveLabel: "Decision question & acceptance criteria",
+    objectivePlaceholder:
+      "Describe the decision question, controlled items, assumptions, stop conditions, and verification evidence required…",
+    columns: {
+      ready: "P · Question & Plan",
+      in_work: "R · Execute",
+      pre_check: "R · Verify & Probe",
+      awaiting_acceptance: "R · Independent Review",
+      accepted: "O · Baseline & OPEX",
+      blocked: "Blocked",
+    },
+    boardColumns: {
+      ready: "P · Question & Plan",
+      drafting: "R · Execute",
+      "agent-check": "R · Verify & Probe",
+      "person-verifies": "R · Independent Review",
+      "needs-signature": "R · Decide (Ship/Block)",
+      reached: "O · Baseline & OPEX",
+    },
+    custodyRoles: ["Executor (Author)", "Independent Verifier", "Release Authority"],
+    specialGrade: { value: "safety", label: "High-consequence" },
+    projectStages: [
+      "Question & Discover",
+      "Specify & Plan",
+      "Execute",
+      "Verify & Review",
+      "Release Decision",
+      "Baseline & Operate",
+      "OPEX Learning",
+    ],
+    issuePurposes: [
+      "Quick Change Packet",
+      "Standard Change Packet",
+      "Agent Authority Change",
+      "Controlled Configuration Update",
+      "Release Readiness Decision",
+      "OPEX Learning Action",
+    ],
+    disciplines: [
+      "Unspecified",
+      "Agent Authority & Tooling",
+      "Configuration & Baseline",
+      "Dependency & Model Trust",
+      "Source & Assurance Boundary",
+      "Security & Red Team",
+      "Runtime & Verification",
+    ],
+  },
+};
+
+export interface ProLaneSkill {
+  name: string;
+  summary: string;
+}
+
+const PRO_SKILLS = {
+  "questioning-attitude": {
+    name: "questioning-attitude",
+    summary: "Challenging assumptions before work, review, or release continues",
+  },
+  "using-nuclear-grade": {
+    name: "using-nuclear-grade",
+    summary: "Adopting the workflow for a change or repo with mode, packet, and evidence paths",
+  },
+  "classifying-change-risk": {
+    name: "classifying-change-risk",
+    summary: "Selecting Quick, Standard, or stronger human-reviewed mode and evidence obligations",
+  },
+  "identifying-controlled-items": {
+    name: "identifying-controlled-items",
+    summary: "Deciding what configuration must be controlled",
+  },
+  "screening-change-impact": {
+    name: "screening-change-impact",
+    summary: "Checking downstream impact and revalidation triggers",
+  },
+  "creating-change-packets": {
+    name: "creating-change-packets",
+    summary: "Creating or updating Quick or Standard change packet files",
+  },
+  "packing-agent-context": {
+    name: "packing-agent-context",
+    summary: "Preparing focused agent or reviewer context packs",
+  },
+  "self-checking-agent-actions": {
+    name: "self-checking-agent-actions",
+    summary: "Checking critical agent edits, commands, public claims, trust changes, or releases before action",
+  },
+  "turning-over-agent-work": {
+    name: "turning-over-agent-work",
+    summary: "Handing off unfinished agent, review, verification, release, or resumed-thread work",
+  },
+  "controlling-mission-drift": {
+    name: "controlling-mission-drift",
+    summary: "Re-anchoring, escalating, or stopping when work drifts, scope creeps, or rigor erodes",
+  },
+  "proving-claims": {
+    name: "proving-claims",
+    summary: "Mapping claims to evidence rows, tests, reviews, and gaps",
+  },
+  "reviewing-code-quality": {
+    name: "reviewing-code-quality",
+    summary: "Reviewing a diff or module for standards drift and needless complexity",
+  },
+  "red-teaming-agent-changes": {
+    name: "red-teaming-agent-changes",
+    summary: "Adversarially probing tool grants, dependencies, models, or releases for misuse or escalation",
+  },
+  "tracing-agent-execution": {
+    name: "tracing-agent-execution",
+    summary: "Capturing tool calls, decisions, inputs, outputs, token use, and approval gates as execution evidence",
+  },
+  "checking-dependency-and-model-trust": {
+    name: "checking-dependency-and-model-trust",
+    summary: "Reviewing dependency, model, API, SaaS, generated artifact, or vendor trust",
+  },
+  "checking-source-lineage": {
+    name: "checking-source-lineage",
+    summary: "Reviewing citation and source-family claims for source-safe wording",
+  },
+  "checking-license-and-assurance-boundaries": {
+    name: "checking-license-and-assurance-boundaries",
+    summary: "Reviewing license and assurance language for boundary-safe wording",
+  },
+  "reviewing-ship-readiness": {
+    name: "reviewing-ship-readiness",
+    summary: "Deciding ship, block, defer, or ship-with-risk from evidence, residual risk, and rollback",
+  },
+  "baselining-configuration": {
+    name: "baselining-configuration",
+    summary: "Recording accepted controlled configuration state as a baseline",
+  },
+  "learning-from-opex": {
+    name: "learning-from-opex",
+    summary: "Turning near misses, bad handoffs, review surprises, or operating signals into durable updates",
+  },
+} as const satisfies Record<string, ProLaneSkill>;
+
+/**
+ * All 20 Nuclear-Grade skills from SKILLS.md mapped across the PRO (Plan · Run · Operate) board lanes.
+ */
+export const PRO_LANE_SKILLS: Record<ColumnId, { name: string; summary: string }[]> = {
+  ready: [
+    PRO_SKILLS["questioning-attitude"],
+    PRO_SKILLS["using-nuclear-grade"],
+    PRO_SKILLS["classifying-change-risk"],
+    PRO_SKILLS["identifying-controlled-items"],
+    PRO_SKILLS["screening-change-impact"],
+    PRO_SKILLS["creating-change-packets"],
+    PRO_SKILLS["packing-agent-context"],
+  ],
+  drafting: [
+    PRO_SKILLS["self-checking-agent-actions"],
+    PRO_SKILLS["turning-over-agent-work"],
+    PRO_SKILLS["controlling-mission-drift"],
+  ],
+  "agent-check": [
+    PRO_SKILLS["proving-claims"],
+    PRO_SKILLS["reviewing-code-quality"],
+    PRO_SKILLS["red-teaming-agent-changes"],
+    PRO_SKILLS["tracing-agent-execution"],
+    PRO_SKILLS["checking-dependency-and-model-trust"],
+    PRO_SKILLS["checking-source-lineage"],
+    PRO_SKILLS["checking-license-and-assurance-boundaries"],
+  ],
+  "person-verifies": [
+    PRO_SKILLS["proving-claims"],
+    PRO_SKILLS["reviewing-code-quality"],
+  ],
+  "needs-signature": [
+    PRO_SKILLS["reviewing-ship-readiness"],
+  ],
+  reached: [
+    PRO_SKILLS["baselining-configuration"],
+    PRO_SKILLS["learning-from-opex"],
+  ],
 };

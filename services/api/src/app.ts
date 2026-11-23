@@ -33,6 +33,7 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
+import { listWorkspaceProjects } from "./workspace-projects.js";
 import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
@@ -44,10 +45,10 @@ import {
   complete,
   classifyCapture,
   createCapture,
+  dismissCapture,
   decisionChallenge,
   decisionSubject,
   listCaptures,
-  activeRuns,
   listPackages,
   metrics,
   office,
@@ -67,16 +68,16 @@ import {
   recordRuntimeStatus,
   requeueRun,
   runLog,
-  runLogLines,
   runtimeStatus,
   stopRun,
   sweepLost,
   runEvidence,
-  runEvents,
   reconcileSubject,
   reconcileRun,
   updateDraft,
 } from "./work.js";
+import { activeRuns, activeRunSummaries, requireOwnedRun, runDetail, runEvents, runLogLines, type RunEventQuery } from "./run-reads.js";
+import { runOutputPreview, runOutputs } from "./run-outputs.js";
 
 export const VERSION = "0.1.0";
 
@@ -195,14 +196,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const runUser = async (req: FastifyRequest, id: string, runId: string) => {
     const user = await person(req);
     const { orgId } = await callerFor(db, user);
-    // Intake routes use the capture ID in the package position.
-    const own = await db.query(
-      `select 1 from runs r
-         join object_owners o on o.object_kind = (case when r.role = 'intake' then 'capture' else 'package' end)
-           and o.object_id = r.package_id and o.org_id = $3
-         join object_owners ro on ro.object_kind = 'run' and ro.object_id = r.id and ro.org_id = $3
-        where r.id = $2 and r.package_id = $1`, [id, runId, orgId]);
-    if (!own.rowCount) throw new Refusal(404, "not-found", "No such run");
+    await requireOwnedRun(db, orgId, id, runId);
     return user;
   };
   const daemon = (req: FastifyRequest) => {
@@ -321,21 +315,42 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const options = await assertionOptions(db, auth, "admin", { command: req.params.name, member: caller.memberId, subject_digest: subject, nonce }, challenge, caller.userName);
     return { subject_digest: { algorithm: "sha256", value: subject }, options };
   });
-  app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
+  type AdminCommandBody = { payload?: Record<string, unknown>; assertion?: Record<string, unknown> };
+  async function executeAdminCommand(req: FastifyRequest<{ Body: AdminCommandBody }>, name: string, projectId?: string) {
     const user = await person(req);
     const caller = await callerFor(db, user);
+    const payload = req.body?.payload ?? {};
+    if (projectId !== undefined && payload.project_id !== projectId) {
+      throw new Refusal(400, "invalid", "The project ID in the request must match the path");
+    }
     let signed: { subject: string; credentialId: string; nonce: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
-      if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
+      if (ok && ok.user === user && ok.data.command === name && ok.data.member === caller.memberId)
         signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
     }
-    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
-  });
+    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed);
+  }
+  app.post<{ Params: { name: string }; Body: AdminCommandBody }>("/admin/commands/:name", async (req) =>
+    executeAdminCommand(req, req.params.name));
 
   preparationRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { id: string }).id), auth);
   repoRoutes(app, person);
   grantRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { packageId: string }).packageId));
+
+  /* ---- workspace projects (audited project defaults & soft-archive) ---- */
+  app.get("/workspace/projects", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return listWorkspaceProjects(db, caller.orgId);
+  });
+  app.post<{ Body: AdminCommandBody }>("/workspace/projects", async (req, reply) => {
+    const proj = await executeAdminCommand(req, "project.workspace-create");
+    return reply.code(201).send(proj);
+  });
+  app.patch<{ Params: { id: string }; Body: AdminCommandBody }>("/workspace/projects/:id", async (req) =>
+    executeAdminCommand(req, "project.workspace-update", req.params.id));
+  app.post<{ Params: { id: string }; Body: AdminCommandBody }>("/workspace/projects/:id/archive", async (req) =>
+    executeAdminCommand(req, "project.workspace-archive", req.params.id));
 
   /* ---- captures ---- */
   app.get("/captures", async (req) => {
@@ -351,6 +366,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string }; Body: { lane?: string } }>("/captures/:id/classify", async (req) => {
     const caller = await callerFor(db, await person(req));
     return classifyCapture(db, cfg, caller, req.params.id, req.body?.lane);
+  });
+  app.post<{ Params: { id: string } }>("/captures/:id/dismiss", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return dismissCapture(db, cfg, caller, req.params.id);
   });
 
   /* ---- packages ---- */
@@ -402,13 +421,27 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     reply.header("content-type",type??"application/octet-stream").header("x-content-type-options","nosniff").header("content-security-policy",OUTPUT_CSP);
     if(!type)reply.header("content-disposition","attachment");return reply.send(bytes);
   });
-  app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/events", async (req) => {
-    await runUser(req, req.params.id, req.params.runId);
-    return runEvents(db, req.params.id, req.params.runId, Number(req.query.after ?? 0) || 0);
+  app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return runDetail(db, caller.orgId, req.params.id, req.params.runId);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: RunEventQuery }>("/packages/:id/runs/:runId/events", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return runEvents(db, caller.orgId, req.params.id, req.params.runId, req.query);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/outputs", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    reply.header("cache-control", "private, no-store");
+    return runOutputs(db, caller.orgId, req.params.id, req.params.runId, req.query.after);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: { path?: string } }>("/packages/:id/runs/:runId/outputs/preview", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    reply.header("cache-control", "private, no-store");
+    return runOutputPreview(db, caller.orgId, req.params.id, req.params.runId, req.query.path);
   });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
-    await runUser(req, req.params.id, req.params.runId);
-    return { lines: await runLogLines(db, req.params.id, req.params.runId) };
+    const caller = await callerFor(db, await person(req));
+    return { lines: await runLogLines(db, caller.orgId, req.params.id, req.params.runId) };
   });
 
   interface DecisionBody {
@@ -671,6 +704,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const caller = await callerFor(db, await person(req));
     return activeRuns(db, caller.orgId);
   });
+  app.get("/runs/active", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return activeRunSummaries(db, caller.orgId);
+  });
   app.get("/metrics", async (req) => {
     const caller = await callerFor(db, await person(req));
     return metrics(db, caller.orgId);
@@ -788,7 +825,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await sweep();
     // The daemon's run ceiling sizes budget reservations; one it did not report is never guessed.
     const ceiling = req.body?.run_ceiling_seconds;
-    const job = await claim(db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined);
+    const reportedModels = new Map(status.filter((s) => s.ready && s.models).map((s) => [s.runtime, s.models!]));
+    const job = await claim(
+      db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined, reportedModels,
+    );
     if (!job) return reply.code(204).send();
     return job;
   });

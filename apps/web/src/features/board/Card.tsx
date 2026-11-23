@@ -60,7 +60,7 @@ export type CardProps = {
   compact?: boolean;
 };
 
-/** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
+/** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
 export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
@@ -84,14 +84,14 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
             {KIND_WORD[k]}
           </span>
         ))}
+        <span className="bd-id mono small muted">
+          {pkg.id} r{pkg.revision}
+        </span>
       </div>
       <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
         {pkg.title}
       </button>
-      <span className="bd-id mono small muted">
-        {pkg.id} rev {pkg.revision}
-      </span>
-      {(!compact || check) && (
+      {(!compact || check || nuclear) && (
         <div className="bd-meta">
           {!compact && owner && (
             <span className="bd-avatar" title={`Owner: ${owner}`}>
@@ -105,8 +105,8 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
               <span className="sr-only">Agent {agent}</span>
             </span>
           )}
-          {!compact && <span className="bd-chip">{pkg.grade ?? "general-service"}</span>}
-          {!compact && nuclear && <span className="bd-nuclear">Nuclear</span>}
+          {!compact && pkg.grade && pkg.grade !== "general-service" && <span className="bd-chip">{pkg.grade}</span>}
+          {nuclear && <span className="bd-nuclear">Nuclear</span>}
           {check && (
             <span className="bd-check">
               <span aria-hidden="true">{"◆"} </span>

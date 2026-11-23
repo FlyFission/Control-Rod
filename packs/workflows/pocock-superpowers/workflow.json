@@ -1,0 +1,11 @@
+{
+  "id": "pocock-superpowers",
+  "name": "Pocock Superpowers",
+  "author": "Matt Pocock and Jesse Vincent",
+  "hybrid_of": ["pocock", "superpowers"],
+  "stages": {
+    "intake": { "card": "stages/intake.md", "skills": ["pocock:grilling", "pocock:domain-modeling", "pocock:to-tickets", "superpowers:writing-plans", "superpowers:subagent-driven-development", "pocock:retro"] },
+    "author": { "card": "stages/author.md", "skills": ["superpowers:subagent-driven-development", "pocock:tdd", "pocock:diagnosing-bugs", "superpowers:verification-before-completion", "pocock:domain-modeling", "pocock:retro"] },
+    "pre-check": { "card": "stages/pre-check.md", "skills": ["pocock:code-review", "superpowers:subagent-driven-development", "superpowers:verification-before-completion"] }
+  }
+}

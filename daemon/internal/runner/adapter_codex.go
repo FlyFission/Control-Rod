@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,10 @@ func (codexAdapter) LoginDir(home string, getenv func(string) string) string {
 func (codexAdapter) LoginWritableFiles() []string { return []string{"auth.json"} }
 
 func (codexAdapter) LoginSessionDirs() []string { return []string{"sessions", "log"} }
+
+// IsolatedLoginHomeEnv names the env var used to point a checker run at a per-run writable
+// directory containing only the bound credential file, keeping the host login directory read-only.
+func (codexAdapter) IsolatedLoginHomeEnv() string { return "CODEX_HOME" }
 
 func (codexAdapter) ID() string                  { return RuntimeCodex }
 func (codexAdapter) Binary() string              { return "codex" }
@@ -70,7 +75,7 @@ func (codexAdapter) Capabilities() Capabilities {
 }
 
 func (a codexAdapter) Probe(ctx context.Context, _ string, run CommandRunner) RuntimeStatus {
-	return probeInstalled(ctx, a.ID(), a.Binary(), run, func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool {
+	st := probeInstalled(ctx, a.ID(), a.Binary(), run, func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool {
 		help, hcode, herr := call("login", "--help")
 		if herr == nil && hcode == 0 && hasSubcommand(help, "status") {
 			st.LoginChecked = true
@@ -81,6 +86,11 @@ func (a codexAdapter) Probe(ctx context.Context, _ string, run CommandRunner) Ru
 		}
 		return false
 	})
+	if st.Ready {
+		home, _ := os.UserHomeDir()
+		st.Models = discoverCodexModels(home, os.Getenv)
+	}
+	return st
 }
 
 func (a codexAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {

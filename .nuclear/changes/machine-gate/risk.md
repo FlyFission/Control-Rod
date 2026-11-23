@@ -1,6 +1,6 @@
 # Risk: machine checks before the model check
 
-- **Mode:** Standard. It moves to Nuclear if the owner asks for the kernel floor (question 3 in [basis](basis.md#questions-for-the-owner)).
+- **Mode:** Quick. It moves to Standard when building starts, and to Nuclear if the owner asks for the kernel floor (question 3 in [basis](basis.md#questions-for-the-owner)).
 - **Status:** Proposed. Not built.
 - Decision owner: Ben Huffer. No kernel decision function, policy, red-team fixture or workflow is edited. The spec change is additive inside API 0.1.
 - Scope: `spec/preparation.tsp`, regenerated `spec/generated`, `services/api` (gate step, refusal, finding), the daemon's ordinary run path for one extra sandboxed command run (`daemon/internal/runner` only if the existing run path cannot carry it), `apps/web` (gate line on the card), and this packet.
@@ -15,12 +15,16 @@
 
 ## Selected mode
 
-- **Mode:** Standard
-- Basis: additive spec fields, a server-side refusal and one sandboxed command run. No protected surface and no spec major version.
+- **Mode:** Quick
+- Basis: this record is a proposal and changes no behaviour. When building starts it becomes a Standard packet, because it will add spec fields, a server-side refusal and one sandboxed command run. No protected surface and no spec major version.
 
 ## Required links
 
-[Risk](risk.md), [basis](basis.md), [plan](plan.md).
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).
+
+## Exit criteria
+
+As in [basis](basis.md#exit-criteria).
 
 ## Source-lineage note
 

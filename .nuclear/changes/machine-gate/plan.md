@@ -12,8 +12,12 @@
 
 ## Required links
 
-[Risk](risk.md), [basis](basis.md), [plan](plan.md).
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).
 
 ## Exit criteria
 
 As in [basis](basis.md#exit-criteria).
+
+## Source-lineage note
+
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

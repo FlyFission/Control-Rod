@@ -45,7 +45,7 @@ This idea came from a public post on agent loops that the owner shared on 2026-1
 
 ## Required links
 
-[Risk](risk.md), [basis](basis.md), [plan](plan.md).
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).
 
 ## Exit criteria
 

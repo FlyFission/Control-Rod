@@ -1,6 +1,6 @@
 # Risk: scoped send-back after a failed check
 
-- **Mode:** Standard
+- **Mode:** Quick. It moves to Standard when building starts.
 - **Status:** Proposed. Not built.
 - Decision owner: Ben Huffer. No kernel decision function, policy, red-team fixture or workflow is edited. The spec change is additive inside API 0.1.
 - Scope: `spec/records.tsp` (`Finding`), regenerated `spec/generated`, `services/api` (brief, rework round, event), `apps/web` (card and dispute text), and this packet.
@@ -14,12 +14,16 @@
 
 ## Selected mode
 
-- **Mode:** Standard
-- Basis: additive optional fields, one new event and brief text. No protected surface and no spec major version.
+- **Mode:** Quick
+- Basis: this record is a proposal and changes no behaviour. When building starts it becomes a Standard packet, because it will add optional fields, one new event and brief text. No protected surface and no spec major version.
 
 ## Required links
 
-[Risk](risk.md), [basis](basis.md), [plan](plan.md).
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).
+
+## Exit criteria
+
+As in [basis](basis.md#exit-criteria).
 
 ## Source-lineage note
 

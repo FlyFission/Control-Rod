@@ -15,6 +15,8 @@ Release decision: **for owner review; no merge is authorized by this record.**
 
 Rollback: revert the commit. Nothing reads pattern notes at runtime.
 
+Monitoring after merge: none needed at runtime, since no code reads the note. Watch the build PRs that cite AW items (#159 first) for decisions that disagree with the note, and update the note when they do.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

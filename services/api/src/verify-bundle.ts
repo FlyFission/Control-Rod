@@ -121,7 +121,6 @@ function parseVerifyCliArgs(argv: string[]): { files: string[]; opts: VerifyBund
       const val = argv[++i]?.trim();
       if (!val || !/^[0-9a-f]{7,64}$/i.test(val)) return { files, opts, error: "--head-sha requires a commit SHA" };
       opts.expectedHeadSha = val.toLowerCase();
-      opts.headShaRequired = true;
       continue;
     }
     if (a === "--revision") {

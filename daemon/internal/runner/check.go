@@ -225,6 +225,9 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 	if explicitHeadSHA != "" && !validGitSHA.MatchString(explicitHeadSHA) {
 		return CheckResult{}, fmt.Errorf("%w: invalid --head-sha %q", ErrCheckUsage, explicitHeadSHA)
 	}
+	if explicitHeadSHA != "" && (strings.TrimSpace(cfg.BaseRef) != "" || strings.TrimSpace(cfg.HeadRef) != "") {
+		return CheckResult{}, fmt.Errorf("%w: --head-sha cannot be combined with --base/--head; the head commit is resolved from git", ErrCheckUsage)
+	}
 
 	authorID := RuntimeFor(strings.TrimSpace(cfg.AuthorRuntime))
 	authorFam := RuntimeFamily(cfg.AuthorRuntime)

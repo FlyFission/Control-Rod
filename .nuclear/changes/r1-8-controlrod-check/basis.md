@@ -46,6 +46,20 @@ Out of scope:
 | Vendor-family independence rules in `daemon/internal/runner` mirror `services/api/src/runtimes.ts` (`claude` -> Anthropic, `codex` -> OpenAI, `grok` -> xAI, `agy` -> Google, `fake` -> Test; multi-vendor harnesses refused). | `services/api/src/runtimes.ts` lines 28–41. | A runtime family mapping changes in `runtimes.ts` without updating `DistinctFamily` in Go. |
 | Standalone CLI / GitHub Action runners may lack an OS keychain (`SigningKey()`). | `daemon/internal/runner/keystore.go` requires keychain or `CONTROLROD_ALLOW_FAKE=1` test key. | Requiring every standalone run to hold a pre-initialized OS keychain; if so, fail closed when keychain is absent instead of emitting an unattested standalone receipt. |
 
+## Open questions for Ben (not decided here; code fails closed)
+
+1. What a standalone `controlrod check` / GitHub Action receipt may claim when no person has accepted the change. Until decided, standalone output never claims verified human acceptance.
+2. The label for an author the caller declares via `--author-runtime` and nobody verified (currently `caller-declared, unverified`).
+3. Which trust anchors identify a person's seal key when verifying offline bundles. Until decided, a bundle-supplied key is reported as `UNVERIFIED SEAL KEY` / `bundle-key-only`.
+
+## Verification limits (what the code enforces)
+
+- Offline `pnpm cr verify --receipt` / `--revision` / `--diff-sha256` requires a valid 64-hex diff digest and fails otherwise; the digest must appear among the accepted deliverable digests in the authenticated bundle, and the acceptance must cover the stated revision.
+- A `head_sha` named by the receipt or `--head-sha` must appear in the bundle's events; a bundle that records no head commit fails. A receipt that names no head SHA is not head-bound.
+- The bundle's pre-check checker, verdict and acceptance criteria are **not** bound to a standalone check's checker, verdict or criteria. The Action therefore does not append a "Verified Control Rod acceptance" section to a standalone check receipt; it appends a note that the proof is not bound to this check. The `proof-verified` output means authenticity plus diff/revision/head coverage, not verified acceptance of this check.
+- The Action does not build the offline verifier (`services/api/dist/verify-bundle.js`). With `inclusion-proof` set and the verifier missing, the proof is reported as not verified and the step fails with instructions to run `pnpm --filter @control-rod/api build` or set `CONTROLROD_VERIFY_JS`.
+- `controlrod check` refuses `--head-sha` together with `--base`/`--head`; the head commit comes from git in ref mode. In Action git mode `head-ref` defaults to `github.event.pull_request.head.sha` (passed via env), else `HEAD`.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

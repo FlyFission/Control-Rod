@@ -570,3 +570,19 @@ echo '{"type":"result","subtype":"success"}'
 		t.Fatalf("receipt missing binding/verify link:\n%s", res.ReceiptMarkdown)
 	}
 }
+
+func TestRunCheckRefusesHeadSHAWithGitRefs(t *testing.T) {
+	_, err := RunCheck(context.Background(), CheckConfig{
+		AuthorRuntime:  "claude",
+		CheckerRuntime: "fake",
+		BaseRef:        "HEAD~1",
+		HeadRef:        "HEAD",
+		HeadSHA:        "0123456789abcdef0123456789abcdef01234567",
+		RepoDir:        t.TempDir(),
+		CriteriaText:   "1. Must hold",
+		Home:           t.TempDir(),
+	})
+	if !errors.Is(err, ErrCheckUsage) || !strings.Contains(err.Error(), "--head-sha cannot be combined") {
+		t.Fatalf("got err=%v, want ErrCheckUsage refusing --head-sha with git refs", err)
+	}
+}

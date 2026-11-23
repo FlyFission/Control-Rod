@@ -468,7 +468,8 @@ test("check-action links inclusion proof to PR revision and rejects proof A when
     assert.equal(outsA["has-error"], "false");
     const receiptAMd = readFileSync(outsA.receipt, "utf8");
     assert.ok(receiptAMd.includes("controlrod-check-binding:"), receiptAMd);
-    assert.ok(receiptAMd.includes("Verified Control Rod acceptance"), receiptAMd);
+    assert.ok(!receiptAMd.includes("Verified Control Rod acceptance"), receiptAMd);
+    assert.ok(receiptAMd.includes("Inclusion proof not bound to this check"), receiptAMd);
 
     const cA = runBash(commentStep.run, {
       PATH: `${fakeBinDir}:${process.env.PATH}`,
@@ -488,6 +489,73 @@ test("check-action links inclusion proof to PR revision and rejects proof A when
       FAIL_ON_FAIL: "true",
     });
     assert.equal(eA.code, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("check-action fails the proof with a clear message when the offline verifier is not built", () => {
+  const { byId } = loadActionSteps();
+  const dir = mkdtempSync(join(tmpdir(), "check-action-nover-"));
+  try {
+    const modeFile = join(dir, "mode");
+    const controlrodBin = join(dir, "controlrod");
+    makeFakeControlrod(controlrodBin, modeFile);
+    writeFileSync(modeFile, "pass-diff-a", "utf8");
+    const out = join(dir, "out");
+    writeFileSync(out, "", "utf8");
+    writeFileSync(join(dir, "proof.json"), "{}", "utf8");
+    const errLog = join(dir, "err.log");
+    const r = runBash(`exec 2>"${errLog}"\n${byId.get("run").run}`, {
+      ...baseRunEnv(controlrodBin, dir, out, join(dir, "sum")),
+      INCLUSION_PROOF: join(dir, "proof.json"),
+      CONTROLROD_VERIFY_JS: join(dir, "missing", "verify-bundle.js"),
+    });
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(parseOutputs(out)["proof-verified"], "false");
+    assert.ok(readFileSync(errLog, "utf8").includes("pnpm --filter @control-rod/api build"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("check-action defaults git mode head to the pull request head SHA, not the checkout HEAD", () => {
+  const { byId } = loadActionSteps();
+  const dir = mkdtempSync(join(tmpdir(), "check-action-head-"));
+  const repo = join(dir, "repo");
+  mkdirSync(repo);
+  const git = (...args) =>
+    execFileSync("git", args, {
+      cwd: repo,
+      env: { ...process.env, GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.com" },
+      encoding: "utf8",
+    }).trim();
+  try {
+    git("init", "-b", "main");
+    writeFileSync(join(repo, "f.txt"), "base\n", "utf8");
+    git("add", "f.txt");
+    git("commit", "-m", "base");
+    git("checkout", "-b", "pr");
+    writeFileSync(join(repo, "f.txt"), "pr\n", "utf8");
+    git("add", "f.txt");
+    git("commit", "-m", "pr");
+    const prSha = git("rev-parse", "HEAD");
+    git("checkout", "main"); // checkout HEAD is NOT the PR head, like a pull_request merge checkout
+    const modeFile = join(dir, "mode");
+    const argsLog = join(dir, "args.log");
+    const controlrodBin = join(dir, "controlrod");
+    makeFakeControlrod(controlrodBin, modeFile, argsLog);
+    writeFileSync(modeFile, "pass", "utf8");
+    const out = join(dir, "out");
+    writeFileSync(out, "", "utf8");
+    const r = runBash(
+      byId.get("run").run,
+      { ...baseRunEnv(controlrodBin, dir, out, join(dir, "sum")), DIFF_FILE: "", BASE_REF: "main", HEAD_REF: "", PR_HEAD_SHA: prSha },
+      repo,
+    );
+    assert.equal(r.code, 0, r.stderr);
+    const argv = readFileSync(argsLog, "utf8").split(/\r?\n/);
+    assert.equal(argv[argv.indexOf("--head") + 1], prSha);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -87,14 +87,14 @@ describe("pnpm cr verify", () => {
     const headA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const headB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-    const specs = [
+    const mkSpecs = (withHead: boolean) => [
       { type: "package.created", subject: "PR-42" },
       { type: "run.started", subject: "R-1", actor: { kind: "agent" as const, id: "author-claude" }, data: { package: "PR-42", role: "author", round: 1 } },
       {
         type: "run.succeeded",
         subject: "R-1",
         actor: { kind: "agent" as const, id: "author-claude" },
-        data: { package: "PR-42", role: "author", round: 1, head_sha: headA, outputs: [{ name: "diff.patch", sha256: diffA }] },
+        data: { package: "PR-42", role: "author", round: 1, ...(withHead ? { head_sha: headA } : {}), outputs: [{ name: "diff.patch", sha256: diffA }] },
       },
       {
         type: "package.pre-checked",
@@ -109,79 +109,85 @@ describe("pnpm cr verify", () => {
         data: { revision: 1, decision: "D-revA", subject_digest: { algorithm: "sha256", value: "3".repeat(64) } },
       },
     ];
-    const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
-    const jwk = publicKey.export({ format: "jwk" }) as { x: string; y: string };
-    const cose = Buffer.from(
-      isoCBOR.encode(
-        new Map<number, number | Uint8Array>([
-          [1, 2],
-          [3, -7],
-          [-1, 1],
-          [-2, Buffer.from(jwk.x, "base64url")],
-          [-3, Buffer.from(jwk.y, "base64url")],
-        ]),
-      ),
-    );
-    const chainWithActors = (): EventRecord[] => {
-      const out: EventRecord[] = [];
-      for (const [i, s] of specs.entries()) {
-        const prev = out.at(-1)?.digest;
-        const rest = {
-          seq: i + 1,
-          at: `2026-11-22T00:00:0${i}.000Z`,
-          type: s.type,
-          subject: s.subject,
-          actor: s.actor ?? { kind: "system" as const, id: "test" },
-          ...(s.data ? { data: s.data } : {}),
-          ...(prev ? { prev } : {}),
-        };
-        out.push({ ...rest, digest: { algorithm: "sha256", value: eventDigest(rest) } });
-      }
-      return out;
+    const build = (specs: ReturnType<typeof mkSpecs>): InclusionBundle => {
+      const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+      const jwk = publicKey.export({ format: "jwk" }) as { x: string; y: string };
+      const cose = Buffer.from(
+        isoCBOR.encode(
+          new Map<number, number | Uint8Array>([
+            [1, 2],
+            [3, -7],
+            [-1, 1],
+            [-2, Buffer.from(jwk.x, "base64url")],
+            [-3, Buffer.from(jwk.y, "base64url")],
+          ]),
+        ),
+      );
+      const chainWithActors = (): EventRecord[] => {
+        const out: EventRecord[] = [];
+        for (const [i, s] of specs.entries()) {
+          const prev = out.at(-1)?.digest;
+          const rest = {
+            seq: i + 1,
+            at: `2026-11-22T00:00:0${i}.000Z`,
+            type: s.type,
+            subject: s.subject,
+            actor: s.actor ?? { kind: "system" as const, id: "test" },
+            ...(s.data ? { data: s.data } : {}),
+            ...(prev ? { prev } : {}),
+          };
+          out.push({ ...rest, digest: { algorithm: "sha256", value: eventDigest(rest) } });
+        }
+        return out;
+      };
+      const baseEvents = chainWithActors();
+      const head = baseEvents[baseEvents.length - 1]!;
+      const sealedAt = new Date().toISOString();
+      const subjectDigest = sealSubject("mem_owner", "org_test", { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", sealed_at: sealedAt });
+      const nonce = "0123456789abcdef0123456789abcdef";
+      const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: sealChallenge(subjectDigest, nonce), origin: "http://localhost:7300" }));
+      const rpHash = createHash("sha256").update("localhost").digest();
+      const counter = Buffer.alloc(4);
+      counter.writeUInt32BE(1);
+      const authData = Buffer.concat([rpHash, Buffer.from([0x05]), counter]);
+      const signature = sign("sha256", Buffer.concat([authData, createHash("sha256").update(clientData).digest()]), privateKey);
+      const seal = {
+        id: "seal_revA",
+        org_id: "org_test",
+        payload: { head_seq: head.seq, head_digest: head.digest, org_id: "org_test", sealed_at: sealedAt, signer_id: "mem_owner", purpose: "PR bundle" },
+        subject_digest: { algorithm: "sha256", value: subjectDigest },
+        nonce,
+        assertion: {
+          credential_id: Buffer.from(randomBytes(16)).toString("base64url"),
+          authenticator_data: authData.toString("base64url"),
+          client_data_json: clientData.toString("base64url"),
+          signature: signature.toString("base64url"),
+        },
+      };
+      const lastPrev = head.digest;
+      const sealRecRest = {
+        seq: head.seq + 1,
+        at: "2026-11-22T00:00:10.000Z",
+        type: "chain.sealed",
+        subject: seal.id,
+        actor: { kind: "human" as const, id: "mem_owner" },
+        data: { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", seal_digest: digest(seal), key_digest: keyDigest(cose) },
+        prev: lastPrev,
+      };
+      const segment: EventRecord[] = [...baseEvents, { ...sealRecRest, digest: { algorithm: "sha256", value: eventDigest(sealRecRest) } }];
+      const proofA: InclusionBundle = {
+        package_id: "PR-42",
+        segment,
+        seal,
+        seal_evidence: { public_key: cose.toString("base64url"), rp_id: "localhost", origins: ["http://localhost:7300"] },
+        witnessed: false,
+        statement: "Local chain, not witnessed",
+      };
+      return proofA;
     };
-    const baseEvents = chainWithActors();
-    const head = baseEvents[baseEvents.length - 1]!;
-    const sealedAt = new Date().toISOString();
-    const subjectDigest = sealSubject("mem_owner", "org_test", { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", sealed_at: sealedAt });
-    const nonce = "0123456789abcdef0123456789abcdef";
-    const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: sealChallenge(subjectDigest, nonce), origin: "http://localhost:7300" }));
-    const rpHash = createHash("sha256").update("localhost").digest();
-    const counter = Buffer.alloc(4);
-    counter.writeUInt32BE(1);
-    const authData = Buffer.concat([rpHash, Buffer.from([0x05]), counter]);
-    const signature = sign("sha256", Buffer.concat([authData, createHash("sha256").update(clientData).digest()]), privateKey);
-    const seal = {
-      id: "seal_revA",
-      org_id: "org_test",
-      payload: { head_seq: head.seq, head_digest: head.digest, org_id: "org_test", sealed_at: sealedAt, signer_id: "mem_owner", purpose: "PR bundle" },
-      subject_digest: { algorithm: "sha256", value: subjectDigest },
-      nonce,
-      assertion: {
-        credential_id: Buffer.from(randomBytes(16)).toString("base64url"),
-        authenticator_data: authData.toString("base64url"),
-        client_data_json: clientData.toString("base64url"),
-        signature: signature.toString("base64url"),
-      },
-    };
-    const lastPrev = head.digest;
-    const sealRecRest = {
-      seq: head.seq + 1,
-      at: "2026-11-22T00:00:10.000Z",
-      type: "chain.sealed",
-      subject: seal.id,
-      actor: { kind: "human" as const, id: "mem_owner" },
-      data: { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", seal_digest: digest(seal), key_digest: keyDigest(cose) },
-      prev: lastPrev,
-    };
-    const segment: EventRecord[] = [...baseEvents, { ...sealRecRest, digest: { algorithm: "sha256", value: eventDigest(sealRecRest) } }];
-    const proofA: InclusionBundle = {
-      package_id: "PR-42",
-      segment,
-      seal,
-      seal_evidence: { public_key: cose.toString("base64url"), rp_id: "localhost", origins: ["http://localhost:7300"] },
-      witnessed: false,
-      statement: "Local chain, not witnessed",
-    };
+    const proofA = build(mkSpecs(true));
+    const proofNoHead = build(mkSpecs(false));
+    const segment = proofA.segment;
 
     const receiptA = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headA}","diff_sha256":"${diffA}","outcome":"pass"} -->\n`;
     const receiptB = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"package_id":"PR-42","revision":2,"head_sha":"${headB}","diff_sha256":"${diffB}","outcome":"pass"} -->\n`;
@@ -201,6 +207,20 @@ describe("pnpm cr verify", () => {
     const badDiff = await verifyBundleText(JSON.stringify(proofA), { receiptText: receiptSameRevNewDiff });
     expect(badDiff.code).toBe(1);
     expect(badDiff.lines[0]).toContain("do not cover receipt diff");
+
+    // Finding 1: a receipt without a valid diff digest cannot be verified.
+    const noDiff = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headA}"} -->\n`;
+    const noDiffR = await verifyBundleText(JSON.stringify(proofA), { receiptText: noDiff });
+    expect(noDiffR.code).toBe(1);
+    expect(noDiffR.lines[0]).toContain("no valid diff digest");
+    const badDigest = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"diff_sha256":"not-a-digest"} -->\n`;
+    expect((await verifyBundleText(JSON.stringify(proofA), { receiptText: badDigest })).code).toBe(1);
+    expect((await verifyBundleText(JSON.stringify(proofA), { expectedRevision: 1 })).code).toBe(1);
+
+    // Finding 3: a head SHA in the receipt must appear in the sealed events.
+    const headNone = await verifyBundleText(JSON.stringify(proofNoHead), { receiptText: receiptA });
+    expect(headNone.code).toBe(1);
+    expect(headNone.lines[0]).toContain("records no head commit");
 
     // Unsealed bundle cannot claim acceptance against any receipt.
     const unsealedA = { ...proofA, seal: null, seal_evidence: undefined, head: { seq: segment.length, digest: segment.at(-1)!.digest.value } };

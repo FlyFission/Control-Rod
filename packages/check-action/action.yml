@@ -22,9 +22,9 @@ inputs:
     required: false
     default: ""
   head-ref:
-    description: Head git ref when computing a diff
+    description: Head git ref when computing a diff (defaults to the pull request head SHA from the event, else HEAD)
     required: false
-    default: "HEAD"
+    default: ""
   criteria:
     description: Path to acceptance criteria file (read from the base ref by default so PRs cannot edit their own criteria)
     required: false
@@ -88,7 +88,7 @@ outputs:
     description: Git head commit SHA checked
     value: ${{ steps.run.outputs.head-sha }}
   proof-verified:
-    description: Result of verifying inputs.inclusion-proof against the checked PR revision/diff (true, false, or none)
+    description: Whether inputs.inclusion-proof is authentic and its accepted deliverables cover the checked diff, revision and head commit (true, false, or none). It does not bind this check's checker, verdict or criteria to the bundle's pre-check, so true is not a verified human acceptance of this check.
     value: ${{ steps.run.outputs.proof-verified }}
   receipt:
     description: Path to the generated Markdown check summary file
@@ -151,6 +151,7 @@ runs:
         VERDICT_FILE="$WORK_DIR/verdict.json"
         RECEIPT_FILE="$WORK_DIR/receipt.md"
         BASE="${BASE_REF:-${PR_BASE_SHA:-HEAD~1}}"
+        HEAD_REF="${HEAD_REF:-${PR_HEAD_SHA:-HEAD}}"
         ARGS=(check --author-runtime "$AUTHOR_RUNTIME" --grade "$GRADE" --timeout "$TIMEOUT" --output text --verdict-out "$VERDICT_FILE" --receipt-out "$RECEIPT_FILE")
 
         if [ -n "$CHECKER_RUNTIME" ]; then
@@ -244,11 +245,10 @@ runs:
           PROOF_VERIFIED="false"
           HAS_ERROR="true"
           VERIFY_JS="${CONTROLROD_VERIFY_JS:-${ACTION_PATH:-}/../../services/api/dist/verify-bundle.js}"
-          RECEIPT_JS="${CONTROLROD_RECEIPT_JS:-${ACTION_PATH:-}/../../services/api/dist/pr-receipt.js}"
           if [ ! -f "$VERDICT_FILE" ]; then
             echo "::error::Cannot verify inclusion-proof because controlrod check produced no verdict file" >&2
           elif [ ! -f "$VERIFY_JS" ]; then
-            echo "::error::Offline bundle verifier not found at $VERIFY_JS" >&2
+            echo "::error::Offline bundle verifier not found at $VERIFY_JS. The Action does not build it: run 'pnpm install --frozen-lockfile && pnpm --filter @control-rod/api build' in the Control Rod checkout before this step, or set CONTROLROD_VERIFY_JS to a built verify-bundle.js. Inclusion proof is treated as NOT verified." >&2
           else
             VERIFY_ARGS=(--receipt "$VERDICT_FILE")
             if [ -n "${PACKAGE_REVISION:-}" ]; then
@@ -261,11 +261,8 @@ runs:
             if [ "$VRC" -eq 0 ]; then
               PROOF_VERIFIED="true"
               HAS_ERROR="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("true" if (d.get("error") or "").strip() else "false")' "$VERDICT_FILE" 2>/dev/null || echo true)"
-              if [ -f "$RECEIPT_JS" ] && [ -f "$RECEIPT_FILE" ]; then
-                BUNDLE_MD="$(node "$RECEIPT_JS" "$INCLUSION_PROOF" 2>/dev/null || true)"
-                if [ -n "$BUNDLE_MD" ]; then
-                  printf '\n### Verified Control Rod acceptance\n%s\n' "$BUNDLE_MD" >> "$RECEIPT_FILE"
-                fi
+              if [ -f "$RECEIPT_FILE" ]; then
+                printf '\n> **Inclusion proof not bound to this check:** `%s` is authentic and its accepted deliverables cover this diff and revision, but it does not bind this check'"'"'s checker, verdict or acceptance criteria to the bundle'"'"'s pre-check. This is not a verified acceptance of this check.\n' "$INCLUSION_PROOF" >> "$RECEIPT_FILE"
               fi
             else
               echo "Inclusion proof verification failed for $INCLUSION_PROOF: $VERIFY_OUT" >&2

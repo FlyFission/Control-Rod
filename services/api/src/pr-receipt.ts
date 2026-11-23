@@ -269,7 +269,6 @@ export interface ReceiptBindingExpectation {
   expectedRevision?: number | undefined;
   expectedDiffSha256?: string | undefined;
   expectedHeadSha?: string | undefined;
-  headShaRequired?: boolean | undefined;
   receiptText?: string | undefined;
 }
 
@@ -579,7 +578,6 @@ export function checkBundleReceiptBinding(
       expectedRevision: expect.expectedRevision ?? parsed.expectedRevision,
       expectedDiffSha256: expect.expectedDiffSha256 ?? parsed.expectedDiffSha256,
       expectedHeadSha: expect.expectedHeadSha ?? parsed.expectedHeadSha,
-      headShaRequired: expect.headShaRequired,
     };
   }
 
@@ -599,15 +597,17 @@ export function checkBundleReceiptBinding(
     };
   }
 
-  if (resolved.expectedDiffSha256 !== undefined) {
-    const want = resolved.expectedDiffSha256.toLowerCase();
-    const recorded = inspection.authorOutputDigests.map((d) => d.toLowerCase());
-    if (!recorded.includes(want)) {
-      const got = recorded.length ? recorded.map((d) => `sha256:${shortDigest(d)}`).join(", ") : "none";
-      return {
-        problem: `accepted deliverables (${got}) do not cover receipt diff sha256:${want}`,
-      };
-    }
+  if (resolved.expectedDiffSha256 === undefined || !/^[0-9a-f]{64}$/i.test(resolved.expectedDiffSha256)) {
+    return { problem: "the receipt or request carries no valid diff digest, so acceptance cannot be tied to this diff" };
+  }
+
+  const want = resolved.expectedDiffSha256.toLowerCase();
+  const recorded = inspection.authorOutputDigests.map((d) => d.toLowerCase());
+  if (!recorded.includes(want)) {
+    const got = recorded.length ? recorded.map((d) => `sha256:${shortDigest(d)}`).join(", ") : "none";
+    return {
+      problem: `accepted deliverables (${got}) do not cover receipt diff sha256:${want}`,
+    };
   }
 
   if (resolved.expectedHeadSha !== undefined) {
@@ -618,7 +618,8 @@ export function checkBundleReceiptBinding(
         problem: `accepted bundle commit (${recordedHeads.join(", ")}) does not match head commit ${wantHead}`,
       };
     }
-    if (resolved.headShaRequired && !recordedHeads.includes(wantHead)) {
+    // A head SHA the receipt names must appear in the bundle's events; absence fails closed.
+    if (!recordedHeads.includes(wantHead)) {
       return {
         problem: `accepted bundle records no head commit matching ${wantHead}`,
       };

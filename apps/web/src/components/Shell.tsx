@@ -20,6 +20,7 @@ import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
 import { ShortcutHelp } from "./ShortcutHelp.js";
+import { singleKeysOn } from "../lib/singleKeys.js";
 import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 import { useFirstRunSetup } from "../lib/firstRun.js";
@@ -143,6 +144,8 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       // The board's quick add claims `c` first (its listener prevents the default). Its state update can
       // re-render before this listener runs and remove the .bd-add opener, so look at the event too.
       if (e.defaultPrevented) return;
+      // Every key below is a single character: none fires when the person turned them off.
+      if (!singleKeysOn()) return;
       const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
       const hasOpenOverlay = document.querySelector("dialog[open], .palette") !== null;
       // `?` opens the shortcut list only when nothing modal is open: inside New Work or the palette

@@ -1,14 +1,14 @@
-tsc exit 0
+tsc exit 0 (pnpm typecheck, after regenerating src/api/schema.d.ts)
 
  RUN  v5.1.0 <repo>/apps/web
 
 
- Test Files  56 passed (56)
-      Tests  757 passed (757)
-   Start at  19:19:46
-   Duration  31.49s (tests 52%, environment 31%, setup 10%, import 5%, transform 1%)
+ Test Files  57 passed (57)
+      Tests  767 passed (767)
+   Start at  19:35:09
+   Duration  33.54s (tests 52%, environment 31%, setup 10%, import 5%, transform 1%)
 
-Environment  jsdom was created 56 times · 26.88s total, 31% of tracked time
+Environment  jsdom was created 57 times · 29.39s total, 31% of tracked time
              create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
              learn more: https://vitest.dev/guide/improving-performance#test-environments
 

@@ -2167,3 +2167,7 @@ select {
   border-left: 3px solid var(--needs);
   color: var(--text);
 }
+.shortcut-toggle {
+  display: block;
+  margin: 0;
+}

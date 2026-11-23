@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { setSingleKeys, singleKeysOn } from "../lib/singleKeys.js";
 
 export type Shortcut = { keys: string[]; what: string; where: string };
 
@@ -21,10 +22,13 @@ export function shortcuts(mac: boolean): Shortcut[] {
  */
 export function ShortcutHelp({ open, mac, onClose }: { open: boolean; mac: boolean; onClose: () => void }) {
   const close = useRef<HTMLButtonElement>(null);
+  const toggle = useRef<HTMLInputElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
+  const [keysOn, setKeysOn] = useState(singleKeysOn);
 
   useEffect(() => {
     if (!open) return;
+    setKeysOn(singleKeysOn());
     returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     close.current?.focus();
     return () => returnTo.current?.focus();
@@ -42,12 +46,15 @@ export function ShortcutHelp({ open, mac, onClose }: { open: boolean; mac: boole
           // While the list is open no other shortcut fires behind it, and Escape closes only the list,
           // not a drawer underneath.
           e.stopPropagation();
-          if (e.key === "Escape" || e.key === "?") {
+          if (e.key === "Escape" || (e.key === "?" && singleKeysOn())) {
             e.preventDefault();
             onClose();
           }
-          // One control inside: Tab stays on it.
-          if (e.key === "Tab") e.preventDefault();
+          // Two controls inside: Tab moves between them and never leaves the list.
+          if (e.key === "Tab") {
+            e.preventDefault();
+            (document.activeElement === close.current ? toggle.current : close.current)?.focus();
+          }
         }}
       >
         <div className="shortcut-help-head">
@@ -82,6 +89,18 @@ export function ShortcutHelp({ open, mac, onClose }: { open: boolean; mac: boole
           </tbody>
         </table>
         <p className="muted small">Single-letter keys do nothing while you are typing in a field.</p>
+        <label className="shortcut-toggle small">
+          <input
+            ref={toggle}
+            type="checkbox"
+            checked={keysOn}
+            onChange={(e) => {
+              setSingleKeys(e.target.checked);
+              setKeysOn(e.target.checked);
+            }}
+          />{" "}
+          Single-key shortcuts (C, J, K, N, ?) on this browser. Turn them off if a stray key or speech input moves you around; {mac ? "⌘" : "Ctrl"} K and Esc still work, and the Shortcuts button opens this list.
+        </label>
       </div>
     </div>
   );

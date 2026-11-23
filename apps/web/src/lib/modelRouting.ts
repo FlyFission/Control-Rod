@@ -14,7 +14,12 @@ export function modelRouting(trace: { requested_model?: string; reported_model?:
   // "default" means the run left the choice to the runtime, so whatever answered is not a fallback.
   const requested = asked === "default" ? "" : asked;
   const reported = trace?.reported_model?.trim() ?? "";
-  if (reported && requested && reported !== requested) return { kind: "rerouted", text: `Answered by ${reported} (requested ${requested})` };
+  // A CLI reports the concrete model behind an alias it was asked for ("opus" -> "claude-opus-5-5"):
+  // the requested name inside the reported one is the alias resolving, not a fallback.
+  if (reported && requested && reported !== requested) {
+    if (reported.toLowerCase().includes(requested.toLowerCase())) return { kind: "same", text: `Model ${reported} (requested ${requested})` };
+    return { kind: "rerouted", text: `Answered by ${reported} (requested ${requested})` };
+  }
   if (reported) return { kind: "same", text: `Model ${reported}` };
   // While a run is going the CLI may not have said yet; only a finished run is "not reported".
   if (requested && finished) return { kind: "unreported", text: `Model not reported (requested ${requested})` };

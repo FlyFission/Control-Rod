@@ -4,7 +4,7 @@ Evidence status: **pass** for the checks below on this host (Linux, Node 22, pnp
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web `tsc` exits 0, and the full web suite passes: 56 files, 757 tests, including the cases in the trace. jsdom only; no real browser was run. The two new board tests were confirmed to fail with the sort and spinner rules disabled. | `evidence/web.log` |
+| E-01 | pass | Web `tsc` exits 0, and the full web suite passes: 57 files, 767 tests, including the cases in the trace, after merging `origin/main` at `48742b9d`. jsdom only; no real browser was run. The two new board tests were confirmed to fail with the sort and spinner rules disabled. | `evidence/web.log` |
 | E-02 | pass | `tools/check_originality.py` and `tools/check_owner_decisions.py` pass. `tools/check_public_claims.py` reports one finding in `AgentPanel.tsx`, a file this change does not touch (present on main). | this file |
 
 ## Evidence custody and coupling
@@ -27,7 +27,7 @@ The independent blind check by a different vendor is recorded in [ship](ship.md)
 
 ## Exit criteria
 
-On the board, cards marked Needs you or Blocked sort to the top of their column (live, current reads only), and the run spinner turns only while a run is running. The tab title counts the viewer's own Inbox items only after a successful read; browser notifications are off until the person turns them on, fire only for new Inbox items while the tab is hidden, carry no record title or reason, and close on sign-out or a change of person; `N` moves to the next card marked Needs you or Blocked in board or list view; `?` opens the shortcut list only when no dialog is open. A run that another model answered shows "Fallback: Answered by X (requested Y)". The web typecheck and the full web test suite pass. No trust surface is touched.
+On the board, cards marked Needs you or Blocked sort to the top of their column (live, current reads only), and the run spinner turns only while a run is running. The tab title counts the viewer's own Inbox items only after a successful read; browser notifications are off until the person turns them on, fire once per refresh that brings new Inbox items while the tab is hidden, carry no record title or reason, and close on sign-out or a change of person; `N` moves to the next card marked Needs you or Blocked in board or list view; `?` opens the shortcut list only when no dialog is open, and single-character shortcuts can be turned off there. A run that another model answered shows "Fallback: Answered by X (requested Y)". The web typecheck and the full web test suite pass. No trust surface is touched.
 
 ## Source-lineage note
 

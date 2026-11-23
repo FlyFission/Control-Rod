@@ -1,5 +1,5 @@
 import { act } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -122,6 +122,27 @@ describe("keyboard shortcut list", () => {
     expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+  });
+});
+
+describe("single-key shortcuts switch", () => {
+  afterEach(() => window.localStorage.clear());
+  it("turns C and ? off on this browser, while the Shortcuts button still opens the list", async () => {
+    server.use(http.get("*/inbox", () => HttpResponse.json({ items: [], waiting_on_others: [], digest: { head: 0, lines: [] } })));
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Shortcuts/ }));
+    const toggle = await screen.findByRole("checkbox", { name: /Single-key shortcuts/ });
+    expect((toggle as HTMLInputElement).checked).toBe(true);
+    await user.click(toggle);
+    expect(window.localStorage.getItem("cr.single-key-shortcuts")).toBe("off");
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.keyboard("?");
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+    await user.keyboard("c");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /Shortcuts/ }));
+    expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeTruthy();
   });
 });
 

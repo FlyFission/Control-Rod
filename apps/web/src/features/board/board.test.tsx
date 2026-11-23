@@ -245,6 +245,11 @@ describe("BoardView", () => {
     await waitFor(() => expect(within(running).getByRole("img", { name: "Agent running" })).toBeTruthy());
     const queued = screen.getByText("Queued one").closest("article")!;
     const held = screen.getByText("Held one").closest("article")!;
+    // Wait until both cards are drawn from their own reads, so a spinner could have shown.
+    await waitFor(() => {
+      expect(queued.dataset["tone"]).not.toBe("unknown");
+      expect(held.dataset["tone"]).not.toBe("unknown");
+    });
     expect(within(queued).queryByRole("img", { name: "Agent running" })).toBeNull();
     expect(within(held).queryByRole("img", { name: "Agent running" })).toBeNull();
   });

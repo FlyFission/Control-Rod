@@ -8,6 +8,12 @@ describe("model routing line", () => {
       text: "Answered by gpt-6.1 (requested gpt-6.2-sol)",
     });
   });
+  it("does not call an alias resolving to its concrete model a fallback", () => {
+    expect(modelRouting({ requested_model: "opus", reported_model: "claude-opus-5-5" }, true)).toEqual({
+      kind: "same",
+      text: "Model claude-opus-5-5 (requested opus)",
+    });
+  });
   it("names the model once when it is the one requested", () => {
     expect(modelRouting({ requested_model: "opus", reported_model: "opus" }, true)).toEqual({ kind: "same", text: "Model opus" });
   });

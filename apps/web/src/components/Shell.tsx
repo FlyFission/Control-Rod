@@ -20,21 +20,22 @@ import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
+import { useFirstRunSetup } from "../lib/firstRun.js";
 import { readString, writeString } from "../lib/storage.js";
 
 const COLLAPSED_GROUPS_KEY = "cr.nav-collapsed";
-const COLLAPSIBLE_GROUPS = new Set<PlaceGroup>(["Audit", "Control"]);
+const COLLAPSIBLE_GROUPS = new Set<PlaceGroup>(["Audit", "Control / Setup"]);
 
 function loadCollapsedGroups(): Record<string, boolean> {
   const raw = readString(COLLAPSED_GROUPS_KEY);
-  if (!raw) return { Audit: true, Control: true };
+  if (!raw) return { Audit: true };
   try {
     const parsed: unknown = JSON.parse(raw);
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? (parsed as Record<string, boolean>)
-      : { Audit: true, Control: true };
+      : { Audit: true };
   } catch {
-    return { Audit: true, Control: true };
+    return { Audit: true };
   }
 }
 
@@ -50,7 +51,7 @@ const MODES: { id: EngineeringMode; label: string }[] = [
   { id: "nuclear-grade", label: "Nuclear-Grade" },
 ];
 
-const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control"];
+const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control / Setup"];
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -112,6 +113,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
   const activePlace = PLACES.find((p) => (p.to === "/" ? path === "/" : path.startsWith(p.to)));
+  useFirstRunSetup(path);
 
   // On a phone the places are one scrolling row: keep the current one in view.
   useEffect(() => {

@@ -102,6 +102,7 @@ export const REASONS: Record<string, Reason> = {
   // Packages, dependencies and runs.
   "unknown-dependency": r("This package depends on a package that does not exist.", "Name an existing package, or remove the dependency."),
   "invalid-dependency": r("This dependency is not allowed: a package cannot wait on itself, and two packages cannot wait on each other.", "Remove the dependency that closes the loop."),
+  "invalid-setup": r("This setup could not be saved: it names an agent Control Rod does not know, lists one twice, or leaves out when to check with you.", "Choose each agent once and answer when we should check with you, then press Looks right."),
   "preparation-edit-required": r("This package is under preparation, so its contract and criteria are edited together there.", "Edit it from the preparation view."),
   "outcome-unknown": r("This run's outcome is unknown: its process may still be running somewhere.", "Restart the daemon so it can report from its receipt, or reconcile the run with your passkey and a reason."),
   "not-unknown": r("This run's outcome is not unknown, so there is nothing to reconcile.", "Requeue or review the run instead."),

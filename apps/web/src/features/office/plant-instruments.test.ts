@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentFigure, ScramSummary } from "../../api/types.js";
-import { type Floor, type Read, annunciator, coreState, rodState } from "./plant-instruments.js";
+import { type Floor, type Read, annunciator, coreState, emptyFloorNote, rodState } from "./plant-instruments.js";
 
 /** The plant's instruments (plant view design, section 6): only what was reported, and unknown never shown as zero. */
 
@@ -83,13 +83,28 @@ describe("control rods", () => {
     expect(stopped.caption).toMatch(/^SCRAM in force: organization, runs stopped at /);
   });
 
-  it("insert one bank for project SCRAMs and say other work continues", () => {
-    expect(rodState(scrams([scram({ scope: "project", project_id: "p" })]))).toEqual({ position: "bank", caption: "SCRAM in force: 1 project. Other work continues." });
+  it("insert one bank for project SCRAMs and name how many, claiming nothing about other work", () => {
+    expect(rodState(scrams([scram({ scope: "project", project_id: "p" })]))).toEqual({ position: "bank", caption: "SCRAM in force: 1 project" });
   });
 
   it("show a drill as a drill, never as a trip", () => {
     expect(rodState(scrams([scram({ drill: true })]))).toEqual({ position: "drill", caption: "SCRAM drill in force" });
     // A real SCRAM beside a drill is the real one.
     expect(rodState(scrams([scram({ drill: true }), scram({ id: "S-2" })])).position).toBe("inserted");
+  });
+});
+
+describe("stale and hidden readings", () => {
+  it("carries 'as of' on the rods and the core once a reading is no longer current", () => {
+    const rods = rodState(scrams([scram({ scope: "project", project_id: "p" })], { failed: true }));
+    expect(rods.asOf).toMatch(/^as of /);
+    expect(rods.caption).toMatch(/^SCRAM in force: 1 project, as of /);
+    expect(coreState(floor({}, { failed: true })).asOf).toMatch(/^as of /);
+    expect(coreState(floor({})).asOf).toBeUndefined();
+  });
+
+  it("never says no agent is working when work is hidden while presenting", () => {
+    expect(emptyFloorNote(0)).toBe("No agent is working right now.");
+    expect(emptyFloorNote(3)).toBe("No agent is shown. 3 agents are hidden while presenting.");
   });
 });

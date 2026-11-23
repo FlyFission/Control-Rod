@@ -973,6 +973,8 @@
   background-image: radial-gradient(ellipse at 50% 40%, rgb(255 196 110 / 0.35), rgb(255 179 71 / 0.08) 70%);
   color: #ffe7c2;
   box-shadow: 0 0 18px rgb(255 179 71 / 0.35), inset 0 0 14px rgb(255 179 71 / 0.25);
+}
+.plant-window[data-state="lit"][data-flash] {
   animation: plant-flash 0.8s ease-in-out 3;
 }
 .plant-window[data-state="lit"]:is([data-window="scram"], [data-window="stuck"]) {
@@ -1006,11 +1008,14 @@
     background-position: -46px 0;
   }
 }
-.office-stage[data-motion="paused"] .plant-flow[data-lit] {
+.office-stage[data-motion="paused"] :is(.plant-flow, .plant-flow[data-lit]) {
+  transition: none;
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
+  .plant-flow,
   .plant-flow[data-lit] {
+    transition: none;
     animation: none;
   }
 }
@@ -1019,8 +1024,16 @@
     filter: brightness(1.5);
   }
 }
+/* No flash and no fade with reduced motion or while the tab is hidden. */
+.plant-annunciator[data-motion="paused"] .plant-window,
+.plant-annunciator[data-motion="paused"] .plant-window[data-state="lit"][data-flash] {
+  transition: none;
+  animation: none;
+}
 @media (prefers-reduced-motion: reduce) {
-  .plant-window[data-state="lit"] {
+  .plant-window,
+  .plant-window[data-state="lit"][data-flash] {
+    transition: none;
     animation: none;
   }
 }

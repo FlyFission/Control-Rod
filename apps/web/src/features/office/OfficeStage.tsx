@@ -100,7 +100,7 @@ export interface OfficeStageProps {
 }
 
 /** Whether the tab is visible; motion stops while it is hidden. */
-function useVisible() {
+export function useVisible() {
   const [visible, setVisible] = useState(
     () => document.visibilityState !== "hidden",
   );
@@ -265,6 +265,7 @@ export function OfficeStage({
                 : `${r.name}: ${r.purpose}`
             }
             data-region={r.id}
+            data-door={r.door.y <= r.y ? "top" : "bottom"}
           >
             <div className="office-plate" data-semantic="plate">
               <span className="office-plate-name">{r.name}</span>
@@ -354,6 +355,9 @@ function PlantConsole({
             : instruments.core.lit
               ? { tone: "lit", text: "Core lit" }
               : { tone: "dark", text: "Core dark" };
+  // A reading that is no longer current says when it was taken, as the plates' captions do.
+  const scramShown = rods === "inserted" || rods === "bank" || rods === "drill";
+  const asOf = scramShown ? instruments?.rods.asOf : (instruments?.core.asOf ?? instruments?.rods.asOf);
   const rows = Math.ceil(c.height / 100);
   return (
     <div
@@ -380,8 +384,8 @@ function PlantConsole({
               </span>
             ))}
           </span>
-          <span className="plant-console-status" data-tone={status.tone}>
-            {status.text}
+          <span className="plant-console-status" data-tone={status.tone} data-stale={asOf ? "" : undefined}>
+            {asOf ? `${status.text}, ${asOf}` : status.text}
           </span>
         </div>
       )}

@@ -7,9 +7,13 @@ import { time } from "../../lib/format.js";
  * know: a read that has not arrived, or failed, is never shown as zero, as dark, or as "no SCRAM".
  */
 
-/** One read the instruments depend on: its data when it arrived, whether its last attempt failed, and when it last succeeded. */
+/**
+ * One read the instruments depend on: its data when it arrived, whether that reading is no longer
+ * current (the last refresh failed, or it is overdue), and when it last succeeded.
+ */
 export interface Read<T> {
   data: T | undefined;
+  /** The reading is not current: the last refresh failed, or no refresh has succeeded for longer than it should take. */
   failed: boolean;
   /** Epoch milliseconds of the last successful read; 0 when none. */
   at: number;
@@ -88,7 +92,11 @@ export interface CoreState {
   /** Lit while at least one shown figure is working; null when the floor has not been read. */
   lit: boolean | null;
   caption: string;
+  /** "as of 10:42" when this is the last known reading, not a current one. */
+  asOf?: string;
 }
+
+const asOfText = (read: Read<unknown>) => (read.failed && read.at > 0 ? `as of ${time(new Date(read.at).toISOString())}` : undefined);
 
 /**
  * The core: lit while any shown agent is working, dark when none is. It is a count in words, never a
@@ -103,8 +111,9 @@ export function coreState(floor: Read<Floor>): CoreState {
   let caption: string;
   if (hidden > 0) caption = `${working} shown working, ${hidden} hidden`;
   else caption = working === 0 ? "No agent working" : `${agents(working)} working`;
-  if (floor.failed && floor.at > 0) caption += `, as of ${time(new Date(floor.at).toISOString())}`;
-  return { lit: working > 0, caption };
+  const asOf = asOfText(floor);
+  if (asOf) caption += `, ${asOf}`;
+  return asOf ? { lit: working > 0, caption, asOf } : { lit: working > 0, caption };
 }
 
 export type RodPosition = "unknown" | "withdrawn" | "inserted" | "bank" | "drill";
@@ -112,27 +121,39 @@ export type RodPosition = "unknown" | "withdrawn" | "inserted" | "bank" | "drill
 export interface RodState {
   position: RodPosition;
   caption?: string;
+  /** "as of 10:42" when this is the last known reading, not a current one. */
+  asOf?: string;
 }
 
 /**
  * The control rods, from the SCRAMs in force (not yet restarted for their whole scope). An
- * organization SCRAM inserts every rod; project SCRAMs insert one bank and say other work continues;
+ * organization SCRAM inserts every rod; project SCRAMs insert one bank and name how many projects;
  * a drill is drawn dashed and never darkens anything. Pulled is not stopped: the caption claims the
  * stop only once the control plane has recorded it.
  */
 export function rodState(scrams: Read<{ scrams: readonly ScramSummary[] }>): RodState {
   if (scrams.data === undefined) return { position: "unknown", caption: "SCRAM status unavailable" };
   const real = scrams.data.scrams.filter((s) => !isDrill(s));
-  const asOf = scrams.failed && scrams.at > 0 ? `, as of ${time(new Date(scrams.at).toISOString())}` : "";
+  const stale = asOfText(scrams);
+  const asOf = stale ? `, ${stale}` : "";
+  const out = (r: RodState): RodState => (stale ? { ...r, asOf: stale } : r);
   if (real.length === 0) {
-    if (scrams.data.scrams.length > 0) return { position: "drill", caption: `SCRAM drill in force${asOf}` };
-    return asOf ? { position: "withdrawn", caption: `No SCRAM in force${asOf}` } : { position: "withdrawn" };
+    if (scrams.data.scrams.length > 0) return out({ position: "drill", caption: `SCRAM drill in force${asOf}` });
+    return stale ? out({ position: "withdrawn", caption: `No SCRAM in force${asOf}` }) : { position: "withdrawn" };
   }
   const org = real.find((s) => s.scram.scope === "organization");
   if (org) {
+    // The rods say a SCRAM is in force; the stop time is claimed only once the control plane recorded it.
     const stop = org.stopped ? `runs stopped at ${time(org.stopped.at)}` : "stop not yet recorded";
-    return { position: "inserted", caption: `SCRAM in force: organization, ${stop}${asOf}` };
+    return out({ position: "inserted", caption: `SCRAM in force: organization, ${stop}${asOf}` });
   }
+  // A project SCRAM's scope says which projects stopped; it does not prove anything about other work.
   const n = real.length;
-  return { position: "bank", caption: `SCRAM in force: ${n} ${n === 1 ? "project" : "projects"}. Other work continues${asOf}.` };
+  return out({ position: "bank", caption: `SCRAM in force: ${n} ${n === 1 ? "project" : "projects"}${asOf}` });
+}
+
+/** What the floor says when no figure is drawn: hidden work is counted, never called "no agent working". */
+export function emptyFloorNote(hidden: number): string {
+  if (hidden > 0) return `No agent is shown. ${hidden} ${hidden === 1 ? "agent is" : "agents are"} hidden while presenting.`;
+  return "No agent is working right now.";
 }

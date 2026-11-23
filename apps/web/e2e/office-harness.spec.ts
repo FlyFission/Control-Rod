@@ -985,13 +985,16 @@ function measureLegibility() {
     return { name, l: Math.min(...rs.map((r) => r.left)), t: Math.min(...rs.map((r) => r.top)), r: Math.max(...rs.map((r) => r.right)), b: Math.max(...rs.map((r) => r.bottom)) };
   };
   const boxes: Box[] = [];
-  // The corridor (or the plant's walkway) a queued figure stands in: between the regions above it
-  // and the regions below it, among those it shares columns with.
-  const regionBoxes = [...document.querySelectorAll(".office-region")].map((r) => r.getBoundingClientRect());
-  const corridorOf = (box: Box) => {
-    const cy = (box.t + box.b) / 2;
-    const cols = regionBoxes.filter((r) => r.left < box.r && r.right > box.l);
-    return { top: Math.max(stage.top, ...cols.filter((r) => r.bottom <= cy).map((r) => r.bottom)), bottom: Math.min(stage.bottom, ...cols.filter((r) => r.top >= cy).map((r) => r.top)) };
+  // The lane a queued figure must stand in: the corridor (or the plant's walkway) on its own region's
+  // door side, from that region's wall to the next regions across, among those sharing its columns.
+  // Taken from the region, never from where the figure happens to be, so a figure queued in the wrong
+  // lane fails.
+  const regionEls = [...document.querySelectorAll(".office-region")];
+  const laneOf = (regionEl: Element) => {
+    const own = regionEl.getBoundingClientRect();
+    const cols = regionEls.filter((r) => r !== regionEl).map((r) => r.getBoundingClientRect()).filter((r) => r.left < own.right && r.right > own.left);
+    if (regionEl.getAttribute("data-door") === "top") return { top: Math.max(stage.top, ...cols.filter((r) => r.bottom <= own.top).map((r) => r.bottom)), bottom: own.top };
+    return { top: own.bottom, bottom: Math.min(stage.bottom, ...cols.filter((r) => r.top >= own.bottom).map((r) => r.top)) };
   };
   for (const f of document.querySelectorAll(".office-figure")) {
     const box = union(`figure ${f.getAttribute("data-figure")}`, [...f.querySelectorAll(".office-figure-outline, .office-figure-safety, .office-figure-flags, .office-figure-mark, .office-figure-code")]);
@@ -1006,7 +1009,7 @@ function measureLegibility() {
     const cy = (box.t + box.b) / 2;
     const seated = cy >= region.top && cy <= region.bottom;
     if (seated && (box.l < region.left || box.r > region.right || box.t < plate.bottom || box.b > region.bottom)) failures.push(`${box.name} leaves its seat in ${f.getAttribute("data-region")}`);
-    const corridor = corridorOf(box);
+    const corridor = laneOf(document.querySelector(`.office-region[data-region="${f.getAttribute("data-region")}"]`)!);
     if (!seated && (box.t < corridor.top || box.b > corridor.bottom)) failures.push(`${box.name} queues outside the corridor`);
     const outline = f.querySelector(".office-figure-outline")!.getBoundingClientRect();
     if (outline.width < 24 || outline.height < 24) failures.push(`figure ${f.getAttribute("data-figure")} is smaller than a 24px target`);

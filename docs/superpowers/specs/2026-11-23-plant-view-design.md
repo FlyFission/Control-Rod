@@ -15,7 +15,7 @@ Plan v2, Nov 23, 2026. Repo checked at `306e078` (main). v1 was reviewed blind b
 - `/office` renders `features/office/OfficeView.tsx` on a fixed 1200×640 canvas (`layout.ts`) with **13 places**: six cube sets and seven rooms. `AgentFigure.place: FigurePlace` (`spec/api.tsp:503`, `:547`) is a contract, so the 13 IDs stay. Unmapped disciplines fall back to Process (`place_defaulted`).
 - The stage has an inert scene layer (theme SVG as `<img>`) under the app's semantic layer (plates, figures, marks, all with accessible names). The stage is a dark island with a `min-width: 960px` (0.8 of 1200), the zoom the clearance constants assume (`layout.ts:88-106`, `office.css:14-15`).
 - 17 registered themes (`registry.ts:11`): `standard-office` (default), `harness-bright` (test only) and 15 worlds; 16 are released (`themes/released.json`). Production copies only the files each theme's `assets.json` manifest names (`vite.config.ts:101-134`).
-- SCRAM (`Scram.tsx`) is organization- or project-scoped, can be a drill, is "in force" until restarted for its whole scope, and its timing (`pulled_at`, `stopped`) is optional and absent when presenting (`spec/api.tsp:1049-1075`).
+- SCRAM (`Scram.tsx`) is organization- or project-scoped, can be a drill, is "in force" until restarted for its whole scope, and its timing (`pulled_at`, `stopped`) is optional: present only once recorded (`spec/api.tsp:1049-1075`). Presenting, the read is redacted (no reason, runs or who pulled it) but keeps scope, drill flag and timing (`services/api/src/scram.ts`, `activeScramsFor`).
 - `/floor` is a separate, flag-gated station floor with an empty release manifest, unreachable from navigation.
 - The shell's SCRAM banner links to `/office` (`Shell.tsx:220`); `Shell.tsx` and `styles.css` are touched by open PR #137, so this work stays out of both. #135, #136 and #150 do not touch the office, floor or places code.
 
@@ -77,7 +77,7 @@ A second app-owned layout, `plant-layout.ts`, same `Region` shape and same 13 ID
 | Loading or error | hatched, no position | "SCRAM status unavailable" |
 | None in force | withdrawn | none |
 | Organization SCRAM in force | inserted | "SCRAM in force: organization" plus "runs stopped at <time>" only when `stopped` is recorded, else "stop not yet recorded" |
-| Project SCRAM(s) only | one bank inserted | "SCRAM in force: N projects. Other work continues." |
+| Project SCRAM(s) only | one bank inserted | "SCRAM in force: N projects" (the scope says which projects stopped; it proves nothing about other work) |
 | Drill | dashed outline | "Drill", never darkens the core |
 
 The SCRAM control and banner stay as they are. The core and rods read separate queries on separate intervals, so each caption stands on its own source.

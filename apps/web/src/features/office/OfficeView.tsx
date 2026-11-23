@@ -13,7 +13,7 @@ import { REGION } from "./layout.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
 import { PLANT_LAYOUT } from "./plant-layout.js";
-import { type Read, annunciator, coreState, rodState } from "./plant-instruments.js";
+import { type Read, annunciator, coreState, emptyFloorNote, rodState } from "./plant-instruments.js";
 import { PlantList } from "./PlantList.js";
 import { PLANT_THEME, archivedThemeChoices, draftBuild } from "./registry.js";
 import { seatFigures } from "./seat.js";
@@ -69,7 +69,27 @@ function useWidth(): [(el: HTMLDivElement | null) => void, number | undefined] {
   return [setEl, width];
 }
 
-const readOf = <T,>(q: { data: T | undefined; isError: boolean; dataUpdatedAt: number }): Read<T> => ({ data: q.data, failed: q.isError, at: q.dataUpdatedAt });
+/** How often the plant's reads refresh, and how long a reading counts as current without a new one. */
+const REFRESH_MS = 30_000;
+const OVERDUE_MS = 3 * REFRESH_MS;
+
+/** A read as the instruments see it: not current once its refresh failed or is overdue. */
+const readOf = <T,>(q: { data: T | undefined; isError: boolean; dataUpdatedAt: number }, now: number): Read<T> => ({
+  data: q.data,
+  failed: q.isError || (q.dataUpdatedAt > 0 && now - q.dataUpdatedAt > OVERDUE_MS),
+  at: q.dataUpdatedAt,
+});
+
+/** The time, refreshed every few seconds, so a reading that goes overdue is marked without waiting for a failure. */
+function useNow(stepMs = 10_000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), stepMs);
+    return () => clearInterval(t);
+  }, [stepMs]);
+  return now;
+}
+
 
 export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {}) {
   const choices = archivedThemeChoices(drafts);
@@ -94,9 +114,10 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<string>();
   const [showEveryone, setShowEveryone] = useState(false);
-  const q = useQuery({ queryKey: ["office-figures", presenting], queryFn: () => api.officeFigures(presenting), refetchInterval: 30_000 });
+  const q = useQuery({ queryKey: ["office-figures", presenting], queryFn: () => api.officeFigures(presenting), refetchInterval: REFRESH_MS });
   // The same read the SCRAM banner makes (same key), so the rods and the banner never disagree.
-  const scrams = useQuery({ queryKey: ["scrams", presenting], queryFn: () => api.scrams(presenting) });
+  const scrams = useQuery({ queryKey: ["scrams", presenting], queryFn: () => api.scrams(presenting), refetchInterval: REFRESH_MS });
+  const now = useNow();
   const [measure, width] = useWidth();
   const [listChosen, setListChosen] = useState<boolean>();
   // An unmeasured width (no layout engine, as in tests) draws the plant.
@@ -110,8 +131,8 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const projects = useMemo(() => portfolio(floor?.figures ?? []), [floor]);
   const groups = useMemo(() => causeGroups(floor?.figures ?? []), [floor]);
   const { seated, overflow } = useMemo(() => seatFigures(exceptions.shown, active.tint, active.unavailable ? undefined : active, layout), [exceptions, active, layout]);
-  const floorRead = readOf(q);
-  const scramRead = readOf(scrams);
+  const floorRead = readOf(q, now);
+  const scramRead = readOf(scrams, now);
   const windows = annunciator(floorRead, scramRead);
   const instruments = { core: coreState(floorRead), rods: rodState(scramRead), waiting: (floor?.needs_me ?? 0) > 0 };
   const open = floor?.figures.find((f) => f.id === selected);
@@ -264,7 +285,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
         <div className="office-layout" ref={measure} data-stack={stack ? "" : undefined}>
           <div className="office-scroll">
             {showList ? (
-              <PlantList figures={floor.figures} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
+              <PlantList figures={floor.figures} hidden={floor.hidden} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
             ) : (
               <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} {...(isPlant ? { instruments } : {})} />
             )}
@@ -279,7 +300,13 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
             )}
             {floor.figures.length === 0 && (
               <p className="office-note">
-                No agent is working right now. Work appears here once a released package has a run. <Link to="/packages">Packages</Link>
+                {emptyFloorNote(floor.hidden)}
+                {floor.hidden === 0 && (
+                  <>
+                    {" "}
+                    Work appears here once a released package has a run. <Link to="/packages">Packages</Link>
+                  </>
+                )}
               </p>
             )}
             {!showList && overflow.length > 0 && (

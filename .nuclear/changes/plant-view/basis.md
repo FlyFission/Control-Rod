@@ -24,7 +24,7 @@ The 13 `FigurePlace` values and the `AgentFigure`, floor and SCRAM shapes in `sp
 |---|---|---|
 | `needs_me` is the control plane's count of items waiting on the viewer. | `spec/api.tsp` office floor response; the Inbox uses it. | A Waiting on you count that differs from the Inbox. |
 | A SCRAM is in force until restarted, and its `stopped` timing appears only once runs have stopped. | `GET /scrams` summary in `spec/api.tsp`; the SCRAM banner relies on it. | Rods drawn inserted, or a stop time claimed, before the control plane records it. |
-| The scrams read is not served while presenting. | Existing SCRAM banner behavior. | A SCRAM detail shown on a shared screen. |
+| While presenting, the scrams read is still served, redacted: each SCRAM's scope, drill flag, run count and timing, without its reason, its runs or who pulled it. So the rods can show a SCRAM in force while presenting, and the stop time is shown only when its recorded `stopped` event is present. | `services/api/src/scram.ts` `activeScramsFor` (presenting branch). | A reason, run or person shown on a shared screen; or a stop time shown without a recorded stop. |
 
 ## Required links
 

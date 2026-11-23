@@ -4,11 +4,12 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web suite: 720 tests in 54 files pass, including the plant layout, instrument and view tests. Local machine only. | `evidence/web-suite.log` |
+| E-01 | pass | Web suite: 757 tests pass, including the plant layout, instrument and view tests. Local machine only. | `evidence/web-suite.log` |
 | E-02 | pass | Web typecheck exits 0. | `evidence/typecheck.log` |
 | E-03 | pass | Office theme harness on Chromium: 146 passed, 18 skipped, covering the plant at minimum zoom with 40 agents, every lens, the worst case, theme switching, and motion stopping with reduced motion and in a hidden tab, plus every archived theme. Run through a local config that points at the machine's Chromium and is not committed. | `evidence/plant-harness-chromium.log` |
 | E-04 | pass | Repository checks: theme assets, originality and public claims. | `evidence/check_theme_assets.log`, `evidence/check_originality.log`, `evidence/check_public_claims.log` |
 | E-05 | pass | Screenshots of the real page against a mocked API at 1440 and 390 wide (opens on the list), and at 1440 with an organization SCRAM in force. Visual judgment only. | `evidence/screenshots/` |
+| E-07 | pass | Codex blind check of the code at f2539fa: HOLD with seven P2 and one P3 findings, all fixed (T-11). Re-check of the fixed head pending. | Landing thread, `land-out/pr153-r1-f2539fa.md` on the owner's machine |
 | E-06 | open | Independent design review of the plan by two reviewers from different vendors (done, `evidence/design-review.md`); the third reviewer, Firefox and WebKit runs and the owner's review are not done. | Owner review |
 
 ## Evidence custody and coupling
@@ -20,6 +21,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-03 | T-08 | yes | evidence/plant-harness-chromium.log | Implementing agent | Playwright | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-04 | T-07 | no | evidence/check_theme_assets.log | Implementing agent | Repository check scripts | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-05 | T-09 | no | evidence/screenshots/ | Implementing agent | Playwright | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
+| E-07 | T-11 | yes | land-out/pr153-r1-f2539fa.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-06 | T-09 | yes | evidence/design-review.md | Implementing agent | Independent reviewers | Owner | Implementing agent | Owner's machine | Packet and export | Implementing agent | Independent reviewers (plan only) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -29,6 +31,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-03 | coupled: implementing agent | coupled: one session | separated: deterministic browser checks | separated: owner retains merge decision | coupled: local machine | self-check | Chromium only  [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: one session | separated: deterministic scripts | separated: owner retains merge decision | coupled: local machine | self-check | Checks are heuristics; no legal clearance inferred  [Ship limits](ship.md) |
 | E-05 | coupled: implementing agent | coupled: one session | coupled: visual judgment | separated: owner retains merge decision | coupled: local machine | self-check | Mocked API data  [Ship limits](ship.md) |
+| E-07 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-06 | separated: reviewers from other vendors | separated: blind to the author's reasoning | partially separated: model review of the plan, not the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the reviewers' raw output is not retained here; the code itself has had no independent review yet  [Ship limits](ship.md) |
 
 No human independent review has been done yet.

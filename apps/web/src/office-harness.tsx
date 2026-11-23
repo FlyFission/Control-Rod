@@ -2,8 +2,9 @@ import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useState } from "react";
 import { STATE_INFO } from "./components/StateMark.js";
 import { layoutOf, validateTheme } from "./features/office/contract.js";
+import { Annunciator } from "./features/office/Annunciator.js";
 import type { PlantInstruments } from "./features/office/OfficeStage.js";
-import type { RodState } from "./features/office/plant-instruments.js";
+import type { AnnunciatorWindow, RodState } from "./features/office/plant-instruments.js";
 import { everyPlace, harnessFigures } from "./features/office/fixtures.js";
 import { OfficeStage, type FigureState } from "./features/office/OfficeStage.js";
 import { OFFICE_THEMES } from "./features/office/registry.js";
@@ -67,9 +68,13 @@ function Harness() {
   const rods = (params.get("rods") ?? "withdrawn") as RodState["position"];
   const instruments: PlantInstruments = {
     core: coreParam === "unknown" ? { lit: null, caption: "Status unavailable" } : coreParam === "dark" ? { lit: false, caption: "No agent working" } : { lit: true, caption: `${working} agents working` },
-    rods: rods === "withdrawn" ? { position: rods } : { position: rods, caption: rods === "inserted" ? "SCRAM in force: organization, stop not yet recorded" : rods === "bank" ? "SCRAM in force: 1 project. Other work continues." : rods === "drill" ? "SCRAM drill in force" : "SCRAM status unavailable" },
+    rods: rods === "withdrawn" ? { position: rods } : { position: rods, caption: rods === "inserted" ? "SCRAM in force: organization, stop not yet recorded" : rods === "bank" ? "SCRAM in force: 1 project" : rods === "drill" ? "SCRAM drill in force" : "SCRAM status unavailable" },
     waiting: figures.some((f) => f.state === "needs"),
   };
+  // The plant's annunciator over the same fixtures, so the shared motion check covers it too.
+  const n = (state: FigureState) => figures.filter((f) => f.state === state).length;
+  const lamp = (id: AnnunciatorWindow["id"], label: string, count: number): AnnunciatorWindow => ({ id, label, state: count > 0 ? "lit" : "dark", count });
+  const windows = [lamp("waiting-on-you", "Waiting on you", n("needs")), lamp("stuck", "Stuck", n("stuck")), lamp("changed", "Input changed", n("changed")), lamp("scram", "SCRAM", rods === "inserted" || rods === "bank" ? 1 : 0)];
 
   useEffect(() => {
     let live = true;
@@ -113,6 +118,11 @@ function Harness() {
           {!contract ? "Checking the theme's files against the contract" : contract.problems.length === 0 ? `${theme.title} passes the theme contract` : `${theme.title} fails the theme contract: ${contract.problems.join("; ")}`}
         </span>
       </div>
+      {layoutOf(theme).id === "plant" && (
+        <div style={{ marginBottom: 12 }}>
+          <Annunciator windows={windows} linkInbox={false} />
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 260px", gap: 16, alignItems: "start" }}>
         <div className="office-scroll" data-harness="scroll" style={{ overflow: "auto", maxHeight: "80vh" }}>
           <div style={zoom ? { width: Math.round(layoutOf(theme).canvas.width * zoom) } : undefined}>

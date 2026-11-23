@@ -15,7 +15,7 @@ Each instrument is a pure function in `apps/web/src/features/office/plant-instru
 
 - **Annunciator**: four windows, Waiting on you (the control plane's `needs_me`), Stuck, Input changed and SCRAM. Dark while the plant is normal. A drill is named but never lights the SCRAM window.
 - **Core**: lit while any shown agent is working. A count in words, never a power level. In presenting mode it says how many figures are hidden.
-- **Control rods**: withdrawn with no SCRAM in force; all inserted for an organization SCRAM (the stop time is claimed only once recorded); one bank for project SCRAMs ("Other work continues"); dashed for a drill; not drawn when SCRAM status is unavailable.
+- **Control rods**: withdrawn with no SCRAM in force; all inserted for an organization SCRAM (the stop time is claimed only once recorded); one bank for project SCRAMs, naming how many projects and claiming nothing about other work; dashed for a drill; not drawn when SCRAM status is unavailable.
 
 ## Look and motion
 

@@ -1456,6 +1456,11 @@ export async function bindCheckout(selection: unknown) {
     const head = await git(["rev-parse", "--verify", "HEAD^{commit}"], opts);
     const gitDir = await git(["rev-parse", "--absolute-git-dir"], opts);
     const commonDir = await git(["rev-parse", "--path-format=absolute", "--git-common-dir"], opts);
+    // The worktree must belong to the named repository: its common Git directory is the base
+    // clone's own, not another repository's placed at this path (GitHub origin is checked above).
+    if (resolveWithoutSymlinks(commonDir) !== resolveWithoutSymlinks(join(base, ".git"))) {
+      throw new Refusal(409, "repo-identity-mismatch", "The worktree does not belong to the named repository's base clone.");
+    }
     for (const dir of [gitDir, commonDir]) {
       const real = resolveWithoutSymlinks(dir);
       if (!isContainedIn(root, real)) {

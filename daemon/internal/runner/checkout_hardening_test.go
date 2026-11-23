@@ -64,9 +64,10 @@ func TestCheckoutCaptureRefusesLinkedRunDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, dir := range []string{ws.Out, ws.Inputs} {
+		// Capture holds the directory this run created, so a link put in its place is not read.
 		c, err := ws.CaptureRun(dir, MaxOutputFile, MaxOutputTotal)
-		if !errors.Is(err, ErrLinkedRunPath) || c != nil {
-			t.Fatalf("captured through a linked run directory: %v %v", c, err)
+		if c != nil && len(c.Files) != 0 {
+			t.Fatalf("captured through a linked run directory: %+v %v", c.Files, err)
 		}
 	}
 }
@@ -306,13 +307,13 @@ func TestCheckoutStagingNeverWritesThroughLinks(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(run, "inputs")); err != nil {
 		t.Fatal(err)
 	}
-	cr, err := os.OpenRoot(b.Path)
+	rr, err := os.OpenRoot(run)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cr.Close()
+	defer rr.Close()
 	in := []NamedFile{{Name: "BRIEF.md"}, {Name: "sub/FAKE.sh"}}
-	if err := stageCheckoutInputs(cr, "stage", in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
+	if err := stageCheckoutInputs(rr, in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
 		t.Fatal("staged through a linked inputs directory")
 	}
 	// A real inputs directory whose subdirectory was swapped for a link.
@@ -323,7 +324,7 @@ func TestCheckoutStagingNeverWritesThroughLinks(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(run, "inputs", "sub")); err != nil {
 		t.Fatal(err)
 	}
-	if err := stageCheckoutInputs(cr, "stage", in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
+	if err := stageCheckoutInputs(rr, in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
 		t.Fatal("staged through a linked input subdirectory")
 	}
 	if left, _ := os.ReadDir(outside); len(left) != 0 {
@@ -469,5 +470,56 @@ func TestCheckoutAfterRunReportsNothingWhenIdentityIsUnconfirmed(t *testing.T) {
 	obs, err := checkoutAfterRun(b)
 	if err == nil || obs != nil {
 		t.Fatalf("recorded branch and HEAD from an unconfirmed checkout: %+v %v", obs, err)
+	}
+}
+
+// A link put where the reserved run directory should be must not receive the staged inputs, even
+// when it points inside the checkout.
+func TestCheckoutRunDirectorySwappedForLinkIsRefused(t *testing.T) {
+	b := checkoutFixture(t)
+	notes := filepath.Join(b.Path, "notes")
+	if err := os.Mkdir(notes, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	run := filepath.Join(b.Path, ".controlrod-run-swap-run")
+	testHookAfterRunDirCreated = func() {
+		testHookAfterRunDirCreated = nil
+		if err := os.Remove(run); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := os.Symlink("notes", run); err != nil {
+			t.Error(err)
+		}
+	}
+	t.Cleanup(func() { testHookAfterRunDirCreated = nil })
+	ws, err := Prepare(t.TempDir(), authorCheckoutJob(t, "swap-run", b, checkoutEditScript))
+	if err == nil {
+		ws.releaseCheckout()
+		t.Fatal("staged into a swapped run directory")
+	}
+	if left, _ := os.ReadDir(notes); len(left) != 0 {
+		t.Fatalf("inputs landed in the checkout outside the run directory: %v", left)
+	}
+}
+
+func TestCheckoutBeforeStartRefusesAPathSwappedAfterPreparation(t *testing.T) {
+	b := checkoutFixture(t)
+	ws, err := Prepare(t.TempDir(), authorCheckoutJob(t, "path-swap", b, checkoutEditScript))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ws.releaseCheckout()
+	if err := ws.checkoutStillSame(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(b.Path, b.Path+"-moved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(b.Path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := ws.checkoutStillSame(); err == nil {
+		t.Fatal("a directory swapped in after preparation was accepted")
 	}
 }

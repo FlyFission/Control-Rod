@@ -2255,6 +2255,10 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     if(outputs.some(v=>v.name===o.name)) throw new Refusal(400,"duplicate-output","Output names must be unique");
     outputs.push({ name: o.name, bytes: Buffer.from(String(o.content_base64 ?? ""), "base64") });
   }
+  // A bound run's success is evidence only with the trace that names its checkout.
+  if (row.body.checkout && body.status === "succeeded" && body.trace === undefined) {
+    throw new Refusal(400, "invalid-trace", "A run bound to a checkout must report an execution trace naming that checkout");
+  }
   if (body.trace !== undefined) {
     const v = cfg.ajv.getSchema("ExecutionTrace.json");
     if (!v || !v(body.trace)) {

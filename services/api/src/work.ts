@@ -3140,16 +3140,20 @@ export async function office(db: Db, orgId: string) {
   // packages (the same rows the per-package queries returned), so the cost does not grow with them.
   const current = `(select distinct on (p.id) p.id, p.revision from packages p ${owned} order by p.id, p.revision desc)`;
   const byPackage = <T extends { package_id: string }>(rows: T[]) => new Map(rows.map((r) => [r.package_id, r]));
-  // ended_at is a stored time for a run that ended without finished_at (a stop can be saved without
-  // it): the earliest stop or loss event for the run, else when the run row was created. It never
-  // comes from the read, so the same run gives the same Inbox item, and the same notification key.
-  const latestRuns = byPackage((await db.query<{ package_id: string; status: string; body: Json; ended_at: Date }>(
-    `select distinct on (r.package_id) r.package_id, r.status, r.body,
-        coalesce((select min(e.at) from events e where r.status in ('stopped', 'lost') and r.body->>'finished_at' is null
-          and e.body->>'subject' = r.id and e.body->>'type' in ('run.stopped', 'run.lost')), r.created_at) as ended_at
-      from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
+  const latestRuns = byPackage((await db.query<{ id: string; package_id: string; status: string; body: Json; created_at: Date }>(
+    `select distinct on (r.package_id) r.id, r.package_id, r.status, r.body, r.created_at from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
       order by r.package_id, r.created_at desc`, [orgId])).rows);
-  const endedAt = (run: { body: Json; ended_at: Date }) => String(run.body.finished_at ?? new Date(run.ended_at).toISOString());
+  // A stopped or lost run can be saved without finished_at. Its Inbox time is then a stored one: the
+  // earliest run.stopped or run.lost event for that run, else when the run row was created. It never
+  // comes from the read, so the same run gives the same item and the same notification key. The
+  // events are read only for such runs, all of them in one pass, and only when there are any.
+  const unfinished = [...latestRuns.values()].filter((r) => (r.status === "stopped" || r.status === "lost") && r.body.finished_at == null).map((r) => r.id);
+  const endedEvents = new Map(unfinished.length === 0 ? [] : (await db.query<{ subject: string; at: Date }>(
+    `select e.body->>'subject' as subject, min(e.at) as at from events e
+      where e.body->>'type' in ('run.stopped', 'run.lost') and e.body->>'subject' = any($1::text[])
+      group by e.body->>'subject'`, [unfinished])).rows.map((e) => [e.subject, e.at]));
+  const endedAt = (run: { id: string; body: Json; created_at: Date }) =>
+    String(run.body.finished_at ?? new Date(endedEvents.get(run.id) ?? run.created_at).toISOString());
   const latestFailed = byPackage((await db.query<{ package_id: string; body: Json }>(
     `select distinct on (r.package_id) r.package_id, r.body from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
       where r.status = 'failed' order by r.package_id, r.created_at desc`, [orgId])).rows);

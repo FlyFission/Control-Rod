@@ -238,6 +238,34 @@ describe("a run that ended without finished_at", () => {
     await new Promise((res) => setTimeout(res, 15));
     expect(await since()).toBe(at);
   });
+
+  it("takes the earliest of several terminal events, and a requeued attempt never inherits the old one's", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-MULTI', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-IN-MULTI", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
+    const run = (id: string, queued: string) => ({ schema_version: "0.1.0", id, package_id: "WP-IN-MULTI", package_revision: 0, role: "pre-check", agent_baseline: "author-claude",
+      runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "stopped", queued_at: queued, generation: 1 });
+    const first = run("R-in-multi-1", ago(5));
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, 'WP-IN-MULTI', 0, 'pre-check', 1, 'stopped', $2, $3)", [first.id, first, first.queued_at]);
+    const system = { kind: "system" as const, id: "control-plane" };
+    const c = await h.admin.connect();
+    let earliest: string;
+    try {
+      await c.query("begin");
+      earliest = (await appendEvent(c as never, "run.stopped", first.id, system, { package: first.package_id })).at;
+      await appendEvent(c as never, "run.lost", first.id, system, { package: first.package_id });
+      await appendEvent(c as never, "run.stopped", first.id, system, { package: first.package_id });
+      await c.query("commit");
+    } finally {
+      c.release();
+    }
+    const since = async () => (await get("/inbox")).items.find((i: Json) => i.package_id === "WP-IN-MULTI")?.since;
+    expect(await since()).toBe(earliest);
+    // Requeued: a new attempt that also stopped without finished_at and has no event of its own.
+    const second = run("R-in-multi-2", ago(1));
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, 'WP-IN-MULTI', 0, 'pre-check', 1, 'stopped', $2, $3)", [second.id, second, second.queued_at]);
+    expect(await since()).toBe(new Date(second.queued_at).toISOString());
+    expect(await since()).not.toBe(earliest);
+  });
 });
 
 describe("recovery under SCRAM", () => {

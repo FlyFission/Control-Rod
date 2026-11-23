@@ -22,9 +22,9 @@
 - Affected files/configs/docs: `docs/patterns/agent-orchestrator.md` (new), `docs/patterns/README.md` (two entries), `docs/patterns/agent-workbenches.md` with its own record `agent-workbench-patterns`, and this record (`risk.md` and `proof.md`).
 - Controlled items touched: pattern note (design input) and pattern index.
   - Not touched: `.github/workflows/`, `policies/`, `tests/redteam/`, `spec/`, `kernel/`, `docs/adr/`.
-- User-visible behavior changed? yes/no: no.
-- Dependency/model/API/prompt/tool permission changed? yes/no: no.
-- Release or rollback posture changed? yes/no: no.
+- User-visible behavior changed? no.
+- Dependency/model/API/prompt/tool permission changed? no.
+- Release or rollback posture changed? no.
 
 ## Quick-mode screen
 

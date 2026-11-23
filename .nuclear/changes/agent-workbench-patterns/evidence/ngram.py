@@ -7,6 +7,8 @@ two separate passages are two runs, and overlapping passages are both listed.
 import re, sys
 from pathlib import Path
 N = int(sys.argv[1]); note = Path(sys.argv[2]); sources = [Path(p) for p in sys.argv[3:]]
+if N < 1 or not sources:
+    sys.exit("usage: ngram.py N NOTE SOURCE [SOURCE ...] (at least one source; a check against nothing proves nothing)")
 words = lambda t: re.findall(r"[a-z0-9']+", t.lower())
 def grams(ws): return {" ".join(ws[i:i+N]) for i in range(len(ws)-N+1)}
 mine = words(note.read_text())

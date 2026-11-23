@@ -13,7 +13,7 @@ The backend mechanisms of Orchestrator.inc and Vibe Kanban (worktree manager, re
 
 ## What the four have in common
 
-All four answer one question first: *which of my agents needs me right now?* They differ in what "needs me" means, but each one:
+All four answer one question first: *which of my agents needs me right now?* They differ in what "needs me" means. The list below is the common direction; the table names, per pattern, which of the four actually ship it, and some patterns are in only two or three:
 
 1. derives a session's display status from stored facts and never lets a person drag it;
 2. puts what needs the person first, and signals it outside the window (dock badge, chime, OS notification, phone push);

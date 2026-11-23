@@ -15,6 +15,7 @@ import { CHECKER_NO_TRUNCATE_DOWN_SQL } from "../src/db/migrations/022-checker-n
 import { RUN_ATTESTATION_DOWN_SQL } from "../src/db/migrations/023-run-attestation.js";
 import { CONTEXT_PROFILE_DOWN_SQL } from "../src/db/migrations/024-context-profile.js";
 import { DEPENDENCY_PROVENANCE_DOWN_SQL } from "../src/db/migrations/025-dependency-provenance.js";
+import { DEFAULT_WORKFLOW_DOWN_SQL } from "../src/db/migrations/026-default-workflow.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, daemonHeaders, signIn, startHarness } from "./harness.js";
 
 /** Explicit package dependencies (workbench plan task 1.8; specification 7 "depends on"). */
@@ -115,6 +116,7 @@ describe("editing a draft", () => {
 describe("migration 013", () => {
   it("classifies design inputs that named a package before it as dependencies, and later revisions inherit them", async () => {
     // Later migrations come off first, as a real rollback would take them.
+    await h.admin.query(DEFAULT_WORKFLOW_DOWN_SQL);
     await h.admin.query(DEPENDENCY_PROVENANCE_DOWN_SQL);
     await h.admin.query(CONTEXT_PROFILE_DOWN_SQL);
     await h.admin.query(RUN_ATTESTATION_DOWN_SQL);

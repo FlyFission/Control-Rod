@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -251,7 +252,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel, "containment", d.container.Mode)
 	if d.container.Mode != ContainCgroup {
-		d.log.Warn("runs are contained by process group only: a process that leaves its group is not tracked. Cgroup containment needs Linux with a systemd user manager.")
+		if runtime.GOOS == "linux" {
+			d.log.Warn("runs are contained by process group only: a process that leaves its group is not tracked. Cgroup containment needs Linux with a systemd user manager.")
+		} else {
+			// Cgroups are Linux only: on macOS the process group is the containment, as qualified.
+			d.log.Info("runs are tracked by process group on this platform (cgroup containment is Linux only)")
+		}
 	}
 	d.quit = ctx
 	// One daemon per home: two would each treat the other's runs as orphans.
@@ -374,15 +380,39 @@ func (d *Daemon) probe(ctx context.Context) {
 	d.status = next
 	d.subscriptions = &report
 	d.probeMu.Unlock()
+	var notYet []string
 	for _, s := range next {
 		was, seen := prev[s.Runtime]
 		switch {
+		case !s.Ready && !seen && awaitingConfinement(s.Runtime):
+			// Expected: detected, never started until its sandbox exists. One line for all of them.
+			notYet = append(notYet, displayName(s.Runtime))
 		case !s.Ready && (!seen || was):
-			d.log.Warn(s.Reason+". It is not offered for work.", "runtime", s.Runtime)
+			d.log.Warn(strings.TrimRight(s.Reason, ".")+". It is not offered for work.", "runtime", s.Runtime)
 		case s.Ready && seen && !was:
 			d.log.Info(s.Runtime+" is ready again and offered for work.", "runtime", s.Runtime, "version", s.Version)
 		}
 	}
+	if len(notYet) > 0 {
+		d.log.Info("found " + strings.Join(notYet, ", ") + ": not supported yet, so never started until Control Rod can sandbox them")
+	}
+}
+
+// awaitingConfinement reports whether a runtime is detected but never started (AwaitingConfinement).
+func awaitingConfinement(rt string) bool {
+	a, ok := AdapterFor(rt)
+	if !ok {
+		return false
+	}
+	_, waiting := a.(AwaitingConfinement)
+	return waiting
+}
+
+func displayName(rt string) string {
+	if a, ok := AdapterFor(rt); ok {
+		return a.DisplayName()
+	}
+	return rt
 }
 
 // markNotReady withdraws a runtime from offers without running anything, until the next probe.
@@ -488,7 +518,7 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 		if !d.retry.due(key, time.Now()) {
 			continue
 		}
-		done, err := d.deliver(e)
+		done, err := d.deliver(e, true)
 		switch {
 		case done:
 			d.retry.forget(key)
@@ -501,12 +531,24 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 
 // deliver sends one completion. It returns true when the control plane recorded it or refused
 // it for good; either way the entry leaves the outbox. A transient failure returns its error; an
-// entry another goroutine is sending returns false with no error.
-func (d *Daemon) deliver(e OutboxEntry) (bool, error) {
+// entry another goroutine is sending returns false with no error. A persisted entry may
+// already have been settled since the caller read it.
+func (d *Daemon) deliver(e OutboxEntry, persisted bool) (bool, error) {
 	if !d.outbox.take(e.RunID) {
 		return false, nil
 	}
 	defer d.outbox.release(e.RunID)
+	if persisted {
+		path, err := d.outbox.path(e.RunID)
+		if err != nil {
+			return false, err
+		}
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			return true, nil
+		} else if err != nil {
+			return false, err
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	receipt, err := d.client.Complete(ctx, e.RunID, e.Completion)
@@ -1145,8 +1187,9 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	comp.ClaimToken = job.Claim.Token
 	comp.IdempotencyKey = newKey()
 	e := OutboxEntry{RunID: job.Run.ID, Completion: comp}
-	if err := d.outbox.Put(e); err != nil {
-		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", err)
+	putErr := d.outbox.Put(e)
+	if putErr != nil {
+		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", putErr)
 	} else {
 		// The completion is now in durable custody; the spawn receipt has done its job. If the outbox
 		// write failed the receipt stays, so a restart can still report the exit.
@@ -1154,7 +1197,7 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	}
 	wait := d.cfg.RetryBase
 	for attempt := 1; ; attempt++ {
-		done, err := d.deliver(e)
+		done, err := d.deliver(e, putErr == nil)
 		if done {
 			return
 		}
@@ -1193,6 +1236,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	a, ok := AdapterFor(runtime)
 	if !ok {
 		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
+	}
+	if job.Run.Role == "pre-check" && a.SandboxRequired() && resolvedModel(job.Run, job.RuntimePin) == "" {
+		return fail("the control plane did not bind a concrete checker model, so the check cannot start"), nil
 	}
 	// The sandbox (ADR 0021; plan tasks 6.1 and 6.3): an agent CLI starts only under the run's
 	// verified policy, on a host that can hold it, checked again now without running the CLI (its

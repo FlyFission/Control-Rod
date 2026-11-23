@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -62,14 +64,50 @@ func (k Container) Wrap(cmd *exec.Cmd, unit string) {
 	if k.Mode != ContainCgroup {
 		return
 	}
-	args := append([]string{"systemd-run", "--user", "--scope", "--quiet", "--collect", "--unit=" + unit, "--"}, cmd.Args...)
 	path, err := exec.LookPath("systemd-run")
 	if err != nil {
 		return
 	}
+	// systemd-run --user needs the daemon's XDG_RUNTIME_DIR / DBUS_SESSION_BUS_ADDRESS to reach the
+	// user manager, but agent commands intentionally strip them from cmd.Env. When cmd.Env omits
+	// them, pass them only to systemd-run and strip them back out via `env -u` before exec'ing the
+	// agent so the agent never inherits host bus variables.
+	childArgs := cmd.Args
+	if cmd.Env != nil {
+		var injected []string
+		for _, name := range []string{"XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"} {
+			if hasEnvKey(cmd.Env, name) {
+				continue
+			}
+			if val := os.Getenv(name); val != "" {
+				cmd.Env = append(cmd.Env, name+"="+val)
+				injected = append(injected, name)
+			}
+		}
+		if len(injected) > 0 {
+			if envBin, eerr := exec.LookPath("env"); eerr == nil {
+				prefix := []string{envBin}
+				for _, name := range injected {
+					prefix = append(prefix, "-u", name)
+				}
+				childArgs = append(prefix, childArgs...)
+			}
+		}
+	}
+	args := append([]string{"systemd-run", "--user", "--scope", "--quiet", "--collect", "--unit=" + unit, "--"}, childArgs...)
 	// systemd-run moves itself into the scope and then executes the command, keeping its process
 	// group, environment and working directory.
 	cmd.Path, cmd.Args = path, args
+}
+
+func hasEnvKey(env []string, key string) bool {
+	prefix := key + "="
+	for _, kv := range env {
+		if strings.HasPrefix(kv, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // Unit is one run's containment unit as the receipt records it.

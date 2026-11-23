@@ -3,11 +3,12 @@ package runner
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
-	"slices"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,6 +25,8 @@ type RuntimeStatus struct {
 	LoginChecked bool `json:"login_checked"`
 	// Artifact is the executable the probe checked: runs launch exactly this file.
 	Artifact *RuntimeArtifact `json:"artifact,omitempty"`
+	// Models are the model names or aliases discovered for this CLI on this host.
+	Models []string `json:"models,omitempty"`
 }
 
 // CommandRunner runs a short command and returns its combined output and exit code. err is set
@@ -178,4 +181,69 @@ func ReadyRuntimes(sts []RuntimeStatus) []string {
 		}
 	}
 	return out
+}
+
+func isSafeModelName(s string) bool {
+	if len(s) == 0 || len(s) > 100 {
+		return false
+	}
+	for _, r := range s {
+		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == '.' || r == '_' || r == '-' || r == ':' || r == '/' || r == '@'
+		if !ok {
+			return false
+		}
+	}
+	return publicText(s) != ""
+}
+
+func sanitizeModelList(models []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(models))
+	for _, m := range models {
+		m = strings.TrimSpace(m)
+		if !isSafeModelName(m) || seen[m] {
+			continue
+		}
+		seen[m] = true
+		out = append(out, m)
+		if len(out) >= 32 {
+			break
+		}
+	}
+	return out
+}
+
+// discoverCodexModels reads Codex CLI's non-secret models_cache.json (when present) and
+// returns "default" followed by the discovered model slugs.
+func discoverCodexModels(home string, getenv func(string) string) []string {
+	out := []string{"default"}
+	dir := ""
+	if getenv != nil {
+		dir = getenv("CODEX_HOME")
+	}
+	if dir == "" && home != "" {
+		dir = filepath.Join(home, ".codex")
+	}
+	if dir == "" {
+		return out
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "models_cache.json"))
+	if err != nil {
+		return out
+	}
+	var parsed struct {
+		Models []struct {
+			Slug string `json:"slug"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return out
+	}
+	for _, m := range parsed.Models {
+		if m.Slug != "" {
+			out = append(out, m.Slug)
+		}
+	}
+	return sanitizeModelList(out)
 }

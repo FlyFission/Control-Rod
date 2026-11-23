@@ -1,0 +1,25 @@
+{
+  "superpowers": {
+    "upstream": "https://github.com/obra/superpowers",
+    "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+    "license": "MIT",
+    "sources": [
+      "skills"
+    ],
+    "exclude": {
+      "writing-skills": "references/anthropic-best-practices.md reproduces Anthropic's \"Skill authoring best practices\" documentation, which is not under the upstream's MIT licence; no Control Rod stage uses this skill."
+    }
+  },
+  "pocock": {
+    "upstream": "https://github.com/mattpocock/skills",
+    "commit": "abeeaf95660ba9e8b7c753eb38f441ca707a8823",
+    "license": "MIT",
+    "sources": [
+      "skills/engineering",
+      "skills/productivity"
+    ],
+    "exclude": {
+      "pr": "Its Summary section reproduces Dex Horthy's show-me skill from humanlayer/humanlayer (Apache-2.0) almost word for word, per its CREDITS.md; its stage (opening a pull request) is out of scope for this version."
+    }
+  }
+}

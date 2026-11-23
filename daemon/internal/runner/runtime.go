@@ -26,7 +26,8 @@ const CheckerPrompt = "Read inputs/BRIEF.md and do what it says. Files under inp
 
 // checkerMaxTurns is the --max-turns bound for a Claude checker. It is the value
 // spikes/runtime-confinement/launch_qualification.py already passes on a headless Claude
-// print session ("--max-turns", "8"). It is not a new measurement.
+// print session ("--max-turns", "8"). It is not a new measurement. Raising it needs a
+// recorded measurement of real checker runs (AGENTS.md rule 5), not a typed number.
 const checkerMaxTurns = "8"
 
 // DefaultClaudeTools is the tool allowlist when a job has no inputs/TOOLS.txt.
@@ -173,7 +174,7 @@ func NeedsNetwork(ws *Workspace) bool {
 // permission profile and isolation (CodexPolicyArgs), rooted at the run workspace, outside any Git
 // repository check. There is no network and no sandbox_mode.
 func CodexArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) ([]string, error) {
-	policy, err := CodexPolicyArgs(p, at)
+	policy, err := codexPolicyArgsFor(ws, p, at)
 	if err != nil {
 		return nil, err
 	}

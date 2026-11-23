@@ -79,7 +79,12 @@ func (claudeAdapter) Capabilities() Capabilities {
 
 func (a claudeAdapter) Probe(ctx context.Context, _ string, run CommandRunner) RuntimeStatus {
 	// id and binary are the same string. probeInstalled records the id and looks up the binary.
-	return probeInstalled(ctx, a.ID(), a.Binary(), run, nil)
+	st := probeInstalled(ctx, a.ID(), a.Binary(), run, nil)
+	if st.Ready {
+		// Claude Code accepts aliases for the latest model in each series plus "default" (omit --model).
+		st.Models = []string{"default", "sonnet", "opus", "haiku"}
+	}
+	return st
 }
 
 func (a claudeAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {

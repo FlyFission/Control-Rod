@@ -1,0 +1,31 @@
+{
+  "id": "pocock-superpowers",
+  "name": "Pocock Superpowers",
+  "hybrid_of": [
+    "pocock",
+    "superpowers"
+  ],
+  "stages": {
+    "intake": {
+      "card": "stages/intake.md",
+      "skills": [
+        "pocock:grilling",
+        "superpowers:writing-plans"
+      ]
+    },
+    "author": {
+      "card": "stages/author.md",
+      "skills": [
+        "superpowers:subagent-driven-development",
+        "pocock:tdd"
+      ]
+    },
+    "pre-check": {
+      "card": "stages/pre-check.md",
+      "skills": [
+        "pocock:code-review",
+        "superpowers:verification-before-completion"
+      ]
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+ "note": "Archetype counts, pains, market weakness and effort are analyst judgments recorded here so the counts can be re-run and challenged. weakness: 0 = others solve it well, 1 = partial, 2 = nobody does it well. effort for Control Rod: 1 S, 2 M, 3 L (from the plan's gap analysis).",
+ "needs": {
+  "N1": {"name": "See what needs me now across many agents", "weakness": 1, "effort": 2},
+  "N2": {"name": "Know the result is actually right before I merge", "weakness": 2, "effort": 1},
+  "N3": {"name": "Review diffs fast without drowning", "weakness": 1, "effort": 3},
+  "N4": {"name": "Install in a minute on my OS (Windows, Linux, Mac)", "weakness": 1, "effort": 3},
+  "N5": {"name": "Use the subscriptions I already pay for, see limits and cost", "weakness": 2, "effort": 2},
+  "N6": {"name": "Keep context across sessions, crashes and handoffs", "weakness": 1, "effort": 2},
+  "N7": {"name": "Parallel work without collisions (worktrees, ports)", "weakness": 0, "effort": 2},
+  "N8": {"name": "Plain language; works for people who do not live in git", "weakness": 2, "effort": 2},
+  "N9": {"name": "A record I can show a client, auditor or boss", "weakness": 2, "effort": 1},
+  "N10": {"name": "Any agent CLI, no vendor lock-in", "weakness": 0, "effort": 2},
+  "N11": {"name": "Drop into the terminal and steer when it goes wrong", "weakness": 0, "effort": 3},
+  "N12": {"name": "Turn a goal into tasks on the board for me", "weakness": 1, "effort": 2},
+  "N13": {"name": "Team visibility and handoff", "weakness": 1, "effort": 3},
+  "N14": {"name": "Local, private, no telemetry, local models", "weakness": 1, "effort": 1}
+ },
+ "archetypes": [
+  {"id":"A1","who":"Solo indie dev, Mac, heavy, one subscription","n":10,"top":["N1","N5","N3"],"sec":["N6","N7","N11"]},
+  {"id":"A2","who":"Solo dev on Windows, medium use","n":7,"top":["N4","N5","N6"],"sec":["N1","N10"]},
+  {"id":"A3","who":"Linux power user, several subscriptions plus local models","n":5,"top":["N10","N5","N4"],"sec":["N14","N11"]},
+  {"id":"A4","who":"Startup engineer running 3-4 agents in parallel","n":8,"top":["N1","N7","N3"],"sec":["N2","N5","N12"]},
+  {"id":"A5","who":"Team lead of 5-15 engineers","n":6,"top":["N13","N2","N3"],"sec":["N5","N12"]},
+  {"id":"A6","who":"Enterprise engineer under compliance rules","n":6,"top":["N9","N2","N4"],"sec":["N14","N13"]},
+  {"id":"A7","who":"OSS maintainer reviewing agent-written PRs","n":5,"top":["N3","N2","N13"],"sec":["N5"]},
+  {"id":"A8","who":"Agency or freelancer with many client repos","n":6,"top":["N5","N9","N13"],"sec":["N7","N12"]},
+  {"id":"A9","who":"Student or learner, free tier, Windows","n":6,"top":["N5","N8","N4"],"sec":["N6"]},
+  {"id":"A10","who":"Non-engineer founder or PM building with agents","n":7,"top":["N8","N2","N12"],"sec":["N4","N5"]},
+  {"id":"A11","who":"Engineer in a regulated physical field (nuclear, aero, medical)","n":5,"top":["N2","N9","N8"],"sec":["N14","N12"]},
+  {"id":"A12","who":"Data scientist or analyst","n":5,"top":["N2","N6","N8"],"sec":["N4"]},
+  {"id":"A13","who":"Weekend hobbyist, light use","n":4,"top":["N4","N5","N8"],"sec":["N6"]},
+  {"id":"A14","who":"Security-conscious or air-gapped, local models","n":3,"top":["N14","N10","N9"],"sec":["N4"]},
+  {"id":"A15","who":"DevOps or SRE making infra changes","n":4,"top":["N2","N11","N9"],"sec":["N1"]},
+  {"id":"A16","who":"QA or test engineer","n":3,"top":["N2","N3","N12"],"sec":["N9"]},
+  {"id":"A17","who":"Consultant or technical writer, docs-heavy","n":3,"top":["N8","N6","N2"],"sec":["N12"]},
+  {"id":"A18","who":"Platform or devex team choosing tools for an org","n":3,"top":["N13","N10","N9"],"sec":["N5","N2"]},
+  {"id":"A19","who":"Game or mobile dev, Mac, heavy","n":2,"top":["N1","N5","N6"],"sec":["N11"]},
+  {"id":"A20","who":"Academic researcher, Linux, tight budget","n":2,"top":["N5","N14","N2"],"sec":["N10"]}
+ ]
+}

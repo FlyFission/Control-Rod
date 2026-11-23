@@ -20,6 +20,32 @@ Control Rod is a free, open-source workspace that runs on your own machine. You 
 - **You choose where you come in** *(planned)*. Today you step in twice: when work is released and when a result is accepted. Next, you pick your own stops, from one yes at the start to a look at every stage, and any check that falls back to something weaker is logged and flagged so you can step in before it merges.
 - **One board for everything.** Every task, what it is waiting on and who has it, in one place, with a big red **SCRAM** button that stops runs on the record when you need everything to halt.
 
+## The research behind it
+
+Control Rod's three core moves, locked work, an independent check and your sign-off, each answer a failure that published research keeps measuring.
+
+**When GPT-4 checked its own graph-coloring answers, it solved 2% of them, down from 16% with no check at all. With a checker outside the model, it solved 38%.** Self-checking is not always harmful: on Blocksworld planning in the same study it rose from 40% to 55%, though the outside checker still did better at 60%.
+
+![Bar chart from Stechly et al. 2024, Table 1. Graph coloring: answers alone 16%, GPT-4 checks itself 2%, outside checker 38%. Game of 24: 5%, 3% and 36%.](docs/assets/readme/second-checker.svg)
+
+**Why the work is locked before an agent starts**
+
+- **Models get lost when instructions arrive piece by piece.** Across 15 models and six generation tasks in simulated conversations, giving the same instructions over several turns instead of all at once cut performance by an average of **39%** ([Laban et al., 2025](https://arxiv.org/abs/2505.06120)). Control Rod gives each agent one complete, signed brief.
+- **Clear roles help the same model do better.** In a study of why multi-agent systems fail, rewriting only the agents' role prompts raised ChatDev's success rate on the ProgramDev benchmark by **9.4 percentage points**, with the same user prompt and the same model, GPT-4o ([Cemri et al., 2025](https://arxiv.org/abs/2503.13657)).
+
+**Why a different model checks, without seeing the author's reasoning**
+
+- **Checking itself can make a model worse.** Asked to review its own answers with no outside feedback, GPT-4 went from **95.5%** to **89.0%** on grade-school math after two rounds, and GPT-3.5 went from **75.8%** to **38.1%** on common-sense questions after one ([Huang et al., 2024](https://arxiv.org/abs/2310.01798), Table 3). A survey of the field found self-correction "works well in tasks that can use reliable external feedback" ([Kamoi et al., 2024](https://arxiv.org/abs/2406.01297)).
+- **Models recognize their own work and go easy on it.** Asked to tell its own news summaries apart from other models' and people's, GPT-4 was right **73.5%** of the time, and in fine-tuning experiments with GPT-3.5 and Llama 2, stronger self-recognition went with stronger self-preference ([Panickssery et al., 2024](https://arxiv.org/abs/2404.13076)).
+- **Models bend to whoever is talking to them.** Challenged on a correct answer, Claude 1.3 wrongly admitted a mistake on **98%** of questions, and a user suggesting a wrong answer cut accuracy by up to **27%** (LLaMA 2) ([Sharma et al., 2023](https://arxiv.org/abs/2310.13548)). The checker never sees the author's pitch, only the work and the evidence.
+- **Look-alike models share blind spots.** AI judges gave higher scores to models more similar to themselves, measured by chance-adjusted overlap in their mistakes (average Pearson **r = 0.84**), and among the models studied, the more capable ones make more similar mistakes ([Goel et al., 2025](https://arxiv.org/abs/2502.04313)).
+
+**Why a person signs off**
+
+- **Passing the tests is not the same as being right.** Maintainers of scikit-learn, Sphinx and pytest reviewed **296** AI-written pull requests from SWE-bench Verified. By METR's estimate, **roughly half** of the ones that passed the automated tests would not have been merged, even after adjusting for noise in the maintainers' own decisions ([METR, 2026](https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/)).
+
+Control Rod stops at one author and one checker by default: more agents is not automatically better, and each one costs time and money. To be clear about the evidence: the outside checker in the chart is a program that checks answers exactly, not a second AI model, and none of these studies measures one vendor's agent reviewing another's code. That is the bet Control Rod makes, and its records let you measure how it pays off on your own work. Every figure, its conditions and the script that draws the chart are in [docs/research/second-checker](docs/research/second-checker/).
+
 ## The table
 
 Bring the agents you use. Control Rod seats them as authors and checkers and keeps the doing and the checking apart.
@@ -63,13 +89,7 @@ Watch your agents at their desks. Each figure's state comes from the real run, s
 
 ## Try it
 
-**Fastest:** open it in a ready-made environment with everything installed.
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FlyFission/Control-Rod)
-
-When it finishes setting up, run `pnpm cr start` in its terminal and the app opens in your browser. With Docker and VS Code, **Reopen in Container** does the same. A Codespace is good for trying the app; [the devcontainer notes](docs/getting-started.md#dev-container-and-codespaces) say what doesn't work there yet.
-
-**On your own machine** you need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/), or run `mise install` and [mise](https://mise.jdx.dev) fetches them all. Sign in to [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex) or both. Use an ordinary user account, since the bundled database won't run as root.
+Control Rod runs on your own machine, with your own agents and sign-ins. You need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/), or run `mise install` and [mise](https://mise.jdx.dev) fetches them all. Sign in to [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex) or both. Use an ordinary user account, since the bundled database won't run as root.
 
 ```sh
 git clone https://github.com/FlyFission/Control-Rod.git

@@ -13,6 +13,8 @@
 | C-003 | The README passes the public-claims and originality checks. | `risk.md` Success criterion | `tools/check_public_claims.py`, `tools/check_originality.py` | E-002, E-003 | Merge | pass |
 | C-004 | The four pictures come from the release build through `readme-shots.spec.ts`. | `basis.md` What changes | Spec run in Chromium | E-001 | Merge | pass |
 | C-005 | No trust surface is edited. | `plan.md` Not touched | Diff scope | E-005 | Merge | pass |
+| C-006 | Each research figure in the README matches its source as published, and the chart is drawn from `inputs.json` by `build.py`. | `basis.md` Revision 3 | `docs/research/second-checker/` | E-006 | Merge | pass |
+| N-002 | **Not claimed:** that a different-vendor model catches a stated percentage more errors. No cited paper measures that. | `basis.md` Revision 3 | none | none | n/a | n/a |
 | N-001 | **Not claimed:** any assurance, certification or compliance. | `risk.md` | none | none | n/a | n/a |
 
 ## Required links

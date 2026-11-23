@@ -230,7 +230,7 @@ describe("shell and palette", () => {
     expect(document.activeElement).toBe(input);
     expect(screen.getByRole("dialog")).toBeTruthy();
     // Focus that escapes to the page behind comes straight back.
-    screen.getByRole("link", { name: "Roster" }).focus();
+    screen.getByRole("link", { name: "Agents roster" }).focus();
     expect(document.activeElement).toBe(input);
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();

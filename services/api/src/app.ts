@@ -32,6 +32,7 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
+import { recordSetup, setupView } from "./setup.js";
 import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
@@ -661,6 +662,15 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   app.get("/runtimes", async (req) => {
     return runtimeStatus(db, (await callerFor(db, await person(req))).orgId);
+  });
+  /** First-run setup: which agents are seated and when to check with the person. */
+  app.get("/setup", async (req) => {
+    await callerFor(db, await person(req));
+    return setupView(db);
+  });
+  app.put("/setup", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return recordSetup(db, caller.memberId, req.body);
   });
   /** Provider CLIs the daemon probed. Read-only. No token is accepted or returned. */
   app.get("/subscriptions", async (req) => {

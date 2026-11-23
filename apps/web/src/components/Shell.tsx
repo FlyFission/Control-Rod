@@ -10,6 +10,7 @@ import { PLACES, type PlaceGroup } from "../places/places.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
+import { useFirstRunSetup } from "../lib/firstRun.js";
 
 const LOOKS: { id: Look; name: string }[] = [
   { id: "a", name: "A Control room" },
@@ -22,7 +23,7 @@ const MODES: { id: EngineeringMode; label: string }[] = [
   { id: "capital-projects", label: "Capital Projects" },
 ];
 
-const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control"];
+const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control / Setup"];
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -48,6 +49,7 @@ export function Shell({ session, children }: { session: Session; children: React
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
   const activePlace = PLACES.find((p) => (p.to === "/" ? path === "/" : path.startsWith(p.to)));
+  useFirstRunSetup(path);
 
   // On a phone the places are one scrolling row: keep the current one in view.
   useEffect(() => {

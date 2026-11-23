@@ -42,7 +42,7 @@ const SAMPLE_PACKAGES = [
 ];
 
 describe("Wave 3/4 workbench pages", () => {
-  it("Explore disables Cycle 2 multi-CLI fan-out controls and runs Checkpoint and Merkle Freeze", async () => {
+  it("Snapshots shows no unbuilt fan-out controls and runs a checkpoint and a freeze", async () => {
     const user = userEvent.setup();
     server.use(
       http.post("*/repos/checkpoint", () =>
@@ -65,16 +65,17 @@ describe("Wave 3/4 workbench pages", () => {
       ),
     );
     await renderPage(<Explore />);
-    expect(screen.getByRole("heading", { name: "Explore" })).toBeTruthy();
-    expect(screen.getByText(/Multi-CLI fan-out coming in Cycle 2/i)).toBeTruthy();
-    expect((screen.getByLabelText(/Delivery Mode/i) as HTMLSelectElement).disabled).toBe(true);
+    expect(screen.getByRole("heading", { name: "Snapshots" })).toBeTruthy();
+    expect(screen.queryByText(/Cycle 2/i)).toBeNull();
+    expect(screen.queryByLabelText(/Delivery Mode/i)).toBeNull();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
 
-    await user.type(screen.getByLabelText(/Worktree \/ Repo Path/i), "/home/flyfission/projects/Control-Rod");
-    await user.click(screen.getByRole("button", { name: /Capture Checkpoint/i }));
-    expect(await screen.findByText(/Checkpoint captured at refs\/cr-checkpoints\/explore-cp-1/i)).toBeTruthy();
+    await user.type(screen.getByLabelText(/Worktree or repository path/i), "/home/flyfission/projects/Control-Rod");
+    await user.click(screen.getByRole("button", { name: /Save checkpoint/i }));
+    expect(await screen.findByText(/Checkpoint saved at refs\/cr-checkpoints\/explore-cp-1/i)).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: /Merkle Freeze/i }));
-    expect(await screen.findByText(/Merkle Freeze ready: deadbeef12345678/i)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /^Freeze$/i }));
+    expect(await screen.findByText(/Frozen: deadbeef12345678/i)).toBeTruthy();
   });
 
   it("Compare renders side-by-side candidates, adds temporary local notes, and shows retry on error", async () => {

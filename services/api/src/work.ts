@@ -23,6 +23,7 @@ import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
+import { benchedRuntimes } from "./setup.js";
 import { countedProvider, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
@@ -1048,7 +1049,11 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
   return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
 }
 
-export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number) {
+export async function claim(db: Db, cfg: WorkConfig, offered: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number) {
+  // Agents the person benched in setup are left out of every offer. Removing a runtime can only make
+  // work wait; pickChecker still refuses the author's runtime, so independence is unchanged.
+  const benched = await benchedRuntimes(db);
+  const runtimes = offered.filter((r) => !benched.has(r));
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
   const ceiling = runCeilingSeconds === undefined ? undefined : { runSeconds: runCeilingSeconds, marginSeconds: heartbeatSeconds(cfg) + leaseSeconds(cfg) };

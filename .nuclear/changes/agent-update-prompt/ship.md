@@ -1,6 +1,6 @@
 # Ship: agent update prompt
 
-Release decision: **pull request for owner review; no merge or release is authorized by this record.**
+Release decision: **merge.** The owner signed the `spec/` change (Signature below) and chose to land after round 13's fixes. CI is green at `482fd802`.
 
 - **Proposed:** merge to main.
 - **Not claimed:** no real `npm install` was run in tests; the panel was tested in jsdom, not a real browser; API tests ran on PostgreSQL 16.
@@ -26,6 +26,20 @@ Codex ran blind reviews through the landing thread. Rounds 1 to 4 covered the ea
 | 13 | 120117b2 (scoped to the panel) | HOLD, P2: same-tick freshness; P3: remount test did not protect refetch on mount | this change (web panel, its test and this record only) |
 
 Ben chose on 2026-11-23 to land after round 13's fixes, with no further Codex rounds. The round-13 fixes touch only `apps/web` and this change record, with no spec change. Each fix's evidence is listed in [verification](verification.md) (E-07 to E-15).
+
+## Signature
+
+`spec/api.tsp` changes in this PR are additive (minor): `Runner.AgentUpdate` (no command field), `Runner.AgentId`, `Runner.UncheckedAgent`, and optional `agent_updates` and `agent_updates_unchecked` on the claim and `agent_updates` on `GET /runtimes`.
+
+| Field | Entry |
+|---|---|
+| Decision | Approve the additive `spec/` change in #137 so it can merge |
+| Question | "Approve #137's spec change at head 120117b so it can merge?" (decision card in the owner's project thread, 2026-11-23) |
+| Answer | Ben Huffer chose "Yes, approve #137's spec change" at 2026-11-23T22:07:45Z |
+| Head when asked | `120117b2` |
+| Later changes | `482fd802`: `apps/web` panel, its test and this record only; no `spec/` or generated file changed (`git diff --name-only 120117b2 482fd802`) |
+| Also chosen | "Land after this round" at 2026-11-23T22:04:44Z (review history above) |
+| Recorded by | Claude, from the owner's own choices on the cards. No signature or initials are typed for him |
 
 ## Required links
 

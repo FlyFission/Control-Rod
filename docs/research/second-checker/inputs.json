@@ -56,7 +56,7 @@
       "url": "https://arxiv.org/abs/2503.13657",
       "where": "Section 4 (FC1): 'improving agent role specifications alone yields a +9.4% success rate increase for ChatDev' 'with the same user prompt and LLM (GPT-4o)'.",
       "license": "CC BY-NC-ND 4.0 (fact quoted with attribution, nothing reproduced)",
-      "conditions": "ChatDev on ProgramDev. Not used: a ~75% ChatDev failure rate and a +14% figure, which were not found in the text. The +9.4% is percentage points: the reviewer read Table 5 (ChatDev, ProgramDev-v0) as 25.0% to 34.4%; the change was to the agents' role prompts."
+      "conditions": "ChatDev on ProgramDev. Not used: a ~75% ChatDev failure rate and a +14% figure, which were not found in the text. Table 5 (ChatDev, ProgramDev-v0): 25.0% baseline and 34.4% with the improved role prompts; Section 4 (FC1) states the gain, so +9.4% is percentage points. Table 5 cells were confirmed in the PR's blind check."
     },
     "kamoi2024": {
       "title": "When Can LLMs Actually Correct Their Own Mistakes? A Critical Survey of Self-Correction of LLMs",

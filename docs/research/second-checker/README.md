@@ -9,5 +9,5 @@ The README's "The research behind it" section quotes eight published papers and 
 ## Limits
 
 - The chart's "outside checker" is a sound program (it checks graph colorings and arithmetic exactly), not a second language model. The papers show that self-checking can hurt (it helped on one task, Blocksworld) and that models favor themselves and similar models. None of them measures one vendor's agent reviewing another vendor's code.
-- The chart and the self-checking figures come from puzzles, math, question answering and summarization, not software changes. METR's maintainer review is the one software finding, and it is about test-passing patches, not self-checking.
+- The chart and the self-checking figures come from puzzles, math, question answering and summarization, not software changes. METR is the only cited study in which maintainers reviewed generated patches, and it is about test-passing patches, not self-checking.
 - The chart is redrawn from Table 1's values; no figure image from any paper is copied.

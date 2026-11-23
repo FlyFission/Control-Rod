@@ -30,7 +30,7 @@
 | Risk or gap | Owner | Recheck trigger |
 |---|---|---|
 | The persona weights and top 60 codes are the agent's judgment. | Ben Huffer | Any user interviews or a survey. |
-| ADR 0024 decision 6 (author fail-over) is open and would need kernel and policy signatures. | Ben Huffer | The owner's answer. |
+| Building decisions 6 and 7 needs kernel and policy changes with the owner's signature. | Ben Huffer | The first build PR for either. |
 | The herdr build-on question is open until a spike. | Ben Huffer | The spike's report. |
 
 ## Rollback / restore plan

@@ -10,7 +10,7 @@
 
 ## Mission / need
 
-The owner asked, in his Claude project thread "Find where Control Rod stands apart", how Control Rod can stand apart without reinventing the wheel. He restated the goal on 2026-11-22: "the easiest way to have a council of agents (AGY, Codex, Claude, Grok, opencode, mistral, etc.) at the table and at various instances with super flexible and dynamic workflows." On 2026-11-22 he answered "Yes to all that" to four recommendations (pitch, Planner first screen, plain labels with the plant as a theme, a quota spike). On 2026-11-23, after the 15-repository result, he wrote: "I love it. Let's make sure that we get ahead of these things and make the updates to our repository."
+The owner asked, in his Claude project thread "Find where Control Rod stands apart", how Control Rod can stand apart without reinventing the wheel. He restated the goal on 2026-11-22: "the easiest way to have a council of agents (AGY, Codex, Claude, Grok, opencode, mistral, etc.) at the table and at various instances with super flexible and dynamic workflows." On 2026-11-22 he answered "Yes to all that" to four recommendations (pitch, Planner first screen, plain labels with the plant as a theme, a quota spike). On 2026-11-23, after the 15-repository result, he wrote: "I love it. Let's make sure that we get ahead of these things and make the updates to our repository." At 15:14 UTC the same day he accepted author fail-over ("Yes, and it just needs to be logged and flagged, with controls in place") and asked that the end user decide where they come into the picture.
 
 ## Fixed inputs
 
@@ -31,7 +31,7 @@ The owner asked, in his Claude project thread "Find where Control Rod stands apa
 | Assumption | Basis | Invalidation trigger |
 |---|---|---|
 | Issue reactions indicate what users of these tools want. | Public GitHub data. | A survey or interviews that disagree. |
-| ADR 0023 holds an author on its candidate when quota runs out. | ADR 0023 decision 2. | The owner accepts or rejects ADR 0024 decision 6. |
+| ADR 0023 holds an author on its candidate when quota runs out. | ADR 0023 decision 2. | The kernel change that builds ADR 0024 decision 6. |
 
 ## Required links
 

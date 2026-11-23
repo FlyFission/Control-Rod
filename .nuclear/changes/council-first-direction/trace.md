@@ -12,7 +12,7 @@
 | C-002 | The persona and cross-repo outputs reproduce byte for byte from their inputs. | `risk.md` Success criterion | `cmp` against committed outputs | E-001 | Merge | pass |
 | C-003 | The new text passes the public-claims and originality checks. | `risk.md` Success criterion | `tools/check_public_claims.py`, `tools/check_originality.py` | E-002, E-003 | Merge | pass |
 | C-004 | No trust surface is edited. | `plan.md` Not touched | Diff scope | E-005 | Merge | pass |
-| C-005 | ADR 0024 decisions 1 to 5 match the owner's messages; decision 6 is Proposed. | `basis.md` Mission / need | Owner read | E-004 | Merge | pending owner read |
+| C-005 | ADR 0024 decisions 1 to 7 match the owner's messages, and the kernel and policy parts of 6 and 7 are left for signed changes. | `basis.md` Mission / need | Owner read | E-004 | Merge | pending owner read |
 | N-001 | **Not claimed:** that the personas are real users, or any assurance, certification or compliance. | `risk.md` | none | none | n/a | n/a |
 
 ## Required links

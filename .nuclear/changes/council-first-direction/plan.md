@@ -8,7 +8,7 @@
 ---
 
 1. Run the persona model and the issue pulls; classify; hand-code the top 60; count by script.
-2. Write ADR 0024 from those outputs, marking decision 6 Proposed.
+2. Write ADR 0024 from those outputs, marking what still needs signed kernel or policy changes.
 3. Write the herdr pattern note from its README and issue labels.
 4. Commit the scripts, inputs and outputs with digests; check that both outputs reproduce.
 5. Run the public-claims and originality checks and validate this record; open a draft pull request.

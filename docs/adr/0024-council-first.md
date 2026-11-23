@@ -1,8 +1,8 @@
 # ADR 0024: Council first, simple by default
 
-- Status: Accepted by the owner for decisions 1 to 5 on 2026-11-23. Decision 6 is Proposed and waits for the owner.
+- Status: Accepted by the owner on 2026-11-23 (decisions 1 to 5 in the morning; decisions 6 and 7 at 15:14 UTC). The kernel and policy parts of decisions 6 and 7 still need his signature as separate changes.
 - Date: 2026-11-23
-- Relates to: ADR 0019 (own workbench), ADR 0023 (role casting). Decision 6 would amend ADR 0023 decision 2 for author roles only.
+- Relates to: ADR 0019 (own workbench), ADR 0023 (role casting). Decision 6 amends ADR 0023 decision 2 for author roles only.
 
 ## Context
 
@@ -23,18 +23,19 @@ Issue writers are mostly power users and the persona model is modeled, not inter
 4. **One usage gauge across subscriptions.** Each seat shows its remaining limit where its CLI reports one and "not reported" where it does not. It never guesses and never suggests buying more. A short spike first finds which CLIs report remaining quota.
 5. **Reach the table from anywhere, sooner.** Remote daemons over SSH stay in the plan and move earlier. Phone approvals are no longer "later"; they follow release 1.
 
-## Proposed, waiting for the owner
-
-6. **Author seats may fail over.** When an author candidate is out of quota, signed out or not installed, the run may move to the next candidate on the casting sheet, and the run record says why. Check and refute roles never fail over, so ADR 0023's guard against shopping for a pass is unchanged. This amends ADR 0023 decision 2 ("budget and quota hold the run on that candidate and never move it down the list") for author roles only. If accepted, the kernel and policy parts need the owner's signature as usual.
+6. **Author seats fail over, logged and flagged.** When an author candidate is out of quota, signed out or not installed, the run moves to the next candidate on the casting sheet. Every fall-back is recorded on the run (from, to, and why) and flagged on the card in plain words. By default a card that fell back stops for its person before merge; the person can move that stop (decision 7). Check and refute roles never fail over, so ADR 0023's guard against shopping for a pass is unchanged. This amends ADR 0023 decision 2 ("budget and quota hold the run on that candidate and never move it down the list") for author roles only.
+7. **You choose where you come in.** Each project has check-in points along a card's path, and the person picks which ones stop for them: approving the plan, release, after the author, after the check, before merge, and after a fall-back. A few presets cover most people, from "the plan only" to "every step", and a card can override its project's setting when it is created. Some stops cannot be turned off: SCRAM, a tripped interlock or spend limit, and a checker that disagrees with the author. Today's behaviour (a passkey to release and to accept) is the default preset. A preset that skips acceptance needs a standing acceptance signed at planning, which is a kernel change and needs the owner's signature. Owner's framing: "allowing the end user to decide where they want to come into the picture... very little, like right at the beginning, or across various parts."
 
 ## Consequences
 
 - The plan's release order should put the adapter kit, more runnable seats and the usage-gauge spike ahead of features users do not ask for. Review UI and notifications stay table stakes, adopted from proven patterns, not differentiators.
 - A spike checks whether live terminals can run on an existing Apache-2.0 terminal runtime (herdr, `docs/patterns/herdr.md`) instead of a terminal layer of our own. ADR 0019 stays in force; the spike reports, and a separate decision follows.
-- Nothing in this ADR changes a trust surface. Decision 6, if accepted, will.
+- This ADR changes no trust surface itself. Building decisions 6 and 7 will touch kernel decision functions and policies, so those changes carry the owner's signature.
+- Decision 7 replaces the earlier tier proposals (Guided, Delegated, Autonomous, and the plan's Reactivity dial) with check-in points the person chooses. The dial can remain as the presets' name in the plant theme.
 
 ## Alternatives considered
 
 - **Lead with the blind checker alone.** Rejected as the whole pitch: it is the top persona need, but it is absent from the 60 most-reacted issues.
 - **Match competitors feature for feature.** Rejected: the most widespread ask in the same issues is for less, not more.
 - **Fail over every role.** Rejected: a checker that moves down the list on failure invites shopping for a pass (ADR 0023).
+- **Fixed autonomy tiers.** Rejected for decision 7: a few named tiers decide for the person where they come in; check-in points let them choose.

@@ -123,7 +123,9 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 		out, code, err := run(c, binary, args...)
 		// Only this command's own deadline counts: a daemon shutting down cancels ctx, which is not
 		// a slow host.
-		if errors.Is(c.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
+		// A command that exited on its own (a code of 0 or more) answered, even if the deadline passed
+		// at the same moment: a sign-out at the deadline is a sign-out, not a slow host.
+		if errors.Is(c.Err(), context.DeadlineExceeded) && ctx.Err() == nil && (err != nil || code < 0) {
 			timedOut = true
 		}
 		return out, code, err
@@ -138,13 +140,15 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 		return st
 	}
 	st.Version = firstLine(out)
-	if login != nil && login(call, &st) {
-		return st
-	}
-	// A login check that ran out of time said nothing about the login: never ready on it.
+	stop := login != nil && login(call, &st)
+	// A login check that ran out of time (its help or its status command) said nothing about the
+	// login: never ready on it, and never reported as signed out either.
 	if timedOut {
 		st.LoginChecked = false
 		st.Reason = fmt.Sprintf("%s is installed but its login check did not answer in time", binary)
+		return st
+	}
+	if stop {
 		return st
 	}
 	st.Ready = true

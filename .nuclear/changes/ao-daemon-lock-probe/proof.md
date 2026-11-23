@@ -10,10 +10,11 @@
 ## Claim proven
 
 - A second `LockHome` on a held home refuses and names the holder's PID, and does not erase it; a new holder replaces a stale PID; a home that cannot lock refuses to start.
-- A symlinked `daemon.lock` is refused and the link's target is left unchanged; a clean release empties the file; a recorded PID with no live process is not named.
+- A symlinked or hard-linked `daemon.lock` is refused and the other file is left unchanged; a clean release leaves the file in place and empty; a recorded PID with no live process is not named.
 - A probe whose command ran past its own deadline is marked timed out; one that answered, or whose parent context was cancelled, is not.
 - Across probe passes: a ready runtime stays offered through one timeout, not through a second in a row; an answer resets the grace; an answer that says not ready takes it away at once; a timeout after not ready is not held; an answer while held resets the grace without the runtime ever leaving.
-- A Codex login check that times out is not ready; a Codex sign-out (`codex login status` fails) takes it away on the next pass; a launch withdrawal during a slow pass is not undone by the grace.
+- A Codex login check that times out, in its help or its status command, is not ready and not reported as signed out; a sign-out that exits as the deadline passes is a sign-out; a signed-in Codex probes ready and the same Codex signed out is an answer the grace does not hold; a launch withdrawal during a slow pass is not undone by the grace.
+- Not covered by a test: a full daemon pass for Codex, which also runs its sandbox preflight and needs bubblewrap this container lacks. The sign-out test checks the probe and the grace separately.
 
 ## Method
 
@@ -36,6 +37,7 @@
 - Not run on macOS. `flock` and the PID file behave the same there by POSIX, but no macOS run is recorded.
 - Blind checks by a different vendor than the author (Codex, read-only):
   - At `a87f19a5`: FIX FIRST, 3 P1 and 2 P2, all reasoned. Fixed in the next commit: the PID write followed a symlinked `daemon.lock` (now `O_NOFOLLOW`); the grace could restore a runtime a launch withdrew during the pass (the withdrawal now stands); a timed-out `codex login --help` skipped the login check and read as ready (now not ready); a contender could name a previous holder's PID (a clean release empties the file and a dead PID is not named); the sign-out and grace-reset tests did not exercise those paths (new tests above).
+  - At `ae657525`: FIX FIRST, 3 P1 and 3 P2, all reasoned. Fixed in the next commit: a hard-linked `daemon.lock` (now refused); a reused PID could be named as the holder (the sentence now asks to check before stopping; the race cannot be closed without a process start time, which the lock file does not keep); a sign-out at the deadline read as a timeout (an exit of its own is now an answer); a hung `login status` read as signed out (now unknown); the sign-out test never showed Codex ready first, and the release test ignored a missing file (both tightened).
   - The next check is recorded here before merge.
 
 ## Reviewer note

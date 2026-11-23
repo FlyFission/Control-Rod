@@ -14,8 +14,8 @@
 - Owner: Ben Huffer (decision owner); reworked by Claude Code in the project thread "Rework the agent-orchestrator PRs"
 - Date: 2026-11-23
 - Summary: two behaviours.
-  - `LockHome` writes the holder's PID into `daemon.lock` after winning the lock, and a second daemon names that PID when it refuses to start. A filesystem that cannot lock now refuses to start with a plain sentence instead of the misleading "already running". `daemon.lock` is opened with `O_NOFOLLOW` and must be a plain file, so the PID write never truncates a file a symlink points at; a clean release empties it; a recorded PID whose process is gone is never named.
-  - When a runtime that was ready only times out on its next probe, the daemon keeps offering it for that one pass and logs it. A second timeout in a row, or any answer that says not ready (a sign-out included), takes it away at once. A login check that times out (`codex login --help` or `codex login status`) is never read as ready. A runtime withdrawn by a launch while the pass ran stays withdrawn; the grace never restores it.
+  - `LockHome` writes the holder's PID into `daemon.lock` after winning the lock, and a second daemon names that PID when it refuses to start. A filesystem that cannot lock now refuses to start with a plain sentence instead of the misleading "already running". `daemon.lock` is opened with `O_NOFOLLOW` and must be a plain file with a single name, so the PID write never changes a file a symlink or hard link reaches; a clean release empties it; a recorded PID whose process is gone is never named, and a live one is offered as "check it, then stop it", because a crashed holder's PID can be reused before the next holder rewrites it.
+  - When a runtime that was ready only times out on its next probe, the daemon keeps offering it for that one pass and logs it. A second timeout in a row, or any answer that says not ready (a sign-out included), takes it away at once. A login check that times out (`codex login --help` or `codex login status`) is never read as ready, nor as signed out. A command that exits on its own as the deadline passes counts as an answer, so a sign-out at the deadline is a sign-out. A runtime withdrawn by a launch while the pass ran stays withdrawn; the grace never restores it.
 - Dropped from #139: the `daemon/internal/gitworktree` manager (nothing called it; #135 binds runs to the selected worktree through the API; its review found a Destroy that could delete outside its root, missing git config hardening and a teardown that ignored cancellation), and `probe_health.go` (nothing called it; its breaker counted every non-ready runtime, so it tripped on every pass and could keep a signed-out runtime ready).
 
 ## Scope
@@ -40,7 +40,7 @@
 ## Required proof
 
 - Command/check/eval to run: four checks.
-  - `cd daemon && go test -race ./internal/runner -run 'TestASecondDaemon|TestANewHolder|TestAHomeThatCannot|TestASymlinked|TestACleanRelease|TestOneDaemonPerHome|TestAProbeThatRanPast|TestOneSlowProbe|TestACodex|TestAWithdrawal|TestTheDaemonOffersOnlyReadyRuntimes|TestProbe' -count=1`
+  - `cd daemon && go test -race ./internal/runner -run 'TestASecondDaemon|TestANewHolder|TestAHomeThatCannot|TestASymlinked|TestAHardLinked|TestACleanRelease|TestOneDaemonPerHome|TestAProbeThatRanPast|TestOneSlowProbe|TestACodex|TestASignOut|TestAWithdrawal|TestTheDaemonOffersOnlyReadyRuntimes|TestProbe' -count=1`
   - `cd daemon && go test ./internal/runner -count=1`, compared with the same run on `origin/main`
   - `python3 tools/check_originality.py`
   - `git diff --check origin/main`

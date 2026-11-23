@@ -134,17 +134,49 @@ func TestACodexLoginCheckThatTimesOutIsNeverReady(t *testing.T) {
 	shortProbes(t)
 	st := Probe(context.Background(), RuntimeCodex, "", hangsOnLogin(nil))
 	if st.Ready || !st.timedOut || st.LoginChecked {
-		t.Fatalf("a login check that ran out of time must not read as ready: %+v", st)
+		t.Fatalf("a login help that ran out of time must not read as ready: %+v", st)
+	}
+	// Help answers and lists status; the status command hangs. Unknown, not signed out.
+	hangsOnStatus := func(ctx context.Context, _ string, args ...string) (string, int, error) {
+		switch strings.Join(args, " ") {
+		case "--version":
+			return "codex-cli 0.163.0", 0, nil
+		case "login --help":
+			return "Commands:\n  status  Show login status\n", 0, nil
+		}
+		<-ctx.Done()
+		return "", -1, nil
+	}
+	st = Probe(context.Background(), RuntimeCodex, "", hangsOnStatus)
+	if st.Ready || !st.timedOut || strings.Contains(st.Reason, "not signed in") || !strings.Contains(st.Reason, "did not answer in time") {
+		t.Fatalf("a login status that ran out of time is unknown, not ready and not a sign-out: %+v", st)
+	}
+}
+
+func TestASignOutAtTheDeadlineIsASignOut(t *testing.T) {
+	stubArtifact(t)
+	shortProbes(t)
+	run := func(ctx context.Context, _ string, args ...string) (string, int, error) {
+		switch strings.Join(args, " ") {
+		case "--version":
+			return "codex-cli 0.163.0", 0, nil
+		case "login --help":
+			return "Commands:\n  status  Show login status\n", 0, nil
+		}
+		// Exits on its own with "not signed in", just as the deadline passes.
+		<-ctx.Done()
+		return "Not logged in", 1, nil
+	}
+	st := Probe(context.Background(), RuntimeCodex, "", run)
+	if st.Ready || st.timedOut || !strings.Contains(st.Reason, "not signed in") {
+		t.Fatalf("an answer at the deadline is an answer: %+v", st)
 	}
 }
 
 func TestACodexSignOutTakesItAwayAtOnce(t *testing.T) {
 	stubArtifact(t)
 	signedIn := true
-	var mu sync.Mutex
 	run := func(_ context.Context, _ string, args ...string) (string, int, error) {
-		mu.Lock()
-		defer mu.Unlock()
 		switch strings.Join(args, " ") {
 		case "--version":
 			return "codex-cli 0.163.0", 0, nil
@@ -158,17 +190,21 @@ func TestACodexSignOutTakesItAwayAtOnce(t *testing.T) {
 		}
 		return "", 1, nil
 	}
-	d := New(Config{Home: t.TempDir(), Runtimes: []string{RuntimeCodex}, Version: "test", Probe: run,
-		LookPath: func(string) (string, error) { return "/bin/true", nil },
-		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil))})
-	d.probe(context.Background())
-	first, _ := readyOf(d, RuntimeCodex)
-	mu.Lock()
+	ready := Probe(context.Background(), RuntimeCodex, "", run)
+	if !ready.Ready || !ready.LoginChecked {
+		t.Fatalf("setup: a signed-in Codex must probe ready with its login checked: %+v", ready)
+	}
 	signedIn = false
-	mu.Unlock()
-	d.probe(context.Background())
-	if got, _ := readyOf(d, RuntimeCodex); got {
-		t.Fatalf("a sign-out must take Codex away at once (ready before: %v)", first)
+	out := Probe(context.Background(), RuntimeCodex, "", run)
+	if out.Ready || out.timedOut || !strings.Contains(out.Reason, "not signed in") {
+		t.Fatalf("a sign-out is an answer, not a timeout: %+v", out)
+	}
+	// The daemon's grace only holds a timeout, so this answer takes Codex away on this pass.
+	// (A daemon-level pass for Codex also runs its sandbox preflight, which this host cannot.)
+	d := New(Config{Home: t.TempDir(), Runtimes: []string{RuntimeCodex}, Version: "test", Probe: run,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	if _, held := d.holdThroughTimeout(RuntimeCodex, out, ready); held {
+		t.Fatal("a sign-out must not be held through the timeout grace")
 	}
 }
 

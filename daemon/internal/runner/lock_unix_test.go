@@ -19,7 +19,7 @@ func TestASecondDaemonNamesTheHolderPID(t *testing.T) {
 	}
 	defer unlock()
 	_, err = LockHome(home)
-	want := "(pid " + strconv.Itoa(os.Getpid()) + ")"
+	want := "records pid " + strconv.Itoa(os.Getpid()) + " "
 	if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "already running") {
 		t.Fatalf("the refusal must name the holder %s: %v", want, err)
 	}
@@ -63,6 +63,23 @@ func TestASymlinkedLockFileIsRefusedAndItsTargetLeftAlone(t *testing.T) {
 	}
 }
 
+func TestAHardLinkedLockFileIsRefusedAndTheOtherNameLeftAlone(t *testing.T) {
+	home := t.TempDir()
+	other := filepath.Join(home, "precious")
+	if err := os.WriteFile(other, []byte("keep me\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(other, filepath.Join(home, "daemon.lock")); err != nil {
+		t.Skipf("hard links unavailable here: %v", err)
+	}
+	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "single name") {
+		t.Fatalf("a hard-linked daemon.lock must be refused: %v", err)
+	}
+	if b, _ := os.ReadFile(other); string(b) != "keep me\n" {
+		t.Fatalf("the other name's content was changed: %q", b)
+	}
+}
+
 func TestACleanReleaseLeavesNoPIDAndADeadPIDIsNotNamed(t *testing.T) {
 	home := t.TempDir()
 	unlock, err := LockHome(home)
@@ -70,8 +87,8 @@ func TestACleanReleaseLeavesNoPIDAndADeadPIDIsNotNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	unlock()
-	if b, _ := os.ReadFile(filepath.Join(home, "daemon.lock")); len(b) != 0 {
-		t.Fatalf("a clean release must empty daemon.lock: %q", b)
+	if b, err := os.ReadFile(filepath.Join(home, "daemon.lock")); err != nil || len(b) != 0 {
+		t.Fatalf("a clean release must leave daemon.lock in place and empty: %q, %v", b, err)
 	}
 	if processExists(99999999) {
 		t.Skip("a process with that PID exists here")

@@ -37,9 +37,10 @@ func LockHome(home string) (func(), error) {
 		}
 		return nil, err
 	}
-	if fi, serr := f.Stat(); serr != nil || !fi.Mode().IsRegular() {
+	// One name only: a hard link would let the PID write change another file.
+	if fi, serr := f.Stat(); serr != nil || !fi.Mode().IsRegular() || hardLinked(fi) {
 		f.Close()
-		return nil, fmt.Errorf("%s is not a plain file; Control Rod will not start until it is (remove it)", path)
+		return nil, fmt.Errorf("%s is not a plain file with a single name; Control Rod will not start until it is (remove it)", path)
 	}
 	if err := flockHome(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		holder := readHolderPID(f)
@@ -49,7 +50,9 @@ func LockHome(home string) (func(), error) {
 		f.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
 			if holder > 0 {
-				return nil, fmt.Errorf("another Control Rod daemon (pid %d) is already running with home %s; stop it first", holder, home)
+				// The PID is what the file records; a holder that crashed leaves its PID behind until the
+				// next holder rewrites it, so the sentence asks for a check, not a kill.
+				return nil, fmt.Errorf("another Control Rod daemon is already running with home %s; daemon.lock records pid %d (check that it is a Control Rod daemon, then stop it)", home, holder)
 			}
 			return nil, fmt.Errorf("another Control Rod daemon is already running with home %s; stop it first", home)
 		}
@@ -105,4 +108,10 @@ func lockFile(path string) (func(), error) {
 		return nil, err
 	}
 	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, nil
+}
+
+// hardLinked reports whether the file has more than one name.
+func hardLinked(fi os.FileInfo) bool {
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	return ok && st.Nlink > 1
 }

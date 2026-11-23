@@ -1,0 +1,15 @@
+{"note":"Keyword rules on issue titles (case-insensitive substring). An issue can match several themes. PRs excluded. Titles pulled 2026-11-23 via GitHub search by pull.py.",
+"themes":{
+"Model and provider routing, fallback, quotas":["model","provider","fallback","failover","openrouter","deepseek","gpt","claude","gemini","copilot","quota","rate limit","429","kimi","glm","qwen","grok","ollama","max plan","api key","oauth"],
+"Install, upgrade and host-version breakage":["install","upgrade","update","bun","npm","npx","version","fails to load","not load","disappear","crash","segfault","segmentation","electron","v1.","v2 plugin","plugin api","release"],
+"Orchestration: subagents, delegation, parallel, background":["subagent","sub-agent","background","delegat","parallel","orchestr","sisyphus","team","spawn","child session","parent","ultrawork","ulw","swarm","council","multi-agent","multi agent"],
+"Memory, context, compaction":["memory","context","compaction","compact","prompt is too long","token limit","session history","learning","remember"],
+"Runaway loops and surprise usage":["loop","infinite","spike","usage","cost","billing","continuation","stuck","hang","never stop","runaway"],
+"Plans, specs, todos, workflows":["spec","plan","workflow","todo","beads","task planning","roadmap","boulder"],
+"Tools and MCP":["mcp","lsp","tool","websearch","exa","ast-grep","browser"],
+"Terminal, TUI, multiplexer, rendering":["tmux","zellij","tui","render","terminal","display","output leaks","pane"],
+"Config and control (disable, settings)":["config","disable","setting","hardcoded","toggle","option","permission"],
+"Review, verification, tests":["review","verify","verif","test","check","lint","qa"],
+"Windows":["windows","win32","powershell","wsl"],
+"Remote and SSH":["remote","ssh","server","tailscale"]},
+"herdr_labels":["agent-detection","remote","windows","macos","linux","sessions","rendering","input","api","integrations","plugins","performance","ui"]}

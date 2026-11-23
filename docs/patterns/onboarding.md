@@ -4,7 +4,7 @@
 
 ## Answer first
 
-The best installs in this set follow one shape: **one command or one download, no account, find the agents already on the machine, and ask nothing else until the person needs it.** Control Rod today needs four tools (through mise), four commands, and a passkey before the first screen. The target below is one command, one question, and the board.
+The best installs in this set follow one shape: **one command or one download, no account, find the agents already on the machine, and ask nothing else until the person needs it.** Control Rod today needs four tools (through mise), four commands, and a passkey before the first screen. The target below is one command, a confirmed list of agents, one question, and the board.
 
 ## What breaks onboarding, counted
 
@@ -43,12 +43,17 @@ Not adopted: install-time analytics (Nimbalyst sends an anonymous ID, opt-out), 
 
 1. **Install.** One line per OS, or `brew install`. No Node, Rust, Go or Python for users; the developer path in `getting-started.md` stays for contributors. Signed and notarized on macOS and signed on Windows, so no OS warning screens.
 2. **Open.** The command starts everything and opens the browser. No account and no login.
-3. **Find the agents.** It shows what it found in one line ("Found Claude Code and Codex, both signed in"). If an agent is missing or signed out, it says the one command that fixes it and where it looked. It never asks for an API key. The existing `pnpm cr doctor` checks become this screen.
+3. **Find the agents, then confirm them with the person.** This is the one step that is never skipped, because seating depends on it. It uses three-way communication: the app states what it found, the person confirms or corrects it, and the app repeats the result back before it saves anything.
+   - **State.** One short list, one row per agent: name, version, where it was found, and sign-in state (signed in, signed out, or unknown). Example: "Claude Code 2.x, signed in. Codex, signed out. Antigravity, not found."
+   - **Confirm or correct.** Each row has one control: use it, skip it, or fix it (point at a different binary, or sign in with the command shown). "Add an agent" covers a CLI it did not find, a local endpoint or a hosted router, with a name the person chooses.
+   - **Repeat back.** "You're seating Claude Code and Codex. Codex will check Claude Code's work, and the reverse." Then **Looks right** or **Change**. Nothing is saved until the person presses Looks right.
+   - **How detection works.** Look on PATH and in each CLI's documented install locations. Resolve symlinks and wrappers, so nix and version-manager installs are found. Run the CLI's own version command. Learn sign-in state only from the CLI's own status command, the way the daemon's subscription probe already does (`.nuclear/changes/subscriptions-page/basis.md`: its output is not stored). Never open a credential file, keychain entry or token, and never ask for an API key. If a check cannot tell, the row says "unknown" and shows the command to check by hand. It never guesses.
+   - **Afterwards.** Settings has **Check again**, and the same check runs before each run, so a CLI that was updated, moved or signed out shows on the card that needs it. The existing `pnpm cr doctor` checks become this screen.
 4. **One question.** "When should we check with you?" with the middle answer preselected (ADR 0024 decision 7).
 5. **The board, with the Planner box.** It opens on the current repository. If no agent is found, a replay of a sample run shows what will happen, using the existing fake adapter.
 6. **Ask for things only when they are needed.** The passkey is registered the first time the person signs something, not at install. An OS permission is explained in one sentence just before the OS asks.
 
-**Budget:** one command, one question, zero required accounts, and under a minute from the command to the board on a machine that already has one signed-in agent. Skipping any step leaves working defaults.
+**Budget:** one command, one confirmation of the agents, one question, zero required accounts, and under a minute from the command to the board on a machine that already has one signed-in agent. Skipping any step leaves working defaults.
 
 ## Owner questions
 

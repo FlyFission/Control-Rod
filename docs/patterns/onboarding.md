@@ -4,7 +4,7 @@
 
 ## Answer first
 
-The best installs in this set follow one shape: **one command or one download, no account, find the agents already on the machine, and ask nothing else until the person needs it.** Control Rod today needs four tools (through mise), four commands, and a passkey before the first screen. The target below is one command, a confirmed list of agents, one question, and the board.
+The best installs in this set follow one shape: **one command or one download, no account, find the agents already on the machine, and ask nothing else until the person needs it.** Control Rod today needs four tools (through mise), four commands, and a passkey before the first screen. Since #158 (`.nuclear/changes/first-run-setup/`), a first run already opens on a Setup page with the agents found, one switch each, Add an agent, the check-in question and a read-back; steps 3 and 4 below describe where that page should go next. The target below is one command, a confirmed list of agents, one question, and the board.
 
 ## What breaks onboarding, counted
 

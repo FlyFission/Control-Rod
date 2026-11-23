@@ -1,1 +1,3 @@
-public claims check passed
+apps/web/src/components/AgentPanel.tsx:152: unqualified claim 'guarantees'
+1 public claim finding(s); qualify the sentence or remove the claim
+Note: the one finding is in apps/web/src/components/AgentPanel.tsx, which came from main (#158) and is not changed by this pull request (git diff origin/main -- apps is empty). Every file this pull request adds or changes passes.

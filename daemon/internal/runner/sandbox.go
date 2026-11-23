@@ -401,6 +401,12 @@ var CodexDisabledFeatures = []string{
 
 // CodexSafeFeatures may stay enabled: they change how Codex talks to its own provider or renders
 // output, not what an agent action can reach.
+// The nine features Codex 0.171.0 added (code_mode_host_grpc, code_mode_host_output_truncation,
+// guardian_include_additional_context, incremental_tools_legacy, incremental_tools_legacy_gcp,
+// retain_client_tool_outputs, tui_workspace, unified_image_budget, untrusted_as_tool_output) were
+// read in codex-rs/features/src/lib.rs at rust-v0.171.0: transport, context rendering, image
+// budgets, Bedrock/GCP tool publishing and TUI-only behavior; none adds a tool or reach (change
+// record codex-0171-mac-install, evidence/codex-0.171.0-features.md).
 var CodexSafeFeatures = []string{
 	"api_key_cyber_access_programs", "api_key_model_discovery", "auth_elicitation", "bedrock_setup_wizard",
 	"browser_annotation_api", "cli_daybreak", "code_mode_host", "code_mode_host_grpc", "code_mode_host_output_truncation", "code_mode_interrupt", "compaction_image_budget",

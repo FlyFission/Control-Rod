@@ -205,6 +205,43 @@ describe("workflows in the brief", () => {
     await finish(check);
   });
 
+  it("takes a card's project default only from a project of the package's own organization", async () => {
+    const id = await releasedPackage("XORG");
+    const org = (await h.admin.query<{ org_id: string }>("select org_id from object_owners where object_kind = 'package' and object_id = $1", [id])).rows[0]!.org_id;
+    await h.admin.query("insert into organizations (body) values ($1) on conflict do nothing", [{ id: "org_wf_other", name: "Other" }]);
+    await h.admin.query("insert into projects (body) values ($1)", [{ id: "prj_wf_foreign", org_id: "org_wf_other", name: "Foreign", default_workflow: "pocock" }]);
+    await h.admin.query("insert into projects (body) values ($1)", [{ id: "prj_wf_own", org_id: org, name: "Own", default_workflow: "pocock" }]);
+    await h.admin.query("update packages set body = (body - 'workflow') || $2::jsonb where id = $1", [id, JSON.stringify({ project: "prj_wf_foreign" })]);
+    const foreign = await claimFor(id);
+    expect(input(foreign, "BRIEF.md")).not.toContain("Workflow:");
+    expect(await workflowEvents(foreign.run.id)).toEqual([]);
+    await finish(foreign);
+    // The same default on the package's own project applies, so the filter is what refused it.
+    await asOwner("POST", `/packages/${id}/runs/${foreign.run.id}/requeue`);
+    await setBody(id, { project: "prj_wf_own" });
+    const own = await claimFor(id);
+    expect(input(own, "BRIEF.md")).toContain("CARD-MARKER-pocock-author");
+    await finish(own);
+  });
+
+  it("stamps the playbook on drafts of an untagged request, so a default set while intake ran does not move them", async () => {
+    const text = "[mode:software] [project:Late Default]\n\nBuild the thing";
+    const cap = await asOwner("POST", "/captures", { lane: "internal", text });
+    const capId = (cap.json() as { id: string }).id;
+    const org = (await h.admin.query<{ org_id: string }>("select org_id from object_owners where object_kind = 'capture' and object_id = $1", [capId])).rows[0]!.org_id;
+    await h.admin.query("insert into projects (body) values ($1)", [{ id: "prj_wf_late", org_id: org, name: "Late Default" }]);
+    const job = await claim();
+    if (!job) throw new Error("no intake job");
+    expect(await workflowEvents(job.run.id)).toEqual([]);
+    await h.admin.query("update projects set body = body || $2::jsonb where id = $1", ["prj_wf_late", JSON.stringify({ default_workflow: "pocock" })]);
+    const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [{ name: "packages/a.json", content_base64: b64(JSON.stringify(draft("LATE", "standard", { project: "prj_wf_late" }))) }],
+    });
+    expect(r.statusCode, r.body).toBeLessThan(300);
+    expect((await bodyOf(await idEnding("LATE"))).workflow).toBe("playbook");
+  });
+
   it("puts the workflow before the Nuclear section, and ships the hybrid's skills from both packs", async () => {
     const id = await releasedPackage("HYB1", "quick");
     await setBody(id, { workflow: "pocock-superpowers", context_profile: "nuclear" });
@@ -321,7 +358,7 @@ describe("workflows at intake", () => {
   it("runs the playbook when the named project is not one of the request's organization's", async () => {
     const { job, ids } = await intake("[mode:software] [project:No Such Project]\n\nBuild", [draft("NOPROJ")]);
     expect(input(job, "BRIEF.md")).not.toContain("Workflow:");
-    expect((await bodyOf(ids[0]!)).workflow).toBeUndefined();
+    expect((await bodyOf(ids[0]!)).workflow).toBe("playbook");
   });
 
   it("removes a workflow the agent wrote when the request has no tag, and adds nothing to its brief", async () => {
@@ -330,7 +367,7 @@ describe("workflows at intake", () => {
     expect(names(job).filter((n) => n.startsWith("workflow/"))).toEqual([]);
     expect(await workflowEvents(job.run.id)).toEqual([]);
     expect(ids).toHaveLength(1);
-    expect((await bodyOf(ids[0]!)).workflow).toBeUndefined();
+    expect((await bodyOf(ids[0]!)).workflow).toBe("playbook");
   });
 
   it("fails a tagged request queued when its workflow pack is not installed", async () => {

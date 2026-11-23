@@ -989,7 +989,10 @@ async function resolveRunWorkflow(c: Tx, cfg: WorkConfig, run: Json, body: Json 
     resolved = await intakeWorkflow(c, String(run.package_id), cap?.text);
   } else {
     const project = typeof body?.project === "string"
-      ? (await c.query<{ body: Json }>("select body from projects where id = $1", [body.project])).rows[0]?.body ?? null
+      ? (await c.query<{ body: Json }>(
+          `select p.body from projects p
+             join object_owners o on o.object_kind = 'package' and o.object_id = $1 and o.org_id = p.org_id
+            where p.id = $2`, [run.package_id, body.project])).rows[0]?.body ?? null
       : null;
     resolved = resolveWorkflow(body, project);
   }
@@ -2587,8 +2590,9 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
         required_custody: { decisive_evidence_generated_by: "verifier", preparer_may_present: false },
       },
     };
-    delete pkg.workflow;
-    if (taggedWorkflow) pkg.workflow = taggedWorkflow;
+    // A playbook launch is recorded too, so a project default set while intake ran cannot move the
+    // drafts onto a pack their tickets were not shaped for.
+    pkg.workflow = taggedWorkflow ?? "playbook";
     // An agent never lowers a lane: a package is at least as sensitive as the request it came from.
     const capLane = await laneOf(c, "capture", capture.id, capture.lane);
     if (capLane && isLane(pkg.data_lane) && !covers(pkg.data_lane, capLane)) pkg.data_lane = capLane;

@@ -9,6 +9,7 @@ Evidence status: **pass** for the checks below on this host (macOS), with one ti
 | E-03 | pass | Web typecheck exits 0; full web suite 53 files, 709 tests, jsdom only. | `evidence/web.log`, `evidence/web-tsc.log` |
 | E-04 | pass | Scripts suite: 25 tests, 21 passed, 4 skipped (the nuclear-pack tests that need an NGCE checkout, skipped before this change too). | `evidence/scripts.log` |
 | E-05 | pass with two known problems | Pack check, workflow budgets, Nuclear brief budgets, public claims, originality and offline assets pass. The register check reports only the two problems already on `main` (`apps/web/src/lib/kind.ts`, `services/api/src/seals.ts`). | `evidence/checks.log` |
+| E-07 | pass | Blind review by a different vendor (Codex) before landing: one P0 (owner sign-off, now recorded) and three P1s, each fixed with a test that fails without the fix; dispositions per finding. Container run of the three workflow test files after the fixes: 56 passed. | `evidence/blind-review-fixes.md` |
 | E-06 | pass | Record validates with the pinned `ng.py validate --strict-custody`; `check_owner_decisions.py` passes. | `evidence/record-checks.log` |
 
 ## Builders and review
@@ -24,6 +25,7 @@ Built by subagents under D3: Codex wrote the generator, check, sync script and t
 | E-03 | SWP-08 | yes | evidence/web.log | Claude builder | vitest, tsc | Controller | Controller | Local toolchain | Packet | Controller | Controller rerun |
 | E-04 | SWP-07 | yes | evidence/scripts.log | Codex builder, controller | node --test | Controller | Controller | Local toolchain | Packet | Controller | Controller rerun |
 | E-05 | SWP-06 | no | evidence/checks.log | Controller | repository checks | Controller | Controller | Local toolchain | Packet | Controller | Self-check |
+| E-07 | SWP-01 | yes | evidence/blind-review-fixes.md | Claude (landing thread) | Codex CLI review, vitest | Landing thread | Landing thread | Owner's machine, cloud container | Packet | Landing thread | Codex (different vendor) |
 | E-06 | SWP-09 | no | evidence/record-checks.log | Controller | ng.py, check_owner_decisions.py | Controller | Controller | Local toolchain | Packet | Controller | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -33,6 +35,7 @@ Built by subagents under D3: Codex wrote the generator, check, sync script and t
 | E-03 | separated: controller reran builder tests | coupled: same session | separated: deterministic tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, no browser  [Ship limits](ship.md) |
 | E-04 | separated: controller reran builder tests | coupled: same session | separated: deterministic tools | separated: owner retains merge decision | coupled: local machine | self-check | NGCE tests skipped  [Ship limits](ship.md) |
 | E-05 | coupled: controller | coupled: same session | separated: deterministic checks | separated: owner retains merge decision | coupled: local machine | self-check | two known register problems  [Ship limits](ship.md) |
+| E-07 | separated: different-vendor reviewer | separated: reviewer saw only the diff | separated: deterministic tests | separated: owner retains merge decision | coupled: local machine | independent check | fixes not re-reviewed by a person  [Ship limits](ship.md) |
 | E-06 | coupled: controller | coupled: same session | separated: deterministic validators | separated: owner retains merge decision | coupled: local machine | self-check | format checks only  [Ship limits](ship.md) |
 
 No independent human review was done.

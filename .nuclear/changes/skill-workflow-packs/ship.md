@@ -1,6 +1,6 @@
 # Ship: skill workflow packs
 
-Release decision: **the `spec/` change waits for the owner's recorded yes (see Signature); merge waits on the owner's ask to merge; no release is authorized by this record.** The change touches `spec/`, a trust surface (AGENTS.md rule 2), signed under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off).
+Release decision: **the owner's yes for the `spec/` change is recorded (see Signature), and the owner asked for the open pull requests to be landed (2026-11-23); no release is authorized by this record.** The change touches `spec/`, a trust surface (AGENTS.md rule 2), signed under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off).
 
 - **Proposed:** merge the contract, packs, generator and sync, composer, board controls and the ode together on the owner's yes, after #147 (this pull request is stacked on it).
 - **Not claimed:** a real agent run under any workflow (all briefs and inputs were composed and tested, none were sent to a model); a browser pass of the new controls (jsdom only); that the brief sizes equal any model's tokenizer; a person's read of the stage cards against the upstream skills; that either author has seen the hybrid's name.
@@ -15,10 +15,11 @@ Monitoring after merge: run one small request under each workflow and read the b
 
 | Field | Entry |
 |---|---|
-| Decision | **Pending. Merge is blocked until this row records the owner's yes.** The two optional `spec/` fields (`WorkPackage.workflow`, `Project.default_workflow`) |
-| Question | Asked in the Orchestrator.inc session chat on 2026-11-22, naming pull request #148 and saying it touches `spec/`; to be quoted here with the owner's answer |
-| Answer | Not yet given |
-| Head when asked | To be recorded |
+| Decision | **Yes.** The owner approved the two optional `spec/` fields (`WorkPackage.workflow`, `Project.default_workflow`) for merge. Recorded by the agent (Claude, landing thread); not the owner's signature. |
+| Question | "Approve the spec/ contract changes in #148 and #134 so they can merge?", on a decision card in the Control Rod project thread "Land the open PRs onto main", whose first option read: "I record your yes in each ship.md Signature table: #148 adds two optional workflow fields; #134 adds additive workspace-project and run-read endpoints." |
+| Answer | "Yes to both" (the owner's own pick on the card) |
+| When and where | 2026-11-23 17:18:55 UTC, Control Rod project thread "Land the open PRs onto main" |
+| Head when asked | #148 at `0cff56e`. The landing PR changes no `spec/` file after that head: its follow-up fixes are in `services/api/src/work.ts`, `services/api/src/workflow.ts` and tests. |
 
 ## Required links
 

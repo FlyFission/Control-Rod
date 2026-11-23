@@ -31,6 +31,19 @@ export function resolveWorkflow(pkg: Json | undefined, project: Json | null | un
 }
 
 /**
+ * The tag header a capture carries, or undefined when it has none. The New work form writes its tags
+ * as `[key:value]` tokens on the first line, then a blank line, then the person's text. A first line
+ * with anything outside a tag is the person's own prose: a tag written inside a sentence selects
+ * nothing.
+ */
+export function tagHeader(text: unknown): string | undefined {
+  if (typeof text !== "string") return undefined;
+  const first = text.split(/\r?\n/, 1)[0] ?? "";
+  if (!first.trim() || first.replace(/\[[a-z][a-z-]*:[^\]]*\]/g, "").trim() !== "") return undefined;
+  return first;
+}
+
+/**
  * The workflow a capture asks for. The New work form writes its tags on one header line, separated
  * by spaces, then a blank line, then the person's text; this reads only that first line and takes
  * the token that is exactly `[workflow:<id>]`. Nothing after the first line is read, so prose that
@@ -38,8 +51,8 @@ export function resolveWorkflow(pkg: Json | undefined, project: Json | null | un
  * is no tag at all: the request runs the playbook.
  */
 export function captureWorkflow(text: unknown): Workflow | undefined {
-  if (typeof text !== "string") return undefined;
-  const first = text.split(/\r?\n/, 1)[0] ?? "";
+  const first = tagHeader(text);
+  if (first === undefined) return undefined;
   const found = new Set<Workflow>();
   for (const token of first.trim().split(/\s+/)) {
     const m = /^\[workflow:([^\]\s]*)\]$/.exec(token);
@@ -57,8 +70,8 @@ export function captureWorkflow(text: unknown): Workflow | undefined {
  * tokens on the line are no project at all. Only the first line is read.
  */
 export function captureProject(text: unknown): string | undefined {
-  if (typeof text !== "string") return undefined;
-  const first = text.split(/\r?\n/, 1)[0] ?? "";
+  const first = tagHeader(text);
+  if (first === undefined) return undefined;
   const found = new Set([...first.matchAll(/\[project:([^\]]+)\]/g)].map((m) => m[1]!.trim()).filter(Boolean));
   return found.size === 1 ? [...found][0] : undefined;
 }

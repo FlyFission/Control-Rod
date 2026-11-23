@@ -34,6 +34,7 @@ describe("captureProject", () => {
   it("reads nothing past the first line, and two different projects are none", () => {
     expect(captureProject("[mode:software]\n[project:prj_1]")).toBeUndefined();
     expect(captureProject("[project:a] [project:b]")).toBeUndefined();
+    expect(captureProject("Ship it for [project:prj_1] today")).toBeUndefined();
     expect(captureProject("[project:  ]")).toBeUndefined();
     expect(captureProject(undefined)).toBeUndefined();
   });
@@ -55,6 +56,9 @@ describe("captureWorkflow", () => {
 
   it("reads only a token that is exactly the tag", () => {
     expect(captureWorkflow("Please use [workflow:pocock]x for this")).toBeUndefined();
+    // A tag inside the person's own first-line prose is not a header (blind review of #148).
+    expect(captureWorkflow("Please use [workflow:pocock] for this")).toBeUndefined();
+    expect(captureWorkflow("[workflow:pocock] and then build it\n\nmore")).toBeUndefined();
     expect(captureWorkflow("workflow:pocock")).toBeUndefined();
     expect(captureWorkflow("[workflow: pocock]")).toBeUndefined();
     expect(captureWorkflow("[Workflow:pocock]")).toBeUndefined();

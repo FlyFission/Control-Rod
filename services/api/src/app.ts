@@ -806,9 +806,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; agent_updates?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
-    if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates);
+    if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);

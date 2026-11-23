@@ -100,3 +100,25 @@ func TestCouldNotCheckIsNotUpToDate(t *testing.T) {
 		t.Fatalf("agents update: code %d, ran %v:\n%s", code, r.ran, out.String())
 	}
 }
+
+// With no agent found, or only one Control Rod cannot look up (Antigravity), nothing claims the
+// agents are up to date; Antigravity is listed as not checked.
+func TestNoCheckableAgentIsNotUpToDate(t *testing.T) {
+	agy := agentupdate.Catalog[2]
+	for _, sts := range [][]agentupdate.Status{nil, {{Agent: agy, Installed: "1.4.0"}}} {
+		var out bytes.Buffer
+		printStatuses(&out, sts)
+		s := out.String()
+		if strings.Contains(s, "up to date") || !strings.Contains(s, "No ") {
+			t.Fatalf("agents:\n%s", s)
+		}
+		if len(sts) > 0 && !strings.Contains(s, "1.4.0 (not checked)") {
+			t.Fatalf("agy not marked:\n%s", s)
+		}
+		out.Reset()
+		r := &recorder{}
+		if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, r.run); code != 0 || strings.Contains(out.String(), "up to date") || !strings.Contains(out.String(), "No agent CLI found") || len(r.ran) != 0 {
+			t.Fatalf("agents update: code %d, ran %v:\n%s", code, r.ran, out.String())
+		}
+	}
+}

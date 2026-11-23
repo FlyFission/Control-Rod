@@ -82,7 +82,8 @@ type Env struct {
 	NpmRoot func(ctx context.Context) (string, error)
 }
 
-var semverRe = regexp.MustCompile(`\b(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?\b`)
+// semverRe finds x.y.z with any prerelease, whole: "1.2.3--" is the prerelease "-", not 1.2.3.
+var semverRe = regexp.MustCompile(`\b(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?`)
 
 // strictVersion is the only shape a version may have before it is put into a command: SemVer 2.0
 // (no leading zeros, no empty or leading-zero numeric prerelease identifiers) without build
@@ -132,29 +133,37 @@ func Newer(a, b string) bool {
 	return len(ia) > len(ib)
 }
 
-// compareIdent orders two prerelease identifiers: -1, 0 or 1.
+// compareIdent orders two prerelease identifiers: -1, 0 or 1. Numeric identifiers of any length
+// compare by length, then digit by digit (SemVer numerics have no leading zeros).
 func compareIdent(x, y string) int {
-	nx, ex := strconv.ParseUint(x, 10, 64)
-	ny, ey := strconv.ParseUint(y, 10, 64)
+	dx, dy := allDigits(x), allDigits(y)
 	switch {
-	case ex == nil && ey == nil:
-		return cmpUint(nx, ny)
-	case ex == nil:
+	case dx && dy:
+		if len(x) != len(y) {
+			if len(x) < len(y) {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(x, y)
+	case dx:
 		return -1 // numeric identifiers are lower than alphanumeric ones
-	case ey == nil:
+	case dy:
 		return 1
 	}
 	return strings.Compare(x, y)
 }
 
-func cmpUint(a, b uint64) int {
-	switch {
-	case a < b:
-		return -1
-	case a > b:
-		return 1
+func allDigits(s string) bool {
+	if s == "" {
+		return false
 	}
-	return 0
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // Check looks at every agent in the catalog that is on PATH. Agents not installed are left out.

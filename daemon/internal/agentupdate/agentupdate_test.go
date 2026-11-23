@@ -208,3 +208,21 @@ func TestIncompleteIsNeitherCurrentNorOutdated(t *testing.T) {
 		t.Error("a full check counted incomplete")
 	}
 }
+
+// A prerelease made of hyphens is read whole, and numeric identifiers longer than 64 bits still
+// order by value (length, then digits) instead of falling back to text order.
+func TestPrereleaseEdgesFollowSemVer(t *testing.T) {
+	if v := ParseVersion("grok 1.2.3-- (build)"); v != "1.2.3--" {
+		t.Fatalf("ParseVersion read %q", v)
+	}
+	if !Newer("1.2.3", "1.2.3--") || Newer("1.2.3--", "1.2.3") {
+		t.Fatal("1.2.3-- must be a prerelease of 1.2.3")
+	}
+	big, bigger := "1.2.3-18446744073709551616", "1.2.3-99999999999999999999"
+	if !Newer(bigger, big) || Newer(big, bigger) {
+		t.Fatal("long numeric identifiers must compare by value")
+	}
+	if !Newer("1.2.3-10", "1.2.3-9") || !Newer("1.2.3-a", "1.2.3-"+strings.Repeat("9", 30)) {
+		t.Fatal("numeric below alphanumeric, and by value")
+	}
+}

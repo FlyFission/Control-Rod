@@ -1446,6 +1446,12 @@ namespace Runner {
 
     /** Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
     @maxItems(10) agent_updates?: AgentUpdate[];
+
+    /**
+     * Agents found whose check could not finish (the registry did not answer, or the CLI gave no
+     * version). Sent with `agent_updates`; the control plane keeps what it last knew for each.
+     */
+    @maxItems(10) agent_updates_unchecked?: AgentId[];
   }): Job | {
     @statusCode _: 204;
   } | Refused;

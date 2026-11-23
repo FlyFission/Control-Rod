@@ -101,6 +101,10 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		chosen = outdated
 	}
 	if len(chosen) == 0 {
+		if !anyCheckable(sts) {
+			fmt.Fprintln(w, noneCheckable)
+			return 0
+		}
 		if unknown := incomplete(sts); len(unknown) > 0 {
 			fmt.Fprintf(w, "No update found, but %s could not be checked (run `controlrod agents` to see why).\n", strings.Join(unknown, ", "))
 			return 1
@@ -170,6 +174,8 @@ func printStatuses(w io.Writer, sts []agentupdate.Status) {
 	n := len(agentupdate.Outdated(sts))
 	unknown := incomplete(sts)
 	switch {
+	case !anyCheckable(sts):
+		fmt.Fprintln(w, noneCheckable)
 	case n == 0 && len(unknown) > 0:
 		fmt.Fprintf(w, "No update found, but %s could not be checked.\n", strings.Join(unknown, ", "))
 	case n == 0:
@@ -188,7 +194,9 @@ func printStatuses(w io.Writer, sts []agentupdate.Status) {
 		switch {
 		case s.Outdated():
 			line += " -> " + s.Latest
-		case s.Incomplete() && s.Agent.Package != "":
+		case s.Agent.Package == "":
+			line += " (not checked)"
+		case s.Incomplete():
 			line += " (could not check)"
 		case s.Latest != "":
 			line += " (latest)"
@@ -203,6 +211,18 @@ func printStatuses(w io.Writer, sts []agentupdate.Status) {
 	if n > 0 {
 		fmt.Fprintln(w, "Run `controlrod agents update` to review each command, or `controlrod agents update --all`.")
 	}
+}
+
+// noneCheckable is said when no agent found has a package whose latest version can be looked up.
+const noneCheckable = "No agent CLI found that Control Rod can check for updates."
+
+func anyCheckable(sts []agentupdate.Status) bool {
+	for _, s := range sts {
+		if s.Agent.Package != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // incomplete names the agents whose check could not compare versions.

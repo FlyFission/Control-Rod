@@ -8026,6 +8026,11 @@ export interface operations {
                     run_ceiling_seconds?: number;
                     /** @description Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
                     agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
+                    /**
+                     * @description Agents found whose check could not finish (the registry did not answer, or the CLI gave no
+                     *     version). Sent with `agent_updates`; the control plane keeps what it last knew for each.
+                     */
+                    agent_updates_unchecked?: components["schemas"]["Runner.AgentId"][];
                 };
             };
         };

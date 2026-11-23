@@ -14,8 +14,13 @@ afterAll(async () => h?.stop());
 
 const grok = { agent: "grok", name: "Grok CLI", installed: "1.0.77", latest: "1.0.92", npm_global: true };
 const brew = { agent: "codex", name: "Codex CLI", installed: "0.170.0", latest: "0.171.0", note: "installed outside npm" };
-const claim = (agent_updates?: unknown) =>
-  h.app.inject({ method: "POST", url: "/runner/claim", headers: daemonHeaders, payload: { runtimes: [], ...(agent_updates === undefined ? {} : { agent_updates }) } });
+const claim = (agent_updates?: unknown, agent_updates_unchecked?: unknown) =>
+  h.app.inject({
+    method: "POST",
+    url: "/runner/claim",
+    headers: daemonHeaders,
+    payload: { runtimes: [], ...(agent_updates === undefined ? {} : { agent_updates }), ...(agent_updates_unchecked === undefined ? {} : { agent_updates_unchecked }) },
+  });
 const view = async () => (await h.app.inject({ method: "GET", url: "/runtimes", headers: { cookie } })).json();
 
 describe("agent updates", () => {
@@ -38,11 +43,26 @@ describe("agent updates", () => {
     expect((await view()).agent_updates).toEqual([]);
   });
 
+  it("keeps the known row for an agent a fresh daemon could not check", async () => {
+    await claim([grok, brew]);
+    // A restarted daemon: grok's registry lookup timed out, codex is now current.
+    await claim([], ["grok"]);
+    expect((await view()).agent_updates).toEqual([grok]);
+    // A newer report for grok replaces its row; an unknown agent name is ignored.
+    const newer = { ...grok, latest: "1.0.93" };
+    await claim([newer], ["grok", "rm -rf"]);
+    expect((await view()).agent_updates).toEqual([newer]);
+    // A full check with grok current clears it.
+    await claim([], []);
+    expect((await view()).agent_updates).toEqual([]);
+  });
+
   it("offers no way to install from the browser or the control plane", async () => {
     const take = await h.app.inject({ method: "POST", url: "/runner/agent-updates/take", headers: daemonHeaders, payload: {} });
     expect(take.statusCode).toBe(404);
     const admin = await h.app.inject({ method: "POST", url: "/admin/commands/runtime.update/options", headers: { cookie, origin: ORIGIN }, payload: { payload: { agents: [] } } });
-    expect(admin.statusCode).toBeGreaterThanOrEqual(400);
+    expect(admin.statusCode).toBe(404);
+    expect(admin.json().code).toBe("not-found");
   });
 
   it("only the daemon may report", async () => {

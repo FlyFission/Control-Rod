@@ -100,8 +100,9 @@ func TestDaemonStartupCheckReachesTheClaim(t *testing.T) {
 	}
 }
 
-// A check that could not finish for an agent keeps the update already known for it; a full check
-// that finds it current clears it.
+// A check that could not finish for an agent keeps the update already known for it and names the
+// agent as unchecked, so a control plane that knew more keeps its own row; a full check that finds
+// it current clears it.
 func TestAnIncompleteCheckKeepsAKnownUpdate(t *testing.T) {
 	grok := agentupdate.Catalog[4]
 	var u agentUpdates
@@ -110,11 +111,31 @@ func TestAnIncompleteCheckKeepsAKnownUpdate(t *testing.T) {
 	}
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Latest: "1.0.92", Command: []string{"npm"}}})
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Note: "latest version unavailable: timeout"}})
-	if r := u.report(); len(r) != 1 || r[0].Latest != "1.0.92" {
+	if r := u.report(); len(r) != 1 || len(r[0].List) != 1 || r[0].List[0].Latest != "1.0.92" || strings.Join(r[0].Unchecked, ",") != "grok" {
 		t.Fatalf("an incomplete check wiped the known update: %#v", r)
 	}
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.92", Latest: "1.0.92"}})
-	if r := u.report(); r == nil || len(r) != 0 {
+	if r := u.report(); len(r) != 1 || len(r[0].List) != 0 || len(r[0].Unchecked) != 0 {
 		t.Fatalf("after a full check with nothing outdated: %#v", r)
+	}
+}
+
+// A fresh daemon (nothing kept) whose check cannot finish reports the agent as unchecked rather
+// than as current; a version too long to report counts as unchecked too; agy is never reported.
+func TestAFreshDaemonsIncompleteCheckIsUnchecked(t *testing.T) {
+	claude, agy, grok := agentupdate.Catalog[0], agentupdate.Catalog[2], agentupdate.Catalog[4]
+	var u agentUpdates
+	u.set([]agentupdate.Status{
+		{Agent: grok, Installed: "1.0.77", Note: "latest version unavailable: timeout"},
+		{Agent: claude, Installed: "1.0." + strings.Repeat("9", 70), Latest: "2.0.0", Command: []string{"npm"}},
+		{Agent: agy, Installed: "1.0.0"},
+	})
+	r := u.report()
+	if len(r) != 1 || len(r[0].List) != 0 || strings.Join(r[0].Unchecked, ",") != "grok,claude" {
+		t.Fatalf("fresh incomplete check: %#v", r)
+	}
+	b, _ := json.Marshal(ClaimRequest{AgentUpdates: &r[0].List, AgentUpdatesUnchecked: r[0].Unchecked})
+	if !strings.Contains(string(b), `"agent_updates":[]`) || !strings.Contains(string(b), `"agent_updates_unchecked":["grok","claude"]`) {
+		t.Fatalf("claim body: %s", b)
 	}
 }

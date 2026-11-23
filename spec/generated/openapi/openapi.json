@@ -6144,6 +6144,14 @@
                     },
                     "maxItems": 10,
                     "description": "Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current."
+                  },
+                  "agent_updates_unchecked": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Runner.AgentId"
+                    },
+                    "maxItems": 10,
+                    "description": "Agents found whose check could not finish (the registry did not answer, or the CLI gave no\nversion). Sent with `agent_updates`; the control plane keeps what it last knew for each."
                   }
                 },
                 "required": [

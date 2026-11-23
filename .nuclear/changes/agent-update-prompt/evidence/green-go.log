@@ -1,4 +1,3 @@
-go version go1.24.7 linux/amd64
 --- PASS: TestNewer (0.00s)
 --- PASS: TestCheckOffersNpmCommandOnlyForNpmInstalls (0.00s)
 --- PASS: TestCheckRefusesAVersionThatCouldCarryArguments (0.00s)
@@ -9,7 +8,8 @@ go version go1.24.7 linux/amd64
 --- PASS: TestNewerFollowsSemVerPrereleasePrecedence (0.00s)
 --- PASS: TestStrictVersionFitsTheSpecLimit (0.00s)
 --- PASS: TestIncompleteIsNeitherCurrentNorOutdated (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+--- PASS: TestPrereleaseEdgesFollowSemVer (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.009s
 --- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
 --- PASS: TestUpdateOneAgentByName (0.00s)
 --- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
@@ -17,7 +17,20 @@ ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
 --- PASS: TestUpdateSkipsAgentWithNoCommand (0.00s)
 --- PASS: TestUpdateCheckOff (0.00s)
 --- PASS: TestCouldNotCheckIsNotUpToDate (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.010s
---- PASS: TestDaemonStartupCheckReachesTheClaim (0.04s)
+--- PASS: TestNoCheckableAgentIsNotUpToDate (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
+--- PASS: TestRegistry (0.00s)
+--- PASS: TestAgentEnvDropsProviderProvenance (0.00s)
+--- PASS: TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv (0.00s)
+--- PASS: TestVerifiedLaunchRunsTheCheckedBytesEvenAfterTheFileIsReplaced (0.00s)
+--- PASS: TestAWriteBetweenCheckAndStartIsBlockedAndCaught (0.00s)
+--- PASS: TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart (0.00s)
+--- PASS: TestRunnerRejectsIncompleteSuccessReplies (0.01s)
+--- PASS: TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet (0.51s)
+--- PASS: TestAgentLaunchesRefuseWithoutASandboxPolicy (0.00s)
+--- PASS: TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand (0.00s)
+--- PASS: TestAgentEnvKeepsOnlyTheAllowlist (0.00s)
+--- PASS: TestDaemonStartupCheckReachesTheClaim (0.03s)
 --- PASS: TestAnIncompleteCheckKeepsAKnownUpdate (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.044s
+--- PASS: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.579s

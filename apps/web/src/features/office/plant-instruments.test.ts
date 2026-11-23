@@ -106,5 +106,6 @@ describe("stale and hidden readings", () => {
   it("never says no agent is working when work is hidden while presenting", () => {
     expect(emptyFloorNote(0)).toBe("No agent is working right now.");
     expect(emptyFloorNote(3)).toBe("No agent is shown. 3 agents are hidden while presenting.");
+    expect(emptyFloorNote(0, "as of 10:42")).toBe("No agent is working right now, as of 10:42.");
   });
 });

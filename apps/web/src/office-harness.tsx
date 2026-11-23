@@ -65,7 +65,7 @@ function Harness() {
   // The plant's instruments as fixtures: ?core=lit|dark|unknown and ?rods=withdrawn|inserted|bank|drill|unknown.
   const working = figures.filter((f) => f.state === "working").length;
   const coreParam = params.get("core") ?? "lit";
-  const rods = (params.get("rods") ?? "withdrawn") as RodState["position"];
+  const [rods, setRods] = useState((params.get("rods") ?? "withdrawn") as RodState["position"]);
   const instruments: PlantInstruments = {
     core: coreParam === "unknown" ? { lit: null, caption: "Status unavailable" } : coreParam === "dark" ? { lit: false, caption: "No agent working" } : { lit: true, caption: `${working} agents working` },
     rods: rods === "withdrawn" ? { position: rods } : { position: rods, caption: rods === "inserted" ? "SCRAM in force: organization, stop not yet recorded" : rods === "bank" ? "SCRAM in force: 1 project" : rods === "drill" ? "SCRAM drill in force" : "SCRAM status unavailable" },
@@ -111,6 +111,9 @@ function Harness() {
             ))}
           </select>
         </label>
+        <button type="button" className="btn" onClick={() => setRods((r) => (r === "inserted" ? "withdrawn" : "inserted"))} data-harness="scram">
+          Toggle SCRAM
+        </button>
         <button type="button" className="btn" onClick={() => (delay ? setTimeout(() => setShifted((n) => n + 1), delay) : setShifted((n) => n + 1))} data-harness="shift">
           Shift every state
         </button>

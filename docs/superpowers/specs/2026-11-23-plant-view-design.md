@@ -60,10 +60,10 @@ A second app-owned layout, `plant-layout.ts`, same `Region` shape and same 13 ID
 
 **Annunciator** (in the header, replacing the count line; page HTML styled from app tokens, so it works in every look, light ones included). Four windows: **Waiting on you** (`needs_me`; the existing "N more in the Inbox with no agent yet" sentence stays beside it), **Stuck**, **Input changed**, **SCRAM**. Normal waiting is not a window, so the strip is dark when the plant is normal.
 
-- Each window states its name and count in text. Zero: outlined, muted but contrast-passing. Lit: filled, with the `StateMark` shape. Loading: "…" and "Loading". Error: "Unavailable". Stale (last read older than its refresh interval): the count with "as of <time>".
+- Each window states its name and count in text. Zero: outlined, muted but contrast-passing. Lit: filled, with the `StateMark` shape. Loading: "…" and "Loading". Error: "Unavailable". Stale (last read older than its refresh interval, plus a 10 s grace so a reading is not marked stale while its refresh is in flight; or its last refresh failed): the count with "as of <time>". The same "as of" goes on the core, the rods, the console status and the empty-floor line.
 - No "first out" tag (here it would just mean "oldest", and it would hold forever).
 - Waiting on you links to the Inbox. The others are status only; no new filter.
-- One polite live region for the whole strip, announcing only when a window changes between dark and lit, not on every refresh.
+- One polite live region for the whole strip, announcing only when a window changes between confirmed dark and lit readings, not on every refresh, and never across a change of who is counted (turning presenting on or off starts from a new first reading).
 - Presenting: counts cover the shown figures, and the strip says "N hidden" when `hidden > 0`.
 
 **Core** (scene art in the reactor building, with its caption on the building's plate). A fixed lattice; positions carry no identity.

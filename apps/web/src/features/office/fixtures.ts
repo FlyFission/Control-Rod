@@ -35,19 +35,19 @@ export function harnessFigures(n: number, layout: StageLayout = OFFICE_LAYOUT): 
     if (!at) throw new Error(`the office has no place for figure ${i + 1}`);
     // Every combination of marks turns up on a 40 agent floor, all four together on every twelfth.
     const marks = { gate: i % 3 === 0, changed: i % 4 === 0, ...(i % 6 === 0 ? { loop: 2 + (i % 2) } : {}), safety: i % 2 === 0 };
-    out.push({ id: `f${i + 1}`, code: `WP-${101 + i}`, state, cause: CAUSES[state], region: at.region, at: at.point, body: i, marks });
+    out.push({ id: `f${i + 1}`, code: `WP-${101 + i}`, state, cause: CAUSES[state], region: at.region, at: at.point, ...(at.queued ? { queued: true } : {}), body: i, marks });
   }
   return out;
 }
 
-function place(layout: StageLayout, regions: readonly RegionId[], used: Set<string>): { region: RegionId; point: Point } | undefined {
+function place(layout: StageLayout, regions: readonly RegionId[], used: Set<string>): { region: RegionId; point: Point; queued: boolean } | undefined {
   for (const id of regions) {
     const r = layout.region[id];
     for (const p of [...r.seats, ...r.queue]) {
       const key = `${p.x},${p.y}`;
       if (!used.has(key)) {
         used.add(key);
-        return { region: id, point: p };
+        return { region: id, point: p, queued: !r.seats.includes(p) };
       }
     }
   }
@@ -61,7 +61,7 @@ export function everyPlace(layout: StageLayout = OFFICE_LAYOUT): StageFigure[] {
     for (const p of [...r.seats, ...r.queue]) {
       const i = out.length;
       const state = ORDER[i % ORDER.length]!;
-      out.push({ id: `f${i + 1}`, code: `WP-${101 + i}`, state, cause: CAUSES[state], region: r.id, at: p, body: i });
+      out.push({ id: `f${i + 1}`, code: `WP-${101 + i}`, state, cause: CAUSES[state], region: r.id, at: p, ...(r.seats.includes(p) ? {} : { queued: true }), body: i });
     }
   return out;
 }

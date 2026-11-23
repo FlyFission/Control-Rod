@@ -152,8 +152,11 @@ export function rodState(scrams: Read<{ scrams: readonly ScramSummary[] }>): Rod
   return out({ position: "bank", caption: `SCRAM in force: ${n} ${n === 1 ? "project" : "projects"}${asOf}` });
 }
 
-/** What the floor says when no figure is drawn: hidden work is counted, never called "no agent working". */
-export function emptyFloorNote(hidden: number): string {
-  if (hidden > 0) return `No agent is shown. ${hidden} ${hidden === 1 ? "agent is" : "agents are"} hidden while presenting.`;
-  return "No agent is working right now.";
+/**
+ * What the floor says when no figure is drawn: hidden work is counted, never called "no agent
+ * working", and a reading that is no longer current says when it was taken.
+ */
+export function emptyFloorNote(hidden: number, asOf?: string): string {
+  const base = hidden > 0 ? `No agent is shown. ${hidden} ${hidden === 1 ? "agent is" : "agents are"} hidden while presenting` : "No agent is working right now";
+  return asOf ? `${base}, ${asOf}.` : `${base}.`;
 }

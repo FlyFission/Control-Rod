@@ -376,6 +376,19 @@ test.describe("office theme quality harness", () => {
         await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
         await setVisibility("visible");
         await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
+        if (OFFICE_THEMES.find((t) => t.id === theme)?.layout === "plant") {
+          // A window that comes on flashes; hidden, the flash stops, and it never plays again on return.
+          await page.locator('[data-harness="scram"]').click();
+          await expect(page.locator('.plant-window[data-window="scram"][data-flash]')).toHaveCount(1);
+          await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBeGreaterThan(moving);
+          await setVisibility("hidden");
+          await expect(page.locator(".plant-annunciator")).toHaveAttribute("data-motion", "paused");
+          await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
+          await expect(page.locator(".plant-window[data-flash]")).toHaveCount(0, { timeout: 5000 });
+          await setVisibility("visible");
+          await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
+          expect(await page.locator(".plant-window[data-flash]").count()).toBe(0);
+        }
         await page.emulateMedia({ reducedMotion: "reduce" });
         await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
         measurements[`${theme}/motion`] = { animationsInFullMotion: moving, hidden: 0, reduced: 0 };
@@ -1006,8 +1019,8 @@ function measureLegibility() {
     // Seated: inside its own region, clear of the name plate band. Queued: inside the corridor.
     const region = document.querySelector(`.office-region[data-region="${f.getAttribute("data-region")}"]`)!.getBoundingClientRect();
     const plate = document.querySelector(`.office-region[data-region="${f.getAttribute("data-region")}"] .office-plate`)!.getBoundingClientRect();
-    const cy = (box.t + box.b) / 2;
-    const seated = cy >= region.top && cy <= region.bottom;
+    // Seated or queued as the fixture placed it, never as the marker happens to render.
+    const seated = !f.hasAttribute("data-queued");
     if (seated && (box.l < region.left || box.r > region.right || box.t < plate.bottom || box.b > region.bottom)) failures.push(`${box.name} leaves its seat in ${f.getAttribute("data-region")}`);
     const corridor = laneOf(document.querySelector(`.office-region[data-region="${f.getAttribute("data-region")}"]`)!);
     if (!seated && (box.t < corridor.top || box.b > corridor.bottom)) failures.push(`${box.name} queues outside the corridor`);

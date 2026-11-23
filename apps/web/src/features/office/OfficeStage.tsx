@@ -27,6 +27,8 @@ export interface StageFigure {
   region: RegionId;
   /** Where the figure stands, in layout units: a seat or a queue place of its region. */
   at: Point;
+  /** Standing at a queue place outside its region's door, not in a seat. */
+  queued?: boolean;
   /** Which of the theme's body styles to draw, by index. */
   body: number;
   /** The active lens's colour for the state shape (the shape never changes); never a theme's. */
@@ -471,6 +473,7 @@ function FigureMark({
       data-state={f.state}
       data-figure={f.id}
       data-region={f.region}
+      data-queued={f.queued ? "" : undefined}
       data-safety={m.safety ? "" : undefined}
       data-tint={f.tint}
       onClick={() => onSelect?.(f.id)}

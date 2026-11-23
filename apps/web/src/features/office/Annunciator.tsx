@@ -35,22 +35,30 @@ function spoken(w: AnnunciatorWindow): string {
 /** How long a newly lit window flashes: three flashes of the CSS animation. */
 const FLASH_MS = 2400;
 
-/** `linkInbox` is false only where no router exists (the theme harness page). */
-export function Annunciator({ windows, linkInbox = true }: { windows: readonly AnnunciatorWindow[]; linkInbox?: boolean }) {
+/**
+ * `scope` names which agents the windows count (presenting hides restricted work); when it changes the
+ * next reading is a new first reading, not news, so hiding work is never announced as "clear".
+ * `linkInbox` is false only where no router exists (the theme harness page).
+ */
+export function Annunciator({ windows, scope = "", linkInbox = true }: { windows: readonly AnnunciatorWindow[]; scope?: string; linkInbox?: boolean }) {
   const visible = useVisible();
   // The last confirmed reading of each window: lit or dark. Loading and unavailable confirm nothing,
   // so a window that loses its read is never announced as clear, nor flashes when the read returns.
-  const confirmed = useRef<Map<string, "lit" | "dark"> | undefined>(undefined);
+  const confirmed = useRef<{ scope: string; states: Map<string, "lit" | "dark"> } | undefined>(undefined);
   const [announcement, setAnnouncement] = useState("");
   const [flashing, setFlashing] = useState<ReadonlySet<string>>(new Set());
   const key = windows.map((w) => `${w.id}:${w.state}`).join(",");
   useEffect(() => {
-    const before = confirmed.current;
+    // A new scope starts again from its first reading.
+    const before = confirmed.current?.scope === scope ? confirmed.current.states : undefined;
     const now = new Map(before ?? []);
     for (const w of windows) if (w.state === "lit" || w.state === "dark") now.set(w.id, w.state);
-    confirmed.current = now;
+    confirmed.current = { scope, states: now };
     // The first reading is not news; after that, say what lit and what went dark.
-    if (!before) return;
+    if (!before) {
+      setFlashing(new Set());
+      return;
+    }
     const on = windows.filter((w) => w.state === "lit" && before.get(w.id) === "dark");
     const off = windows.filter((w) => w.state === "dark" && before.get(w.id) === "lit");
     if (on.length + off.length === 0) return;
@@ -58,9 +66,13 @@ export function Annunciator({ windows, linkInbox = true }: { windows: readonly A
     if (on.length === 0) return;
     setFlashing(new Set(on.map((w) => w.id)));
     const t = setTimeout(() => setFlashing(new Set()), FLASH_MS);
-    return () => clearTimeout(t);
+    // A newer change cancels this flash outright, so it can never play again when motion resumes.
+    return () => {
+      clearTimeout(t);
+      setFlashing(new Set());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, scope]);
   return (
     <>
       <ul className="plant-annunciator" aria-label="Annunciator" data-motion={visible ? "running" : "paused"}>

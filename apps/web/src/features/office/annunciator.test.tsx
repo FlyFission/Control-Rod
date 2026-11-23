@@ -7,11 +7,14 @@ import type { AnnunciatorWindow, WindowState } from "./plant-instruments.js";
 
 /** One window whose state the test drives between renders. */
 let setState: (s: WindowState) => void = () => {};
+let setScope: (s: string) => void = () => {};
 function Driven() {
   const [state, set] = useState<WindowState>("dark");
+  const [scope, setS] = useState("all");
   setState = set;
+  setScope = setS;
   const w: AnnunciatorWindow = { id: "stuck", label: "Stuck", state, ...(state === "lit" || state === "dark" ? { count: state === "lit" ? 2 : 0 } : {}) };
-  return <Annunciator windows={[w]} />;
+  return <Annunciator windows={[w]} scope={scope} />;
 }
 const status = () => screen.getByRole("status").textContent;
 const flashing = () => document.querySelector('.plant-window[data-window="stuck"]')!.hasAttribute("data-flash");
@@ -37,5 +40,27 @@ describe("the annunciator's announcements and flash", () => {
     expect(status()).toBe("Stuck lit");
     act(() => setState("dark"));
     expect(status()).toBe("Stuck clear");
+  });
+
+  it("starts again from a first reading when presenting changes who is counted, so hidden work is never announced as clear", async () => {
+    await renderPage(<Driven />);
+    act(() => setState("lit"));
+    expect(status()).toBe("Stuck lit");
+    act(() => {
+      setScope("presenting");
+      setState("dark");
+    });
+    expect(status()).toBe("Stuck lit");
+    expect(flashing()).toBe(false);
+    act(() => setState("lit"));
+    expect(status()).toBe("Stuck lit");
+  });
+
+  it("cancels a flash outright when a newer change arrives", async () => {
+    await renderPage(<Driven />);
+    act(() => setState("lit"));
+    expect(flashing()).toBe(true);
+    act(() => setState("unavailable"));
+    expect(flashing()).toBe(false);
   });
 });

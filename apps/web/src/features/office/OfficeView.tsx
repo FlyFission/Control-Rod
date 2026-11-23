@@ -69,9 +69,13 @@ function useWidth(): [(el: HTMLDivElement | null) => void, number | undefined] {
   return [setEl, width];
 }
 
-/** How often the plant's reads refresh, and how long a reading counts as current without a new one. */
+/**
+ * How often the plant's reads refresh, and how long a reading counts as current without a new one:
+ * its refresh interval (plant view design, section 6), plus a grace for the refresh itself to land, so
+ * a reading is not marked stale while its next refresh is in flight.
+ */
 const REFRESH_MS = 30_000;
-const OVERDUE_MS = 3 * REFRESH_MS;
+const OVERDUE_MS = REFRESH_MS + 10_000;
 
 /** A read as the instruments see it: not current once its refresh failed or is overdue. */
 const readOf = <T,>(q: { data: T | undefined; isError: boolean; dataUpdatedAt: number }, now: number): Read<T> => ({
@@ -204,7 +208,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           <ScramControl presenting={presenting} />
         </div>
       </header>
-      {isPlant && <Annunciator windows={windows} />}
+      {isPlant && <Annunciator windows={windows} scope={presenting ? "presenting" : "all"} />}
       <ScramBanner presenting={presenting} />
       {LENSES.filter((l) => why(l)).map((l) => (
         <p key={l.id} id={`lens-why-${l.id}`} className="office-note">
@@ -285,7 +289,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
         <div className="office-layout" ref={measure} data-stack={stack ? "" : undefined}>
           <div className="office-scroll">
             {showList ? (
-              <PlantList figures={floor.figures} hidden={floor.hidden} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
+              <PlantList figures={floor.figures} hidden={floor.hidden} asOf={instruments.core.asOf} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
             ) : (
               <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} {...(isPlant ? { instruments } : {})} />
             )}
@@ -300,8 +304,8 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
             )}
             {floor.figures.length === 0 && (
               <p className="office-note">
-                {emptyFloorNote(floor.hidden)}
-                {floor.hidden === 0 && (
+                {emptyFloorNote(floor.hidden, coreState(floorRead).asOf)}
+                {floor.hidden === 0 && !floorRead.failed && (
                   <>
                     {" "}
                     Work appears here once a released package has a run. <Link to="/packages">Packages</Link>

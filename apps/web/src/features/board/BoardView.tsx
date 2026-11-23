@@ -386,7 +386,10 @@ export function BoardView() {
       const key = e.key.toLowerCase();
       if (key !== "j" && key !== "k" && key !== "n") return;
       const titles = Array.from(document.querySelectorAll<HTMLButtonElement>(".bd-board button.bd-title, .bd-list button.bd-title"));
-      const idx = titles.indexOf(document.activeElement as HTMLButtonElement);
+      // The current position is the card holding focus, whichever of its controls has it (the title,
+      // Move to, or another button), so N and J/K continue from that card.
+      const holder = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("article.bd-card, .bd-list-row");
+      const idx = titles.findIndex((t) => t === document.activeElement || (holder != null && t.closest("article.bd-card, .bd-list-row") === holder));
       if (key === "n") {
         e.preventDefault();
         // The tone is shown only while the stream is live and the card's reads are current, so a card

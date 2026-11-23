@@ -13,6 +13,16 @@ export const SINGLE_KEYS_EVENT = "cr:single-keys";
 
 let inPage: boolean | undefined;
 
+// A choice made in another tab of this browser wins over this page's copy, so turning shortcuts off
+// anywhere turns them off everywhere without a reload.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key !== KEY && e.key !== null) return;
+    inPage = e.key === null ? undefined : e.newValue !== "off";
+    window.dispatchEvent(new Event(SINGLE_KEYS_EVENT));
+  });
+}
+
 export function singleKeysOn(): boolean {
   if (inPage !== undefined) return inPage;
   return readString(KEY) !== "off";

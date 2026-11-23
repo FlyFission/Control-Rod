@@ -749,6 +749,27 @@ describe("BoardView", () => {
     expect(document.activeElement).toBe(two);
   });
 
+  it("N continues from the card that holds focus, even when a button other than its title has it", async () => {
+    const release: ActionDescriptor = { command: "release", label: "Release", allowed: true, signature: "direct" };
+    api({
+      packages: [pkg({ id: "WP-2", title: "Wants a release" }), pkg({ id: "WP-4", title: "Wants another release" })],
+      actions: { "WP-2": [release], "WP-4": [release] },
+    });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const two = await screen.findByRole("button", { name: "Wants a release" });
+    const four = await screen.findByRole("button", { name: "Wants another release" });
+    await waitFor(() => {
+      expect(two.closest("article")?.getAttribute("data-tone")).toBe("needs");
+      expect(four.closest("article")?.getAttribute("data-tone")).toBe("needs");
+    });
+    const other = Array.from(two.closest("article")!.querySelectorAll("button")).find((b) => b !== two);
+    expect(other).toBeTruthy();
+    other!.focus();
+    await user.keyboard("n");
+    expect(document.activeElement).toBe(four);
+  });
+
   it("N says so when no card on the view is marked Needs you or Blocked", async () => {
     api({ packages: [pkg({ id: "WP-1", title: "Quiet one" })] });
     await renderPage(<Page />);

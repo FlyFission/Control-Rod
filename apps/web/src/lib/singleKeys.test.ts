@@ -12,6 +12,13 @@ describe("single-key shortcuts switch", () => {
     expect(singleKeysOn()).toBe(false);
     expect(window.localStorage.getItem("cr.single-key-shortcuts")).toBe("off");
   });
+  it("follows a choice made in another tab of this browser", () => {
+    setSingleKeys(true);
+    window.dispatchEvent(new StorageEvent("storage", { key: "cr.single-key-shortcuts", newValue: "off" }));
+    expect(singleKeysOn()).toBe(false);
+    window.dispatchEvent(new StorageEvent("storage", { key: "cr.single-key-shortcuts", newValue: "on" }));
+    expect(singleKeysOn()).toBe(true);
+  });
   it("still turns off for this page when browser storage refuses the write", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("blocked", "SecurityError");

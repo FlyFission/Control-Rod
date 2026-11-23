@@ -1,0 +1,61 @@
+## R7-3 the version runs to the end of the word (mutated)
+    agentupdate_test.go:243: ParseVersion("1.2.3-") = "1.2.3", want ""
+    agentupdate_test.go:243: ParseVersion("tool 1.2.3+build.5") = "1.2.3", want ""
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.004s
+FAIL
+## R7-3 the version runs to the end of the word (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.004s
+## R7-3 a non-strict installed version is not read (mutated)
+    agentupdate_test.go:243: ParseVersion("tool 1.2.3+build.5") = "1.2.3+build.5", want ""
+    agentupdate_test.go:243: ParseVersion("1.2.3-rc.01") = "1.2.3-rc.01", want ""
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.003s
+FAIL
+## R7-3 a non-strict installed version is not read (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	(cached)
+## R7-3 the report treats non-strict versions as unchecked (mutated)
+--- FAIL: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
+    updates_test.go:137: fresh incomplete check: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{runner.AgentUpdate{Agent:"claude", Name:"Claude Code", Installed:"1.0.9999999999999999999999999999999999999999999999999999999999999999999999", Latest:"2.0.0", NpmGlobal:true, Note:""}, runner.AgentUpdate{Agent:"codex", Name:"Codex CLI", Installed:"0.170.0+build", Latest:"0.171.0", NpmGlobal:true, Note:""}}, Unchecked:[]string{"grok"}}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.008s
+FAIL
+## R7-3 the report treats non-strict versions as unchecked (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.008s
+## R7-5 agents names agy in the mixed case (mutated)
+          Grok CLI         1.0.92 (latest)
+          Antigravity CLI  1.4.0 (not checked)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
+FAIL
+## R7-5 agents names agy in the mixed case (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
+## R7-5 update names agy in the mixed case (mutated)
+    agents_test.go:137: agents update: code 0:
+        Every agent is up to date.
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+FAIL
+## R7-5 update names agy in the mixed case (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	(cached)
+## R7-2 the API keeps one row per agent (mutated)
+     × shows what the daemon reported, dropping malformed entries 21ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ { agent: 'grok', …(4) }, …(2) ] to deeply equal [ { agent: 'grok', …(4) }, …(1) ]
+      Tests  1 failed | 3 passed (4)
+## R7-2 the API keeps one row per agent (restored)
+      Tests  4 passed (4)
+## R7-2 the panel shows one row per agent and version (mutated)
+     × shows one row per agent and version, and copies the one clicked 1009ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+          [0m×[0m
+              [0m×[0m
+## R7-2 the panel shows one row per agent and version (restored)
+      Tests  6 passed (6)
+## R7-2 Copy state is keyed by agent and version (mutated)
+     × offers no install button: copying the command sends nothing 1039ms
+     × shows one row per agent and version, and copies the one clicked 1021ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      [0m×[0m
+## R7-2 Copy state is keyed by agent and version (restored)
+      Tests  6 passed (6)

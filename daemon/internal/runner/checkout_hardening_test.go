@@ -523,3 +523,26 @@ func TestCheckoutBeforeStartRefusesAPathSwappedAfterPreparation(t *testing.T) {
 		t.Fatal("a directory swapped in after preparation was accepted")
 	}
 }
+
+// Cleanup removes only the directory it reserved. A real directory moved into its name survives.
+func TestCheckoutCleanupLeavesAReplacedRunDirectoryAlone(t *testing.T) {
+	b := checkoutFixture(t)
+	ws, err := Prepare(t.TempDir(), authorCheckoutJob(t, "replaced", b, checkoutEditScript))
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := filepath.Join(b.Path, ".controlrod-run-replaced")
+	if err := os.Rename(run, filepath.Join(b.Path, "moved-away")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(run, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(run, "uncommitted.txt"), []byte("mine"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ws.releaseCheckout()
+	if got, err := os.ReadFile(filepath.Join(run, "uncommitted.txt")); err != nil || string(got) != "mine" {
+		t.Fatalf("cleanup deleted a directory it did not reserve: %q %v", got, err)
+	}
+}

@@ -70,6 +70,10 @@ The checkout is opened once and compared with the validated path by device and i
 
 The run directory is opened at reservation and must be the directory created; staging and capture use that handle. `beforeStartCheck` also requires the checkout path to still name the held directory. The API requires a bound worktree's common Git directory to equal the named base clone's, and refuses a succeeded bound run with no trace. Results: `go test ./...` in `daemon/` had only the known failure (229 top-level tests passed, 14 skipped, 1 failed); `go vet ./...` and `GOOS=windows go vet ./internal/runner` passed; `pnpm --filter ./services/api test` passed 70 files and 846 tests; `pnpm -r run typecheck` passed. `spec/` is unchanged this round, so `spec-generation.log` still matches. With the reservation identity check disabled, `TestCheckoutRunDirectorySwappedForLinkIsRefused` fails (using a relative link; `os.Root` itself refuses an absolute one).
 
+### Fifth fix round
+
+Cleanup compares the held run handle with the entry at the run directory's name and removes only the same directory (`TestCheckoutCleanupLeavesAReplacedRunDirectoryAlone`). The API refuses a succeeded bound run whose trace has no `checkout_final` or whose `checkout_final.branch` differs from the frozen branch (`runs.test.ts`). Results: `go test ./...` in `daemon/` had only the known failure (230 top-level tests passed, 14 skipped, 1 failed); API suite 846 of 847 passed on the full run, the one failure being the known SEC-07 load flake, which passed when rerun alone; typecheck passed.
+
 ## Required links
 
 [Basis](basis.md), [plan](plan.md), [risk](risk.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

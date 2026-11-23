@@ -2271,6 +2271,14 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     if (!isDeepStrictEqual(body.trace.checkout, row.body.checkout)) {
       throw new Refusal(400, "invalid-trace", "The execution trace's checkout does not match the checkout frozen into the run");
     }
+    // What the daemon found after the run must agree with the frozen branch; a success needs it.
+    if (row.body.checkout && body.status === "succeeded") {
+      const final = body.trace.checkout_final;
+      if (!final) throw new Refusal(400, "invalid-trace", "A succeeded run bound to a checkout must report the checkout it found after the run");
+      if (final.branch !== row.body.checkout.branch) {
+        throw new Refusal(400, "invalid-trace", "The checkout the daemon found after the run is on a different branch than the one frozen into the run");
+      }
+    }
   }
   const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
   delete finished.lease_expires_at;

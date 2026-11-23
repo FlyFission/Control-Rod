@@ -143,7 +143,7 @@ describe("launch inputs", () => {
           git_dir: git(path, "rev-parse", "--absolute-git-dir"), common_dir: git(path, "rev-parse", "--path-format=absolute", "--git-common-dir") },
       });
       const frozenCheckout = (author!.run as unknown as { checkout: object }).checkout;
-      const completed = await asDaemon(`/runner/runs/${author!.run.id}/complete`, { status: "succeeded", trace: trace(author!, { checkout: frozenCheckout }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+      const completed = await asDaemon(`/runner/runs/${author!.run.id}/complete`, { status: "succeeded", trace: trace(author!, { checkout: frozenCheckout, checkout_final: { branch: "topic", head: (frozenCheckout as { head: string }).head } }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
       expect(completed.statusCode, completed.body).toBeLessThan(300);
       const checker = await claim(["codex"], true);
       expect(checker?.run).toMatchObject({ role: "pre-check", package_id: id });
@@ -195,6 +195,31 @@ describe("launch inputs", () => {
       const r = await complete(author, { status: "succeeded", outputs: [{ name: "p.md", content_base64: b64("# P") }] });
       expect(r.json().refusal.code).toBe("invalid-trace");
       expect((await runRow(author.run.id))?.status).toBe("failed");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a bound success whose trace lacks the checkout found afterwards or found it on another branch", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-final-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      for (const [key, finalOf] of [["FINALNONE", () => undefined], ["FINALOTHER", (h: string) => ({ branch: "other", head: h })]] as const) {
+        await releasedPackage(key, "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+        const author = (await claim(["fake"], true)) as Job;
+        const frozen = (author.run as unknown as { checkout: { head: string } }).checkout;
+        const fin = finalOf(frozen.head);
+        const r = await complete(author, { status: "succeeded", trace: trace(author, { checkout: frozen, ...(fin ? { checkout_final: fin } : {}) }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+        expect(r.json().refusal.code, key).toBe("invalid-trace");
+        expect((await runRow(author.run.id))?.status).toBe("failed");
+      }
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

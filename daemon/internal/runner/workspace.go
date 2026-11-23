@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -165,7 +166,20 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 		// The run directory is this run's own; it is removed with the custody so it is not left in
 		// the user's checkout. Removal goes through the handle and never follows a link.
 		unlock := release
-		release = func() { rr.Close(); _ = removeAllIn(cr, name); cr.Close(); unlock() }
+		release = func() {
+			// Only the directory this run reserved is removed. If the name now holds anything else
+			// (the author renamed ours and moved a real directory into its place), leave it alone.
+			if opened, err := rr.Stat("."); err == nil {
+				if named, lerr := cr.Lstat(name); lerr == nil && os.SameFile(opened, named) {
+					_ = removeAllIn(cr, name)
+				} else if lerr == nil {
+					slog.Warn("run directory was replaced during the run; left in place", "path", filepath.Join(job.Run.Checkout.Path, name))
+				}
+			}
+			rr.Close()
+			cr.Close()
+			unlock()
+		}
 		ws = &Workspace{Dir: job.Run.Checkout.Path, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out"), Checkout: job.Run.Checkout, releaseCheckout: release, checkoutRoot: cr, runRoot: rr}
 		for i, in := range job.Inputs {
 			paths[i], _ = inputPath(ws.Inputs, in.Name) // already validated above

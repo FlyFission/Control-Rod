@@ -29,7 +29,7 @@ Named examples, by reactions: "Make login non-required" (Paradev, 23), "Why do I
 | --- | --- | --- |
 | One shell line per OS (`curl … \| sh`, PowerShell `irm … \| iex`), plus Homebrew | herdr, herdr-app, agent-of-empires, Mistral Vibe | A prebuilt binary with the web app embedded and the database bundled, installed by one line per OS and by `brew` |
 | A desktop download for every OS, with the daemon run for you | Orchestrator, emdash, Nimbalyst, Paradev (macOS first) | The desktop shell in the plan's craft track, later; the one-line install comes first |
-| `npx <name>` with nothing else | Vibe Kanban, Paperclip | Optional, and only if it does not make Node a requirement for people who install the binary |
+| One `npx` command | Vibe Kanban: `npx vibe-kanban` (README at `3f095f0186f6e68d67143d38b02da2238f6524d8`); Paperclip: `npx paperclipai@latest onboard --yes`, with Node.js 24.11 or newer (README at `427d13c38c63133bc6a86f48557896f302a3dbeb`) | Optional, and only if it does not make Node a requirement for people who install the binary |
 | Detect installed agent CLIs automatically | emdash, Orchestrator, herdr | Find every supported CLI on PATH and its sign-in state; seat them by default |
 | The one prerequisite is an agent CLI you are already signed in to | Paradev (plus Git) | Same, and say so in one line on the install page |
 | Hand the install guide to your agent | Paperclip | Only if the guide is plain commands. A captured issue title in another project reports a prompt-injection complaint about its install guide |

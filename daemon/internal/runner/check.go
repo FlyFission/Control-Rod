@@ -1149,6 +1149,7 @@ func FormatCheckReceipt(r CheckResult) string {
 		DiffSHA256     string `json:"diff_sha256"`
 		CriteriaSHA256 string `json:"criteria_sha256"`
 		Outcome        string `json:"outcome"`
+		Standalone     bool   `json:"standalone"`
 	}{
 		PackageID:      sanitizeInline(r.PackageID),
 		Revision:       r.Revision,
@@ -1156,6 +1157,7 @@ func FormatCheckReceipt(r CheckResult) string {
 		DiffSHA256:     r.DiffDigest.Value,
 		CriteriaSHA256: r.CriteriaDigest.Value,
 		Outcome:        sanitizeInline(r.Outcome),
+		Standalone:     true,
 	}
 	if rawBinding, err := json.Marshal(binding); err == nil {
 		fmt.Fprintf(&b, "<!-- controlrod-check-binding: %s -->\n", rawBinding)

@@ -564,6 +564,9 @@ echo '{"type":"result","subtype":"success"}'
 	if res.Revision != 3 || res.HeadSHA == "" || res.BaseSHA == "" {
 		t.Fatalf("expected revision/base/head SHA populated, got rev=%d base=%q head=%q", res.Revision, res.BaseSHA, res.HeadSHA)
 	}
+	if !strings.Contains(res.ReceiptMarkdown, `"standalone":true`) {
+		t.Fatalf("standalone receipt binding must say standalone:\n%s", res.ReceiptMarkdown)
+	}
 	if !strings.Contains(res.ReceiptMarkdown, "<!-- controlrod-check-binding:") ||
 		!strings.Contains(res.ReceiptMarkdown, res.DiffDigest.Value) ||
 		!strings.Contains(res.ReceiptMarkdown, "pnpm cr verify --receipt") {

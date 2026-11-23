@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,7 +72,7 @@ export async function verifyBundleText(text: string, opts?: VerifyBundleOptions)
     if (found.kind !== "package") {
       return { code: 1, lines: [`FAIL  ${name}: a time-window audit export cannot prove acceptance of a PR revision or diff.`] };
     }
-    const link = checkBundleReceiptBinding(found.b, check.authenticated, opts);
+    const link = checkBundleReceiptBinding(found.b, check.authenticated, { ...opts, bundleDigest: createHash("sha256").update(text, "utf8").digest("hex") });
     if (link.problem) {
       return { code: 1, lines: [`FAIL  ${name}: ${link.problem}.`] };
     }

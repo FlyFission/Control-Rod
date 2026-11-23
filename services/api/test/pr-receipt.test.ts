@@ -272,6 +272,31 @@ describe("PR receipt", () => {
     const srv = await verifyBundleText(JSON.stringify(staleRound), { expectedDiffSha256: diff, expectedRevision: 0 });
     expect(srv.code).toBe(1);
 
+    // A marker flagged standalone cannot carry a person's acceptance; a relabelled heading is still governed.
+    const flagged = md.replace("controlrod-check-binding: {", 'controlrod-check-binding: {"standalone":true,');
+    const flaggedR = await verifyBundleText(JSON.stringify(sealed), { receiptText: flagged });
+    expect(flaggedR.code).toBe(1);
+    expect(flaggedR.lines[0]).toContain("standalone receipt must not claim");
+    const relabelled2 = md.replace("### Control Rod receipt", "### Control Rod check summary (standalone, unaccepted)\n- **Accepted by:** not accepted in Control Rod (standalone check)");
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: relabelled2 })).code).toBe(1);
+
+    // Only the bundle path in the verify line is masked: a different path passes, an edited remainder fails.
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: md.replace("rt.json", "other/place.json") })).code).toBe(0);
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: md.replace("bundle key, ownership unconfirmed", "trusted key") })).code).toBe(1);
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: md.replace(/sealed by `[^`]*`/, "sealed by `x`") })).code).toBe(1);
+
+    // A head recorded only in another round does not head-bind.
+    const otherRoundHead = makeSealedBundle("WP-RT-5", [
+      { type: "package.created", subject: "WP-RT-5" },
+      { type: "run.succeeded", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-RT-5", role: "author", round: 1, head_sha: head, outputs: [{ name: "a.patch", sha256: "8".repeat(64) }] } },
+      { type: "run.succeeded", subject: "R-2", actor: { kind: "agent", id: "claude" }, data: { package: "WP-RT-5", role: "author", round: 2, outputs: [{ name: "b.patch", sha256: diff }] } },
+      { type: "package.pre-checked", subject: "WP-RT-5", actor: { kind: "agent", id: "codex" }, data: { revision: 0, round: 2, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-RT-5", actor: { kind: "human", id: "mem_owner" }, data: { revision: 0, decision: "D-1", subject_digest: digestVal } },
+    ]);
+    const ohr = await verifyBundleText(JSON.stringify(otherRoundHead), { expectedDiffSha256: diff, expectedRevision: 0, expectedHeadSha: head });
+    expect(ohr.code, ohr.lines.join("\n")).toBe(0);
+    expect(ohr.lines.join("\n")).toContain("not head-bound");
+
     // Explicit options that disagree with the receipt's binding fail instead of overriding it.
     const conflict = await verifyBundleText(JSON.stringify(sealed), { receiptText: md, expectedDiffSha256: "f".repeat(64) });
     expect(conflict.code).toBe(1);

@@ -288,6 +288,10 @@ export interface ReceiptBindingExpectation {
   expectedDiffSha256?: string | undefined;
   expectedHeadSha?: string | undefined;
   receiptText?: string | undefined;
+  /** Set by parsing: the binding says it is a standalone check, or the text is a bare JSON verdict (no Markdown claims). */
+  standalone?: boolean | undefined;
+  /** SHA-256 hex of the bundle file text, so the regenerated verify line can match exactly. */
+  bundleDigest?: string | undefined;
   /** External trust anchors; they change how the accepted-by line is rendered, so receipt claims are compared under them. */
   trustedSealKeys?: ReadonlyMap<string, string> | undefined;
 }
@@ -346,6 +350,7 @@ export function extractBundleInspection(
   const authorOutputsByRound = new Map<number, Set<string>>();
   let latestOutputs = new Set<string>();
   const recordedHeadShas = new Set<string>();
+  const headsByRound = new Map<number, Set<string>>();
   let latestAuthorOutput: string | undefined;
   let preCheckRevision: number | undefined;
   let checker: PrReceiptChecker | undefined;
@@ -358,6 +363,7 @@ export function extractBundleInspection(
     authorOutputsByRound.clear();
     latestOutputs = new Set<string>();
     recordedHeadShas.clear();
+    headsByRound.clear();
     latestAuthorOutput = undefined;
     preCheckRevision = undefined;
     checker = undefined;
@@ -384,7 +390,9 @@ export function extractBundleInspection(
       if (hasOutputs && typeof e.actor?.id === "string" && e.actor.id) {
         latestAuthorOutput = e.actor.id;
         const roundDigests = new Set<string>();
-        collectOutputsAndRefs(data, roundDigests, recordedHeadShas);
+        const roundHeads = new Set<string>();
+        collectOutputsAndRefs(data, roundDigests, roundHeads);
+        if (typeof data.round === "number") headsByRound.set(data.round, roundHeads);
         if (roundDigests.size > 0) latestOutputs = new Set(roundDigests);
         if (typeof data.round === "number") {
           authorByRound.set(data.round, e.actor.id);
@@ -397,6 +405,7 @@ export function extractBundleInspection(
       if (typeof data.round === "number") {
         authorByRound.delete(data.round);
         authorOutputsByRound.delete(data.round);
+        headsByRound.delete(data.round);
       }
     }
 
@@ -409,7 +418,13 @@ export function extractBundleInspection(
       if (typeof e.actor?.id === "string" && e.actor.id) {
         latestAuthorOutput = e.actor.id;
         const outDigests = new Set<string>();
-        collectOutputsAndRefs(data, outDigests, recordedHeadShas);
+        const outHeads = new Set<string>();
+        collectOutputsAndRefs(data, outDigests, outHeads);
+        if (typeof data.round === "number") {
+          const hs = headsByRound.get(data.round) ?? new Set<string>();
+          for (const h of outHeads) hs.add(h);
+          headsByRound.set(data.round, hs);
+        }
         for (const d of outDigests) latestOutputs.add(d);
         if (typeof data.round === "number") {
           authorByRound.set(data.round, e.actor.id);
@@ -438,6 +453,9 @@ export function extractBundleInspection(
       if (rev !== undefined) currentRevision = rev;
       preCheckRevision = rev;
       // Only patch outputs of the accepted pre-check's own round bind; a round with no patch has no diff binding.
+      // Only a head recorded in the accepted pre-check's own round counts.
+      recordedHeadShas.clear();
+      if (round !== undefined) for (const h of headsByRound.get(round) ?? []) recordedHeadShas.add(h);
       latestOutputs = new Set(round !== undefined ? (authorOutputsByRound.get(round) ?? []) : []);
       if (round !== undefined) latestAuthorOutput = authorByRound.get(round);
       collectOutputsAndRefs(data, latestOutputs, recordedHeadShas);
@@ -555,7 +573,7 @@ export function parseReceiptBinding(text: string): ReceiptBindingExpectation | n
       const headSha = typeof obj.head_sha === "string" && /^[0-9a-f]{7,64}$/i.test(obj.head_sha.trim()) ? obj.head_sha.trim().toLowerCase() : undefined;
       const packageId = typeof obj.package_id === "string" && obj.package_id ? obj.package_id : undefined;
       if (diffVal || rev !== undefined || headSha) {
-        return { packageId, expectedRevision: rev, expectedDiffSha256: diffVal?.toLowerCase(), expectedHeadSha: headSha };
+        return { packageId, expectedRevision: rev, expectedDiffSha256: diffVal?.toLowerCase(), expectedHeadSha: headSha, standalone: true };
       }
     } catch {
       return null;
@@ -570,7 +588,7 @@ export function parseReceiptBinding(text: string): ReceiptBindingExpectation | n
       const headSha = typeof obj.head_sha === "string" && /^[0-9a-f]{7,64}$/i.test(obj.head_sha.trim()) ? obj.head_sha.trim().toLowerCase() : undefined;
       const packageId = typeof obj.package_id === "string" && obj.package_id ? obj.package_id : undefined;
       if (diffVal || rev !== undefined || headSha) {
-        return { packageId, expectedRevision: rev, expectedDiffSha256: diffVal?.toLowerCase(), expectedHeadSha: headSha };
+        return { packageId, expectedRevision: rev, expectedDiffSha256: diffVal?.toLowerCase(), expectedHeadSha: headSha, standalone: obj.standalone === true };
       }
     } catch {
       return null;
@@ -579,26 +597,25 @@ export function parseReceiptBinding(text: string): ReceiptBindingExpectation | n
   return null;
 }
 
-const STANDALONE_HEADING = "### Control Rod check summary (standalone, unaccepted)";
 const STANDALONE_ACCEPTED = "- **Accepted by:** not accepted in Control Rod (standalone check)";
 
-/** A standalone `controlrod check` summary: its own heading, no bundle claims, and no accepting person. */
-function isStandaloneSummary(md: string): boolean {
+/** True when the text makes no claim about a person: no bundle claim lines, and any accepted-by line is the standalone one. */
+function makesNoPersonClaim(md: string): boolean {
   const lines = md.split(/\r?\n/).map((l) => l.trimEnd());
-  if (!lines.includes(STANDALONE_HEADING)) return false;
   if (lines.some((l) => /^- \*\*(?:Package|Written by):\*\*/.test(l) || l === "### Control Rod receipt")) return false;
-  return lines.filter((l) => l.startsWith("- **Accepted by:**")).every((l) => l === STANDALONE_ACCEPTED);
+  return lines.filter((l) => /^- \*\*Accepted by/.test(l)).every((l) => l === STANDALONE_ACCEPTED);
 }
 
-const VERIFY_LINE = "- **Verify offline:**";
+const PATH_TOKEN = "BUNDLE_PATH_TOKEN";
+const VERIFY_PATH = /(`pnpm cr verify(?: --receipt pr-receipt\.md)? )([^`]*)(`)/;
 
-/** Normalises line endings and trailing space; the single path-dependent verify line is masked. */
+/** Normalises line endings and trailing space; only the bundle path inside the verify command is masked. */
 function receiptSectionLines(md: string): string[] {
   return md
     .replace(/\r\n?/g, "\n")
     .replace(/\s+$/, "")
     .split("\n")
-    .map((l) => (l.startsWith(VERIFY_LINE) ? VERIFY_LINE : l));
+    .map((l) => (l.startsWith("- **Verify offline:**") ? l.replace(VERIFY_PATH, `$1${PATH_TOKEN}$3`) : l));
 }
 
 export function checkBundleReceiptBinding(
@@ -636,6 +653,8 @@ export function checkBundleReceiptBinding(
       expectedDiffSha256: expect.expectedDiffSha256 ?? parsed.expectedDiffSha256,
       expectedHeadSha: expect.expectedHeadSha ?? parsed.expectedHeadSha,
       trustedSealKeys: expect.trustedSealKeys,
+      bundleDigest: expect.bundleDigest,
+      standalone: parsed.standalone,
     };
   }
 
@@ -656,19 +675,22 @@ export function checkBundleReceiptBinding(
     return { problem: "the bundle has no active authenticated human acceptance matching its current pre-check and revision" };
   }
 
-  if (
-    expect.receiptText !== undefined &&
-    /<!--\s*controlrod-check-binding:/.test(expect.receiptText) &&
-    !isStandaloneSummary(expect.receiptText)
-  ) {
-    // A Control Rod bundle receipt is regenerated from the bundle and must equal it line for line
-    // (only the path-dependent verify line is masked): no extra lines, no fences, no edits.
-    const trusted = isSealKeyTrusted(bundle, authenticated, resolved.trustedSealKeys ? { trustedSealKeys: resolved.trustedSealKeys } : undefined);
-    const regenerated = formatPrReceipt(extractBundleInspection(bundle, authenticated, trusted, "", "").input);
-    const want = receiptSectionLines(regenerated);
-    const got = receiptSectionLines(expect.receiptText);
-    if (want.length !== got.length || want.some((l, i) => l !== got[i])) {
-      return { problem: "the receipt's claims (package, writer, checker, verdict, accepting person) do not match what this bundle shows (the receipt must equal the section regenerated from the bundle, with no extra or fenced lines)" };
+  if (expect.receiptText !== undefined) {
+    if (resolved.standalone) {
+      // A standalone binding is exempt from the compare but may never carry an acceptance claim.
+      if (!makesNoPersonClaim(expect.receiptText)) {
+        return { problem: "a standalone receipt must not claim a package, writer or accepting person" };
+      }
+    } else {
+      // A governed receipt is regenerated from the bundle and must equal it line for line (only the
+      // bundle path inside the verify command is masked): no extra lines, no fences, no edits.
+      const trusted = isSealKeyTrusted(bundle, authenticated, resolved.trustedSealKeys ? { trustedSealKeys: resolved.trustedSealKeys } : undefined);
+      const regenerated = formatPrReceipt(extractBundleInspection(bundle, authenticated, trusted, PATH_TOKEN, resolved.bundleDigest ?? "").input);
+      const want = receiptSectionLines(regenerated);
+      const got = receiptSectionLines(expect.receiptText);
+      if (want.length !== got.length || want.some((l, i) => l !== got[i])) {
+        return { problem: "the receipt's claims (package, writer, checker, verdict, accepting person) do not match what this bundle shows (the receipt must equal the section regenerated from the bundle, with no extra or fenced lines)" };
+      }
     }
   }
 

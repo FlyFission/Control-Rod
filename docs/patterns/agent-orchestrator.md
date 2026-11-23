@@ -60,8 +60,9 @@ Slices 2 to 8 (#139 to #146) built parts of this plan, and every one failed its 
 | Items | Outcome |
 | --- | --- |
 | `AO-1` to `AO-4` (worktree manager) | Not carried: #135 binds runs to the selected worktree through the API instead. The review findings stand as cautions: delete only registered worktrees, harden every git config key that can run a command, and honour cancellation in teardown. |
-| `AO-6` (home lock, probe health) | Being reworked from #139, with the breaker counting only failed probes. |
-| `AO-7`, `AO-8` (binary resolution, sign-in probe) | Being reworked from #141 onto main, after the first-run setup lands. |
+| `AO-5` (package layering) | Deferred: no slice split `daemon/internal/runner`, and the worktree package it would have started with is not carried. |
+| `AO-6` (home lock, probe health) | Reworked in #139: the lock names its holder, and one timed-out probe keeps a ready runtime offered for one pass. The probe-health breaker was dropped. |
+| `AO-7`, `AO-8` (binary resolution, sign-in probe) | Reworked in #141: probes run the runtime artifact a launch resolves. The separate resolver and sign-in prober packages were dropped. |
 | `AO-9` to `AO-13` | Deferred: #140 and #144 closed. Nothing called the code, and the reviews found command execution through git filter drivers in the snapshot code and fail-open checks in the reviewer gateway. |
 | `AO-14` (`DESIGN.md`) | Dropped for now: the draft described the office themes that the Plant view replaces. |
 | `AO-15`, `AO-16` | Shipped in part in #159: attention-first column order, a spinner only for running runs, and a fallback line when a different model answered. Board search was already on main; `Cmd/Ctrl+F` was dropped because it took over browser find. |

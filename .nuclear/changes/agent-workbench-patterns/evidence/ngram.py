@@ -14,7 +14,8 @@ while i <= len(mine) - N:
     if " ".join(mine[i:i+N]) in src:
         j = i
         while j <= len(mine) - N and " ".join(mine[j:j+N]) in src: j += 1
-        runs.append(" ".join(mine[i:j+N-1])); i = j + N - 1
+        # Resume at the first start that did not match, so a later overlapping run is never skipped.
+        runs.append(" ".join(mine[i:j+N-1])); i = j
     else: i += 1
 print(f"n={N} note={note.name} sources={[s.name for s in sources]}")
 print(f"shared {N}-word grams: {len(hits)}; maximal runs: {len(runs)}")

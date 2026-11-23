@@ -5,7 +5,7 @@ Evidence status: **pass** for the checks below. The web evidence that was E-01 m
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-02 | pass | The change record validates with the pinned `ng.py validate --strict-custody`, and `tools/check_owner_decisions.py` passes. | `evidence/record-checks.log` |
-| E-03 | pass with one kept run | Six-word overlap between the note and the four kept source texts: 4 runs before rewording, 1 after. The kept run is a list of three common nouns ("failed checks, review comments and merge conflicts"). The Claude Code desktop page was not kept as a file, so it is not in the comparison. | `evidence/ngram.py`, `evidence/ngram-before.txt`, `evidence/ngram-after.txt`, `evidence/sources.sha256` |
+| E-03 | pass with one kept run | Six-word overlap between the note and the four kept source texts: 4 runs before rewording, 1 after. The kept run is a list of three common nouns ("failed checks, review comments and merge conflicts"). The Claude Code desktop page was not kept as a file, so it is not in the comparison. The listing was made by an earlier `ngram.py` that resumed past a run's end and could leave an overlapping run unlisted (fixed since); this result is complete anyway, because the one listed 7-word run holds exactly the 2 shared six-word grams the script counted. | `evidence/ngram.py`, `evidence/ngram-before.txt`, `evidence/ngram-after.txt`, `evidence/sources.sha256` |
 
 ## Evidence custody and coupling
 

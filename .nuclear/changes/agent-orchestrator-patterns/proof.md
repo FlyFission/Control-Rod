@@ -12,7 +12,7 @@
 Claim: four statements, one per bullet.
 - `docs/patterns/agent-orchestrator.md` carries ideas only from `OrchestratorInc/agent-orchestrator` (Apache-2.0, commit `7c65ce3cfc0fc0cd9c71d00ad94391d7bf2bc771`, snapshot `2026-11-22`), maps all 16 patterns (`AO-1`–`AO-16`) to `#118`–`#133` and `M5`–`M8`, records what happened to each after the first build attempt (#139 to #146), documents trust-model and UI exclusions, and records battle-scar hardening test targets from `#7402`–`#8887`. It states no measured figure: an earlier draft's percentages had no script or inputs and were removed.
 - `docs/patterns/README.md` indexes `agent-orchestrator.md` and `agent-workbenches.md` (record: `agent-workbench-patterns`).
-- Repository originality, public-claims, whitespace, and Nuclear-grade change-record checks pass.
+- Repository originality and whitespace checks pass; the public-claims check has one finding, which is on `main` in a file this change does not touch; the change-record check is CI's.
 - Nothing under `.github/workflows/`, `policies/`, `tests/redteam/`, `spec/`, `kernel/`, or `docs/adr/` changed.
 
 ## Method
@@ -23,7 +23,7 @@ Claim: four statements, one per bullet.
   - `git diff --check` (and `git diff --cached --check`);
   - `git diff origin/main --stat -- .github/workflows policies tests/redteam spec kernel docs/adr`;
   - the pinned `ng.py validate --strict-custody` that CI runs on every change record (`.github/workflows/ci.yml`, job `change-records`).
-- Environment: Linux, Python 3, branch `feat/ao-s1-patterns` with `origin/main` at `69c7f0bf` merged in.
+- Environment: Linux, Python 3, branch `feat/ao-s1-patterns` with `origin/main` at `48742b9d` merged in.
 - Inputs/fixtures: the note itself, and existing Control Rod files. The note was first drafted from a review dossier kept outside the repository; that dossier is not an input to this proof. Each citation in the note names a file and line range in `OrchestratorInc/agent-orchestrator` at commit `7c65ce3cfc0fc0cd9c71d00ad94391d7bf2bc771`, which is public, so a reviewer checks a citation by opening that file at that commit.
 - Expected result: one per check.
   - `originality check passed` (exit 0);
@@ -40,10 +40,10 @@ Claim: four statements, one per bullet.
 
 ## Result
 
-- Status: **checks pass; merge waits on a person's wording check** (see Gaps). This proof does not claim the wording check.
+- Status: **partial.** Originality, whitespace and trust-surface checks pass. Public claims: one finding, a baseline exception (below). Strict custody: not run locally; CI's `change-records` job is the result. Merge waits on a person's wording check (see Gaps), which this proof does not claim.
 - Actual result, on the reworked branch (2026-11-23):
   - `python3 tools/check_originality.py` -> `originality check passed` (exit 0)
-  - `python3 tools/check_public_claims.py` -> one finding, in `apps/web/src/components/AgentPanel.tsx`, a file this change does not touch (it is on `main`); no finding in `docs/patterns/`
+  - `python3 tools/check_public_claims.py` -> one finding, in `apps/web/src/components/AgentPanel.tsx`, a file this change does not touch. Baseline exception: the same finding is reported on `origin/main`, so it is not this change's; no finding in `docs/patterns/`.
   - `git diff --check origin/main` -> no output (exit 0)
   - `git diff origin/main --stat -- .github/workflows policies tests/redteam spec kernel docs/adr` -> no output (exit 0)
   - `ng.py validate --strict-custody`: left to the CI `change-records` job, which pins the validator; not run locally.
@@ -55,6 +55,7 @@ Claim: four statements, one per bullet.
 - **Merge condition.** A person who did not write `docs/patterns/agent-orchestrator.md` compares it with the upstream files at the pinned commit for copied wording, as `docs/patterns/README.md` requires, and their name, the date and the result are added here. Not yet done.
 - The first draft of this proof reported "pass" while that check was still pending, cited an off-repo dossier and validator path, and the note named helpers that do not exist in Control Rod (`physicalAbs`, `validateManagedPath`, `ErrPathOccupied`). All three were found by the blind review on 2026-11-22 and are corrected in this rework.
 - Implementation status per item is in the note's "Status after the first build attempt" section.
+- Blind check by a different vendor than the author (Codex, read-only) at `c280eb6b`: FIX FIRST, 2 P1 and 3 P2, all reasoned. Fixed in the next commit: this summary said "checks pass" with a public-claims finding and no strict-custody result (now stated as above); the workbench note said AW1 to AW4 were done in this change (they are in #159); `ngram.py` could leave an overlapping run unlisted (fixed; E-03's listing is shown complete); `AO-5` had no outcome (added). The wording check by a person is still open and is the merge condition.
 
 ## Reviewer note
 

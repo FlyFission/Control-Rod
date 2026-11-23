@@ -30,6 +30,10 @@ The owner asked (2026-11-23) for "the end user decides where they come into the 
 
 The owner asked (2026-11-23) to quantify why a separate checker beats self-checking, with research figures and a chart. The README adds a "Why a second model" section quoting four arXiv papers (Stechly et al. 2024, Huang et al. 2024, Panickssery et al. 2024, Goel et al. 2025). Each figure is copied as published into `docs/research/second-checker/inputs.json` with its table or sentence; `build.py` draws the chart from it (AGENTS rule 5). No paper reports a "percent more errors caught" by a different-vendor model, so the README states that limit instead of inventing one.
 
+## Revision 4 (2026-11-23): drop the Codespaces path
+
+The owner asked (2026-11-23) to remove the README's "Try it" Codespaces badge: people should try Control Rod on their own setups, and agent runs often cannot start in a container (bubblewrap, see `docs/getting-started.md`). The README's Try it section now covers only installing on your own machine. `.devcontainer/` and its notes in `docs/getting-started.md` stay as a contributor tool.
+
 ## Assumptions and invalidation triggers
 
 | Assumption | Basis | Invalidation trigger |

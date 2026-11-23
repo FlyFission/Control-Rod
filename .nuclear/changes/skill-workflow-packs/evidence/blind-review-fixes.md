@@ -21,4 +21,16 @@ Codex re-reviewed the fix commit `45cbca2` the same way.
 
 The re-review found nothing in the cross-organization lookup or the launch-time stamping.
 
+## Second re-review
+
+Codex re-reviewed `13273d8`.
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| 8 | P1 | A project named `Plant [workflow:pocock] Upgrade` selected Pocock: a tag inside a value was read as a tag. | Fixed: `captureTags` reads the first line as top-level tags with bracket depth; anything inside a value is that value. |
+| 9 | P2 | A workspace path holding `[project:Plant]` was read as a project. | Fixed by the same parser. |
+| 10 | P2 | `Plant [Phase [2]]` (two levels) still invalidated the header. | Fixed: any nesting depth; unbalanced brackets make the line prose. |
+
+New cases for each in `test/workflow.test.ts`.
+
 Local run after both rounds (PostgreSQL 16, Linux container): `test/workflow.test.ts`, `test/workflow-brief.test.ts`, `test/workflow-real-pack.test.ts`: 56 passed. API typecheck exits 0.

@@ -31,51 +31,70 @@ export function resolveWorkflow(pkg: Json | undefined, project: Json | null | un
 }
 
 /**
- * The tag header a capture carries, or undefined when it has none. The New work form writes its tags
- * as `[key:value]` tokens on the first line, then a blank line, then the person's text. A first line
- * with anything outside a tag is the person's own prose: a tag written inside a sentence selects
- * nothing.
+ * The tags a capture's header carries, or undefined when it has none. The New work form writes its
+ * tags as `[key:value]` on the first line, then a blank line, then the person's text. The line is
+ * read as top-level tags only: a value may hold brackets of its own (a project called
+ * `Plant [Phase 2]`, a path), and whatever sits inside a value is part of that value, never a tag.
+ * A first line with anything outside a tag, or with unbalanced brackets, is the person's own prose,
+ * so a tag written inside a sentence selects nothing.
  */
-/** One `[key:value]` tag; the value may hold one level of brackets, as in `[project:Plant [Phase 2]]`. */
-const TAG = /\[[a-z][a-z-]*:(?:[^[\]]|\[[^[\]]*\])*\]/g;
-
-export function tagHeader(text: unknown): string | undefined {
+export function captureTags(text: unknown): { key: string; value: string }[] | undefined {
   if (typeof text !== "string") return undefined;
   const first = text.split(/\r?\n/, 1)[0] ?? "";
-  if (!first.trim() || first.replace(TAG, "").trim() !== "") return undefined;
-  return first;
+  const tags: { key: string; value: string }[] = [];
+  let i = 0;
+  while (i < first.length) {
+    const ch = first[i]!;
+    if (/\s/.test(ch)) {
+      i++;
+      continue;
+    }
+    if (ch !== "[") return undefined;
+    let depth = 0;
+    let end = -1;
+    for (let k = i; k < first.length; k++) {
+      if (first[k] === "[") depth++;
+      else if (first[k] === "]" && --depth === 0) {
+        end = k;
+        break;
+      }
+    }
+    if (end < 0) return undefined;
+    const m = /^([a-z][a-z-]*):([\s\S]*)$/.exec(first.slice(i + 1, end));
+    if (!m) return undefined;
+    tags.push({ key: m[1]!, value: m[2]! });
+    i = end + 1;
+  }
+  return tags.length ? tags : undefined;
 }
 
 /**
- * The workflow a capture asks for. The New work form writes its tags on one header line, separated
- * by spaces, then a blank line, then the person's text; this reads only that first line and takes
- * the token that is exactly `[workflow:<id>]`. Nothing after the first line is read, so prose that
- * mentions a workflow changes nothing. An unknown id, or two tokens that name different workflows,
- * is no tag at all: the request runs the playbook.
+ * The workflow a capture asks for: the header's `[workflow:<id>]` tag. Nothing after the first line
+ * is read, so prose that mentions a workflow changes nothing. An unknown id, or two tags that name
+ * different workflows, is no tag at all: the request runs the playbook.
  */
 export function captureWorkflow(text: unknown): Workflow | undefined {
-  const first = tagHeader(text);
-  if (first === undefined) return undefined;
+  const tags = captureTags(text);
+  if (!tags) return undefined;
   const found = new Set<Workflow>();
-  for (const token of first.trim().split(/\s+/)) {
-    const m = /^\[workflow:([^\]\s]*)\]$/.exec(token);
-    if (!m) continue;
-    // A token in the tag's syntax with an id nobody knows makes the whole tag line ambiguous.
-    if (!isWorkflow(m[1])) return undefined;
-    found.add(m[1]);
+  for (const t of tags) {
+    if (t.key !== "workflow") continue;
+    // A workflow tag with an id nobody knows makes the whole tag line ambiguous.
+    if (!isWorkflow(t.value)) return undefined;
+    found.add(t.value);
   }
   return found.size === 1 ? [...found][0] : undefined;
 }
 
 /**
- * The project a capture's tag line names (`[project:<code or name>]`, written by the New work form),
- * or undefined. The value may contain spaces, so the whole bracket is read; two different project
- * tokens on the line are no project at all. Only the first line is read.
+ * The project a capture's header names (`[project:<code or name>]`, written by the New work form),
+ * or undefined. The value may contain spaces and brackets; two different project tags are no
+ * project at all. Only the first line is read.
  */
 export function captureProject(text: unknown): string | undefined {
-  const first = tagHeader(text);
-  if (first === undefined) return undefined;
-  const found = new Set([...first.matchAll(/\[project:((?:[^[\]]|\[[^[\]]*\])+)\]/g)].map((m) => m[1]!.trim()).filter(Boolean));
+  const tags = captureTags(text);
+  if (!tags) return undefined;
+  const found = new Set(tags.filter((t) => t.key === "project").map((t) => t.value.trim()).filter(Boolean));
   return found.size === 1 ? [...found][0] : undefined;
 }
 

@@ -36,6 +36,7 @@ describe("captureProject", () => {
     expect(captureProject("[project:a] [project:b]")).toBeUndefined();
     expect(captureProject("Ship it for [project:prj_1] today")).toBeUndefined();
     expect(captureProject("[mode:software] [project:Plant [Phase 2]] [workflow:pocock]\n\nx")).toBe("Plant [Phase 2]");
+    expect(captureProject("[workspace:/srv/[project:Plant]/w] [mode:software]\n\nx")).toBeUndefined();
     expect(captureProject("[project:  ]")).toBeUndefined();
     expect(captureProject(undefined)).toBeUndefined();
   });
@@ -62,6 +63,10 @@ describe("captureWorkflow", () => {
     expect(captureWorkflow("[workflow:pocock] and then build it\n\nmore")).toBeUndefined();
     // A project name with brackets keeps the header a header (re-review of the fix).
     expect(captureWorkflow("[mode:software] [project:Plant [Phase 2]] [workflow:pocock]\n\nx")).toBe("pocock");
+    expect(captureWorkflow("[project:Plant [Phase [2]]] [workflow:pocock]\n\nx")).toBe("pocock");
+    // A tag inside another tag's value is part of that value, never a selection.
+    expect(captureWorkflow("[mode:software] [project:Plant [workflow:pocock] Upgrade]\n\nx")).toBeUndefined();
+    expect(captureWorkflow("[project:Plant ]] [workflow:pocock]\n\nx")).toBeUndefined();
     expect(captureWorkflow("workflow:pocock")).toBeUndefined();
     expect(captureWorkflow("[workflow: pocock]")).toBeUndefined();
     expect(captureWorkflow("[Workflow:pocock]")).toBeUndefined();

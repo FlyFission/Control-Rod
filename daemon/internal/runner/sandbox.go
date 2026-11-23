@@ -815,7 +815,7 @@ func CodexEffectiveFeatures(ctx context.Context) (string, error) {
 		args = append(args, "--disable", f)
 	}
 	// Binary() is the PATH name. For Codex it is the same string as the runtime id.
-	a, err := resolveArtifact(codexAdapter{}.Binary())
+	a, err := probedArtifact(ctx, codexAdapter{}.Binary())
 	if err != nil {
 		return "", err
 	}

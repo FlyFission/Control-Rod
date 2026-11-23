@@ -38,10 +38,15 @@ type CommandRunner func(ctx context.Context, name string, args ...string) (out s
 // through the wrapper could fail for want of `node` on a daemon's minimal PATH (launchd, systemd)
 // while every launch would have worked, or the other way round.
 //
-// A probe passes the artifact it already identified (withProbeArtifact), and that artifact is run:
-// never a second resolution, which could find a different binary after an upgrade, rehash it inside
-// the command's deadline, or quietly fall back to the PATH entry. Other callers resolve here and
-// fall back to the PATH entry when the name is not a runtime artifact.
+// A probe passes the artifact it already identified (withProbeArtifact), and that artifact is run,
+// by the probe's commands and by the sandbox preflight that follows: never a second resolution,
+// which could find a different binary after an upgrade, rehash it inside the command's deadline, or
+// fall back to a launcher the resolver refused. Without one, it runs the PATH entry, as before.
+//
+// What runs is the file at the artifact's path when the command starts. If an upgrade replaces it
+// between the hash and the start, the status keeps the digest that was hashed; a launch checks the
+// digest again before it runs and refuses a mismatch (artifact.go), so a replaced binary never runs
+// as work on the strength of this probe.
 func ExecRunner(ctx context.Context, name string, args ...string) (string, int, error) {
 	// The same PATH and allowlisted environment as a launch, so a login the run could not see (an
 	// API key in the daemon's environment) never makes a runtime look ready.
@@ -59,10 +64,6 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 			return "", -1, err
 		}
 		path = p
-		if art, aerr := resolveArtifact(name); aerr == nil && art.Path != "" {
-			path = art.Path
-			env = append(env, art.Env...)
-		}
 	}
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Env = env
@@ -235,4 +236,21 @@ type probeArtifactKey struct{}
 
 func withProbeArtifact(ctx context.Context, art RuntimeArtifact) context.Context {
 	return context.WithValue(ctx, probeArtifactKey{}, art)
+}
+
+// probedArtifact returns the artifact a probe identified for this context, or resolves binary when
+// there is none.
+func probedArtifact(ctx context.Context, binary string) (RuntimeArtifact, error) {
+	if art, ok := ctx.Value(probeArtifactKey{}).(RuntimeArtifact); ok {
+		return art, nil
+	}
+	return resolveArtifact(binary)
+}
+
+// preflightContext carries a probed status's artifact into its preflight, so both check one file.
+func preflightContext(ctx context.Context, st RuntimeStatus) context.Context {
+	if st.Artifact == nil {
+		return ctx
+	}
+	return withProbeArtifact(ctx, *st.Artifact)
 }

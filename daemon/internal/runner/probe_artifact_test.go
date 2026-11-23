@@ -10,9 +10,10 @@ import (
 	"testing"
 )
 
-// The probe runs what a launch runs: the resolved artifact with its own environment, not the
-// wrapper script found on the PATH (Codex installed through npm is a Node wrapper).
-func TestExecRunnerRunsTheResolvedArtifactNotThePATHWrapper(t *testing.T) {
+// The probe runs what a launch runs: the resolved artifact with its own environment, for every
+// command (version, login help, login status), not the wrapper script found on the PATH (Codex
+// installed through npm is a Node wrapper), and it resolves only once.
+func TestEveryCodexProbeCommandRunsTheResolvedArtifactWithItsEnvironment(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "bin")
 	if err := os.Mkdir(bin, 0o755); err != nil {
@@ -21,24 +22,44 @@ func TestExecRunnerRunsTheResolvedArtifactNotThePATHWrapper(t *testing.T) {
 	// The wrapper would need a program this PATH does not have, like `node` under launchd.
 	writeFile(t, filepath.Join(bin, "codex"), []byte("#!/usr/bin/env no-such-node\n"), 0o755)
 	native := filepath.Join(dir, "native-codex")
-	writeFile(t, native, []byte("#!/bin/sh\necho \"native $CODEX_MANAGED_BY_NPM $1\"\n"), 0o755)
+	// Each command answers only when it sees the artifact's environment.
+	writeFile(t, native, []byte(`#!/bin/sh
+[ "$CODEX_MANAGED_BY_NPM" = 1 ] || exit 3
+case "$1 $2" in
+  "--version ") echo "codex-cli native" ;;
+  "login --help") printf 'Commands:\n  status  Show login status\n' ;;
+  "login status") echo "Logged in" ;;
+  *) exit 2 ;;
+esac
+`), 0o755)
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+"/usr/bin:/bin")
+	t.Setenv("HOME", t.TempDir())
+	calls := 0
 	old := resolveArtifact
 	resolveArtifact = func(name string) (RuntimeArtifact, error) {
-		if name != "codex" {
+		calls++
+		if name != "codex" || calls > 1 {
 			return RuntimeArtifact{}, os.ErrNotExist
 		}
 		return RuntimeArtifact{Path: native, Env: []string{"CODEX_MANAGED_BY_NPM=1"}}, nil
 	}
 	t.Cleanup(func() { resolveArtifact = old })
 
-	out, code, err := ExecRunner(context.Background(), "codex", "--version")
-	if err != nil || code != 0 || strings.TrimSpace(out) != "native 1 --version" {
-		t.Fatalf("ExecRunner ran %q (exit %d, %v); want the artifact with its environment", out, code, err)
+	st := Probe(context.Background(), RuntimeCodex, "", ExecRunner)
+	if !st.Ready || !st.LoginChecked || st.Version != "codex-cli native" {
+		t.Fatalf("every probe command must run the artifact with its environment: %+v", st)
+	}
+	if calls != 1 {
+		t.Fatalf("resolveArtifact ran %d times; a probe resolves once", calls)
+	}
+	// Its preflight context carries the same artifact, so the preflight checks the same file.
+	if art, err := probedArtifact(preflightContext(context.Background(), st), "codex"); err != nil || art.Path != native {
+		t.Fatalf("preflight would check %q (%v); want the probed artifact", art.Path, err)
 	}
 }
 
-// A name that does not resolve to an artifact still runs from the agent PATH, as before.
+// Outside a probe, a command runs from the agent PATH, as before, and a launcher the resolver
+// refused is never chosen by a fallback here.
 func TestExecRunnerFallsBackToThePATHEntry(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "tool"), []byte("#!/bin/sh\necho path-entry\n"), 0o755)

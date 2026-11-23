@@ -9,9 +9,9 @@
 
 ## Claim proven
 
-- `ExecRunner` runs the resolved artifact with its environment, not a PATH wrapper that needs a program the PATH lacks.
-- A name that resolves to no artifact still runs from the agent PATH.
-- A probe resolves its artifact once and runs that one for every command, even when a second resolution would find nothing (an upgrade in between).
+- Every Codex probe command (version, login help, login status) runs the resolved artifact with its environment, not a PATH wrapper that needs a program the PATH lacks; the probe resolves once; its preflight context carries the same artifact.
+- Outside a probe, `ExecRunner` runs the agent PATH entry.
+- A probe of another CLI resolves once and runs that artifact, even when a second resolution would find nothing (an upgrade in between).
 
 ## Method
 
@@ -25,7 +25,7 @@
 ## Result
 
 - Status: pass, with the gap below.
-- `TestExecRunnerRunsTheResolvedArtifactNotThePATHWrapper` and `TestExecRunnerFallsBackToThePATHEntry` pass. With `origin/main`'s `probe.go`, the first fails.
+- `TestEveryCodexProbeCommandRunsTheResolvedArtifactWithItsEnvironment`, `TestAProbeRunsTheArtifactItIdentifiedWithoutResolvingAgain` and `TestExecRunnerFallsBackToThePATHEntry` pass under `-race`. With `ExecRunner` made to ignore the probed artifact, the Codex test fails (`--- FAIL`), so it tests the change.
 - Full runner suite: fails on the same 16 tests on this branch and on `origin/main` on this host (bubblewrap checker tests and `TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun`, which need a sandbox this container lacks).
 - `check_originality.py`: `originality check passed`. `git diff --check origin/main`: no output.
 
@@ -35,6 +35,7 @@
 - Not proven: launch parity beyond path and environment. A launch stages a private copy; the probe runs the installed file.
 - Blind checks by a different vendor than the author (Codex, read-only):
   - At `3eecd059`: FIX FIRST, 1 P1 and 2 P2, all reasoned. Fixed in the next commit: a second resolution in `ExecRunner` could run a different binary after an upgrade or fall back to the PATH entry (the probe now passes its artifact); the rehash ran inside each command's deadline (gone with the second resolution); the record claimed the probe runs exactly what launch runs (narrowed above).
+  - At `25b0086c`: FIX FIRST, 2 P1 and 1 P2, all reasoned. Fixed in the next commit: the preflight resolved again and could check a different file (it now gets the probed artifact, and so does `CodexEffectiveFeatures`); the fallback outside a probe could hash inside a deadline and pick a refused launcher (it now runs the PATH entry, as on main); the test covered one version command (it now covers all three Codex commands and the environment). Not changed: a binary replaced at the same path between hash and start. That window cannot be closed by reopening a path; the launch's own digest check is the guard, stated in risk.
   - The next check is recorded here before merge.
 
 ## Reviewer note

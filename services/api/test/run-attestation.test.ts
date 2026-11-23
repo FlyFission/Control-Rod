@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { tx } from "../src/db/index.js";
-import { defaultCheckerModel, judgeAttestation, loadModelRegistry, rememberNonce, setModelRegistryForTest, signedPayload, type AttestationFacts } from "../src/run-attestation.js";
+import { checkerModelAdmitted, defaultCheckerModel, judgeAttestation, loadModelRegistry, rememberNonce, setModelRegistryForTest, signedPayload, type AttestationFacts } from "../src/run-attestation.js";
 import { digest } from "../src/kernel.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness } from "./harness.js";
 
@@ -15,6 +15,13 @@ it("binds a reported eligible model without weakening the grade gate", () => {
   expect(defaultCheckerModel("claude", "general-service", reported)).toBe("claude-haiku-4-5");
   expect(defaultCheckerModel("claude", "safety", reported)).toBe("claude-opus-4-6");
   expect(defaultCheckerModel("opencode", "general-service", reported)).toBeUndefined();
+});
+
+it("admits a chosen checker model only through the same registry and grade filter as the default", () => {
+  expect(checkerModelAdmitted("claude", "general-service", "claude-haiku-4-5")).toBe(true);
+  expect(checkerModelAdmitted("claude", "safety", "claude-haiku-4-5")).toBe(defaultCheckerModel("claude", "safety", ["claude-haiku-4-5"]) === "claude-haiku-4-5");
+  expect(checkerModelAdmitted("claude", "general-service", "unregistered-model")).toBe(false);
+  expect(checkerModelAdmitted("codex", "general-service", "claude-haiku-4-5")).toBe(false);
 });
 
 function rawPublic(key: ReturnType<typeof generateKeyPairSync>["publicKey"]): Buffer {
@@ -147,8 +154,12 @@ describe("spoofed checks", () => {
   it("accepts a statement that matches the registry", () => {
     const v = judgeAttestation(facts(baseBody()));
     expect(v).toMatchObject({ verified: true, code: "ok" });
-    const registered = JSON.parse(readFileSync(new URL("../../../daemon/internal/runner/models.json", import.meta.url), "utf8"));
-    expect(loadModelRegistry()).toEqual(registered);
+    // Pinned here, so a change to the registry (a model added, removed or renamed) fails this test
+    // until someone reads it, rather than being compared with itself.
+    expect(loadModelRegistry().models.map((m) => m.id).sort()).toEqual([
+      "claude-haiku-4-5", "claude-opus-4-5", "claude-opus-4-6", "claude-sonnet-4-5", "claude-sonnet-4-6", "claude-sonnet-5-5",
+      "gpt-5-codex", "gpt-5.6-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol",
+    ]);
   });
 });
 

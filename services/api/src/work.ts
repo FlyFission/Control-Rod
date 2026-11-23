@@ -19,7 +19,7 @@ import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnde
 import { bindingSentence } from "./binding.js";
 import { RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
-import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
+import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -27,7 +27,7 @@ import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
 import { projectRuntimePrefs } from "./workspace-projects.js";
 import { ownerOf } from "./tenancy.js";
-import { countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
+import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
   PACKAGE_ATTEMPT_LIMIT,
@@ -762,15 +762,21 @@ function normalizeRunModel(runtime: string, model: string | undefined): string |
   return MODEL_ALIASES[runtime]?.[m.toLowerCase()] ?? m;
 }
 
-/** Parses `[author:<eco>/<model>@<reasoning>]` and `[checker:<eco>/<model>@<reasoning>]` capture header tags. */
+/**
+ * Parses `[author:<eco>/<model>@<reasoning>]` and `[checker:<eco>/<model>@<reasoning>]` from the
+ * capture's header line only (top-level tags, as `captureTags` reads them), so prose or pasted text
+ * below the header never picks a runtime or model. Two different tags for one role are none.
+ */
 function parseCaptureRuntimeTags(text: string | null | undefined): {
   author?: CaptureRuntimeTag;
   checker?: CaptureRuntimeTag;
 } {
-  if (!text) return {};
+  const tags = captureTags(text) ?? [];
   const out: { author?: CaptureRuntimeTag; checker?: CaptureRuntimeTag } = {};
   for (const role of ["author", "checker"] as const) {
-    const match = text.match(new RegExp(`\\[${role}:([a-z0-9-]+)\\/([^\\s\\]]+)\\]`, "i"));
+    const values = [...new Set(tags.filter((t) => t.key === role).map((t) => t.value))];
+    if (values.length !== 1) continue;
+    const match = /^([a-z0-9-]+)\/([^\s\]]+)$/i.exec(values[0]!);
     if (!match) continue;
     const raw = match[2]!;
     const at = raw.lastIndexOf("@");
@@ -1403,6 +1409,11 @@ export async function claim(
                 await holdRun(c, cfg, row, pkg.id, `No registered checker model is available for ${runtime} and this grade.`, "runtime-pin");
                 continue;
               }
+            } else if (model && countedProvider(runtime) && !checkerModelAdmitted(runtime, needsOf(pkg.body).grade, model)) {
+              // A chosen model (a request tag or the project's pick) passes the same registry and grade
+              // filter as the default, never around it.
+              await holdRun(c, cfg, row, pkg.id, `The chosen checker model ${model} is not a registered checker model for ${runtime} at this grade.`.slice(0, 300), "runtime-pin");
+              continue;
             }
             const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, null, "claim");
             if (gate !== "ok") {
@@ -2727,7 +2738,11 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   for (const d of drafts) place(d);
   // A workspace ID in the capture header binds the intake result to the owning project's record.
   // Intake's draft can still supply a legacy project name when the capture has no workspace ID.
-  const projectId = /^\[mode:[^\]]+\] \[project-id:([^\]]+)\]/.exec(String(capture.text ?? ""))?.[1];
+  // Read from the header's top-level tags, as intake's workflow choice reads them, so the drafts are
+  // filed under the same project whose default chose that workflow, whatever the tag order.
+  const projectIds = [...new Set((captureTags(capture.text) ?? []).filter((t) => t.key === "project-id").map((t) => t.value.trim()))];
+  if (projectIds.length > 1) throw new Refusal(409, "wrong-state", "The capture names more than one workspace project");
+  const projectId = projectIds[0] || undefined;
   if (projectId) {
     const owner = await ownerOf(c, "capture", capture.id);
     const project = await c.query(

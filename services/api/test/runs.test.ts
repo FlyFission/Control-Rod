@@ -510,6 +510,26 @@ describe("stopping a run", () => {
 });
 
 describe("pre-check independence", () => {
+  it("holds a pre-check whose requested checker model is not registered for its runtime, never running it", async () => {
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: "[mode:software] [checker:codex/unregistered-model@high]\n\nMake UNREG" });
+    expect(c.statusCode, c.body).toBe(201);
+    const intake = await claim();
+    if (!intake) throw new Error("no intake job");
+    await asDaemon(`/runner/runs/${intake.run.id}/complete`, {
+      status: "succeeded", outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(draft("UNREG"))) }],
+    });
+    const id = ((await asOwner("GET", "/packages")).json() as { id: string }[]).find((p) => p.id.endsWith("-UNREG"))!.id;
+    expect((await decide(id, "release", 0)).statusCode).toBe(201);
+    const author = (await claim(["claude"])) as Job;
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] });
+    expect(await claim(["codex"])).toBeNull();
+    const held = (await asOwner("GET", `/packages/${id}`)).json().runs.find((r: { role: string }) => r.role === "pre-check");
+    expect(held.status).toBe("queued");
+    expect(held.waiting_reason).toContain("unregistered-model is not a registered checker model");
+    // Leave no queued check behind for the tests that follow, which claim on other runtimes.
+    await h.admin.query("update runs set status = 'cancelled', body = body || '{\"status\":\"cancelled\"}'::jsonb where id = $1", [held.id]);
+  }, 30_000);
+
   it("holds a pre-check that could only run on the author's runtime, with the reason in plain words", async () => {
     const id = await releasedPackage("INDEP");
     const author = (await claim()) as Job;
@@ -901,6 +921,27 @@ describe("capture provenance", () => {
     expect(packages.find((p) => p.id.endsWith("-PROJECTBINDING"))?.project).toBe(projects[1]);
   });
 
+  it("binds a workspace project whatever the order of the header's tags", async () => {
+    const payload = { name: "Tag order workspace" };
+    const options = await asOwner("POST", "/admin/commands/project.workspace-create/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const create = await asOwner("POST", "/workspace/projects", { payload, assertion: passkey.assert(options.json().options) });
+    expect(create.statusCode, create.body).toBe(201);
+    const projectId = create.json().id as string;
+    const capture = await asOwner("POST", "/captures", {
+      lane: "internal", text: `[stage:design] [project-id:${projectId}] [mode:software]\n\nWrite an intake fixture.`,
+    });
+    expect(capture.statusCode, capture.body).toBe(201);
+    const intake = await claim();
+    expect(intake?.run.package_id).toBe(capture.json().id);
+    const completed = await asDaemon(`/runner/runs/${intake!.run.id}/complete`, {
+      status: "succeeded", outputs: [{ name: "package.json", content_base64: b64(JSON.stringify({ ...draft("TAGORDER"), mode: "software" })) }],
+    });
+    expect(completed.json().status, completed.body).toBe("succeeded");
+    const packages = (await asOwner("GET", "/packages")).json() as { id: string; project: string }[];
+    expect(packages.find((p) => p.id.endsWith("-TAGORDER"))?.project).toBe(projectId);
+  });
+
   it("preserves explicit CLI default while inheriting the project model for untagged captures", async () => {
     const pinnedModel = "claude-opus-4-6";
     const payload = {
@@ -916,6 +957,8 @@ describe("capture provenance", () => {
     for (const [name, selection, expected] of [
       ["MODELDEFAULT", " [author:claude/default@default]", "default"],
       ["MODELINHERIT", "", pinnedModel],
+      // A tag below the header line is request text, not a choice: the project model stands.
+      ["MODELBODY", "\n[author:claude/default@default]", pinnedModel],
     ] as const) {
       const captured = await asOwner("POST", "/captures", {
         lane: "internal", text: `[mode:software] [project-id:${projectId}]${selection}\n\nDraft ${name}.`,

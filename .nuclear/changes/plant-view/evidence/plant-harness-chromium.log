@@ -1,0 +1,177 @@
+[WebServer] [plugin builtin:vite-reporter] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+
+Running 164 tests using 1 worker
+
+[1/164] [chromium] › e2e/office-harness.spec.ts:141:3 › office theme quality harness › offers exactly the themes this harness measures
+[2/164] [chromium] › e2e/office-harness.spec.ts:147:3 › office theme quality harness › the harness catches a broken semantic layer
+[3/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › plant › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[4/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › plant › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[5/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › plant › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[6/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › plant › occlusion and pointer interception
+[7/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › plant › legibility at minimum zoom with 40 agents
+[8/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › plant › frame time smoke check and event to screen time with 40 agents
+[9/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › plant › 60 frames per second on the reference machine (Q-10)
+[10/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › plant › motion stops with reduced motion and in a hidden tab
+[11/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › plant › a theme switch keeps selection, scroll position and the open card
+[12/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › standard-office › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[13/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › standard-office › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[14/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › standard-office › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[15/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › standard-office › occlusion and pointer interception
+[16/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › standard-office › legibility at minimum zoom with 40 agents
+[17/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › standard-office › frame time smoke check and event to screen time with 40 agents
+[18/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › standard-office › 60 frames per second on the reference machine (Q-10)
+[19/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › standard-office › motion stops with reduced motion and in a hidden tab
+[20/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › standard-office › a theme switch keeps selection, scroll position and the open card
+[21/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › harness-bright › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[22/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › harness-bright › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[23/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › harness-bright › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[24/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › harness-bright › occlusion and pointer interception
+[25/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › harness-bright › legibility at minimum zoom with 40 agents
+[26/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › harness-bright › frame time smoke check and event to screen time with 40 agents
+[27/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › harness-bright › 60 frames per second on the reference machine (Q-10)
+[28/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › harness-bright › motion stops with reduced motion and in a hidden tab
+[29/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › harness-bright › a theme switch keeps selection, scroll position and the open card
+[30/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › creature-dispatch › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[31/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › creature-dispatch › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[32/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › creature-dispatch › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[33/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › creature-dispatch › occlusion and pointer interception
+[34/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › creature-dispatch › legibility at minimum zoom with 40 agents
+[35/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › creature-dispatch › frame time smoke check and event to screen time with 40 agents
+[36/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › creature-dispatch › 60 frames per second on the reference machine (Q-10)
+[37/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › creature-dispatch › motion stops with reduced motion and in a hidden tab
+[38/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › creature-dispatch › a theme switch keeps selection, scroll position and the open card
+[39/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › pocket-lab › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[40/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › pocket-lab › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[41/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › pocket-lab › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[42/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › pocket-lab › occlusion and pointer interception
+[43/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › pocket-lab › legibility at minimum zoom with 40 agents
+[44/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › pocket-lab › frame time smoke check and event to screen time with 40 agents
+[45/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › pocket-lab › 60 frames per second on the reference machine (Q-10)
+[46/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › pocket-lab › motion stops with reduced motion and in a hidden tab
+[47/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › pocket-lab › a theme switch keeps selection, scroll position and the open card
+[48/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › midnight-bureau › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[49/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › midnight-bureau › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[50/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › midnight-bureau › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[51/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › midnight-bureau › occlusion and pointer interception
+[52/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › midnight-bureau › legibility at minimum zoom with 40 agents
+[53/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › midnight-bureau › frame time smoke check and event to screen time with 40 agents
+[54/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › midnight-bureau › 60 frames per second on the reference machine (Q-10)
+[55/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › midnight-bureau › motion stops with reduced motion and in a hidden tab
+[56/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › midnight-bureau › a theme switch keeps selection, scroll position and the open card
+[57/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › confectionery-works › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[58/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › confectionery-works › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[59/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › confectionery-works › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[60/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › confectionery-works › occlusion and pointer interception
+[61/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › confectionery-works › legibility at minimum zoom with 40 agents
+[62/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › confectionery-works › frame time smoke check and event to screen time with 40 agents
+[63/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › confectionery-works › 60 frames per second on the reference machine (Q-10)
+[64/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › confectionery-works › motion stops with reduced motion and in a hidden tab
+[65/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › confectionery-works › a theme switch keeps selection, scroll position and the open card
+[66/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › lanternwood-guild › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[67/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › lanternwood-guild › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[68/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › lanternwood-guild › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[69/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › lanternwood-guild › occlusion and pointer interception
+[70/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › lanternwood-guild › legibility at minimum zoom with 40 agents
+[71/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › lanternwood-guild › frame time smoke check and event to screen time with 40 agents
+[72/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › lanternwood-guild › 60 frames per second on the reference machine (Q-10)
+[73/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › lanternwood-guild › motion stops with reduced motion and in a hidden tab
+[74/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › lanternwood-guild › a theme switch keeps selection, scroll position and the open card
+[75/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › corner-cafe › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[76/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › corner-cafe › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[77/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › corner-cafe › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[78/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › corner-cafe › occlusion and pointer interception
+[79/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › corner-cafe › legibility at minimum zoom with 40 agents
+[80/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › corner-cafe › frame time smoke check and event to screen time with 40 agents
+[81/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › corner-cafe › 60 frames per second on the reference machine (Q-10)
+[82/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › corner-cafe › motion stops with reduced motion and in a hidden tab
+[83/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › corner-cafe › a theme switch keeps selection, scroll position and the open card
+[84/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › tumbletown-workshop › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[85/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › tumbletown-workshop › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[86/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › tumbletown-workshop › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[87/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › tumbletown-workshop › occlusion and pointer interception
+[88/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › tumbletown-workshop › legibility at minimum zoom with 40 agents
+[89/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › tumbletown-workshop › frame time smoke check and event to screen time with 40 agents
+[90/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › tumbletown-workshop › 60 frames per second on the reference machine (Q-10)
+[91/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › tumbletown-workshop › motion stops with reduced motion and in a hidden tab
+[92/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › tumbletown-workshop › a theme switch keeps selection, scroll position and the open card
+[93/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › orbital-shipyard › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[94/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › orbital-shipyard › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[95/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › orbital-shipyard › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[96/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › orbital-shipyard › occlusion and pointer interception
+[97/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › orbital-shipyard › legibility at minimum zoom with 40 agents
+[98/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › orbital-shipyard › frame time smoke check and event to screen time with 40 agents
+[99/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › orbital-shipyard › 60 frames per second on the reference machine (Q-10)
+[100/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › orbital-shipyard › motion stops with reduced motion and in a hidden tab
+[101/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › orbital-shipyard › a theme switch keeps selection, scroll position and the open card
+[102/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › wildlight-camp › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[103/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › wildlight-camp › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[104/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › wildlight-camp › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[105/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › wildlight-camp › occlusion and pointer interception
+[106/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › wildlight-camp › legibility at minimum zoom with 40 agents
+[107/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › wildlight-camp › frame time smoke check and event to screen time with 40 agents
+[108/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › wildlight-camp › 60 frames per second on the reference machine (Q-10)
+[109/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › wildlight-camp › motion stops with reduced motion and in a hidden tab
+[110/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › wildlight-camp › a theme switch keeps selection, scroll position and the open card
+[111/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › voxel-foundry › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[112/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › voxel-foundry › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[113/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › voxel-foundry › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[114/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › voxel-foundry › occlusion and pointer interception
+[115/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › voxel-foundry › legibility at minimum zoom with 40 agents
+[116/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › voxel-foundry › frame time smoke check and event to screen time with 40 agents
+[117/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › voxel-foundry › 60 frames per second on the reference machine (Q-10)
+[118/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › voxel-foundry › motion stops with reduced motion and in a hidden tab
+[119/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › voxel-foundry › a theme switch keeps selection, scroll position and the open card
+[120/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › cloudspring-bathhouse › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[121/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › cloudspring-bathhouse › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[122/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › cloudspring-bathhouse › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[123/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › cloudspring-bathhouse › occlusion and pointer interception
+[124/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › cloudspring-bathhouse › legibility at minimum zoom with 40 agents
+[125/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › cloudspring-bathhouse › frame time smoke check and event to screen time with 40 agents
+[126/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › cloudspring-bathhouse › 60 frames per second on the reference machine (Q-10)
+[127/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › cloudspring-bathhouse › motion stops with reduced motion and in a hidden tab
+[128/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › cloudspring-bathhouse › a theme switch keeps selection, scroll position and the open card
+[129/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › button-and-spool › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[130/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › button-and-spool › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[131/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › button-and-spool › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[132/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › button-and-spool › occlusion and pointer interception
+[133/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › button-and-spool › legibility at minimum zoom with 40 agents
+[134/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › button-and-spool › frame time smoke check and event to screen time with 40 agents
+[135/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › button-and-spool › 60 frames per second on the reference machine (Q-10)
+[136/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › button-and-spool › motion stops with reduced motion and in a hidden tab
+[137/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › button-and-spool › a theme switch keeps selection, scroll position and the open card
+[138/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › clockwork-observatory › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[139/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › clockwork-observatory › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[140/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › clockwork-observatory › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[141/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › clockwork-observatory › occlusion and pointer interception
+[142/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › clockwork-observatory › legibility at minimum zoom with 40 agents
+[143/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › clockwork-observatory › frame time smoke check and event to screen time with 40 agents
+[144/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › clockwork-observatory › 60 frames per second on the reference machine (Q-10)
+[145/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › clockwork-observatory › motion stops with reduced motion and in a hidden tab
+[146/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › clockwork-observatory › a theme switch keeps selection, scroll position and the open card
+[147/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › coral-commons › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[148/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › coral-commons › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[149/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › coral-commons › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[150/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › coral-commons › occlusion and pointer interception
+[151/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › coral-commons › legibility at minimum zoom with 40 agents
+[152/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › coral-commons › frame time smoke check and event to screen time with 40 agents
+[153/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › coral-commons › 60 frames per second on the reference machine (Q-10)
+[154/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › coral-commons › motion stops with reduced motion and in a hidden tab
+[155/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › coral-commons › a theme switch keeps selection, scroll position and the open card
+[156/164] [chromium] › e2e/office-harness.spec.ts:276:7 › office theme quality harness › meadow-post › contrast and state shapes as drawn, at minimum zoom with 40 agents
+[157/164] [chromium] › e2e/office-harness.spec.ts:290:7 › office theme quality harness › meadow-post › every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)
+[158/164] [chromium] › e2e/office-harness.spec.ts:303:7 › office theme quality harness › meadow-post › the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)
+[159/164] [chromium] › e2e/office-harness.spec.ts:320:7 › office theme quality harness › meadow-post › occlusion and pointer interception
+[160/164] [chromium] › e2e/office-harness.spec.ts:332:7 › office theme quality harness › meadow-post › legibility at minimum zoom with 40 agents
+[161/164] [chromium] › e2e/office-harness.spec.ts:340:7 › office theme quality harness › meadow-post › frame time smoke check and event to screen time with 40 agents
+[162/164] [chromium] › e2e/office-harness.spec.ts:356:7 › office theme quality harness › meadow-post › 60 frames per second on the reference machine (Q-10)
+[163/164] [chromium] › e2e/office-harness.spec.ts:366:7 › office theme quality harness › meadow-post › motion stops with reduced motion and in a hidden tab
+[164/164] [chromium] › e2e/office-harness.spec.ts:393:7 › office theme quality harness › meadow-post › a theme switch keeps selection, scroll position and the open card
+  Slow test file: [chromium] › e2e/office-harness.spec.ts (6.0m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  18 skipped
+  146 passed (6.3m)

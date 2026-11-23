@@ -1,7 +1,9 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useState } from "react";
 import { STATE_INFO } from "./components/StateMark.js";
-import { validateTheme } from "./features/office/contract.js";
+import { layoutOf, validateTheme } from "./features/office/contract.js";
+import type { PlantInstruments } from "./features/office/OfficeStage.js";
+import type { RodState } from "./features/office/plant-instruments.js";
 import { everyPlace, harnessFigures } from "./features/office/fixtures.js";
 import { OfficeStage, type FigureState } from "./features/office/OfficeStage.js";
 import { OFFICE_THEMES } from "./features/office/registry.js";
@@ -46,7 +48,7 @@ function Harness() {
   const theme = OFFICE_THEMES.find((t) => t.id === themeId) ?? OFFICE_THEMES[0]!;
   const figures = useMemo(
     () =>
-      (fillAll ? everyPlace() : harnessFigures(count)).map((f) => {
+      (fillAll ? everyPlace(layoutOf(theme)) : harnessFigures(count, layoutOf(theme))).map((f) => {
         let state = f.state;
         for (let i = 0; i < shifted; i++) state = SHIFT[state];
         return {
@@ -56,9 +58,18 @@ function Harness() {
           ...(allMarks ? { marks: { gate: true, changed: true, loop: 3, safety: true } } : {}),
         };
       }),
-    [count, shifted, scale, allMarks],
+    [count, shifted, scale, allMarks, theme],
   );
   const open = figures.find((f) => f.id === selected);
+  // The plant's instruments as fixtures: ?core=lit|dark|unknown and ?rods=withdrawn|inserted|bank|drill|unknown.
+  const working = figures.filter((f) => f.state === "working").length;
+  const coreParam = params.get("core") ?? "lit";
+  const rods = (params.get("rods") ?? "withdrawn") as RodState["position"];
+  const instruments: PlantInstruments = {
+    core: coreParam === "unknown" ? { lit: null, caption: "Status unavailable" } : coreParam === "dark" ? { lit: false, caption: "No agent working" } : { lit: true, caption: `${working} agents working` },
+    rods: rods === "withdrawn" ? { position: rods } : { position: rods, caption: rods === "inserted" ? "SCRAM in force: organization, stop not yet recorded" : rods === "bank" ? "SCRAM in force: 1 project. Other work continues." : rods === "drill" ? "SCRAM drill in force" : "SCRAM status unavailable" },
+    waiting: figures.some((f) => f.state === "needs"),
+  };
 
   useEffect(() => {
     let live = true;
@@ -104,8 +115,8 @@ function Harness() {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 260px", gap: 16, alignItems: "start" }}>
         <div className="office-scroll" data-harness="scroll" style={{ overflow: "auto", maxHeight: "80vh" }}>
-          <div style={zoom ? { width: Math.round(1200 * zoom) } : undefined}>
-            <OfficeStage theme={theme} figures={figures} selected={selected} onSelect={setSelected} />
+          <div style={zoom ? { width: Math.round(layoutOf(theme).canvas.width * zoom) } : undefined}>
+            <OfficeStage theme={theme} figures={figures} selected={selected} onSelect={setSelected} instruments={instruments} />
           </div>
         </div>
         <aside aria-label="Selected figure" data-harness="card" style={{ border: "1px solid var(--line-2)", borderRadius: 12, padding: 14, minHeight: 120 }}>

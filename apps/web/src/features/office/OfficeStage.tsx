@@ -1,7 +1,10 @@
 import { type CSSProperties, useEffect, useState } from "react";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
-import type { OfficeThemeV1 } from "./contract.js";
-import { CANVAS, type Point, REGIONS, type RegionId } from "./layout.js";
+import { type OfficeThemeV1, layoutOf } from "./contract.js";
+import type { Point, RegionId } from "./layout.js";
+import { PLANT_LAYOUT } from "./plant-layout.js";
+import type { CoreState, RodState } from "./plant-instruments.js";
+import { ReactorCore } from "./ReactorCore.js";
 import "./office.css";
 
 /**
@@ -54,19 +57,30 @@ export function marksInWords(m: FigureMarks | undefined): string {
 }
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`;
-const box = (x: number, y: number, w: number, h: number): CSSProperties => ({
-  left: pct(x, CANVAS.width),
-  top: pct(y, CANVAS.height),
-  width: pct(w, CANVAS.width),
-  height: pct(h, CANVAS.height),
+type Canvas = { width: number; height: number };
+const box = (c: Canvas, x: number, y: number, w: number, h: number): CSSProperties => ({
+  left: pct(x, c.width),
+  top: pct(y, c.height),
+  width: pct(w, c.width),
+  height: pct(h, c.height),
 });
-const point = (p: Point): CSSProperties => ({ left: pct(p.x, CANVAS.width), top: pct(p.y, CANVAS.height) });
+const point = (c: Canvas, p: Point): CSSProperties => ({ left: pct(p.x, c.width), top: pct(p.y, c.height) });
+
+/** The plant's live instruments, drawn only on the plant layout. */
+export interface PlantInstruments {
+  core: CoreState;
+  rods: RodState;
+  /** Something waits on the viewer: the main control room is lit. */
+  waiting: boolean;
+}
 
 export interface OfficeStageProps {
   theme: OfficeThemeV1;
   figures: readonly StageFigure[];
   selected?: string | undefined;
   onSelect?: (id: string) => void;
+  /** The plant's core, rods and control room light; ignored on the office layout. */
+  instruments?: PlantInstruments;
 }
 
 /** Whether the tab is visible; motion stops while it is hidden. */
@@ -80,39 +94,77 @@ function useVisible() {
   return visible;
 }
 
-export function OfficeStage({ theme, figures, selected, onSelect }: OfficeStageProps) {
+export function OfficeStage({ theme, figures, selected, onSelect, instruments }: OfficeStageProps) {
   const bodies = theme.bodies;
   const visible = useVisible();
+  const layout = layoutOf(theme);
+  const c = layout.canvas;
+  const plant = layout.id === "plant" ? PLANT_LAYOUT : undefined;
+  const core = plant?.core;
+  const label = (id: RegionId) => theme.regions[id].label;
   return (
-    <div className="office-stage" data-theme-id={theme.id} data-motion={visible ? "running" : "paused"} style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
+    <div className="office-stage" data-theme-id={theme.id} data-layout={layout.id} data-motion={visible ? "running" : "paused"} style={{ aspectRatio: `${c.width} / ${c.height}` }}>
       <div className="office-scene" aria-hidden="true" style={{ background: theme.tokens.backdrop }} data-layer="scene">
-        {REGIONS.map((r) => {
+        {theme.site && <img className="office-scene-art" src={theme.site.path} alt="" draggable={false} style={box(c, 0, 0, c.width, c.height)} data-site="" />}
+        {layout.regions.map((r) => {
           const art = theme.regions[r.id].art;
-          return art ? <img key={r.id} className="office-scene-art" src={art.path} alt="" draggable={false} style={box(r.x, r.y, r.w, r.h)} data-region={r.id} /> : <div key={r.id} className="office-scene-art" style={{ ...box(r.x, r.y, r.w, r.h), background: theme.tokens.floor }} data-region={r.id} />;
+          return art ? <img key={r.id} className="office-scene-art" src={art.path} alt="" draggable={false} style={box(c, r.x, r.y, r.w, r.h)} data-region={r.id} /> : <div key={r.id} className="office-scene-art" style={{ ...box(c, r.x, r.y, r.w, r.h), background: theme.tokens.floor }} data-region={r.id} />;
         })}
+        {plant && (
+          // The control room's light: warm only while something waits on the viewer.
+          <div className="plant-control-light" style={box(c, plant.region["your-office"].x, plant.region["your-office"].y, plant.region["your-office"].w, plant.region["your-office"].h)} data-lit={instruments?.waiting ? "" : undefined} />
+        )}
+        {core && instruments && (
+          <div className="plant-core" style={box(c, core.x, core.y, core.w, core.h)}>
+            <ReactorCore core={instruments.core} rods={instruments.rods} />
+          </div>
+        )}
         {figures.map((f) => {
           const body = bodies[f.body % bodies.length];
-          return body ? <img key={f.id} className="office-scene-body" src={body.path} alt="" draggable={false} style={point(f.at)} /> : null;
+          return body ? <img key={f.id} className="office-scene-body" src={body.path} alt="" draggable={false} style={point(c, f.at)} /> : null;
         })}
       </div>
       <div className="office-semantic" data-layer="semantic">
-        {REGIONS.map((r) => (
-          <section key={r.id} className="office-region" style={box(r.x, r.y, r.w, r.h)} aria-label={`${r.name}: ${r.purpose}`} data-region={r.id}>
+        {plant?.zones
+          .filter((z) => z.id !== "reactor")
+          .map((z) => (
+            // Each zone's name set into its boundary line; the legend under the stage says what each means.
+            <span key={z.id} className="plant-zone-name" aria-hidden="true" data-zone={z.id} style={point(c, z.id === "site" ? { x: 14, y: c.height - 8 } : { x: z.x + 14, y: z.y })}>
+              {z.name}
+            </span>
+          ))}
+        {layout.regions.map((r) => (
+          <section key={r.id} className="office-region" style={box(c, r.x, r.y, r.w, r.h)} aria-label={plant ? `${r.name}, ${label(r.id)}: ${r.purpose}` : `${r.name}: ${r.purpose}`} data-region={r.id}>
             <div className="office-plate" data-semantic="plate">
               <span className="office-plate-name">{r.name}</span>
-              <span className="office-plate-label">{theme.regions[r.id].label}</span>
+              <span className="office-plate-label">{label(r.id)}</span>
             </div>
           </section>
         ))}
+        {core && instruments && (
+          <section className="office-region plant-reactor" style={box(c, core.x, core.y, core.w, core.h)} aria-label="Reactor building" data-region="reactor">
+            <div className="office-plate" data-semantic="plate">
+              <span className="office-plate-name">Reactor</span>
+              <span className="office-plate-label" data-instrument="core">
+                {instruments.core.caption}
+              </span>
+            </div>
+            {instruments.rods.caption && (
+              <p className="plant-rods-caption" data-instrument="rods">
+                {instruments.rods.caption}
+              </p>
+            )}
+          </section>
+        )}
         {figures.map((f) => (
-          <FigureMark key={f.id} figure={f} selected={selected === f.id} onSelect={onSelect} />
+          <FigureMark key={f.id} canvas={c} figure={f} selected={selected === f.id} onSelect={onSelect} />
         ))}
       </div>
     </div>
   );
 }
 
-function FigureMark({ figure: f, selected, onSelect }: { figure: StageFigure; selected: boolean; onSelect: ((id: string) => void) | undefined }) {
+function FigureMark({ canvas, figure: f, selected, onSelect }: { canvas: Canvas; figure: StageFigure; selected: boolean; onSelect: ((id: string) => void) | undefined }) {
   const label = STATE_INFO[f.state].label;
   const name = f.name ?? f.code;
   const m = f.marks ?? {};
@@ -123,7 +175,7 @@ function FigureMark({ figure: f, selected, onSelect }: { figure: StageFigure; se
     <button
       type="button"
       className="office-figure"
-      style={point(f.at)}
+      style={point(canvas, f.at)}
       aria-pressed={selected}
       aria-label={spoken}
       title={spoken}

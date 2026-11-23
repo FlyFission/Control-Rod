@@ -1,6 +1,6 @@
 # The Plant: one dedicated nuclear facility view
 
-Plan, Nov 23, 2026. Repo checked at `306e078` (main). Status: draft for independent adversarial review (Codex, Claude Fable 5.2, opencode on GLM 5.3) before any code.
+Plan v2, Nov 23, 2026. Repo checked at `306e078` (main). v1 was reviewed blind by two independent reviewers: the Codex CLI (OpenAI) and a second reviewer (Anthropic). A third review through the opencode CLI could not run because no provider was signed in. Section 15 lists what changed because of the reviews.
 
 ## 1. What Ben asked for
 
@@ -8,121 +8,140 @@ Plan, Nov 23, 2026. Repo checked at `306e078` (main). Status: draft for independ
 - "I would rather have one excellent on-brand theme than fifteen to twenty mediocre ones."
 - Keep the office themes, but **archive** them.
 - The tab must be **much more beautiful and excellent**.
-- Standing rules: look and feel is a top priority and ambitious changes are welcome; the default stays minimalist and intuitive, complexity behind Advanced; build for thousands of users, not one setup; no scheduled jobs; no engineering number typed by a model.
+- Standing rules: look and feel is a top priority; the default stays minimalist, complexity behind Advanced; build for thousands of users; no scheduled jobs; no engineering number typed by a model.
 
 ## 2. What exists today (facts from the repo)
 
-- `/office` renders `features/office/OfficeView.tsx`: a fixed 1200×640 canvas (`layout.ts`) with **13 places** owned by the app: six cube sets (process, mechanical, electrical, civil, assurance, project-controls) and seven rooms (review, interface, verification, your-office, document-control, bench, quarantine). Capacity is at least 40 figures before healthy work folds (`EXCEPTIONS_AT = 40`).
-- The 13 place IDs are a contract: `AgentFigure.place: FigurePlace` in `spec/api.tsp:514`. The API decides where each figure stands. Five states (working, needs, waiting, stuck, changed), each with a recorded cause.
-- `OfficeStage.tsx` has two layers: an inert **scene** layer (theme art as `<img>`, no pointer) and the app's **semantic** layer (name plates, figures, marks, codes, all buttons with full accessible names). A theme is data only (`contract.ts` `OfficeThemeV1`: five scene tokens, one label + one SVG per region, body styles), and its SVG is checked against an element/attribute allowlist (`validateSvg`).
-- Themes: `standard-office` (default) plus 15 worlds, all `released` (owner approval 2026-11-18), with a Theme picker on the view. Art is procedural SVG from `apps/web/scripts/build-office-themes.ts` and `tools/build_office_worlds.py`; a test fails if committed art drifts from the generator.
-- Separately, `/floor` carries an older station floor with its own 15 packs, behind `VITE_FLOOR_THEMES_ENABLED`, with an empty release manifest. Not reachable from the navigation.
-- SCRAM lives on the office view (`Scram.tsx`, `api.scrams()`), passkey-signed, with a banner while active.
-- Navigation: `places/places.ts` lists "Office: The floor: who is working on what".
-- Prior direction (Platform Plan, "The plant", Nov 22): home becomes a control room; annunciator = Needs you; instruments per agent (context, fuel and time to refueling, power level, burn rate, trip status); taste rules (no trefoil, no hazard stripes as decoration, no disaster jokes, no real plant's name or layout, no regulatory claim, never red/green alone, quiet when normal); "built as a new world on the Floor engine and becomes the default". This plan supersedes "on the Floor engine": the office engine is the live one.
-- Open PRs #135, #136, #137, #150 do not touch `features/office/`, `features/floor/` or `places/`. #137 touches `components/Shell.tsx` and `styles.css`, so this work stays out of both.
+- `/office` renders `features/office/OfficeView.tsx` on a fixed 1200×640 canvas (`layout.ts`) with **13 places**: six cube sets and seven rooms. `AgentFigure.place: FigurePlace` (`spec/api.tsp:503`, `:547`) is a contract, so the 13 IDs stay. Unmapped disciplines fall back to Process (`place_defaulted`).
+- The stage has an inert scene layer (theme SVG as `<img>`) under the app's semantic layer (plates, figures, marks, all with accessible names). The stage is a dark island with a `min-width: 960px` (0.8 of 1200), the zoom the clearance constants assume (`layout.ts:88-106`, `office.css:14-15`).
+- 17 registered themes (`registry.ts:11`): `standard-office` (default), `harness-bright` (test only) and 15 worlds; 16 are released (`themes/released.json`). Production copies only the files each theme's `assets.json` manifest names (`vite.config.ts:101-134`).
+- SCRAM (`Scram.tsx`) is organization- or project-scoped, can be a drill, is "in force" until restarted for its whole scope, and its timing (`pulled_at`, `stopped`) is optional and absent when presenting (`spec/api.tsp:1049-1075`).
+- `/floor` is a separate, flag-gated station floor with an empty release manifest, unreachable from navigation.
+- The shell's SCRAM banner links to `/office` (`Shell.tsx:220`); `Shell.tsx` and `styles.css` are touched by open PR #137, so this work stays out of both. #135, #136 and #150 do not touch the office, floor or places code.
 
 ## 3. The direction in one paragraph
 
-The Office tab becomes **Plant**. It draws one original, generic facility in cross-section and plan: nested confinement boundaries with the reactor at the centre, the agents working inside containment, the main control room just outside it where you decide, and the rest of the site in outer zones. Every place keeps its plain functional name; the plant name is the setting. An **annunciator strip** across the top is dark when nothing needs you and lights one window per condition. The **reactor core** is a live, honest instrument: it shows how many agents are working, and its control rods drop when a SCRAM is in force. There is no theme picker in the default view. The 16 office themes move to an "Archived office themes" choice under Advanced.
+The Office tab becomes **Plant**: one original, generic facility drawn as a **single plan view, like a general arrangement drawing**. Hairline boundaries nest from the site edge inward, with each zone's name set into its line. The reactor building holds the core, drawn in plan as a lattice with control rod positions. The agents work in six work bays, each its own confinement cell, which is what a sandboxed worktree is. The main control room, where you decide, is the only warm-lit room on the page, and only while something waits on you. A quiet **annunciator** in the header replaces the count line: dark when all is well, one lit window per abnormal condition. There is no theme picker in the default view; the office themes move under Advanced.
 
-## 4. Zoning: the 13 places on the plant
+## 4. Zoning
 
-Zones nest from the outside in. Each zone is drawn as a boundary line with its name, and each place sits inside exactly one zone. The zone tells you how close the work is to the core, which matches how isolated and trusted it is.
+Plain words only. No physical-security terms with regulatory meaning (owner-controlled, protected, vital area), and no "containment isolation" collisions.
 
-| Zone (outside in) | Place ID (contract) | Functional name (always shown) | Plant label (setting) | Why it sits here |
-|---|---|---|---|---|
-| Owner-controlled area | `document-control` | Document control | Records vault | Accepted records leave the controlled work and are filed |
-| Owner-controlled area | `bench` | Bench | Staging yard | Queued work waits outside the boundary for its turn |
-| Protected area | `interface` | Interface | Work control | Work waiting on another discipline's input is screened here before it goes back in |
-| Protected area | `review` | Review | Review board | Disputes and loops a person rules on |
-| Vital area | `your-office` | Your office | Main control room | Decisions and permissions waiting on you; you are the shift supervisor |
-| Vital area | `verification` | Verification | Independent verification | Blind pre-checks, separate from the crews |
-| Vital area | `quarantine` | Quarantine | Isolation | Security holds and SCRAM-stopped work, isolated |
-| Containment | `process` … `project-controls` (6) | Process, Mechanical, Electrical, Civil, Assurance, Project controls | Bay 1 to Bay 6 | Agents do the work inside confinement: their own worktree and sandbox |
-| Core (not a place) | none | Reactor | Reactor | A live instrument, not a seat (section 6) |
+| Zone (outside in) | Place ID | Functional name (always on the plate) | Plant label (second line) |
+|---|---|---|---|
+| Site | `bench` | Bench | Staging yard |
+| Site | `document-control` | Document control | Records vault |
+| Site | `quarantine` | Quarantine | Hold yard |
+| Plant fence | `interface` | Interface | Work control |
+| Plant fence | `review` | Review | Review board |
+| Plant fence | `verification` | Verification | Independent verification |
+| Plant fence | `your-office` | Your office | Main control room |
+| Plant fence, auxiliary building | six cube sets | Process … Project controls | none (one label is enough) |
+| Plant fence, reactor building | none (not a seat) | Reactor | Core |
 
-Notes:
-- "Owner-controlled area", "protected area", "vital area" and "containment" are general industry terms for nested security and confinement boundaries. They are used as setting only, with a tooltip, never as a claim about any regulation. Ben to confirm wording.
-- The figure placement logic does not change. `seatFigures` places each figure by `AgentFigure.place`; only the geometry it reads changes.
+- Held and quarantined work sits outside the fence, the least trusted place on the site.
+- Each work bay is drawn with its own double wall: the confinement boundary around one agent's worktree and sandbox. Nobody is drawn beside the core.
+- The plant label is the second plate line, and the region's `aria-label` carries the plain meaning (plates are not interactive, so no tooltip-only meaning). A small legend under the stage explains the zones once.
 
 ## 5. Layout
 
-A second app-owned layout, `plant-layout.ts`, with the same `Region` shape and the same 13 IDs, so seating, overflow, lenses, exceptions and the agent card are reused unchanged.
+A second app-owned layout, `plant-layout.ts`, same `Region` shape and same 13 IDs.
 
-- **Canvas** 1280×800 (aspect 1.6), scaled to the container like today.
-- **Containment** is a rounded rectangle centred on the canvas (about 760×400), drawn with a dome-section outline. The **core** (about 200×200) sits in its centre. The six bays sit three above and three below the core inside containment, each with a 3×2 seat grid (36 seats).
-- **Vital area** ring: Main control room on the left of containment (largest room, 2×3 seats plus its door queue), Independent verification and Isolation on the right.
-- **Protected area** ring: Work control and Review board along the top band.
-- **Owner-controlled area**: Staging yard and Records vault along the bottom band.
-- Capacity stays at least 40 seats plus queue places, so folding behaves as today.
-- `validateLayout` is generalised to take a layout (regions, canvas, name band, clearance) and the plant layout must pass every existing invariant: inside the canvas, no overlap, seats clear of name plates and walls, fully marked neighbours never touch. A new invariant: every region lies wholly inside its declared zone, and zones nest without crossing. The corridor `route()` check is replaced, for the plant, by a check that every place's door opens onto its zone's walkway. (`route()` has no caller outside validation today.)
-- Below 960 CSS px wide, or at 200% zoom, the plant shows the existing list of figures by zone, with a static thumbnail of the plant; no horizontal scroll at 320 px.
+- **Canvas width stays 1200** so 960 px is still 0.8 zoom and every clearance constant holds. Height is computed by the layout code from the bands below, not typed here.
+- **Band 1, inside the fence:** Main control room (2×2 seats plus its door queue, as today, so its test holds), the reactor building (core only, no seats), Independent verification, Work control, Review board.
+- **Band 2, inside the fence:** the auxiliary building, six work bays in one row, the same 3×2 grid and width as today's cube sets.
+- **Band 3, the site outside the fence:** Staging yard, Records vault, Hold yard.
+- Walkways run between bands, with gate breaks in the fence line where doors open onto them.
+- `validateLayout` is generalised to take a layout object (canvas, bands, regions, zones, walkways). The plant must pass every existing invariant plus: every region and its full queue footprint lie inside its declared zone; zones nest without crossing; every door opens onto a walkway, and every walkway connects to every other through gate openings (graph check, not door points); no seat, queue place or plate overlaps the reactor building.
+- Capacity stays at least 40, and a test puts 40 figures in one place to check overflow goes to the list, never on top of each other.
+- Every coordinate comes from the layout code and its tests (AGENTS.md rule 5).
 
-## 6. Live instruments (only from recorded data)
+## 6. Instruments (only from recorded data, unknown never shown as zero)
 
-1. **Annunciator strip** (top of the tab, app-owned semantic HTML, not art). Windows, left to right: Needs you, Stuck, Changed input, Waiting, SCRAM. Each window shows its name and count in text. A window with zero is dark (outlined, muted text, still readable). A lit window has a filled face, a shape mark (the existing `StateMark` shapes), and a count. The **first-out** window (the condition that began earliest, from `since`) carries a "First out" tag. Clicking a lit window applies the matching filter to the plant and list. Counts come from `GET /office/figures` and `api.scrams()` only. No sound, no flashing; a newly lit window gets a single 600 ms emphasis in Full motion and none in Reduced.
-2. **Reactor core** (scene art plus a semantic caption). Fuel assemblies are drawn as a fixed grid of squares. The number of glowing assemblies equals the number of figures in state `working`, capped at the grid size with "+N" in the caption. The caption reads, for example, "Reactor: 7 agents working". With no working figure the core is dark and says "Reactor: shut down, no agent working". This is a count, not a power level: no percentage, no MW, no invented number.
-3. **Control rods** are drawn withdrawn normally. While any SCRAM is in force (`api.scrams()` reports an active one) they are drawn fully inserted, the core goes dark, and the caption reads "Reactor tripped: SCRAM in force since <time>". The SCRAM control itself stays where it is, unchanged.
-4. **Instruments not built now** (Platform Plan): per-agent context, fuel and time to refueling, burn rate. The APIs do not report them yet (`subscriptions.go` checks sign-in only). They are not drawn, not even as placeholders, until a data source exists.
+**Annunciator** (in the header, replacing the count line; page HTML styled from app tokens, so it works in every look, light ones included). Four windows: **Waiting on you** (`needs_me`; the existing "N more in the Inbox with no agent yet" sentence stays beside it), **Stuck**, **Input changed**, **SCRAM**. Normal waiting is not a window, so the strip is dark when the plant is normal.
+
+- Each window states its name and count in text. Zero: outlined, muted but contrast-passing. Lit: filled, with the `StateMark` shape. Loading: "…" and "Loading". Error: "Unavailable". Stale (last read older than its refresh interval): the count with "as of <time>".
+- No "first out" tag (here it would just mean "oldest", and it would hold forever).
+- Waiting on you links to the Inbox. The others are status only; no new filter.
+- One polite live region for the whole strip, announcing only when a window changes between dark and lit, not on every refresh.
+- Presenting: counts cover the shown figures, and the strip says "N hidden" when `hidden > 0`.
+
+**Core** (scene art in the reactor building, with its caption on the building's plate). A fixed lattice; positions carry no identity.
+
+- Lit when at least one shown figure is `working`; dark otherwise. The caption is a count in words: "7 agents working" or "No agent working". Presenting with hidden figures: "7 shown working, 3 hidden". Loading or error: neutral, caption "Status unavailable". No percentage, no units, no "shut down".
+
+**Control rods** (in the core's lattice), from `api.scrams()` only:
+
+| SCRAM data | Rods | Caption |
+|---|---|---|
+| Loading or error | hatched, no position | "SCRAM status unavailable" |
+| None in force | withdrawn | none |
+| Organization SCRAM in force | inserted | "SCRAM in force: organization" plus "runs stopped at <time>" only when `stopped` is recorded, else "stop not yet recorded" |
+| Project SCRAM(s) only | one bank inserted | "SCRAM in force: N projects. Other work continues." |
+| Drill | dashed outline | "Drill", never darkens the core |
+
+The SCRAM control and banner stay as they are. The core and rods read separate queries on separate intervals, so each caption stands on its own source.
 
 ## 7. Look
 
-- **Original, generic facility**, procedurally generated SVG, no reference images, no real plant's layout, no trefoil, no hazard stripes, no disaster imagery.
-- **Palette**: a deep blue-black site at night; containment in cool concrete greys with a fine blueprint linework; the core in a restrained blue glow (the colour of Cherenkov light, used as a mood, not a claim); amber and white for the annunciator, matching control-board convention, with shape and text always carrying the meaning. Semantic colours remain the app's own (`StateMark`, `tokens.css`) and are never set by the theme.
-- **Depth**: zone boundaries as double lines with small gate breaks where doors are; walkways; bays with equipment silhouettes (racks, consoles, pipe runs) at low contrast so figures read first.
-- **Figures** keep the existing semantic marks. Plant-specific body styles: operators in coveralls and hard hats, six silhouettes, original.
-- **Motion** (Full only, paused when the tab is hidden): a slow breathing glow in the core proportional to nothing but "on" or "off"; no camera moves; nothing loops in the outer zones. `prefers-reduced-motion` or the Still setting removes all of it.
-- **Typography**: the app's own fonts; tabular numerals for counts; zone names in small caps.
-- **Quality bar**: the plant must pass the existing office quality harness (`office-harness.tsx`, `e2e/office-harness.spec.ts`): contrast of every plate and figure against its art, no semantic element covered by art, figure extents inside regions at minimum zoom, axe clean.
+- **One projection.** Pure plan view, one hairline weight for boundaries, a heavier line only for each work bay's double wall. Zone names in small caps set into their lines. No dome, no elevation, few or no equipment silhouettes. Generous empty space.
+- **Palette.** Deep blue-black site; cool greys; the core a restrained blue when lit. Amber appears only on a lit annunciator window and on the control room when something waits on you. Semantic colours stay the app's own.
+- **Figures.** One restrained operator silhouette (body styles kept, low contrast); detail only on selection.
+- **Motion.** Only on a change of state: a lit window and the control room's light fade in once (none under `prefers-reduced-motion` or a hidden tab). Nothing loops. There is no Full/Quiet/Still setting on the office today and this plan does not add one.
+- **SVG budget.** The `validateSvg` allowlist (no pattern, use, filter, mask or text; 500 KB per file) holds. Glow is a radial gradient; linework is few long paths.
+- **Fits above the fold.** The annunciator replaces the count line, and the zone legend sits under the stage. The stack above the stage gets shorter, not taller.
 
-## 8. The contract change
+## 8. Contract
 
-`OfficeThemeV1` gains one optional asset, `site`, an SVG exactly the canvas size, drawn behind the region art. It passes the same `validateSvg` allowlist. A theme also names the layout it is drawn for: `layout: "office" | "plant"`. Region art must match that layout's region sizes. The 16 existing themes declare `layout: "office"`; the plant declares `layout: "plant"`. The core and annunciator are app code, not theme data, so a theme can never fake an instrument.
+`OfficeThemeV1` gains two optional fields: `layout: "plant"` (absent means the office layout, so the 17 existing generated themes need no change or regeneration) and `site`, one SVG exactly the canvas size drawn behind region art. `validateTheme` accepts the two keys, sizes art from the declared layout, and requires `site` to be in the theme's `assets.json` with its digest, so production copies it. The core, rods and annunciator are app code; a theme cannot fake an instrument.
 
 ## 9. Archiving the office themes
 
-- `registry.ts`: `DEFAULT_OFFICE_THEME` becomes `plant`. The 16 current themes move to `ARCHIVED_THEMES`. They keep their files, tests and approvals; nothing is deleted.
-- The Theme picker leaves the header. An **Advanced** disclosure at the foot of the tab holds "Archived office themes", a select whose first option is "None (Plant)". Choosing one renders the old office layout with that theme, labelled "Archived theme" in the header, with a one-click "Back to Plant".
-- The remembered choice moves to a new key, `controlrod.plant.view.<member>`. The old key is not read, so everyone lands on Plant once after the upgrade.
-- `/floor` and its 15 packs: left in place and unchanged in this PR (unreachable from navigation, flag-gated, nothing released). Retiring it is a separate cleanup; noted in the change record.
+- `DEFAULT_OFFICE_THEME` becomes `plant`; `released.json` adds `plant`. The 16 released office themes stay released and on disk, listed as archived. `harness-bright` stays a test theme.
+- The header Theme picker goes. An **Advanced** disclosure under the stage holds "Archived office themes", first option "None: show the Plant". Choosing one shows the old office layout with that theme, a header note "Archived theme", and "Back to Plant".
+- New storage key `controlrod.plant.view.<member>`; the old key is not read, so everyone lands on the Plant once.
+- `/floor` is unchanged here; retiring it is a separate cleanup, noted in the change record.
 
-## 10. Navigation and words
+## 10. Small screens
 
-- `places.ts`: "Office" becomes **Plant**, purpose "The plant: who is working, where, and what needs you". Route `/plant`; `/office` redirects to `/plant` so links keep working.
-- Header: "Plant" with the count line kept ("2 agents wait on you · 9 agents on the floor" becomes "… in the plant").
-- Every plant label has a tooltip with the plain meaning, for example "Main control room: decisions and permissions waiting on you."
-- Presenting mode, lenses, cause chips, the portfolio table, overflow list and the agent card all stay, unchanged in behaviour.
+There is no full figure list today; the office only lists overflow. The plan adds a **Plant list**: every figure grouped by zone and place, each a button that opens the same agent card, same states and marks in text. It shows below 1024 px container width (where the stage would drop under 0.8 zoom next to the card) and is reachable by a "List" toggle at any width.
 
-## 11. Build steps (one draft PR)
+## 11. Navigation and words
 
-1. Generalise `validateLayout`; add `plant-layout.ts` and its tests (invariants, zone nesting, capacity ≥ 40).
-2. Contract: `layout` field and optional `site` asset; update `validateSvg` call sites and contract tests.
-3. Generator: `scripts/build-plant-theme.ts` writes `public/office-themes/plant/` and `themes/plant.ts`, with a drift test like the existing one.
-4. `PlantStage` (or `OfficeStage` with a layout prop): the site layer, region art, core and rods layer, then the unchanged semantic layer.
-5. `Annunciator.tsx` and `ReactorCore.tsx`, driven only by figures and SCRAM status; unit tests for counts, first-out, dark state, trip state, cap.
-6. `OfficeView`: default Plant, Advanced disclosure with archived themes, new storage key; update `office-view.test.tsx`.
-7. Places, route and redirect; update `places.test.tsx`.
-8. Quality harness: add the plant; run `e2e/office-harness.spec.ts` on Chromium; screenshots at 1440, 1024 and 390 px, light and dark OS, Full and Reduced motion, into the change record's evidence.
-9. Change record `.nuclear/changes/plant-view/` (basis, risk, plan, trace, verification, ship); `docs/office-view/` gains a plant section; `docs/status.md` line.
-10. Blind check by a different vendor than the author, then Ben's art approval on the screenshots before merge.
+- `places.ts`: "Office" becomes **Plant**, purpose "Who is working, where, and what needs you". Route `/plant`; `/office` redirects (the shell's SCRAM link and the floor's link rely on it; a test covers it).
+- README: the "Fifteen office worlds" line becomes the Plant. The README screenshot spec is not edited here; refreshing the shot is a follow-up.
 
-## 12. Out of scope
+## 12. Build steps (one draft PR)
 
-Per-agent instruments (context, fuel, time to refueling, burn rate); other plant areas from the Platform Plan (simulator, switchyard, corrective action cards, turnover); the One-line tab and disconnect switches; sound; any API, `spec/`, kernel, policy, red-team or workflow change.
+1. Change record `.nuclear/changes/plant-view/` first (basis, risk, plan), per AGENTS.md rule 1.
+2. Generalise `validateLayout`; add `plant-layout.ts` and tests (invariants, zones, walkway graph, capacity, 40-in-one-place).
+3. Contract fields and tests.
+4. Generator `scripts/build-plant-theme.ts` writing `public/office-themes/plant/` with `assets.json` and `themes/plant.ts`, plus a drift test.
+5. Stage takes a layout; site layer; core and rods; unchanged semantic layer; Plant list.
+6. `Annunciator.tsx` and core/rod state functions, unit-tested for every row of section 6.
+7. `OfficeView`: Plant default, Advanced archive, storage key; tests.
+8. Places, route, redirect; tests.
+9. Harness: plant fixture at 1200 wide; Chromium e2e on real `/plant` at 1440, 1024, 390 and 320 px, 200% zoom, every app look, forced colours and reduced motion; screenshots into evidence.
+10. Change record verification, trace and ship; `docs/office-view/` plant section; `docs/status.md`; README line.
+11. Blind check by a different vendor than the author; Ben approves the art from the screenshots. Art approval is not a signature for any protected surface, and none is touched.
 
-## 13. Risks to look at hard
+## 13. Out of scope
 
-- **Theme metaphor overriding meaning.** A plant label hides what a place does. Control: functional name always on the plate, plant label second, tooltip explains.
-- **The core reads as a gauge with a number it does not have.** Control: count only, captioned in words, no units, no percentage.
-- **Colour.** Amber and blue on dark must pass contrast for text and marks; status never by colour alone.
-- **Taste.** A nuclear setting invites cliché and alarm. Control: the taste rules above; nothing implies danger when nothing is wrong; the plant is quiet when normal.
-- **Layout density.** 40+ figures inside nested zones at 1024 px may get cramped. Control: harness measurement at minimum zoom; fold healthy work as today.
-- **Archive regressions.** Someone who chose a world loses it once. Accepted, by Ben's direction; one click under Advanced brings it back.
-- **Open PR collisions.** Stay out of `Shell.tsx`, `styles.css`, `api/`, e2e live tests.
+Per-agent instruments (context, fuel and time to refueling, burn rate) until a data source exists; other plant areas (simulator, switchyard, corrective action cards, turnover); the One-line tab; sound; any API, `spec/`, kernel, policy, red-team or workflow change; the README screenshot spec.
 
 ## 14. Questions for Ben (non-blocking; defaults in bold)
 
 1. Tab name: **Plant** (alternatives: Facility, Site).
-2. Zone words: **Owner-controlled area, Protected area, Vital area, Containment** (alternative: plain "Site, Fence, Inner, Containment").
-3. Art approval: **Ben approves from the PR screenshots**, recorded in the change record, as the 2026-11-18 approval was.
+2. Art approval from the PR screenshots: **yes**, recorded in the change record.
+
+## 15. What the reviews changed
+
+Both reviewers, independently:
+- The v1 core-in-containment layout could not fit the seat clearances (a 3×2 bay needs about 186 tall; v1 left 100). Now: the reactor building holds no seats, bays get their own band, the canvas stays 1200 wide.
+- The v1 core and rods could state untrue things (project SCRAMs, drills, partial restarts, missing timing, presenting-mode hidden figures, failed loads). Now: the state table in section 6.
+- Drop "first out". Done.
+- Create the change record first. Done (step 1).
+
+Codex: walkway graph and queue-footprint checks; a full small-screen list; real-page contrast tests at 320 px, zoom, forced colours; `site` must be in the manifest; plain functional names over trust words; one drawing convention, one quiet count line, amber only for exceptions.
+
+Second reviewer: 0.8 minimum zoom (canvas width 1200); physical-security zone terms dropped; quarantine moved outside the fence; nobody beside the core; one projection (plan) only; annunciator without the normal "waiting" window and designed for light looks; it replaces the count line instead of adding height; plates are not interactive, so meanings go in `aria-label` and a legend; `harness-bright` counted; README and redirect covered; one warm light on the control room.

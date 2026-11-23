@@ -1,23 +1,30 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
 import type { AgentFigure } from "../../api/types.js";
 import { STATE_INFO } from "../../components/StateMark.js";
 import { AgentCard } from "./AgentCard.js";
+import { Annunciator } from "./Annunciator.js";
+import { layoutOf } from "./contract.js";
 import { ScramBanner, ScramControl } from "./Scram.js";
 import { type CauseGroup, EXCEPTIONS_AT, causeGroups, exceptionsView, portfolio } from "./exceptions.js";
 import { REGION } from "./layout.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
-import { DEFAULT_OFFICE_THEME, draftBuild, officeThemeChoices } from "./registry.js";
+import { PLANT_LAYOUT } from "./plant-layout.js";
+import { type Read, annunciator, coreState, rodState } from "./plant-instruments.js";
+import { PlantList } from "./PlantList.js";
+import { PLANT_THEME, archivedThemeChoices, draftBuild } from "./registry.js";
 import { seatFigures } from "./seat.js";
 
 /**
- * The office view (specification 13; plan tasks 4.5 and 4.8): the projected figures on the canonical
- * floor under the chosen theme (the standard office or one of the fifteen released worlds;
- * plan task 4.9), a lens that recolours them, presenting mode, and a card for the selected figure.
- * Every state and cause comes from GET /office/figures; nothing here guesses.
+ * The Plant (docs/superpowers/specs/2026-11-23-plant-view-design.md), which was the office view
+ * (specification 13; plan tasks 4.5 and 4.8): the projected figures on the plant's canonical layout,
+ * the annunciator, the reactor core and its rods, a lens that recolours figures, presenting mode, and
+ * a card for the selected figure. The office themes (the standard office and the fifteen worlds,
+ * plan task 4.9) are archived under Advanced, where choosing one shows the office layout again.
+ * Every state and cause comes from GET /office/figures and GET /scrams; nothing here guesses.
  */
 
 /** What waits on the viewer: agents in Your office, and anything else in the Inbox with no agent yet. */
@@ -30,9 +37,9 @@ function countLine(needsMe: number, inboxItems: number): string {
   return [agents, more].filter(Boolean).join("; ");
 }
 
-// The theme is a per member convenience: remembered in this browser for the signed in member, where
-// storage works, and never required.
-const themeKey = (member: string) => `controlrod.office.theme.${member}`;
+// The archived theme, if any, is a per member convenience: remembered in this browser for the signed
+// in member, where storage works, and never required. A new key, so everyone lands on the Plant once.
+const themeKey = (member: string) => `controlrod.plant.view.${member}`;
 const rememberedTheme = (member: string | undefined) => {
   if (!member) return undefined;
   try {
@@ -42,14 +49,38 @@ const rememberedTheme = (member: string | undefined) => {
   }
 };
 
+/** The stage's minimum width (0.8 of its canvas) and the card's column beside it. */
+const STAGE_MIN = 960;
+const CARD = 280 + 16;
+
+/**
+ * How wide the view's own column is, so the drawing is shown only where it fits at its minimum zoom
+ * (the list takes its place below that), and the card moves under the drawing where both do not fit.
+ */
+function useWidth(): [(el: HTMLDivElement | null) => void, number | undefined] {
+  const [width, setWidth] = useState<number>();
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const o = new ResizeObserver(([e]) => setWidth(e!.contentRect.width));
+    o.observe(el);
+    return () => o.disconnect();
+  }, [el]);
+  return [setEl, width];
+}
+
+const readOf = <T,>(q: { data: T | undefined; isError: boolean; dataUpdatedAt: number }): Read<T> => ({ data: q.data, failed: q.isError, at: q.dataUpdatedAt });
+
 export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {}) {
-  const choices = officeThemeChoices(drafts);
+  const choices = archivedThemeChoices(drafts);
   const session = useQuery({ queryKey: ["session"], queryFn: api.session });
   const member = session.data?.signed_in ? session.data.user : undefined;
   // A choice made in this visit holds for the member who made it; another member gets their own.
   const [chosen, setChosen] = useState<{ member: string; id: string }>();
   const themeId = chosen && chosen.member === member ? chosen.id : rememberedTheme(member);
-  const theme = choices.find((t) => t.id === themeId) ?? DEFAULT_OFFICE_THEME;
+  const theme = choices.find((t) => t.id === themeId) ?? PLANT_THEME;
+  const layout = layoutOf(theme);
+  const isPlant = layout.id === "plant";
   const chooseTheme = (id: string) => {
     if (!member) return;
     setChosen({ member, id });
@@ -64,6 +95,13 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const [selected, setSelected] = useState<string>();
   const [showEveryone, setShowEveryone] = useState(false);
   const q = useQuery({ queryKey: ["office-figures", presenting], queryFn: () => api.officeFigures(presenting), refetchInterval: 30_000 });
+  // The same read the SCRAM banner makes (same key), so the rods and the banner never disagree.
+  const scrams = useQuery({ queryKey: ["scrams", presenting], queryFn: () => api.scrams(presenting) });
+  const [measure, width] = useWidth();
+  const [listChosen, setListChosen] = useState<boolean>();
+  // An unmeasured width (no layout engine, as in tests) draws the plant.
+  const showList = listChosen ?? (width !== undefined && width < STAGE_MIN);
+  const stack = width !== undefined && width < STAGE_MIN + CARD;
   // Why a lens cannot be chosen now: its own reason, or presenting, which shows no spend.
   const why = (l: (typeof LENSES)[number]) => l.unavailable ?? (presenting && l.id === "spend" ? "Spend is not shown while presenting." : undefined);
   const active = lensById(lens);
@@ -71,15 +109,33 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const exceptions = useMemo(() => exceptionsView(floor?.figures ?? [], showEveryone), [floor, showEveryone]);
   const projects = useMemo(() => portfolio(floor?.figures ?? []), [floor]);
   const groups = useMemo(() => causeGroups(floor?.figures ?? []), [floor]);
-  const { seated, overflow } = useMemo(() => seatFigures(exceptions.shown, active.tint, active.unavailable ? undefined : active), [exceptions, active]);
+  const { seated, overflow } = useMemo(() => seatFigures(exceptions.shown, active.tint, active.unavailable ? undefined : active, layout), [exceptions, active, layout]);
+  const floorRead = readOf(q);
+  const scramRead = readOf(scrams);
+  const windows = annunciator(floorRead, scramRead);
+  const instruments = { core: coreState(floorRead), rods: rodState(scramRead), waiting: (floor?.needs_me ?? 0) > 0 };
   const open = floor?.figures.find((f) => f.id === selected);
 
   return (
     <section className="office-view" aria-labelledby="office-title">
       <header className="office-head">
-        <div>
-          <h1 id="office-title">Office</h1>
-          {floor && (
+        <div className="plant-title">
+          <h1 id="office-title">Plant</h1>
+          {isPlant ? (
+            floor && (
+              <p className="office-count">
+                {floor.figures.length} {floor.figures.length === 1 ? "agent" : "agents"} in the plant
+              </p>
+            )
+          ) : (
+            <p className="office-count">
+              Archived theme: {theme.title}.{" "}
+              <button type="button" className="link" onClick={() => chooseTheme(PLANT_THEME.id)} disabled={!member}>
+                Back to the Plant
+              </button>
+            </p>
+          )}
+          {!isPlant && floor && (
             <p className="office-count" aria-live="polite">
               {countLine(floor.needs_me, floor.inbox_items)}
               {" · "}
@@ -105,19 +161,13 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
               </button>
             ))}
           </div>
-          {choices.length > 1 && (
-            <label className="office-theme-choice">
-              <span>Theme</span>
-              <select value={theme.id} disabled={!member} onChange={(e) => chooseTheme(e.target.value)}>
-                {choices.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
-                    {t.availability === "development" ? " (draft)" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <div role="radiogroup" aria-label="Show" className="office-lenses">
+            {(["plant", "list"] as const).map((v) => (
+              <button key={v} type="button" role="radio" aria-checked={(v === "list") === showList} className={(v === "list") === showList ? "btn small active" : "btn small"} onClick={() => setListChosen(v === "list")}>
+                {v === "plant" ? (isPlant ? "Plant" : "Floor") : "List"}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             className="btn small"
@@ -133,6 +183,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           <ScramControl presenting={presenting} />
         </div>
       </header>
+      {isPlant && <Annunciator windows={windows} />}
       <ScramBanner presenting={presenting} />
       {LENSES.filter((l) => why(l)).map((l) => (
         <p key={l.id} id={`lens-why-${l.id}`} className="office-note">
@@ -210,15 +261,28 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
       ) : !floor ? (
         <p className="office-note">Loading the office floor…</p>
       ) : (
-        <div className="office-layout">
+        <div className="office-layout" ref={measure} data-stack={stack ? "" : undefined}>
           <div className="office-scroll">
-            <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} />
+            {showList ? (
+              <PlantList figures={floor.figures} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
+            ) : (
+              <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} {...(isPlant ? { instruments } : {})} />
+            )}
+            {isPlant && !showList && (
+              <ul className="plant-legend" aria-label="Zones">
+                {PLANT_LAYOUT.zones.map((z) => (
+                  <li key={z.id}>
+                    <strong>{z.name}</strong>: {z.meaning}
+                  </li>
+                ))}
+              </ul>
+            )}
             {floor.figures.length === 0 && (
               <p className="office-note">
                 No agent is working right now. Work appears here once a released package has a run. <Link to="/packages">Packages</Link>
               </p>
             )}
-            {overflow.length > 0 && (
+            {!showList && overflow.length > 0 && (
               <div className="office-overflow">
                 <h2>More than the rooms hold</h2>
                 <ul>
@@ -235,6 +299,23 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           </div>
           <AgentCard figure={open} lens={active.unavailable ? undefined : `${active.label} lens: ${open ? active.value(open) : ""}`} />
         </div>
+      )}
+      {choices.length > 0 && (
+        <details className="plant-advanced">
+          <summary>Advanced</summary>
+          <label className="office-theme-choice">
+            <span>Archived office themes</span>
+            <select value={isPlant ? PLANT_THEME.id : theme.id} disabled={!member} onChange={(e) => chooseTheme(e.target.value)}>
+              <option value={PLANT_THEME.id}>None: show the Plant</option>
+              {choices.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                  {t.availability === "development" ? " (draft)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        </details>
       )}
     </section>
   );

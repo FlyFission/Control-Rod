@@ -26,6 +26,10 @@ import { OFFICE_THEMES } from "../src/features/office/registry.js";
 
 /** Every theme the repository carries: the default, the structural test theme and the fifteen worlds. */
 const THEMES = OFFICE_THEMES.map((t) => t.id);
+/** The plant draws a fourteenth plate, the reactor building's; the office draws thirteen. */
+const plates = (theme: string) => (OFFICE_THEMES.find((t) => t.id === theme)?.layout === "plant" ? 14 : 13);
+/** The plant is quiet when normal: no figure pulses, so nothing animates in a steady scene. */
+const loops = (theme: string) => OFFICE_THEMES.find((t) => t.id === theme)?.layout !== "plant";
 const PLATE = { r: 10, g: 10, b: 12 };
 const measurements: Record<string, unknown> = {};
 
@@ -279,7 +283,7 @@ test.describe("office theme quality harness", () => {
         const withMarks = await page.evaluate(() => ({ safety: document.querySelectorAll(".office-figure-safety").length, flags: document.querySelectorAll(".office-figure-flags").length }));
         expect(withMarks.safety).toBeGreaterThan(0);
         expect(withMarks.flags).toBeGreaterThan(0);
-        expect(result.summary.counted).toEqual({ plate: 13, code: 40, mark: 40, outline: 40, body: 40, tint: 0, ...withMarks });
+        expect(result.summary.counted).toEqual({ plate: plates(theme), code: 40, mark: 40, outline: 40, body: 40, tint: 0, ...withMarks });
         expect(Object.keys(result.summary.shapes).sort()).toEqual(["changed", "needs", "stuck", "waiting", "working"]);
       });
 
@@ -330,7 +334,7 @@ test.describe("office theme quality harness", () => {
         const result = await page.evaluate(measureLegibility);
         measurements[`${theme}/legibility`] = { boxes: result.boxes, smallestTextPx: result.smallest };
         expect(result.failures).toEqual([]);
-        expect(result.boxes).toBe(53);
+        expect(result.boxes).toBe(40 + plates(theme));
       });
 
       test("frame time smoke check and event to screen time with 40 agents", async ({ page }) => {
@@ -362,6 +366,14 @@ test.describe("office theme quality harness", () => {
       test("motion stops with reduced motion and in a hidden tab", async ({ page }) => {
         await open(page, `theme=${theme}&agents=40`);
         const moving = await page.evaluate(() => document.getAnimations().length);
+        if (!loops(theme)) {
+          // Quiet when normal (plant view design, section 7): nothing loops, so there is nothing to stop.
+          expect(moving).toBe(0);
+          await page.emulateMedia({ reducedMotion: "reduce" });
+          expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+          measurements[`${theme}/motion`] = { animationsInFullMotion: 0, hidden: 0, reduced: 0 };
+          return;
+        }
         expect(moving).toBeGreaterThan(0);
         const setVisibility = (state: "hidden" | "visible") =>
           page.evaluate((s) => {
@@ -982,10 +994,14 @@ function measureLegibility() {
     return { name, l: Math.min(...rs.map((r) => r.left)), t: Math.min(...rs.map((r) => r.top)), r: Math.max(...rs.map((r) => r.right)), b: Math.max(...rs.map((r) => r.bottom)) };
   };
   const boxes: Box[] = [];
-  // The corridor: between the bottom of the top row of regions and the top of the bottom row.
+  // The corridor (or the plant's walkway) a queued figure stands in: between the regions above it
+  // and the regions below it, among those it shares columns with.
   const regionBoxes = [...document.querySelectorAll(".office-region")].map((r) => r.getBoundingClientRect());
-  const corridorTop = Math.max(...regionBoxes.filter((r) => r.top < stage.top + stage.height / 2).map((r) => r.bottom));
-  const corridorBottom = Math.min(...regionBoxes.filter((r) => r.top >= stage.top + stage.height / 2).map((r) => r.top));
+  const corridorOf = (box: Box) => {
+    const cy = (box.t + box.b) / 2;
+    const cols = regionBoxes.filter((r) => r.left < box.r && r.right > box.l);
+    return { top: Math.max(stage.top, ...cols.filter((r) => r.bottom <= cy).map((r) => r.bottom)), bottom: Math.min(stage.bottom, ...cols.filter((r) => r.top >= cy).map((r) => r.top)) };
+  };
   for (const f of document.querySelectorAll(".office-figure")) {
     const box = union(`figure ${f.getAttribute("data-figure")}`, [...f.querySelectorAll(".office-figure-outline, .office-figure-safety, .office-figure-flags, .office-figure-mark, .office-figure-code")]);
     // At most five marks on a figure (OV-08): the state shape, and the gate flag, changed input
@@ -999,7 +1015,8 @@ function measureLegibility() {
     const cy = (box.t + box.b) / 2;
     const seated = cy >= region.top && cy <= region.bottom;
     if (seated && (box.l < region.left || box.r > region.right || box.t < plate.bottom || box.b > region.bottom)) failures.push(`${box.name} leaves its seat in ${f.getAttribute("data-region")}`);
-    if (!seated && (box.t < corridorTop || box.b > corridorBottom)) failures.push(`${box.name} queues outside the corridor`);
+    const corridor = corridorOf(box);
+    if (!seated && (box.t < corridor.top || box.b > corridor.bottom)) failures.push(`${box.name} queues outside the corridor`);
     const outline = f.querySelector(".office-figure-outline")!.getBoundingClientRect();
     if (outline.width < 24 || outline.height < 24) failures.push(`figure ${f.getAttribute("data-figure")} is smaller than a 24px target`);
   }

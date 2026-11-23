@@ -9,6 +9,24 @@ Rollback: revert the commits. The contract additions are optional fields; an old
 
 Monitoring after merge: reports of a wrong version comparison or a command offered for a non-npm install.
 
+## Review history
+
+Codex ran blind reviews through the landing thread. Rounds 1 to 4 covered the earlier install-from-the-app shape, which was removed on 2026-11-23 when Ben chose to show the command only. Rounds 5 to 13 reviewed the shape that ships here:
+
+| Round | Head reviewed | Outcome | Fixed in |
+|---|---|---|---|
+| 5 | before 45832ea3 | P1 command injection through the copied command | 45832ea3 |
+| 6 | 45832ea3 | HOLD, P2: partial check wiped known rows; prerelease parsing | 7a22aece |
+| 7 | 6cafdd3a | HOLD, P2: per-runner rows (single daemon identity accepted as R-13); P3s | cc6c33de |
+| 8 | 0a9b53fa | HOLD, P2: a carried row could recommend a downgrade | d954db2c |
+| 9 | d954db2c | HOLD, P2: cached report resent after an install while the daemon ran | 974d1a77 |
+| 10 | 27e9fe2e | HOLD, P2: one resolution per check; recheck before install; refetch before Copy | 8f17f3eb |
+| 11 | 8f17f3eb | HOLD, P2: unverified provenance on kept rows; check off; stale command text | 2bd3f64b |
+| 12 | 2bd3f64b | HOLD, P2: a remount showed a cached command | 120117b2 |
+| 13 | 120117b2 (scoped to the panel) | HOLD, P2: same-tick freshness; P3: remount test did not protect refetch on mount | this change (web panel, its test and this record only) |
+
+Ben chose on 2026-11-23 to land after round 13's fixes, with no further Codex rounds. The round-13 fixes touch only `apps/web` and this change record, with no spec change. Each fix's evidence is listed in [verification](verification.md) (E-07 to E-15).
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

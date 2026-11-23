@@ -63,15 +63,17 @@ export function AgentUpdates() {
   const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes, refetchOnWindowFocus: "always", refetchOnMount: "always" });
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [copied, setCopied] = useState<string | null>(null);
-  // When the person last came back to the window. A command is shown only from data fetched after
-  // that, so a cached list never offers a command the control plane may already have cleared.
-  // Starts at mount: a list already cached when the panel mounts must be fetched again first.
-  const [focusedAt, setFocusedAt] = useState(() => Date.now());
+  // The list's update time as of mount, and again whenever the person comes back to the window. A
+  // command is shown only once the list has been updated after that mark, so a cached list never
+  // offers a command the control plane may already have cleared, even if it was written in the same
+  // millisecond as the mark.
   const qc = useQueryClient();
+  const updatedAt = () => qc.getQueryState(["runtimes"])?.dataUpdatedAt ?? 0;
+  const [mark, setMark] = useState(updatedAt);
   useEffect(() => {
     const back = () => {
       if (document.visibilityState === "hidden") return;
-      setFocusedAt(Date.now());
+      setMark(qc.getQueryState(["runtimes"])?.dataUpdatedAt ?? 0);
       void qc.refetchQueries({ queryKey: ["runtimes"] });
     };
     window.addEventListener("focus", back);
@@ -81,7 +83,7 @@ export function AgentUpdates() {
       document.removeEventListener("visibilitychange", back);
     };
   }, [qc]);
-  const fresh = q.isSuccess && !q.isError && q.dataUpdatedAt >= focusedAt;
+  const fresh = q.isSuccess && !q.isError && q.dataUpdatedAt > mark;
 
   // An entry whose version is not strict SemVer is not shown at all, and one agent at one version
   // is shown once.

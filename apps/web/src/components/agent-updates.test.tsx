@@ -211,6 +211,9 @@ describe("Agent updates", () => {
     await waitFor(() => expect(screen.getByRole("region", { name: "1 agent update" }).textContent).toContain("npm install --global @xai-official/grok@1.0.92"));
     await user.click(screen.getByRole("button", { name: "toggle" }));
     expect(qc.getQueryData(["runtimes"])).toBeTruthy(); // the list stays cached
+    // As in the app (main.tsx), the cached list is still fresh, so only refetchOnMount "always"
+    // fetches it again on the next mount.
+    qc.setDefaultOptions({ queries: { retry: false, staleTime: 5000 } });
     // Mount again while the refetch is held: the cached row shows no command.
     let release!: () => void;
     gate = new Promise<void>((r) => (release = r));

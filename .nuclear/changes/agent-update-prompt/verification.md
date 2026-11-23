@@ -16,6 +16,7 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-12 | pass | Round 10 review fixes: with a second PATH resolution for the stamp, any of the recheck's refusals (moved executable, no longer npm's copy, unreadable version, version at or past latest), the CLI honoring the recheck, the panel's refetch on focus, its refetch before Copy, or its copy-only-a-current-offer rule removed, a test fails; each passes when restored. | `evidence/mutation-round10.log` |
 | E-13 | pass | Round 11 review fixes: with a kept row still offering a command (daemon or API), the turned-off check not clearing the report, the panel showing a command from data not fetched since focus, or focus not refetching, a test fails; each passes when restored. | `evidence/mutation-round11.log` |
 | E-14 | pass | Round 12 review fix: with the freshness mark starting at 0 instead of at mount, the remount test (cached list, held refetch) fails; it passes when restored. Refetch on mount is not mutation-checked because the test query client refetches on mount anyway. | `evidence/mutation-round12.log` |
+| E-15 | pass | Round 13 review fixes: with the freshness check accepting a list not updated after the mount or focus mark (>= instead of >), or without refetch on mount while the cached list is still fresh (the app's 5 s staleTime, now seeded in the test), a panel test fails; each passes when restored. | `evidence/mutation-round13.log` |
 
 ## Evidence custody and coupling
 
@@ -33,6 +34,7 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-12 | AU-02 | yes | evidence/mutation-round10.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-13 | AU-05 | yes | evidence/mutation-round11.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-14 | AU-06 | yes | evidence/mutation-round12.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
+| E-15 | AU-06 | yes | evidence/mutation-round13.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
@@ -48,8 +50,9 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-12 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | fakes and jsdom  [Ship limits](ship.md) |
 | E-13 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | PostgreSQL 16 and jsdom  [Ship limits](ship.md) |
 | E-14 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
+| E-15 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
 
-Independent blind checks (Codex, four rounds) reviewed an earlier version in which the app could ask the daemon to install. On 2026-11-23 that path was removed in favor of showing the command; the remaining code has not been re-checked independently since.
+Independent blind checks: Codex reviewed the earlier install-from-the-app shape in rounds 1 to 4. It then reviewed the shape that ships here in rounds 5 to 13 (2026-11-23), each finding fixed with the evidence above (E-07 to E-15). Round 13 was scoped to the panel; its two fixes (E-15) were not re-reviewed, by Ben's choice to land after that round. See the review history in [ship](ship.md).
 
 ## Required links
 

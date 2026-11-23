@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -220,9 +222,11 @@ func TestAWithdrawalDuringASlowProbeIsNotUndoneByTheGrace(t *testing.T) {
 		}
 		return cli.run(ctx, name, args...)
 	}
+	var logs strings.Builder
+	var logMu sync.Mutex
 	d = New(Config{Home: t.TempDir(), Runtimes: []string{"mycli"}, Version: "test", Probe: run,
 		LookPath: func(string) (string, error) { return "/bin/true", nil },
-		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil))})
+		Logger:   slog.New(slog.NewTextHandler(lockedWriter{&logMu, &logs}, nil))})
 	d.probe(context.Background())
 	if got, _ := readyOf(d, "mycli"); !got {
 		t.Fatal("setup: mycli should be ready")
@@ -232,5 +236,52 @@ func TestAWithdrawalDuringASlowProbeIsNotUndoneByTheGrace(t *testing.T) {
 	d.probe(context.Background())
 	if got, _ := readyOf(d, "mycli"); got {
 		t.Fatal("a launch withdrew mycli during the pass; the timeout grace must not offer it again")
+	}
+	logMu.Lock()
+	defer logMu.Unlock()
+	if strings.Contains(logs.String(), "stays offered") {
+		t.Fatalf("the log must not say a withdrawn runtime stays offered:\n%s", logs.String())
+	}
+}
+
+type lockedWriter struct {
+	mu *sync.Mutex
+	b  *strings.Builder
+}
+
+func (w lockedWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.b.Write(p)
+}
+
+func TestANewExecutableIsNotHeldThroughATimeout(t *testing.T) {
+	d := New(Config{Home: t.TempDir(), Runtimes: []string{"mycli"}, Version: "test",
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	art := func(v string) *RuntimeArtifact {
+		return &RuntimeArtifact{Path: "/opt/mycli", Digest: Digest{Algorithm: "sha256", Value: strings.Repeat(v, 64)}}
+	}
+	last := RuntimeStatus{Runtime: "mycli", Ready: true, Artifact: art("a")}
+	if _, held := d.holdThroughTimeout("mycli", RuntimeStatus{Runtime: "mycli", timedOut: true, Artifact: art("b")}, last); held {
+		t.Fatal("an upgraded executable that timed out must not keep the old one's ready status")
+	}
+	if _, held := d.holdThroughTimeout("mycli", RuntimeStatus{Runtime: "mycli", timedOut: true, Artifact: art("a")}, last); !held {
+		t.Fatal("the same executable timing out once is held")
+	}
+}
+
+func TestAProbeCommandReturnsSoonAfterItsDeadlineEvenIfAHelperKeepsItsOutputOpen(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "stuck"), []byte("#!/bin/sh\nsleep 30 &\nsleep 30\n"), 0o755)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+"/usr/bin:/bin")
+	old := probeWaitDelay
+	probeWaitDelay = 100 * time.Millisecond
+	t.Cleanup(func() { probeWaitDelay = old })
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, _, _ = ExecRunner(ctx, "stuck")
+	if took := time.Since(start); took > 5*time.Second {
+		t.Fatalf("ExecRunner waited %v for a helper's open pipe; it must return soon after the deadline", took)
 	}
 }

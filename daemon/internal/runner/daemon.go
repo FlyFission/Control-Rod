@@ -399,6 +399,12 @@ func (d *Daemon) probe(ctx context.Context) {
 		}
 	}
 	d.status = next
+	for _, s := range next {
+		// Logged only after a withdrawal during the pass has been kept, so the line is true.
+		if held[s.Runtime] && s.Ready {
+			d.log.Info(displayName(s.Runtime)+" did not answer its probe in time; it stays offered until the next probe, which must answer.", "runtime", s.Runtime)
+		}
+	}
 	report := SubscriptionFromStatuses(next, CurrentPlatform())
 	d.subscriptions = &report
 	d.probeMu.Unlock()
@@ -434,14 +440,16 @@ func (d *Daemon) holdThroughTimeout(rt string, st, last RuntimeStatus) (RuntimeS
 	if d.probeTimeouts == nil {
 		d.probeTimeouts = map[string]int{}
 	}
-	if st.Ready || !st.timedOut || !last.Ready || d.probeTimeouts[rt] >= probeTimeoutGrace {
+	// A new executable (a different digest from the one that was ready) is not the runtime that was
+	// offered; it must answer before it is offered.
+	changed := st.Artifact != nil && last.Artifact != nil && st.Artifact.Digest.Value != last.Artifact.Digest.Value
+	if st.Ready || !st.timedOut || !last.Ready || changed || d.probeTimeouts[rt] >= probeTimeoutGrace {
 		if st.Ready || !st.timedOut {
 			delete(d.probeTimeouts, rt)
 		}
 		return RuntimeStatus{}, false
 	}
 	d.probeTimeouts[rt]++
-	d.log.Info(displayName(rt)+" did not answer its probe in time; it stays offered until the next probe, which must answer.", "runtime", rt)
 	return last, true
 }
 

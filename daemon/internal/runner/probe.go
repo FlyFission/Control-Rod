@@ -46,6 +46,9 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 	}
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Env = AgentEnv(os.Environ())
+	// A helper the CLI started can keep its output pipe open after the CLI is killed; stop waiting
+	// for it shortly after the deadline, so a probe never hangs past its timeout.
+	cmd.WaitDelay = probeWaitDelay
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
@@ -59,6 +62,10 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 
 // probeTimeout bounds each probe command. A var so tests can shorten it.
 var probeTimeout = 10 * time.Second
+
+// probeWaitDelay is how long a killed probe command's output pipes may stay open before they are
+// closed and the command returns (exec.Cmd.WaitDelay).
+var probeWaitDelay = 2 * time.Second
 
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")

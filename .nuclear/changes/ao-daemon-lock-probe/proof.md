@@ -14,12 +14,13 @@
 - A probe whose command ran past its own deadline is marked timed out; one that answered, or whose parent context was cancelled, is not.
 - Across probe passes: a ready runtime stays offered through one timeout, not through a second in a row; an answer resets the grace; an answer that says not ready takes it away at once; a timeout after not ready is not held; an answer while held resets the grace without the runtime ever leaving.
 - A Codex login check that times out, in its help or its status command, is not ready and not reported as signed out; a sign-out that exits as the deadline passes is a sign-out; a signed-in Codex probes ready and the same Codex signed out is an answer the grace does not hold; a launch withdrawal during a slow pass is not undone by the grace.
+- A timed-out probe of a new executable is not held; the "stays offered" line is not logged for a withdrawn runtime; a probe command whose helper keeps its output open returns soon after the deadline (the test fails, waiting 30 s, with `WaitDelay` removed).
 - Not covered by a test: a full daemon pass for Codex, which also runs its sandbox preflight and needs bubblewrap this container lacks. The sign-out test checks the probe and the grace separately.
 
 ## Method
 
 - Commands: the four in [risk](risk.md#required-proof).
-- Environment: Linux (cloud container, no bubblewrap), Go from `daemon/go.mod`, branch `feat/ao-s2-daemon-worktrees` with `origin/main` at `48742b9d` merged in.
+- Environment: Linux (cloud container, no bubblewrap), Go from `daemon/go.mod`, branch `feat/ao-s2-daemon-worktrees` with `origin/main` at `69fe9698` merged in.
 - Inputs/fixtures: temporary homes (`t.TempDir()`), a stand-in CLI (`slowCLI`) that answers, refuses or hangs, and `probeTimeout` shortened to 30 ms in tests.
 - Self-check used? yes: scope checked against `git diff --stat origin/main`.
 - Reproducible by the reviewer? yes: rerun the commands on the branch.
@@ -38,6 +39,7 @@
 - Blind checks by a different vendor than the author (Codex, read-only):
   - At `a87f19a5`: FIX FIRST, 3 P1 and 2 P2, all reasoned. Fixed in the next commit: the PID write followed a symlinked `daemon.lock` (now `O_NOFOLLOW`); the grace could restore a runtime a launch withdrew during the pass (the withdrawal now stands); a timed-out `codex login --help` skipped the login check and read as ready (now not ready); a contender could name a previous holder's PID (a clean release empties the file and a dead PID is not named); the sign-out and grace-reset tests did not exercise those paths (new tests above).
   - At `ae657525`: FIX FIRST, 3 P1 and 3 P2, all reasoned. Fixed in the next commit: a hard-linked `daemon.lock` (now refused); a reused PID could be named as the holder (the sentence now asks to check before stopping; the race cannot be closed without a process start time, which the lock file does not keep); a sign-out at the deadline read as a timeout (an exit of its own is now an answer); a hung `login status` read as signed out (now unknown); the sign-out test never showed Codex ready first, and the release test ignored a missing file (both tightened).
+  - At `4542e557`: FIX FIRST, 2 P1 and 3 P2, all reasoned. Fixed in the next commit: a helper holding the output pipe could hang a probe past its deadline (`WaitDelay`); a stale PID could be read before the new holder wrote its own (50 ms wait, and the check names the home); a new executable was held through a timeout (not now); the "stays offered" line could be false (logged after the merge). Narrowed, not fixed: a hard link added after the open is not caught (stated in risk).
   - The next check is recorded here before merge.
 
 ## Reviewer note

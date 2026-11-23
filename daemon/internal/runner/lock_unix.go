@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // LockHome takes the home's daemon lock, so only one daemon at a time owns its receipts and its
@@ -43,6 +44,9 @@ func LockHome(home string) (func(), error) {
 		return nil, fmt.Errorf("%s is not a plain file with a single name; Control Rod will not start until it is (remove it)", path)
 	}
 	if err := flockHome(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		// A new holder writes its PID right after it wins the lock; give it that moment, so a crashed
+		// holder's PID left in the file is rarely read in its place.
+		time.Sleep(holderWriteWait)
 		holder := readHolderPID(f)
 		if holder > 0 && !processExists(holder) {
 			holder = 0
@@ -52,7 +56,7 @@ func LockHome(home string) (func(), error) {
 			if holder > 0 {
 				// The PID is what the file records; a holder that crashed leaves its PID behind until the
 				// next holder rewrites it, so the sentence asks for a check, not a kill.
-				return nil, fmt.Errorf("another Control Rod daemon is already running with home %s; daemon.lock records pid %d (check that it is a Control Rod daemon, then stop it)", home, holder)
+				return nil, fmt.Errorf("another Control Rod daemon is already running with home %s; daemon.lock records pid %d (check that this process is a Control Rod daemon using this home, then stop it)", home, holder)
 			}
 			return nil, fmt.Errorf("another Control Rod daemon is already running with home %s; stop it first", home)
 		}
@@ -70,6 +74,9 @@ func LockHome(home string) (func(), error) {
 		f.Close()
 	}, nil
 }
+
+// holderWriteWait is how long a refused contender waits before it reads the holder's PID.
+const holderWriteWait = 50 * time.Millisecond
 
 // flockHome is syscall.Flock; tests replace it to reach the unsupported-filesystem path.
 var flockHome = syscall.Flock

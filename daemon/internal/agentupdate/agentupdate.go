@@ -47,6 +47,23 @@ var Catalog = []Agent{
 	{ID: "grok", Name: "Grok CLI", Binary: "grok", Package: "@xai-official/grok"},
 }
 
+// Select returns the catalog entries named in ids, in catalog order; nil ids means all of them.
+func Select(ids []string) []Agent {
+	if ids == nil {
+		return Catalog
+	}
+	out := []Agent{}
+	for _, a := range Catalog {
+		for _, id := range ids {
+			if a.ID == id {
+				out = append(out, a)
+				break
+			}
+		}
+	}
+	return out
+}
+
 // Status is what a check found for one installed agent.
 type Status struct {
 	Agent     Agent
@@ -70,12 +87,21 @@ type Env struct {
 	Version func(ctx context.Context, path string) (string, error)
 	// Latest returns the latest published version of an npm package.
 	Latest func(ctx context.Context, pkg string) (string, error)
+	// NpmRoot returns npm's global node_modules folder (`npm root -g`). nil or an error means no
+	// install is offered: only a CLI npm installed globally is updated with npm.
+	NpmRoot func(ctx context.Context) (string, error)
 }
 
 var semverRe = regexp.MustCompile(`\b(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?\b`)
 
-// strictVersion is the only shape a version may have before it is put into a command.
-var strictVersion = regexp.MustCompile(`^\d{1,9}\.\d{1,9}\.\d{1,9}(-[0-9A-Za-z.]{1,40})?$`)
+// strictVersion is the only shape a version may have before it is put into a command: SemVer 2.0
+// (no leading zeros, no empty or leading-zero numeric prerelease identifiers) without build
+// metadata, which npm does not install by.
+var strictVersion = regexp.MustCompile(`^(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})` +
+	`(-(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?$`)
+
+// StrictVersion reports whether v may be put into an install command.
+func StrictVersion(v string) bool { return len(v) <= 80 && strictVersion.MatchString(v) }
 
 // ParseVersion returns the first x.y.z[-pre] in s, or "".
 func ParseVersion(s string) string {
@@ -102,6 +128,15 @@ func Newer(a, b string) bool {
 // Check looks at every agent in the catalog that is on PATH. Agents not installed are left out.
 func Check(ctx context.Context, env Env, agents []Agent) []Status {
 	out := []Status{}
+	npmRoot := ""
+	if env.NpmRoot != nil {
+		if r, err := env.NpmRoot(ctx); err == nil && filepath.IsAbs(strings.TrimSpace(r)) {
+			npmRoot = strings.TrimSpace(r)
+			if real, rerr := env.EvalSymlinks(npmRoot); rerr == nil {
+				npmRoot = real
+			}
+		}
+	}
 	for _, a := range agents {
 		p, err := env.LookPath(a.Binary)
 		if err != nil {
@@ -126,12 +161,12 @@ func Check(ctx context.Context, env Env, agents []Agent) []Status {
 		switch {
 		case lerr != nil:
 			st.Note = "latest version unavailable: " + lerr.Error()
-		case !strictVersion.MatchString(latest):
+		case !StrictVersion(latest):
 			st.Note = "the registry answered with something that is not a version"
 		default:
 			st.Latest = latest
 		}
-		if st.Latest != "" && npmInstalled(p, a.Package) {
+		if st.Latest != "" && npmGlobal(p, npmRoot, a.Package) {
 			st.Command = []string{"npm", "install", "--global", a.Package + "@" + st.Latest}
 		} else if st.Latest != "" {
 			st.Note = fmt.Sprintf("installed outside npm (%s); update it with the tool you installed it with", p)
@@ -141,10 +176,15 @@ func Check(ctx context.Context, env Env, agents []Agent) []Status {
 	return out
 }
 
-// npmInstalled reports whether path lies inside node_modules/<pkg>, which is where npm puts a
-// global package's executable. Other installs (Homebrew, a native installer) are not touched.
-func npmInstalled(path, pkg string) bool {
-	return strings.Contains(filepath.ToSlash(path), "/node_modules/"+pkg+"/")
+// npmGlobal reports whether the resolved executable lies inside npm's global node_modules, in the
+// package's own folder, so `npm install --global` replaces exactly it. A project-local, pnpm or
+// other-prefix copy, Homebrew or a native installer is not touched.
+func npmGlobal(path, npmRoot, pkg string) bool {
+	if npmRoot == "" {
+		return false
+	}
+	prefix := filepath.ToSlash(filepath.Clean(npmRoot)) + "/" + pkg + "/"
+	return strings.HasPrefix(filepath.ToSlash(filepath.Clean(path)), prefix)
 }
 
 // Outdated returns the statuses with a newer version published.

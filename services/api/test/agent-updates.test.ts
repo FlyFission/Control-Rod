@@ -39,25 +39,35 @@ describe("agent updates", () => {
 
   it("an administrator's signed request reaches the daemon once, as names only", async () => {
     await claim([grok, brew]);
-    const r = await signed("runtime.update", { agents: ["grok"] });
+    const r = await signed("runtime.update", { agents: [{ agent: "grok", version: "1.0.92" }] });
     expect(r.statusCode, r.body).toBe(200);
     expect((await view()).agent_updates_requested).toEqual(["grok"]);
-    expect((await take()).json()).toEqual({ agents: ["grok"] });
-    expect((await take()).json()).toEqual({ agents: [] });
+    expect((await take()).json()).toEqual({ requests: [{ agent: "grok", version: "1.0.92" }] });
+    expect((await take()).json()).toEqual({ requests: [] });
   });
 
   it("refuses an agent with no command or no reported update, and an unsigned request", async () => {
     await claim([grok, brew]);
-    expect((await signed("runtime.update", { agents: ["codex"] })).json().code).toBe("no-update-command");
-    expect((await signed("runtime.update", { agents: ["opencode"] })).json().code).toBe("no-update");
-    expect((await signed("runtime.update", { agents: ["../../x"] })).statusCode).toBe(400);
-    expect((await post("/admin/commands/runtime.update", { payload: { agents: ["grok"] } })).statusCode).toBe(403);
-    expect((await take()).json()).toEqual({ agents: [] });
+    expect((await signed("runtime.update", { agents: [{ agent: "codex", version: "0.171.0" }] })).json().code).toBe("no-update-command");
+    expect((await signed("runtime.update", { agents: [{ agent: "opencode", version: "1.19.6" }] })).json().code).toBe("no-update");
+    expect((await signed("runtime.update", { agents: ["grok"] })).statusCode).toBe(400);
+    expect((await signed("runtime.update", { agents: [{ agent: "../../x", version: "1" }] })).statusCode).toBe(400);
+    expect((await post("/admin/commands/runtime.update", { payload: { agents: [{ agent: "grok", version: "1.0.92" }] } })).statusCode).toBe(403);
+    expect((await take()).json()).toEqual({ requests: [] });
+  });
+
+  it("binds the signature to the version shown: a newer report refuses it, and drops an older request", async () => {
+    await claim([grok]);
+    expect((await signed("runtime.update", { agents: [{ agent: "grok", version: "1.0.91" }] })).json().code).toBe("update-changed");
+    expect((await signed("runtime.update", { agents: [{ agent: "grok", version: "1.0.92" }] })).statusCode).toBe(200);
+    await claim([{ ...grok, latest: "1.0.93", command: ["npm", "install", "--global", "@xai-official/grok@1.0.93"] }]);
+    expect((await view()).agent_updates_requested).toEqual([]);
+    expect((await take()).json()).toEqual({ requests: [] });
   });
 
   it("drops a pending request once the daemon reports the agent current", async () => {
     await claim([grok]);
-    await signed("runtime.update", { agents: ["grok"] });
+    await signed("runtime.update", { agents: [{ agent: "grok", version: "1.0.92" }] });
     await claim([]);
     expect(await view()).toMatchObject({ agent_updates: [], agent_updates_requested: [] });
   });

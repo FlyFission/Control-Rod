@@ -37,7 +37,7 @@ describe("Agent updates", () => {
       http.post("*/admin/commands/:name", async ({ params, request }) => {
         const body = (await request.json()) as any;
         sent.push({ name: String(params["name"]), body });
-        requested = body.payload.agents;
+        requested = body.payload.agents.map((r: { agent: string }) => r.agent);
         return HttpResponse.json({ requested });
       }),
     );
@@ -62,7 +62,7 @@ describe("Agent updates", () => {
     const g = within(panel).getByText("Grok CLI").closest("li")!;
     await user.click(within(g).getByRole("button", { name: "Update" }));
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toEqual({ name: "runtime.update", body: { payload: { agents: ["grok"] }, assertion: { signed: true } } });
+    expect(sent[0]).toEqual({ name: "runtime.update", body: { payload: { agents: [{ agent: "grok", version: "1.0.92" }] }, assertion: { signed: true } } });
     await waitFor(() => expect(g.textContent).toContain("Queued"));
   });
 
@@ -72,7 +72,7 @@ describe("Agent updates", () => {
     const panel = await screen.findByRole("region", { name: "3 agent updates" });
     await user.click(within(panel).getByRole("button", { name: "Update all" }));
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]!.body.payload).toEqual({ agents: ["grok", "opencode"] });
+    expect(sent[0]!.body.payload).toEqual({ agents: [{ agent: "grok", version: "1.0.92" }, { agent: "opencode", version: "1.19.6" }] });
   });
 
   it("disables updating, with the reason, for someone without the authority", async () => {

@@ -5602,7 +5602,7 @@
     "/runner/agent-updates/take": {
       "post": {
         "operationId": "Runner_takeAgentUpdates",
-        "description": "The agents an administrator asked to update, taken by the daemon: each is returned once. The\ndaemon asks only while it holds an update with a command, and runs only its own command.",
+        "description": "The updates an administrator asked for, taken by the daemon: each is returned once. The daemon\nasks only while it holds an update with a command and nothing could be using an agent CLI, and\nruns only its own command, for the version signed for.",
         "parameters": [],
         "responses": {
           "200": {
@@ -5612,15 +5612,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "agents": {
+                    "requests": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/Runner.AgentId"
+                        "$ref": "#/components/schemas/Runner.AgentUpdateRequest"
                       }
                     }
                   },
                   "required": [
-                    "agents"
+                    "requests"
                   ]
                 }
               }
@@ -12707,6 +12707,23 @@
           }
         },
         "description": "How the last update the daemon ran for an agent ended."
+      },
+      "Runner.AgentUpdateRequest": {
+        "type": "object",
+        "required": [
+          "agent",
+          "version"
+        ],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/Runner.AgentId"
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "description": "An administrator's signed request to update one agent to the version they were shown. The\ndaemon runs its own command only when that command installs exactly this version."
       },
       "Runner.Completion": {
         "type": "object",

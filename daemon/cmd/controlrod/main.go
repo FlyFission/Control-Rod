@@ -106,8 +106,8 @@ func daemon(args []string) int {
 	// Once, at startup, never on a timer: the daemon says which agent CLIs have a newer version.
 	// It installs one only when an administrator asks from the app, and only with its own command.
 	if !*noUpdateCheck && !updateCheckOff(os.Getenv) {
-		cfg.UpdateCheck = func(ctx context.Context) []agentupdate.Status {
-			return agentupdate.Check(ctx, hostEnv(), agentupdate.Catalog)
+		cfg.UpdateCheck = func(ctx context.Context, only []string) []agentupdate.Status {
+			return agentupdate.Check(ctx, hostEnv(), agentupdate.Select(only))
 		}
 		cfg.UpdateRun = runUpdate
 	}

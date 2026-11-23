@@ -30,6 +30,7 @@ func fakeEnv(paths map[string]string, versions map[string]string, latest map[str
 			}
 			return "", errors.New("offline")
 		},
+		NpmRoot: func(context.Context) (string, error) { return "/usr/lib/node_modules", nil },
 	}
 }
 
@@ -95,8 +96,8 @@ func TestCheckOffersNpmCommandOnlyForNpmInstalls(t *testing.T) {
 
 func TestCheckRefusesAVersionThatCouldCarryArguments(t *testing.T) {
 	env := fakeEnv(
-		map[string]string{"codex": "/x/node_modules/@openai/codex/bin/codex.js"},
-		map[string]string{"/x/node_modules/@openai/codex/bin/codex.js": "codex-cli 0.100.0"},
+		map[string]string{"codex": "/usr/lib/node_modules/@openai/codex/bin/codex.js"},
+		map[string]string{"/usr/lib/node_modules/@openai/codex/bin/codex.js": "codex-cli 0.100.0"},
 		map[string]string{"@openai/codex": "9.9.9 --registry=https://evil.example"},
 	)
 	s := Check(context.Background(), env, Catalog)[0]
@@ -107,8 +108,8 @@ func TestCheckRefusesAVersionThatCouldCarryArguments(t *testing.T) {
 
 func TestCheckOfflineIsQuiet(t *testing.T) {
 	env := fakeEnv(
-		map[string]string{"claude": "/x/node_modules/@anthropic-ai/claude-code/cli.js"},
-		map[string]string{"/x/node_modules/@anthropic-ai/claude-code/cli.js": "2.1.300 (Claude Code)"},
+		map[string]string{"claude": "/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js"},
+		map[string]string{"/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js": "2.1.300 (Claude Code)"},
 		nil,
 	)
 	sts := Check(context.Background(), env, Catalog)
@@ -132,5 +133,40 @@ func TestRegistryLatest(t *testing.T) {
 	}
 	if _, err := RegistryLatest(srv.Client(), srv.URL)(context.Background(), "missing"); err == nil {
 		t.Fatal("a 404 must be an error")
+	}
+}
+
+func TestStrictVersionIsSemVer(t *testing.T) {
+	for _, v := range []string{"1.0.92", "0.0.1", "10.20.30", "1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-0.3.7", "1.0.0-x-y-z.--", "2.1.330"} {
+		if !StrictVersion(v) {
+			t.Errorf("%q should be accepted", v)
+		}
+	}
+	for _, v := range []string{"01.0.0", "1.02.0", "1.0.03", "1.0.0-", "1.0.0-alpha..1", "1.0.0-01", "1.0.0+build", "1.0", "v1.0.0", "1.0.0 --registry=x", ""} {
+		if StrictVersion(v) {
+			t.Errorf("%q should be refused", v)
+		}
+	}
+}
+
+func TestOnlyTheGlobalNpmCopyGetsACommand(t *testing.T) {
+	latest := map[string]string{"@openai/codex": "0.171.0"}
+	for path, want := range map[string]bool{
+		"/usr/lib/node_modules/@openai/codex/bin/codex.js":                       true,
+		"/home/u/project/node_modules/@openai/codex/bin/codex.js":                false, // project-local
+		"/home/u/.local/share/pnpm/global/5/node_modules/@openai/codex/bin/x.js": false, // pnpm
+		"/usr/lib/node_modules/@openai/codex-other/bin/codex.js":                 false,
+	} {
+		env := fakeEnv(map[string]string{"codex": path}, map[string]string{path: "codex-cli 0.170.0"}, latest)
+		got := Check(context.Background(), env, Catalog)[0].Command != nil
+		if got != want {
+			t.Errorf("%s: command offered = %v, want %v", path, got, want)
+		}
+	}
+	env := fakeEnv(map[string]string{"codex": "/usr/lib/node_modules/@openai/codex/bin/codex.js"},
+		map[string]string{"/usr/lib/node_modules/@openai/codex/bin/codex.js": "0.170.0"}, latest)
+	env.NpmRoot = func(context.Context) (string, error) { return "", errors.New("no npm") }
+	if Check(context.Background(), env, Catalog)[0].Command != nil {
+		t.Error("without npm's global root no command may be offered")
 	}
 }

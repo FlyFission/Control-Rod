@@ -6,15 +6,19 @@ import { checkSchema } from "./tenancy.js";
 /**
  * Agent CLI updates (change record agent-update-prompt). The daemon checks for newer versions once,
  * when it starts, and reports them on its claims with the package-manager command it would run. An
- * administrator asks for an update with a signed `runtime.update`; the daemon takes the request and
- * runs only its own command for that agent, while no run is active. The control plane never sends a
- * command to the daemon, only agent names.
+ * administrator asks for an update with a signed `runtime.update` naming each agent and the version
+ * they were shown; the daemon takes the request and runs only its own command, only when it installs
+ * exactly that version, and only while nothing could be using an agent CLI. The control plane never
+ * sends a command to the daemon, only agent names and versions. Every read-modify-write of the
+ * request queue holds one advisory lock, so a report, a request and a take never overwrite each other.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- settings rows are validated JSON */
 type Json = any;
 
 const AGENTS = ["claude", "codex", "agy", "opencode", "grok"];
+type Request = { agent: string; version: string };
+const LOCK = "select pg_advisory_xact_lock(hashtext('controlrod-agent-updates'))";
 
 async function readSetting(q: Db | Tx, key: string): Promise<Json | undefined> {
   const r = await q.query<{ value: string }>("select value from settings where key = $1", [key]);
@@ -38,11 +42,12 @@ export async function recordAgentUpdates(db: Db, raw: unknown): Promise<void> {
     }
   }
   await command(db, "runtime.report-agent-updates", async (c) => {
+    await c.query(LOCK);
     await writeSetting(c, "agent_updates", list);
-    // A request for an agent no longer listed (updated, or gone) has nothing left to do.
-    const pending: string[] = (await readSetting(c, "agent_update_requests")) ?? [];
-    const listed = new Set(list.map((u) => u.agent));
-    await writeSetting(c, "agent_update_requests", pending.filter((a) => listed.has(a)));
+    // A request no longer matching what the daemon would install (updated, gone, or a newer version
+    // found) has nothing left to do: the person signs again for what is shown now.
+    const pending: Request[] = (await readSetting(c, "agent_update_requests")) ?? [];
+    await writeSetting(c, "agent_update_requests", pending.filter((r) => list.some((u) => u.agent === r.agent && u.latest === r.version)));
   });
 }
 
@@ -50,38 +55,44 @@ export async function recordAgentUpdates(db: Db, raw: unknown): Promise<void> {
 export async function agentUpdateView(db: Db): Promise<{ agent_updates?: Json[]; agent_updates_requested?: string[] }> {
   const updates = await readSetting(db, "agent_updates");
   if (updates === undefined) return {};
-  return { agent_updates: updates, agent_updates_requested: (await readSetting(db, "agent_update_requests")) ?? [] };
+  const pending: Request[] = (await readSetting(db, "agent_update_requests")) ?? [];
+  return { agent_updates: updates, agent_updates_requested: pending.map((r) => r.agent) };
 }
 
 /** The daemon takes the pending requests; each is returned once. */
-export async function takeAgentUpdates(db: Db): Promise<{ agents: string[] }> {
+export async function takeAgentUpdates(db: Db): Promise<{ requests: Request[] }> {
   return command(db, "runtime.take-agent-updates", async (c) => {
-    await c.query("select pg_advisory_xact_lock(hashtext('controlrod-agent-updates'))");
-    const pending: string[] = (await readSetting(c, "agent_update_requests")) ?? [];
+    await c.query(LOCK);
+    const pending: Request[] = (await readSetting(c, "agent_update_requests")) ?? [];
     await writeSetting(c, "agent_update_requests", []);
-    return { agents: pending };
+    return { requests: pending };
   });
 }
 
 /**
- * The administrative command runtime.update: asks the daemon to update the named agents. Each must
- * be listed in the daemon's latest report with a command, so the request is exactly what the person
- * saw: an agent whose install the daemon will not touch is refused.
+ * The administrative command runtime.update: asks the daemon to update the named agents to the
+ * versions the person was shown, `{ agents: [{ agent, version }] }`, signed with their passkey. Each
+ * must be listed in the daemon's latest report with a command and exactly that version, so the
+ * signature covers what will be installed: a newer report in between refuses it.
  */
 export async function requestAgentUpdates(c: Tx, p: Json): Promise<{ requested: string[] }> {
-  const agents = Array.isArray(p.agents) ? p.agents : [];
-  if (!agents.length || agents.length > AGENTS.length || agents.some((a: unknown) => typeof a !== "string" || !AGENTS.includes(a)))
-    throw new Refusal(400, "invalid", "agents must name one or more of claude, codex, agy, opencode and grok");
-  await c.query("select pg_advisory_xact_lock(hashtext('controlrod-agent-updates'))");
+  const asked: unknown[] = Array.isArray(p.agents) ? p.agents : [];
+  const valid = (r: Json) => r && typeof r === "object" && typeof r.agent === "string" && AGENTS.includes(r.agent) && typeof r.version === "string" && r.version.length <= 64;
+  if (!asked.length || asked.length > AGENTS.length || !asked.every(valid) || new Set(asked.map((r: Json) => r.agent)).size !== asked.length)
+    throw new Refusal(400, "invalid", "agents must list each agent once, as { agent, version }, from claude, codex, agy, opencode and grok");
+  const reqs = asked as Request[];
+  await c.query(LOCK);
   const listed: Json[] = (await readSetting(c, "agent_updates")) ?? [];
-  for (const a of agents) {
-    const u = listed.find((x) => x.agent === a);
-    if (!u) throw new Refusal(409, "no-update", `${a} has no update the daemon reported`);
+  for (const r of reqs) {
+    const u = listed.find((x) => x.agent === r.agent);
+    if (!u) throw new Refusal(409, "no-update", `${r.agent} has no update the daemon reported`);
     if (!Array.isArray(u.command) || !u.command.length)
       throw new Refusal(409, "no-update-command", `${u.name} was not installed by npm, so Control Rod will not update it; ${u.note ?? "update it with the tool you installed it with"}`);
+    if (u.latest !== r.version)
+      throw new Refusal(409, "update-changed", `${u.name} would now install ${u.latest}, not ${r.version}; look again and sign the version shown`);
   }
-  const pending: string[] = (await readSetting(c, "agent_update_requests")) ?? [];
-  const next = [...new Set([...pending, ...agents])];
+  const pending: Request[] = (await readSetting(c, "agent_update_requests")) ?? [];
+  const next = [...pending.filter((x) => !reqs.some((r) => r.agent === x.agent)), ...reqs];
   await writeSetting(c, "agent_update_requests", next);
-  return { requested: next };
+  return { requested: next.map((r) => r.agent) };
 }

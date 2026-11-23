@@ -29,6 +29,12 @@ func hostEnv() agentupdate.Env {
 			return string(out), err
 		},
 		Latest: agentupdate.RegistryLatest(&http.Client{Timeout: 5 * time.Second}, os.Getenv("CONTROLROD_NPM_REGISTRY")),
+		NpmRoot: func(ctx context.Context) (string, error) {
+			c, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			out, err := exec.CommandContext(c, "npm", "root", "--global").Output()
+			return strings.TrimSpace(string(out)), err
+		},
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -78,7 +79,7 @@ type Config struct {
 	Breaker *BreakerPolicy
 	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts and
 	// after an update, never on a timer; nil turns agent updates off.
-	UpdateCheck func(context.Context) []agentupdate.Status
+	UpdateCheck func(ctx context.Context, only []string) []agentupdate.Status
 	// UpdateRun runs a package-manager command and returns its combined output.
 	UpdateRun func(ctx context.Context, name string, args []string) (string, error)
 }
@@ -150,6 +151,8 @@ type Daemon struct {
 	retry *retryGate
 	// updates is what the startup agent-update check found.
 	updates agentUpdates
+	// inFlight counts claimed jobs from the moment the claim returns until Handle finishes.
+	inFlight atomic.Int64
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -319,9 +322,11 @@ claim:
 		}
 		backoff = d.cfg.PollInterval
 		wg.Add(1)
+		d.inFlight.Add(1)
 		go func() {
 			defer wg.Done()
 			defer func() { <-slots }()
+			defer d.inFlight.Add(-1)
 			d.Handle(jobsCtx, job)
 		}()
 	}

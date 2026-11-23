@@ -1,32 +1,31 @@
-=== RUN   TestUpdateRunsNothingWithoutYes
---- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
-=== RUN   TestUpdateOneAgentByName
---- PASS: TestUpdateOneAgentByName (0.00s)
-=== RUN   TestUpdateAllAsksOnceForExactlyTheShownCommands
---- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
-=== RUN   TestUpdateRefusesWithoutTerminalOrYes
---- PASS: TestUpdateRefusesWithoutTerminalOrYes (0.00s)
-=== RUN   TestUpdateSkipsAgentWithNoCommand
---- PASS: TestUpdateSkipsAgentWithNoCommand (0.00s)
-=== RUN   TestUpdateCheckOff
---- PASS: TestUpdateCheckOff (0.00s)
-PASS
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.010s
-=== RUN   TestNewer
+go version go1.24.7 linux/amd64
 --- PASS: TestNewer (0.00s)
-=== RUN   TestCheckOffersNpmCommandOnlyForNpmInstalls
 --- PASS: TestCheckOffersNpmCommandOnlyForNpmInstalls (0.00s)
-=== RUN   TestCheckRefusesAVersionThatCouldCarryArguments
 --- PASS: TestCheckRefusesAVersionThatCouldCarryArguments (0.00s)
-=== RUN   TestCheckOfflineIsQuiet
 --- PASS: TestCheckOfflineIsQuiet (0.00s)
-=== RUN   TestRegistryLatest
 --- PASS: TestRegistryLatest (0.00s)
-PASS
-ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.006s
-=== RUN   TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked
---- PASS: TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked (0.01s)
-=== RUN   TestAgentUpdateWaitsWhileARunIsActive
+--- PASS: TestStrictVersionIsSemVer (0.00s)
+--- PASS: TestOnlyTheGlobalNpmCopyGetsACommand (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+--- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
+--- PASS: TestUpdateOneAgentByName (0.00s)
+--- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
+--- PASS: TestUpdateRefusesWithoutTerminalOrYes (0.00s)
+--- PASS: TestUpdateSkipsAgentWithNoCommand (0.00s)
+--- PASS: TestUpdateCheckOff (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
+--- PASS: TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree (0.01s)
+--- PASS: TestCodexTreeRefusesLinks (0.00s)
+--- PASS: TestNormalizesCodexJSON (0.00s)
+--- PASS: TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode (0.00s)
+--- PASS: TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand (0.00s)
+--- PASS: TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures (0.00s)
+--- SKIP: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.00s)
+--- PASS: TestCodex0171FeaturesAreQualified (0.00s)
+--- PASS: TestACodexTurnThatCompletedButDidNotExitEndsOnItsResult (0.35s)
+--- PASS: TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked (0.00s)
 --- PASS: TestAgentUpdateWaitsWhileARunIsActive (0.00s)
-PASS
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.019s
+--- PASS: TestAgentUpdateWaitsForAClaimedJobNotYetActive (0.00s)
+--- PASS: TestAgentUpdateWaitsWhileAReceiptRemains (0.00s)
+--- PASS: TestAgentUpdateRechecksOnlyWhatItInstalled (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.389s

@@ -3,8 +3,11 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -77,16 +80,36 @@ func (u *agentUpdates) report() []AgentUpdate {
 	return out
 }
 
-// runnable returns the daemon's own command for an agent, or nil.
-func (u *agentUpdates) runnable(agent string) []string {
+// runnable returns the daemon's own command for an agent, only when the version an administrator
+// signed for is still the version that command installs; nil otherwise.
+func (u *agentUpdates) runnable(agent, version string) []string {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	for _, a := range u.list {
-		if a.Agent == agent && len(a.Command) > 0 {
+		if a.Agent == agent && a.Latest == version && len(a.Command) > 0 {
 			return append([]string(nil), a.Command...)
 		}
 	}
 	return nil
+}
+
+// merge replaces what a check of only these agents found, keeping the rest of the list.
+func (u *agentUpdates) merge(ids []string, sts []agentupdate.Status) {
+	u.mu.Lock()
+	keep := u.list[:0:0]
+	for _, a := range u.list {
+		if !slices.Contains(ids, a.Agent) {
+			keep = append(keep, a)
+		}
+	}
+	u.list = keep
+	u.mu.Unlock()
+	fresh := agentUpdates{}
+	fresh.set(sts)
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.checked = true
+	u.list = append(u.list, fresh.list...)
 }
 
 func (u *agentUpdates) any() bool {
@@ -121,46 +144,80 @@ func clipTo(s string, n int) string {
 func (d *Daemon) checkAgentUpdates(ctx context.Context) {
 	c, cancel := context.WithTimeout(ctx, agentupdate.CheckTimeout)
 	defer cancel()
-	sts := d.cfg.UpdateCheck(c)
+	sts := d.cfg.UpdateCheck(c, nil)
 	d.updates.set(sts)
 	if msg := agentupdate.Summary(sts); msg != "" {
 		d.log.Info(msg + " An administrator can also update from the app.")
 	}
 }
 
-// takeAgentUpdates asks the control plane which updates an administrator requested and runs
-// them, one at a time, while no run is active. The daemon runs only its own command for the
-// agent; an agent it has no command for is skipped and reported failed.
+// AgentUpdateRequest is one administrator's signed request: an agent and the version they saw.
+type AgentUpdateRequest struct {
+	Agent   string `json:"agent"`
+	Version string `json:"version"`
+}
+
+// updateIdle reports whether nothing could be using an agent CLI: no job claimed and not yet
+// finished (counted in the claim loop before its goroutine starts, so a job never slips in between),
+// no active run, and no spawn receipt, which stays while a run's processes are not confirmed stopped.
+func (d *Daemon) updateIdle() bool {
+	if d.inFlight.Load() > 0 || d.activeCount() > 0 {
+		return false
+	}
+	// Any receipt file counts, readable or not: List skips an unreadable one.
+	entries, err := os.ReadDir(d.receipts.dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return true
+	}
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".json") {
+			return false
+		}
+	}
+	return true
+}
+
+// takeAgentUpdates asks the control plane which updates an administrator requested and runs them,
+// one at a time, only while idle. It is called from the claim loop, which claims nothing while it
+// runs. The daemon runs only its own command, and only for the version that was signed for.
 func (d *Daemon) takeAgentUpdates(ctx context.Context) {
-	if d.cfg.UpdateCheck == nil || !d.updates.any() || d.activeCount() > 0 {
+	if d.cfg.UpdateCheck == nil || !d.updates.any() || !d.updateIdle() {
 		return
 	}
-	agents, err := d.client.TakeAgentUpdates(ctx)
+	reqs, err := d.client.TakeAgentUpdates(ctx)
 	if err != nil {
 		d.log.Warn("agent update requests could not be read", "err", err)
 		return
 	}
-	for _, agent := range agents {
-		argv := d.updates.runnable(agent)
+	var installed []string
+	for _, r := range reqs {
+		argv := d.updates.runnable(r.Agent, r.Version)
 		if argv == nil {
-			d.updates.record(agent, "failed", "this daemon has no update command for it", time.Now())
+			d.updates.record(r.Agent, "failed", "the version signed for is not the one this daemon would install; check again and sign the version shown", time.Now())
 			continue
 		}
-		d.log.Info("updating an agent CLI at an administrator's request", "agent", agent, "command", strings.Join(argv, " "))
+		d.log.Info("updating an agent CLI at an administrator's request", "agent", r.Agent, "command", strings.Join(argv, " "))
 		c, cancel := context.WithTimeout(ctx, UpdateTimeout)
 		out, err := d.cfg.UpdateRun(c, argv[0], argv[1:])
 		cancel()
+		installed = append(installed, r.Agent)
 		if err != nil {
-			d.log.Warn("agent update failed", "agent", agent, "err", err)
-			d.updates.record(agent, "failed", fmt.Sprintf("%v: %s", err, lastLine(out)), time.Now())
+			d.log.Warn("agent update failed", "agent", r.Agent, "err", err)
+			d.updates.record(r.Agent, "failed", fmt.Sprintf("%v: %s", err, lastLine(out)), time.Now())
 			continue
 		}
-		d.updates.record(agent, "done", lastLine(out), time.Now())
+		d.updates.record(r.Agent, "done", lastLine(out), time.Now())
 	}
-	if len(agents) > 0 {
-		// The new executables are probed (and preflighted) before any run can launch them.
+	if len(installed) > 0 {
+		// The new executables are probed (and preflighted) before any run can launch them, and only
+		// the agents just installed are checked again.
 		d.probe(ctx)
-		d.checkAgentUpdates(ctx)
+		c, cancel := context.WithTimeout(ctx, agentupdate.CheckTimeout)
+		d.updates.merge(installed, d.cfg.UpdateCheck(c, installed))
+		cancel()
 	}
 }
 
@@ -175,8 +232,8 @@ func lastLine(s string) string {
 	return clipTo(lines[len(lines)-1], 300)
 }
 
-// TakeAgentUpdates returns, once each, the agents an administrator asked to update.
-func (c *Client) TakeAgentUpdates(ctx context.Context) ([]string, error) {
+// TakeAgentUpdates returns, once each, the updates an administrator asked for.
+func (c *Client) TakeAgentUpdates(ctx context.Context) ([]AgentUpdateRequest, error) {
 	resp, err := c.post(ctx, "/runner/agent-updates/take", struct{}{}, 10*time.Second)
 	if err != nil {
 		return nil, err
@@ -186,10 +243,10 @@ func (c *Client) TakeAgentUpdates(ctx context.Context) ([]string, error) {
 		return nil, statusError("/runner/agent-updates/take", resp)
 	}
 	var body struct {
-		Agents []string `json:"agents"`
+		Requests []AgentUpdateRequest `json:"requests"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(nil, resp.Body, 1<<16)).Decode(&body); err != nil {
 		return nil, err
 	}
-	return body.Agents, nil
+	return body.Requests, nil
 }

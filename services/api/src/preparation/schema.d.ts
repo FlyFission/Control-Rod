@@ -985,8 +985,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description The agents an administrator asked to update, taken by the daemon: each is returned once. The
-         *     daemon asks only while it holds an update with a command, and runs only its own command.
+         * @description The updates an administrator asked for, taken by the daemon: each is returned once. The daemon
+         *     asks only while it holds an update with a command and nothing could be using an agent CLI, and
+         *     runs only its own command, for the version signed for.
          */
         post: operations["Runner_takeAgentUpdates"];
         delete?: never;
@@ -3126,6 +3127,14 @@ export interface components {
             detail?: string;
             /** Format: date-time */
             at: string;
+        };
+        /**
+         * @description An administrator's signed request to update one agent to the version they were shown. The
+         *     daemon runs its own command only when that command installs exactly this version.
+         */
+        "Runner.AgentUpdateRequest": {
+            agent: components["schemas"]["Runner.AgentId"];
+            version: string;
         };
         "Runner.Completion": {
             claim_token: string;
@@ -7458,7 +7467,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        agents: components["schemas"]["Runner.AgentId"][];
+                        requests: components["schemas"]["Runner.AgentUpdateRequest"][];
                     };
                 };
             };

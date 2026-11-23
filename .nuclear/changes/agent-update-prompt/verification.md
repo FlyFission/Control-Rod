@@ -9,6 +9,7 @@ Evidence status: **pass** for AU-01 to AU-09 on this host (Linux, Go 1.24.7, Nod
 | E-03 | pass | API agent-update, refusal and runtime tests pass. The full API suite has 27 failures in 4 files on this host that fail identically without this change (preparation grants, command boundary, database deadline). | `evidence/green-api.log` |
 | E-04 | pass | The panel tests and the design guards (contrast, type scale) pass in jsdom; the whole web suite passes. Not a real browser. | `evidence/green-web.log` |
 | E-06 | pass | Codex 0.171.0's captured feature list fails the preflight test before the qualification and passes after; `pnpm cr doctor` on Linux printed the agent section from `go run`. No live Codex run on macOS. | `evidence/red-codex-0.171.0.log`, `evidence/codex-0.171.0-features.md` |
+| E-07 | pass | Blind-check fixes: with the claimed-job guard, the receipt guard, the API version check, the stale-request drop, or the global-npm path check removed, a test fails; each passes when restored. The shared lock on report (finding 4) is reviewed, not exercised by a concurrency test. | `evidence/mutation-blind-check.log` |
 | E-05 | pass | With the daemon's idle guard removed, the during-a-run test fails; with the API's command check removed, the refusal test fails; both pass when restored. | `evidence/mutation-panel.log` |
 
 ## Evidence custody and coupling
@@ -20,6 +21,7 @@ Evidence status: **pass** for AU-01 to AU-09 on this host (Linux, Go 1.24.7, Nod
 | E-03 | AU-05 | yes | evidence/green-api.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-04 | AU-07 | yes | evidence/green-web.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-06 | AU-08 | yes | evidence/red-codex-0.171.0.log | Implementing agent | go test | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (failed first) |
+| E-07 | AU-06 | yes | evidence/mutation-blind-check.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-05 | AU-06 | yes | evidence/mutation-panel.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -29,9 +31,10 @@ Evidence status: **pass** for AU-01 to AU-09 on this host (Linux, Go 1.24.7, Nod
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | PostgreSQL 16, not the pinned 17  [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
 | E-06 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | classification from upstream comments, no live run  [Ship limits](ship.md) |
+| E-07 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | fakes, no real install; lock not race-tested  [Ship limits](ship.md) |
 | E-05 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | fakes, no real install  [Ship limits](ship.md) |
 
-No independent review was done.
+An independent blind check (Codex, at 60e74b3) returned seven findings; E-07 covers their fixes. The fixes have not been re-checked independently.
 
 ## Required links
 

@@ -1245,6 +1245,16 @@ namespace Runner {
   /** A built-in agent CLI the daemon can check for a newer version. */
   union AgentId { "claude", "codex", "agy", "opencode", "grok" }
 
+  /**
+   * An administrator's signed request to update one agent to the version they were shown. The
+   * daemon runs its own command only when that command installs exactly this version.
+   */
+  @extension("unevaluatedProperties", false)
+  model AgentUpdateRequest {
+    agent: AgentId;
+    @maxLength(64) version: string;
+  }
+
   /** How the last update the daemon ran for an agent ended. */
   @extension("unevaluatedProperties", false)
   model AgentUpdateAttempt {
@@ -1331,11 +1341,12 @@ namespace Runner {
   }): LogReply | Refused;
 
   /**
-   * The agents an administrator asked to update, taken by the daemon: each is returned once. The
-   * daemon asks only while it holds an update with a command, and runs only its own command.
+   * The updates an administrator asked for, taken by the daemon: each is returned once. The daemon
+   * asks only while it holds an update with a command and nothing could be using an agent CLI, and
+   * runs only its own command, for the version signed for.
    */
   @route("/agent-updates/take") @post op takeAgentUpdates(): {
-    agents: AgentId[];
+    requests: AgentUpdateRequest[];
   } | Refused;
 
   /**

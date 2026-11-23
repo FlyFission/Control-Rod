@@ -105,6 +105,7 @@ export const REASONS: Record<string, Reason> = {
   "artifact-not-qualified": r("No passing probe has seen this runtime artifact, so it cannot be pinned.", "Install that version and let a daemon probe it ready, then pin it."),
   "no-pin": r("Nothing is pinned for this runtime and role.", "Pin a version first."),
   "no-update": r("The run daemon has not reported a newer version of this agent.", "Restart Control Rod so the daemon checks again, then update from what it shows."),
+  "update-changed": r("The daemon found a different version after you looked, so your signature does not cover what it would install.", "Look at the agent updates again and sign the version shown now."),
   "no-update-command": r("This agent was not installed by npm, so Control Rod will not replace it.", "Update it with the tool you installed it with; the daemon checks again when it next starts."),
   "no-previous-pin": r("There is no earlier pin to roll back to.", "Pin the version you want directly."),
   "scram-stopped": r("SCRAM has stopped this work; nothing in its scope is claimed, requeued or released.", "A person with administrator authority restarts it, signed, once its quarantine is reviewed and no outcome is unknown."),

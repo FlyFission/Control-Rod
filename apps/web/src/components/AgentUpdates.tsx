@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
-import type { AgentId, AgentUpdate } from "../api/types.js";
+import type { AgentUpdate } from "../api/types.js";
 import { type Passkeys, browserPasskeys, signAdmin } from "../lib/decide.js";
 
 /**
@@ -39,7 +39,8 @@ export function AgentUpdates({ passkeys = browserPasskeys }: { passkeys?: Passke
   const admin = useQuery({ queryKey: ["admin"], queryFn: api.admin });
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const update = useMutation({
-    mutationFn: (agents: AgentId[]) => signAdmin("runtime.update", { agents }, passkeys),
+    // The signature names the version shown, so the daemon never installs one the person did not see.
+    mutationFn: (list: AgentUpdate[]) => signAdmin("runtime.update", { agents: list.map((u) => ({ agent: u.agent, version: u.latest })) }, passkeys),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["runtimes"] }),
   });
 
@@ -92,7 +93,7 @@ export function AgentUpdates({ passkeys = browserPasskeys }: { passkeys?: Passke
                     className="btn small primary"
                     disabled={!allowed || update.isPending}
                     title={allowed ? undefined : may?.reason}
-                    onClick={() => update.mutate([u.agent])}
+                    onClick={() => update.mutate([u])}
                   >
                     Update
                   </button>
@@ -128,7 +129,7 @@ export function AgentUpdates({ passkeys = browserPasskeys }: { passkeys?: Passke
             className="btn small primary"
             disabled={!allowed || update.isPending}
             title={allowed ? undefined : may?.reason}
-            onClick={() => update.mutate(updatable.map((u) => u.agent))}
+            onClick={() => update.mutate(updatable)}
           >
             Update all
           </button>

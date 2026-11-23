@@ -8,16 +8,25 @@ import { shortDigest, time } from "../lib/format.js";
  * for a registered provider CLI. There is no field for a token or an API key.
  */
 export function Subscriptions() {
-  const q = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions });
   return (
     <div className="place">
       <header className="place-head">
         <p className="muted small">Settings</p>
         <h1>Subscriptions</h1>
-        <p className="muted">
-          Provider CLIs use the sign-in you already have. Control Rod does not take an API key or a token, and it does not sign in for you.
-        </p>
       </header>
+      <ProviderDetails />
+    </div>
+  );
+}
+
+/** Provider CLI probes and the checker registry, for the Agents roster's Advanced section. */
+export function ProviderDetails() {
+  const q = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions });
+  return (
+    <>
+      <p className="muted">
+        Provider CLIs use the sign-in you already have. Control Rod does not take an API key or a token, and it does not sign in for you.
+      </p>
       <section className="panel" aria-labelledby="provider-clis-title">
         <div className="panel-head">
           <h2 id="provider-clis-title">Provider CLIs</h2>
@@ -50,7 +59,7 @@ export function Subscriptions() {
           </>
         )}
       </section>
-    </div>
+    </>
   );
 }
 

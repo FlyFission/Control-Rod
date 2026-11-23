@@ -51,6 +51,7 @@ export const COMMANDS = {
   "check.request": entry("member", "none", "Request checker attempt"),
   "check.recheck-override": entry("member", "direct", "Override a sticky checker fail"),
   "runtime.report-status": entry("agent-via-daemon", "none", "Probe runtime"),
+  "setup.record": entry("member", "none", "Record agent setup (seats and check-in)"),
   "decision.apply": entry("member", "direct", "Release; Verdict", "write"),
   "verification.record-person": entry("member", "direct", "Record person verification"),
 

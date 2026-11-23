@@ -1,0 +1,56 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../api/client.js";
+import type { AgentSetupRequest, AgentSetupView, CheckIn } from "../api/types.js";
+import { AGENTS, type AgentId, type AgentRow, agentRows } from "./agents.js";
+
+/** The three reads the roster and setup share, joined into rows, and the one write that saves a setup. */
+export function useAgents() {
+  const qc = useQueryClient();
+  const runtimes = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
+  const subs = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions });
+  const setup = useQuery({ queryKey: ["setup"], queryFn: api.setup });
+  // A read of /setup sent before a write may answer after it; cancel it so it cannot replace what the write returned.
+  const settle = async (view: AgentSetupView) => {
+    await qc.cancelQueries({ queryKey: ["setup"] });
+    qc.setQueryData(["setup"], view);
+  };
+  const save = useMutation({
+    mutationFn: (body: AgentSetupRequest) => api.recordSetup(body),
+    onMutate: () => qc.cancelQueries({ queryKey: ["setup"] }),
+    onSuccess: settle,
+  });
+  const seat = useMutation({
+    mutationFn: ({ runtime, seated }: { runtime: AgentId; seated: boolean }) => api.recordSeat(runtime, seated),
+    onMutate: () => qc.cancelQueries({ queryKey: ["setup"] }),
+    onSuccess: settle,
+  });
+  const rows: AgentRow[] = agentRows(runtimes.data?.runtimes, subs.data, setup.data);
+  return {
+    rows,
+    setup: setup.data,
+    loading: runtimes.isLoading || subs.isLoading || setup.isLoading,
+    error: runtimes.isError || subs.isError || setup.isError,
+    refetch: () => {
+      void runtimes.refetch();
+      void subs.refetch();
+      void setup.refetch();
+    },
+    save,
+    seat,
+  };
+}
+
+/**
+ * The request for what the person changed: the seats they flipped and, if they picked one, the answer.
+ * Whatever is left out keeps its saved value on the server. Only agents Control Rod can run carry a seat.
+ */
+export function setupRequest(changed: Record<string, boolean>, checkIn: CheckIn | null): AgentSetupRequest {
+  return {
+    seats: AGENTS.filter((a) => a.runnable && changed[a.id] !== undefined).map((a) => ({ runtime: a.id, seated: changed[a.id]! })),
+    ...(checkIn ? { check_in: checkIn } : {}),
+  };
+}
+
+export function seatsOf(rows: AgentRow[]): Record<AgentId, boolean> {
+  return Object.fromEntries(rows.map((r) => [r.info.id, r.seated])) as Record<AgentId, boolean>;
+}

@@ -1250,6 +1250,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description First-run setup (docs/patterns/onboarding.md): which agents the person seats and when Control Rod
+         *     checks with them. Nothing is recorded until the person confirms what was read back to them.
+         */
+        get: operations["setup"];
+        /** @description Records the person's confirmed setup. Seat changes are events on the chain; the check-in answer is a preference and is not. */
+        put: operations["recordSetup"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/seats/{runtime}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description One Agents roster switch: changes that seat only, and does not confirm setup. */
+        put: operations["recordSeat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/subscriptions": {
         parameters: {
             query?: never;
@@ -1487,6 +1525,27 @@ export interface components {
             stop_requested?: boolean;
             href: components["schemas"]["AttentionTarget"];
         };
+        AgentSeat: {
+            /** @description A runtime id as the daemon names it (claude, codex, grok, opencode, agy, ollama). */
+            runtime: string;
+            /** @description False benches the agent: no new run is offered to it. Benching never makes a checker the author's runtime. */
+            seated: boolean;
+        };
+        AgentSetupRequest: {
+            /** @description Only the seats the person changed. A seat not named keeps its saved value. */
+            seats: components["schemas"]["AgentSeat"][];
+            /** @description Left out when the person did not change it; the saved answer stays. */
+            check_in?: components["schemas"]["CheckIn"];
+        };
+        AgentSetupView: {
+            /** @description False until the person has confirmed setup once. The app opens on setup until then. */
+            confirmed: boolean;
+            /** Format: date-time */
+            confirmed_at?: string;
+            /** @description Runtimes not listed here are seated. */
+            seats: components["schemas"]["AgentSeat"][];
+            check_in: components["schemas"]["CheckIn"];
+        };
         ApiError: {
             /** @description A stable reason code (services/api/src/refusals.ts lists every one). */
             code: string;
@@ -1622,6 +1681,12 @@ export interface components {
             /** @description Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
             lane?: components["schemas"]["ControlRod.Records.DataLane"];
         };
+        /**
+         * @description When Control Rod should stop and check with the person (ADR 0024 decision 7). The middle answer is
+         *     the default and matches today's stops: a passkey to release and to accept.
+         * @enum {string}
+         */
+        CheckIn: "start" | "start-and-merge" | "every-step";
         "ControlRod.Preparation.BasisRef": {
             /** @enum {string} */
             kind: "capture" | "attachment" | "repository" | "document" | "package" | "policy";
@@ -8757,6 +8822,186 @@ export interface operations {
                             lifted: boolean;
                         }[];
                     } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSetupView"];
+                };
+            };
+        };
+    };
+    recordSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSetupView"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    recordSeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtime: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    seated: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSetupView"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };

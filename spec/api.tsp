@@ -833,6 +833,67 @@ model SubscriptionView {
   pins: SubscriptionPin[];
 }
 
+/**
+ * First-run setup (docs/patterns/onboarding.md): which agents the person seats and when Control Rod
+ * checks with them. Nothing is recorded until the person confirms what was read back to them.
+ */
+@route("/setup")
+@get
+op setup(): AgentSetupView;
+
+/** Records the person's confirmed setup. Seat changes are events on the chain; the check-in answer is a preference and is not. */
+@route("/setup")
+@put
+op recordSetup(@body body: AgentSetupRequest): AgentSetupView | Refused;
+
+/** One Agents roster switch: changes that seat only, and does not confirm setup. */
+@route("/setup/seats/{runtime}")
+@put
+op recordSeat(@path runtime: string, @body body: { seated: boolean }): AgentSetupView | Refused;
+
+/**
+ * When Control Rod should stop and check with the person (ADR 0024 decision 7). The middle answer is
+ * the default and matches today's stops: a passkey to release and to accept.
+ */
+union CheckIn {
+  start: "start",
+  "start-and-merge": "start-and-merge",
+  "every-step": "every-step",
+}
+
+@extension("unevaluatedProperties", false)
+model AgentSeat {
+  /** A runtime id as the daemon names it (claude, codex, grok, opencode, agy, ollama). */
+  @maxLength(40)
+  runtime: string;
+
+  /** False benches the agent: no new run is offered to it. Benching never makes a checker the author's runtime. */
+  seated: boolean;
+}
+
+@extension("unevaluatedProperties", false)
+model AgentSetupRequest {
+  /** Only the seats the person changed. A seat not named keeps its saved value. */
+  @maxItems(20)
+  seats: AgentSeat[];
+
+  /** Left out when the person did not change it; the saved answer stays. */
+  check_in?: CheckIn;
+}
+
+@extension("unevaluatedProperties", false)
+model AgentSetupView {
+  /** False until the person has confirmed setup once. The app opens on setup until then. */
+  confirmed: boolean;
+
+  confirmed_at?: utcDateTime;
+
+  /** Runtimes not listed here are seated. */
+  seats: AgentSeat[];
+
+  check_in: CheckIn;
+}
+
 /** The claim payload. The same probe models the settings page returns. */
 @extension("unevaluatedProperties", false)
 model SubscriptionReport {

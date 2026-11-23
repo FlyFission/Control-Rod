@@ -88,6 +88,8 @@ test.beforeEach(async ({ page }) => {
     if (p === "/captures") return r.fulfill(json([]));
     if (p.startsWith("/events")) return r.fulfill(json([]));
     if (p === "/runtimes") return r.fulfill(json({ runtimes: [{ runtime: "claude", ready: true, version: "2.1.316 (Claude Code)", login_checked: false, artifact: { path: "/home/ben/.npm-global/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe", digest: { algorithm: "sha256", value: "fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824" } } }, { runtime: "codex", ready: false, login_checked: true, reason: "codex is installed but not signed in" }], pins: [] }));
+    if (p === "/setup") return r.fulfill(json({ confirmed: true, confirmed_at: new Date().toISOString(), seats: [], check_in: "start-and-merge" }));
+    if (p === "/subscriptions") return r.fulfill(json({ reported: true, platform: "darwin", probes: [], checkers: [], tiers: [], local_rule: "", pins: [] }));
     if (p === "/metrics") return r.fulfill(json({ packages_accepted: 3, first_pass_accepted: 2, findings_caught_before_review: 5, quick_answers: 4 }));
     return r.fulfill(json([]));
   });
@@ -121,20 +123,21 @@ test("keyboard: skip link, every place, palette open, choose and return", async 
   await page.keyboard.press("Tab");
   const first = await page.evaluate(() => document.activeElement?.textContent?.trim());
   const stops: string[] = [first ?? ""];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 20; i++) {
     await page.keyboard.press("Tab");
     stops.push(await page.evaluate(() => (document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent || "").trim().slice(0, 30)));
   }
   console.log("TAB " + stops.join(" > "));
   expect(stops[0]).toBe("Skip to content");
-  for (const place of ["Inbox", "Office", "Packages", "Registers", "Explore", "Roster", "Usage", "Records", "Policies"])
+  for (const place of ["Inbox", "Office", "Packages", "Snapshots", "Registers", "Usage", "Records", "Setup", "Agents roster", "Policies"])
     expect(stops.some((s) => s.startsWith(place))).toBe(true);
   await page.keyboard.press("Control+k");
   await page.keyboard.type("roster");
   await page.keyboard.press("Enter");
-  await page.waitForURL("**/roster");
+  await page.waitForURL("**/agents");
   console.log("PALETTE navigated to " + new URL(page.url()).pathname);
-  expect(new URL(page.url()).pathname).toBe("/roster");
+  expect(new URL(page.url()).pathname).toBe("/agents");
+  await expect(page.getByRole("heading", { level: 1, name: "Agents roster" })).toBeVisible();
 });
 
 test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page, browserName }) => {

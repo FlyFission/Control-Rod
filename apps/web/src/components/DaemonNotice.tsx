@@ -31,7 +31,7 @@ export function DaemonNotice({ running }: { running: number }) {
   if (text === null) return null;
   return (
     <div className="daemon-notice" role="status">
-      <strong>{text.title}</strong> <span>{text.detail}</span> <Link to="/settings/subscriptions">Agents on this machine</Link>
+      <strong>{text.title}</strong> <span>{text.detail}</span> <Link to="/agents">Agents roster</Link>
     </div>
   );
 }

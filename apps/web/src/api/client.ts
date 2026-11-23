@@ -25,6 +25,8 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   RunOutputPreview,
   RuntimeStatus,
   SubscriptionView,
+  AgentSetupView,
+  AgentSetupRequest,
   Session,
   WorkPackage,
   WorkspaceProject,
@@ -217,6 +219,9 @@ export const api = {
   inbox: (since?: number) => call<InboxView>("GET", since === undefined ? "/inbox" : `/inbox?since=${since}`),
   runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[] }>("GET", "/runtimes"),
   subscriptions: () => call<SubscriptionView>("GET", "/subscriptions"),
+  setup: () => call<AgentSetupView>("GET", "/setup"),
+  recordSetup: (body: AgentSetupRequest) => call<AgentSetupView>("PUT", "/setup", body),
+  recordSeat: (runtime: string, seated: boolean) => call<AgentSetupView>("PUT", `/setup/seats/${enc(runtime)}`, { seated }),
   admin: () => call<AdminView>("GET", "/admin"),
   workspaceProjects: () => call<WorkspaceProject[]>("GET", "/workspace/projects"),
   createWorkspaceProject: (payload: WorkspaceProjectCreatePayload, assertion: Record<string, unknown>) =>

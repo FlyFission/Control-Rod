@@ -127,7 +127,7 @@ type ClaimRequest struct {
 	// AgentUpdates is nil until the startup update check finishes; then always sent, even empty.
 	AgentUpdates *[]AgentUpdate `json:"agent_updates,omitempty"`
 	// AgentUpdatesUnchecked names, with AgentUpdates, the agents whose check could not finish.
-	AgentUpdatesUnchecked []string `json:"agent_updates_unchecked,omitempty"`
+	AgentUpdatesUnchecked []UncheckedAgent `json:"agent_updates_unchecked,omitempty"`
 }
 
 // Claim asks for one job, offering only ready runtimes. It returns ErrNoWork on HTTP 204. The

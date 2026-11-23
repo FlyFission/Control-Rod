@@ -10,7 +10,7 @@
 --- PASS: TestIncompleteIsNeitherCurrentNorOutdated (0.00s)
 --- PASS: TestPrereleaseEdgesFollowSemVer (0.00s)
 --- PASS: TestParseVersionReadsOnlyStrictSemVer (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.011s
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.020s
 --- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
 --- PASS: TestUpdateOneAgentByName (0.00s)
 --- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
@@ -20,19 +20,20 @@ ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.011s
 --- PASS: TestCouldNotCheckIsNotUpToDate (0.00s)
 --- PASS: TestNoCheckableAgentIsNotUpToDate (0.00s)
 --- PASS: TestMixedCaseSaysAntigravityWasNotChecked (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.010s
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
 --- PASS: TestRegistry (0.00s)
 --- PASS: TestAgentEnvDropsProviderProvenance (0.00s)
---- PASS: TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv (0.01s)
+--- PASS: TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv (0.00s)
 --- PASS: TestVerifiedLaunchRunsTheCheckedBytesEvenAfterTheFileIsReplaced (0.00s)
 --- PASS: TestAWriteBetweenCheckAndStartIsBlockedAndCaught (0.00s)
 --- PASS: TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart (0.00s)
 --- PASS: TestRunnerRejectsIncompleteSuccessReplies (0.01s)
---- PASS: TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet (0.52s)
+--- PASS: TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet (0.51s)
 --- PASS: TestAgentLaunchesRefuseWithoutASandboxPolicy (0.00s)
 --- PASS: TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand (0.00s)
 --- PASS: TestAgentEnvKeepsOnlyTheAllowlist (0.00s)
 --- PASS: TestDaemonStartupCheckReachesTheClaim (0.03s)
 --- PASS: TestAnIncompleteCheckKeepsAKnownUpdate (0.00s)
 --- PASS: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.587s
+--- PASS: TestAnUpdatedCLIDropsTheKnownUpdate (0.00s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.590s

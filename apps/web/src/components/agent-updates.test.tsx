@@ -119,13 +119,14 @@ describe("Agent updates", () => {
     expect(await navigator.clipboard.readText()).toBe("npm install --global @xai-official/grok@1.0.93");
   });
 
-  it("shows nothing when every agent is current", async () => {
+  it("disappears when a refetch finds every agent current", async () => {
+    updates = [grok];
+    const { qc } = await renderPage(<AgentUpdates />);
+    expect(await screen.findByRole("region", { name: "1 agent update" })).toBeTruthy();
     updates = [];
-    const { container } = await renderPage(<AgentUpdates />);
-    // The response has been served and rendered before the absence is checked.
-    await waitFor(() => expect(served).toBeGreaterThan(0));
-    await new Promise((r) => setTimeout(r, 0));
-    expect(container.querySelector(".agent-updates")).toBeNull();
-    expect(screen.queryByRole("region")).toBeNull();
+    const before = served;
+    await qc.refetchQueries({ queryKey: ["runtimes"] });
+    expect(served).toBeGreaterThan(before);
+    await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
   });
 });

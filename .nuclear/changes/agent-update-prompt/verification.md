@@ -11,6 +11,7 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-07 | pass | Review fixes on the narrowed panel: with the app's fixed-package build, the not-SemVer filter, the contract's refusal of command text, SemVer prerelease precedence, the keep-known merge, or the could-not-check message removed, a test fails; each passes when restored. | `evidence/mutation-show-command.log` |
 | E-08 | pass | Round 6 review fixes: with the daemon's unchecked list, the 64-byte installed cap, whole-prerelease parsing, length-first numeric comparison, the CLI's "none checkable" and "not checked" lines, the API's keep-for-unchecked merge, or the copy-only-built-command path removed, a test fails; each passes when restored. One mutation survived (the AgentId check on unchecked names) because the check was dead; it was removed. The full API suite also showed one admin concurrency race (SEC-12) that passes alone, unrelated to this change. | `evidence/mutation-round6.log` |
 | E-09 | pass | Round 7 review fixes: with whole-word version reading, the strict SemVer rule for installed versions (parse and report), the API's one-row-per-agent rule, the panel's per-version rows or per-version Copy state, or the CLI's mixed-case "not checked" line removed, a test fails; each passes when restored. Panel tests now wait for a row from the same response, or for the response to be served, before asserting absence. | `evidence/mutation-round7.log` |
+| E-10 | pass | Round 8 review fixes: with the daemon's or the API's unchanged-installed rule for keeping a row, the installed version on unchecked entries, its strict check, the API's schema check of unchecked entries, or the panel hiding when a refetch is empty removed, a test fails; each passes when restored. | `evidence/mutation-round8.log` |
 
 ## Evidence custody and coupling
 
@@ -23,6 +24,7 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-07 | AU-05 | yes | evidence/mutation-show-command.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-08 | AU-05 | yes | evidence/mutation-round6.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-09 | AU-05 | yes | evidence/mutation-round7.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
+| E-10 | AU-05 | yes | evidence/mutation-round8.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
@@ -33,6 +35,7 @@ Evidence status: **pass** for AU-01 to AU-06 on this host (Linux, Go 1.24.7, Nod
 | E-07 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
 | E-08 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | PostgreSQL 16 and jsdom  [Ship limits](ship.md) |
 | E-09 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | PostgreSQL 16 and jsdom  [Ship limits](ship.md) |
+| E-10 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | PostgreSQL 16 and jsdom  [Ship limits](ship.md) |
 
 Independent blind checks (Codex, four rounds) reviewed an earlier version in which the app could ask the daemon to install. On 2026-11-23 that path was removed in favor of showing the command; the remaining code has not been re-checked independently since.
 

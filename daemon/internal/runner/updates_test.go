@@ -111,7 +111,7 @@ func TestAnIncompleteCheckKeepsAKnownUpdate(t *testing.T) {
 	}
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Latest: "1.0.92", Command: []string{"npm"}}})
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Note: "latest version unavailable: timeout"}})
-	if r := u.report(); len(r) != 1 || len(r[0].List) != 1 || r[0].List[0].Latest != "1.0.92" || strings.Join(r[0].Unchecked, ",") != "grok" {
+	if r := u.report(); len(r) != 1 || len(r[0].List) != 1 || r[0].List[0].Latest != "1.0.92" || uncheckedIDs(r[0].Unchecked) != "grok@1.0.77" {
 		t.Fatalf("an incomplete check wiped the known update: %#v", r)
 	}
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.92", Latest: "1.0.92"}})
@@ -133,11 +133,31 @@ func TestAFreshDaemonsIncompleteCheckIsUnchecked(t *testing.T) {
 		{Agent: agentupdate.Catalog[1], Installed: "0.170.0+build", Latest: "0.171.0", Command: []string{"npm"}},
 	})
 	r := u.report()
-	if len(r) != 1 || len(r[0].List) != 0 || strings.Join(r[0].Unchecked, ",") != "grok,claude,codex" {
+	if len(r) != 1 || len(r[0].List) != 0 || uncheckedIDs(r[0].Unchecked) != "grok@1.0.77,claude@,codex@" {
 		t.Fatalf("fresh incomplete check: %#v", r)
 	}
 	b, _ := json.Marshal(ClaimRequest{AgentUpdates: &r[0].List, AgentUpdatesUnchecked: r[0].Unchecked})
-	if !strings.Contains(string(b), `"agent_updates":[]`) || !strings.Contains(string(b), `"agent_updates_unchecked":["grok","claude","codex"]`) {
+	if !strings.Contains(string(b), `"agent_updates":[]`) || !strings.Contains(string(b), `"agent_updates_unchecked":[{"agent":"grok","installed":"1.0.77"},{"agent":"claude"},{"agent":"codex"}]`) {
 		t.Fatalf("claim body: %s", b)
+	}
+}
+
+func uncheckedIDs(us []UncheckedAgent) string {
+	var out []string
+	for _, u := range us {
+		out = append(out, u.Agent+"@"+u.Installed)
+	}
+	return strings.Join(out, ",")
+}
+
+// After the CLI was updated past the known latest, a check that cannot reach the registry keeps
+// nothing: the old update would offer an older version. The new installed version is reported.
+func TestAnUpdatedCLIDropsTheKnownUpdate(t *testing.T) {
+	grok := agentupdate.Catalog[4]
+	var u agentUpdates
+	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Latest: "1.0.92", Command: []string{"npm"}}})
+	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.95", Note: "latest version unavailable: timeout"}})
+	if r := u.report(); len(r) != 1 || len(r[0].List) != 0 || uncheckedIDs(r[0].Unchecked) != "grok@1.0.95" {
+		t.Fatalf("a newer install kept the old update: %#v", r)
 	}
 }

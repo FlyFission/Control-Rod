@@ -48,14 +48,32 @@ describe("agent updates", () => {
   it("keeps the known row for an agent a fresh daemon could not check", async () => {
     await claim([grok, brew]);
     // A restarted daemon: grok's registry lookup timed out, codex is now current.
-    await claim([], ["grok"]);
+    await claim([], [{ agent: "grok", installed: "1.0.77" }]);
     expect((await view()).agent_updates).toEqual([grok]);
     // A newer report for grok replaces its row; an unknown agent name is ignored.
     const newer = { ...grok, latest: "1.0.93" };
-    await claim([newer], ["grok", "rm -rf"]);
+    await claim([newer], [{ agent: "grok", installed: "1.0.77" }, { agent: "rm -rf" }]);
     expect((await view()).agent_updates).toEqual([newer]);
     // A full check with grok current clears it.
     await claim([], []);
+    expect((await view()).agent_updates).toEqual([]);
+  });
+
+  it("never keeps an update once the installed version has moved", async () => {
+    // A restarted daemon reads grok 1.0.95, past the known latest 1.0.92, and the registry fails:
+    // the old row would offer a downgrade, so it goes.
+    await claim([grok]);
+    await claim([], [{ agent: "grok", installed: "1.0.95" }]);
+    expect((await view()).agent_updates).toEqual([]);
+    // No installed version read, or one that is not strict SemVer, keeps nothing either.
+    for (const unchecked of [{ agent: "grok" }, { agent: "grok", installed: "1.0.77+build" }, "grok"]) {
+      await claim([grok]);
+      await claim([], [unchecked]);
+      expect((await view()).agent_updates).toEqual([]);
+    }
+    // Even a matching installed version keeps nothing when it is not strict SemVer.
+    await claim([{ ...grok, installed: "1.0.77+build" }]);
+    await claim([], [{ agent: "grok", installed: "1.0.77+build" }]);
     expect((await view()).agent_updates).toEqual([]);
   });
 

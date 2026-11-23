@@ -1469,6 +1469,17 @@ namespace Runner {
     /** Why no command is offered, in a sentence. */
     @maxLength(300) note?: string;
   }
+
+  /**
+   * An agent found whose update check could not finish, with the installed version the daemon read
+   * (strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent
+   * only while that row's installed version is this one, so a CLI updated since is never offered
+   * an older version.
+   */
+  model UncheckedAgent {
+    agent: AgentId;
+    @maxLength(64) @pattern("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$") installed?: string;
+  }
   @minLength(1)
   @maxLength(100)
   @pattern("^[a-zA-Z0-9._:/@-]+$")
@@ -1510,9 +1521,10 @@ namespace Runner {
 
     /**
      * Agents found whose check could not finish (the registry did not answer, or the CLI gave no
-     * version). Sent with `agent_updates`; the control plane keeps what it last knew for each.
+     * strict version). Sent with `agent_updates`; the control plane keeps its earlier row for each
+     * only while the installed version is unchanged.
      */
-    @maxItems(10) agent_updates_unchecked?: AgentId[];
+    @maxItems(10) agent_updates_unchecked?: UncheckedAgent[];
   }): Job | {
     @statusCode _: 204;
   } | Refused;

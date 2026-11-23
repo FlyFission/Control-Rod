@@ -6148,10 +6148,10 @@
                   "agent_updates_unchecked": {
                     "type": "array",
                     "items": {
-                      "$ref": "#/components/schemas/Runner.AgentId"
+                      "$ref": "#/components/schemas/Runner.UncheckedAgent"
                     },
                     "maxItems": 10,
-                    "description": "Agents found whose check could not finish (the registry did not answer, or the CLI gave no\nversion). Sent with `agent_updates`; the control plane keeps what it last knew for each."
+                    "description": "Agents found whose check could not finish (the registry did not answer, or the CLI gave no\nstrict version). Sent with `agent_updates`; the control plane keeps its earlier row for each\nonly while the installed version is unchanged."
                   }
                 },
                 "required": [
@@ -14178,6 +14178,23 @@
           }
         },
         "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."
+      },
+      "Runner.UncheckedAgent": {
+        "type": "object",
+        "required": [
+          "agent"
+        ],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/Runner.AgentId"
+          },
+          "installed": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$"
+          }
+        },
+        "description": "An agent found whose update check could not finish, with the installed version the daemon read\n(strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent\nonly while that row's installed version is this one, so a CLI updated since is never offered\nan older version."
       },
       "ScramPresented": {
         "type": "object",

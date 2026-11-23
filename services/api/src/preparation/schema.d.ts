@@ -3467,6 +3467,16 @@ export interface components {
             /** @description Model names or aliases the daemon discovered for the CLI. */
             models?: components["schemas"]["Runner.RuntimeModel"][];
         };
+        /**
+         * @description An agent found whose update check could not finish, with the installed version the daemon read
+         *     (strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent
+         *     only while that row's installed version is this one, so a CLI updated since is never offered
+         *     an older version.
+         */
+        "Runner.UncheckedAgent": {
+            agent: components["schemas"]["Runner.AgentId"];
+            installed?: string;
+        };
         /** @description A SCRAM as presenting mode shows it: that it holds and over what, never its reason or runs. */
         ScramPresented: {
             id: string;
@@ -8093,9 +8103,10 @@ export interface operations {
                     agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
                     /**
                      * @description Agents found whose check could not finish (the registry did not answer, or the CLI gave no
-                     *     version). Sent with `agent_updates`; the control plane keeps what it last knew for each.
+                     *     strict version). Sent with `agent_updates`; the control plane keeps its earlier row for each
+                     *     only while the installed version is unchanged.
                      */
-                    agent_updates_unchecked?: components["schemas"]["Runner.AgentId"][];
+                    agent_updates_unchecked?: components["schemas"]["Runner.UncheckedAgent"][];
                 };
             };
         };

@@ -8,6 +8,8 @@ import { renderPage } from "../../test/render.js";
 import { pkg, view } from "../../test/fixtures.js";
 import type { CaptureView, WorkPackage } from "../../api/types.js";
 import { resetLiveStatus, useLiveEvents } from "../../lib/live.js";
+import { hydrateServerProjects, selectProject, WorkspaceProjectUser } from "../../lib/projects.js";
+import { saveMode } from "../../lib/mode.js";
 import { BoardView } from "./BoardView.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { inTypingContext, splitPaste } from "./QuickAdd.js";
@@ -73,6 +75,7 @@ function api(s: { packages?: WorkPackage[]; captures?: CaptureView[] } = {}) {
 beforeEach(() => {
   vi.stubGlobal("EventSource", FakeSource);
   resetLiveStatus();
+  saveMode("capital-projects");
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -121,12 +124,36 @@ describe("QuickAdd on the board", () => {
     const field = screen.getByLabelText("Card title");
     expect(document.activeElement).toBe(field);
     await user.type(field, "Fix the login redirect{Enter}");
-    await waitFor(() => expect(posted).toEqual([{ text: "Fix the login redirect", source: "web" }]));
+    await waitFor(() => expect(posted).toEqual([{ text: "[mode:capital-projects]\n\nFix the login redirect", source: "web" }]));
     await waitFor(() => expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe(""));
     expect(document.activeElement).toBe(screen.getByLabelText("Card title"));
     // The new capture shows at the top of Ready, asking for its lane.
     const card = (await screen.findByText("Fix the login redirect")).closest("article")!;
     expect(within(card).getByText("Classify the data lane")).toBeTruthy();
+  });
+
+  it("captures against the selected project ID when projects share a name", async () => {
+    const { posted } = api();
+    const principal = "project-fixture";
+    const project = {
+      name: "Same project name", mode: "capital-projects", status: "active", repo: "", repoStrategy: "worktree",
+      workspaceRoot: "", lane: "internal", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    } as const;
+    hydrateServerProjects(principal, [{ ...project, id: "prj_one" }, { ...project, id: "prj_two" }]);
+    selectProject(principal, "prj_two");
+    try {
+      await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+      await user.type(screen.getByLabelText("Card title"), "Draft the fixture{Enter}");
+      await waitFor(() => expect(posted).toEqual([
+        { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web" },
+      ]));
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
   });
 
   it("closes on Escape and returns focus to the opener; a typed draft survives losing focus", async () => {
@@ -143,11 +170,27 @@ describe("QuickAdd on the board", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "+ Add a card" }));
   });
 
-  it("opens from the c key outside a field, and not from c typed inside one", async () => {
+  it("opens from the c key outside a field, and not from c typed inside one or when a dialog/palette is open", async () => {
     api();
     await renderPage(<Page />);
     const user = userEvent.setup();
     await screen.findByRole("button", { name: "+ Add a card" });
+
+    // Guarded when an open dialog or .palette is present
+    const dlg = document.createElement("dialog");
+    dlg.setAttribute("open", "");
+    document.body.appendChild(dlg);
+    await user.keyboard("c");
+    expect(screen.queryByLabelText("Card title")).toBeNull();
+    dlg.remove();
+
+    const pal = document.createElement("div");
+    pal.className = "palette";
+    document.body.appendChild(pal);
+    await user.keyboard("c");
+    expect(screen.queryByLabelText("Card title")).toBeNull();
+    pal.remove();
+
     await user.keyboard("c");
     const field = await screen.findByLabelText("Card title");
     await user.type(field, "abc");
@@ -163,7 +206,13 @@ describe("QuickAdd on the board", () => {
     await user.click(screen.getByLabelText("Card title"));
     await user.paste("Fix login\nDraft SOW\n\nSize relief valve");
     await user.click(screen.getByRole("button", { name: "Add 3 cards" }));
-    await waitFor(() => expect(posted.map((b) => (b as { text: string }).text)).toEqual(["Fix login", "Draft SOW", "Size relief valve"]));
+    await waitFor(() =>
+      expect(posted.map((b) => (b as { text: string }).text)).toEqual([
+        "[mode:capital-projects]\n\nFix login",
+        "[mode:capital-projects]\n\nDraft SOW",
+        "[mode:capital-projects]\n\nSize relief valve",
+      ]),
+    );
   });
 
   it("shows the server's refusal in place and keeps the text", async () => {
@@ -201,7 +250,7 @@ describe("QuickAdd on the board", () => {
     server.use(
       http.post("*/captures", async ({ request }) => {
         const body = (await request.json()) as { text: string; source: string };
-        if (failSecond && body.text === "Line two") {
+        if (failSecond && body.text.endsWith("Line two")) {
           return HttpResponse.json({ code: "boom", message: "Server hiccup" }, { status: 500 });
         }
         posted.push(body);
@@ -222,12 +271,16 @@ describe("QuickAdd on the board", () => {
     expect(screen.getByRole("button", { name: "Add 2 cards" })).toBeTruthy();
     // Line one succeeded and must already be visible via invalidated captures query.
     await screen.findByText("Line one");
-    expect(posted.map((b) => (b as { text: string }).text)).toEqual(["Line one"]);
+    expect(posted.map((b) => (b as { text: string }).text)).toEqual(["[mode:capital-projects]\n\nLine one"]);
 
     failSecond = false;
     await user.click(screen.getByRole("button", { name: "Add 2 cards" }));
     await waitFor(() =>
-      expect(posted.map((b) => (b as { text: string }).text)).toEqual(["Line one", "Line two", "Line three"]),
+      expect(posted.map((b) => (b as { text: string }).text)).toEqual([
+        "[mode:capital-projects]\n\nLine one",
+        "[mode:capital-projects]\n\nLine two",
+        "[mode:capital-projects]\n\nLine three",
+      ]),
     );
     await waitFor(() => expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe(""));
   });

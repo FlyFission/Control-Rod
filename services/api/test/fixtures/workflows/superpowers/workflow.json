@@ -1,0 +1,28 @@
+{
+  "id": "superpowers",
+  "name": "Superpowers",
+  "upstream": "https://example.test/superpowers",
+  "stages": {
+    "intake": {
+      "card": "stages/intake.md",
+      "skills": [
+        "superpowers:brainstorming",
+        "superpowers:writing-plans"
+      ]
+    },
+    "author": {
+      "card": "stages/author.md",
+      "skills": [
+        "superpowers:subagent-driven-development",
+        "superpowers:verification-before-completion"
+      ]
+    },
+    "pre-check": {
+      "card": "stages/pre-check.md",
+      "skills": [
+        "superpowers:subagent-driven-development",
+        "superpowers:verification-before-completion"
+      ]
+    }
+  }
+}

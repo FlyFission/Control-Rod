@@ -5,7 +5,7 @@ import type { StoryStep } from "./story.js";
 export function StoryLine({ step }: { step: StoryStep }) {
   const mark = step.kind === "tool" ? (step.ok === false ? "✕" : step.ok === true ? "✓" : "…") : "";
   return (
-    <li className={`story-step ${step.kind}${step.ok === false ? " failed" : ""}`}>
+    <li data-story-seq={step.seq} className={`story-step ${step.kind}${step.ok === false ? " failed" : ""}`}>
       {mark && (
         <span className="story-mark" aria-label={step.ok === false ? "failed" : step.ok === true ? "succeeded" : "no result reported"}>
           {mark}

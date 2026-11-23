@@ -85,6 +85,96 @@ namespace Auth {
   @route("/logout") @post op logout(): Session;
 }
 
+/** Audited workspace projects and their default outfall, data lane and runtime settings. */
+@route("/workspace/projects")
+namespace WorkspaceProjects {
+  alias EngineeringMode = "software" | "capital-projects" | "nuclear-grade";
+  alias RepoStrategy = "worktree" | "fresh-clone" | "branch";
+
+  model RuntimeSelection {
+    ecosystem: string;
+    `model`: string;
+    reasoning: string;
+  }
+
+  model WorkspaceProject {
+    id: string;
+    name: string;
+    mode: EngineeringMode;
+    status: string;
+    repo: string;
+    repoStrategy: RepoStrategy;
+    workspaceRoot: string;
+    lane: ControlRod.Records.DataLane;
+    author: RuntimeSelection;
+    checker: RuntimeSelection;
+    laneAgents?: Record<string>;
+    createdAt: utcDateTime;
+  }
+
+  model UpdateProject {
+    repo?: string;
+    repoStrategy?: RepoStrategy;
+    workspaceRoot?: string;
+    lane?: ControlRod.Records.DataLane;
+    author?: RuntimeSelection;
+    checker?: RuntimeSelection;
+
+    /** Null clears the configured lane overrides. */
+    laneAgents?: Record<string> | null;
+  }
+
+  model CreateProjectPayload {
+    @minLength(1)
+    @maxLength(120)
+    name: string;
+
+    mode?: EngineeringMode;
+    ...OmitProperties<UpdateProject, "laneAgents">;
+    laneAgents?: Record<string>;
+  }
+
+  /** The passkey challenge binds the payload through the project.workspace-create admin command. */
+  model CreateProject {
+    payload: CreateProjectPayload;
+    assertion: Record<unknown>;
+  }
+
+  model ArchiveProjectPayload {
+    project_id: string;
+  }
+
+  model UpdateProjectPayload {
+    ...ArchiveProjectPayload;
+    patch: UpdateProject;
+  }
+
+  /** The project.workspace-update admin challenge binds the project ID and patch. */
+  model SignedProjectUpdate {
+    payload: UpdateProjectPayload;
+    assertion: Record<unknown>;
+  }
+
+  /** The project.workspace-archive admin challenge binds the project ID. */
+  model SignedProjectArchive {
+    payload: ArchiveProjectPayload;
+    assertion: Record<unknown>;
+  }
+
+  model ArchivedProject {
+    id: string;
+    status: "archived";
+  }
+
+  @get op list(): WorkspaceProject[] | Refused;
+  @post op create(@body body: CreateProject): {
+    @statusCode _: 201;
+    @body project: WorkspaceProject;
+  } | Refused;
+  @route("/{id}") @patch op update(@path id: string, @body body: SignedProjectUpdate): WorkspaceProject | Refused;
+  @route("/{id}/archive") @post op archive(@path id: string, @body body: SignedProjectArchive): ArchivedProject | Refused;
+}
+
 @route("/captures")
 namespace Captures {
   model NewCapture {
@@ -126,6 +216,9 @@ namespace Captures {
     @body capture: Capture;
   } | Refused;
   @route("/{id}/classify") @post op classify(@path id: string, @body body: Classification): Capture | Refused;
+
+  /** Dismiss a pending capture and stop its queued intake work. The capture record is retained. */
+  @route("/{id}/dismiss") @post op dismiss(@path id: string): Capture | Refused;
 }
 
 /** What the web app shows for one package: the revision, its runs, output and decisions. */
@@ -184,6 +277,18 @@ model PackageView {
   binds?: string;
 }
 
+/** Metadata for a stored author output. The digest is verified when its bytes are read. */
+model RunOutput {
+  ...Artifact;
+  size_bytes: int32;
+}
+
+/** An integrity-checked, bounded UTF-8 preview. Render its content as plain text. */
+model RunOutputPreview {
+  ...Artifact;
+  content: string;
+}
+
 @route("/packages")
 namespace Packages {
   @get op list(): WorkPackage[];
@@ -206,16 +311,37 @@ namespace Packages {
   @route("/{id}/verification-evidence/{runId}/{name}") @get
   op verificationEvidence(@path id: string, @path runId: string, @path name: string): { @header contentType: string; @body body: bytes; } | Refused;
 
+  /** The exact attempt, including attempts from earlier revisions. */
+  @route("/{id}/runs/{runId}")
+  @get
+  op run(@path id: string, @path runId: string): Run | Refused;
+
+  /** Read at most 200 admitted files from the exact author attempt, ordered by path. */
+  @route("/{id}/runs/{runId}/outputs")
+  @get
+  op runOutputs(@path id: string, @path runId: string, @query after?: string): RunOutput[] | Refused;
+
+  @route("/{id}/runs/{runId}/outputs/preview")
+  @get
+  op runOutputPreview(@path id: string, @path runId: string, @query path: string): RunOutputPreview | Refused;
+
   @route("/{id}/runs/{runId}/log")
   @get
   op runLog(@path id: string, @path runId: string): {
     lines: string[];
   } | Refused;
 
-  /** The run's story: its normalized events in order, after a sequence number. */
+  /** Events in chronological order. Choose at most one of after, before, or recent. */
   @route("/{id}/runs/{runId}/events")
   @get
-  op runEvents(@path id: string, @path runId: string, @query after?: int32): {
+  op runEvents(
+    @path id: string,
+    @path runId: string,
+    @query @minValue(0) after?: int32,
+    @query @minValue(1) before?: int32,
+    @query recent?: boolean,
+    @query @minValue(1) @maxValue(2000) limit?: int32
+  ): {
     events: { seq: int32; event: NormalizedEvent }[];
   } | Refused;
 
@@ -707,6 +833,67 @@ model SubscriptionView {
   pins: SubscriptionPin[];
 }
 
+/**
+ * First-run setup (docs/patterns/onboarding.md): which agents the person seats and when Control Rod
+ * checks with them. Nothing is recorded until the person confirms what was read back to them.
+ */
+@route("/setup")
+@get
+op setup(): AgentSetupView;
+
+/** Records the person's confirmed setup. Seat changes are events on the chain; the check-in answer is a preference and is not. */
+@route("/setup")
+@put
+op recordSetup(@body body: AgentSetupRequest): AgentSetupView | Refused;
+
+/** One Agents roster switch: changes that seat only, and does not confirm setup. */
+@route("/setup/seats/{runtime}")
+@put
+op recordSeat(@path runtime: string, @body body: { seated: boolean }): AgentSetupView | Refused;
+
+/**
+ * When Control Rod should stop and check with the person (ADR 0024 decision 7). The middle answer is
+ * the default and matches today's stops: a passkey to release and to accept.
+ */
+union CheckIn {
+  start: "start",
+  "start-and-merge": "start-and-merge",
+  "every-step": "every-step",
+}
+
+@extension("unevaluatedProperties", false)
+model AgentSeat {
+  /** A runtime id as the daemon names it (claude, codex, grok, opencode, agy, ollama). */
+  @maxLength(40)
+  runtime: string;
+
+  /** False benches the agent: no new run is offered to it. Benching never makes a checker the author's runtime. */
+  seated: boolean;
+}
+
+@extension("unevaluatedProperties", false)
+model AgentSetupRequest {
+  /** Only the seats the person changed. A seat not named keeps its saved value. */
+  @maxItems(20)
+  seats: AgentSeat[];
+
+  /** Left out when the person did not change it; the saved answer stays. */
+  check_in?: CheckIn;
+}
+
+@extension("unevaluatedProperties", false)
+model AgentSetupView {
+  /** False until the person has confirmed setup once. The app opens on setup until then. */
+  confirmed: boolean;
+
+  confirmed_at?: utcDateTime;
+
+  /** Runtimes not listed here are seated. */
+  seats: AgentSeat[];
+
+  check_in: CheckIn;
+}
+
 /** The claim payload. The same probe models the settings page returns. */
 @extension("unevaluatedProperties", false)
 model SubscriptionReport {
@@ -1134,6 +1321,19 @@ op scram(@path id: string): {
 @get
 op activeRuns(): Run[];
 
+/** A bounded projection for the workspace. The title describes the run's recorded package revision. */
+model ActiveRunSummary {
+  ...PickProperties<Run, "id" | "package_id" | "package_revision" | "role" | "runtime" | "label" | "waiting_reason" | "waiting_cause" | "stop_requested_at">;
+  status: "queued" | "running";
+
+  /** The beginning of the recorded package title, bounded for the switcher. */
+  @maxLength(120) title?: string;
+}
+
+@route("/runs/active")
+@get
+op activeRunSummaries(): ActiveRunSummary[] | Refused;
+
 @route("/events")
 namespace Events {
   @get op list(@query after?: int32): Event[];
@@ -1231,7 +1431,16 @@ namespace Runner {
 
     /** The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
     artifact?: RuntimeArtifact;
+
+    /** Model names or aliases the daemon discovered for the CLI. */
+    @maxItems(50)
+    models?: RuntimeModel[];
   }
+
+  @minLength(1)
+  @maxLength(100)
+  @pattern("^[a-zA-Z0-9._:/@-]+$")
+  scalar RuntimeModel extends string;
 
   /**
    * A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform

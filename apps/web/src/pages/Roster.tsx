@@ -13,12 +13,6 @@ import { shortDigest, time } from "../lib/format.js";
  * launches with, stated as recorded and never as more than it is.
  */
 export function Roster({ passkeys = browserPasskeys }: { passkeys?: Passkeys } = {}) {
-  const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
-  const runtimes = q.data?.runtimes ?? [];
-  const pins = q.data?.pins ?? [];
-  // Absence is only stated once the control plane has answered; before that, or after a failure,
-  // the page says it does not know.
-  const known = q.isSuccess;
   return (
     <div className="place">
       <header className="place-head">
@@ -28,6 +22,21 @@ export function Roster({ passkeys = browserPasskeys }: { passkeys?: Passkeys } =
           unpinned, the last check) names.
         </p>
       </header>
+      <RosterDetails passkeys={passkeys} />
+    </div>
+  );
+}
+
+/** The runtimes, pins, roles, versions, baselines and sandbox, for the Agents roster's Advanced section. */
+export function RosterDetails({ passkeys = browserPasskeys }: { passkeys?: Passkeys } = {}) {
+  const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
+  const runtimes = q.data?.runtimes ?? [];
+  const pins = q.data?.pins ?? [];
+  // Absence is only stated once the control plane has answered; before that, or after a failure,
+  // the page says it does not know.
+  const known = q.isSuccess;
+  return (
+    <>
       <section className="panel" aria-labelledby="runtimes-title">
         <div className="panel-head">
           <h2 id="runtimes-title">Runtimes</h2>
@@ -126,7 +135,7 @@ export function Roster({ passkeys = browserPasskeys }: { passkeys?: Passkeys } =
         )}
       </section>
       <RosterDetail passkeys={passkeys} />
-    </div>
+    </>
   );
 }
 

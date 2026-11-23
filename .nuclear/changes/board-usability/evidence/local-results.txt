@@ -1,0 +1,16 @@
+Web unit tests
+Test Files  52 passed (52)
+Tests  700 passed (700)
+
+Playwright results
+✓   1 [chromium] › e2e/board-looks.spec.ts:87:3 › the board has no axe violations in look a, live, with a blocked O6 card, and with the stream unknown (4.5s)
+✓   9 [chromium] › e2e/board-looks.spec.ts:87:3 › the board has no axe violations in look b, live, with a blocked O6 card, and with the stream unknown (4.1s)
+✓  13 [chromium] › e2e/board-looks.spec.ts:87:3 › the board has no axe violations in look c, live, with a blocked O6 card, and with the stream unknown (3.9s)
+✓  15 [chromium] › e2e/board-looks.spec.ts:145:3 › the review drawer's agent panel has no axe violations in look a (1.2s)
+✓  16 [chromium] › e2e/board-looks.spec.ts:145:3 › the review drawer's agent panel has no axe violations in look b (1.3s)
+✓  17 [chromium] › e2e/board-looks.spec.ts:145:3 › the review drawer's agent panel has no axe violations in look c (1.3s)
+✓  18 [chromium] › e2e/board-looks.spec.ts:160:1 › keeps desktop triage and card review on the board (598ms)
+✓  21 [firefox] › e2e/board-looks.spec.ts:160:1 › keeps desktop triage and card review on the board (1.9s)
+
+Error: frame.evaluate: Page crashed
+Host system is missing dependencies to run browsers.

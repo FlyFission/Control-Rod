@@ -2,6 +2,8 @@ import { type ClipboardEvent, type KeyboardEvent, useEffect, useRef, useState } 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
+import { useMode } from "../../lib/mode.js";
+import { useActiveProject } from "../../lib/projects.js";
 
 /** The lines of a paste, one card each: trimmed, empty lines dropped. */
 export function splitPaste(text: string): string[] {
@@ -27,6 +29,8 @@ export function inTypingContext(target: EventTarget | null): boolean {
  */
 export function QuickAdd() {
   const qc = useQueryClient();
+  const mode = useMode();
+  const activeProject = useActiveProject();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [many, setMany] = useState<string[] | null>(null);
@@ -52,6 +56,7 @@ export function QuickAdd() {
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key !== "c" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       if (inTypingContext(e.target)) return;
+      if (document.querySelector("dialog[open], .palette")) return;
       e.preventDefault();
       setOpen(true);
       input.current?.focus();
@@ -63,9 +68,14 @@ export function QuickAdd() {
   const send = useMutation({
     mutationFn: async (titles: string[]) => {
       batchProgress.current = { titles, sent: 0 };
+      const prefix = `[mode:${mode}]${
+        activeProject
+          ? ` [project-id:${activeProject.id}]${activeProject.repo ? ` [repo:${activeProject.repo}]` : ""}`
+          : ""
+      }\n\n`;
       // Cards are posted in the order typed, one request at a time, so a failure says which one stopped.
       for (const t of titles) {
-        await api.capture({ text: t, source: "web" });
+        await api.capture({ text: `${prefix}${t}`, source: "web" });
         batchProgress.current.sent += 1;
       }
     },

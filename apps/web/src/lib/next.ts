@@ -1,4 +1,4 @@
-import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, WorkPackage } from "../api/types.js";
+import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, Run, WorkPackage } from "../api/types.js";
 import { blockUnverifiedAccept, boardColumn, isVerified, preCheckState } from "./board.js";
 
 export type NextLine = { tone: "needs" | "wait" | "block" | "ok"; text: string; command?: string };
@@ -23,6 +23,10 @@ export type NextInput = {
    * not the person's to return then: the check has not run. Found by the live persona pass.
    */
   heldPreCheck?: boolean;
+  /** Runs for the current revision, or explicit hold metadata from a queued run. */
+  runs?: readonly Run[];
+  waitingReason?: string;
+  waitingCause?: Run["waiting_cause"];
 };
 
 /** Why an action is refused, in the API's own words where it gave them. */
@@ -49,8 +53,22 @@ export function nextLine(i: NextInput): NextLine {
     return { tone: "block", text: `Needs a second qualified person${who}` };
   }
 
-  if (i.heldPreCheck) {
-    return { tone: "needs", text: "Pre-check held: it needs a runtime independent of the author's, or your signed override" };
+  const queuedHold = i.runs?.find((r) => r.status === "queued" && (r.waiting_reason !== undefined || r.waiting_cause !== undefined));
+  const holdReason = i.waitingReason ?? queuedHold?.waiting_reason;
+  const holdCause = i.waitingCause ?? queuedHold?.waiting_cause;
+  const hasExplicitHold = holdReason !== undefined || holdCause !== undefined;
+  const isIndependenceHold = hasExplicitHold
+    ? holdCause === "independent-runtime" ||
+      (holdCause === undefined &&
+        (i.heldPreCheck || queuedHold?.role === "pre-check") &&
+        (holdReason === undefined || /independent runtime/i.test(holdReason)))
+    : Boolean(i.heldPreCheck);
+
+  if (isIndependenceHold) {
+    return {
+      tone: "needs",
+      text: holdReason ? `Pre-check held: ${holdReason}` : "Pre-check held: it needs a runtime independent of the author's, or your signed override",
+    };
   }
 
   // Ruling 16: the verification outranks an allowed accept (screen-only until D-4; see blockUnverifiedAccept).
@@ -60,6 +78,7 @@ export function nextLine(i: NextInput): NextLine {
 
   if (column === "person-verifies") return { tone: "wait", text: "Waiting on a person verification" };
   if (preCheckState(pkg, i.office) === "disputed") return { tone: "block", text: "The agent pre-check disputes this work" };
+  if (hasExplicitHold) return { tone: "wait", text: holdReason ? `Held: ${holdReason}` : `Held: ${holdCause}` };
   if (i.runActive) return { tone: "wait", text: "An agent is working on it" };
 
   const refused = offered.find((a) => !a.allowed);

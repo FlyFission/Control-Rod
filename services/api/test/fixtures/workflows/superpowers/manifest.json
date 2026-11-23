@@ -1,0 +1,30 @@
+{
+  "workflow": "superpowers",
+  "upstream": "https://example.test/superpowers",
+  "commit": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+  "license": "MIT",
+  "generated_by": "fixture generate.mjs",
+  "skills": {
+    "brainstorming": [
+      "reference/brainstorming/SKILL.md"
+    ],
+    "writing-plans": [
+      "reference/writing-plans/SKILL.md"
+    ],
+    "subagent-driven-development": [
+      "reference/subagent-driven-development/SKILL.md",
+      "reference/subagent-driven-development/implementer-prompt.md"
+    ],
+    "verification-before-completion": [
+      "reference/verification-before-completion/SKILL.md"
+    ]
+  },
+  "files": {
+    "LICENSE": "sha256:f0da2a4793377d581c2affe45217bcf9ba07abaafbc65c0958c2f0bc65867335",
+    "reference/brainstorming/SKILL.md": "sha256:1991dc895457a5e9ec10fea6239c7452c28e74a0cc4cd0db5c0f713ee96a3c54",
+    "reference/writing-plans/SKILL.md": "sha256:ced4fb05fd1fd88ca5b10162bbcb59030dd064234b97831339c077805f9890e6",
+    "reference/subagent-driven-development/SKILL.md": "sha256:7f04da2a780af2c26feb3fdddf69592a8d363bfa9b8876c9916a83d18e49c6c8",
+    "reference/subagent-driven-development/implementer-prompt.md": "sha256:b70ec4d1340a0c16a6eacb2baf895b6472c8eb0e556f7068278a10f48148d386",
+    "reference/verification-before-completion/SKILL.md": "sha256:5592e5f9bc81f563260602cfd0da1c00e71acfe48a60897258afc6de6aaa5d0e"
+  }
+}

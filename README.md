@@ -17,6 +17,7 @@ Control Rod is a free, open-source workspace that runs on your own machine. You 
 - **A second opinion on by default.** Every result is checked by an agent from a different vendor before it reaches you. If you only have one vendor, you can give a reason and sign an override to let it check itself, and the record says so. The checker sees the work and the evidence, never the author's reasoning, so the author can't talk it into agreeing.
 - **The agents you already have.** Control Rod drives the command-line agents you are signed in to, on the plans you already pay for. It never asks for an API key, and you don't need to buy anything new.
 - **You make the call.** Agents do the work and the checking. Releasing work and accepting a result take your passkey (Touch ID, Windows Hello or a security key), so nothing counts as done until you say so.
+- **You choose where you come in** *(planned)*. Today you step in twice: when work is released and when a result is accepted. Next, you pick your own stops, from one yes at the start to a look at every stage, and any check that falls back to something weaker is logged and flagged so you can step in before it merges.
 - **One board for everything.** Every task, what it is waiting on and who has it, in one place, with a big red **SCRAM** button that stops runs on the record when you need everything to halt.
 
 ## The table

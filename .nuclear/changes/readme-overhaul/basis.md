@@ -22,6 +22,10 @@ The owner asked (2026-11-22) for a complete overhaul of the README and landing p
 - `README.md` is rewritten: a one-line pitch, the board screenshot first, four reasons, an honest agent table, a short tour (board, sign-off, office, the rest), install, how it works, what it is not, and contributing. 145 lines become about 120.
 - `apps/web/e2e/readme-shots.spec.ts` takes a fourth picture, `board.png`, from sample software cards in every column. The existing three pictures are retaken by the same run.
 
+## Revision 2 (2026-11-23): choose where you come in
+
+The owner asked (2026-11-23) for "the end user decides where they come into the picture" as a README selling point. It is not built; ADR 0024 (draft PR #150) records the decision. The README adds it as one bullet marked *(planned)*, and states what is true today: a person signs at release and at acceptance. When it ships, drop the marker.
+
 ## Assumptions and invalidation triggers
 
 | Assumption | Basis | Invalidation trigger |

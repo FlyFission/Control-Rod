@@ -1,6 +1,6 @@
 # Why a second model: the figures behind the README
 
-The README's "Why a second model, not the same one" section quotes four published papers. This folder holds what it quotes and how the chart is drawn, so anyone can check each number against its source.
+The README's "Why a second model, not the same one" section quotes four published papers and one METR research note. This folder holds what it quotes and how the chart is drawn, so anyone can check each number against its source.
 
 - [`inputs.json`](inputs.json): each figure exactly as published, with the paper, the table or sentence it comes from, its license and the conditions it was measured under. Retrieved 2026-11-23.
 - [`build.py`](build.py): draws [`docs/assets/readme/second-checker.svg`](../../assets/readme/second-checker.svg) from `inputs.json`. It types no numbers. Run `python3 docs/research/second-checker/build.py`.

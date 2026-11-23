@@ -33,23 +33,81 @@
       "where": "Section 3.2: 'a significant (p < 0.01) positive correlation (average Pearson r=0.84) between LLM-as-a-judge scores and model similarity'. Figure 6 caption: 'LM mistakes are getting more correlated with increasing capabilities'.",
       "license": "arXiv.org perpetual non-exclusive license",
       "conditions": "Similarity measured by CAPA (overlap in mistakes). The capability trend has no single published coefficient."
+    },
+    "metr2026": {
+      "title": "Many SWE-bench-Passing PRs Would Not Be Merged into Main",
+      "authors": "Parker Whitfill, Cheryl Wu, Joel Becker, Nate Rush (METR)",
+      "url": "https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/",
+      "where": "Summary: 4 active maintainers from 3 SWE-bench Verified repositories reviewed 296 AI-generated PRs; 'roughly half of test-passing SWE-bench Verified PRs' would not be merged, 'even after adjusting for noise in maintainer merge decisions'. Main results: grader averages about 24.2 percentage points (SE 2.7) above the maintainer merge decision.",
+      "license": "(c) 2026 METR, all rights reserved; facts quoted with attribution, nothing reproduced",
+      "conditions": "scikit-learn, Sphinx, pytest; agents from mid-2024 to late 2025, mostly Anthropic models; scores normalized to the golden-patch merge rate (about 68%); maintainers had no CI."
     }
   },
   "chart": {
     "source": "stechly2024",
     "title": "GPT-4 checking itself vs. an outside checker",
-    "series": ["Answers alone", "GPT-4 checks itself", "Outside checker"],
-    "series_columns": ["S.P.", "LLM+LLM", "LLM+Sound Critique B.F."],
+    "series": [
+      "Answers alone",
+      "GPT-4 checks itself",
+      "Outside checker"
+    ],
+    "series_columns": [
+      "S.P.",
+      "LLM+LLM",
+      "LLM+Sound Critique B.F."
+    ],
     "rows": [
-      {"domain": "Graph coloring", "values": [16, 2, 38]},
-      {"domain": "Game of 24", "values": [5, 3, 36]}
+      {
+        "domain": "Graph coloring",
+        "values": [
+          16,
+          2,
+          38
+        ]
+      },
+      {
+        "domain": "Game of 24",
+        "values": [
+          5,
+          3,
+          36
+        ]
+      }
     ],
     "unit": "% of 100 problems solved"
   },
   "facts": {
-    "huang_gpt4_gsm8k": {"source": "huang2024", "standard": 95.5, "self_correct_round_2": 89.0, "unit": "% accuracy"},
-    "huang_gpt35_csqa": {"source": "huang2024", "standard": 75.8, "self_correct_round_1": 38.1, "unit": "% accuracy"},
-    "panickssery_gpt4_self_recognition": {"source": "panickssery2024", "value": 73.5, "unit": "% accuracy"},
-    "goel_judge_similarity_r": {"source": "goel2025", "value": 0.84, "unit": "average Pearson r"}
+    "huang_gpt4_gsm8k": {
+      "source": "huang2024",
+      "standard": 95.5,
+      "self_correct_round_2": 89.0,
+      "unit": "% accuracy"
+    },
+    "huang_gpt35_csqa": {
+      "source": "huang2024",
+      "standard": 75.8,
+      "self_correct_round_1": 38.1,
+      "unit": "% accuracy"
+    },
+    "panickssery_gpt4_self_recognition": {
+      "source": "panickssery2024",
+      "value": 73.5,
+      "unit": "% accuracy"
+    },
+    "goel_judge_similarity_r": {
+      "source": "goel2025",
+      "value": 0.84,
+      "unit": "average Pearson r"
+    },
+    "metr_prs_reviewed": {
+      "source": "metr2026",
+      "value": 296,
+      "unit": "AI-generated pull requests"
+    },
+    "metr_not_merged": {
+      "source": "metr2026",
+      "value": "roughly half",
+      "unit": "share of test-passing PRs maintainers would not merge, golden-adjusted"
+    }
   }
 }

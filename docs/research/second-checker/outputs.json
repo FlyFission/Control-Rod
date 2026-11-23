@@ -1,5 +1,5 @@
 {
-  "inputs_sha256": "4931735ad8c671331832aef39280c7a676c3f4cc61d75d588c7806ed3fe98708",
+  "inputs_sha256": "4d3be20b50b01c92afdb04983c3e1273d54d7091736103a2988c248c94c41472",
   "svg": "docs/assets/readme/second-checker.svg",
   "svg_sha256": "38f54b68b8697360a6fb1735cf7931183e63c9313064e541d757a4ad80cfefe4",
   "chart_values": {
@@ -36,6 +36,16 @@
       "source": "goel2025",
       "value": 0.84,
       "unit": "average Pearson r"
+    },
+    "metr_prs_reviewed": {
+      "source": "metr2026",
+      "value": 296,
+      "unit": "AI-generated pull requests"
+    },
+    "metr_not_merged": {
+      "source": "metr2026",
+      "value": "roughly half",
+      "unit": "share of test-passing PRs maintainers would not merge, golden-adjusted"
     }
   }
 }

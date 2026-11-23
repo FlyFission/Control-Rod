@@ -28,7 +28,7 @@ The owner asked (2026-11-23) for "the end user decides where they come into the 
 
 ## Revision 3 (2026-11-23): ground the "why" in published research
 
-The owner asked (2026-11-23) to quantify why a separate checker beats self-checking, with research figures and a chart. The README adds a "Why a second model" section quoting four arXiv papers (Stechly et al. 2024, Huang et al. 2024, Panickssery et al. 2024, Goel et al. 2025). Each figure is copied as published into `docs/research/second-checker/inputs.json` with its table or sentence; `build.py` draws the chart from it (AGENTS rule 5). No paper reports a "percent more errors caught" by a different-vendor model, so the README states that limit instead of inventing one.
+The owner asked (2026-11-23) to quantify why a separate checker beats self-checking, with research figures and a chart. The README adds a "Why a second model" section quoting four arXiv papers (Stechly et al. 2024, Huang et al. 2024, Panickssery et al. 2024, Goel et al. 2025) and one METR research note (2026) on maintainer review of test-passing pull requests. Each figure is copied as published into `docs/research/second-checker/inputs.json` with its table or sentence; `build.py` draws the chart from it (AGENTS rule 5). No paper reports a "percent more errors caught" by a different-vendor model, so the README states that limit instead of inventing one.
 
 ## Revision 4 (2026-11-23): drop the Codespaces path
 

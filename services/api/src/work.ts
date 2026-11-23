@@ -25,6 +25,7 @@ import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
+import { benchedRuntimes } from "./setup.js";
 import { projectRuntimePrefs } from "./workspace-projects.js";
 import { ownerOf } from "./tenancy.js";
 import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
@@ -1286,7 +1287,7 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
 }
 
 export async function claim(
-  db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(),
+  db: Db, cfg: WorkConfig, offered: string[], artifacts: Map<string, string> = new Map(),
   runCeilingSeconds?: number, reportedModels: ReadonlyMap<string, readonly string[]> = new Map(),
 ) {
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
@@ -1297,6 +1298,11 @@ export async function claim(
     // The budget lock, before any event is written here: every claim takes it in this order, so two
     // dispatches cannot both take a hard cap's last room, and no claim waits on another the other way.
     await c.query("select pg_advisory_xact_lock(hashtext('controlrod-budget'))");
+    // Agents benched in setup are left out of every offer, read under the same lock a seat change
+    // takes, so a bench that has returned is never followed by a grant to that agent. Removing a
+    // runtime can only make work wait; pickChecker still refuses the author's runtime.
+    const benched = await benchedRuntimes(c);
+    const runtimes = offered.filter((r) => !benched.has(r));
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
     let cursor: { at: string; id: string } | null = null;

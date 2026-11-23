@@ -112,7 +112,7 @@ describe("shell and palette", () => {
     await renderShell("/registers");
     const nav = screen.getByRole("navigation", { name: "Places" });
     const user = userEvent.setup();
-    for (const group of ["Audit", "Control"]) {
+    for (const group of ["Audit", "Control / Setup"]) {
       const toggle = within(nav).getByRole("button", { name: group });
       if (toggle.getAttribute("aria-expanded") === "false") await user.click(toggle);
     }
@@ -229,7 +229,7 @@ describe("shell and palette", () => {
     apiFor();
     await renderShell();
     const user = userEvent.setup();
-    const control = screen.getByRole("button", { name: "Control" });
+    const control = screen.getByRole("button", { name: "Control / Setup" });
     if (control.getAttribute("aria-expanded") === "false") await user.click(control);
     await user.keyboard("{Control>}k{/Control}");
     const input = await screen.findByRole("combobox");
@@ -238,7 +238,7 @@ describe("shell and palette", () => {
     expect(document.activeElement).toBe(input);
     expect(screen.getByRole("dialog")).toBeTruthy();
     // Focus that escapes to the page behind comes straight back.
-    screen.getByRole("link", { name: "Roster" }).focus();
+    screen.getByRole("link", { name: "Agents roster" }).focus();
     expect(document.activeElement).toBe(input);
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();

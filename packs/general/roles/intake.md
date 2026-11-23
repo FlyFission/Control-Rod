@@ -9,23 +9,24 @@ You turn one request from the owner into either a direct answer or one or more w
 
 ## Work package drafts
 
-Each draft must validate against the WorkPackage contract. Every draft MUST include all required fields:
+Each draft must validate against the WorkPackage contract. The contract refuses any field it does not name, so write exactly these fields and no others:
 - `schema_version`: `"0.1.0"`.
 - `id`: short, uppercase, unique within this request, for example `SOW-PUMP` or `MATH-DIVIDE`.
-- `revision`: `0`, `status`: `"draft"`.
-- `title`: short, plain human-readable title for the board card (required).
+- `title`: a short name for the package in plain words, for the board card, for example "Pump scope of work".
+- `revision`: `0`.
+- `status`: `"draft"`.
 - `mode`: MUST be one of `"software"`, `"capital-projects"`, or `"general"`. If the request carries `[mode:software]` or `[mode:capital-projects]`, use that value. If the request carries `[mode:nuclear-grade]`, set `"mode": "software"` and `"context_profile": "nuclear"` (never write `"nuclear-grade"` into `mode`).
-- `project`: if the request carries a `[project:...]` tag, use that exact project name/code; otherwise `"general"` for everyday work, or a short project code.
+- `project`: if the request carries a `[project:...]` tag, use that exact project name or code; otherwise `"general"` for everyday work, or a short project code.
 - `rigor_mode`: `"administrative"` for internal notes, `"quick"` for small changes or anything leaving the owner's hands, `"standard"` for engineering deliverables.
 - `data_lane`: `"internal"` unless the request says otherwise.
 - `objective`: one or two sentences in plain words.
-- `deliverables`: array of objects, each with an `id`, a `type` (e.g. `"code"`, `"report"`, `"document"`), and the file `format`s array (e.g. `["js"]`, `["md"]`) you will produce.
-- `design_inputs`: array (may be `[]`) of inputs this work relies on. For an attachment the owner provided, use `doc: "attachment:<file name>"`. For the output of another package in this request, use `doc: "<that package id>"` and `revision: "0"`. Design inputs are citations; they do not make this package wait.
-- `depends_on`: optional array of packages that must be accepted before this one starts, as `{ "package_id": "<that package id>", "reason": "<why>" }`. List a package here only when this work truly cannot begin without its accepted output; packages with no dependencies run in parallel. Never list this package itself, and never make two packages wait on each other.
+- `deliverables`: each with an `id`, a `type` (for example `"code"`, `"report"`, `"document"`) and a `format` list (an array of strings, even for one format), and nothing else: no `description`. For example `{ "id": "scope", "type": "document", "format": ["pdf"] }`.
+- `design_inputs`: the inputs this work relies on, each with `doc`, `revision` (a string) and `use` (one sentence on what this work takes from it), and optionally `title`. Use an empty list when there are none. For the request itself, use `doc: "request"` and `revision: "0"`. For an attachment the owner provided, use `doc: "attachment:<file name>"`. For the output of another package in this request, use `doc: "<that package id>"` and `revision: "0"`. Design inputs are citations; they do not make this package wait.
+- `depends_on`: optional; the packages that must be accepted before this one starts, as `{ "package_id": "<that package id>", "reason": "<why>" }`. List a package here only when this work truly cannot begin without its accepted output; packages with no dependencies run in parallel. Never list this package itself, and never make two packages wait on each other.
 - `agent_assignment`: one entry; `role` names the brief the author will follow (for example `"software-author"`, `"general-author"`, or a role from the job guidance below), `agent_baseline`: `"author"`, `baseline_revision`: `0`.
-- `acceptance_criteria`: non-empty array of concrete, checkable statements. These are what the pre-checker and the owner judge against, so make each one testable.
+- `acceptance_criteria`: a non-empty list of concrete, checkable statements. These are what the pre-checker and the owner judge against, so make each one testable.
 - `verification`: `{ "method": "agent-pre-check", "verifier": "checker", "verifier_receives": ["deliverables", "acceptance criteria", "design inputs"], "required_custody": { "decisive_evidence_generated_by": "verifier", "preparer_may_present": false } }`.
-- `assumptions`: optional array (omit or `[]` if none); each entry MUST have all 5 fields: `{ "id": "A-1", "statement": "<assumption>", "basis": "<why assumed>", "requires_confirmation": true, "owner": "owner" }`.
+- `assumptions`: optional (omit or `[]` if none); each with an `id` (for example `A1`), a `statement`, a `basis` (why you assumed it), `requires_confirmation: true` and `owner: "owner"`.
 
 Example minimal valid draft (`out/packages/EXAMPLE.json`):
 ```json

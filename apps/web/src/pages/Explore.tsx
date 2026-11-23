@@ -3,8 +3,8 @@ import { useState } from "react";
 import { api } from "../api/client.js";
 
 /**
- * Explore (Wave 4): Private-ref Checkpoints and non-destructive Merkle Freeze over
- * hardened worktrees. Multi-CLI fan-out controls are previewed and disabled until Cycle 2.
+ * Snapshots (formerly Explore): private-ref checkpoints and a non-destructive Merkle freeze over a
+ * worktree, so Compare can line revisions up. Multi-CLI fan-out is not built, so it is not shown.
  */
 export function Explore() {
   const [repoPath, setRepoPath] = useState("");
@@ -22,7 +22,7 @@ export function Explore() {
         repo_path: repoPath.trim(),
         ...(label.trim() ? { label: label.trim() } : {}),
       });
-      setStatus(`Checkpoint captured at ${res.ref} (${res.commit_sha.slice(0, 12)})`);
+      setStatus(`Checkpoint saved at ${res.ref} (${res.commit_sha.slice(0, 12)})`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkpoint failed");
     } finally {
@@ -40,10 +40,10 @@ export function Explore() {
         ...(label.trim() ? { label: label.trim() } : {}),
       });
       setStatus(
-        `Merkle Freeze ready: ${res.manifest_digest.slice(0, 16)} (${res.file_count} files, ref ${res.checkpoint_ref})`,
+        `Frozen: ${res.manifest_digest.slice(0, 16)} (${res.file_count} files, ref ${res.checkpoint_ref})`,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Merkle Freeze failed");
+      setError(err instanceof Error ? err.message : "Freeze failed");
     } finally {
       setBusy(false);
     }
@@ -52,16 +52,16 @@ export function Explore() {
   return (
     <div className="place">
       <header className="place-head">
-        <h1>Explore</h1>
+        <h1>Snapshots</h1>
         <p className="muted">
-          Capture private checkpoints or freeze a Merkle tree over a hardened worktree. Multi-CLI fan-out is coming in Cycle 2.
+          Save a private checkpoint of a worktree, or freeze it so its exact files can be compared later. Nothing in the worktree is changed.
         </p>
       </header>
 
       <section className="panel" style={{ marginBottom: "1rem" }}>
         <div className="row" style={{ gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
           <label>
-            Worktree / Repo Path{" "}
+            Worktree or repository path{" "}
             <input
               type="text"
               value={repoPath}
@@ -80,52 +80,18 @@ export function Explore() {
           </label>
         </div>
 
-        <fieldset disabled style={{ border: "1px solid var(--line-2)", borderRadius: "8px", padding: "0.75rem", marginBottom: "0.75rem" }}>
-          <legend className="muted small">Multi-CLI fan-out coming in Cycle 2 (not sent with Checkpoint or Freeze)</legend>
-          <div className="row" style={{ gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-            <label>
-              Delivery Mode{" "}
-              <select value="software" disabled>
-                <option value="software">Software (GitHub PR outfall)</option>
-                <option value="capital-projects">Capital Projects (Transmittal Dossier)</option>
-              </select>
-            </label>
-            <div>
-              <span className="muted" style={{ marginRight: "0.5rem" }}>Fan-out Runtimes:</span>
-              {["claude", "codex", "grok", "opencode", "agy", "ollama"].map((rt) => (
-                <label key={rt} style={{ marginRight: "0.65rem" }}>
-                  <input
-                    type="checkbox"
-                    checked={rt === "claude" || rt === "codex"}
-                    disabled
-                  />{" "}
-                  {rt}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <textarea
-            rows={3}
-            value=""
-            disabled
-            placeholder="Multi-CLI fan-out coming in Cycle 2: exploration prompt dispatch is disabled in this release."
-            style={{ width: "100%" }}
-          />
-        </fieldset>
-
         <div className="row" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
           <button type="button" onClick={runCheckpoint} disabled={busy || !repoPath.trim()}>
-            Capture Checkpoint
+            Save checkpoint
           </button>
           <button type="button" onClick={runFreeze} disabled={busy || !repoPath.trim()}>
-            Merkle Freeze
+            Freeze
           </button>
           <Link to="/packages" className="button">
             Open Packages
           </Link>
           <Link to="/compare" className="button">
-            Compare Candidates
+            Compare
           </Link>
         </div>
 

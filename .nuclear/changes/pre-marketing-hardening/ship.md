@@ -1,10 +1,10 @@
 # Ship: Pre-marketing hardening and UX polish
 
-Release decision: **Local branch `fix/pre-marketing-hardening` prepared for owner review; do not push until owner runs host Postgres/Go/live checks and reviews.**
+Release decision: **Branch `fix/pre-marketing-hardening` pushed to `origin` with a draft PR targeting `main`, pending CI and owner review.**
 
-- Rollback: discard or revert branch `fix/pre-marketing-hardening` (`main` at `69fe9698` is untouched).
+- Rollback: close the draft PR and delete or revert branch `fix/pre-marketing-hardening` (`main` at `69fe9698` is untouched).
 - Trust surfaces: none modified (`git diff --name-only main | grep -E '^(policies|tests/redteam|\.github|kernel|spec|docs/adr)/'` empty).
-- Remaining host verification before pushing/marketing: run `pnpm --filter @control-rod/api test`, `cd daemon && go test ./...`, `pnpm -C apps/web exec playwright test -c playwright.live.config.ts --project=chromium --trace off`, and `node tools/license-gate.mjs` outside the sandbox.
+- Host/CI verification limits: macOS host hit SysV shared memory limits (`shmget: No space left on device`) during embedded Postgres `initdb` in the 59 DB-backed API test files; the non-DB API tests, web Vitest suite, TypeSpec/TS builds, and Python gates passed locally, and the Linux CI workflow on the draft PR exercises the full PostgreSQL API suite, Rust kernel suite, Go daemon suite, Python SDK suite, license gate, and `--strict-custody` check.
 
 ## Required links
 

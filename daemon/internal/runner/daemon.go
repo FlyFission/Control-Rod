@@ -822,7 +822,8 @@ func setProxyEnv(env []string, proxyURL string) []string {
 
 func egressFilterEnabled(runtime string) bool {
 	v := strings.TrimSpace(os.Getenv("CONTROLROD_EGRESS_FILTER"))
-	if runtime == RuntimeFake {
+	a, ok := AdapterFor(runtime)
+	if !ok || !a.SandboxRequired() {
 		return v == "1" || strings.EqualFold(v, "true")
 	}
 	return v != "0" && !strings.EqualFold(v, "false")

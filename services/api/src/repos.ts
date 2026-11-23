@@ -1336,13 +1336,14 @@ export async function createCheckpoint(opts: {
   let repoDir: string;
   if (opts.workspaceRoot !== undefined) {
     workspaceRoot = resolveSafeWorkspaceRoot(opts.workspaceRoot);
+    if (!isContainedIn(workspaceRoot, expandedRepo)) {
+      throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
+    }
+    repoDir = resolveWithoutSymlinks(expandedRepo, workspaceRoot);
   } else {
     workspaceRoot = defaultWorkspaceRoot();
+    repoDir = resolveWithoutSymlinks(expandedRepo);
   }
-  if (!isContainedIn(workspaceRoot, expandedRepo)) {
-    throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
-  }
-  repoDir = resolveWithoutSymlinks(expandedRepo, workspaceRoot);
 
   if (!pathExistsAny(repoDir)) {
     throw new Refusal(404, "repo-not-found", `Repository not found: ${repoDir}`);

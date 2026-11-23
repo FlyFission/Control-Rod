@@ -1,9 +1,9 @@
  Test Files  3 passed (3)
-      Tests  63 passed (63)
+      Tests  60 passed (60)
 Full suite (PG16):
 ⎯⎯⎯⎯⎯⎯ Failed Tests 27 ⎯⎯⎯⎯⎯⎯⎯
- Test Files  4 failed | 66 passed | 1 skipped (71)
-      Tests  27 failed | 811 passed | 2 skipped (840)
+ Test Files  4 failed | 72 passed | 1 skipped (77)
+      Tests  27 failed | 883 passed | 2 skipped (912)
       2  FAIL  test/command-boundary.test.ts
       1  FAIL  test/database-deadline.test.ts
       7  FAIL  test/preparation-grant-concurrency.test.ts

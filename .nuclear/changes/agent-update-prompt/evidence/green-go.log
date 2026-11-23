@@ -1,3 +1,4 @@
+go version go1.24.7 linux/amd64
 --- PASS: TestNewer (0.00s)
 --- PASS: TestCheckOffersNpmCommandOnlyForNpmInstalls (0.00s)
 --- PASS: TestCheckRefusesAVersionThatCouldCarryArguments (0.00s)
@@ -5,23 +6,14 @@
 --- PASS: TestRegistryLatest (0.00s)
 --- PASS: TestStrictVersionIsSemVer (0.00s)
 --- PASS: TestOnlyTheGlobalNpmCopyGetsACommand (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.004s
 --- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
 --- PASS: TestUpdateOneAgentByName (0.00s)
 --- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
 --- PASS: TestUpdateRefusesWithoutTerminalOrYes (0.00s)
 --- PASS: TestUpdateSkipsAgentWithNoCommand (0.00s)
 --- PASS: TestUpdateCheckOff (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.011s
---- PASS: TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree (0.00s)
---- PASS: TestCodexTreeRefusesLinks (0.00s)
---- PASS: TestNormalizesCodexJSON (0.00s)
---- PASS: TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode (0.00s)
---- PASS: TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand (0.00s)
---- PASS: TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures (0.00s)
---- SKIP: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.00s)
---- PASS: TestCodex0171FeaturesAreQualified (0.00s)
---- PASS: TestACodexTurnThatCompletedButDidNotExitEndsOnItsResult (0.35s)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
 --- PASS: TestAgentUpdatesAreReportedNeverRun (0.00s)
 --- PASS: TestAgentUpdatesReportEmptyOnceCurrent (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.371s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.012s

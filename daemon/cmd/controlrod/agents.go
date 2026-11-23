@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
-	"github.com/flyfission/control-rod/daemon/internal/runner"
 )
 
 // hostEnv is the real host for an agent update check.

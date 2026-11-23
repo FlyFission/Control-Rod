@@ -30,6 +30,7 @@ describe("captureProject", () => {
   it("reads the project from the header line, spaces included", () => {
     expect(captureProject("[mode:software] [project:Plant Works] [stage:design]\n\nx")).toBe("Plant Works");
     expect(captureProject("[project:prj_1]")).toBe("prj_1");
+    expect(captureProject("[mode:software] [project-id:prj_ws1] [stage:design]")).toBe("prj_ws1");
   });
   it("reads nothing past the first line, and two different projects are none", () => {
     expect(captureProject("[mode:software]\n[project:prj_1]")).toBeUndefined();

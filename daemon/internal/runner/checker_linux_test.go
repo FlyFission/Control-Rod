@@ -744,6 +744,68 @@ func TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath(t *test
 	}
 }
 
+func TestCheckerMountKeepsHostCredentialsReadOnly(t *testing.T) {
+	for _, tc := range []struct {
+		runtime, env, name string
+	}{
+		{RuntimeClaude, "CLAUDE_CONFIG_DIR", ".credentials.json"},
+		{RuntimeCodex, "CODEX_HOME", "auth.json"},
+	} {
+		t.Run(tc.runtime, func(t *testing.T) {
+			root := t.TempDir()
+			t.Setenv(tc.env, root)
+			credential := filepath.Join(root, tc.name)
+			if err := os.WriteFile(credential, []byte("fixture"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			ws, _ := prepareCheckerFixture(t)
+			ws.CheckerRuntime = tc.runtime
+			script := `test "$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")" = fixture`
+			if tc.runtime == RuntimeCodex {
+				script = `test "$(cat "$CODEX_HOME/auth.json")" = fixture && touch "$CODEX_HOME/checker-state"`
+			}
+			cmd := exec.Command("/bin/sh", "-c", script)
+			cmd.Dir = ws.Dir
+			cmd.Env = os.Environ()
+			t.Cleanup(func() {
+				if ws.Seccomp != nil {
+					_ = ws.Seccomp.Close()
+				}
+				if ws.LoginDisposable != "" {
+					_ = os.RemoveAll(ws.LoginDisposable)
+				}
+			})
+			if err := applyCheckerMount(cmd, ws); err != nil {
+				t.Fatal(err)
+			}
+			joined := strings.Join(cmd.Args, "\n")
+			if !strings.Contains(joined, "--ro-bind\n"+root+"\n"+root+"\n") {
+				t.Fatal("host login directory lacks a read-only bind")
+			}
+			if strings.Contains("\n"+joined, "\n--bind\n"+credential+"\n") {
+				t.Fatal("host credential has a writable bind")
+			}
+			home := envAny(cmd, tc.env)
+			if tc.runtime == RuntimeCodex {
+				if home == root || !strings.Contains(joined, "\n--bind\n"+home+"\n"+home+"\n") {
+					t.Fatal("isolated login state lacks a writable bind")
+				}
+				if !strings.Contains(joined, "\n--ro-bind\n"+credential+"\n"+filepath.Join(home, tc.name)+"\n") {
+					t.Fatal("isolated login home lacks a read-only credential bind")
+				}
+			}
+			if output, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("reading the fixture credential or creating disposable state failed: %v\n%s", err, output)
+			}
+			if tc.runtime == RuntimeCodex {
+				if _, err := os.Stat(filepath.Join(home, "checker-state")); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckerCannotRewriteLoginInstructions(t *testing.T) {
 	if _, err := exec.LookPath("bwrap"); err != nil {
 		t.Fatal(err)

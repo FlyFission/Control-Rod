@@ -40,8 +40,8 @@ interface Job {
   claim: { token: string; lease_expires_at: string; heartbeat_seconds: number };
 }
 
-async function claim(runtimes = ["fake"]): Promise<Job | null> {
-  const r = await asDaemon("/runner/claim", { runtimes });
+async function claim(runtimes = ["fake"], runtimeStatus?: { runtime: string; ready: boolean; models: string[] }[]): Promise<Job | null> {
+  const r = await asDaemon("/runner/claim", { runtimes, runtime_status: runtimeStatus });
   if (r.statusCode === 204) return null;
   const job = r.json() as Job;
   claims.set(job.run.id, job.claim.token);
@@ -184,6 +184,43 @@ async function eventsOf(subject: string) {
   const all = (await asOwner("GET", "/events")).json() as { type: string; subject: string; data?: Record<string, unknown> }[];
   return all.filter((e) => e.subject === subject);
 }
+
+describe("capture dismissal", () => {
+  it("stops queued intake and keeps the dismissal on a repeated request", async () => {
+    const captured = await asOwner("POST", "/captures", { lane: "internal", text: "A queued request" });
+    expect(captured.statusCode, captured.body).toBe(201);
+    const { id } = captured.json();
+    const dismissed = await asOwner("POST", `/captures/${id}/dismiss`);
+    expect(dismissed.statusCode, dismissed.body).toBe(200);
+    expect(dismissed.json()).toMatchObject({ id, disposition: "answered", answer: "Dismissed by ben." });
+    const repeated = await asOwner("POST", `/captures/${id}/dismiss`);
+    expect(repeated.json()).toEqual(dismissed.json());
+    expect(await claim()).toBeNull();
+    expect((await h.db.query("select status from runs where package_id = $1 and role = 'intake'", [id])).rows).toEqual([{ status: "stopped" }]);
+    expect((await eventsOf(id)).filter((event) => event.type === "capture.dismissed")).toHaveLength(1);
+  });
+
+  it("requests the daemon stop running intake and preserves the dismissal if completion arrives first", async () => {
+    const captured = await asOwner("POST", "/captures", { lane: "internal", text: "A request that starts before dismissal" });
+    expect(captured.statusCode, captured.body).toBe(201);
+    const { id } = captured.json();
+    const job = await claim();
+    expect(job?.run).toMatchObject({ role: "intake", package_id: id });
+    const runId = job!.run.id;
+    const dismissed = await asOwner("POST", `/captures/${id}/dismiss`);
+    expect(dismissed.statusCode, dismissed.body).toBe(200);
+    expect((await eventsOf(runId)).some((event) => event.type === "run.stop-requested")).toBe(true);
+    const result = await asDaemon(`/runner/runs/${runId}/complete`, {
+      status: "succeeded",
+      outputs: [{ name: "answer.md", content_base64: b64("Result already in flight") }],
+    });
+    expect(result.statusCode, result.body).toBe(200);
+    expect(result.json()).toMatchObject({ status: "stopped" });
+    const captures = (await asOwner("GET", "/captures")).json() as { id: string }[];
+    expect(captures.find((capture) => capture.id === id)).toMatchObject({ disposition: "answered", answer: "Dismissed by ben." });
+    expect(await claim()).toBeNull();
+  });
+});
 
 describe("what actually ran", () => {
   it("keeps runtime mode and models in the trace and flags a model the run did not ask for", async () => {
@@ -547,8 +584,12 @@ describe("pre-check independence", () => {
     const id = await releasedPackage("INDEP2");
     const author = (await claim()) as Job;
     await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] });
-    const check = (await claim(["fake", "codex"])) as Job;
-    expect(check.run.runtime.provider).toBe("codex");
+    const check = (await claim(["fake", "codex"], [
+      { runtime: "codex", ready: true, models: ["default", "gpt-5-codex"] },
+    ])) as Job;
+    expect(check.run.runtime).toMatchObject({ provider: "codex", model: "gpt-5-codex" });
+    const recorded = (await asOwner("GET", `/packages/${id}/runs/${check.run.id}`)).json();
+    expect(recorded.runtime).toMatchObject(check.run.runtime);
     await asDaemon(`/runner/runs/${check.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
     const ind = (await asOwner("GET", `/packages/${id}`)).json().pre_check.independence;
     expect(ind.runtime).toBe("independent");
@@ -833,6 +874,70 @@ describe("capture provenance", () => {
     await asDaemon(`/runner/runs/${checker.run.id}/complete`, {
       status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] },
     });
+  });
+
+  it("keeps an intake draft in the selected workspace when two projects share a display name", async () => {
+    const payload = { name: "Shared workspace name" };
+    const projects = [];
+    for (let index = 0; index < 2; index++) {
+      const options = await asOwner("POST", "/admin/commands/project.workspace-create/options", { payload });
+      expect(options.statusCode, options.body).toBe(200);
+      const create = await asOwner("POST", "/workspace/projects", { payload, assertion: passkey.assert(options.json().options) });
+      expect(create.statusCode, create.body).toBe(201);
+      projects.push(create.json().id as string);
+    }
+    const capture = await asOwner("POST", "/captures", {
+      lane: "internal", text: `[mode:software] [project-id:${projects[1]}]\n\nWrite an intake fixture.`,
+    });
+    expect(capture.statusCode, capture.body).toBe(201);
+    const intake = await claim();
+    expect(intake?.run.package_id).toBe(capture.json().id);
+    const pkg = { ...draft("PROJECTBINDING"), mode: "software", project: payload.name };
+    const completed = await asDaemon(`/runner/runs/${intake!.run.id}/complete`, {
+      status: "succeeded", outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(pkg)) }],
+    });
+    expect(completed.json().status, completed.body).toBe("succeeded");
+    const packages = (await asOwner("GET", "/packages")).json() as { id: string; project: string }[];
+    expect(packages.find((p) => p.id.endsWith("-PROJECTBINDING"))?.project).toBe(projects[1]);
+  });
+
+  it("preserves explicit CLI default while inheriting the project model for untagged captures", async () => {
+    const pinnedModel = "claude-opus-4-6";
+    const payload = {
+      name: "Model defaults",
+      author: { ecosystem: "claude", model: pinnedModel, reasoning: "default" },
+    };
+    const options = await asOwner("POST", "/admin/commands/project.workspace-create/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const create = await asOwner("POST", "/workspace/projects", { payload, assertion: passkey.assert(options.json().options) });
+    expect(create.statusCode, create.body).toBe(201);
+    const projectId = create.json().id as string;
+
+    for (const [name, selection, expected] of [
+      ["MODELDEFAULT", " [author:claude/default@default]", "default"],
+      ["MODELINHERIT", "", pinnedModel],
+    ] as const) {
+      const captured = await asOwner("POST", "/captures", {
+        lane: "internal", text: `[mode:software] [project-id:${projectId}]${selection}\n\nDraft ${name}.`,
+      });
+      expect(captured.statusCode, captured.body).toBe(201);
+      const intake = await claim();
+      expect(intake?.run.package_id).toBe(captured.json().id);
+      const pkg = { ...draft(name), mode: "software", project: projectId };
+      const completion = await asDaemon(`/runner/runs/${intake!.run.id}/complete`, {
+        status: "succeeded", outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(pkg)) }],
+      });
+      expect(completion.json().status, completion.body).toBe("succeeded");
+      const packages = (await asOwner("GET", "/packages")).json() as { id: string }[];
+      const id = packages.find((p) => p.id.endsWith(`-${name}`))?.id;
+      if (!id) throw new Error("package not drafted");
+      expect((await decide(id, "release", 0)).statusCode).toBe(201);
+
+      const author = await claim(["claude"]);
+      expect(author?.run.package_id).toBe(id);
+      expect(author?.run.runtime).toMatchObject({ provider: "claude", model: expected });
+      await asDaemon(`/runner/runs/${author!.run.id}/complete`, { status: "failed", error: "fixture complete", outputs: [] });
+    }
   });
 
   it("keeps captures with the same four-character prefix in distinct package namespaces", async () => {

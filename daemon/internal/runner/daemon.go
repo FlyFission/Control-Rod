@@ -486,7 +486,7 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 		if !d.retry.due(key, time.Now()) {
 			continue
 		}
-		done, err := d.deliver(e)
+		done, err := d.deliver(e, true)
 		switch {
 		case done:
 			d.retry.forget(key)
@@ -499,12 +499,24 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 
 // deliver sends one completion. It returns true when the control plane recorded it or refused
 // it for good; either way the entry leaves the outbox. A transient failure returns its error; an
-// entry another goroutine is sending returns false with no error.
-func (d *Daemon) deliver(e OutboxEntry) (bool, error) {
+// entry another goroutine is sending returns false with no error. A persisted entry may
+// already have been settled since the caller read it.
+func (d *Daemon) deliver(e OutboxEntry, persisted bool) (bool, error) {
 	if !d.outbox.take(e.RunID) {
 		return false, nil
 	}
 	defer d.outbox.release(e.RunID)
+	if persisted {
+		path, err := d.outbox.path(e.RunID)
+		if err != nil {
+			return false, err
+		}
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			return true, nil
+		} else if err != nil {
+			return false, err
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	receipt, err := d.client.Complete(ctx, e.RunID, e.Completion)
@@ -1135,8 +1147,9 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	comp.ClaimToken = job.Claim.Token
 	comp.IdempotencyKey = newKey()
 	e := OutboxEntry{RunID: job.Run.ID, Completion: comp}
-	if err := d.outbox.Put(e); err != nil {
-		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", err)
+	putErr := d.outbox.Put(e)
+	if putErr != nil {
+		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", putErr)
 	} else {
 		// The completion is now in durable custody; the spawn receipt has done its job. If the outbox
 		// write failed the receipt stays, so a restart can still report the exit.
@@ -1144,7 +1157,7 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	}
 	wait := d.cfg.RetryBase
 	for attempt := 1; ; attempt++ {
-		done, err := d.deliver(e)
+		done, err := d.deliver(e, putErr == nil)
 		if done {
 			return
 		}
@@ -1183,6 +1196,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	a, ok := AdapterFor(runtime)
 	if !ok {
 		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
+	}
+	if job.Run.Role == "pre-check" && a.SandboxRequired() && resolvedModel(job.Run, job.RuntimePin) == "" {
+		return fail("the control plane did not bind a concrete checker model, so the check cannot start"), nil
 	}
 	// The sandbox (ADR 0021; plan tasks 6.1 and 6.3): an agent CLI starts only under the run's
 	// verified policy, on a host that can hold it, checked again now without running the CLI (its

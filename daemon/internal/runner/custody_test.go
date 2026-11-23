@@ -28,6 +28,16 @@ func claimedJob(id, script string) *Job {
 	return j
 }
 
+func TestCheckerRequiresTheControlPlaneToBindAModel(t *testing.T) {
+	d := New(Config{Home: t.TempDir(), Runtimes: []string{RuntimeCodex}})
+	run := testRun("run-unbound-model", "pre-check")
+	run.Runtime.Provider = RuntimeCodex
+	completion, err := d.execute(context.Background(), &Job{Run: run})
+	if err != nil || completion.Status != "failed" || !strings.Contains(completion.Error, "did not bind a concrete checker model") {
+		t.Fatalf("unbound checker: status %q, completion error %q, execute error %v", completion.Status, completion.Error, err)
+	}
+}
+
 func TestFinalFlushSendsEveryLineBeforeCompletion(t *testing.T) {
 	job := claimedJob("run-final-logs", `i=0; while [ "$i" -lt 1201 ]; do echo "line-$i"; i=$((i+1)); done; echo report > out/report.md`)
 	api, srv := newFakeAPI(t, job)
@@ -161,6 +171,36 @@ func TestARefusedCompletionIsNotRetriedAndIsKeptAsEvidence(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(home, "outbox", "refused", "run-refused.json")); err != nil {
 		t.Errorf("refused completion not kept: %v", err)
+	}
+}
+
+func TestOutboxSnapshotDoesNotResendASettledCompletion(t *testing.T) {
+	api, srv := newFakeAPI(t)
+	api.completeStatus = http.StatusConflict
+	d := custodyDaemon(t, srv, t.TempDir(), io.Discard)
+	entry := OutboxEntry{
+		RunID: "run-stale-snapshot",
+		Completion: Completion{
+			ClaimToken: "claim-snapshot", IdempotencyKey: "0123456789abcdef",
+			Status: "failed", Outputs: []NamedFile{},
+		},
+	}
+	if err := d.outbox.Put(entry); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := d.outbox.List()
+	if err != nil || len(snapshot) != 1 {
+		t.Fatalf("outbox snapshot: %d entries, error %v", len(snapshot), err)
+	}
+	for _, e := range []OutboxEntry{entry, snapshot[0]} {
+		if done, err := d.deliver(e, true); !done || err != nil {
+			t.Fatalf("settling completion: done %v, error %v", done, err)
+		}
+	}
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	if n := len(api.attempts[entry.RunID]); n != 1 {
+		t.Fatalf("sent a settled completion %d times", n)
 	}
 }
 

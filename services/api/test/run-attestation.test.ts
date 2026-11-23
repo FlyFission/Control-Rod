@@ -3,12 +3,19 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { tx } from "../src/db/index.js";
-import { judgeAttestation, loadModelRegistry, rememberNonce, setModelRegistryForTest, signedPayload, type AttestationFacts } from "../src/run-attestation.js";
+import { defaultCheckerModel, judgeAttestation, loadModelRegistry, rememberNonce, setModelRegistryForTest, signedPayload, type AttestationFacts } from "../src/run-attestation.js";
 import { digest } from "../src/kernel.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness } from "./harness.js";
 
 const vector = JSON.parse(readFileSync(fileURLToPath(new URL("../../../daemon/internal/runner/testdata/attestation-vector.json", import.meta.url)), "utf8"));
 const HEX = "ab".repeat(32);
+
+it("binds a reported eligible model without weakening the grade gate", () => {
+  const reported = ["default", "gpt-5-codex", "claude-haiku-4-5", "claude-opus-4-6"];
+  expect(defaultCheckerModel("claude", "general-service", reported)).toBe("claude-haiku-4-5");
+  expect(defaultCheckerModel("claude", "safety", reported)).toBe("claude-opus-4-6");
+  expect(defaultCheckerModel("opencode", "general-service", reported)).toBeUndefined();
+});
 
 function rawPublic(key: ReturnType<typeof generateKeyPairSync>["publicKey"]): Buffer {
   const der = key.export({ format: "der", type: "spki" }) as Buffer;
@@ -140,7 +147,8 @@ describe("spoofed checks", () => {
   it("accepts a statement that matches the registry", () => {
     const v = judgeAttestation(facts(baseBody()));
     expect(v).toMatchObject({ verified: true, code: "ok" });
-    expect(loadModelRegistry().models.map((m) => m.id).sort()).toEqual(["claude-sonnet-4-5", "gpt-5-codex"]);
+    const registered = JSON.parse(readFileSync(new URL("../../../daemon/internal/runner/models.json", import.meta.url), "utf8"));
+    expect(loadModelRegistry()).toEqual(registered);
   });
 });
 

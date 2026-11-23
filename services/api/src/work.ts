@@ -17,14 +17,17 @@ import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScramm
 import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "./sandbox.js";
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
-import { RULES, briefHeader, composeBrief } from "./brief.js";
+import { RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
+import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
-import { countedProvider, verifyCountedAttestation } from "./run-attestation.js";
+import { projectRuntimePrefs } from "./workspace-projects.js";
+import { ownerOf } from "./tenancy.js";
+import { countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
   PACKAGE_ATTEMPT_LIMIT,
@@ -179,8 +182,39 @@ export async function classifyCapture(db: Db, cfg: WorkConfig, { userName: user,
     // Only a capture still waiting for its first classification goes on to intake. A capture from
     // before lanes existed has no lane but may already have been through intake: answered, or made
     // into packages. Classifying it records its lane and leaves that work alone.
-    if (cap.lane === undefined && !(await intakeStarted(c, id))) await queueRun(c, cfg, id, 0, "intake", 1);
+    if (cap.lane === undefined && pendingIntake(cap) && !(await intakeStarted(c, id))) await queueRun(c, cfg, id, 0, "intake", 1);
     await appendEvent(c, "capture.classified", id, { kind: "human", id: user }, { lane, ...(cap.lane ? { from: cap.lane } : {}) });
+    return next;
+  });
+}
+
+function pendingIntake(capture: Json): boolean {
+  return Boolean(capture && (capture.disposition ?? "pending") === "pending");
+}
+
+/** Dismisses an owned capture and stops its intake. */
+export async function dismissCapture(db: Db, cfg: WorkConfig, { userName: user, orgId }: { userName: string; orgId: string }, id: string) {
+  return command(db, "capture.dismiss", async (c) => {
+    const r = await c.query<{ body: Json }>(
+      `select c.body from captures c
+         join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $2
+        where c.id = $1 for update of c`, [id, orgId]);
+    const cap = r.rows[0]?.body;
+    if (!cap) throw new Refusal(404, "not-found", "No such capture");
+    if (!pendingIntake(cap)) return cap;
+    const next = { ...cap, disposition: "answered", answer: `Dismissed by ${user}.` };
+    validate(cfg, "Capture.json", next);
+    await c.query("update captures set body = $2 where id = $1", [id, next]);
+    const runs = await c.query<RunRow>(
+      `select r.* from runs r
+         join object_owners o on o.object_kind = 'run' and o.object_id = r.id and o.org_id = $2
+        where r.package_id = $1 and r.role = 'intake' and r.status in ('queued', 'running')
+        for update of r`, [id, orgId]);
+    for (const run of runs.rows) {
+      if (run.status === "queued") await stopQueuedRun(c, cfg, run, `Stopped because the capture was dismissed by ${user}.`);
+      else await requestRunningStop(c, cfg, user, run);
+    }
+    await appendEvent(c, "capture.dismissed", id, { kind: "human", id: user }, { previous_disposition: cap.disposition ?? "pending" });
     return next;
   });
 }
@@ -484,15 +518,7 @@ export async function packageOutput(db: Db, id: string, name: string) {
   ]);
   const row = r.rows[0];
   if (!row) throw new Refusal(404, "not-found", "No such output");
-  // Bytes are re-hashed on every read. A stored file that no longer matches its recorded digest
-  // is never served; the mismatch goes on the record.
-  const actual = sha256(row.bytes);
-  if (actual !== row.sha256) {
-    await command(db, "output.record-mismatch", (c) =>
-      appendEvent(c, "output.mismatch", pkg.id, SYSTEM, { revision: pkg.revision, run: author.id, name, recorded: row.sha256, actual }),
-    );
-    throw new Refusal(409, "output-changed", "This output changed since it was recorded, so it is not served. The mismatch is on the record.");
-  }
+  await verifyRecordedOutput(db, { packageId: id, revision: pkg.revision, runId: author.id, path: name }, row);
   return row.bytes;
 }
 
@@ -655,16 +681,21 @@ function runtimeName(provider: unknown): string {
   return p;
 }
 
-/** Picks the runtime an author or intake run should use from what the daemon has. */
-function pickRuntime(have: string[]): string | null {
+/** Picks the runtime an author or intake run should use from what the daemon has, honoring a project preference when offered. */
+function pickRuntime(have: string[], preferred?: string): string | null {
+  const pref = preferred ? runtimeName(preferred) : "";
+  if (pref && have.includes(pref)) return pref;
   return ["claude", "codex", "fake"].find((r) => have.includes(r)) ?? null;
 }
 
 /**
  * Picks the runtime for a pre-check: never the author's, unless the owner recorded an override.
+ * Honors a project checker preference when it is offered and independent of the author's runtime.
  * Nothing falls back to the author's runtime on its own.
  */
-function pickChecker(have: string[], authorRuntime: string, override: boolean): string | null {
+function pickChecker(have: string[], authorRuntime: string, override: boolean, preferred?: string): string | null {
+  const pref = preferred ? runtimeName(preferred) : "";
+  if (pref && pref !== authorRuntime && have.includes(pref)) return pref;
   const other = ["codex", "claude", "fake"].find((r) => have.includes(r) && r !== authorRuntime);
   if (other) return other;
   return override && have.includes(authorRuntime) ? authorRuntime : null;
@@ -686,10 +717,93 @@ function mayBeSameRuntime(a: RuntimeIdentity, b: RuntimeIdentity): boolean {
   return a.provider.trim().toLowerCase() === b.provider.trim().toLowerCase();
 }
 
-function runtimeRef(name: string) {
-  return name === "fake"
-    ? { kind: "local", provider: "fake", model: "fake" }
-    : { kind: "subscription", provider: name, model: "default" };
+type ProjectRuntimePrefs = {
+  author?: string;
+  checker?: string;
+  authorModel?: string;
+  checkerModel?: string;
+  laneAgents?: Record<string, string>;
+};
+
+type CaptureRuntimeTag = {
+  ecosystem: string;
+  model?: string | undefined;
+  reasoning?: string | undefined;
+};
+
+function concreteModel(m: unknown): string | undefined {
+  if (typeof m !== "string") return undefined;
+  const trimmed = m.trim();
+  return trimmed && trimmed !== "default" && trimmed !== "any" ? trimmed : undefined;
+}
+
+/** Normalizes shorthand UI/capture model aliases to registered IDs in daemon/internal/runner/models.json. */
+const MODEL_ALIASES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  claude: {
+    sonnet: "claude-sonnet-4-6",
+    "claude-sonnet": "claude-sonnet-4-6",
+    opus: "claude-opus-4-6",
+    "claude-opus": "claude-opus-4-6",
+    haiku: "claude-haiku-4-5",
+    "claude-haiku": "claude-haiku-4-5",
+  },
+  codex: {
+    "gpt-5.4": "gpt-5-codex",
+    "gpt-5": "gpt-5-codex",
+    codex: "gpt-5-codex",
+    o3: "gpt-5-codex",
+    "o4-mini": "gpt-5-codex",
+  },
+};
+
+function normalizeRunModel(runtime: string, model: string | undefined): string | undefined {
+  const m = concreteModel(model);
+  if (!m) return undefined;
+  return MODEL_ALIASES[runtime]?.[m.toLowerCase()] ?? m;
+}
+
+/** Parses `[author:<eco>/<model>@<reasoning>]` and `[checker:<eco>/<model>@<reasoning>]` capture header tags. */
+function parseCaptureRuntimeTags(text: string | null | undefined): {
+  author?: CaptureRuntimeTag;
+  checker?: CaptureRuntimeTag;
+} {
+  if (!text) return {};
+  const out: { author?: CaptureRuntimeTag; checker?: CaptureRuntimeTag } = {};
+  for (const role of ["author", "checker"] as const) {
+    const match = text.match(new RegExp(`\\[${role}:([a-z0-9-]+)\\/([^\\s\\]]+)\\]`, "i"));
+    if (!match) continue;
+    const raw = match[2]!;
+    const at = raw.lastIndexOf("@");
+    const rawModel = at > 0 ? raw.slice(0, at) : raw;
+    const reasoning = at > 0 ? raw.slice(at + 1).toLowerCase() : undefined;
+    out[role] = {
+      ecosystem: match[1]!.toLowerCase(),
+      model: concreteModel(rawModel),
+      reasoning,
+    };
+  }
+  return out;
+}
+
+function resolveRunModel(
+  runtime: string,
+  capTag?: CaptureRuntimeTag,
+  projEco?: string,
+  projModel?: string,
+): string | undefined {
+  // A matching capture tag may deliberately leave the choice to the runtime.
+  if (capTag && runtimeName(capTag.ecosystem) === runtime) {
+    return normalizeRunModel(runtime, capTag.model);
+  }
+  if (!projEco || runtimeName(projEco) === runtime) {
+    return normalizeRunModel(runtime, projModel);
+  }
+  return undefined;
+}
+
+function runtimeRef(name: string, model?: string) {
+  if (name === "fake") return { kind: "local", provider: "fake", model: "fake" };
+  return { kind: "subscription", provider: name, model: concreteModel(model) ?? "default" };
 }
 
 /**
@@ -943,12 +1057,12 @@ async function blockedByNuclearPack(c: Tx, cfg: WorkConfig, row: RunLike, body: 
  * already refused a Nuclear run without a good pack; one that fails here (the pack changed in
  * between) throws, so the claim rolls back rather than launch without its cards.
  */
-async function nuclearContext(c: Tx, cfg: WorkConfig, run: Json, body: Json): Promise<{ sections: string[]; inputs: Input[] }> {
+async function nuclearContext(c: Tx, cfg: WorkConfig, run: Json, body: Json): Promise<{ sections: string[]; inputs: Input[]; profile: "light" | "nuclear" }> {
   const n = await resolveNuclear(c, cfg, run, body);
-  if (n.resolved.profile !== "nuclear") return { sections: [], inputs: [] };
+  if (n.resolved.profile !== "nuclear") return { sections: [], inputs: [], profile: "light" };
   if (!n.pack) throw new Error(`nuclear-grade pack unavailable at launch: ${n.problem ?? "unknown"}`);
   await contextProfileEvent(c, run, n);
-  return nuclearBriefSections(n.pack, n.clusters, run.role, body.rigor_mode, n.resolved.reason);
+  return { ...nuclearBriefSections(n.pack, n.clusters, run.role, body.rigor_mode, n.resolved.reason), profile: "nuclear" };
 }
 
 type WorkflowResolution = {
@@ -1054,12 +1168,14 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
     const capture = cap.rows[0]?.body;
     const workflow = await workflowContext(c, cfg, run, undefined);
+    const isNuclearCapture = typeof capture?.text === "string" && /\[mode:nuclear-grade\]/i.test(capture.text);
     const brief = [
       header,
       findRole(cfg, "intake") ?? "",
       ...jobIntakeGuides(cfg),
       ...workflow.sections,
       `## The request\n\n${capture?.text ?? ""}\n`,
+      ...(isNuclearCapture ? [nuclearProStageSkillsSection("intake")] : []),
       RULES,
     ].join("\n");
     inputs.push(...workflow.inputs);
@@ -1123,7 +1239,17 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   inputs.push(...workflow.inputs);
   const nuclear = await nuclearContext(c, cfg, run, pkg.body);
   inputs.push(...nuclear.inputs);
-  const brief = composeBrief({ header, roleText, objective: pkg.body.objective, extra, workflow: workflow.sections, nuclear: nuclear.sections });
+  const brief = composeBrief({
+    header,
+    roleText,
+    objective: pkg.body.objective,
+    extra,
+    workflow: workflow.sections,
+    nuclear: nuclear.sections,
+    mode: typeof pkg.body.mode === "string" ? pkg.body.mode : undefined,
+    contextProfile: nuclear.profile,
+    role: run.role,
+  });
   inputs.push(file("BRIEF.md", brief));
   // The role's qualified tools, and its network line only with the hosts the run's sandbox policy
   // allows (plan task 6.1); the daemon derives each CLI's settings from the policy, not this file.
@@ -1150,7 +1276,10 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
   return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
 }
 
-export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number) {
+export async function claim(
+  db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(),
+  runCeilingSeconds?: number, reportedModels: ReadonlyMap<string, readonly string[]> = new Map(),
+) {
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
   const ceiling = runCeilingSeconds === undefined ? undefined : { runSeconds: runCeilingSeconds, marginSeconds: heartbeatSeconds(cfg) + leaseSeconds(cfg) };
@@ -1235,21 +1364,46 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           }
           await releaseHold(c, cfg, row, "sandbox");
           const offer = net.offer;
+          const project = pkg.body?.project;
+          const owner = typeof project === "string" && project ? await ownerOf(c, "package", pkg.id) : null;
+          const projPrefs: ProjectRuntimePrefs | null = owner ? await projectRuntimePrefs(c, owner.org_id, project) : null;
+          const capText = pkg.capture_id
+            ? ((await c.query<{ text: string | null }>("select body->>'text' as text from captures where id = $1", [pkg.capture_id])).rows[0]?.text ?? null)
+            : null;
+          const capPrefs = parseCaptureRuntimeTags(capText);
           let runtime: string | null;
+          let model: string | undefined;
           if (row.role === "pre-check") {
             if (pkg.status !== "in-verification") continue;
             const a = await latestAuthorRun(c, pkg.id, pkg.revision);
             const authorRuntime = runtimeName(a?.body.runtime?.provider);
-            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body));
+            const preferredChecker =
+              capPrefs.checker?.ecosystem ?? projPrefs?.laneAgents?.["agent-check"] ?? projPrefs?.checker;
+            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body), preferredChecker);
+            if (runtime) {
+              model = resolveRunModel(runtime, capPrefs.checker, projPrefs?.checker, projPrefs?.checkerModel);
+            }
             if (!runtime && offer.includes(authorRuntime)) {
               // Held, not skipped silently: say why on the run and in the office, replacing any older hold.
               await holdRun(c, cfg, row, pkg.id, WAITING_FOR_INDEPENDENT_RUNTIME, "independent-runtime");
             }
           } else {
-            runtime = pickRuntime(offer);
+            const preferredAuthor =
+              capPrefs.author?.ecosystem ?? projPrefs?.laneAgents?.drafting ?? projPrefs?.author;
+            runtime = pickRuntime(offer, preferredAuthor);
+            if (runtime) {
+              model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
+            }
           }
           if (!runtime) continue;
           if (row.role === "pre-check") {
+            if (!model && countedProvider(runtime)) {
+              model = defaultCheckerModel(runtime, needsOf(pkg.body).grade, reportedModels.get(runtime));
+              if (!model) {
+                await holdRun(c, cfg, row, pkg.id, `No registered checker model is available for ${runtime} and this grade.`, "runtime-pin");
+                continue;
+              }
+            }
             const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, null, "claim");
             if (gate !== "ok") {
               await stopQueuedRun(
@@ -1284,7 +1438,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
             await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
           }
-          const started = await startRun(c, cfg, row, runtime, baseline, net.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
+          const started = await startRun(c, cfg, row, runtime, baseline, net.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null, model);
           if (row.role === "pre-check") {
             await pinDispatchedDigest(c, row.package_id, row.package_revision, row.id);
             await consumeClaimedOverride(c, row.package_id, row.package_revision, row.id);
@@ -1293,8 +1447,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
-        const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1 for share", [row.package_id])).rows[0]?.lane;
-        const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
+        const capture = (await c.query<{ body: Json }>("select body from captures where id = $1 for share", [row.package_id])).rows[0]?.body;
+        if (!pendingIntake(capture)) {
+          await stopQueuedRun(c, cfg, row, "Stopped because the capture is no longer pending.");
+          continue;
+        }
+        const capLane = await laneOf(c, "capture", row.package_id, capture.lane);
         const admittedIntake = admitted(capLane, runtimes);
         if (admittedIntake.length === 0) {
           // An unclassified capture has no lane to be admitted to: its hold is its own.
@@ -1448,15 +1606,6 @@ async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown
     if (e.kind === "notice" && typeof e.text === "string" && e.text.startsWith("Breaker"))
       await appendEvent(c, "run.breaker", row.id, agent, { package: row.package_id, role: row.role, text: e.text });
   }
-}
-
-/** A run's normalized events after a sequence number, in order (the run story; the raw log is beside it). */
-export async function runEvents(db: Db, packageId: string, runId: string, after = 0) {
-  const r = await db.query<{ package_id: string }>("select package_id from runs where id = $1", [runId]);
-  if (!r.rows[0] || r.rows[0].package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
-  const ev = await db.query<{ seq: number; body: Json }>(
-    "select seq, body from run_events where run_id = $1 and seq > $2 order by seq limit 2000", [runId, Math.max(0, Math.floor(after))]);
-  return { events: ev.rows.map((x) => ({ seq: x.seq, event: x.body })) };
 }
 
 /** At most this many lease renewals without a heartbeat; a heartbeat resets the count. */
@@ -1636,7 +1785,7 @@ function sandboxNetwork(cfg: WorkConfig, run: Json, pkgBody: Json | undefined, l
 }
 
 async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string, hosts: string[], budgetCeilingSeconds: number | null = null,
-  reserveMinutes: string | null = null) {
+  reserveMinutes: string | null = null, model?: string) {
   requireLegacyRun(row as {role:string;body:Json});
   const token = randomBytes(32).toString("base64url");
   const lease = leaseFromNow(cfg);
@@ -1653,7 +1802,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     // What a reservation for it takes, whether or not a budget took one, so a budget set later counts it.
     ...(reserveMinutes !== null ? { reserve_minutes: reserveMinutes } : {}),
     agent_baseline: baseline,
-    runtime: runtimeRef(runtime),
+    runtime: runtimeRef(runtime, model),
     ...(row.role === "pre-check" ? { checker_attempt_id: row.body.checker_attempt_id ?? `CA-${randomUUID().slice(0, 8)}` } : {}),
     status: "running",
     started_at: now(),
@@ -1873,6 +2022,11 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+    if (row.role === "intake") {
+      // Requeue holds the shared marking lock, which serializes the check with capture dismissal.
+      const result = await c.query<{ body: Json }>("select body from captures where id = $1", [packageId]);
+      if (!pendingIntake(result.rows[0]?.body)) throw new Refusal(409, "wrong-state", "The capture is no longer pending; there is nothing to requeue");
+    }
     if (row.body.requeued_as) {
       const again = await c.query<{ body: Json; status: string }>("select body, status from runs where id = $1", [row.body.requeued_as]);
       if (again.rows[0]) return { ...again.rows[0].body, status: again.rows[0].status };
@@ -1931,13 +2085,17 @@ export async function stopRun(db: Db, cfg: WorkConfig, user: string, packageId: 
       await recordCheckerAttempt(c, cfg.ajv, { ...row, status: "stopped", body });
       return body;
     }
-    if (row.status !== "running" || row.body.stop_requested_at) return { ...row.body, status: row.status };
-    const body = { ...row.body, stop_requested_at: now(), stop_requested_by: user, label: "Stopping" };
-    validate(cfg, "Run.json", body);
-    await c.query("update runs set body = $2 where id = $1", [runId, body]);
-    await appendEvent(c, "run.stop-requested", runId, human, { package: row.package_id, role: row.role, round: row.round });
-    return body;
+    return requestRunningStop(c, cfg, user, row);
   });
+}
+
+async function requestRunningStop(c: Tx, cfg: WorkConfig, user: string, row: RunRow) {
+  if (row.status !== "running" || row.body.stop_requested_at) return { ...row.body, status: row.status };
+  const body = { ...row.body, stop_requested_at: now(), stop_requested_by: user, label: "Stopping" };
+  validate(cfg, "Run.json", body);
+  await c.query("update runs set body = $2 where id = $1", [row.id, body]);
+  await appendEvent(c, "run.stop-requested", row.id, { kind: "human", id: user }, { package: row.package_id, role: row.role, round: row.round });
+  return body;
 }
 
 /** The run and package an override would apply to, and the digest the owner signs. */
@@ -2192,12 +2350,6 @@ export async function checkerAttempts(db: Db, packageId: string, query?: { limit
     ...(limit !== undefined ? { limit } : {}),
     ...(before !== undefined ? { before } : {}),
   });
-}
-
-export async function runLogLines(db: Db, packageId: string, runId: string) {
-  const r = await db.query<{ log: string[] }>("select log from runs where id = $1 and package_id = $2", [runId, packageId]);
-  if (!r.rows[0]) throw new Refusal(404, "not-found", "No such run");
-  return r.rows[0].log;
 }
 
 const SAFE_OUTPUT = /^[A-Za-z0-9._-][A-Za-z0-9._/ ()-]{0,200}$/;
@@ -2516,7 +2668,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
 async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: string; bytes: Buffer }[], body: Json, agent: Actor) {
   const capRes = await c.query<{ body: Json }>("select body from captures where id = $1 for update", [row.package_id]);
   const capture = capRes.rows[0]?.body;
-  if (!capture) return;
+  if (!pendingIntake(capture)) throw new Refusal(409, "stopped", "The capture is no longer pending; the intake result was not applied");
   const answer = outputs.find((o) => o.name === "answer.md");
   const drafts: Json[] = [];
   for (const o of outputs) {
@@ -2573,13 +2725,31 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     ordered.push(d);
   };
   for (const d of drafts) place(d);
+  // A workspace ID in the capture header binds the intake result to the owning project's record.
+  // Intake's draft can still supply a legacy project name when the capture has no workspace ID.
+  const projectId = /^\[mode:[^\]]+\] \[project-id:([^\]]+)\]/.exec(String(capture.text ?? ""))?.[1];
+  if (projectId) {
+    const owner = await ownerOf(c, "capture", capture.id);
+    const project = await c.query(
+      "select id from projects where id = $1 and org_id = $2 and coalesce(body->>'status', 'active') = 'active'",
+      [projectId, owner?.org_id],
+    );
+    if (!project.rowCount) throw new Refusal(409, "wrong-state", "The selected workspace project is unavailable for this capture");
+  }
+  const captureIsNuclear = /\[mode:nuclear-grade\]/i.test(String(capture.text ?? ""));
   for (const d of ordered) {
+    const rawMode = String(d.mode ?? "");
+    const isNuclearDraft = rawMode === "nuclear-grade" || captureIsNuclear;
+    const normalizedMode = rawMode === "capital-projects" || rawMode === "software" || rawMode === "general" ? rawMode : "software";
     const pkg = {
       ...d,
       schema_version: "0.1.0",
       id: idMap.get(String(d.id)),
       revision: 0,
       status: "draft",
+      mode: normalizedMode,
+      ...(projectId ? { project: projectId } : {}),
+      ...(isNuclearDraft ? { context_profile: "nuclear" } : {}),
       design_inputs: (d.design_inputs ?? []).map((x: Json) => (idMap.has(x.doc) ? { ...x, doc: idMap.get(x.doc) } : x)),
       ...(Array.isArray(d.depends_on)
         ? { depends_on: d.depends_on.map((x: Json) => (idMap.has(String(x?.package_id)) ? { ...x, package_id: idMap.get(String(x.package_id)) } : x)) }
@@ -3088,17 +3258,6 @@ export async function metrics(db: Db, orgId: string) {
   return out;
 }
 
-export async function activeRuns(db: Db, orgId: string) {
-  const r = await db.query<{ body: Json; status: string }>(
-    `select r.body, r.status from runs r
-       join object_owners ro on ro.object_kind = 'run' and ro.object_id = r.id and ro.org_id = $1
-       join object_owners o on o.object_kind = (case when r.role = 'intake' then 'capture' else 'package' end)
-         and o.object_id = r.package_id and o.org_id = $1
-      where r.status in ('queued', 'running') order by r.created_at limit 200`, [orgId],
-  );
-  return r.rows.map((x) => ({ ...x.body, status: x.status }));
-}
-
 export async function listCaptures(db: Db, orgId: string) {
   const r = await db.query<{ body: Json; run_id: string | null; run_status: string | null; run_body: Json | null }>(
     `select c.body, r.id as run_id, r.status as run_status, r.body as run_body
@@ -3144,10 +3303,25 @@ export interface RuntimeStatus {
   reason?: string;
   login_checked: boolean;
   artifact?: ProbeArtifact;
+  models?: string[];
 }
 
 function validArtifact(a: Json): boolean {
   return Boolean(a && typeof a.path === "string" && a.digest?.algorithm === "sha256" && /^[0-9a-f]{64}$/.test(String(a.digest?.value)));
+}
+
+function cleanModels(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw.slice(0, 50)) {
+    if (typeof item !== "string") continue;
+    const m = item.trim();
+    if (!m || m.length > 100 || !/^[a-zA-Z0-9._:/@-]+$/.test(m) || seen.has(m)) continue;
+    seen.add(m);
+    out.push(m);
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 /** Keeps the daemon's latest probe of each runtime, cleaned to plain short fields. */
@@ -3157,6 +3331,7 @@ export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<Runtime
   for (const r of raw.slice(0, 10)) {
     if (!r || typeof r !== "object" || !KNOWN_RUNTIMES.includes(String((r as Json).runtime))) continue;
     const x = r as Json;
+    const models = cleanModels(x.models);
     list.push({
       runtime: String(x.runtime),
       ready: x.ready === true,
@@ -3164,6 +3339,7 @@ export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<Runtime
       ...(typeof x.reason === "string" && x.reason ? { reason: x.reason.slice(0, 300) } : {}),
       login_checked: x.login_checked === true,
       ...(validArtifact(x.artifact) ? { artifact: { path: String(x.artifact.path).slice(0, 4096), digest: { algorithm: "sha256" as const, value: x.artifact.digest.value } } } : {}),
+      ...(models ? { models } : {}),
     });
   }
   const value = JSON.stringify({ reported_at: now(), runtimes: list });

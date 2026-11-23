@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -6,7 +7,7 @@ import type { NormalizedEvent, Run } from "../api/types.js";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import { view } from "../test/fixtures.js";
-import { AgentPanel, PANEL_STEPS, pickRun } from "./AgentPanel.js";
+import { AgentPanel, PANEL_STEPS, RunTranscript, pickRun } from "./AgentPanel.js";
 
 /** The agent panel (click-to-talk design, slice S1). */
 
@@ -47,6 +48,58 @@ describe("pickRun", () => {
   it("falls back to the newest run when none is live", () => expect(pickRun([done, later])?.id).toBe("R-2"));
   it("falls back when the run asked for is not on the package", () => expect(pickRun([done, later], "R-9")?.id).toBe("R-2"));
   it("is undefined with no runs", () => expect(pickRun([])).toBeUndefined());
+});
+
+describe("exact transcript", () => {
+  it("drains the remaining pages when a running attempt finishes", async () => {
+    function Fixture() {
+      const [status, setStatus] = useState<Run["status"]>("running");
+      return <>
+        <button onClick={() => setStatus("succeeded")}>Finish fixture</button>
+        <RunTranscript packageId="WP-0001" run={run({ status })} showStop={false} bounded />
+      </>;
+    }
+    const message = (seq: number, text: string) => ev(seq, { kind: "message", text });
+    server.use(http.get("*/packages/:id/runs/:runId/events", ({ request }) => {
+      const after = Number(new URL(request.url).searchParams.get("after") ?? 0);
+      return HttpResponse.json({
+        events: after === 0
+          ? [message(1, "First event")]
+          : after === 1
+            ? Array.from({ length: PANEL_STEPS }, (_, i) => message(i + 2, `Follow-up ${i}`))
+            : [message(PANEL_STEPS + 2, "Final event")],
+      });
+    }));
+    await renderPage(<Fixture />);
+    await screen.findByText("First event");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Finish fixture" }));
+    expect(await screen.findByText("Final event")).toBeTruthy();
+  });
+
+  it("starts with a bounded recent page and reports conflicting events on an older read", async () => {
+    const requests: URLSearchParams[] = [];
+    const item = (seq: number, text: string) => ev(seq, { kind: "message", text });
+    server.use(
+      http.get("*/packages/:id/runs/:runId/events", ({ request }) => {
+        const search = new URL(request.url).searchParams;
+        requests.push(search);
+        return HttpResponse.json({
+          events: search.has("before")
+            ? [item(1, "Older message"), item(2, "Conflicting replay")]
+            : [item(2, "Recorded message"), item(3, "Latest message")],
+        });
+      }),
+    );
+    await renderPage(<RunTranscript packageId="WP-0001" run={run({})} showStop={false} bounded />);
+    await screen.findByText("Latest message");
+    expect(requests[0]?.get("recent")).toBe("true");
+    expect(requests[0]?.get("limit")).toBe(String(PANEL_STEPS));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Load earlier events" }));
+    await screen.findByText("Older message");
+    expect(screen.getByText("Transcript continuity could not be verified.")).toBeTruthy();
+    expect(screen.getByText("Recorded message")).toBeTruthy();
+    expect(screen.queryByText("Conflicting replay")).toBeNull();
+  });
 });
 
 describe("AgentPanel", () => {

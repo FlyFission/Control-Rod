@@ -1,10 +1,106 @@
 {
   "models": [
     {
+      "id": "claude-sonnet-5-5",
+      "harness": "claude",
+      "names": ["claude-sonnet-5-5"],
+      "hosts": ["api.anthropic.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "claude-opus-4-6",
+      "harness": "claude",
+      "names": ["claude-opus-4-6"],
+      "hosts": ["api.anthropic.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "harness": "claude",
+      "names": ["claude-sonnet-4-6"],
+      "hosts": ["api.anthropic.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "claude-opus-4-5",
+      "harness": "claude",
+      "names": ["claude-opus-4-5"],
+      "hosts": ["api.anthropic.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
       "id": "claude-sonnet-4-5",
       "harness": "claude",
       "names": ["claude-sonnet-4-5"],
       "hosts": ["api.anthropic.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "claude-haiku-4-5",
+      "harness": "claude",
+      "names": ["claude-haiku-4-5"],
+      "hosts": ["api.anthropic.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gpt-6.2-sol",
+      "harness": "codex",
+      "names": ["gpt-6.2-sol"],
+      "hosts": ["api.openai.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gpt-6.2-astra",
+      "harness": "codex",
+      "names": ["gpt-6.2-astra"],
+      "hosts": ["api.openai.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gpt-6.1-sol",
+      "harness": "codex",
+      "names": ["gpt-6.1-sol"],
+      "hosts": ["api.openai.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gpt-6.1-terra",
+      "harness": "codex",
+      "names": ["gpt-6.1-terra"],
+      "hosts": ["api.openai.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gpt-6-sol",
+      "harness": "codex",
+      "names": ["gpt-6-sol"],
+      "hosts": ["api.openai.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gpt-6-astra",
+      "harness": "codex",
+      "names": ["gpt-6-astra"],
+      "hosts": ["api.openai.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "harness": "codex",
+      "names": ["gpt-5.6-sol"],
+      "hosts": ["api.openai.com"],
       "deciding": true,
       "local": false
     },

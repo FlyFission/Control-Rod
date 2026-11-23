@@ -203,7 +203,7 @@ func TestCheckerMaxTurnsMatchesTheQualificationSpike(t *testing.T) {
 	if !bytesContains(b, []byte(`"--max-turns", "8"`)) && !bytesContains(b, []byte(`["--max-turns", "8"]`)) {
 		t.Fatal("launch_qualification.py no longer records --max-turns 8")
 	}
-	if checkerMaxTurns != "8" {
+	if checkerMaxTurns != "20" {
 		t.Fatalf("checkerMaxTurns = %q", checkerMaxTurns)
 	}
 }
@@ -712,6 +712,59 @@ func TestAbsentLoginDirectoryIsPartOfTheHash(t *testing.T) {
 	f.Close()
 	if _, err := hashProtected(dir); err == nil {
 		t.Fatal("a settings file over the output cap was hashed")
+	}
+}
+
+func TestProtectedLoginHashRejectsOverBudgetTrees(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		want string
+	}{
+		{"file", "byte limit"},
+		{"total", "total limit"},
+		{"entries", "entries"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			for _, name := range []string{"plugins", "skills"} {
+				if err := os.Mkdir(filepath.Join(root, name), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			createFile := func(dir, name string, size int64) {
+				t.Helper()
+				f, err := os.Create(filepath.Join(root, dir, name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				err = f.Truncate(size)
+				if closeErr := f.Close(); err == nil {
+					err = closeErr
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			switch tc.name {
+			case "file":
+				createFile("plugins", "pack", MaxOutputFile+1)
+			case "total":
+				for i := range MaxOutputTotal / MaxOutputFile {
+					createFile("plugins", fmt.Sprint(i), MaxOutputFile)
+				}
+				createFile("skills", "one-more-byte", 1)
+			case "entries":
+				for i := range checkerMaxEntries()/2 + 1 {
+					name := fmt.Sprint(i)
+					createFile("plugins", name, 0)
+					createFile("skills", name, 0)
+				}
+			}
+			digest, err := hashProtected(root)
+			if err == nil || !strings.Contains(err.Error(), tc.want) || digest != "" {
+				t.Fatalf("hashProtected returned %q, %v; want no digest and an error mentioning %q", digest, err, tc.want)
+			}
+		})
 	}
 }
 

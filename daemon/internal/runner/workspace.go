@@ -36,7 +36,11 @@ type Workspace struct {
 	Out    string
 	// releaseCheckout holds exclusive host-side custody until output collection ends.
 	releaseCheckout func()
-	Checkout        *CheckoutBinding
+	// checkoutRoot is the one handle on the validated checkout, opened once and checked against the
+	// directory that was validated. Reservation, staging and capture all go through it, never
+	// through the checkout's path again.
+	checkoutRoot *os.Root
+	Checkout     *CheckoutBinding
 	// HookFile, when set, is where a Claude Code PermissionRequest hook appends what it saw
 	// (interim waiting detection, plan task 2.9). It lives outside the workspace.
 	HookFile string
@@ -138,21 +142,27 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 		if err != nil {
 			return nil, fmt.Errorf("checkout is unavailable or already in use: %w", err)
 		}
-		if err := validateCheckout(job.Run.Checkout); err != nil {
+		// Open the checkout once. Everything after this goes through the handle, so a path component
+		// swapped for a link later cannot reach another directory. The handle is then compared with
+		// the directory the path names after validation: an ancestor swapped in between differs.
+		cr, err := openValidatedCheckout(job.Run.Checkout)
+		if err != nil {
 			release()
 			return nil, err
 		}
 		// No directory in the selected checkout is cleared, reused or followed.
 		dir = filepath.Join(job.Run.Checkout.Path, ".controlrod-run-"+job.Run.ID)
-		if err := reserveRunDir(job.Run.Checkout.Path, filepath.Base(dir)); err != nil {
+		name := filepath.Base(dir)
+		if err := cr.Mkdir(name, 0o700); err != nil {
+			cr.Close()
 			release()
 			return nil, fmt.Errorf("reserve checkout run directory: %w", err)
 		}
 		// The run directory is this run's own; it is removed with the custody so it is not left in
-		// the user's checkout. RemoveAll never follows a link, so a swapped directory is unlinked.
-		unlock, reserved := release, dir
-		release = func() { _ = os.RemoveAll(reserved); unlock() }
-		ws = &Workspace{Dir: job.Run.Checkout.Path, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out"), Checkout: job.Run.Checkout, releaseCheckout: release}
+		// the user's checkout. Removal goes through the handle and never follows a link.
+		unlock := release
+		release = func() { _ = removeAllIn(cr, name); cr.Close(); unlock() }
+		ws = &Workspace{Dir: job.Run.Checkout.Path, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out"), Checkout: job.Run.Checkout, releaseCheckout: release, checkoutRoot: cr}
 		for i, in := range job.Inputs {
 			paths[i], _ = inputPath(ws.Inputs, in.Name) // already validated above
 		}
@@ -170,7 +180,7 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 	if ws.Checkout != nil {
 		// Through a directory handle on the checkout, so a path component swapped for a link
 		// cannot send a write outside it.
-		if err := stageCheckoutInputs(ws.Checkout.Path, job.Run.ID, job.Inputs, data); err != nil {
+		if err := stageCheckoutInputs(ws.checkoutRoot, job.Run.ID, job.Inputs, data); err != nil {
 			return nil, err
 		}
 		prepared = true
@@ -232,7 +242,7 @@ func (ws *Workspace) CaptureRun(dir string, maxFile, maxTotal int64) (*Captured,
 	if ws.Checkout == nil {
 		return Capture(dir, maxFile, maxTotal)
 	}
-	r, err := openRunDir(ws.Checkout.Path, dir)
+	r, err := openRunDir(ws.checkoutRoot, ws.Checkout.Path, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -243,26 +253,65 @@ func (ws *Workspace) CaptureRun(dir string, maxFile, maxTotal int64) (*Captured,
 	return captureRoot(r, maxFile, maxTotal)
 }
 
-// reserveRunDir creates the run's own directory in the checkout, through a handle on the checkout.
-// It fails if the name exists, so nothing already there is reused or followed.
-func reserveRunDir(checkout, name string) error {
-	r, err := os.OpenRoot(checkout)
+// testHookAfterCheckoutValidated lets a test change the file system between validation and the
+// identity check of the opened handle.
+var testHookAfterCheckoutValidated func()
+
+// openValidatedCheckout opens the checkout's directory handle, validates the binding, and requires
+// the handle's directory to be the one the path names now (same device and inode).
+func openValidatedCheckout(b *CheckoutBinding) (*os.Root, error) {
+	cr, err := os.OpenRoot(b.Path)
+	if err != nil {
+		return nil, fmt.Errorf("open checkout: %w", err)
+	}
+	if err := validateCheckout(b); err != nil {
+		cr.Close()
+		return nil, err
+	}
+	if testHookAfterCheckoutValidated != nil {
+		testHookAfterCheckoutValidated()
+	}
+	opened, err := cr.Stat(".")
+	if err != nil {
+		cr.Close()
+		return nil, err
+	}
+	named, err := os.Lstat(b.Path)
+	if err != nil || !os.SameFile(opened, named) {
+		cr.Close()
+		return nil, errors.New("the checkout directory changed while it was opened; prepare the workspace again")
+	}
+	return cr, nil
+}
+
+// removeAllIn removes name and everything under it through the handle r, never following a link.
+func removeAllIn(r *os.Root, name string) error {
+	st, err := r.Lstat(name)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
-	return r.Mkdir(name, 0o700)
+	if st.IsDir() {
+		sub, err := r.OpenRoot(name)
+		if err != nil {
+			return err
+		}
+		d, err := sub.Open(".")
+		if err == nil {
+			names, _ := d.Readdirnames(-1)
+			d.Close()
+			for _, n := range names {
+				_ = removeAllIn(sub, n)
+			}
+		}
+		sub.Close()
+	}
+	return r.Remove(name)
 }
 
 // stageCheckoutInputs creates inputs/ and out/ in the run directory and writes every input, all
 // through directory handles (os.Root): an intermediate directory swapped for a link cannot make the
 // daemon create or truncate a file outside the run directory. Files are created exclusively.
-func stageCheckoutInputs(checkout, runID string, inputs []NamedFile, data [][]byte) error {
-	cr, err := os.OpenRoot(checkout)
-	if err != nil {
-		return fmt.Errorf("open checkout: %w", err)
-	}
-	defer cr.Close()
+func stageCheckoutInputs(cr *os.Root, runID string, inputs []NamedFile, data [][]byte) error {
 	rr, err := cr.OpenRoot(".controlrod-run-" + runID)
 	if err != nil {
 		return fmt.Errorf("open run directory: %w", err)
@@ -308,30 +357,33 @@ func stageCheckoutInputs(checkout, runID string, inputs []NamedFile, data [][]by
 // component below the checkout with Lstat through the handle of its parent and refusing a link.
 // The returned handle stays on the directory it opened even if a path is swapped afterwards. A
 // missing directory returns (nil, nil).
-func openRunDir(checkout, dir string) (*os.Root, error) {
+func openRunDir(base *os.Root, checkout, dir string) (*os.Root, error) {
 	rel, err := filepath.Rel(checkout, filepath.Clean(dir))
 	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, "../") {
 		return nil, fmt.Errorf("%w: %s is not inside the checkout", ErrLinkedRunPath, dir)
 	}
-	cur, err := os.OpenRoot(checkout)
-	if err != nil {
-		return nil, err
-	}
-	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+	cur, parts := base, strings.Split(rel, string(filepath.Separator))
+	for i, part := range parts {
 		st, err := cur.Lstat(part)
 		if err != nil {
-			cur.Close()
+			if i > 0 {
+				cur.Close()
+			}
 			if errors.Is(err, fs.ErrNotExist) {
 				return nil, nil
 			}
 			return nil, err
 		}
 		if st.Mode()&fs.ModeSymlink != 0 || !st.IsDir() {
-			cur.Close()
+			if i > 0 {
+				cur.Close()
+			}
 			return nil, fmt.Errorf("%w: %s", ErrLinkedRunPath, part)
 		}
 		next, err := cur.OpenRoot(part)
-		cur.Close()
+		if i > 0 {
+			cur.Close() // the checkout handle belongs to the workspace
+		}
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrLinkedRunPath, err)
 		}

@@ -306,8 +306,13 @@ func TestCheckoutStagingNeverWritesThroughLinks(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(run, "inputs")); err != nil {
 		t.Fatal(err)
 	}
+	cr, err := os.OpenRoot(b.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cr.Close()
 	in := []NamedFile{{Name: "BRIEF.md"}, {Name: "sub/FAKE.sh"}}
-	if err := stageCheckoutInputs(b.Path, "stage", in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
+	if err := stageCheckoutInputs(cr, "stage", in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
 		t.Fatal("staged through a linked inputs directory")
 	}
 	// A real inputs directory whose subdirectory was swapped for a link.
@@ -318,7 +323,7 @@ func TestCheckoutStagingNeverWritesThroughLinks(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(run, "inputs", "sub")); err != nil {
 		t.Fatal(err)
 	}
-	if err := stageCheckoutInputs(b.Path, "stage", in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
+	if err := stageCheckoutInputs(cr, "stage", in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
 		t.Fatal("staged through a linked input subdirectory")
 	}
 	if left, _ := os.ReadDir(outside); len(left) != 0 {
@@ -416,5 +421,53 @@ func TestRunThatCommitsOnTheBoundBranchPasses(t *testing.T) {
 	}
 	if f := comp.Trace.CheckoutFinal; f == nil || f.Head == b.Head || f.Branch != b.Branch {
 		t.Fatalf("trace: %+v", f)
+	}
+}
+
+// An ancestor swapped for a link after validation must not redirect reservation: the daemon opened
+// the checkout once and compares that handle with what the path names.
+func TestCheckoutAncestorSwappedAfterValidationIsRefused(t *testing.T) {
+	b := checkoutFixture(t)
+	elsewhere := filepath.Join(filepath.Dir(b.Root), "elsewhere")
+	if err := os.MkdirAll(filepath.Join(elsewhere, filepath.Base(b.Path)), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	moved := b.Root + "-moved"
+	testHookAfterCheckoutValidated = func() {
+		testHookAfterCheckoutValidated = nil
+		if err := os.Rename(b.Root, moved); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := os.Symlink(elsewhere, b.Root); err != nil {
+			t.Error(err)
+		}
+	}
+	t.Cleanup(func() { testHookAfterCheckoutValidated = nil })
+	job := authorCheckoutJob(t, "swap-ancestor", b, checkoutEditScript)
+	ws, err := Prepare(t.TempDir(), job)
+	if err == nil {
+		ws.releaseCheckout()
+		t.Fatal("prepared a checkout whose ancestor was swapped after validation")
+	}
+	if left, _ := os.ReadDir(filepath.Join(elsewhere, filepath.Base(b.Path))); len(left) != 0 {
+		t.Fatalf("the daemon wrote through the swapped ancestor: %v", left)
+	}
+	if left, _ := os.ReadDir(moved); len(left) == 0 {
+		t.Fatal("the original checkout vanished")
+	}
+}
+
+func TestCheckoutAfterRunReportsNothingWhenIdentityIsUnconfirmed(t *testing.T) {
+	b := checkoutFixture(t)
+	if err := os.Rename(filepath.Join(b.Path, ".git"), filepath.Join(b.Path, "saved-gitfile")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(b.GitDir, filepath.Join(b.Path, ".git")); err != nil {
+		t.Fatal(err)
+	}
+	obs, err := checkoutAfterRun(b)
+	if err == nil || obs != nil {
+		t.Fatalf("recorded branch and HEAD from an unconfirmed checkout: %+v %v", obs, err)
 	}
 }

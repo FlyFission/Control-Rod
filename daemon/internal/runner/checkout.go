@@ -195,16 +195,10 @@ func validateCheckoutHost(b *CheckoutBinding, at SandboxPaths, p *SandboxPolicy)
 // reports them. It returns an error when the checkout is not what the job bound, other than by the
 // author committing on the bound branch: the repository, Git directories, branch and .git entry must
 // be unchanged, and HEAD must be the bound commit or a descendant of it. The observed values are
-// returned even with an error, when they could be read.
+// returned with a branch or HEAD error, but never when the Git identity could not be confirmed.
 func checkoutAfterRun(b *CheckoutBinding) (*CheckoutObserved, error) {
-	var obs CheckoutObserved
-	var err error
-	if obs.Branch, err = checkoutGit(b.Path, "symbolic-ref", "--short", "HEAD"); err != nil {
-		return nil, fmt.Errorf("checkout branch could not be read after the run (detached HEAD?): %w", err)
-	}
-	if obs.Head, err = checkoutGit(b.Path, "rev-parse", "--verify", "HEAD^{commit}"); err != nil {
-		return &obs, err
-	}
+	// Identity first: branch and HEAD read from a repository that is not the bound one say nothing
+	// about the bound one, so nothing is reported when it differs.
 	for _, check := range []struct {
 		args []string
 		want string
@@ -215,11 +209,19 @@ func checkoutAfterRun(b *CheckoutBinding) (*CheckoutObserved, error) {
 	} {
 		got, gerr := checkoutGit(b.Path, check.args...)
 		if gerr != nil || got != check.want {
-			return &obs, errors.New("checkout identity changed during the run")
+			return nil, errors.New("checkout identity changed during the run")
 		}
 	}
 	if err := checkoutGitDirs(b); err != nil {
-		return &obs, fmt.Errorf("checkout Git entry changed during the run: %w", err)
+		return nil, fmt.Errorf("checkout Git entry changed during the run: %w", err)
+	}
+	var obs CheckoutObserved
+	var err error
+	if obs.Branch, err = checkoutGit(b.Path, "symbolic-ref", "--short", "HEAD"); err != nil {
+		return nil, fmt.Errorf("checkout branch could not be read after the run (detached HEAD?): %w", err)
+	}
+	if obs.Head, err = checkoutGit(b.Path, "rev-parse", "--verify", "HEAD^{commit}"); err != nil {
+		return &obs, err
 	}
 	if obs.Branch != b.Branch {
 		return &obs, fmt.Errorf("checkout branch changed during the run: bound %q, found %q", b.Branch, obs.Branch)

@@ -50,7 +50,7 @@ Not exercised: the real Claude and Codex sandboxes with a checkout, a signed-in 
 
 ### Second fix round
 
-After a blind check of the first fix commit: staging and capture now go through `os.Root` handles, the checkout's branch and HEAD are re-read after the run, and the trace gains an additive `checkout_final` field (`spec/records.tsp`; `pnpm spec` regenerated the schemas and `schema.d.ts`). The regeneration was not recorded in `spec-generation.log`, so that log's hashes no longer describe `ExecutionTrace.json` or `openapi.json`.
+After a blind check of the first fix commit: staging and capture now go through `os.Root` handles, the checkout's branch and HEAD are re-read after the run, and the trace gains an additive `checkout_final` field (`spec/records.tsp`; `pnpm spec` regenerated the schemas and `schema.d.ts`). `spec-generation.log` and `evidence.sha256` were then regenerated against the final contract: no script in the repository produces them, so the command on the log's first line was rerun (with the changed-file list taken against the branch base `d0a4cc6`, because the changes are committed), its output was stripped of terminal formatting with the workspace path replaced by `<workspace>`, and `shasum -a 256 *.log` rebuilt the manifest. Only `spec-generation.log`'s digest changed.
 
 | Command | Result |
 | --- | --- |
@@ -61,6 +61,10 @@ After a blind check of the first fix commit: staging and capture now go through 
 | `pnpm -r run typecheck` | Passed. |
 
 The staging test cannot race a swap; it pre-places links where staging would write and asserts nothing lands outside. The capture test swaps the output path after the handle is opened and asserts the original files are read. `os.Root` itself is the control against a swap between a component check and the open.
+
+### Third fix round
+
+The checkout is opened once and compared with the validated path by device and inode; reservation, staging, capture and cleanup use that handle. The post-run audit confirms Git identity before it records branch and HEAD. Results: `go test ./...` in `daemon/` had only the known failure (227 top-level tests passed, 14 skipped, 1 failed); `go vet ./...` and `GOOS=windows go vet ./internal/runner` passed; `pnpm --filter ./services/api test` passed 70 files and 844 tests; `pnpm -r run typecheck` passed. Reverting the identity comparison makes `TestCheckoutAncestorSwappedAfterValidationIsRefused` fail.
 
 ## Required links
 

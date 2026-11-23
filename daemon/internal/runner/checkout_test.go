@@ -197,6 +197,9 @@ func TestDaemonRunsInBoundCheckout(t *testing.T) {
 	if comp.Trace == nil || comp.Trace.Checkout == nil || *comp.Trace.Checkout != *b {
 		t.Fatal("execution trace did not retain the verified checkout")
 	}
+	if f := comp.Trace.CheckoutFinal; f == nil || f.Branch != b.Branch || f.Head != b.Head {
+		t.Fatalf("trace did not record the checkout read after the run: %+v", f)
+	}
 	for _, out := range comp.Outputs {
 		if out.Name == "controlrod-checkout.json" {
 			t.Fatal("checkout evidence leaked into the author outputs")

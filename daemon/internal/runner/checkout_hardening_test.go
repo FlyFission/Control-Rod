@@ -282,3 +282,139 @@ func TestClaimAdvertisesCheckoutSupportOnlyWhereCustodyWorks(t *testing.T) {
 		release()
 	}
 }
+
+func gitIn(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=" + os.DevNull}, args...)...)
+	cmd.Dir = dir
+	cmd.Env = append(HostGitEnv(os.Environ()), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_SYSTEM="+os.DevNull)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %s %v", args, out, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// A staging directory that is a link to somewhere else must not receive the daemon's writes.
+func TestCheckoutStagingNeverWritesThroughLinks(t *testing.T) {
+	b := checkoutFixture(t)
+	outside := t.TempDir()
+	run := filepath.Join(b.Path, ".controlrod-run-stage")
+	if err := os.Mkdir(run, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(run, "inputs")); err != nil {
+		t.Fatal(err)
+	}
+	in := []NamedFile{{Name: "BRIEF.md"}, {Name: "sub/FAKE.sh"}}
+	if err := stageCheckoutInputs(b.Path, "stage", in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
+		t.Fatal("staged through a linked inputs directory")
+	}
+	// A real inputs directory whose subdirectory was swapped for a link.
+	_ = os.Remove(filepath.Join(run, "inputs"))
+	if err := os.Mkdir(filepath.Join(run, "inputs"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(run, "inputs", "sub")); err != nil {
+		t.Fatal(err)
+	}
+	if err := stageCheckoutInputs(b.Path, "stage", in, [][]byte{[]byte("a"), []byte("b")}); err == nil {
+		t.Fatal("staged through a linked input subdirectory")
+	}
+	if left, _ := os.ReadDir(outside); len(left) != 0 {
+		t.Fatalf("the daemon wrote outside the run directory: %v", left)
+	}
+}
+
+// A capture holds the directory it opened: replacing that path afterwards cannot redirect reads.
+func TestCaptureReadsThePinnedDirectoryNotTheSwappedPath(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "out")
+	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sub", "f.txt"), []byte("mine"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(outside, "sub"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "sub", "f.txt"), []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if err := os.Rename(dir, dir+"-moved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, dir); err != nil {
+		t.Fatal(err)
+	}
+	c, err := captureRoot(r, MaxOutputFile, MaxOutputTotal)
+	if err != nil || len(c.Files) != 1 || string(c.Raw["sub/f.txt"]) != "mine" {
+		t.Fatalf("capture followed the swapped path: %+v %v", c, err)
+	}
+	// And through the path, a link is refused outright.
+	if _, err := Capture(dir, MaxOutputFile, MaxOutputTotal); err == nil {
+		t.Fatal("captured a linked output root")
+	}
+}
+
+func TestCheckoutAfterRun(t *testing.T) {
+	b := checkoutFixture(t)
+	obs, err := checkoutAfterRun(b)
+	if err != nil || obs.Branch != b.Branch || obs.Head != b.Head {
+		t.Fatalf("unchanged checkout: %+v %v", obs, err)
+	}
+	// The author committing on the bound branch is what the run is for.
+	gitIn(t, b.Path, "commit", "--allow-empty", "-m", "work")
+	obs, err = checkoutAfterRun(b)
+	if err != nil || obs.Head == b.Head {
+		t.Fatalf("a commit on the bound branch was refused or unseen: %+v %v", obs, err)
+	}
+	// Rewinding below the bound commit is not a descendant.
+	moved := *b
+	moved.Head = gitIn(t, b.Path, "rev-parse", "HEAD")
+	gitIn(t, b.Path, "reset", "--hard", "-q", "HEAD~1")
+	if obs, err = checkoutAfterRun(&moved); err == nil || obs == nil || obs.Head == moved.Head {
+		t.Fatalf("a rewound HEAD was accepted: %+v %v", obs, err)
+	}
+	// Another branch, and a detached HEAD.
+	gitIn(t, b.Path, "checkout", "-q", "-b", "other")
+	if obs, err = checkoutAfterRun(b); err == nil || obs == nil || obs.Branch != "other" {
+		t.Fatalf("a switched branch was accepted: %+v %v", obs, err)
+	}
+	gitIn(t, b.Path, "checkout", "-q", "--detach")
+	if _, err = checkoutAfterRun(b); err == nil {
+		t.Fatal("a detached HEAD was accepted")
+	}
+}
+
+func TestRunThatMovesTheBranchFailsAndTraceRecordsWhatWasFound(t *testing.T) {
+	b := checkoutFixture(t)
+	comp, err := quietDaemon(t).execute(context.Background(), authorCheckoutJob(t, "switcher", b, "#!/bin/sh\nset -eu\ngit checkout -q -b elsewhere\nprintf 'x\\n' > project.txt\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if comp.Status != "failed" || !strings.Contains(comp.Error, "branch changed") {
+		t.Fatalf("a run that left the bound branch passed: %s %q", comp.Status, comp.Error)
+	}
+	if comp.Trace == nil || comp.Trace.CheckoutFinal == nil || comp.Trace.CheckoutFinal.Branch != "elsewhere" || comp.Trace.Checkout.Branch != b.Branch {
+		t.Fatalf("trace did not separate the requested binding from what was found: %+v", comp.Trace)
+	}
+}
+
+func TestRunThatCommitsOnTheBoundBranchPasses(t *testing.T) {
+	b := checkoutFixture(t)
+	script := "#!/bin/sh\nset -eu\nprintf 'after\\n' > project.txt\ngit add project.txt\ngit -c user.name=a -c user.email=a@example.com -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m work\n"
+	comp, err := quietDaemon(t).execute(context.Background(), authorCheckoutJob(t, "committer", b, script))
+	if err != nil || comp.Status != "succeeded" {
+		t.Fatalf("%+v %v", comp, err)
+	}
+	if f := comp.Trace.CheckoutFinal; f == nil || f.Head == b.Head || f.Branch != b.Branch {
+		t.Fatalf("trace: %+v", f)
+	}
+}

@@ -40,6 +40,12 @@ type Run struct {
 	SandboxPolicy *PolicyRef `json:"sandbox_policy,omitempty"`
 }
 
+// CheckoutObserved is the branch and commit read from a bound checkout after its run.
+type CheckoutObserved struct {
+	Branch string `json:"branch"`
+	Head   string `json:"head"`
+}
+
 // CheckoutBinding is the API's host-validated immutable author checkout selection.
 type CheckoutBinding struct {
 	Repo      string `json:"repo"`
@@ -118,6 +124,8 @@ type ExecutionTrace struct {
 	AllowedTools     []string         `json:"allowed_tools,omitempty"`
 	Sandbox          string           `json:"sandbox,omitempty"`
 	Checkout         *CheckoutBinding `json:"checkout,omitempty"`
+	// CheckoutFinal is what was read from the checkout after the run, not the requested binding.
+	CheckoutFinal *CheckoutObserved `json:"checkout_final,omitempty"`
 }
 
 // Completion is the body of POST /runner/runs/{id}/complete.

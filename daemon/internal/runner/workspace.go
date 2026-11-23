@@ -144,7 +144,7 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 		}
 		// No directory in the selected checkout is cleared, reused or followed.
 		dir = filepath.Join(job.Run.Checkout.Path, ".controlrod-run-"+job.Run.ID)
-		if err := os.Mkdir(dir, 0o700); err != nil {
+		if err := reserveRunDir(job.Run.Checkout.Path, filepath.Base(dir)); err != nil {
 			release()
 			return nil, fmt.Errorf("reserve checkout run directory: %w", err)
 		}
@@ -167,6 +167,15 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 			ws.releaseCheckout()
 		}
 	}()
+	if ws.Checkout != nil {
+		// Through a directory handle on the checkout, so a path component swapped for a link
+		// cannot send a write outside it.
+		if err := stageCheckoutInputs(ws.Checkout.Path, job.Run.ID, job.Inputs, data); err != nil {
+			return nil, err
+		}
+		prepared = true
+		return ws, nil
+	}
 	for _, d := range []string{ws.Inputs, ws.Out} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return nil, fmt.Errorf("create workspace: %w", err)
@@ -216,33 +225,119 @@ func checkoutLockPath(root string, b *CheckoutBinding) (string, error) {
 // ErrLinkedRunPath reports a run directory reached through a symbolic link.
 var ErrLinkedRunPath = errors.New("a run directory path contains a symbolic link")
 
-// checkedRunDir refuses a run directory whose path has a link in any component. The directory lives
-// in the agent-writable checkout, so the agent can replace .controlrod-run-<id> with a link to a
-// path the sandbox denies; Capture follows intermediate links, so it must be given a verified path.
-// A missing directory is allowed (Capture then finds nothing).
-func checkedRunDir(dir string) error {
-	real, err := filepath.EvalSymlinks(dir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil // nothing there, and nothing to follow
+// CaptureRun is Capture for a run workspace. For a checkout run the directory is opened through
+// handles on each component below the checkout, so a link in any of them is refused and a swap after
+// the open cannot redirect a read.
+func (ws *Workspace) CaptureRun(dir string, maxFile, maxTotal int64) (*Captured, error) {
+	if ws.Checkout == nil {
+		return Capture(dir, maxFile, maxTotal)
 	}
+	r, err := openRunDir(ws.Checkout.Path, dir)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return newCaptured(), nil
+	}
+	defer r.Close()
+	return captureRoot(r, maxFile, maxTotal)
+}
+
+// reserveRunDir creates the run's own directory in the checkout, through a handle on the checkout.
+// It fails if the name exists, so nothing already there is reused or followed.
+func reserveRunDir(checkout, name string) error {
+	r, err := os.OpenRoot(checkout)
 	if err != nil {
 		return err
 	}
-	if real != filepath.Clean(dir) {
-		return ErrLinkedRunPath
+	defer r.Close()
+	return r.Mkdir(name, 0o700)
+}
+
+// stageCheckoutInputs creates inputs/ and out/ in the run directory and writes every input, all
+// through directory handles (os.Root): an intermediate directory swapped for a link cannot make the
+// daemon create or truncate a file outside the run directory. Files are created exclusively.
+func stageCheckoutInputs(checkout, runID string, inputs []NamedFile, data [][]byte) error {
+	cr, err := os.OpenRoot(checkout)
+	if err != nil {
+		return fmt.Errorf("open checkout: %w", err)
+	}
+	defer cr.Close()
+	rr, err := cr.OpenRoot(".controlrod-run-" + runID)
+	if err != nil {
+		return fmt.Errorf("open run directory: %w", err)
+	}
+	defer rr.Close()
+	mkdir := func(rel string) error {
+		if err := rr.Mkdir(rel, 0o700); err != nil && !errors.Is(err, fs.ErrExist) {
+			return err
+		}
+		if st, err := rr.Lstat(rel); err != nil || !st.IsDir() {
+			return fmt.Errorf("%q is not a directory", rel)
+		}
+		return nil
+	}
+	for _, d := range []string{"inputs", "out"} {
+		if err := mkdir(d); err != nil {
+			return fmt.Errorf("create workspace: %w", err)
+		}
+	}
+	for i, in := range inputs {
+		parts := strings.Split(in.Name, "/") // validated by inputPath: no empty, dot or dot-dot parts
+		for j := 1; j < len(parts); j++ {
+			if err := mkdir("inputs/" + strings.Join(parts[:j], "/")); err != nil {
+				return fmt.Errorf("create input dir: %w", err)
+			}
+		}
+		f, err := rr.OpenFile("inputs/"+in.Name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscallNoFollow, 0o600)
+		if err != nil {
+			return fmt.Errorf("write input: %w", err)
+		}
+		_, werr := f.Write(data[i])
+		if cerr := f.Close(); werr == nil {
+			werr = cerr
+		}
+		if werr != nil {
+			return fmt.Errorf("write input: %w", werr)
+		}
 	}
 	return nil
 }
 
-// CaptureRun is Capture for a run workspace: for a checkout run it first verifies every component
-// of dir without following links.
-func (ws *Workspace) CaptureRun(dir string, maxFile, maxTotal int64) (*Captured, error) {
-	if ws.Checkout != nil {
-		if err := checkedRunDir(dir); err != nil {
-			return nil, fmt.Errorf("%w: %s", err, dir)
-		}
+// openRunDir opens dir, which must be inside checkout, as a directory handle, checking every
+// component below the checkout with Lstat through the handle of its parent and refusing a link.
+// The returned handle stays on the directory it opened even if a path is swapped afterwards. A
+// missing directory returns (nil, nil).
+func openRunDir(checkout, dir string) (*os.Root, error) {
+	rel, err := filepath.Rel(checkout, filepath.Clean(dir))
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, "../") {
+		return nil, fmt.Errorf("%w: %s is not inside the checkout", ErrLinkedRunPath, dir)
 	}
-	return Capture(dir, maxFile, maxTotal)
+	cur, err := os.OpenRoot(checkout)
+	if err != nil {
+		return nil, err
+	}
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		st, err := cur.Lstat(part)
+		if err != nil {
+			cur.Close()
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		if st.Mode()&fs.ModeSymlink != 0 || !st.IsDir() {
+			cur.Close()
+			return nil, fmt.Errorf("%w: %s", ErrLinkedRunPath, part)
+		}
+		next, err := cur.OpenRoot(part)
+		cur.Close()
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrLinkedRunPath, err)
+		}
+		cur = next
+	}
+	return cur, nil
 }
 
 // Captured is a run's outputs read into the daemon's memory: their bytes, the files to send and
@@ -269,25 +364,42 @@ func Collect(dir string, maxFile, maxTotal int64) ([]NamedFile, []Artifact, erro
 // as they stood when write authority ended (specification 22).
 func Capture(dir string, maxFile, maxTotal int64) (*Captured, error) {
 	dir = filepath.Clean(dir)
+	st, err := os.Lstat(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return newCaptured(), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if st.Mode()&fs.ModeSymlink != 0 {
+		return nil, fmt.Errorf("output root %q is a symlink", dir)
+	}
+	if !st.IsDir() {
+		return nil, fmt.Errorf("output root %q is not a directory", dir)
+	}
+	r, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return captureRoot(r, maxFile, maxTotal)
+}
+
+func newCaptured() *Captured {
+	return &Captured{Files: []NamedFile{}, Arts: []Artifact{}, Raw: map[string][]byte{}}
+}
+
+// captureRoot walks and reads through the directory handle r: every open is resolved relative to the
+// handle, so a parent swapped for a link after the walk cannot make it read outside r.
+func captureRoot(r *os.Root, maxFile, maxTotal int64) (*Captured, error) {
 	var names []string
-	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(r.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) && p == dir {
-				return fs.SkipAll
-			}
 			return err
 		}
-		if p == dir {
-			if d.Type()&fs.ModeSymlink != 0 {
-				return fmt.Errorf("output root %q is a symlink", dir)
-			}
-			if !d.IsDir() {
-				return fmt.Errorf("output root %q is not a directory", dir)
-			}
+		if rel == "." {
 			return nil
 		}
-		rel, _ := filepath.Rel(dir, p)
-		rel = filepath.ToSlash(rel)
 		if d.Type()&fs.ModeSymlink != 0 {
 			return fmt.Errorf("output %q is a symlink", rel)
 		}
@@ -305,11 +417,15 @@ func Capture(dir string, maxFile, maxTotal int64) (*Captured, error) {
 	}
 	sort.Strings(names)
 	var total int64
-	c := &Captured{Files: make([]NamedFile, 0, len(names)), Arts: make([]Artifact, 0, len(names)), Raw: map[string][]byte{}}
+	c := newCaptured()
 	for _, n := range names {
-		f, err := os.OpenFile(filepath.Join(dir, filepath.FromSlash(n)), os.O_RDONLY|syscallNoFollow, 0)
+		f, err := r.OpenFile(n, os.O_RDONLY|syscallNoFollow, 0)
 		if err != nil {
 			return nil, err
+		}
+		if st, serr := f.Stat(); serr != nil || !st.Mode().IsRegular() {
+			f.Close()
+			return nil, fmt.Errorf("output %q is not a regular file", n)
 		}
 		b, err := io.ReadAll(io.LimitReader(f, maxFile+1))
 		f.Close()

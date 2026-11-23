@@ -1530,6 +1530,21 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 			comp.Status = "stopped"
 		}
 	}
+	// A bound checkout is read again now that the run's processes are gone. The trace carries what
+	// was found; a checkout that is not the bound one (other than by commits on the bound branch)
+	// fails the run.
+	var checkoutFinal *CheckoutObserved
+	if ws.Checkout != nil {
+		obs, cerr := checkoutAfterRun(ws.Checkout)
+		checkoutFinal = obs
+		if cerr != nil {
+			if comp.Status == "succeeded" {
+				comp.Status, comp.Error = "failed", "checkout check after the run: "+cerr.Error()
+			} else {
+				comp.Error = strings.TrimSpace(comp.Error + "; checkout check after the run: " + cerr.Error())
+			}
+		}
+	}
 	// After a stop, the capture taken while frozen is the run's only output.
 	if snapshotErr != nil {
 		comp.Status, comp.Error = "failed", "outputs could not be snapshot when the run was stopped: "+snapshotErr.Error()
@@ -1657,6 +1672,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		AllowedTools:    launch.AllowedTools,
 		Sandbox:         launch.Sandbox,
 		Checkout:        ws.Checkout,
+		CheckoutFinal:   checkoutFinal,
 	}
 	comp.Events, comp.EventsFrom = buf.leftEvents(finalEvents...)
 	return comp, nil

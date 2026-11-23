@@ -2005,6 +2005,11 @@ export interface components {
             git_dir: string;
             common_dir: string;
         };
+        /** @description What the daemon read from a bound checkout after its run, not what was requested. */
+        "ControlRod.Records.CheckoutObserved": {
+            branch: string;
+            head: string;
+        };
         "ControlRod.Records.CodeOrStandard": {
             code: string;
             edition: string;
@@ -2141,6 +2146,8 @@ export interface components {
             sandbox?: string;
             /** @description Verified repository checkout selected for this execution, when bound. */
             checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
+            /** @description The branch and commit the daemon read from that checkout after the run ended, when bound. */
+            checkout_final?: components["schemas"]["ControlRod.Records.CheckoutObserved"];
         };
         "ControlRod.Records.Finding": {
             id: string;

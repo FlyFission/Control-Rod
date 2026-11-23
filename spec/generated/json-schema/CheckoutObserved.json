@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CheckoutObserved.json",
+    "type": "object",
+    "properties": {
+        "branch": {
+            "type": "string"
+        },
+        "head": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "branch",
+        "head"
+    ],
+    "description": "What the daemon read from a bound checkout after its run, not what was requested.",
+    "unevaluatedProperties": false
+}

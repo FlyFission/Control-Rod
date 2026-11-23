@@ -325,6 +325,15 @@ model ExecutionTrace {
   sandbox?: string;
   /** Verified repository checkout selected for this execution, when bound. */
   checkout?: CheckoutBinding;
+  /** The branch and commit the daemon read from that checkout after the run ended, when bound. */
+  checkout_final?: CheckoutObserved;
+}
+
+/** What the daemon read from a bound checkout after its run, not what was requested. */
+@extension("unevaluatedProperties", false)
+model CheckoutObserved {
+  branch: string;
+  head: string;
 }
 
 /** Independence of one axis of the actor and evidence coupling profile. */

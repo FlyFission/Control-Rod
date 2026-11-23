@@ -99,6 +99,10 @@
         "checkout": {
             "$ref": "CheckoutBinding.json",
             "description": "Verified repository checkout selected for this execution, when bound."
+        },
+        "checkout_final": {
+            "$ref": "CheckoutObserved.json",
+            "description": "The branch and commit the daemon read from that checkout after the run ended, when bound."
         }
     },
     "required": [

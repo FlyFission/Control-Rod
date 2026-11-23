@@ -48,6 +48,20 @@ New tests, one per fix. Failure without the fix was confirmed by reverting it fo
 
 Not exercised: the real Claude and Codex sandboxes with a checkout, a signed-in provider run, and the external strict custody validator. The sandbox write scope for a checkout run is unchanged: the working directory, which contains the run's inputs and out directories.
 
+### Second fix round
+
+After a blind check of the first fix commit: staging and capture now go through `os.Root` handles, the checkout's branch and HEAD are re-read after the run, and the trace gains an additive `checkout_final` field (`spec/records.tsp`; `pnpm spec` regenerated the schemas and `schema.d.ts`). The regeneration was not recorded in `spec-generation.log`, so that log's hashes no longer describe `ExecutionTrace.json` or `openapi.json`.
+
+| Command | Result |
+| --- | --- |
+| `pnpm spec` | Completed; 55 runner schemas embedded (one new, `CheckoutObserved`). |
+| `cd daemon && go test ./...` | Only the known `TestInstalledCodexLeavesOnlyQualifiedFeatures` failed. With `-v`: 225 top-level tests passed, 14 skipped, 1 failed. |
+| `cd daemon && go vet ./...`; `GOOS=windows go vet ./internal/runner` | Passed. |
+| `CONTROLROD_TEST_PG_DIR=/opt/homebrew/opt/postgresql@17/bin pnpm --filter ./services/api test` | 70 files, 844 tests passed. |
+| `pnpm -r run typecheck` | Passed. |
+
+The staging test cannot race a swap; it pre-places links where staging would write and asserts nothing lands outside. The capture test swaps the output path after the handle is opened and asserts the original files are read. `os.Root` itself is the control against a swap between a component check and the open.
+
 ## Required links
 
 [Basis](basis.md), [plan](plan.md), [risk](risk.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

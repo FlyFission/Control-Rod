@@ -9441,6 +9441,22 @@
         },
         "description": "A host-validated checkout selection. Only author runs may use it as their working directory."
       },
+      "ControlRod.Records.CheckoutObserved": {
+        "type": "object",
+        "required": [
+          "branch",
+          "head"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "head": {
+            "type": "string"
+          }
+        },
+        "description": "What the daemon read from a bound checkout after its run, not what was requested."
+      },
       "ControlRod.Records.CodeOrStandard": {
         "type": "object",
         "required": [
@@ -9844,6 +9860,10 @@
           "checkout": {
             "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
             "description": "Verified repository checkout selected for this execution, when bound."
+          },
+          "checkout_final": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutObserved",
+            "description": "The branch and commit the daemon read from that checkout after the run ended, when bound."
           }
         },
         "description": "Proof of where outputs came from. Recorded by the runner, never by the agent."

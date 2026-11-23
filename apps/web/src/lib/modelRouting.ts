@@ -20,7 +20,7 @@ export function modelRouting(trace: { requested_model?: string; reported_model?:
   // different model and is flagged.
   if (reported && requested && reported !== requested) {
     if (isAliasOf(requested, reported)) return { kind: "same", text: `Model ${reported} (requested ${requested})` };
-    return { kind: "rerouted", text: `Answered by ${reported} (requested ${requested})` };
+    return { kind: "rerouted", text: `Ran as ${reported} (requested ${requested})` };
   }
   if (reported) return { kind: "same", text: `Model ${reported}` };
   // While a run is going the CLI may not have said yet; only a finished run is "not reported".

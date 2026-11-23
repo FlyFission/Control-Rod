@@ -371,6 +371,9 @@ export function BoardView() {
   }, []);
 
   // J / K move across visible board card titles; N jumps to the next one marked Needs you or Blocked.
+  // N reads the stream through a ref, so a card's tone is trusted only while the board is live.
+  const streamRef = useRef(data.status);
+  streamRef.current = data.status;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -392,6 +395,12 @@ export function BoardView() {
       const idx = titles.findIndex((t) => t === document.activeElement || (holder != null && t.closest("article.bd-card, .bd-list-row") === holder));
       if (key === "n") {
         e.preventDefault();
+        // A capture row keeps its tone from its last read; while the stream is not live, nothing on
+        // screen is current, so N does not send anyone to it.
+        if (streamRef.current !== "live") {
+          setJumpNote("N works while the board is live; it is showing last-known state now.");
+          return;
+        }
         // The tone is shown only while the stream is live and the card's reads are current, so a card
         // whose state is unknown is never offered as needing you.
         const marked = titles.filter((t) => {

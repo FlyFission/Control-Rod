@@ -770,6 +770,20 @@ describe("BoardView", () => {
     expect(document.activeElement).toBe(four);
   });
 
+  it("N does not jump while the stream is down, since no tone on screen is current", async () => {
+    const release: ActionDescriptor = { command: "release", label: "Release", allowed: true, signature: "direct" };
+    api({ packages: [pkg({ id: "WP-2", title: "Wants a release" })], actions: { "WP-2": [release] } });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const two = await screen.findByRole("button", { name: "Wants a release" });
+    await waitFor(() => expect(two.closest("article")?.getAttribute("data-tone")).toBe("needs"));
+    act(() => FakeSource.last!.emit("error"));
+    await screen.findByText(/What you see may be out of date/);
+    await user.keyboard("n");
+    expect(document.activeElement).not.toBe(two);
+    expect(screen.getAllByRole("status").some((s) => s.textContent?.startsWith("N works while the board is live"))).toBe(true);
+  });
+
   it("N says so when no card on the view is marked Needs you or Blocked", async () => {
     api({ packages: [pkg({ id: "WP-1", title: "Quiet one" })] });
     await renderPage(<Page />);

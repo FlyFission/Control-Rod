@@ -751,7 +751,8 @@ model AgentSetupRequest {
   @maxItems(20)
   seats: AgentSeat[];
 
-  check_in: CheckIn;
+  /** Left out when the person did not change it; the saved answer stays. */
+  check_in?: CheckIn;
 }
 
 @extension("unevaluatedProperties", false)

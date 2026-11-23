@@ -19,8 +19,33 @@ const STAMPED = new Set(["schema_version"]);
 /** The brief's bullet for a field, so a nested record's fields are looked for where that record is described. */
 const bullet = (field: string) => brief.split("\n").find((l) => l.startsWith(`- \`${field}\``)) ?? "";
 const named = (text: string, f: string) => new RegExp("`" + f + "[`:]").test(text);
-/** A top-level field opens a bullet, or follows a comma in one (`revision`: 0, `status`: ...). */
-const topLevel = (f: string) => brief.split("\n").some((l) => new RegExp("^- (.*, )?`" + f + "`:").test(l));
+/** A top-level field opens a bullet, or follows another top-level field's short value on it (`revision`: 0, `status`: ...). */
+const topLevel = (f: string) => brief.split("\n").some((l) => new RegExp("^- (`[a-z_]+`: [^,`]*, )?`" + f + "`:").test(l));
+
+/** A draft written to the brief field by field, as an agent would, then stamped the way finishIntake does. */
+const minimal = () => ({
+  id: "BUG-FIX",
+  title: "Fix the reported bug",
+  revision: 0,
+  status: "draft",
+  mode: "software",
+  project: "general",
+  rigor_mode: "standard",
+  data_lane: "internal",
+  objective: "Find and fix the bug the owner reported.",
+  deliverables: [{ id: "D1", type: "code-change", format: ["diff"] }],
+  design_inputs: [{ doc: "request", revision: "0", use: "The owner's description of the bug." }],
+  agent_assignment: [{ role: "software-author", agent_baseline: "author", baseline_revision: 0 }],
+  acceptance_criteria: ["A regression test fails before the fix and passes after it."],
+  verification: {
+    method: "agent-pre-check",
+    verifier: "checker",
+    verifier_receives: ["deliverables", "acceptance criteria", "design inputs"],
+    required_custody: { decisive_evidence_generated_by: "verifier", preparer_may_present: false },
+  },
+  assumptions: [{ id: "A1", statement: "The bug reproduces on main.", basis: "The request names main.", requires_confirmation: true, owner: "owner" }],
+  schema_version: "0.1.0",
+});
 
 describe("intake brief", () => {
   it("names every field WorkPackage requires", () => {
@@ -37,33 +62,19 @@ describe("intake brief", () => {
   }
 
   it("a draft written to the brief validates as a WorkPackage once intake stamps it", () => {
-    // Written field by field from the brief, as an agent would, then stamped the way finishIntake does.
-    const draft = {
-      id: "BUG-FIX",
-      title: "Fix the reported bug",
-      revision: 0,
-      status: "draft",
-      mode: "software",
-      project: "general",
-      rigor_mode: "standard",
-      data_lane: "internal",
-      objective: "Find and fix the bug the owner reported.",
-      deliverables: [{ id: "D1", type: "code-change", format: ["diff"] }],
-      design_inputs: [{ doc: "request", revision: "0", use: "The owner's description of the bug." }],
-      agent_assignment: [{ role: "software-author", agent_baseline: "author", baseline_revision: 0 }],
-      acceptance_criteria: ["A regression test fails before the fix and passes after it."],
-      verification: {
-        method: "agent-pre-check",
-        verifier: "checker",
-        verifier_receives: ["deliverables", "acceptance criteria", "design inputs"],
-        required_custody: { decisive_evidence_generated_by: "verifier", preparer_may_present: false },
-      },
-      assumptions: [{ id: "A1", statement: "The bug reproduces on main.", basis: "The request names main.", requires_confirmation: true, owner: "owner" }],
-    };
+    const draft = minimal();
     const ajv = loadValidator();
     const validate = ajv.getSchema("WorkPackage.json")!;
     const ok = validate({ ...draft, schema_version: "0.1.0", revision: 0, status: "draft" });
     expect(validate.errors ?? []).toEqual([]);
     expect(ok).toBe(true);
+  });
+
+  it("asks for `format` as a list, which the contract requires", () => {
+    expect(bullet("deliverables")).toMatch(/`format` list \(an array of strings/);
+    const validate = loadValidator().getSchema("WorkPackage.json")!;
+    const asString = { ...minimal(), deliverables: [{ id: "D1", type: "document", format: "pdf" }] };
+    expect(validate(asString)).toBe(false);
+    expect(validate({ ...minimal(), deliverables: [{ id: "D1", type: "document", format: ["pdf"] }] })).toBe(true);
   });
 });

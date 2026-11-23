@@ -25,7 +25,7 @@ export function Setup() {
   const choice = CHECK_IN_CHOICES.find((c) => c.id === chosenCheckIn)!;
 
   const confirm = () =>
-    agents.save.mutate(setupRequest(changed, chosenCheckIn), {
+    agents.save.mutate(setupRequest(changed, checkIn), {
       onSuccess: () => void navigate({ to: "/" }),
     });
 
@@ -52,7 +52,7 @@ export function Setup() {
             The agent checks could not be loaded. Is Control Rod still running?
           </p>
         )}
-        {!agents.loading && <AgentList rows={rows} onToggle={(id, seated) => setChanged({ ...changed, [id]: seated })} />}
+        {!agents.loading && <AgentList rows={rows} busy={agents.save.isPending} onToggle={(id, seated) => setChanged({ ...changed, [id]: seated })} />}
       </section>
 
       <section className="panel" aria-labelledby="setup-checkin-title">
@@ -60,7 +60,7 @@ export function Setup() {
         <div className="checkin-choices" role="radiogroup" aria-labelledby="setup-checkin-title">
           {CHECK_IN_CHOICES.map((c) => (
             <label key={c.id} className={`checkin-choice${c.id === chosenCheckIn ? " chosen" : ""}`}>
-              <input type="radio" name="check-in" value={c.id} checked={c.id === chosenCheckIn} onChange={() => setCheckIn(c.id)} />
+              <input type="radio" name="check-in" value={c.id} checked={c.id === chosenCheckIn} disabled={agents.save.isPending} onChange={() => setCheckIn(c.id)} />
               <span>
                 <strong>{c.label}</strong>
                 {c.id === "start-and-merge" && <span className="tag">Recommended</span>}

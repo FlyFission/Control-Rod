@@ -38,7 +38,7 @@ describe("first-run setup", () => {
   it("refuses an unknown agent, a missing answer, a duplicate and the test runtime before writing anything", async () => {
     for (const bad of [
       { seats: [{ runtime: "skynet", seated: true }], check_in: "start" },
-      { seats: [{ runtime: "codex", seated: true }] },
+      { seats: [{ runtime: "codex", seated: true }], check_in: "sometimes" },
       { seats: [{ runtime: "codex", seated: true }, { runtime: "codex", seated: false }], check_in: "start" },
       { seats: [{ runtime: "fake", seated: false }], check_in: "start" },
       { seats: [{ runtime: "codex" }], check_in: "start" },
@@ -74,7 +74,7 @@ describe("first-run setup", () => {
     expect(JSON.stringify(all.rows)).not.toContain("every-step");
   });
 
-  it("a roster switch changes one seat, keeps the rest and the answer, and does not confirm a fresh setup", async () => {
+  it("once setup is confirmed, a roster switch changes one seat and keeps the rest, the answer and the confirmation", async () => {
     const one = await h.app.inject({ method: "PUT", url: "/setup/seats/claude", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
     expect(one.statusCode, one.body).toBe(200);
     expect(one.json()).toMatchObject({ confirmed: true, check_in: "every-step", seats: [{ runtime: "claude", seated: false }, { runtime: "codex", seated: false }] });
@@ -93,6 +93,12 @@ describe("first-run setup", () => {
     expect(r.statusCode, r.body).toBe(200);
     expect(r.json().seats).toEqual([{ runtime: "claude", seated: false }, { runtime: "codex", seated: false }]);
     await h.app.inject({ method: "PUT", url: "/setup/seats/claude", headers: { cookie, origin: ORIGIN }, payload: { seated: true } });
+  });
+
+  it("confirming without an answer keeps the saved answer rather than resending a stale one", async () => {
+    const r = await put({ seats: [] });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().check_in).toBe("every-step");
   });
 
   it("leaves a benched agent out of every claim, and offers it again once it is seated", async () => {
@@ -132,5 +138,26 @@ describe("first-run setup", () => {
     expect((await get()).json()).toEqual(before);
     const first = await h.app.inject({ method: "PUT", url: "/setup/seats/codex", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
     expect(first.statusCode, first.body).toBe(200);
+  });
+
+  it("checks authority after the dispatch lock, so a Member suspended while the write waited is refused", async () => {
+    const holder = await h.admin.connect();
+    const before = (await get()).json();
+    try {
+      await holder.query("begin");
+      await holder.query("select pg_advisory_xact_lock(hashtext('controlrod-budget'))");
+      const pending = h.app.inject({ method: "PUT", url: "/setup/seats/claude", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
+      await new Promise((r) => setTimeout(r, 300));
+      await h.admin.query("alter table members disable trigger user");
+      await h.admin.query("update members set body = jsonb_set(body, '{status}', '\"suspended\"') where id = (select id from members order by created_at limit 1)");
+      await holder.query("commit");
+      const r = await pending;
+      expect(r.statusCode, r.body).toBe(403);
+    } finally {
+      await h.admin.query("update members set body = jsonb_set(body, '{status}', '\"active\"') where id = (select id from members order by created_at limit 1)");
+      await h.admin.query("alter table members enable trigger user");
+      holder.release();
+    }
+    expect((await get()).json()).toEqual(before);
   });
 });

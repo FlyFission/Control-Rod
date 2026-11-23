@@ -1376,7 +1376,8 @@ export interface components {
         AgentSetupRequest: {
             /** @description Only the seats the person changed. A seat not named keeps its saved value. */
             seats: components["schemas"]["AgentSeat"][];
-            check_in: components["schemas"]["CheckIn"];
+            /** @description Left out when the person did not change it; the saved answer stays. */
+            check_in?: components["schemas"]["CheckIn"];
         };
         AgentSetupView: {
             /** @description False until the person has confirmed setup once. The app opens on setup until then. */

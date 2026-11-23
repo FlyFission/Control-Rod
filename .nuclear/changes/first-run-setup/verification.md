@@ -3,10 +3,11 @@
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | Web: 707 tests in 53 files, including the new setup/roster tests. `tsc` clean. | `evidence/web.log` |
-| E-02 | pass with 2 environmental failures | API: 842 pass. SEC-01 and SEC-03 in `command-boundary.test.ts` fail identically on unchanged main with this host's test server (its superuser is not the `controlrod` login those tests expect). | `evidence/api.log` |
+| E-02 | pass with 2 environmental failures | API: 845 pass. SEC-01 and SEC-03 in `command-boundary.test.ts` fail identically on unchanged main with this host's test server (its superuser is not the `controlrod` login those tests expect). | `evidence/api.log` |
 | E-03 | pass | Running app (`pnpm cr start`, Linux container, stand-in `claude`/`codex` scripts so the daemon has something to refuse): first run lands on Setup; Looks right saves; the roster switch benches Codex; phone width reflows. The status text is the daemon's real refusal of a script launcher. | `evidence/*.png` |
 | E-04 | done | Blind review by Codex (gpt-6.2-sol) on the owner's machine at 730f118: one blocker (any member could change install-wide dispatch), three majors (setup data on the chain, seat read before the lock, roster switch replacing all settings and confirming setup), four minors (read-back overclaims, check-in wording, copy buttons, deliverable `format` shape). All addressed in the next commit; R-04, R-05, R-07, R-08. | PR thread |
 | E-05 | done | Codex re-check at ef40eab: two P1 (bootstrap fallback let any Member change seats before a qualification exists; Looks right sent a stale full seat list) and three P2 test gaps (e2e checked only the URL; no seat-switch test on a fresh install; intake test searched the whole brief). Fixed: only the first Member bootstraps; Looks right sends only the seats changed on that page and the server keeps the rest; tests added for each. | PR thread |
+| E-06 | done | Codex re-check at fec8365: one P1 (authority checked before waiting on the dispatch lock, so a Member suspended in that window could still change seats) and five P2. Fixed: authority is checked after the lock, with a test that fails on the old order; switches and answers are disabled while Looks right is saving; the answer is sent only when changed; top-level brief fields are anchored to line starts; the `format` list is asserted; a test name corrected. | PR thread |
 
 ## Evidence custody and coupling
 

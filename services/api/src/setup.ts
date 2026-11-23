@@ -67,7 +67,7 @@ export async function benchedRuntimes(db: Db | Tx): Promise<Set<string>> {
 }
 
 /** Validates the request in full before anything is written; an unknown runtime or answer is refused. */
-export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in: CheckIn } {
+export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in?: CheckIn } {
   const b = (body ?? {}) as Json;
   if (!Array.isArray(b.seats) || b.seats.length > 20) throw new Refusal(400, "invalid-setup", "Setup needs a list of seats");
   const seats: AgentSeat[] = [];
@@ -80,22 +80,24 @@ export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in
     seen.add(runtime);
     seats.push({ runtime, seated: raw.seated });
   }
+  if (b.check_in === undefined) return { seats };
   if (!CHECK_IN.includes(b.check_in as CheckIn)) throw new Refusal(400, "invalid-setup", "Choose when Control Rod should check with you");
   return { seats, check_in: b.check_in as CheckIn };
 }
 
 /**
- * Records the confirmed setup (the setup page's Looks right). The request names only the seats the
- * person changed on that page; every other seat keeps its saved value, so a page loaded before a
+ * Records the confirmed setup (the setup page's Looks right). The request names only what the person
+ * changed on that page; every other seat, and the check-in answer when it is left out, keeps its saved value, so a page loaded before a
  * switch elsewhere cannot silently undo it. Seat changes go on the event chain.
  */
 export async function recordSetup(db: Db, caller: Caller, body: unknown): Promise<AgentSetupView> {
   const req = parseSetupRequest(body);
   return command(db, "setup.record", async (c) => {
-    await authorizeInstallSetting(c, caller);
+    // Authority is checked once the lock is held, so a Member suspended while this write waited cannot still change seats.
     await c.query(DISPATCH_LOCK);
+    await authorizeInstallSetting(c, caller);
     const before = await setupView(c);
-    const view: AgentSetupView = { confirmed: true, confirmed_at: new Date().toISOString(), seats: merge(before.seats, req.seats), check_in: req.check_in };
+    const view: AgentSetupView = { confirmed: true, confirmed_at: new Date().toISOString(), seats: merge(before.seats, req.seats), check_in: req.check_in ?? before.check_in };
     await write(c, view);
     await seatEvent(c, caller, before, view);
     return view;
@@ -108,8 +110,9 @@ export async function recordSeat(db: Db, caller: Caller, runtime: string, body: 
   const seated = (body as Json | undefined)?.seated;
   if (typeof seated !== "boolean") throw new Refusal(400, "invalid-setup", `Say whether ${runtime} is seated`);
   return command(db, "setup.record", async (c) => {
-    await authorizeInstallSetting(c, caller);
+    // Authority is checked once the lock is held, so a Member suspended while this write waited cannot still change seats.
     await c.query(DISPATCH_LOCK);
+    await authorizeInstallSetting(c, caller);
     const before = await setupView(c);
     const view: AgentSetupView = { ...before, seats: merge(before.seats, [{ runtime, seated }]) };
     await write(c, view);

@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -55,6 +56,7 @@ type Status struct {
 	Latest    string   // latest published version, empty if unknown
 	Command   []string // the command that installs Latest; nil when Control Rod will not run one
 	Note      string   // why there is no command, or why the check is incomplete
+	Stamp     string   // what the executable on PATH was when the version was read; see Stamp
 }
 
 // Outdated reports whether a newer version is published than the one installed.
@@ -80,6 +82,32 @@ type Env struct {
 	// NpmRoot returns npm's global node_modules folder (`npm root -g`). nil or an error means no
 	// install is offered: only a CLI npm installed globally is updated with npm.
 	NpmRoot func(ctx context.Context) (string, error)
+	// Stat describes a file (os.Stat). nil means no stamp is taken.
+	Stat func(string) (os.FileInfo, error)
+}
+
+// Stamp says what the binary on PATH is now: its resolved path, size, mode and modification time.
+// An install or update replaces the file, so a different stamp means the version read earlier may
+// no longer be the one installed. It runs no process and makes no network call. "" when the binary
+// is not found or env.Stat is nil.
+func Stamp(env Env, binary string) string {
+	if env.Stat == nil || env.LookPath == nil {
+		return ""
+	}
+	p, err := env.LookPath(binary)
+	if err != nil {
+		return ""
+	}
+	if env.EvalSymlinks != nil {
+		if real, rerr := env.EvalSymlinks(p); rerr == nil {
+			p = real
+		}
+	}
+	fi, err := env.Stat(p)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s|%d|%s|%d", p, fi.Size(), fi.Mode(), fi.ModTime().UnixNano())
 }
 
 // semverRe finds x.y.z with any prerelease, whole: "1.2.3--" is the prerelease "-", not 1.2.3.
@@ -201,7 +229,8 @@ func Check(ctx context.Context, env Env, agents []Agent) []Status {
 		if real, rerr := env.EvalSymlinks(p); rerr == nil {
 			p = real
 		}
-		st := Status{Agent: a, Path: p}
+		// The stamp is taken before the version is read, so an install in between shows as a change.
+		st := Status{Agent: a, Path: p, Stamp: Stamp(env, a.Binary)}
 		if v, verr := env.Version(ctx, p); verr == nil {
 			st.Installed = ParseVersion(v)
 		}

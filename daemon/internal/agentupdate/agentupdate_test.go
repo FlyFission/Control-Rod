@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -242,5 +244,44 @@ func TestParseVersionReadsOnlyStrictSemVer(t *testing.T) {
 		if got := ParseVersion(in); got != want {
 			t.Errorf("ParseVersion(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// Stamp changes when the binary on PATH is replaced and is "" when it is gone; it runs nothing.
+func TestStampSeesAReplacedBinary(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "grok")
+	if err := os.WriteFile(bin, []byte("v1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := Env{LookPath: func(string) (string, error) { return bin, nil }, EvalSymlinks: filepath.EvalSymlinks, Stat: os.Stat}
+	a := Stamp(env, "grok")
+	if a == "" || Stamp(env, "grok") != a {
+		t.Fatalf("stamp %q not stable", a)
+	}
+	if err := os.WriteFile(bin, []byte("v2 longer"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if b := Stamp(env, "grok"); b == a || b == "" {
+		t.Fatalf("replaced binary kept stamp %q", b)
+	}
+	env.LookPath = func(string) (string, error) { return "", os.ErrNotExist }
+	if Stamp(env, "grok") != "" {
+		t.Fatal("a missing binary has a stamp")
+	}
+}
+
+// Check takes each agent's stamp with its version, so the daemon can tell a later change.
+func TestCheckStampsEachAgent(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "grok")
+	if err := os.WriteFile(bin, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := fakeEnv(map[string]string{"grok": bin}, map[string]string{bin: "1.0.77"}, map[string]string{"@xai-official/grok": "1.0.92"})
+	env.Stat = os.Stat
+	sts := Check(context.Background(), env, []Agent{Catalog[4]})
+	if len(sts) != 1 || sts[0].Stamp == "" || sts[0].Stamp != Stamp(env, "grok") {
+		t.Fatalf("stamp not taken: %#v", sts)
 	}
 }

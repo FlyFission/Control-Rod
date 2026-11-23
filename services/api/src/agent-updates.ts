@@ -1,6 +1,7 @@
 import type { Db } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { checkSchema } from "./tenancy.js";
+import { newer } from "./semver.js";
 
 /**
  * Agent CLI updates (change record agent-update-prompt). The daemon checks for newer versions once,
@@ -25,8 +26,9 @@ export async function recordAgentUpdates(db: Db, raw: unknown, rawUnchecked?: un
   for (const u of raw.slice(0, 10)) {
     try {
       checkSchema("AgentUpdate.json", u);
-      // One row per agent: a repeated agent is left out.
-      if (!list.some((x) => x.agent === u.agent)) list.push(u);
+      // Only an update: latest must be newer than installed by SemVer precedence. One row per
+      // agent: a repeated agent is left out.
+      if (newer(u.latest, u.installed) && !list.some((x) => x.agent === u.agent)) list.push(u);
     } catch {
       /* a malformed entry is left out */
     }

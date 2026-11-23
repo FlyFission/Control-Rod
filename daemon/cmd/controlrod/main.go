@@ -109,6 +109,8 @@ func daemon(args []string) int {
 		cfg.UpdateCheck = func(ctx context.Context) []agentupdate.Status {
 			return agentupdate.Check(ctx, hostEnv(), agentupdate.Catalog)
 		}
+		env := hostEnv()
+		cfg.UpdateStamp = func(binary string) string { return agentupdate.Stamp(env, binary) }
 	}
 	d := runner.New(cfg)
 	if err := d.Run(ctx); err != nil {

@@ -27,7 +27,7 @@ func (r *recorder) run(name string, args []string) error {
 func TestUpdateRunsNothingWithoutYes(t *testing.T) {
 	var out bytes.Buffer
 	r := &recorder{}
-	code := update(&out, strings.NewReader("n\n\n"), outdated(), nil, false, false, true, r.run)
+	code := update(&out, strings.NewReader("n\n\n"), outdated(), nil, false, false, true, r.run, nil)
 	if code != 0 || len(r.ran) != 0 {
 		t.Fatalf("ran %v without a yes (exit %d)", r.ran, code)
 	}
@@ -39,7 +39,7 @@ func TestUpdateRunsNothingWithoutYes(t *testing.T) {
 func TestUpdateOneAgentByName(t *testing.T) {
 	var out bytes.Buffer
 	r := &recorder{}
-	code := update(&out, strings.NewReader("y\n"), outdated(), []string{"opencode"}, false, false, true, r.run)
+	code := update(&out, strings.NewReader("y\n"), outdated(), []string{"opencode"}, false, false, true, r.run, nil)
 	if code != 0 || len(r.ran) != 1 || r.ran[0] != "npm install --global opencode-ai@1.19.6" {
 		t.Fatalf("exit %d, ran %v", code, r.ran)
 	}
@@ -48,7 +48,7 @@ func TestUpdateOneAgentByName(t *testing.T) {
 func TestUpdateAllAsksOnceForExactlyTheShownCommands(t *testing.T) {
 	var out bytes.Buffer
 	r := &recorder{}
-	code := update(&out, strings.NewReader("y\n"), outdated(), nil, true, false, true, r.run)
+	code := update(&out, strings.NewReader("y\n"), outdated(), nil, true, false, true, r.run, nil)
 	if code != 0 || len(r.ran) != 2 || strings.Count(out.String(), "[y/N]") != 1 {
 		t.Fatalf("exit %d, ran %v\n%s", code, r.ran, out.String())
 	}
@@ -57,7 +57,7 @@ func TestUpdateAllAsksOnceForExactlyTheShownCommands(t *testing.T) {
 func TestUpdateRefusesWithoutTerminalOrYes(t *testing.T) {
 	var out bytes.Buffer
 	r := &recorder{}
-	if code := update(&out, strings.NewReader("y\n"), outdated(), nil, true, false, false, r.run); code != 2 || len(r.ran) != 0 {
+	if code := update(&out, strings.NewReader("y\n"), outdated(), nil, true, false, false, r.run, nil); code != 2 || len(r.ran) != 0 {
 		t.Fatalf("exit %d, ran %v", code, r.ran)
 	}
 }
@@ -67,7 +67,7 @@ func TestUpdateSkipsAgentWithNoCommand(t *testing.T) {
 	sts[1].Command, sts[1].Note = nil, "installed outside npm (/opt/homebrew/bin/opencode); update it with the tool you installed it with"
 	var out bytes.Buffer
 	r := &recorder{}
-	update(&out, strings.NewReader(""), sts, nil, true, true, false, r.run)
+	update(&out, strings.NewReader(""), sts, nil, true, true, false, r.run, nil)
 	if len(r.ran) != 1 || !strings.Contains(out.String(), "not updated: installed outside npm") {
 		t.Fatalf("ran %v\n%s", r.ran, out.String())
 	}
@@ -96,7 +96,7 @@ func TestCouldNotCheckIsNotUpToDate(t *testing.T) {
 	}
 	out.Reset()
 	r := &recorder{}
-	if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, r.run); code != 1 || strings.Contains(out.String(), "up to date") || len(r.ran) != 0 {
+	if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, r.run, nil); code != 1 || strings.Contains(out.String(), "up to date") || len(r.ran) != 0 {
 		t.Fatalf("agents update: code %d, ran %v:\n%s", code, r.ran, out.String())
 	}
 }
@@ -117,7 +117,7 @@ func TestNoCheckableAgentIsNotUpToDate(t *testing.T) {
 		}
 		out.Reset()
 		r := &recorder{}
-		if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, r.run); code != 0 || strings.Contains(out.String(), "up to date") || !strings.Contains(out.String(), "No agent CLI found") || len(r.ran) != 0 {
+		if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, r.run, nil); code != 0 || strings.Contains(out.String(), "up to date") || !strings.Contains(out.String(), "No agent CLI found") || len(r.ran) != 0 {
 			t.Fatalf("agents update: code %d, ran %v:\n%s", code, r.ran, out.String())
 		}
 	}
@@ -133,7 +133,36 @@ func TestMixedCaseSaysAntigravityWasNotChecked(t *testing.T) {
 		t.Fatalf("agents:\n%s", out.String())
 	}
 	out.Reset()
-	if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, (&recorder{}).run); code != 0 || !strings.Contains(out.String(), "Antigravity CLI was not checked") {
+	if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, (&recorder{}).run, nil); code != 0 || !strings.Contains(out.String(), "Antigravity CLI was not checked") {
 		t.Fatalf("agents update: code %d:\n%s", code, out.String())
+	}
+}
+
+// Naming an agent twice installs it once.
+func TestUpdateNamedTwiceRunsOnce(t *testing.T) {
+	var out bytes.Buffer
+	r := &recorder{}
+	if code := update(&out, strings.NewReader(""), outdated(), []string{"grok", "grok"}, false, true, false, r.run, nil); code != 0 || len(r.ran) != 1 {
+		t.Fatalf("code %d, ran %v:\n%s", code, r.ran, out.String())
+	}
+}
+
+// After the yes, the installed version is read again: one already at or past latest, or one that
+// can no longer be read, is not installed.
+func TestUpdateRereadsTheInstalledVersionAfterTheYes(t *testing.T) {
+	now := map[string]string{"grok": "1.0.92", "opencode": "1.19.5"}
+	reread := func(s agentupdate.Status) string { return now[s.Agent.ID] }
+	var out bytes.Buffer
+	r := &recorder{}
+	code := update(&out, strings.NewReader(""), outdated(), nil, true, true, false, r.run, reread)
+	if code != 0 || len(r.ran) != 1 || !strings.Contains(r.ran[0], "opencode-ai@1.19.6") || !strings.Contains(out.String(), "1.0.92 is now installed") {
+		t.Fatalf("code %d, ran %v:\n%s", code, r.ran, out.String())
+	}
+	now = map[string]string{"grok": "1.0.99"}
+	out.Reset()
+	r = &recorder{}
+	code = update(&out, strings.NewReader(""), outdated(), nil, true, true, false, r.run, reread)
+	if code != 1 || len(r.ran) != 0 || !strings.Contains(out.String(), "could not be read again") {
+		t.Fatalf("code %d, ran %v:\n%s", code, r.ran, out.String())
 	}
 }

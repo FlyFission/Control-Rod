@@ -13847,6 +13847,7 @@
         "required": [
           "agent",
           "name",
+          "installed",
           "latest"
         ],
         "properties": {
@@ -13859,7 +13860,9 @@
           },
           "installed": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$",
+            "description": "The installed version: strict SemVer 2.0 without build metadata; `latest` is newer."
           },
           "latest": {
             "type": "string",
@@ -13876,6 +13879,9 @@
             "maxLength": 300,
             "description": "Why no command is offered, in a sentence."
           }
+        },
+        "unevaluatedProperties": {
+          "not": {}
         },
         "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The app shows the npm command for the person to run\nin a terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it."
       },
@@ -14193,6 +14199,9 @@
             "maxLength": 64,
             "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$"
           }
+        },
+        "unevaluatedProperties": {
+          "not": {}
         },
         "description": "An agent found whose update check could not finish, with the installed version the daemon read\n(strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent\nonly while that row's installed version is this one, so a CLI updated since is never offered\nan older version."
       },

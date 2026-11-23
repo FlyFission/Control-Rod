@@ -54,7 +54,7 @@ func TestDaemonStartupCheckReachesTheClaim(t *testing.T) {
 	ctx := context.Background()
 
 	// Before the startup check finishes, the claim carries no agent_updates at all.
-	if _, err := d.client.Claim(ctx, nil, nil, 0, nil, d.updates.report()...); err != ErrNoWork {
+	if _, err := d.client.Claim(ctx, nil, nil, 0, nil, d.updates.report(nil)...); err != ErrNoWork {
 		t.Fatal(err)
 	}
 	if _, ok := api.claims[0]["agent_updates"]; ok {
@@ -86,7 +86,7 @@ func TestDaemonStartupCheckReachesTheClaim(t *testing.T) {
 	}
 	// Nothing outdated any more: the report is [], so the app clears the card.
 	d.updates.set(nil)
-	_, _ = d.client.Claim(ctx, nil, nil, 0, nil, d.updates.report()...)
+	_, _ = d.client.Claim(ctx, nil, nil, 0, nil, d.updates.report(nil)...)
 	api.mu.Lock()
 	last := string(api.claims[len(api.claims)-1]["agent_updates"])
 	api.mu.Unlock()
@@ -106,16 +106,16 @@ func TestDaemonStartupCheckReachesTheClaim(t *testing.T) {
 func TestAnIncompleteCheckKeepsAKnownUpdate(t *testing.T) {
 	grok := agentupdate.Catalog[4]
 	var u agentUpdates
-	if u.report() != nil {
+	if u.report(nil) != nil {
 		t.Fatal("reported before the check")
 	}
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Latest: "1.0.92", Command: []string{"npm"}}})
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Note: "latest version unavailable: timeout"}})
-	if r := u.report(); len(r) != 1 || len(r[0].List) != 1 || r[0].List[0].Latest != "1.0.92" || uncheckedIDs(r[0].Unchecked) != "grok@1.0.77" {
+	if r := u.report(nil); len(r) != 1 || len(r[0].List) != 1 || r[0].List[0].Latest != "1.0.92" || uncheckedIDs(r[0].Unchecked) != "grok@1.0.77" {
 		t.Fatalf("an incomplete check wiped the known update: %#v", r)
 	}
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.92", Latest: "1.0.92"}})
-	if r := u.report(); len(r) != 1 || len(r[0].List) != 0 || len(r[0].Unchecked) != 0 {
+	if r := u.report(nil); len(r) != 1 || len(r[0].List) != 0 || len(r[0].Unchecked) != 0 {
 		t.Fatalf("after a full check with nothing outdated: %#v", r)
 	}
 }
@@ -132,7 +132,7 @@ func TestAFreshDaemonsIncompleteCheckIsUnchecked(t *testing.T) {
 		{Agent: agy, Installed: "1.0.0"},
 		{Agent: agentupdate.Catalog[1], Installed: "0.170.0+build", Latest: "0.171.0", Command: []string{"npm"}},
 	})
-	r := u.report()
+	r := u.report(nil)
 	if len(r) != 1 || len(r[0].List) != 0 || uncheckedIDs(r[0].Unchecked) != "grok@1.0.77,claude@,codex@" {
 		t.Fatalf("fresh incomplete check: %#v", r)
 	}
@@ -157,7 +157,35 @@ func TestAnUpdatedCLIDropsTheKnownUpdate(t *testing.T) {
 	var u agentUpdates
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.77", Latest: "1.0.92", Command: []string{"npm"}}})
 	u.set([]agentupdate.Status{{Agent: grok, Installed: "1.0.95", Note: "latest version unavailable: timeout"}})
-	if r := u.report(); len(r) != 1 || len(r[0].List) != 0 || uncheckedIDs(r[0].Unchecked) != "grok@1.0.95" {
+	if r := u.report(nil); len(r) != 1 || len(r[0].List) != 0 || uncheckedIDs(r[0].Unchecked) != "grok@1.0.95" {
 		t.Fatalf("a newer install kept the old update: %#v", r)
+	}
+}
+
+// An agent whose binary changed while the daemon ran (installed or updated since the check read
+// its version) loses its cached update and its unchecked installed version; one unchanged keeps it.
+func TestAChangedBinaryDropsTheCachedUpdate(t *testing.T) {
+	grok, oc, claude := agentupdate.Catalog[4], agentupdate.Catalog[3], agentupdate.Catalog[0]
+	var u agentUpdates
+	u.set([]agentupdate.Status{
+		{Agent: grok, Installed: "1.0.77", Latest: "1.0.92", Command: []string{"npm"}, Stamp: "grok-a"},
+		{Agent: oc, Installed: "1.19.5", Latest: "1.19.6", Command: []string{"npm"}, Stamp: "oc-a"},
+		{Agent: claude, Installed: "2.0.0", Note: "latest version unavailable: timeout", Stamp: "claude-a"},
+	})
+	now := map[string]string{"grok": "grok-b", "opencode": "oc-a", "claude": "claude-b"}
+	stamp := func(b string) string { return now[b] }
+	r := u.report(stamp)
+	if len(r) != 1 || len(r[0].List) != 1 || r[0].List[0].Agent != "opencode" || uncheckedIDs(r[0].Unchecked) != "claude@" {
+		t.Fatalf("after grok and claude changed: %#v", r)
+	}
+	// Changing back does not bring the stale update back.
+	now["grok"] = "grok-a"
+	if r := u.report(stamp); len(r[0].List) != 1 {
+		t.Fatalf("a stale update came back: %#v", r)
+	}
+	// A binary that is gone counts as changed.
+	delete(now, "opencode")
+	if r := u.report(stamp); len(r[0].List) != 0 {
+		t.Fatalf("a removed binary kept its update: %#v", r)
 	}
 }

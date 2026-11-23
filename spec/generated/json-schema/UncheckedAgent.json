@@ -15,5 +15,8 @@
     "required": [
         "agent"
     ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
     "description": "An agent found whose update check could not finish, with the installed version the daemon read\n(strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent\nonly while that row's installed version is this one, so a CLI updated since is never offered\nan older version."
 }

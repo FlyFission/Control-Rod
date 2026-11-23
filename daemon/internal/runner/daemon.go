@@ -80,6 +80,10 @@ type Config struct {
 	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts, never
 	// on a timer; nil turns the check off. The daemon only reports what it finds: it never installs.
 	UpdateCheck func(ctx context.Context) []agentupdate.Status
+	// UpdateStamp says what an agent's binary on PATH is now (agentupdate.Stamp). Before each claim
+	// the cached report drops any agent whose binary changed since the check read its version, so an
+	// update installed while the daemon runs is never offered again. nil skips that.
+	UpdateStamp func(binary string) string
 }
 
 // RunCeiling is the longest a run lasts in this daemon: its timeout, then the graceful stop ladder
@@ -293,7 +297,7 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport(), d.updates.report()...)
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport(), d.updates.report(d.cfg.UpdateStamp)...)
 		if job != nil {
 			job.claimSent = claimSent
 		}

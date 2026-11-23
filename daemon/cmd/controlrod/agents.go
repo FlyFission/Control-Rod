@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ func hostEnv() agentupdate.Env {
 	return agentupdate.Env{
 		LookPath:     exec.LookPath,
 		EvalSymlinks: filepath.EvalSymlinks,
+		Stat:         os.Stat,
 		Version: func(ctx context.Context, path string) (string, error) {
 			c, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
@@ -69,13 +71,26 @@ func agents(args []string) int {
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 		return cmd.Run()
 	}
-	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), run)
+	env := hostEnv()
+	installedNow := func(s agentupdate.Status) string {
+		c, cancel := context.WithTimeout(context.Background(), agentupdate.CheckTimeout)
+		defer cancel()
+		out, err := env.Version(c, s.Path)
+		if err != nil {
+			return ""
+		}
+		return agentupdate.ParseVersion(out)
+	}
+	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), run, installedNow)
 }
 
 // update chooses the agents to update, shows each command, asks, and runs only what was agreed.
 // It is the person's own terminal action, like running the npm command themselves: a run using the
 // CLI at that moment keeps whatever npm leaves, so the confirmation says to update between runs.
-func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, run func(string, []string) error) int {
+// Each agent is updated at most once, however often it is named. installedNow, when set, reads the
+// installed version again right before each install, after the yes: if it can't be read, or is no
+// longer older than the latest found, nothing is installed for that agent.
+func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, run func(string, []string) error, installedNow func(agentupdate.Status) string) int {
 	outdated := agentupdate.Outdated(sts)
 	var chosen []agentupdate.Status
 	switch {
@@ -89,7 +104,10 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 			found := false
 			for _, s := range outdated {
 				if s.Agent.ID == n || s.Agent.Binary == n {
-					chosen, found = append(chosen, s), true
+					found = true
+					if !slices.ContainsFunc(chosen, func(c agentupdate.Status) bool { return c.Agent.ID == s.Agent.ID }) {
+						chosen = append(chosen, s)
+					}
 				}
 			}
 			if !found {
@@ -146,6 +164,18 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		if !yes && !confirm(w, reader, "  Run it? [y/N] ") {
 			fmt.Fprintln(w, "  skipped")
 			continue
+		}
+		if installedNow != nil {
+			now := installedNow(s)
+			if now == "" {
+				fmt.Fprintf(w, "  not updated: the installed version could not be read again\n")
+				failed++
+				continue
+			}
+			if !agentupdate.Newer(s.Latest, now) {
+				fmt.Fprintf(w, "  not updated: %s is now installed, which is not older than %s\n", now, s.Latest)
+				continue
+			}
 		}
 		if err := run(s.Command[0], s.Command[1:]); err != nil {
 			fmt.Fprintf(w, "  failed: %v\n", err)

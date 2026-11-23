@@ -40,6 +40,8 @@ type agentUpdates struct {
 	checked   bool
 	list      []AgentUpdate
 	unchecked []UncheckedAgent
+	// seen is, per agent ID, its binary and the stamp taken when its version was read.
+	seen map[string][2]string
 }
 
 // set replaces the report with what a check found. An agent the check could not finish (no answer
@@ -53,7 +55,9 @@ func (u *agentUpdates) set(sts []agentupdate.Status) {
 	prev := u.list
 	u.checked = true
 	next, unchecked := []AgentUpdate{}, []UncheckedAgent{}
+	u.seen = map[string][2]string{}
 	for _, s := range sts {
+		u.seen[s.Agent.ID] = [2]string{s.Agent.Binary, s.Stamp}
 		switch {
 		case s.Agent.Package == "":
 			// Not checked at all (no known package): nothing to report.
@@ -78,11 +82,36 @@ func (u *agentUpdates) set(sts []agentupdate.Status) {
 
 // report is what the next claim carries: none until the startup check has finished, so the control
 // plane keeps what it had; then the list (possibly empty, sent as []) and the unchecked agents.
-func (u *agentUpdates) report() []AgentReport {
+//
+// stamp, when set, says what each agent's binary on PATH is now (agentupdate.Stamp: a file stat, no
+// process and no network). An agent whose binary changed since its version was read, because it
+// was installed, updated or removed while the daemon ran, loses its update and the installed
+// version on its unchecked entry, for good: the version read at startup may no longer be the one
+// installed, so the update could offer the same version or an older one. The next startup check
+// reads it again.
+func (u *agentUpdates) report(stamp func(binary string) string) []AgentReport {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	if !u.checked {
 		return nil
+	}
+	if stamp != nil {
+		changed := func(id string) bool {
+			s := u.seen[id] // every reported agent was seen by the check that reported it
+			return stamp(s[0]) != s[1]
+		}
+		kept := u.list[:0:0]
+		for _, e := range u.list {
+			if !changed(e.Agent) {
+				kept = append(kept, e)
+			}
+		}
+		u.list = kept
+		for i := range u.unchecked {
+			if u.unchecked[i].Installed != "" && changed(u.unchecked[i].Agent) {
+				u.unchecked[i].Installed = ""
+			}
+		}
 	}
 	return []AgentReport{{List: append([]AgentUpdate{}, u.list...), Unchecked: append([]UncheckedAgent(nil), u.unchecked...)}}
 }

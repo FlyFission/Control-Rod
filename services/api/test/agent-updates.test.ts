@@ -35,6 +35,11 @@ describe("agent updates", () => {
       { ...grok, latest: "1.0.92 && rm -rf ~" },
       { ...grok, latest: "1.0.92+build" },
       { ...grok, last_attempt: { outcome: "done" } },
+      // Not an update: no installed version, installed equal to latest, or installed past it.
+      { agent: "claude", name: "Claude Code", latest: "2.0.0", npm_global: true },
+      { agent: "claude", name: "Claude Code", installed: "2.0.0", latest: "2.0.0", npm_global: true },
+      { agent: "opencode", name: "OpenCode", installed: "1.20.0", latest: "1.19.6", npm_global: true },
+      { agent: "opencode", name: "OpenCode", installed: "1.19.6", latest: "1.19.6-rc.1", npm_global: true },
     ]);
     expect((await view()).agent_updates).toEqual([grok, brew]);
     // A claim without the field (startup check still running) keeps what was reported.

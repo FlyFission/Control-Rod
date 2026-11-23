@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { newer, strictVersion } from "../lib/semver.js";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { AgentUpdate } from "../api/types.js";
@@ -22,18 +23,21 @@ const PACKAGE: Partial<Record<AgentUpdate["agent"], string>> = {
   opencode: "opencode-ai",
   grok: "@xai-official/grok",
 };
-/** SemVer 2.0 without build metadata, the same pattern as the contract's `latest`. */
-const SEMVER = /^(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})(-(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?$/;
+
+/**
+ * Whether the entry is an update at all: both versions strict SemVer (without build metadata, as
+ * the contract requires) and `latest` newer than `installed` by SemVer precedence. An entry without
+ * an installed version, or with one equal to or past `latest`, is no update and is not shown.
+ */
+const isUpdate = (u: AgentUpdate) => strictVersion(u.installed) && strictVersion(u.latest) && newer(u.latest, u.installed);
 
 /**
  * The command shown and copied, built here from fixed parts: never text from the daemon or the
- * control plane. Undefined unless the daemon found npm's global copy and `latest` is strict SemVer.
+ * control plane. Undefined unless the entry is an update and the daemon found npm's global copy.
  */
-const validVersion = (v: string) => v.length <= 64 && SEMVER.test(v);
-
 export function npmCommand(u: AgentUpdate): string | undefined {
   const pkg = PACKAGE[u.agent];
-  if (!u.npm_global || !pkg || !validVersion(u.latest)) return undefined;
+  if (!u.npm_global || !pkg || !isUpdate(u)) return undefined;
   return `npm install --global ${pkg}@${u.latest}`;
 }
 
@@ -61,7 +65,7 @@ export function AgentUpdates() {
 
   // An entry whose version is not strict SemVer is not shown at all, and one agent at one version
   // is shown once.
-  const shown = (q.data?.agent_updates ?? []).filter((u, i, all) => validVersion(u.latest) && !dismissed.includes(keyOf(u)) && all.findIndex((o) => keyOf(o) === keyOf(u)) === i);
+  const shown = (q.data?.agent_updates ?? []).filter((u, i, all) => isUpdate(u) && !dismissed.includes(keyOf(u)) && all.findIndex((o) => keyOf(o) === keyOf(u)) === i);
   if (shown.length === 0) return null;
 
   const dismiss = (keys: string[]) => {
@@ -103,7 +107,7 @@ export function AgentUpdates() {
             </div>
             <div className="au-row">
               <span className="mono small">
-                <span className="muted">{u.installed ? `v${u.installed}` : "unknown"}</span> → <strong>v{u.latest}</strong>
+                <span className="muted">v{u.installed}</span> → <strong>v{u.latest}</strong>
               </span>
               {npmCommand(u) ? (
                 <button type="button" className="btn small" onClick={() => void copy(u)}>

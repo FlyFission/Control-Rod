@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
-import { AgentUpdates } from "./AgentUpdates.js";
+import { AgentUpdates, npmCommand } from "./AgentUpdates.js";
 
 /** Agent updates (change record agent-update-prompt, AU-07). */
 
@@ -117,6 +117,22 @@ describe("Agent updates", () => {
     expect(await within(rows[1]!).findByRole("button", { name: "Copied" })).toBeTruthy();
     expect(within(rows[0]!).getByRole("button", { name: "Copy command" })).toBeTruthy();
     expect(await navigator.clipboard.readText()).toBe("npm install --global @xai-official/grok@1.0.93");
+  });
+
+  it("shows no entry and no command unless latest is newer than installed", async () => {
+    updates = [
+      grok,
+      { agent: "claude", name: "Claude Code", latest: "2.0.0", npm_global: true },
+      { agent: "codex", name: "Codex CLI", installed: "0.171.0", latest: "0.171.0", npm_global: true },
+      { agent: "opencode", name: "OpenCode", installed: "1.20.0", latest: "1.19.6", npm_global: true },
+    ];
+    await renderPage(<AgentUpdates />);
+    const panel = await screen.findByRole("region", { name: "1 agent update" });
+    expect(within(panel).getByText("Grok CLI")).toBeTruthy();
+    for (const name of ["Claude Code", "Codex CLI", "OpenCode"]) expect(within(panel).queryByText(name)).toBeNull();
+    expect(npmCommand({ agent: "codex", name: "Codex CLI", installed: "0.172.0", latest: "0.171.0", npm_global: true })).toBeUndefined();
+    expect(npmCommand({ agent: "codex", name: "Codex CLI", latest: "0.171.0", npm_global: true } as never)).toBeUndefined();
+    expect(npmCommand({ agent: "codex", name: "Codex CLI", installed: "0.170.0", latest: "0.171.0", npm_global: true })).toBe("npm install --global @openai/codex@0.171.0");
   });
 
   it("disappears when a refetch finds every agent current", async () => {

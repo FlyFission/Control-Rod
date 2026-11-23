@@ -3340,7 +3340,8 @@ export interface components {
         "Runner.AgentUpdate": {
             agent: components["schemas"]["Runner.AgentId"];
             name: string;
-            installed?: string;
+            /** @description The installed version: strict SemVer 2.0 without build metadata; `latest` is newer. */
+            installed: string;
             /** @description The latest published version: strict SemVer 2.0 without build metadata. */
             latest: string;
             /**

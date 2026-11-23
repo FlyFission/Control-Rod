@@ -1455,7 +1455,8 @@ namespace Runner {
   model AgentUpdate {
     agent: AgentId;
     @maxLength(60) name: string;
-    @maxLength(64) installed?: string;
+    /** The installed version: strict SemVer 2.0 without build metadata; `latest` is newer. */
+    @maxLength(64) @pattern("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$") installed: string;
     /** The latest published version: strict SemVer 2.0 without build metadata. */
     @maxLength(64) @pattern("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$") latest: string;
 
@@ -1468,6 +1469,7 @@ namespace Runner {
 
     /** Why no command is offered, in a sentence. */
     @maxLength(300) note?: string;
+    ...Record<never>;
   }
 
   /**
@@ -1479,6 +1481,8 @@ namespace Runner {
   model UncheckedAgent {
     agent: AgentId;
     @maxLength(64) @pattern("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$") installed?: string;
+
+    ...Record<never>;
   }
   @minLength(1)
   @maxLength(100)

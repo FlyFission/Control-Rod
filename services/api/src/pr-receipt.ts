@@ -241,7 +241,8 @@ export function formatPrReceipt(input: PrReceiptInput): string {
       lines.splice(1, 0, `<!-- controlrod-check-binding: ${binding} -->`);
       lines.push(`- **Verify offline:** save this receipt as \`pr-receipt.md\`, then \`pnpm cr verify --receipt pr-receipt.md ${sanitizeCode(p.bundlePath)}\` (checks this receipt's package, revision and diff against the bundle; ${digestPart}${sealText}; ${NOT_WITNESSED})`);
     } else {
-      lines.push(`- **Verify offline:** \`pnpm cr verify ${sanitizeCode(p.bundlePath)}\` (${digestPart}${sealText}; ${NOT_WITNESSED})`);
+      const noDiff = p.authenticated && input.acceptance && !p.diffSha256 ? "no single patch digest recorded, so no diff binding; " : "";
+      lines.push(`- **Verify offline:** \`pnpm cr verify ${sanitizeCode(p.bundlePath)}\` (${noDiff}${digestPart}${sealText}; ${NOT_WITNESSED})`);
     }
   } else {
     lines.push("- **Verify offline:** no inclusion proof attached");
@@ -287,6 +288,8 @@ export interface ReceiptBindingExpectation {
   expectedDiffSha256?: string | undefined;
   expectedHeadSha?: string | undefined;
   receiptText?: string | undefined;
+  /** External trust anchors; they change how the accepted-by line is rendered, so receipt claims are compared under them. */
+  trustedSealKeys?: ReadonlyMap<string, string> | undefined;
 }
 
 export interface BundleInspection {
@@ -302,6 +305,9 @@ function addHexDigest(target: Set<string>, raw: unknown) {
   if (hex) target.add(hex.toLowerCase());
 }
 
+/** Author outputs are the PR diff only when the recorded name is a patch (`*.patch` or `*.diff`). */
+const PATCH_NAME = /\.(?:patch|diff)$/i;
+
 function collectOutputsAndRefs(
   data: Record<string, unknown>,
   digests: Set<string>,
@@ -312,7 +318,8 @@ function collectOutputsAndRefs(
     for (const o of data.outputs) {
       if (o && typeof o === "object") {
         const rec = o as Record<string, unknown>;
-        addHexDigest(digests, rec.sha256 ?? rec.digest);
+        // Only a patch counts as the diff; any other output digest is not a diff binding.
+        if (typeof rec.name === "string" && PATCH_NAME.test(rec.name)) addHexDigest(digests, rec.sha256 ?? rec.digest);
       }
     }
   }
@@ -574,6 +581,12 @@ export function parseReceiptBinding(text: string): ReceiptBindingExpectation | n
   return null;
 }
 
+const CLAIM_LINE = /^(?:- \*\*(?:Package|Written by|Checked blind by|Checked by|Accepted by):\*\*|> \*\*(?:UNAUTHENTICATED|UNVERIFIED SEAL KEY))/;
+
+function receiptClaimLines(md: string): string[] {
+  return md.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => CLAIM_LINE.test(l));
+}
+
 export function checkBundleReceiptBinding(
   bundle: InclusionBundle,
   authenticated: boolean,
@@ -592,11 +605,23 @@ export function checkBundleReceiptBinding(
     if (!parsed) {
       return { problem: "the receipt or verdict file contains no valid controlrod-check-binding metadata" };
     }
+    const conflicts: string[] = [];
+    const differ = (name: string, a: unknown, b: unknown) => {
+      if (a !== undefined && b !== undefined && a !== b) conflicts.push(name);
+    };
+    differ("package", expect.packageId, parsed.packageId);
+    differ("revision", expect.expectedRevision, parsed.expectedRevision);
+    differ("diff digest", expect.expectedDiffSha256?.toLowerCase(), parsed.expectedDiffSha256);
+    differ("head SHA", expect.expectedHeadSha?.toLowerCase(), parsed.expectedHeadSha);
+    if (conflicts.length) {
+      return { problem: `the explicit options disagree with the receipt's binding (${conflicts.join(", ")})` };
+    }
     resolved = {
       packageId: expect.packageId ?? parsed.packageId,
       expectedRevision: expect.expectedRevision ?? parsed.expectedRevision,
       expectedDiffSha256: expect.expectedDiffSha256 ?? parsed.expectedDiffSha256,
       expectedHeadSha: expect.expectedHeadSha ?? parsed.expectedHeadSha,
+      trustedSealKeys: expect.trustedSealKeys,
     };
   }
 
@@ -615,6 +640,18 @@ export function checkBundleReceiptBinding(
   const acceptance = inspection.input.acceptance;
   if (!acceptance) {
     return { problem: "the bundle has no active authenticated human acceptance matching its current pre-check and revision" };
+  }
+
+  if (expect.receiptText !== undefined && /^### Control Rod receipt\s*$/m.test(expect.receiptText)) {
+    // A Control Rod bundle receipt is regenerated from the bundle; its claim block must match exactly,
+    // so an edited verdict, checker or accepting person cannot verify.
+    const trusted = isSealKeyTrusted(bundle, authenticated, resolved.trustedSealKeys ? { trustedSealKeys: resolved.trustedSealKeys } : undefined);
+    const regenerated = formatPrReceipt(extractBundleInspection(bundle, authenticated, trusted, "", "").input);
+    const want = receiptClaimLines(regenerated);
+    const got = receiptClaimLines(expect.receiptText);
+    if (want.length !== got.length || want.some((l, i) => l !== got[i])) {
+      return { problem: "the receipt's claims (package, writer, checker, verdict, accepting person) do not match what this bundle shows" };
+    }
   }
 
   if (resolved.expectedRevision !== undefined && inspection.currentRevision !== resolved.expectedRevision) {

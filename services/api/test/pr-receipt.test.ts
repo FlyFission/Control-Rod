@@ -234,6 +234,34 @@ describe("PR receipt", () => {
     const v = await verifyBundleText(JSON.stringify(sealed), { receiptText: res.markdown! });
     expect(v.code, v.lines.join("\n")).toBe(0);
     expect(v.lines.join("\n")).toContain("Acceptance link holds");
+    // Editing the verdict, the checker or the accepting person invalidates the receipt.
+    const md = res.markdown!;
+    expect(md).toContain("**PASS**");
+    for (const [from, to] of [["**PASS**", "**FAIL**"], ["`codex`", "`claude`"], ["mem_owner", "mem_other"], ["`claude` (`Anthropic`)", "`grok` (`xAI`)"]] as const) {
+      const edited = await verifyBundleText(JSON.stringify(sealed), { receiptText: md.replace(from, to) });
+      expect(edited.code, `${from} -> ${to}`).toBe(1);
+      expect(edited.lines[0]).toContain("claims");
+    }
+    // Explicit options that disagree with the receipt's binding fail instead of overriding it.
+    const conflict = await verifyBundleText(JSON.stringify(sealed), { receiptText: md, expectedDiffSha256: "f".repeat(64) });
+    expect(conflict.code).toBe(1);
+    expect(conflict.lines[0]).toContain("disagree");
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: md, expectedDiffSha256: diff })).code).toBe(0);
+
+    // An output that is not a patch is not a diff binding.
+    const notPatch = makeSealedBundle("WP-RT-3", [
+      { type: "package.created", subject: "WP-RT-3" },
+      { type: "run.succeeded", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-RT-3", role: "author", round: 1, outputs: [{ name: "notes.txt", sha256: diff }] } },
+      { type: "package.pre-checked", subject: "WP-RT-3", actor: { kind: "agent", id: "codex" }, data: { revision: 0, round: 1, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-RT-3", actor: { kind: "human", id: "mem_owner" }, data: { revision: 0, decision: "D-1", subject_digest: digestVal } },
+    ]);
+    const np = await prReceiptFromBundleText(JSON.stringify(notPatch), "np.json");
+    expect(np.markdown).not.toContain("controlrod-check-binding");
+    expect(np.markdown).toContain("no diff binding");
+    const npv = await verifyBundleText(JSON.stringify(notPatch), { expectedDiffSha256: diff, expectedRevision: 0 });
+    expect(npv.code).toBe(1);
+    expect(npv.lines[0]).toContain("do not cover");
+
     // The same receipt does not verify against another package's bundle.
     const other = makeSealedBundle("WP-RT-2", [
       { type: "package.created", subject: "WP-RT-2" },

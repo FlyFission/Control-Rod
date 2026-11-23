@@ -1,6 +1,7 @@
 import type { Db, Tx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { appendEvent } from "./events.js";
+import { type Caller, authorizeInstallSetting } from "./admin.js";
 import { Refusal } from "./refusal.js";
 
 /**
@@ -11,7 +12,15 @@ import { Refusal } from "./refusal.js";
  * Benching an agent only removes it from what a claim may offer. It can never add a runtime, and the
  * pre-check still refuses the author's own runtime, so benching can make work wait but cannot weaken
  * the independent check.
+ *
+ * Because it changes dispatch for the whole install, only an administrator (or the bootstrap Member of
+ * a single-organization install) may write it. Writes take the claim's dispatch lock, so once a write
+ * returns no claim that read the old seats can still grant work. The chain records seat changes only;
+ * the check-in answer is a preference and stays out of the exportable chain.
  */
+
+/** The lock every claim takes before reading seats (work.ts claim). */
+export const DISPATCH_LOCK = "select pg_advisory_xact_lock(hashtext('controlrod-budget'))";
 
 export const CHECK_IN = ["start", "start-and-merge", "every-step"] as const;
 export type CheckIn = (typeof CHECK_IN)[number];
@@ -75,22 +84,48 @@ export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in
   return { seats, check_in: b.check_in as CheckIn };
 }
 
-/** Records the confirmed setup and puts the change on the event chain, with who made it. */
-export async function recordSetup(db: Db, memberId: string, body: unknown): Promise<AgentSetupView> {
+/** Records the confirmed setup (the setup page's Looks right). Seat changes go on the event chain. */
+export async function recordSetup(db: Db, caller: Caller, body: unknown): Promise<AgentSetupView> {
   const req = parseSetupRequest(body);
   return command(db, "setup.record", async (c) => {
+    await authorizeInstallSetting(c, caller);
+    await c.query(DISPATCH_LOCK);
     const before = await setupView(c);
     const view: AgentSetupView = { confirmed: true, confirmed_at: new Date().toISOString(), seats: req.seats, check_in: req.check_in };
-    await c.query(
-      "insert into settings (key, value) values ($1, $2) on conflict (key) do update set value = excluded.value",
-      [KEY, JSON.stringify(view)],
-    );
-    await appendEvent(c, "setup.recorded", "setup", { kind: "human", id: memberId }, {
-      seated: req.seats.filter((s) => s.seated).map((s) => s.runtime),
-      benched: req.seats.filter((s) => !s.seated).map((s) => s.runtime),
-      check_in: req.check_in,
-      first: !before.confirmed,
-    });
+    await write(c, view);
+    await seatEvent(c, caller, before, view);
     return view;
   });
+}
+
+/** One switch on the Agents roster: changes that seat only, keeping the others and whether setup was confirmed. */
+export async function recordSeat(db: Db, caller: Caller, runtime: string, body: unknown): Promise<AgentSetupView> {
+  if (!SEATABLE.includes(runtime as never)) throw new Refusal(400, "invalid-setup", `There is no agent called ${runtime.slice(0, 40)}`);
+  const seated = (body as Json | undefined)?.seated;
+  if (typeof seated !== "boolean") throw new Refusal(400, "invalid-setup", `Say whether ${runtime} is seated`);
+  return command(db, "setup.record", async (c) => {
+    await authorizeInstallSetting(c, caller);
+    await c.query(DISPATCH_LOCK);
+    const before = await setupView(c);
+    const seats = [...before.seats.filter((s) => s.runtime !== runtime), { runtime, seated }].sort(
+      (a, b) => SEATABLE.indexOf(a.runtime as never) - SEATABLE.indexOf(b.runtime as never),
+    );
+    const view: AgentSetupView = { ...before, seats };
+    await write(c, view);
+    await seatEvent(c, caller, before, view);
+    return view;
+  });
+}
+
+async function write(c: Tx, view: AgentSetupView) {
+  await c.query("insert into settings (key, value) values ($1, $2) on conflict (key) do update set value = excluded.value", [KEY, JSON.stringify(view)]);
+}
+
+/** Only seats that changed (a runtime is seated unless benched), so the chain carries dispatch changes and nothing else. */
+async function seatEvent(c: Tx, caller: Caller, before: AgentSetupView, after: AgentSetupView) {
+  const was = (v: AgentSetupView, r: string) => v.seats.find((s) => s.runtime === r)?.seated ?? true;
+  const benched = SEATABLE.filter((r) => was(before, r) && !was(after, r));
+  const seated = SEATABLE.filter((r) => !was(before, r) && was(after, r));
+  if (benched.length === 0 && seated.length === 0) return;
+  await appendEvent(c, "setup.seats-changed", "setup", { kind: "human", id: caller.memberId }, { seated, benched });
 }

@@ -80,9 +80,10 @@ function plainReason(reason: string, runtime: string): string {
 }
 
 /**
- * What the person is setting up, read back before anything is saved. It follows the dispatcher: the
- * author is the first ready, seated agent in roster order; the checker is the next one from another
- * vendor (pickChecker never gives a check to the author's own runtime).
+ * What the person is setting up, read back before anything is saved. It is a preview, not a promise:
+ * it follows the dispatcher's order (the author is the first ready, seated agent; the checker the next
+ * from another vendor, never the author's own runtime), but a card's lane, pins and sandbox can still
+ * change who takes a given job.
  */
 export function readBack(rows: AgentRow[]): string {
   const working = rows.filter((r) => r.seated && r.state === "ready");
@@ -92,8 +93,8 @@ export function readBack(rows: AgentRow[]): string {
   const author = working[0]!;
   const checker = working.find((r) => r.info.vendor !== author.info.vendor);
   if (!checker)
-    return `${author.info.name} writes the work. Nobody from another vendor can check it yet, so checks wait for a second agent.${later}`;
-  return `${author.info.name} writes the work and ${checker.info.name} checks it without seeing how it was written.${later}`;
+    return `As things stand, ${author.info.name} would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override.${later}`;
+  return `As things stand, ${author.info.name} would write the work and ${checker.info.name} would check it without seeing how it was written.${later}`;
 }
 
 function list(names: string[]): string {

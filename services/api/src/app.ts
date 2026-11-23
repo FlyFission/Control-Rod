@@ -32,7 +32,7 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
-import { recordSetup, setupView } from "./setup.js";
+import { recordSeat, recordSetup, setupView } from "./setup.js";
 import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
@@ -670,7 +670,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   app.put("/setup", async (req) => {
     const caller = await callerFor(db, await person(req));
-    return recordSetup(db, caller.memberId, req.body);
+    return recordSetup(db, caller, req.body);
+  });
+  /** One Agents roster switch: that seat only. */
+  app.put<{ Params: { runtime: string } }>("/setup/seats/:runtime", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return recordSeat(db, caller, req.params.runtime, req.body);
   });
   /** Provider CLIs the daemon probed. Read-only. No token is accepted or returned. */
   app.get("/subscriptions", async (req) => {

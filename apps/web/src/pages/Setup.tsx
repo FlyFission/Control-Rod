@@ -74,14 +74,17 @@ export function Setup() {
       <section className="panel readback" aria-labelledby="setup-readback-title" aria-live="polite">
         <h2 id="setup-readback-title">Here's what you're setting up</h2>
         <p>{readBack(rows)}</p>
-        <p>We'll check with you {choice.label.toLowerCase()}.</p>
+        <p>
+          Check-in preference: {choice.label.toLowerCase()}.
+          {!choice.today && " Today every card still stops at the start and before merge."}
+        </p>
         {agents.save.error && (
           <p role="alert" className="error">
             {agents.save.error.message}
           </p>
         )}
         <div className="row setup-actions">
-          <button type="button" className="btn primary" disabled={agents.loading || agents.save.isPending} onClick={confirm}>
+          <button type="button" className="btn primary" disabled={agents.loading || agents.error || agents.save.isPending} onClick={confirm}>
             Looks right
           </button>
           <button type="button" className="btn" onClick={() => top.current?.focus()}>

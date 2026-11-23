@@ -6741,7 +6741,7 @@
       },
       "put": {
         "operationId": "recordSetup",
-        "description": "Records the person's confirmed setup. Each change is an event on the chain.",
+        "description": "Records the person's confirmed setup. Seat changes are events on the chain; the check-in answer is a preference and is not.",
         "parameters": [],
         "responses": {
           "200": {
@@ -6821,6 +6821,112 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AgentSetupRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/setup/seats/{runtime}": {
+      "put": {
+        "operationId": "recordSeat",
+        "description": "One Agents roster switch: changes that seat only, and does not confirm setup.",
+        "parameters": [
+          {
+            "name": "runtime",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSetupView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "seated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "seated"
+                ]
               }
             }
           }

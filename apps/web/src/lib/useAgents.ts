@@ -13,6 +13,10 @@ export function useAgents() {
     mutationFn: (body: AgentSetupRequest) => api.recordSetup(body),
     onSuccess: (view: AgentSetupView) => qc.setQueryData(["setup"], view),
   });
+  const seat = useMutation({
+    mutationFn: ({ runtime, seated }: { runtime: AgentId; seated: boolean }) => api.recordSeat(runtime, seated),
+    onSuccess: (view: AgentSetupView) => qc.setQueryData(["setup"], view),
+  });
   const rows: AgentRow[] = agentRows(runtimes.data?.runtimes, subs.data, setup.data);
   return {
     rows,
@@ -25,6 +29,7 @@ export function useAgents() {
       void setup.refetch();
     },
     save,
+    seat,
   };
 }
 

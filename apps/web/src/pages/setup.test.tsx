@@ -50,6 +50,11 @@ function api(setup: object = fresh, onPut?: (body: unknown) => void) {
       onPut?.(body);
       return HttpResponse.json({ confirmed: true, confirmed_at: AT, ...body });
     }),
+    http.put("*/setup/seats/:runtime", async ({ request, params }) => {
+      const body = (await request.json()) as { seated: boolean };
+      onPut?.({ runtime: params.runtime, ...body });
+      return HttpResponse.json({ ...(setup as object), seats: [{ runtime: params.runtime, seated: body.seated }] });
+    }),
     http.get("*/roster", () => HttpResponse.json({ roles: [], baselines: [], baselines_recorded: false, versions: [], sandbox: { policies: [], launched: [] } })),
     http.get("*/admin", () => HttpResponse.json({ actions: [] })),
   );
@@ -75,14 +80,14 @@ describe("agent rows", () => {
   it("reads back who writes and who checks, following the dispatcher", () => {
     const ready = runtimes.runtimes.map((r) => ({ ...r, ready: true }));
     expect(readBack(agentRows(ready, subscriptions as never, fresh as never))).toBe(
-      "Claude Code writes the work and Codex checks it without seeing how it was written.",
+      "As things stand, Claude Code would write the work and Codex would check it without seeing how it was written.",
     );
     expect(readBack(agentRows(runtimes.runtimes, subscriptions as never, fresh as never))).toBe(
-      "Claude Code writes the work. Nobody from another vendor can check it yet, so checks wait for a second agent. Codex is seated and will join once it's ready.",
+      "As things stand, Claude Code would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override. Codex is seated and will join once it's ready.",
     );
     const benched = { confirmed: true, seats: [{ runtime: "claude", seated: false }], check_in: "start" };
     expect(readBack(agentRows(ready, subscriptions as never, benched as never))).toBe(
-      "Codex writes the work. Nobody from another vendor can check it yet, so checks wait for a second agent.",
+      "As things stand, Codex would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override.",
     );
   });
 
@@ -106,13 +111,26 @@ describe("first-run setup", () => {
     await user.click(screen.getByRole("radio", { name: /Just at the start/ }));
     const back = screen.getByRole("region", { name: "Here's what you're setting up" });
     expect(within(back).getByText(/No agent at the table can work yet/)).toBeTruthy();
-    expect(within(back).getByText("We'll check with you just at the start.")).toBeTruthy();
+    expect(within(back).getByText(/Check-in preference: just at the start\. Today every card still stops at the start and before merge\./)).toBeTruthy();
     expect(screen.getByText(/Saved for when check-in points arrive/)).toBeTruthy();
     expect(sent).toHaveLength(0);
 
     await user.click(screen.getByRole("button", { name: "Looks right" }));
     await vi.waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]).toEqual({ seats: [{ runtime: "claude", seated: false }, { runtime: "codex", seated: true }], check_in: "start" });
+  });
+
+  it("gives each copy button its command as its name, and says so when copying is not possible", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/runtimes", () => HttpResponse.json({ ...runtimes, runtimes: [] })),
+      http.get("*/subscriptions", () => HttpResponse.json({ ...subscriptions, probes: [{ ...subscriptions.probes[1], installed: true, auth: "signed-out" }] })),
+      http.get("*/setup", () => HttpResponse.json(fresh)),
+    );
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+    await renderPage(<Setup />);
+    await user.click(await screen.findByRole("button", { name: "Copy codex login" }));
+    expect(await screen.findByText(/Couldn't copy here/)).toBeTruthy();
   });
 
   it("lists agents that are not found or not supported yet under Add an agent, without switches", async () => {
@@ -133,7 +151,8 @@ describe("agents roster", () => {
     expect(screen.getByRole("heading", { name: "Agents roster" })).toBeTruthy();
     await user.click(await screen.findByRole("switch", { name: "Codex" }));
     await vi.waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toEqual({ seats: [{ runtime: "claude", seated: true }, { runtime: "codex", seated: false }], check_in: "start-and-merge" });
+    // One seat only: the other seats, the answer and whether setup was confirmed are left alone.
+    expect(sent[0]).toEqual({ runtime: "codex", seated: false });
     expect(screen.getByText(/Advanced: versions, pins, sandbox and probe details/).closest("details")?.open).toBe(false);
   });
 });

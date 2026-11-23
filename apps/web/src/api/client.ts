@@ -201,6 +201,7 @@ export const api = {
   subscriptions: () => call<SubscriptionView>("GET", "/subscriptions"),
   setup: () => call<AgentSetupView>("GET", "/setup"),
   recordSetup: (body: AgentSetupRequest) => call<AgentSetupView>("PUT", "/setup", body),
+  recordSeat: (runtime: string, seated: boolean) => call<AgentSetupView>("PUT", `/setup/seats/${enc(runtime)}`, { seated }),
   admin: () => call<AdminView>("GET", "/admin"),
   roster: () => call<RosterView>("GET", "/roster"),
   usage: () => call<UsageView>("GET", "/usage"),

@@ -1179,8 +1179,25 @@ export interface paths {
          *     checks with them. Nothing is recorded until the person confirms what was read back to them.
          */
         get: operations["setup"];
-        /** @description Records the person's confirmed setup. Each change is an event on the chain. */
+        /** @description Records the person's confirmed setup. Seat changes are events on the chain; the check-in answer is a preference and is not. */
         put: operations["recordSetup"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/seats/{runtime}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description One Agents roster switch: changes that seat only, and does not confirm setup. */
+        put: operations["recordSeat"];
         post?: never;
         delete?: never;
         options?: never;
@@ -8177,6 +8194,88 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AgentSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSetupView"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    recordSeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtime: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    seated: boolean;
+                };
             };
         };
         responses: {

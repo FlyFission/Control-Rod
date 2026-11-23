@@ -1050,10 +1050,6 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
 }
 
 export async function claim(db: Db, cfg: WorkConfig, offered: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number) {
-  // Agents the person benched in setup are left out of every offer. Removing a runtime can only make
-  // work wait; pickChecker still refuses the author's runtime, so independence is unchanged.
-  const benched = await benchedRuntimes(db);
-  const runtimes = offered.filter((r) => !benched.has(r));
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
   const ceiling = runCeilingSeconds === undefined ? undefined : { runSeconds: runCeilingSeconds, marginSeconds: heartbeatSeconds(cfg) + leaseSeconds(cfg) };
@@ -1062,6 +1058,11 @@ export async function claim(db: Db, cfg: WorkConfig, offered: string[], artifact
     // The budget lock, before any event is written here: every claim takes it in this order, so two
     // dispatches cannot both take a hard cap's last room, and no claim waits on another the other way.
     await c.query("select pg_advisory_xact_lock(hashtext('controlrod-budget'))");
+    // Agents benched in setup are left out of every offer, read under the same lock a seat change
+    // takes, so a bench that has returned is never followed by a grant to that agent. Removing a
+    // runtime can only make work wait; pickChecker still refuses the author's runtime.
+    const benched = await benchedRuntimes(c);
+    const runtimes = offered.filter((r) => !benched.has(r));
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
     let cursor: { at: string; id: string } | null = null;

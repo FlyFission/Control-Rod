@@ -715,10 +715,15 @@ model SubscriptionView {
 @get
 op setup(): AgentSetupView;
 
-/** Records the person's confirmed setup. Each change is an event on the chain. */
+/** Records the person's confirmed setup. Seat changes are events on the chain; the check-in answer is a preference and is not. */
 @route("/setup")
 @put
 op recordSetup(@body body: AgentSetupRequest): AgentSetupView | Refused;
+
+/** One Agents roster switch: changes that seat only, and does not confirm setup. */
+@route("/setup/seats/{runtime}")
+@put
+op recordSeat(@path runtime: string, @body body: { seated: boolean }): AgentSetupView | Refused;
 
 /**
  * When Control Rod should stop and check with the person (ADR 0024 decision 7). The middle answer is

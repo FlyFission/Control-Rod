@@ -18,7 +18,7 @@ Each draft must validate against the WorkPackage contract (schema_version "0.1.0
 - `rigor_mode`: "administrative" for internal notes, "quick" for anything leaving the owner's hands, "standard" for engineering deliverables.
 - `data_lane`: "internal" unless the request says otherwise.
 - `objective`: one or two sentences in plain words.
-- `deliverables`: each with an `id`, a `type` and the file `format`s you will produce. Nothing else: no `description`.
+- `deliverables`: each with an `id`, a `type` and a `format` list (an array of strings, even for one format), and nothing else: no `description`. For example `{ "id": "scope", "type": "document", "format": ["pdf"] }`.
 - `design_inputs`: the inputs this work relies on, each with `doc`, `revision` (a string) and `use` (one sentence on what this work takes from it), and optionally `title`. Use an empty list when there are none. For the request itself, use `doc: "request"` and `revision: "0"`. For an attachment the owner provided, use `doc: "attachment:<file name>"`. For the output of another package in this request, use `doc: "<that package id>"` and `revision: "0"`. Design inputs are citations; they do not make this package wait.
 - `depends_on`: the packages that must be accepted before this one starts, as `{ "package_id": "<that package id>", "reason": "<why>" }`. List a package here only when this work truly cannot begin without its accepted output; packages with no dependencies run in parallel. Never list this package itself, and never make two packages wait on each other.
 - `agent_assignment`: one entry; `role` names the brief the author will follow (for example "general-author" or a role from the job guidance below), `agent_baseline` "author", `baseline_revision` 0.

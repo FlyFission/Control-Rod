@@ -16,11 +16,21 @@ const schema = (name: string) => JSON.parse(readFileSync(join(schemaDir, `${name
 /** Fields finishIntake stamps over whatever the agent wrote, so the brief need not name them correctly. */
 const STAMPED = new Set(["schema_version"]);
 
+/** The brief's bullet for a field, so a nested record's fields are looked for where that record is described. */
+const bullet = (field: string) => brief.split("\n").find((l) => l.startsWith(`- \`${field}\``)) ?? "";
+const named = (text: string, f: string) => new RegExp("`" + f + "[`:]").test(text);
+
 describe("intake brief", () => {
-  for (const name of ["WorkPackage", "DesignInput", "Assumption", "Deliverable"]) {
-    it(`names every field ${name} requires`, () => {
-      const missing = (schema(name).required ?? []).filter((f) => !STAMPED.has(f) && !new RegExp("`" + f + "[`:]").test(brief));
-      expect(missing, `the intake brief does not mention ${missing.join(", ")}`).toEqual([]);
+  it("names every field WorkPackage requires", () => {
+    const missing = (schema("WorkPackage").required ?? []).filter((f) => !STAMPED.has(f) && !named(brief, f));
+    expect(missing, `the intake brief does not mention ${missing.join(", ")}`).toEqual([]);
+  });
+  for (const [name, field] of [["DesignInput", "design_inputs"], ["Assumption", "assumptions"], ["Deliverable", "deliverables"]] as const) {
+    it(`names every field ${name} requires in its own \`${field}\` line`, () => {
+      const line = bullet(field);
+      expect(line, `no \`${field}\` line in the brief`).not.toBe("");
+      const missing = (schema(name).required ?? []).filter((f) => !named(line, f));
+      expect(missing, `the \`${field}\` line does not mention ${missing.join(", ")}`).toEqual([]);
     });
   }
 

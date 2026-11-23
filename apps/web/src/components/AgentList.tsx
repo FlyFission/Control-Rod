@@ -92,24 +92,26 @@ function AgentItem({ row, onToggle, busy }: { row: AgentRow; onToggle: (id: Agen
 }
 
 function FixCommand({ command, label }: { command: string; label: string }) {
-  const [copied, setCopied] = useState(false);
+  const [result, setResult] = useState<"" | "copied" | "failed">("");
+  const copy = () => {
+    const done = navigator.clipboard?.writeText(command);
+    if (!done) return setResult("failed");
+    done.then(
+      () => setResult("copied"),
+      () => setResult("failed"),
+    );
+  };
   return (
     <p className="agent-fix small">
       <span className="muted">{label} </span>
       <code className="mono">{command}</code>{" "}
-      <button
-        type="button"
-        className="btn small"
-        onClick={() => {
-          void navigator.clipboard?.writeText(command).then(
-            () => setCopied(true),
-            () => setCopied(false),
-          );
-        }}
-      >
-        {copied ? "Copied" : "Copy"}
+      <button type="button" className="btn small" aria-label={`Copy ${command}`} onClick={copy}>
+        Copy
       </button>
-      <span className="muted"> in a terminal. Control Rod checks again within a few minutes.</span>
+      <span className="muted"> in a terminal. Control Rod checks again within a few minutes.</span>{" "}
+      <span role="status" className={result === "failed" ? "error" : "muted"}>
+        {result === "copied" ? "Copied." : result === "failed" ? "Couldn't copy here. Select the command and copy it by hand." : ""}
+      </span>
     </p>
   );
 }

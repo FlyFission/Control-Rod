@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { AgentList } from "../components/AgentList.js";
 import { CHECK_IN_CHOICES, readBack } from "../lib/agents.js";
 import type { Passkeys } from "../lib/decide.js";
-import { seatsOf, setupRequest, useAgents } from "../lib/useAgents.js";
+import { useAgents } from "../lib/useAgents.js";
 import { RosterDetails } from "./Roster.js";
 import { ProviderDetails } from "./Subscriptions.js";
 
@@ -44,18 +44,20 @@ export function AgentsRoster({ passkeys }: { passkeys?: Passkeys } = {}) {
         {!agents.loading && (
           <AgentList
             rows={agents.rows}
-            busy={agents.save.isPending}
-            onToggle={(id, seated) => agents.save.mutate(setupRequest({ ...seatsOf(agents.rows), [id]: seated }, agents.setup?.check_in ?? "start-and-merge"))}
+            // A switch changes that one seat only, and only once the saved seats are known.
+            busy={agents.seat.isPending || agents.setup === undefined}
+            onToggle={(id, seated) => agents.seat.mutate({ runtime: id, seated })}
           />
         )}
-        {agents.save.error && (
+        {agents.seat.error && (
           <p role="alert" className="error">
-            {agents.save.error.message}
+            {agents.seat.error.message}
           </p>
         )}
         {!agents.loading && (
           <p className="readback-line" aria-live="polite">
-            {readBack(agents.rows)} We check with you {checkIn.label.toLowerCase()}. <Link to="/setup">Change</Link>
+            {readBack(agents.rows)} Check-in preference: {checkIn.label.toLowerCase()}
+            {checkIn.today ? "." : " (saved; today every card still stops at the start and before merge)."} <Link to="/setup">Change</Link>
           </p>
         )}
       </section>

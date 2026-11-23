@@ -88,6 +88,8 @@ test.beforeEach(async ({ page }) => {
     if (p === "/captures") return r.fulfill(json([]));
     if (p.startsWith("/events")) return r.fulfill(json([]));
     if (p === "/runtimes") return r.fulfill(json({ runtimes: [{ runtime: "claude", ready: true, version: "2.1.316 (Claude Code)", login_checked: false, artifact: { path: "/home/ben/.npm-global/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe", digest: { algorithm: "sha256", value: "fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824" } } }, { runtime: "codex", ready: false, login_checked: true, reason: "codex is installed but not signed in" }], pins: [] }));
+    if (p === "/setup") return r.fulfill(json({ confirmed: true, confirmed_at: new Date().toISOString(), seats: [], check_in: "start-and-merge" }));
+    if (p === "/subscriptions") return r.fulfill(json({ reported: true, platform: "darwin", probes: [], checkers: [], tiers: [], local_rule: "", pins: [] }));
     if (p === "/metrics") return r.fulfill(json({ packages_accepted: 3, first_pass_accepted: 2, findings_caught_before_review: 5, quick_answers: 4 }));
     return r.fulfill(json([]));
   });

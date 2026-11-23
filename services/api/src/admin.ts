@@ -121,6 +121,18 @@ async function authorize(c: Tx, caller: Caller, need: Need, bootstrap: boolean):
     throw new Refusal(403, "authority-missing", `This needs ${missing.join(" and ")} authority, which your qualification does not include`);
 }
 
+/**
+ * Who may change an install-wide setting such as which agents are seated (setup.ts): an active
+ * Member holding administrator authority, or, before any qualification exists on an install with one
+ * organization, its bootstrap Member. A Member of one organization never changes another's dispatch
+ * by bootstrap alone.
+ */
+export async function authorizeInstallSetting(c: Tx, caller: Caller): Promise<void> {
+  const orgs = await c.query("select 1 from organizations limit 2");
+  const bootstrap = (orgs.rowCount ?? 0) === 1 && (await needsBootstrap(c, caller.orgId));
+  await authorize(c, caller, "administrator", bootstrap);
+}
+
 /** Bundled office themes: each pack's manifest and its digest. Only these can be selected. */
 export function bundledThemes(root: string): Map<string, string> {
   const dir = join(root, "apps", "web", "public", "floor-themes");

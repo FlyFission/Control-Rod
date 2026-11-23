@@ -2,10 +2,10 @@
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web: 706 tests in 53 files, including the new setup/roster tests. `tsc` clean. | `evidence/web.log` |
-| E-02 | pass with 2 environmental failures | API: 837 pass. SEC-01 and SEC-03 in `command-boundary.test.ts` fail identically on unchanged main with this host's test server (its superuser is not the `controlrod` login those tests expect). | `evidence/api.log` |
+| E-01 | pass | Web: 707 tests in 53 files, including the new setup/roster tests. `tsc` clean. | `evidence/web.log` |
+| E-02 | pass with 2 environmental failures | API: 839 pass. SEC-01 and SEC-03 in `command-boundary.test.ts` fail identically on unchanged main with this host's test server (its superuser is not the `controlrod` login those tests expect). | `evidence/api.log` |
 | E-03 | pass | Running app (`pnpm cr start`, Linux container, stand-in `claude`/`codex` scripts so the daemon has something to refuse): first run lands on Setup; Looks right saves; the roster switch benches Codex; phone width reflows. The status text is the daemon's real refusal of a script launcher. | `evidence/*.png` |
-| E-04 | pending | Blind check of the diff by a different vendor (Codex). | PR comment |
+| E-04 | done | Blind review by Codex (gpt-6.2-sol) on the owner's machine at 730f118: one blocker (any member could change install-wide dispatch), three majors (setup data on the chain, seat read before the lock, roster switch replacing all settings and confirming setup), four minors (read-back overclaims, check-in wording, copy buttons, deliverable `format` shape). All addressed in the next commit; R-04, R-05, R-07, R-08. | PR thread |
 
 ## Evidence custody and coupling
 

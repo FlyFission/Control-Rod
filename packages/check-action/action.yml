@@ -88,7 +88,7 @@ outputs:
     description: Git head commit SHA checked
     value: ${{ steps.run.outputs.head-sha }}
   proof-verified:
-    description: Whether inputs.inclusion-proof is authentic and its accepted deliverables cover the checked diff, revision and head commit (true, false, or none). It does not bind this check's checker, verdict or criteria to the bundle's pre-check, so true is not a verified human acceptance of this check.
+    description: Whether inputs.inclusion-proof is authentic and its accepted deliverables cover the checked diff, revision and head commit (true, true-not-head-bound when the bundle records no head commit to compare, false, or none). It does not bind this check's checker, verdict or criteria to the bundle's pre-check, so true is not a verified human acceptance of this check.
     value: ${{ steps.run.outputs.proof-verified }}
   receipt:
     description: Path to the generated Markdown check summary file
@@ -260,6 +260,9 @@ runs:
             set -e
             if [ "$VRC" -eq 0 ]; then
               PROOF_VERIFIED="true"
+              case "$VERIFY_OUT" in
+                *"not head-bound"*) PROOF_VERIFIED="true-not-head-bound" ;;
+              esac
               HAS_ERROR="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("true" if (d.get("error") or "").strip() else "false")' "$VERDICT_FILE" 2>/dev/null || echo true)"
               if [ -f "$RECEIPT_FILE" ]; then
                 printf '\n> **Inclusion proof not bound to this check:** `%s` is authentic and its accepted deliverables cover this diff and revision, but it does not bind this check'"'"'s checker, verdict or acceptance criteria to the bundle'"'"'s pre-check. This is not a verified acceptance of this check.\n' "$INCLUSION_PROOF" >> "$RECEIPT_FILE"

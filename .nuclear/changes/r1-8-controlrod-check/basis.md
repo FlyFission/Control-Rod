@@ -55,9 +55,11 @@ Out of scope:
 ## Verification limits (what the code enforces)
 
 - Offline `pnpm cr verify --receipt` / `--revision` / `--diff-sha256` requires a valid 64-hex diff digest and fails otherwise; the digest must appear among the accepted deliverable digests in the authenticated bundle, and the acceptance must cover the stated revision.
-- A `head_sha` named by the receipt or `--head-sha` must appear in the bundle's events; a bundle that records no head commit fails. A receipt that names no head SHA is not head-bound.
+- The receipt's `package_id` must equal the bundle's package ID (a receipt with no package ID fails). A `head_sha` the bundle records must match the receipt's or verification fails. Platform events do not record head SHAs, so when the bundle records none (or the receipt names none) the remaining fields are verified and the result says "not head-bound"; the Action then reports `proof-verified=true-not-head-bound`. Head binding is claimed only when a recorded commit matches. No head recording was added.
 - The bundle's pre-check checker, verdict and acceptance criteria are **not** bound to a standalone check's checker, verdict or criteria. The Action therefore does not append a "Verified Control Rod acceptance" section to a standalone check receipt; it appends a note that the proof is not bound to this check. The `proof-verified` output means authenticity plus diff/revision/head coverage, not verified acceptance of this check.
 - The Action does not build the offline verifier (`services/api/dist/verify-bundle.js`). With `inclusion-proof` set and the verifier missing, the proof is reported as not verified and the step fails with instructions to run `pnpm --filter @control-rod/api build` or set `CONTROLROD_VERIFY_JS`.
+- The standalone Action not proving acceptance of its own check (its checker, verdict and criteria are not bound to the bundle) is the intended "stop claiming" outcome and is tied to open question 1.
+- `controlrod check` diffs the resolved base/head commit SHAs, not the original refs, and signs its attestation ID with the actual `--revision` (default 1).
 - `controlrod check` refuses `--head-sha` together with `--base`/`--head`; the head commit comes from git in ref mode. In Action git mode `head-ref` defaults to `github.event.pull_request.head.sha` (passed via env), else `HEAD`.
 
 ## Required links

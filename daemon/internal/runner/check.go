@@ -271,7 +271,7 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		Run: Run{
 			ID:              runID,
 			PackageID:       safeWorkspacePackage(pkgID),
-			PackageRevision: 1,
+			PackageRevision: standaloneRevision(cfg.Revision),
 			Role:            "pre-check",
 			AgentBaseline:   "cli-checker-" + checkerID,
 			Runtime: RuntimeRef{
@@ -716,6 +716,19 @@ func resolveGitCommitSHA(ctx context.Context, repo, ref string) (string, error) 
 	return strings.TrimSpace(string(out)), nil
 }
 
+// resolvedDiffRange diffs the commits that were resolved and recorded, never
+// the original refs, which can move between resolution and the diff.
+func resolvedDiffRange(baseSHA, headSHA string) string { return baseSHA + ".." + headSHA }
+
+// standaloneRevision is the package revision used for the standalone job and
+// its signed attestation ID: the caller's --revision, or 1 when none is given.
+func standaloneRevision(rev int) int {
+	if rev > 0 {
+		return rev
+	}
+	return 1
+}
+
 func loadDiff(ctx context.Context, cfg CheckConfig) (diffData, error) {
 	var raw []byte
 	var err error
@@ -759,7 +772,7 @@ func loadDiff(ctx context.Context, cfg CheckConfig) (diffData, error) {
 		if err != nil {
 			return diffData{}, fmt.Errorf("%w: resolve --head %q: %v", ErrCheckUsage, head, err)
 		}
-		cmd, err := HostGitCommand(ctx, repo, "diff", "--no-ext-diff", "--no-textconv", "--text", "--end-of-options", base+".."+head, "--")
+		cmd, err := HostGitCommand(ctx, repo, "diff", "--no-ext-diff", "--no-textconv", "--text", "--end-of-options", resolvedDiffRange(baseSHA, headSHA), "--")
 		if err != nil {
 			return diffData{}, fmt.Errorf("prepare git diff: %w", err)
 		}

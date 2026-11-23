@@ -581,6 +581,13 @@ export function checkBundleReceiptBinding(
     };
   }
 
+  if (expect.receiptText !== undefined && resolved.packageId === undefined) {
+    return { problem: "the receipt or verdict names no package_id, so it cannot be tied to this bundle's package" };
+  }
+  if (resolved.packageId !== undefined && resolved.packageId !== bundle.package_id) {
+    return { problem: `the receipt is for package ${JSON.stringify(resolved.packageId)}, not this bundle's package ${JSON.stringify(bundle.package_id)}` };
+  }
+
   if (!authenticated) {
     return { problem: "the bundle is unsealed, so no authenticated human acceptance covers this PR revision or diff" };
   }
@@ -610,6 +617,9 @@ export function checkBundleReceiptBinding(
     };
   }
 
+  // Head binding holds only when the bundle records a head commit and it matches. A recorded
+  // commit that differs fails above; a bundle that records none is verified as not head-bound.
+  let headBound = false;
   if (resolved.expectedHeadSha !== undefined) {
     const wantHead = resolved.expectedHeadSha.toLowerCase();
     const recordedHeads = inspection.recordedHeadShas.map((s) => s.toLowerCase());
@@ -618,18 +628,14 @@ export function checkBundleReceiptBinding(
         problem: `accepted bundle commit (${recordedHeads.join(", ")}) does not match head commit ${wantHead}`,
       };
     }
-    // A head SHA the receipt names must appear in the bundle's events; absence fails closed.
-    if (!recordedHeads.includes(wantHead)) {
-      return {
-        problem: `accepted bundle records no head commit matching ${wantHead}`,
-      };
-    }
+    headBound = recordedHeads.includes(wantHead);
   }
 
   const detail = [
     inspection.currentRevision !== undefined ? `revision ${inspection.currentRevision}` : "",
     acceptance.decisionId ? `decision ${acceptance.decisionId}` : "",
     resolved.expectedDiffSha256 ? `diff sha256:${shortDigest(resolved.expectedDiffSha256)}` : "",
+    headBound ? `head ${resolved.expectedHeadSha}` : "not head-bound",
   ]
     .filter(Boolean)
     .join(", ");

@@ -217,10 +217,26 @@ describe("pnpm cr verify", () => {
     expect((await verifyBundleText(JSON.stringify(proofA), { receiptText: badDigest })).code).toBe(1);
     expect((await verifyBundleText(JSON.stringify(proofA), { expectedRevision: 1 })).code).toBe(1);
 
-    // Finding 3: a head SHA in the receipt must appear in the sealed events.
+    // A recorded head commit that differs still fails.
+    const wrongHead = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headB}","diff_sha256":"${diffA}"} -->\n`;
+    const wrongHeadR = await verifyBundleText(JSON.stringify(proofA), { receiptText: wrongHead });
+    expect(wrongHeadR.code).toBe(1);
+    expect(wrongHeadR.lines[0]).toContain("does not match head commit");
+    expect(okA.lines.join("\n")).toContain(`head ${headA}`);
+
+    // A bundle that records no head commit verifies the rest and says it is not head-bound.
     const headNone = await verifyBundleText(JSON.stringify(proofNoHead), { receiptText: receiptA });
-    expect(headNone.code).toBe(1);
-    expect(headNone.lines[0]).toContain("records no head commit");
+    expect(headNone.code, headNone.lines.join("\n")).toBe(0);
+    expect(headNone.lines.join("\n")).toContain("not head-bound");
+    expect(headNone.lines.join("\n")).not.toContain(`head ${headA}`);
+
+    // A receipt for another package cannot verify against this bundle's acceptance.
+    const otherPkg = `<!-- controlrod-check-binding: {"package_id":"PR-99","revision":1,"head_sha":"${headA}","diff_sha256":"${diffA}"} -->\n`;
+    const otherPkgR = await verifyBundleText(JSON.stringify(proofA), { receiptText: otherPkg });
+    expect(otherPkgR.code).toBe(1);
+    expect(otherPkgR.lines[0]).toContain("not this bundle's package");
+    const noPkg = `<!-- controlrod-check-binding: {"revision":1,"diff_sha256":"${diffA}"} -->\n`;
+    expect((await verifyBundleText(JSON.stringify(proofA), { receiptText: noPkg })).code).toBe(1);
 
     // Unsealed bundle cannot claim acceptance against any receipt.
     const unsealedA = { ...proofA, seal: null, seal_evidence: undefined, head: { seq: segment.length, digest: segment.at(-1)!.digest.value } };

@@ -586,3 +586,16 @@ func TestRunCheckRefusesHeadSHAWithGitRefs(t *testing.T) {
 		t.Fatalf("got err=%v, want ErrCheckUsage refusing --head-sha with git refs", err)
 	}
 }
+
+func TestStandaloneCheckUsesResolvedSHAsAndActualRevision(t *testing.T) {
+	sha1, sha2 := strings.Repeat("a", 40), strings.Repeat("b", 40)
+	if got := resolvedDiffRange(sha1, sha2); got != sha1+".."+sha2 {
+		t.Fatalf("diff range %q does not use the resolved SHAs", got)
+	}
+	if got := checkID(Run{ID: "chk-1", PackageRevision: standaloneRevision(7)}); got != "chk-1:7" {
+		t.Fatalf("attestation check ID %q does not carry --revision 7", got)
+	}
+	if got := checkID(Run{ID: "chk-1", PackageRevision: standaloneRevision(0)}); got != "chk-1:1" {
+		t.Fatalf("attestation check ID %q, want default revision 1", got)
+	}
+}

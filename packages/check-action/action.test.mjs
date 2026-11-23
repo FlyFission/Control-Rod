@@ -319,7 +319,7 @@ function buildSealedProofForDiff({ packageId, revision, headSha, diffSha256 }) {
       type: "run.succeeded",
       subject: "R-1",
       actor: { kind: "agent", id: "author-claude" },
-      data: { package: packageId, role: "author", round: 1, head_sha: headSha, outputs: [{ name: "diff.patch", sha256: diffSha256 }] },
+      data: { package: packageId, role: "author", round: 1, ...(headSha ? { head_sha: headSha } : {}), outputs: [{ name: "diff.patch", sha256: diffSha256 }] },
     },
     {
       type: "package.pre-checked",
@@ -426,6 +426,7 @@ test("check-action links inclusion proof to PR revision and rejects proof A when
       ...baseRunEnv(controlrodBin, dir, outB, sumB),
       PACKAGE_REVISION: "2",
       PR_HEAD_SHA: "2222222222222222222222222222222222222222",
+      PACKAGE_ID: "PR #1",
       INCLUSION_PROOF: proofAPath,
       CONTROLROD_VERIFY_JS: VERIFY_DIST,
       CONTROLROD_RECEIPT_JS: RECEIPT_DIST,
@@ -458,6 +459,7 @@ test("check-action links inclusion proof to PR revision and rejects proof A when
       ...baseRunEnv(controlrodBin, dir, outA, sumA),
       PACKAGE_REVISION: "1",
       PR_HEAD_SHA: "1111111111111111111111111111111111111111",
+      PACKAGE_ID: "PR #1",
       INCLUSION_PROOF: proofAPath,
       CONTROLROD_VERIFY_JS: VERIFY_DIST,
       CONTROLROD_RECEIPT_JS: RECEIPT_DIST,
@@ -470,6 +472,22 @@ test("check-action links inclusion proof to PR revision and rejects proof A when
     assert.ok(receiptAMd.includes("controlrod-check-binding:"), receiptAMd);
     assert.ok(!receiptAMd.includes("Verified Control Rod acceptance"), receiptAMd);
     assert.ok(receiptAMd.includes("Inclusion proof not bound to this check"), receiptAMd);
+
+    // A bundle that records no head commit verifies as not head-bound, and says so.
+    const proofNoHeadPath = join(dir, "proof-nohead.json");
+    writeFileSync(proofNoHeadPath, JSON.stringify(buildSealedProofForDiff({ packageId: "PR #1", revision: 1, diffSha256: "a".repeat(64) })), "utf8");
+    const outN = join(dir, "outN");
+    writeFileSync(outN, "", "utf8");
+    const rN = runBash(runStep.run, {
+      ...baseRunEnv(controlrodBin, dir, outN, join(dir, "sumN")),
+      PACKAGE_REVISION: "1",
+      PR_HEAD_SHA: "1111111111111111111111111111111111111111",
+      PACKAGE_ID: "PR #1",
+      INCLUSION_PROOF: proofNoHeadPath,
+      CONTROLROD_VERIFY_JS: VERIFY_DIST,
+    });
+    assert.equal(rN.code, 0, rN.stderr);
+    assert.equal(parseOutputs(outN)["proof-verified"], "true-not-head-bound");
 
     const cA = runBash(commentStep.run, {
       PATH: `${fakeBinDir}:${process.env.PATH}`,

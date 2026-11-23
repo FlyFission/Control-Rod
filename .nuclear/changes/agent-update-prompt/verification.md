@@ -11,6 +11,7 @@ Evidence status: **pass** for AU-01 to AU-09 on this host (Linux, Go 1.24.7, Nod
 | E-06 | pass | Codex 0.171.0's captured feature list fails the preflight test before the qualification and passes after; `pnpm cr doctor` on Linux printed the agent section from `go run`. No live Codex run on macOS. | `evidence/red-codex-0.171.0.log`, `evidence/codex-0.171.0-features.md` |
 | E-07 | pass | Blind-check fixes: with the claimed-job guard, the receipt guard, the API version check, the stale-request drop, or the global-npm path check removed, a test fails; each passes when restored. The shared lock on report (finding 4) is reviewed, not exercised by a concurrency test. | `evidence/mutation-blind-check.log` |
 | E-08 | pass | Second review fixes: with the unknown-stop hold, the unconfirmed-group hold, the pre-install re-check, the scoped probe, the local home lock, or the API's exact-fields check removed, a test fails; each passes when restored. The signature-swap test shows an assertion for one version is refused with another. The bounded queue (at most five `{ agent, version }` entries) keeps a take response far under the daemon's 64 KiB read limit; not exercised. | `evidence/mutation-review-2.log` |
+| E-09 | pass | Third review fixes: with the unreadable-boot hold, the shared run lock, the exclusive install lock, the per-daemon take, the outage-keeping merge, or the pre-install fresh-check guard removed, a test fails; each passes when restored. The probe test counts real `--version` calls through stub executables. The signature test reports the swapped version first, so only the signature refuses it. Probe serialization is reviewed, not race-tested. | `evidence/mutation-review-3.log` |
 | E-05 | pass | With the daemon's idle guard removed, the during-a-run test fails; with the API's command check removed, the refusal test fails; both pass when restored. | `evidence/mutation-panel.log` |
 
 ## Evidence custody and coupling
@@ -24,6 +25,7 @@ Evidence status: **pass** for AU-01 to AU-09 on this host (Linux, Go 1.24.7, Nod
 | E-06 | AU-08 | yes | evidence/red-codex-0.171.0.log | Implementing agent | go test | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (failed first) |
 | E-07 | AU-06 | yes | evidence/mutation-blind-check.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-08 | AU-06 | yes | evidence/mutation-review-2.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
+| E-09 | AU-06 | yes | evidence/mutation-review-3.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-05 | AU-06 | yes | evidence/mutation-panel.log | Implementing agent | go test, Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -35,9 +37,10 @@ Evidence status: **pass** for AU-01 to AU-09 on this host (Linux, Go 1.24.7, Nod
 | E-06 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | classification from upstream comments, no live run  [Ship limits](ship.md) |
 | E-07 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | fakes, no real install; lock not race-tested  [Ship limits](ship.md) |
 | E-08 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | fakes, no real install; one daemon per control plane  [Ship limits](ship.md) |
+| E-09 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | fakes, no real install; lock on Linux only  [Ship limits](ship.md) |
 | E-05 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | fakes, no real install  [Ship limits](ship.md) |
 
-An independent blind check (Codex, at 60e74b3) returned seven findings; E-07 covers their fixes. A second blind check at e60de9f closed findings 1, 3, 4, 6 and 7; E-08 covers what it left open and its new findings, except R-12 (one daemon per control plane), recorded as a limit.
+An independent blind check (Codex, at 60e74b3) returned seven findings; E-07 covers their fixes. A second blind check at e60de9f closed findings 1, 3, 4, 6 and 7; E-08 covers what it left open and its new findings, A third check at a468f920 closed the probe and downgrade findings; E-09 covers the rest, including R-12, now controlled.
 
 ## Required links
 

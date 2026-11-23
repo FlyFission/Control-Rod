@@ -111,6 +111,7 @@ func daemon(args []string) int {
 		}
 		cfg.UpdateRun = runUpdate
 	}
+	cfg.AgentLock = agentLockPath()
 	d := runner.New(cfg)
 	if err := d.Run(ctx); err != nil {
 		logger.Error(err.Error())

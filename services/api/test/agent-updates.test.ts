@@ -21,9 +21,11 @@ async function signed(name: string, payload: Json) {
 }
 const grok = { agent: "grok", name: "Grok CLI", installed: "1.0.77", latest: "1.0.92", command: ["npm", "install", "--global", "@xai-official/grok@1.0.92"] };
 const brew = { agent: "codex", name: "Codex CLI", installed: "0.170.0", latest: "0.171.0", note: "installed outside npm" };
-const claim = (agent_updates?: unknown) =>
-  h.app.inject({ method: "POST", url: "/runner/claim", headers: daemonHeaders, payload: { runtimes: [], ...(agent_updates === undefined ? {} : { agent_updates }) } });
-const take = () => h.app.inject({ method: "POST", url: "/runner/agent-updates/take", headers: daemonHeaders, payload: {} });
+const A = "a".repeat(32);
+const B = "b".repeat(32);
+const claim = (agent_updates?: unknown, daemon_id = A) =>
+  h.app.inject({ method: "POST", url: "/runner/claim", headers: daemonHeaders, payload: { runtimes: [], ...(agent_updates === undefined ? {} : { agent_updates, daemon_id }) } });
+const take = (daemon_id = A) => h.app.inject({ method: "POST", url: "/runner/agent-updates/take", headers: daemonHeaders, payload: { daemon_id } });
 const view = async () => (await h.app.inject({ method: "GET", url: "/runtimes", headers: { cookie } })).json();
 
 describe("agent updates", () => {
@@ -70,11 +72,23 @@ describe("agent updates", () => {
     const a = { agents: [{ agent: "grok", version: "1.0.92" }] };
     const o = await post("/admin/commands/runtime.update/options", { payload: a });
     const assertion = key.assert(o.json().options);
+    // The daemon now reports 1.0.93, so a request for it would pass every check but the signature.
+    await claim([{ ...grok, latest: "1.0.93", command: ["npm", "install", "--global", "@xai-official/grok@1.0.93"] }]);
     const swapped = await post("/admin/commands/runtime.update", { payload: { agents: [{ agent: "grok", version: "1.0.93" }] }, assertion });
     expect(swapped.statusCode).toBeGreaterThanOrEqual(400);
     expect((await take()).json()).toEqual({ requests: [] });
     expect((await signed("runtime.update", { agents: [{ agent: "grok", version: "1.0.92", command: ["sh"] }] })).statusCode).toBe(400);
     expect((await take()).json()).toEqual({ requests: [] });
+  });
+
+  it("an approval is taken only by the daemon whose report it was signed against", async () => {
+    await claim([grok], A);
+    expect((await signed("runtime.update", { agents: [{ agent: "grok", version: "1.0.92" }] })).statusCode).toBe(200);
+    // Another daemon on the same control plane reports, idle, and asks: it gets nothing of A's.
+    await claim([grok], B);
+    expect((await take(B)).json()).toEqual({ requests: [] });
+    expect((await take(A)).json()).toEqual({ requests: [{ agent: "grok", version: "1.0.92" }] });
+    expect((await take(A)).json()).toEqual({ requests: [] });
   });
 
   it("drops a pending request once the daemon reports the agent current", async () => {

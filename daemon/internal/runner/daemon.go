@@ -80,6 +80,9 @@ type Config struct {
 	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts and
 	// after an update, never on a timer; nil turns agent updates off.
 	UpdateCheck func(ctx context.Context, only []string) []agentupdate.Status
+	// AgentLock is the agent install lock (agentupdate.LockPath): each run holds it shared, each
+	// update exclusively. Empty means none (npm's global folder is unknown, so no update is offered).
+	AgentLock string
 	// UpdateRun runs a package-manager command and returns its combined output.
 	UpdateRun func(ctx context.Context, name string, args []string) (string, error)
 }
@@ -138,6 +141,7 @@ type Daemon struct {
 	quit context.Context
 
 	probeMu       sync.Mutex
+	probeRun      sync.Mutex
 	status        []RuntimeStatus
 	subscriptions *SubscriptionReport
 
@@ -228,6 +232,7 @@ func New(cfg Config) *Daemon {
 	if cfg.TokenFile != "" {
 		client.WithTokenFile(cfg.TokenFile)
 	}
+	client.daemonID = DaemonID(cfg.Home)
 	return &Daemon{cfg: cfg, client: client, log: cfg.Logger, outbox: NewOutbox(cfg.Home),
 		receipts: NewReceipts(cfg.Home), container: k, ns: ns, quit: context.Background(),
 		retry: newRetryGate(cfg.OutboxInterval, max(cfg.RetryLimit, cfg.OutboxInterval))}
@@ -386,6 +391,10 @@ func (d *Daemon) probe(ctx context.Context) { d.probeSome(ctx, nil) }
 // probeSome probes the configured runtimes named in only (all of them when only is nil) and keeps
 // the last status of the rest.
 func (d *Daemon) probeSome(ctx context.Context, only []string) {
+	// One probe at a time: a partial probe must not overwrite a full one's newer results with the
+	// statuses it kept.
+	d.probeRun.Lock()
+	defer d.probeRun.Unlock()
 	kept := map[string]RuntimeStatus{}
 	if only != nil {
 		for _, s := range d.runtimeStatus() {

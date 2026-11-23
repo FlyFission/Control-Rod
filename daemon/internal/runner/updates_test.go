@@ -51,6 +51,10 @@ type fakeHost struct {
 	latest    string
 	ran       []string
 	failRun   bool
+	offline   bool
+	// offlineAfterRun: the registry stops answering once a command has run (the re-check after it).
+	offlineAfterRun bool
+	probed          []string
 }
 
 func updateDaemon(t *testing.T, api *updateAPI, latest *string, ran *[]string) *Daemon {
@@ -76,12 +80,18 @@ func hostDaemon(t *testing.T, api *updateAPI, h *fakeHost) *Daemon {
 		API: srv.URL, Token: "t", Home: t.TempDir(), Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Container: &Container{},
 		Runtimes:  []string{RuntimeClaude, RuntimeCodex, RuntimeGrok},
-		Probe: func(context.Context, string, ...string) (string, int, error) {
+		Probe: func(_ context.Context, name string, args ...string) (string, int, error) {
+			h.mu.Lock()
+			h.probed = append(h.probed, filepath.Base(name)+" "+strings.Join(args, " "))
+			h.mu.Unlock()
 			return "", 127, errors.New("not installed in this test")
 		},
 		UpdateCheck: func(_ context.Context, only []string) []agentupdate.Status {
 			h.mu.Lock()
 			defer h.mu.Unlock()
+			if h.offline {
+				return []agentupdate.Status{{Agent: grok, Installed: h.installed, Note: "latest version unavailable: dial tcp: timeout"}}
+			}
 			return []agentupdate.Status{{Agent: grok, Installed: h.installed, Latest: h.latest,
 				Command: []string{"npm", "install", "--global", "@xai-official/grok@" + h.latest}}}
 		},
@@ -89,6 +99,7 @@ func hostDaemon(t *testing.T, api *updateAPI, h *fakeHost) *Daemon {
 			h.mu.Lock()
 			defer h.mu.Unlock()
 			h.ran = append(h.ran, name+" "+strings.Join(args, " "))
+			h.offline = h.offline || h.offlineAfterRun
 			if h.failRun {
 				return "npm error EACCES", errors.New("exit status 243")
 			}
@@ -223,36 +234,50 @@ func TestAgentUpdateWaitsWhileAReceiptRemains(t *testing.T) {
 // After an update only the runtime whose command ran is probed again, a failed command included;
 // a refused request probes nothing.
 func TestAgentUpdateProbesOnlyWhatItRan(t *testing.T) {
+	// Stubs on the agent PATH, so each runtime's probe reaches its own --version call.
+	bin := t.TempDir()
+	// A real executable (not a script launcher, which is never run), copied under each name.
+	exe, err := os.ReadFile("/bin/true")
+	if err != nil {
+		t.Skip("no /bin/true to stand in for the CLIs")
+	}
+	for _, n := range []string{"claude", "codex", "grok"} {
+		if err := os.WriteFile(filepath.Join(bin, n), exe, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	api := &updateAPI{}
 	h := &fakeHost{installed: "1.0.77", latest: "1.0.92", failRun: true}
 	d := hostDaemon(t, api, h)
 	ctx := context.Background()
 	d.checkAgentUpdates(ctx)
-	mark := func() {
-		d.probeMu.Lock()
-		d.status = []RuntimeStatus{{Runtime: RuntimeClaude, Reason: "kept"}, {Runtime: RuntimeCodex, Reason: "kept"}, {Runtime: RuntimeGrok, Reason: "kept"}}
-		d.probeMu.Unlock()
-	}
-	reasons := func() map[string]string {
-		out := map[string]string{}
-		for _, s := range d.runtimeStatus() {
-			out[s.Runtime] = s.Reason
+	calls := func(from int) map[string]int {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		out := map[string]int{}
+		for _, c := range h.probed[from:] {
+			if strings.Contains(c, "--version") {
+				out[strings.Fields(c)[0]]++
+			}
 		}
 		return out
 	}
-	mark()
+	d.probe(ctx)
+	if c := calls(0); c["claude"] == 0 || c["codex"] == 0 || c["grok"] == 0 {
+		t.Fatalf("the full probe did not ask every runtime for its version: %v (all: %v)", c, h.probed)
+	}
+	mark := len(h.probed)
 	api.requested = []AgentUpdateRequest{{"grok", "1.0.99"}}
 	d.takeAgentUpdates(ctx)
-	for rt, r := range reasons() {
-		if r != "kept" {
-			t.Fatalf("probed %s although nothing ran", rt)
-		}
+	if c := calls(mark); len(c) != 0 {
+		t.Fatalf("probed although nothing ran: %v", c)
 	}
 	api.requested = []AgentUpdateRequest{{"grok", "1.0.92"}}
 	d.takeAgentUpdates(ctx)
-	got := reasons()
-	if len(h.ran) != 1 || got[RuntimeGrok] == "kept" || got[RuntimeClaude] != "kept" || got[RuntimeCodex] != "kept" {
-		t.Fatalf("after a failed grok install: ran %v, statuses %v", h.ran, got)
+	c := calls(mark)
+	if len(h.ran) != 1 || c["grok"] == 0 || c["claude"] != 0 || c["codex"] != 0 {
+		t.Fatalf("after a failed grok install: ran %v, --version calls %v", h.ran, c)
 	}
 }
 
@@ -285,5 +310,48 @@ func TestAgentUpdateWaitsForARestartAfterAnUnknownStop(t *testing.T) {
 	d.takeAgentUpdates(ctx)
 	if len(h.ran) != 0 || api.takes != 0 {
 		t.Fatalf("updated after an unknown stop: ran %v", h.ran)
+	}
+}
+
+// The registry does not answer just before an install: nothing runs and the update stays listed, so
+// the next request (once it answers) installs it.
+func TestAgentUpdateKeepsTheCandidateThroughARegistryOutage(t *testing.T) {
+	api := &updateAPI{}
+	h := &fakeHost{installed: "1.0.77", latest: "1.0.92"}
+	d := hostDaemon(t, api, h)
+	ctx := context.Background()
+	d.checkAgentUpdates(ctx)
+	h.offline = true
+	api.requested = []AgentUpdateRequest{{"grok", "1.0.92"}}
+	d.takeAgentUpdates(ctx)
+	if len(h.ran) != 0 {
+		t.Fatalf("installed without a fresh check: %v", h.ran)
+	}
+	if !d.updates.any() {
+		t.Fatal("the update was dropped after a registry outage")
+	}
+	h.offline = false
+	api.requested = []AgentUpdateRequest{{"grok", "1.0.92"}}
+	d.takeAgentUpdates(ctx)
+	if len(h.ran) != 1 {
+		t.Fatalf("did not install once the registry answered: %v", h.ran)
+	}
+}
+
+// A failed install whose re-check meets a registry outage keeps the update listed, so it can be
+// tried again without restarting the daemon.
+func TestAgentUpdateKeepsAFailedUpdateWhenTheRecheckCannotReachTheRegistry(t *testing.T) {
+	api := &updateAPI{}
+	h := &fakeHost{installed: "1.0.77", latest: "1.0.92", failRun: true, offlineAfterRun: true}
+	d := hostDaemon(t, api, h)
+	ctx := context.Background()
+	d.checkAgentUpdates(ctx)
+	api.requested = []AgentUpdateRequest{{"grok", "1.0.92"}}
+	d.takeAgentUpdates(ctx)
+	if len(h.ran) != 1 {
+		t.Fatalf("ran %v", h.ran)
+	}
+	if !d.updates.any() {
+		t.Fatal("the failed update was dropped because the re-check could not reach the registry")
 	}
 }

@@ -5,7 +5,7 @@
 --- PASS: TestRegistryLatest (0.00s)
 --- PASS: TestStrictVersionIsSemVer (0.00s)
 --- PASS: TestOnlyTheGlobalNpmCopyGetsACommand (0.00s)
-ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.006s
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
 --- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
 --- PASS: TestUpdateOneAgentByName (0.00s)
 --- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
@@ -30,5 +30,9 @@ ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.009s
 --- PASS: TestAgentUpdateProbesOnlyWhatItRan (0.00s)
 --- PASS: TestAgentUpdateNeverDowngrades (0.00s)
 --- PASS: TestAgentUpdateWaitsForARestartAfterAnUnknownStop (0.00s)
+--- PASS: TestAgentUpdateKeepsTheCandidateThroughARegistryOutage (0.26s)
+--- PASS: TestAgentUpdateKeepsAFailedUpdateWhenTheRecheckCannotReachTheRegistry (0.27s)
 --- PASS: TestAgentUpdateWaitsForAnUnconfirmedStopWithoutAReceipt (0.26s)
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	1.165s
+--- PASS: TestAgentUpdateHoldsWhenTheBootCannotBeRead (0.00s)
+--- PASS: TestAgentUpdateWaitsForARunOfAnotherDaemonHome (0.26s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	1.938s

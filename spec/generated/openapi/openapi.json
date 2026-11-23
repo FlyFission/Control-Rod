@@ -5686,6 +5686,26 @@
               }
             }
           }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "daemon_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{32}$",
+                    "description": "The same name the daemon sends with its agent updates; only its own approvals are returned."
+                  }
+                },
+                "required": [
+                  "daemon_id"
+                ]
+              }
+            }
+          }
         }
       }
     },
@@ -5805,6 +5825,11 @@
                     },
                     "maxItems": 10,
                     "description": "Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current."
+                  },
+                  "daemon_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{32}$",
+                    "description": "The daemon's own random name, sent with `agent_updates`. An administrator's approval is bound\nto the daemon whose report it was signed against and taken only by it. Not a credential."
                   }
                 },
                 "required": [

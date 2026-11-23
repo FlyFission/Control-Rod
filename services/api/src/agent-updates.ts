@@ -9,8 +9,10 @@ import { checkSchema } from "./tenancy.js";
  * administrator asks for an update with a signed `runtime.update` naming each agent and the version
  * they were shown; the daemon takes the request and runs only its own command, only when it installs
  * exactly that version, and only while nothing could be using an agent CLI. The control plane never
- * sends a command to the daemon, only agent names and versions. Every read-modify-write of the
- * request queue holds one advisory lock, so a report, a request and a take never overwrite each other.
+ * sends a command to the daemon, only agent names and versions. Each request is bound to the daemon
+ * whose report it was signed against (its `daemon_id`) and only that daemon takes it. Every
+ * read-modify-write of the request queue holds one advisory lock, so a report, a request and a take
+ * never overwrite each other.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- settings rows are validated JSON */
@@ -18,6 +20,11 @@ type Json = any;
 
 const AGENTS = ["claude", "codex", "agy", "opencode", "grok"];
 type Request = { agent: string; version: string };
+/** A queued request and the daemon it is bound to ("" for a daemon that sends no name). */
+type Bound = Request & { daemon: string };
+const DAEMON_ID = /^[0-9a-f]{32}$/;
+const daemonOf = (raw: unknown) => (typeof raw === "string" && DAEMON_ID.test(raw) ? raw : "");
+const MAX_PENDING = 20;
 const LOCK = "select pg_advisory_xact_lock(hashtext('controlrod-agent-updates'))";
 
 async function readSetting(q: Db | Tx, key: string): Promise<Json | undefined> {
@@ -30,7 +37,8 @@ async function writeSetting(c: Tx, key: string, value: unknown) {
 }
 
 /** Keeps the daemon's latest report. Entries the schema refuses are dropped, never stored. */
-export async function recordAgentUpdates(db: Db, raw: unknown): Promise<void> {
+export async function recordAgentUpdates(db: Db, raw: unknown, rawDaemon?: unknown): Promise<void> {
+  const daemon = daemonOf(rawDaemon);
   if (!Array.isArray(raw)) return;
   const list: Json[] = [];
   for (const u of raw.slice(0, 10)) {
@@ -44,10 +52,16 @@ export async function recordAgentUpdates(db: Db, raw: unknown): Promise<void> {
   await command(db, "runtime.report-agent-updates", async (c) => {
     await c.query(LOCK);
     await writeSetting(c, "agent_updates", list);
-    // A request no longer matching what the daemon would install (updated, gone, or a newer version
-    // found) has nothing left to do: the person signs again for what is shown now.
-    const pending: Request[] = (await readSetting(c, "agent_update_requests")) ?? [];
-    await writeSetting(c, "agent_update_requests", pending.filter((r) => list.some((u) => u.agent === r.agent && u.latest === r.version)));
+    await writeSetting(c, "agent_updates_daemon", daemon);
+    // A request of this daemon no longer matching what it would install (updated, gone, or a newer
+    // version found) has nothing left to do: the person signs again for what is shown now. Another
+    // daemon's requests wait for that daemon.
+    const pending: Bound[] = (await readSetting(c, "agent_update_requests")) ?? [];
+    await writeSetting(
+      c,
+      "agent_update_requests",
+      pending.filter((r) => r.daemon !== daemon || list.some((u) => u.agent === r.agent && u.latest === r.version)),
+    );
   });
 }
 
@@ -55,17 +69,28 @@ export async function recordAgentUpdates(db: Db, raw: unknown): Promise<void> {
 export async function agentUpdateView(db: Db): Promise<{ agent_updates?: Json[]; agent_updates_requested?: string[] }> {
   const updates = await readSetting(db, "agent_updates");
   if (updates === undefined) return {};
-  const pending: Request[] = (await readSetting(db, "agent_update_requests")) ?? [];
-  return { agent_updates: updates, agent_updates_requested: pending.map((r) => r.agent) };
+  const daemon: string = (await readSetting(db, "agent_updates_daemon")) ?? "";
+  const pending: Bound[] = (await readSetting(db, "agent_update_requests")) ?? [];
+  return {
+    agent_updates: updates,
+    agent_updates_requested: pending.filter((r) => r.daemon === daemon).map((r) => r.agent),
+  };
 }
 
-/** The daemon takes the pending requests; each is returned once. */
-export async function takeAgentUpdates(db: Db): Promise<{ requests: Request[] }> {
+/** The daemon takes its own pending requests; each is returned once. Another daemon's stay. */
+export async function takeAgentUpdates(db: Db, rawDaemon: unknown): Promise<{ requests: Request[] }> {
+  const daemon = daemonOf(rawDaemon);
   return command(db, "runtime.take-agent-updates", async (c) => {
     await c.query(LOCK);
-    const pending: Request[] = (await readSetting(c, "agent_update_requests")) ?? [];
-    await writeSetting(c, "agent_update_requests", []);
-    return { requests: pending };
+    const pending: Bound[] = (await readSetting(c, "agent_update_requests")) ?? [];
+    await writeSetting(
+      c,
+      "agent_update_requests",
+      pending.filter((r) => r.daemon !== daemon),
+    );
+    return {
+      requests: pending.filter((r) => r.daemon === daemon).map((r) => ({ agent: r.agent, version: r.version })),
+    };
   });
 }
 
@@ -78,22 +103,37 @@ export async function takeAgentUpdates(db: Db): Promise<{ requests: Request[] }>
 export async function requestAgentUpdates(c: Tx, p: Json): Promise<{ requested: string[] }> {
   const asked: unknown[] = Array.isArray(p.agents) ? p.agents : [];
   // Exactly { agent, version }: nothing else a signature covered is carried to the daemon.
-  const valid = (r: Json) => r && typeof r === "object" && !Array.isArray(r) && Object.keys(r).every((k) => k === "agent" || k === "version") && typeof r.agent === "string" && AGENTS.includes(r.agent) && typeof r.version === "string" && r.version.length <= 64;
+  const valid = (r: Json) =>
+    r &&
+    typeof r === "object" &&
+    !Array.isArray(r) &&
+    Object.keys(r).every((k) => k === "agent" || k === "version") &&
+    typeof r.agent === "string" &&
+    AGENTS.includes(r.agent) &&
+    typeof r.version === "string" &&
+    r.version.length <= 64;
   if (!asked.length || asked.length > AGENTS.length || !asked.every(valid) || new Set(asked.map((r: Json) => r.agent)).size !== asked.length)
     throw new Refusal(400, "invalid", "agents must list each agent once, as { agent, version }, from claude, codex, agy, opencode and grok");
-  const reqs: Request[] = (asked as Request[]).map((r) => ({ agent: r.agent, version: r.version }));
+  const reqs: Request[] = (asked as Request[]).map((r) => ({
+    agent: r.agent,
+    version: r.version,
+  }));
   await c.query(LOCK);
   const listed: Json[] = (await readSetting(c, "agent_updates")) ?? [];
+  // Bound to the daemon whose report the person saw: only it may take the request.
+  const daemon: string = (await readSetting(c, "agent_updates_daemon")) ?? "";
   for (const r of reqs) {
     const u = listed.find((x) => x.agent === r.agent);
     if (!u) throw new Refusal(409, "no-update", `${r.agent} has no update the daemon reported`);
     if (!Array.isArray(u.command) || !u.command.length)
       throw new Refusal(409, "no-update-command", `${u.name} was not installed by npm, so Control Rod will not update it; ${u.note ?? "update it with the tool you installed it with"}`);
-    if (u.latest !== r.version)
-      throw new Refusal(409, "update-changed", `${u.name} would now install ${u.latest}, not ${r.version}; look again and sign the version shown`);
+    if (u.latest !== r.version) throw new Refusal(409, "update-changed", `${u.name} would now install ${u.latest}, not ${r.version}; look again and sign the version shown`);
   }
-  const pending: Request[] = (await readSetting(c, "agent_update_requests")) ?? [];
-  const next = [...pending.filter((x) => !reqs.some((r) => r.agent === x.agent)), ...reqs];
+  const pending: Bound[] = (await readSetting(c, "agent_update_requests")) ?? [];
+  const mine = reqs.map((r) => ({ ...r, daemon }));
+  const next = [...pending.filter((x) => !(x.daemon === daemon && reqs.some((r) => r.agent === x.agent))), ...mine].slice(-MAX_PENDING);
   await writeSetting(c, "agent_update_requests", next);
-  return { requested: next.map((r) => r.agent) };
+  return {
+    requested: next.filter((r) => r.daemon === daemon).map((r) => r.agent),
+  };
 }

@@ -93,12 +93,20 @@ func (u *agentUpdates) runnable(agent, version string) []string {
 	return nil
 }
 
-// merge replaces what a check of only these agents found, keeping the rest of the list.
+// merge replaces what a check of only these agents found, keeping the rest of the list. An agent
+// whose latest version could not be looked up this time (the registry did not answer) keeps its
+// entry, so a passing outage does not hide an update until the daemon restarts.
 func (u *agentUpdates) merge(ids []string, sts []agentupdate.Status) {
+	unknown := map[string]bool{}
+	for _, s := range sts {
+		if s.Latest == "" && s.Agent.Package != "" {
+			unknown[s.Agent.ID] = true
+		}
+	}
 	u.mu.Lock()
 	keep := u.list[:0:0]
 	for _, a := range u.list {
-		if !slices.Contains(ids, a.Agent) {
+		if !slices.Contains(ids, a.Agent) || unknown[a.Agent] {
 			keep = append(keep, a)
 		}
 	}
@@ -188,6 +196,15 @@ func (d *Daemon) takeAgentUpdates(ctx context.Context) {
 	if d.cfg.UpdateCheck == nil || !d.updates.any() || !d.updateIdle() {
 		return
 	}
+	if d.cfg.AgentLock != "" {
+		release, err := TryLockAgentsExclusive(d.cfg.AgentLock)
+		if err != nil {
+			// A run elsewhere on this host (another daemon home) or a terminal update: the requests
+			// stay queued for the next idle poll.
+			return
+		}
+		defer release()
+	}
 	reqs, err := d.client.TakeAgentUpdates(ctx)
 	if err != nil {
 		d.log.Warn("agent update requests could not be read", "err", err)
@@ -199,8 +216,15 @@ func (d *Daemon) takeAgentUpdates(ctx context.Context) {
 		// Checked again just before installing: someone may have updated it by hand since the last
 		// check, and an older target must never replace a newer CLI.
 		cc, ccancel := context.WithTimeout(ctx, agentupdate.CheckTimeout)
-		d.updates.merge([]string{r.Agent}, d.cfg.UpdateCheck(cc, []string{r.Agent}))
+		fresh := d.cfg.UpdateCheck(cc, []string{r.Agent})
 		ccancel()
+		if s, ok := statusOf(fresh, r.Agent); ok && s.Latest == "" && s.Agent.Package != "" {
+			// Without a fresh answer the installed version cannot be compared: nothing runs, and the
+			// update stays listed to try again.
+			d.updates.record(r.Agent, "failed", "the latest version could not be checked just now ("+clipTo(s.Note, 200)+"); try again", time.Now())
+			continue
+		}
+		d.updates.merge([]string{r.Agent}, fresh)
 		argv := d.updates.runnable(r.Agent, r.Version)
 		if argv == nil {
 			d.updates.record(r.Agent, "failed", "the version signed for is not newer than the installed one, or not the one this daemon would install now; check again and sign the version shown", time.Now())
@@ -241,7 +265,7 @@ func lastLine(s string) string {
 
 // TakeAgentUpdates returns, once each, the updates an administrator asked for.
 func (c *Client) TakeAgentUpdates(ctx context.Context) ([]AgentUpdateRequest, error) {
-	resp, err := c.post(ctx, "/runner/agent-updates/take", struct{}{}, 10*time.Second)
+	resp, err := c.post(ctx, "/runner/agent-updates/take", map[string]string{"daemon_id": c.daemonID}, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -312,10 +336,29 @@ func (d *Daemon) unconfirmedBusy() bool {
 
 // startJob runs a claimed job in its own goroutine, counted in inFlight from before the goroutine
 // starts until it returns, so takeAgentUpdates never sees a claimed job as idle.
+// While it runs it holds the agent install lock shared, so no update, from this daemon or a
+// terminal, replaces a CLI under it.
 func (d *Daemon) startJob(run func()) {
 	d.inFlight.Add(1)
 	go func() {
 		defer d.inFlight.Add(-1)
+		if d.cfg.AgentLock != "" {
+			release, err := LockAgentsShared(d.cfg.AgentLock)
+			if err != nil {
+				d.log.Warn("the agent install lock could not be taken; updates from a terminal are not held off during this run", "err", err)
+			} else {
+				defer release()
+			}
+		}
 		run()
 	}()
+}
+
+func statusOf(sts []agentupdate.Status, id string) (agentupdate.Status, bool) {
+	for _, s := range sts {
+		if s.Agent.ID == id {
+			return s, true
+		}
+	}
+	return agentupdate.Status{}, false
 }

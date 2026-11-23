@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -36,6 +37,21 @@ func hostEnv() agentupdate.Env {
 			return strings.TrimSpace(string(out)), err
 		},
 	}
+}
+
+// agentLockPath is the agent install lock beside npm's global packages (symlinks resolved, so the
+// daemon and a terminal agree), or "" when npm's global folder is unknown.
+func agentLockPath() string {
+	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	root, err := hostEnv().NpmRoot(c)
+	if err != nil || !filepath.IsAbs(root) {
+		return ""
+	}
+	if real, rerr := filepath.EvalSymlinks(root); rerr == nil {
+		root = real
+	}
+	return agentupdate.LockPath(root)
 }
 
 // updateCheckOff reports whether the person turned the startup check off.
@@ -77,18 +93,18 @@ func agents(args []string) int {
 		return cmd.Run()
 	}
 	lock := func() (func(), error) {
-		home, err := runner.Home(os.Getenv)
-		if err != nil {
-			return nil, err
+		p := agentLockPath()
+		if p == "" {
+			return nil, errors.New("npm's global folder could not be found")
 		}
-		return runner.LockHome(home)
+		return runner.TryLockAgentsExclusive(p)
 	}
 	return update(os.Stdout, os.Stdin, sts, fs.Args(), *all, *yes, isTerminal(os.Stdin), lock, run)
 }
 
 // update chooses the agents to update, shows each command, asks, and runs only what was agreed.
-// Before the first command it takes the daemon's home lock, so nothing is installed while a daemon
-// on this home may be running a job with the same CLI; the app's Update waits for it to be idle.
+// Before the first command it takes the agent install lock exclusively, so nothing is installed
+// while any daemon's run on this host holds it; the app's Update waits for the daemon to be idle.
 func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string, all, yes, tty bool, lock func() (func(), error), run func(string, []string) error) int {
 	outdated := agentupdate.Outdated(sts)
 	var chosen []agentupdate.Status
@@ -157,7 +173,7 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 		if unlock == nil {
 			u, err := lock()
 			if err != nil {
-				fmt.Fprintf(w, "Nothing was run: %v.\nA running daemon may be using this CLI. Update from the app's agent updates card (the daemon waits until no run is active), or stop the daemon and run this again.\n", strings.TrimRight(err.Error(), "."))
+				fmt.Fprintf(w, "Nothing was run: %v.\nA run may be using this CLI. Update from the app's agent updates card (the daemon waits until no run is active), or run this again when no run is active.\n", strings.TrimRight(err.Error(), "."))
 				return 1
 			}
 			unlock = u

@@ -187,6 +187,15 @@ func npmGlobal(path, npmRoot, pkg string) bool {
 	return strings.HasPrefix(filepath.ToSlash(filepath.Clean(path)), prefix)
 }
 
+// LockPath is the agent install lock beside npm's global packages: every run holds it shared and
+// every install exclusively, whichever daemon home or terminal starts them.
+func LockPath(npmRoot string) string {
+	if npmRoot == "" {
+		return ""
+	}
+	return filepath.Join(npmRoot, ".controlrod-agents.lock")
+}
+
 // Outdated returns the statuses with a newer version published.
 func Outdated(sts []Status) []Status {
 	out := []Status{}

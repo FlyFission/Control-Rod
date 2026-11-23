@@ -771,11 +771,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   /* ---- runner ---- */
   app.post("/runner/agent-updates/take", async (req) => {
     daemon(req);
-    return takeAgentUpdates(db);
+    return takeAgentUpdates(db, (req.body as { daemon_id?: unknown } | undefined)?.daemon_id);
   });
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; agent_updates?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; agent_updates?: unknown; daemon_id?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
-    if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates);
+    if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.daemon_id);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);

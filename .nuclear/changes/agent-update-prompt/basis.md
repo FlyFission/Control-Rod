@@ -27,7 +27,7 @@ The owner's first install on macOS succeeded, but the daemon refused Codex 0.171
 
 ## The panel in the app (spec change approved by the owner, 2026-11-22)
 
-The owner chose, on 2026-11-22, to extend the contract for a panel in the web app. `spec/api.tsp` gains `Runner.AgentUpdate` (and `AgentId`, `AgentUpdateAttempt`), an optional `agent_updates` on the daemon's claim, `agent_updates` and `agent_updates_requested` on `GET /runtimes`, and `POST /runner/agent-updates/take`. All are additive; no field changes meaning and no major version moves.
+The owner chose, on 2026-11-22, to extend the contract for a panel in the web app. `spec/api.tsp` gains `Runner.AgentUpdate` (and `AgentId`, `AgentUpdateAttempt`), an optional `agent_updates` on the daemon's claim, `agent_updates` and `agent_updates_requested` on `GET /runtimes`, and `POST /runner/agent-updates/take`. After review (2026-11-23) the claim also carries an optional `daemon_id`, and the take sends it, so an approval is taken only by the daemon whose report it was signed against; requests are `AgentUpdateRequest { agent, version }`. All are additive; no field changes meaning and no major version moves.
 
 - The daemon reports, on its claims, each outdated agent with its own command; nothing before its startup check finishes, and an empty list once nothing is outdated.
 - The app shows a card when it opens: each agent with installed and latest version, the exact command, Update per agent and Update all. Dismissing hides that version in this browser.

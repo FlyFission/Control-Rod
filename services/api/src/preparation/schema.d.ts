@@ -7458,7 +7458,14 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The same name the daemon sends with its agent updates; only its own approvals are returned. */
+                    daemon_id: string;
+                };
+            };
+        };
         responses: {
             /** @description The request has succeeded. */
             200: {
@@ -7549,6 +7556,11 @@ export interface operations {
                     run_ceiling_seconds?: number;
                     /** @description Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
                     agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
+                    /**
+                     * @description The daemon's own random name, sent with `agent_updates`. An administrator's approval is bound
+                     *     to the daemon whose report it was signed against and taken only by it. Not a credential.
+                     */
+                    daemon_id?: string;
                 };
             };
         };

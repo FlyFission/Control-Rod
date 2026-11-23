@@ -1317,6 +1317,12 @@ namespace Runner {
 
     /** Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
     @maxItems(10) agent_updates?: AgentUpdate[];
+
+    /**
+     * The daemon's own random name, sent with `agent_updates`. An administrator's approval is bound
+     * to the daemon whose report it was signed against and taken only by it. Not a credential.
+     */
+    @pattern("^[0-9a-f]{32}$") daemon_id?: string;
   }): Job | {
     @statusCode _: 204;
   } | Refused;
@@ -1345,7 +1351,10 @@ namespace Runner {
    * asks only while it holds an update with a command and nothing could be using an agent CLI, and
    * runs only its own command, for the version signed for.
    */
-  @route("/agent-updates/take") @post op takeAgentUpdates(): {
+  @route("/agent-updates/take") @post op takeAgentUpdates(@body body: {
+    /** The same name the daemon sends with its agent updates; only its own approvals are returned. */
+    @pattern("^[0-9a-f]{32}$") daemon_id: string;
+  }): {
     requests: AgentUpdateRequest[];
   } | Refused;
 

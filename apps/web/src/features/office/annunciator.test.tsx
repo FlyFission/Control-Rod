@@ -50,10 +50,12 @@ describe("the annunciator's announcements and flash", () => {
       setScope("presenting");
       setState("dark");
     });
-    expect(status()).toBe("Stuck lit");
+    // The old text is cleared, so the next real change is announced afresh.
+    expect(status()).toBe("");
     expect(flashing()).toBe(false);
     act(() => setState("lit"));
     expect(status()).toBe("Stuck lit");
+    expect(flashing()).toBe(true);
   });
 
   it("cancels a flash outright when a newer change arrives", async () => {

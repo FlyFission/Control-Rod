@@ -76,6 +76,8 @@ function useWidth(): [(el: HTMLDivElement | null) => void, number | undefined] {
  */
 const REFRESH_MS = 30_000;
 const OVERDUE_MS = REFRESH_MS + 10_000;
+/** How often the view checks for an overdue reading: so a reading is marked stale at most this long after OVERDUE_MS. */
+const TICK_MS = 10_000;
 
 /** A read as the instruments see it: not current once its refresh failed or is overdue. */
 const readOf = <T,>(q: { data: T | undefined; isError: boolean; dataUpdatedAt: number }, now: number): Read<T> => ({
@@ -85,7 +87,7 @@ const readOf = <T,>(q: { data: T | undefined; isError: boolean; dataUpdatedAt: n
 });
 
 /** The time, refreshed every few seconds, so a reading that goes overdue is marked without waiting for a failure. */
-function useNow(stepMs = 10_000) {
+function useNow(stepMs = TICK_MS) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), stepMs);
@@ -289,7 +291,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
         <div className="office-layout" ref={measure} data-stack={stack ? "" : undefined}>
           <div className="office-scroll">
             {showList ? (
-              <PlantList figures={floor.figures} hidden={floor.hidden} asOf={instruments.core.asOf} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
+              <PlantList figures={floor.figures} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
             ) : (
               <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} {...(isPlant ? { instruments } : {})} />
             )}

@@ -85,6 +85,10 @@ describe("control rods", () => {
 
   it("insert one bank for project SCRAMs and name how many, claiming nothing about other work", () => {
     expect(rodState(scrams([scram({ scope: "project", project_id: "p" })]))).toEqual({ position: "bank", caption: "SCRAM in force: 1 project" });
+    // Two SCRAMs on one project are one project stopped.
+    const twice = scrams([scram({ scope: "project", project_id: "p" }), scram({ id: "S-2", scope: "project", project_id: "p" })]);
+    expect(rodState(twice)).toEqual({ position: "bank", caption: "SCRAM in force: 1 project" });
+    expect(annunciator(floor(), twice)[3]).toMatchObject({ state: "lit", count: 2, note: "1 project" });
   });
 
   it("show a drill as a drill, never as a trip", () => {

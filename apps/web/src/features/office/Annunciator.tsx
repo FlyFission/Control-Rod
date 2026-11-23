@@ -57,6 +57,8 @@ export function Annunciator({ windows, scope = "", linkInbox = true }: { windows
     // The first reading is not news; after that, say what lit and what went dark.
     if (!before) {
       setFlashing(new Set());
+      // Nothing left over from the old scope, so the next real change is always announced.
+      setAnnouncement("");
       return;
     }
     const on = windows.filter((w) => w.state === "lit" && before.get(w.id) === "dark");
@@ -73,6 +75,10 @@ export function Annunciator({ windows, scope = "", linkInbox = true }: { windows
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, scope]);
+  // Hiding the tab ends a flash, so showing it again never restarts one.
+  useEffect(() => {
+    if (!visible) setFlashing(new Set());
+  }, [visible]);
   return (
     <>
       <ul className="plant-annunciator" aria-label="Annunciator" data-motion={visible ? "running" : "paused"}>

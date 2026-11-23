@@ -11,6 +11,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-05 | pass | Screenshots of the real page against a mocked API at 1440 and 390 wide (opens on the list), and at 1440 with an organization SCRAM in force. Visual judgment only. | `evidence/screenshots/` |
 | E-07 | pass | Codex blind check of the code at f2539fa: HOLD with seven P2 and one P3 findings, all fixed (T-11). | Landing thread, `land-out/pr153-r1-f2539fa.md` on the owner's machine |
 | E-08 | pass | Codex blind check of the code at f9ef354: HOLD with four findings, all fixed (T-12). | Landing thread, `land-out/pr153-r2-f9ef354.md` on the owner's machine |
+| E-09 | pass | Codex blind check of the code at f97d401: HOLD with three P2 and two P3 findings, all fixed (T-13). | Landing thread, `land-out/pr153-r3-f97d401.md` on the owner's machine |
 | E-06 | open | Independent design review of the plan by two reviewers from different vendors (done, `evidence/design-review.md`); the third reviewer, Firefox and WebKit runs and the owner's review are not done. | Owner review |
 
 ## Evidence custody and coupling
@@ -24,6 +25,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-05 | T-09 | no | evidence/screenshots/ | Implementing agent | Playwright | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-07 | T-11 | yes | land-out/pr153-r1-f2539fa.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-08 | T-12 | yes | land-out/pr153-r2-f9ef354.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
+| E-09 | T-13 | yes | land-out/pr153-r3-f97d401.md | Implementing agent | Codex CLI | Landing thread | Implementing agent | Owner's machine | Owner's machine | Implementing agent | Independent reviewer (code) |
 | E-06 | T-09 | yes | evidence/design-review.md | Implementing agent | Independent reviewers | Owner | Implementing agent | Owner's machine | Packet and export | Implementing agent | Independent reviewers (plan only) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -35,6 +37,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-05). *
 | E-05 | coupled: implementing agent | coupled: one session | coupled: visual judgment | separated: owner retains merge decision | coupled: local machine | self-check | Mocked API data  [Ship limits](ship.md) |
 | E-07 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-08 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
+| E-09 | separated: reviewer from another vendor | separated: blind to the author's reasoning | partially separated: model review of the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the raw output is kept on the owner's machine, not in this packet  [Ship limits](ship.md) |
 | E-06 | separated: reviewers from other vendors | separated: blind to the author's reasoning | partially separated: model review of the plan, not the code | separated: owner decides | separated: owner's machine | self-check | Classed as a self-check because the reviewers' raw output is not retained here; the code itself has had no independent review yet  [Ship limits](ship.md) |
 
 No human independent review has been done yet.

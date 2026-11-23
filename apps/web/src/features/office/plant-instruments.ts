@@ -61,6 +61,11 @@ function windowFrom<T>(id: WindowId, read: Read<T>, count: (d: T) => number, not
 
 const isDrill = (s: ScramSummary) => Boolean(s.scram.drill);
 
+/** How many distinct projects the project SCRAMs in force cover: one project can hold several. */
+export function projectsStopped(scrams: readonly ScramSummary[]): number {
+  return new Set(scrams.filter((s) => s.scram.scope === "project").map((s, i) => s.scram.project_id ?? `unnamed-${i}`)).size;
+}
+
 /**
  * The four windows, left to right: Waiting on you, Stuck, Input changed, SCRAM. Normal waiting is not
  * a window, so the strip is dark when the plant is normal. "Waiting on you" is the control plane's own
@@ -81,7 +86,10 @@ export function annunciator(floor: Read<Floor>, scrams: Read<{ scrams: readonly 
       const real = d.scrams.filter((s) => !isDrill(s));
       const parts: string[] = [];
       if (real.some((s) => s.scram.scope === "organization")) parts.push("Organization");
-      else if (real.length) parts.push(`${real.length} ${real.length === 1 ? "project" : "projects"}`);
+      else if (real.length) {
+        const n = projectsStopped(real);
+        parts.push(`${n} ${n === 1 ? "project" : "projects"}`);
+      }
       if (drills) parts.push(`${drills} ${drills === 1 ? "drill" : "drills"}`);
       return parts.length ? parts.join(", ") : undefined;
     }),
@@ -148,7 +156,7 @@ export function rodState(scrams: Read<{ scrams: readonly ScramSummary[] }>): Rod
     return out({ position: "inserted", caption: `SCRAM in force: organization, ${stop}${asOf}` });
   }
   // A project SCRAM's scope says which projects stopped; it does not prove anything about other work.
-  const n = real.length;
+  const n = projectsStopped(real);
   return out({ position: "bank", caption: `SCRAM in force: ${n} ${n === 1 ? "project" : "projects"}${asOf}` });
 }
 

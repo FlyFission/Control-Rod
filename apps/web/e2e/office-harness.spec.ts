@@ -377,14 +377,15 @@ test.describe("office theme quality harness", () => {
         await setVisibility("visible");
         await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
         if (OFFICE_THEMES.find((t) => t.id === theme)?.layout === "plant") {
-          // A window that comes on flashes; hidden, the flash stops, and it never plays again on return.
+          // A window that comes on flashes; hiding the tab ends the flash at once, so showing it again
+          // well inside the flash's 2.4 s never restarts it.
           await page.locator('[data-harness="scram"]').click();
           await expect(page.locator('.plant-window[data-window="scram"][data-flash]')).toHaveCount(1);
           await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBeGreaterThan(moving);
           await setVisibility("hidden");
           await expect(page.locator(".plant-annunciator")).toHaveAttribute("data-motion", "paused");
+          await expect(page.locator(".plant-window[data-flash]")).toHaveCount(0, { timeout: 500 });
           await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
-          await expect(page.locator(".plant-window[data-flash]")).toHaveCount(0, { timeout: 5000 });
           await setVisibility("visible");
           await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
           expect(await page.locator(".plant-window[data-flash]").count()).toBe(0);

@@ -3,15 +3,15 @@ import { STATE_INFO, StateMark } from "../../components/StateMark.js";
 import type { OfficeThemeV1 } from "./contract.js";
 import { REGION, REGIONS, type RegionId } from "./layout.js";
 import type { PlantLayout, ZoneId } from "./plant-layout.js";
-import { emptyFloorNote } from "./plant-instruments.js";
 
 /**
  * The Plant as a list (plant view design, section 10): every figure, none folded, grouped by zone and
  * place, each a button that opens the same agent card. It is the view on narrow screens and a choice
  * at any width, so nothing the drawing shows is reachable only by pointer at a size it fits.
  */
-export function PlantList({ figures, hidden = 0, asOf, layout, labels, selected, onSelect }: { figures: readonly AgentFigure[]; hidden?: number; asOf?: string | undefined; layout: PlantLayout | undefined; labels: OfficeThemeV1["regions"]; selected: string | undefined; onSelect: (id: string) => void }) {
-  if (figures.length === 0) return <p className="office-note">{emptyFloorNote(hidden, asOf)}</p>;
+export function PlantList({ figures, layout, labels, selected, onSelect }: { figures: readonly AgentFigure[]; layout: PlantLayout | undefined; labels: OfficeThemeV1["regions"]; selected: string | undefined; onSelect: (id: string) => void }) {
+  // The view says why the floor is empty, once, under the list or the drawing.
+  if (figures.length === 0) return null;
   const byPlace = new Map<RegionId, AgentFigure[]>();
   for (const f of figures) byPlace.set(f.place, [...(byPlace.get(f.place) ?? []), f]);
   // Zones outside in, as the drawing reads; the office layout has none, so one group.

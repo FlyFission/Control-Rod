@@ -9,7 +9,7 @@
 
 ## Claim proven
 
-- Every Codex probe command (version, login help, login status) runs the resolved artifact with its environment, not a PATH wrapper that needs a program the PATH lacks; the probe resolves once; the Codex feature check refuses, without running it, an executable whose digest is not the probed one, and runs the probed one. The daemon and `controlrod doctor` pass the probed status into preflight (`daemon.go`, `check.go`); that wiring is one line each and is read, not tested, because a full Codex preflight needs a sandbox this container lacks.
+- Every Codex probe command (version, login help, login status) runs the resolved artifact with its environment, not a PATH wrapper that needs a program the PATH lacks; the probe resolves once; `codex login status` runs through the artifact (the script records that it ran); the Codex feature check refuses, without running it, an executable whose digest or path is not the probed one, and runs the probed one. The daemon and `controlrod doctor` pass the probed status into preflight (`daemon.go`, `check.go`); that wiring is one line each and is read, not tested, because a full Codex preflight needs a sandbox this container lacks.
 - Outside a probe, `ExecRunner` runs the agent PATH entry.
 - A probe of another CLI resolves once and runs that artifact, even when a second resolution would find nothing (an upgrade in between).
 
@@ -37,6 +37,7 @@
   - At `3eecd059`: FIX FIRST, 1 P1 and 2 P2, all reasoned. Fixed in the next commit: a second resolution in `ExecRunner` could run a different binary after an upgrade or fall back to the PATH entry (the probe now passes its artifact); the rehash ran inside each command's deadline (gone with the second resolution); the record claimed the probe runs exactly what launch runs (narrowed above).
   - At `25b0086c`: FIX FIRST, 2 P1 and 1 P2, all reasoned. Fixed in the next commit: the preflight resolved again and could check a different file (it now gets the probed artifact, and so does `CodexEffectiveFeatures`); the fallback outside a probe could hash inside a deadline and pick a refused launcher (it now runs the PATH entry, as on main); the test covered one version command (it now covers all three Codex commands and the environment). Not changed: a binary replaced at the same path between hash and start. That window cannot be closed by reopening a path; the launch's own digest check is the guard, stated in risk.
   - At `4d51e605`: FIX FIRST, 1 P1 and 2 P2, all reasoned. Fixed in the next commit: the feature check ran the cached path without checking it (it now resolves, hashes and compares to the probed digest before running); the test exercised helpers, not the consumer (it now runs `CodexEffectiveFeatures`); the record described a PATH fallback for an unresolvable runtime (corrected: not ready, nothing runs).
+  - At `33c320e8`: FIX FIRST, 1 P1 and 2 P2, all reasoned. Fixed in the next commit: preflight's own `login status` ran the cached path before any digest check (preflight now gets the artifact as a reference only and its commands run as on main); a matching digest at another path was accepted (path now compared too); the probe test passed without `login status` running (it now records the run).
   - The next check is recorded here before merge.
 
 ## Reviewer note

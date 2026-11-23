@@ -28,7 +28,7 @@ func TestEveryCodexProbeCommandRunsTheResolvedArtifactWithItsEnvironment(t *test
 case "$1 $2" in
   "--version ") echo "codex-cli native" ;;
   "login --help") printf 'Commands:\n  status  Show login status\n' ;;
-  "login status") echo "Logged in" ;;
+  "login status") touch "$0.status"; echo "Logged in" ;;
   *) exit 2 ;;
 esac
 `), 0o755)
@@ -52,6 +52,9 @@ esac
 	if calls != 1 {
 		t.Fatalf("resolveArtifact ran %d times; a probe resolves once", calls)
 	}
+	if _, err := os.Stat(native + ".status"); err != nil {
+		t.Fatal("`codex login status` must have run through the artifact")
+	}
 }
 
 // The Codex feature check in the sandbox preflight runs with the daemon's own permissions. It
@@ -74,7 +77,13 @@ func TestTheCodexFeatureCheckRefusesAnExecutableThatChangedSinceTheProbe(t *test
 	if _, err := os.Stat(ran); err == nil {
 		t.Fatal("the changed executable ran")
 	}
+	// Same digest at another path (another installation): also refused.
 	probed.Artifact.Digest = digest("b")
+	probed.Artifact.Path = filepath.Join(dir, "elsewhere", "codex")
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err == nil {
+		t.Fatal("the same bytes at another path are another installation and must be refused")
+	}
+	probed.Artifact.Path = native
 	_, _ = CodexEffectiveFeatures(preflightContext(context.Background(), probed))
 	if _, err := os.Stat(ran); err != nil {
 		t.Fatal("the probed executable, unchanged, must run")

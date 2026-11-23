@@ -38,8 +38,8 @@ type CommandRunner func(ctx context.Context, name string, args ...string) (out s
 // through the wrapper could fail for want of `node` on a daemon's minimal PATH (launchd, systemd)
 // while every launch would have worked, or the other way round.
 //
-// A probe passes the artifact it already identified (withProbeArtifact), and that artifact is run,
-// by the probe's commands and by the sandbox preflight that follows: never a second resolution,
+// A probe passes the artifact it already identified (withProbeArtifact), and the probe's commands
+// run that artifact: never a second resolution,
 // which could find a different binary after an upgrade, rehash it inside the command's deadline, or
 // fall back to a launcher the resolver refused. Without one, it runs the PATH entry, as before.
 //
@@ -238,11 +238,16 @@ func withProbeArtifact(ctx context.Context, art RuntimeArtifact) context.Context
 	return context.WithValue(ctx, probeArtifactKey{}, art)
 }
 
-// preflightContext carries a probed status's artifact into its preflight, which refuses to run
-// Codex if the executable now resolved is not that one.
+// preflightArtifactKey carries a probed status's artifact into its preflight as a reference only:
+// the preflight's commands do not run it (ExecRunner ignores this key and runs the PATH entry, as on
+// main), and the Codex feature check, which resolves again, refuses to run unless what it resolved
+// is that same file and digest.
+type preflightArtifactKey struct{}
+
+// preflightContext carries a probed status's artifact into its preflight (preflightArtifactKey).
 func preflightContext(ctx context.Context, st RuntimeStatus) context.Context {
 	if st.Artifact == nil {
 		return ctx
 	}
-	return withProbeArtifact(ctx, *st.Artifact)
+	return context.WithValue(ctx, preflightArtifactKey{}, *st.Artifact)
 }

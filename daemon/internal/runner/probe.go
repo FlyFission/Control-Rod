@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 // RuntimeStatus says whether an installed runtime is ready to be offered for work, and why not.
@@ -34,17 +32,22 @@ type RuntimeStatus struct {
 type CommandRunner func(ctx context.Context, name string, args ...string) (out string, code int, err error)
 
 // ExecRunner runs a CLI the way a run would find and start it: from the agent PATH, with the
-// agent environment (AgentEnv), plus surgical Node-shebang PATH augmentation when needed.
+// agent environment (AgentEnv). When the name resolves to a runtime artifact, the probe runs that
+// artifact with the artifact's own environment, exactly what a launch runs. Codex installed through
+// npm is a Node wrapper on the PATH; a launch skips the wrapper and runs the platform binary, so a
+// probe through the wrapper could fail for want of `node` on a daemon's minimal PATH (launchd,
+// systemd) while every launch would have worked, or the other way round.
 func ExecRunner(ctx context.Context, name string, args ...string) (string, int, error) {
 	// The same PATH and allowlisted environment as a launch, so a login the run could not see (an
 	// API key in the daemon's environment) never makes a runtime look ready.
+	env := AgentEnv(os.Environ())
 	path, err := LookPathAgent(name)
 	if err != nil {
 		return "", -1, err
 	}
-	env := AgentEnv(os.Environ())
-	if binaryutil.IsNodeLaunchBinary(path) {
-		env = withAugmentedNodePATH(env, path)
+	if art, aerr := resolveArtifact(name); aerr == nil && art.Path != "" {
+		path = art.Path
+		env = append(env, art.Env...)
 	}
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Env = env
@@ -57,41 +60,6 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 		return string(out), -1, err
 	}
 	return string(out), 0, nil
-}
-
-// withAugmentedNodePATH returns a copy of env with PATH surgically augmented for
-// a Node-shebang launcher, without adding any non-PATH environment variables.
-func withAugmentedNodePATH(env []string, binaryPath string) []string {
-	var currentPATH, home string
-	for _, kv := range env {
-		if v, ok := strings.CutPrefix(kv, "PATH="); ok {
-			currentPATH = v
-		} else if v, ok := strings.CutPrefix(kv, "HOME="); ok {
-			home = v
-		}
-	}
-	nextPATH := binaryutil.AugmentNodePATH(binaryPath, currentPATH, home)
-	if nextPATH == currentPATH {
-		return env
-	}
-	return withEnv(slices.Clone(env), "PATH="+nextPATH)
-}
-
-func envSecretValues(environ []string) []string {
-	var secrets []string
-	for _, kv := range environ {
-		k, v, ok := strings.Cut(kv, "=")
-		if !ok || v == "" {
-			continue
-		}
-		u := strings.ToUpper(k)
-		if strings.HasPrefix(u, "CONTROLROD_") && (strings.Contains(u, "TOKEN") || strings.Contains(u, "SECRET")) ||
-			strings.HasSuffix(u, "_TOKEN") || strings.Contains(u, "_TOKEN") ||
-			strings.HasSuffix(u, "_API_KEY") || strings.HasSuffix(u, "_SECRET") || strings.HasSuffix(u, "_PASSWORD") {
-			secrets = append(secrets, v)
-		}
-	}
-	return secrets
 }
 
 const probeTimeout = 10 * time.Second
@@ -138,14 +106,13 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 	st := RuntimeStatus{Runtime: id}
 	// Identify the executable before running anything: a launcher Control Rod cannot pin is never
 	// executed, not even for its version.
-	secrets := envSecretValues(os.Environ())
 	if art, aerr := resolveArtifact(binary); aerr == nil {
 		st.Artifact = &art
 	} else if errors.Is(aerr, ErrUnsupportedLauncher) {
-		st.Reason = fmt.Sprintf("%s is installed, but Control Rod can only run a runtime it can identify by digest: %v", binary, binaryutil.RedactError(aerr, secrets))
+		st.Reason = fmt.Sprintf("%s is installed, but Control Rod can only run a runtime it can identify by digest: %v", binary, aerr)
 		return st
 	} else {
-		st.Reason = fmt.Sprintf("%s cannot be found or its executable read to record which version it is: %v", binary, binaryutil.RedactError(aerr, secrets))
+		st.Reason = fmt.Sprintf("%s cannot be found or its executable read to record which version it is: %v", binary, aerr)
 		return st
 	}
 	call := func(args ...string) (string, int, error) {
@@ -157,9 +124,7 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 	if err != nil || code != 0 || firstLine(out) == "" {
 		detail := firstLine(out)
 		if err != nil {
-			detail = binaryutil.RedactError(err, secrets).Error()
-		} else {
-			detail = binaryutil.RedactValues(detail, secrets)
+			detail = err.Error()
 		}
 		st.Reason = fmt.Sprintf("%s is installed but `%s --version` did not answer (exit %d): %s", binary, binary, code, detail)
 		return st

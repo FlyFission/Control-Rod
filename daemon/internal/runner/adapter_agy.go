@@ -5,8 +5,6 @@ import (
 	"errors"
 	"os/exec"
 	"path/filepath"
-
-	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 type agyAdapter struct{ sandboxedBase }
@@ -19,15 +17,7 @@ func (agyAdapter) ConfinementGap() string {
 func (agyAdapter) ID() string          { return RuntimeAgy }
 func (agyAdapter) Binary() string      { return "agy" }
 func (agyAdapter) DisplayName() string { return "Antigravity CLI" }
-func (agyAdapter) BinarySpec() binaryutil.BinarySpec {
-	return binaryutil.BinarySpec{
-		Label:         "Antigravity CLI",
-		Names:         []string{"agy"},
-		UnixPaths:     []string{"/opt/homebrew/bin/agy", "/usr/local/bin/agy"},
-		UnixHomePaths: []string{".local/bin/agy"},
-	}
-}
-func (agyAdapter) Family() string { return "Google" }
+func (agyAdapter) Family() string      { return "Google" }
 
 func (agyAdapter) Providers() []string {
 	return []string{"agy", "antigravity", "gemini-cli"}

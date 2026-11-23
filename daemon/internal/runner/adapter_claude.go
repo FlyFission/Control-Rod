@@ -6,8 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 type claudeAdapter struct{ sandboxedBase }
@@ -31,18 +29,9 @@ func (claudeAdapter) CheckerEnv() []string {
 	return []string{"CLAUDE_CODE_DISABLE_AUTO_MEMORY=1"}
 }
 
-func (claudeAdapter) ID() string          { return RuntimeClaude }
-func (claudeAdapter) Binary() string      { return "claude" }
-func (claudeAdapter) DisplayName() string { return "Claude Code" }
-func (claudeAdapter) BinarySpec() binaryutil.BinarySpec {
-	return binaryutil.BinarySpec{
-		Label:         "Claude Code",
-		Names:         []string{"claude"},
-		UnixPaths:     []string{"/opt/homebrew/bin/claude", "/usr/local/bin/claude"},
-		UnixHomePaths: []string{".local/bin/claude", ".npm-global/bin/claude"},
-		NodeManaged:   true,
-	}
-}
+func (claudeAdapter) ID() string                  { return RuntimeClaude }
+func (claudeAdapter) Binary() string              { return "claude" }
+func (claudeAdapter) DisplayName() string         { return "Claude Code" }
 func (claudeAdapter) Family() string              { return "Anthropic" }
 func (claudeAdapter) AuthorLaunchQualified() bool { return true }
 func (claudeAdapter) ListOnSubscriptions() bool   { return true }

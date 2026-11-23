@@ -4,8 +4,6 @@ import (
 	"context"
 	"os/exec"
 	"time"
-
-	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 // Capabilities describes an adapter. Nothing reads it to choose a launch, a probe, a sandbox
@@ -178,26 +176,4 @@ func AdapterFor(id string) (Adapter, bool) {
 func availableBinary(a Adapter, lookPath func(string) (string, error)) bool {
 	_, err := lookPath(a.Binary())
 	return err == nil
-}
-
-// BinarySpecifier describes how an adapter's CLI executable is resolved and verified.
-type BinarySpecifier interface {
-	BinarySpec() binaryutil.BinarySpec
-}
-
-// SpecForAdapter returns the BinarySpec for a, falling back to DisplayName and Binary.
-func SpecForAdapter(a Adapter) binaryutil.BinarySpec {
-	if bs, ok := a.(BinarySpecifier); ok {
-		return bs.BinarySpec()
-	}
-	return binaryutil.BinarySpec{
-		Label: a.DisplayName(),
-		Names: []string{a.Binary()},
-	}
-}
-
-// ResolveAdapterBinary resolves a's executable using the allowlisted AgentEnv derived
-// from environ (never full login-shell environment variables).
-func ResolveAdapterBinary(ctx context.Context, a Adapter, environ []string) (string, error) {
-	return binaryutil.ResolveBinary(ctx, SpecForAdapter(a), AgentEnv(environ))
 }

@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 type codexAdapter struct {

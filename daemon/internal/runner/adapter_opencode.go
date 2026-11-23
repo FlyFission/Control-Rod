@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"os/exec"
-
-	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 type opencodeAdapter struct{ sandboxedBase }
@@ -18,16 +16,7 @@ func (opencodeAdapter) ConfinementGap() string {
 func (opencodeAdapter) ID() string          { return RuntimeOpenCode }
 func (opencodeAdapter) Binary() string      { return "opencode" }
 func (opencodeAdapter) DisplayName() string { return "OpenCode" }
-func (opencodeAdapter) BinarySpec() binaryutil.BinarySpec {
-	return binaryutil.BinarySpec{
-		Label:         "OpenCode",
-		Names:         []string{"opencode"},
-		UnixPaths:     []string{"/opt/homebrew/bin/opencode", "/usr/local/bin/opencode"},
-		UnixHomePaths: []string{".local/bin/opencode", ".opencode/bin/opencode", ".npm-global/bin/opencode"},
-		NodeManaged:   true,
-	}
-}
-func (opencodeAdapter) Family() string { return "OpenCode" }
+func (opencodeAdapter) Family() string      { return "OpenCode" }
 
 func (opencodeAdapter) Providers() []string {
 	return []string{"opencode"}

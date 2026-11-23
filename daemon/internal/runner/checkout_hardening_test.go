@@ -546,3 +546,30 @@ func TestCheckoutCleanupLeavesAReplacedRunDirectoryAlone(t *testing.T) {
 		t.Fatalf("cleanup deleted a directory it did not reserve: %q %v", got, err)
 	}
 }
+
+// A daemon home that is a link whose target lies in the checkout's root must be refused, and the
+// sandbox deny list must name the real path.
+func TestCheckoutRefusedWhenDaemonHomeIsALinkIntoTheRoot(t *testing.T) {
+	b := checkoutFixture(t)
+	target := filepath.Join(b.Root, "daemon-target")
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(t.TempDir(), "home-alias")
+	if err := os.Symlink(target, alias); err != nil {
+		t.Fatal(err)
+	}
+	d := New(Config{Home: alias, Runtimes: []string{"fake"}, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	if got := d.sandboxPathsFor("/h", "").DaemonHome; got != target {
+		t.Fatalf("deny list names %q, want the real path %q", got, target)
+	}
+	comp, err := d.execute(context.Background(), authorCheckoutJob(t, "alias-home", b, checkoutEditScript))
+	if err != nil || comp.Status != "failed" || !strings.Contains(comp.Error, "checkout refused") {
+		t.Fatalf("a checkout over a linked daemon home ran: %+v %v", comp, err)
+	}
+	// The overlap check itself resolves an unresolved alias handed to it.
+	at := SandboxPaths{Home: filepath.Dir(b.Root), DaemonHome: alias}
+	if err := validateCheckoutHost(b, at, nil); err == nil {
+		t.Fatal("an unresolved alias passed the overlap check")
+	}
+}

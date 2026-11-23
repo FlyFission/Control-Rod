@@ -74,6 +74,10 @@ The run directory is opened at reservation and must be the directory created; st
 
 Cleanup compares the held run handle with the entry at the run directory's name and removes only the same directory (`TestCheckoutCleanupLeavesAReplacedRunDirectoryAlone`). The API refuses a succeeded bound run whose trace has no `checkout_final` or whose `checkout_final.branch` differs from the frozen branch (`runs.test.ts`). Results: `go test ./...` in `daemon/` had only the known failure (230 top-level tests passed, 14 skipped, 1 failed); API suite 846 of 847 passed on the full run, the one failure being the known SEC-07 load flake, which passed when rerun alone; typecheck passed.
 
+### Sixth fix round
+
+The overlap check compares each protected path as configured and as it resolves, and the sandbox deny list names the resolved daemon home (`TestCheckoutRefusedWhenDaemonHomeIsALinkIntoTheRoot`). The cleanup claim in `risk.md` was corrected to match the code, and the cleanup swap window was added to the accepted residual risk. Results: `go test ./...` in `daemon/` had only the known failure (231 top-level tests passed, 14 skipped, 1 failed); `go vet` and `GOOS=windows go vet` passed. No API or spec code changed this round, so the API suite was not rerun.
+
 ## Required links
 
 [Basis](basis.md), [plan](plan.md), [risk](risk.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

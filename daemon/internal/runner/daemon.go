@@ -346,6 +346,8 @@ func (d *Daemon) sandboxPathsFor(home, workspace string) SandboxPaths {
 	if err != nil {
 		dh = d.cfg.Home
 	}
+	// The deny list names the daemon home as it really resolves, so an alias cannot dodge it.
+	dh = resolveOrClean(dh)
 	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: workspace, Logins: LoginLocations(os.Getenv, home)}
 }
 

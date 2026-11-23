@@ -181,10 +181,14 @@ func validateCheckoutHost(b *CheckoutBinding, at SandboxPaths, p *SandboxPolicy)
 			}
 		}
 	}
+	// Each protected path is compared as configured and as it really resolves: an alias (a linked
+	// daemon home, say) whose target lies in the checkout would otherwise pass.
 	for _, k := range keep {
-		for _, path := range []string{b.Root, b.Path} {
-			if within(path, k) || within(k, path) {
-				return fmt.Errorf("checkout overlaps a protected location (%s)", k)
+		for _, cand := range []string{k, resolveOrClean(k)} {
+			for _, path := range []string{b.Root, b.Path} {
+				if within(path, cand) || within(cand, path) {
+					return fmt.Errorf("checkout overlaps a protected location (%s)", k)
+				}
 			}
 		}
 	}
@@ -232,4 +236,12 @@ func checkoutAfterRun(b *CheckoutBinding) (*CheckoutObserved, error) {
 		}
 	}
 	return &obs, nil
+}
+
+// resolveOrClean resolves links in p, or returns the cleaned path when it cannot (it does not exist).
+func resolveOrClean(p string) string {
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		return real
+	}
+	return filepath.Clean(p)
 }

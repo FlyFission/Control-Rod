@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -68,9 +68,11 @@ const db = await openDb(dbUrl, roleUrls
   : { secrets: localRoleSecrets(join(home, "db-roles.json")), ownsCluster: pgServer !== null });
 
 const tokenPath = join(home, "daemon.token");
+const tokenTmp = `${tokenPath}.tmp.${process.pid}`;
 const token = randomBytes(32).toString("base64url");
-writeFileSync(tokenPath, token, { mode: 0o600 });
-chmodSync(tokenPath, 0o600);
+writeFileSync(tokenTmp, token, { mode: 0o600 });
+chmodSync(tokenTmp, 0o600);
+renameSync(tokenTmp, tokenPath);
 
 const origin = process.env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`;
 const sourceConfigPath=process.env.CONTROLROD_PREPARATION_CONFIG;
@@ -91,11 +93,17 @@ const app = buildApp({
   },
 });
 
+let stopping = false;
 const stop = async () => {
-  await app.close();
-  await closeDb(db);
-  await pgServer?.stop();
-  process.exit(0);
+  if (stopping) return;
+  stopping = true;
+  try {
+    await app.close().catch(() => undefined);
+    await closeDb(db).catch(() => undefined);
+    await pgServer?.stop().catch(() => undefined);
+  } finally {
+    process.exit(0);
+  }
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

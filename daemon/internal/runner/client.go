@@ -212,7 +212,7 @@ func (c *Client) Evidence(ctx context.Context, r SpawnReceipt) (EvidenceReply, e
 			return EvidenceReply{}, fmt.Errorf("decode evidence reply: %w", err)
 		}
 		return e, nil
-	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
+	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
 		return EvidenceReply{}, statusError(path, resp)
 	default:
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
@@ -240,7 +240,7 @@ func (c *Client) Complete(ctx context.Context, runID string, comp Completion) (*
 			return nil, fmt.Errorf("completion receipt subject mismatch")
 		}
 		return &r, nil
-	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
+	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
 		return nil, statusError(path, resp)
 	default:
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))

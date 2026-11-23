@@ -137,7 +137,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       // The board's quick add claims `c` first (its listener prevents the default). Its state update can
       // re-render before this listener runs and remove the .bd-add opener, so look at the event too.
       if (e.defaultPrevented) return;
-      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
+      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-add-form") !== null;
       const hasOpenOverlay = document.querySelector("dialog[open], .palette") !== null;
       if (!inField && !hasBoardQuickAdd && !hasOpenOverlay && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();

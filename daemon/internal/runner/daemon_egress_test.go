@@ -146,15 +146,28 @@ echo '{"type":"result","subtype":"success"}'
 }
 
 func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
-	t.Run("disabled when env unset", func(t *testing.T) {
+	t.Run("enabled by default for real runtime when env unset", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "")
+		cmd := exec.Command("true")
+		ef, err := wireAuthorEgressFilter(RuntimeClaude, cmd, &Workspace{}, testPolicy())
+		if err != nil || ef == nil {
+			t.Fatalf("expected active filter by default, got ef=%v err=%v", ef, err)
+		}
+		defer ef.Close()
+		if v := envValue(cmd.Env, "HTTP_PROXY"); v != "http://"+ef.Addr() {
+			t.Fatalf("HTTP_PROXY=%q want %q", v, "http://"+ef.Addr())
+		}
+	})
+
+	t.Run("disabled when CONTROLROD_EGRESS_FILTER=0", func(t *testing.T) {
+		t.Setenv("CONTROLROD_EGRESS_FILTER", "0")
 		cmd := exec.Command("true")
 		ef, err := wireAuthorEgressFilter(RuntimeClaude, cmd, &Workspace{}, testPolicy())
 		if err != nil || ef != nil {
 			t.Fatalf("expected nil filter, got ef=%v err=%v", ef, err)
 		}
 		if v := envValue(cmd.Env, "HTTP_PROXY"); v != "" {
-			t.Fatalf("HTTP_PROXY injected when CONTROLROD_EGRESS_FILTER is unset: %q", v)
+			t.Fatalf("HTTP_PROXY injected when CONTROLROD_EGRESS_FILTER=0: %q", v)
 		}
 	})
 
@@ -186,7 +199,7 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 	t.Run("sandbox empty AllowedHosts with no provider hosts denies all outbound CONNECT", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "1")
 		cmd := exec.Command("true")
-		cmd.Env = []string{"http_proxy=http://old:1", "NO_PROXY=*", "no_proxy=localhost", "KEEP=1"}
+		cmd.Env = []string{"http_proxy=http://old:1", "ALL_PROXY=socks5://old:1", "all_proxy=socks5://old:1", "NO_PROXY=*", "no_proxy=localhost", "KEEP=1"}
 		p := testPolicy()
 		p.AllowedHosts = []string{}
 		ef, err := wireAuthorEgressFilter("", cmd, &Workspace{}, p)
@@ -201,7 +214,7 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 				t.Fatalf("%s=%q want %q", k, got, want)
 			}
 		}
-		for _, k := range []string{"NO_PROXY", "no_proxy"} {
+		for _, k := range []string{"ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy"} {
 			if got := envValue(cmd.Env, k); got != "" {
 				t.Fatalf("%s=%q was not stripped", k, got)
 			}

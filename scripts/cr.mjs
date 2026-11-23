@@ -79,9 +79,16 @@ function databaseOk() {
  * and Claude Code's network proxy needs socat, so say what is missing before setup instead of after.
  * Returns one line per problem, or an empty list when agent runs can start here.
  */
+function nodeVersionOk() {
+  const [maj, min] = process.versions.node.split(".").map(Number);
+  return maj > 22 || (maj === 22 && min >= 12);
+}
+
 function agentRunProblems() {
   const os = platform();
-  if (os === "darwin") return [];
+  if (os === "darwin") {
+    return which("sandbox-exec") ? [] : ["Seatbelt (sandbox-exec) was not found on PATH"];
+  }
   if (os !== "linux") return [`agent runs are not qualified on ${os} yet; use WSL2 on Windows`];
   const problems = [];
   if (!which("bwrap")) problems.push("bubblewrap is missing: sudo apt install bubblewrap");
@@ -112,16 +119,22 @@ function doctor({ agents = false } = {}) {
     );
     return false;
   }
+  const nodeFound = version("node");
   const rows = [
-    ["node 22+", version("node"), true],
+    ["node 22.12+", nodeFound && nodeVersionOk() ? nodeFound : null, true],
     ["pnpm", version("pnpm"), true],
     ["go", version("go", ["version"]), true],
-    ["uv (Python tools)", version("uv"), true],
+    ["uv (optional, for Python SDK and contributor checks)", version("uv"), false],
     ["claude (Claude Code, your login)", which("claude") && version("claude"), false],
     ["codex (optional, for an independent pre-check runtime)", which("codex") && version("codex"), false],
   ];
   let ok = true;
   for (const [name, found, required] of rows) {
+    if (name.startsWith("node ") && nodeFound && !found) {
+      console.log(`MISSING  ${name}: found ${nodeFound}, need >= v22.12.0`);
+      ok = false;
+      continue;
+    }
     console.log(`${found ? "ok  " : required ? "MISSING" : "--  "}  ${name}${found ? `: ${found}` : ""}`);
     if (!found && required) ok = false;
   }
@@ -193,19 +206,6 @@ function setup() {
   run("go", ["build", "-o", join(bin, "controlrod"), "./cmd/controlrod"], { cwd: join(root, "daemon") });
 }
 
-async function waitForHealth() {
-  for (let i = 0; i < 120; i++) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/health`);
-      if (r.ok) return;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  throw new Error("The control plane did not start");
-}
-
 async function start() {
   if (!doctor()) process.exit(1);
   setup();
@@ -223,8 +223,29 @@ async function start() {
   }
   env.PATH = [bin, env.PATH].filter(Boolean).join(delimiter);
 
+  let apiExited = false;
+  let apiExitCode = 0;
+  let stopping = false;
   const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], { env, stdio: "inherit" });
-  await waitForHealth();
+  api.on("exit", (code, signal) => {
+    apiExited = true;
+    apiExitCode = code ?? (signal ? 1 : 0);
+    if (!stopping) {
+      console.error(`\nThe control plane exited unexpectedly (code=${code ?? signal}).`);
+      process.exit(apiExitCode || 1);
+    }
+  });
+  for (let i = 0; i < 120; i++) {
+    if (apiExited) throw new Error(`The control plane exited before becoming healthy (code=${apiExitCode})`);
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/health`);
+      if (r.ok) break;
+    } catch {
+      /* not up yet */
+    }
+    if (i === 119) throw new Error("The control plane did not start");
+    await new Promise((r) => setTimeout(r, 500));
+  }
   // The daemon reads its token from CONTROLROD_HOME/daemon.token, and reads it again if the control
   // plane restarts and writes a new one; passing it in the environment would pin the old token.
   const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}` };
@@ -233,16 +254,40 @@ async function start() {
     env: daemonEnv,
     stdio: "inherit",
   });
+  let daemonExited = false;
+  daemon.on("exit", (code, signal) => {
+    daemonExited = true;
+    if (!stopping) {
+      console.error(`\nThe run daemon exited (code=${code ?? signal}); runs will wait until it is restarted.`);
+    }
+  });
   console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);
   const stop = () => {
+    if (stopping) return;
+    stopping = true;
+    const finish = () => {
+      if (!apiExited) api.kill("SIGTERM");
+      const hardExit = setTimeout(() => process.exit(0), 5000);
+      hardExit.unref();
+      if (apiExited) process.exit(apiExitCode);
+      api.once("exit", () => process.exit(0));
+    };
+    if (daemonExited) {
+      finish();
+      return;
+    }
     daemon.kill("SIGTERM");
-    api.kill("SIGTERM");
+    const waitDaemon = setTimeout(finish, 8000);
+    waitDaemon.unref();
+    daemon.once("exit", () => {
+      clearTimeout(waitDaemon);
+      finish();
+    });
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
-  api.on("exit", (code) => {
-    daemon.kill("SIGTERM");
-    process.exit(code ?? 0);
+  api.on("exit", () => {
+    if (!stopping && !daemonExited) daemon.kill("SIGTERM");
   });
 }
 

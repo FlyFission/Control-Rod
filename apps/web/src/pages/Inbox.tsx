@@ -140,6 +140,7 @@ export function Inbox() {
         <BoardReviewDrawer
           packageId={activePkgId}
           mode={mode}
+          autoFocus={selectedPkgId !== undefined}
           onClose={() => setSelectedPkgId(null)}
         />
       )}

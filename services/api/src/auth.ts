@@ -242,7 +242,7 @@ const USABLE_CREDENTIAL = `exists (select 1 from credentials cr where cr.id = $3
   and not exists (select 1 from authenticator_credentials a where a.credential_id = $3 and (a.body->>'revoked')::boolean is true
     and a.version = (select max(version) from authenticator_credentials b where b.credential_id = $3))`;
 
-export async function startSession(db: Db, reply: FastifyReply, user: string, credentialId: string) {
+export async function startSession(db: Db, reply: FastifyReply, user: string, credentialId: string, secure = false) {
   const token = b64url(randomBytes(32));
   // Under the organization lock, and only for an active member whose passkey is still usable: a
   // suspension or a passkey revocation that is committing cannot be outrun by a session created in
@@ -261,7 +261,7 @@ export async function startSession(db: Db, reply: FastifyReply, user: string, cr
     path: "/",
     httpOnly: true,
     sameSite: "strict",
-    secure: false,
+    secure,
     maxAge: SESSION_DAYS * 86400,
   });
 }

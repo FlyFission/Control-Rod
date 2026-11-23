@@ -1336,14 +1336,13 @@ export async function createCheckpoint(opts: {
   let repoDir: string;
   if (opts.workspaceRoot !== undefined) {
     workspaceRoot = resolveSafeWorkspaceRoot(opts.workspaceRoot);
-    if (!isContainedIn(workspaceRoot, expandedRepo)) {
-      throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
-    }
-    repoDir = resolveWithoutSymlinks(expandedRepo, workspaceRoot);
   } else {
     workspaceRoot = defaultWorkspaceRoot();
-    repoDir = resolveWithoutSymlinks(expandedRepo);
   }
+  if (!isContainedIn(workspaceRoot, expandedRepo)) {
+    throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
+  }
+  repoDir = resolveWithoutSymlinks(expandedRepo, workspaceRoot);
 
   if (!pathExistsAny(repoDir)) {
     throw new Refusal(404, "repo-not-found", `Repository not found: ${repoDir}`);
@@ -1551,12 +1550,17 @@ async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
       extraEnv: cloneFilterEnv,
     });
   }
-  const targetFilterEnv = await filterDisableEnv(targetDir, ctx.workspaceRoot, "safecrlf-only");
-  await git(["checkout", "-b", ctx.branch, ...(ctx.baseBranch ? [ctx.baseBranch] : [])], {
-    cwd: targetDir,
-    workspaceRoot: ctx.workspaceRoot,
-    extraEnv: targetFilterEnv,
-  });
+  try {
+    const targetFilterEnv = await filterDisableEnv(targetDir, ctx.workspaceRoot, "safecrlf-only");
+    await git(["checkout", "-b", ctx.branch, ...(ctx.baseBranch ? [ctx.baseBranch] : [])], {
+      cwd: targetDir,
+      workspaceRoot: ctx.workspaceRoot,
+      extraEnv: targetFilterEnv,
+    });
+  } catch (err) {
+    rmSync(targetDir, { recursive: true, force: true });
+    throw err;
+  }
   return targetDir;
 }
 

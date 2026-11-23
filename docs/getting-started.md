@@ -12,7 +12,7 @@ The toolchain is pinned in [`mise.toml`](../mise.toml). The easiest route is [mi
 | pnpm | 10.28.0 | workspace and scripts |
 | Rust | 1.97.0 | kernel (and its WASM binding) |
 | Go | 1.24.7 | run daemon |
-| Python and uv | 3.13, uv 0.11.32 | Python SDK and tools |
+| Python and uv | 3.13, uv 0.11.32 | Optional for running Control Rod; required for Python SDK and repository checks |
 
 Optional, for real agent runs: [Claude Code](https://claude.com/claude-code) signed in (agents run on your own subscription) and Codex (so pre-checks have an independent runtime). Without Codex, a pre-check waits until you sign a written override with your passkey; `pnpm cr doctor` explains this.
 
@@ -34,7 +34,7 @@ Open <http://localhost:7300>, choose **Set up this machine**, and register a pas
 export CONTROLROD_HOME="$HOME/.controlrod-dev"
 ```
 
-Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATABASE_URL` (use your own Postgres instead of the embedded one), `CONTROLROD_GUIDED_PREPARATION=1` and `CONTROLROD_PREPARED_RELEASE=1` (turn on guided preparation and prepared release, both off by default). The step-by-step owner run is in [owner-pilot.md](owner-pilot.md).
+Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATABASE_URL` (use your own Postgres instead of the embedded one), `CONTROLROD_EGRESS_FILTER` (outbound egress filtering for real author runs is **on by default**; set `0` or `false` to disable), `CONTROLROD_GUIDED_PREPARATION=1` and `CONTROLROD_PREPARED_RELEASE=1` (turn on guided preparation and prepared release, both off by default). The step-by-step owner run is in [owner-pilot.md](owner-pilot.md).
 
 **Agents run for real.** `pnpm cr start` also starts the daemon, which launches Claude Code or Codex processes under your login, inside the sandbox policy recorded for the run ([ADR 0021](adr/0021-native-cli-sandboxes.md)). If you only want the API and web app, see the pilot guide for starting the API alone.
 

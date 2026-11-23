@@ -95,7 +95,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-const PLACES = ["inbox", "office", "packages", "registers", "explore", "roster", "usage", "records", "policies", "packages/WP-0007/case"];
+const PLACES = ["inbox", "office", "packages", "registers", "snapshots", "roster", "usage", "records", "policies", "packages/WP-0007/case"];
 test("accessibility: no WCAG 2.2 AA violations on any place, the case view or the open palette", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium");
   await page.addInitScript(() => window.localStorage.setItem("cr.lastSeenSeq:ben", "100"));
@@ -120,10 +120,14 @@ test("keyboard: skip link, every place, palette open, choose and return", async 
   test.skip(browserName !== "chromium");
   await page.goto("/inbox");
   await page.waitForTimeout(500);
+  // Expand any collapsed nav groups so all places participate in sequential Tab traversal.
+  const collapsedGroups = page.locator('.nav-group-toggle[aria-expanded="false"]');
+  const count = await collapsedGroups.count();
+  for (let i = 0; i < count; i++) await collapsedGroups.nth(i).click();
   await page.keyboard.press("Tab");
   const first = await page.evaluate(() => document.activeElement?.textContent?.trim());
   const stops: string[] = [first ?? ""];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 35; i++) {
     await page.keyboard.press("Tab");
     stops.push(await page.evaluate(() => (document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent || "").trim().slice(0, 30)));
   }

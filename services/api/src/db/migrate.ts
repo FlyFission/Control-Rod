@@ -63,6 +63,11 @@ export async function migrate(
   migrations: readonly { version: string; sql: string }[] = MIGRATIONS,
 ): Promise<void> {
   const c = await db.connect();
+  let broken = false;
+  const connectionError = () => {
+    broken = true;
+  };
+  c.on("error", connectionError);
   try {
     await c.query("begin");
     await c.query(
@@ -104,9 +109,11 @@ export async function migrate(
     }
     await c.query("commit");
   } catch (e) {
-    await c.query("rollback");
+    if ((e as { severity?: string })?.severity === "FATAL") broken = true;
+    if (!broken) await c.query("rollback").catch(() => (broken = true));
     throw e;
   } finally {
-    c.release();
+    c.off("error", connectionError);
+    c.release(broken);
   }
 }

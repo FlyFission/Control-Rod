@@ -1,0 +1,55 @@
+{
+  "retrieved": "2026-11-23",
+  "note": "Every value is copied from the cited table or sentence as published. Nothing is rounded, combined or extrapolated.",
+  "sources": {
+    "stechly2024": {
+      "title": "On the Self-Verification Limitations of Large Language Models on Reasoning and Planning Tasks",
+      "authors": "Kaya Stechly, Karthik Valmeekam, Subbarao Kambhampati",
+      "url": "https://arxiv.org/abs/2402.08115",
+      "where": "Table 1, arXiv HTML v2: 'Accuracy across prompting schemes over 100 instances per domain.' Model: GPT-4.",
+      "license": "arXiv.org perpetual non-exclusive license (values redrawn from the table, no figure copied)",
+      "conditions": "GPT-4, 100 instances per domain. 'LLM+LLM' is GPT-4 critiquing its own answers; 'LLM+Sound Critique, B.F.' is a sound program checker giving binary feedback, not a second language model."
+    },
+    "huang2024": {
+      "title": "Large Language Models Cannot Self-Correct Reasoning Yet",
+      "authors": "Jie Huang et al.",
+      "url": "https://arxiv.org/abs/2310.01798",
+      "where": "Table 3, arXiv HTML v2: 'Results of GPT-3.5 and GPT-4 on reasoning benchmarks with intrinsic self-correction.'",
+      "license": "CC BY 4.0",
+      "conditions": "Intrinsic self-correction: the model reviews its own answer with no external feedback."
+    },
+    "panickssery2024": {
+      "title": "LLM Evaluators Recognize and Favor Their Own Generations",
+      "authors": "Arjun Panickssery, Samuel R. Bowman, Shi Feng",
+      "url": "https://arxiv.org/abs/2404.13076",
+      "where": "Introduction, finding 2: 'GPT-4 is 73.5% accurate distinguishing itself from two other LLMs and humans.'",
+      "license": "CC BY 4.0",
+      "conditions": "Summarization (XSUM, CNN/DailyMail), out of the box, no fine-tuning."
+    },
+    "goel2025": {
+      "title": "Great Models Think Alike and this Undermines AI Oversight",
+      "authors": "Shashwat Goel et al.",
+      "url": "https://arxiv.org/abs/2502.04313",
+      "where": "Section 3.2: 'a significant (p < 0.01) positive correlation (average Pearson r=0.84) between LLM-as-a-judge scores and model similarity'. Figure 6 caption: 'LM mistakes are getting more correlated with increasing capabilities'.",
+      "license": "arXiv.org perpetual non-exclusive license",
+      "conditions": "Similarity measured by CAPA (overlap in mistakes). The capability trend has no single published coefficient."
+    }
+  },
+  "chart": {
+    "source": "stechly2024",
+    "title": "GPT-4 checking itself vs. an outside checker",
+    "series": ["Answers alone", "GPT-4 checks itself", "Outside checker"],
+    "series_columns": ["S.P.", "LLM+LLM", "LLM+Sound Critique B.F."],
+    "rows": [
+      {"domain": "Graph coloring", "values": [16, 2, 38]},
+      {"domain": "Game of 24", "values": [5, 3, 36]}
+    ],
+    "unit": "% of 100 problems solved"
+  },
+  "facts": {
+    "huang_gpt4_gsm8k": {"source": "huang2024", "standard": 95.5, "self_correct_round_2": 89.0, "unit": "% accuracy"},
+    "huang_gpt35_csqa": {"source": "huang2024", "standard": 75.8, "self_correct_round_1": 38.1, "unit": "% accuracy"},
+    "panickssery_gpt4_self_recognition": {"source": "panickssery2024", "value": 73.5, "unit": "% accuracy"},
+    "goel_judge_similarity_r": {"source": "goel2025", "value": 0.84, "unit": "average Pearson r"}
+  }
+}

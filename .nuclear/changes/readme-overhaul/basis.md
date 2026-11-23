@@ -26,6 +26,10 @@ The owner asked (2026-11-22) for a complete overhaul of the README and landing p
 
 The owner asked (2026-11-23) for "the end user decides where they come into the picture" as a README selling point. It is not built; ADR 0024 (draft PR #150) records the decision. The README adds it as one bullet marked *(planned)*, and states what is true today: a person signs at release and at acceptance. When it ships, drop the marker.
 
+## Revision 3 (2026-11-23): ground the "why" in published research
+
+The owner asked (2026-11-23) to quantify why a separate checker beats self-checking, with research figures and a chart. The README adds a "Why a second model" section quoting four arXiv papers (Stechly et al. 2024, Huang et al. 2024, Panickssery et al. 2024, Goel et al. 2025). Each figure is copied as published into `docs/research/second-checker/inputs.json` with its table or sentence; `build.py` draws the chart from it (AGENTS rule 5). No paper reports a "percent more errors caught" by a different-vendor model, so the README states that limit instead of inventing one.
+
 ## Assumptions and invalidation triggers
 
 | Assumption | Basis | Invalidation trigger |

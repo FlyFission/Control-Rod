@@ -20,6 +20,20 @@ Control Rod is a free, open-source workspace that runs on your own machine. You 
 - **You choose where you come in** *(planned)*. Today you step in twice: when work is released and when a result is accepted. Next, you pick your own stops, from one yes at the start to a look at every stage, and any check that falls back to something weaker is logged and flagged so you can step in before it merges.
 - **One board for everything.** Every task, what it is waiting on and who has it, in one place, with a big red **SCRAM** button that stops runs on the record when you need everything to halt.
 
+## Why a second model, not the same one
+
+Published research keeps finding the same thing: a model is a poor judge of its own work.
+
+**When GPT-4 checked its own graph-coloring answers, it solved 2% of them, down from 16% with no check at all. With a checker outside the model, it solved 38%.**
+
+![Bar chart from Stechly et al. 2024, Table 1. Graph coloring: answers alone 16%, GPT-4 checks itself 2%, outside checker 38%. Game of 24: 5%, 3% and 36%.](docs/assets/readme/second-checker.svg)
+
+- **Checking itself can make a model worse.** Asked to review its own answers with no outside feedback, GPT-4 went from **95.5%** to **89.0%** on grade-school math, and GPT-3.5 went from **75.8%** to **38.1%** on common-sense questions ([Huang et al., 2024](https://arxiv.org/abs/2310.01798), Table 3).
+- **Models recognize their own work and go easy on it.** GPT-4 picked out its own writing from other models' and people's **73.5%** of the time, and models that recognize themselves better also favor themselves more ([Panickssery et al., 2024](https://arxiv.org/abs/2404.13076)).
+- **Look-alike models share blind spots.** AI judges gave higher scores to models more similar to themselves, measured by how often they make the same mistakes (average Pearson **r = 0.84**), and mistakes are getting more alike as models get more capable ([Goel et al., 2025](https://arxiv.org/abs/2502.04313)).
+
+That is why Control Rod's checker comes from a different vendor and never sees the author's reasoning. To be clear about the evidence: the outside checker in the chart is a program that checks answers exactly, not a second AI model, and none of these studies measures one vendor's agent reviewing another's code. That is the bet Control Rod makes, and its records let you measure how it pays off on your own work. The figures, their conditions and the script that draws the chart are in [docs/research/second-checker](docs/research/second-checker/).
+
 ## The table
 
 Bring the agents you use. Control Rod seats them as authors and checkers and keeps the doing and the checking apart.

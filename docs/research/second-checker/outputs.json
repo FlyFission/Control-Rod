@@ -1,0 +1,41 @@
+{
+  "inputs_sha256": "4931735ad8c671331832aef39280c7a676c3f4cc61d75d588c7806ed3fe98708",
+  "svg": "docs/assets/readme/second-checker.svg",
+  "svg_sha256": "38f54b68b8697360a6fb1735cf7931183e63c9313064e541d757a4ad80cfefe4",
+  "chart_values": {
+    "Graph coloring": {
+      "Answers alone": 16,
+      "GPT-4 checks itself": 2,
+      "Outside checker": 38
+    },
+    "Game of 24": {
+      "Answers alone": 5,
+      "GPT-4 checks itself": 3,
+      "Outside checker": 36
+    }
+  },
+  "facts": {
+    "huang_gpt4_gsm8k": {
+      "source": "huang2024",
+      "standard": 95.5,
+      "self_correct_round_2": 89.0,
+      "unit": "% accuracy"
+    },
+    "huang_gpt35_csqa": {
+      "source": "huang2024",
+      "standard": 75.8,
+      "self_correct_round_1": 38.1,
+      "unit": "% accuracy"
+    },
+    "panickssery_gpt4_self_recognition": {
+      "source": "panickssery2024",
+      "value": 73.5,
+      "unit": "% accuracy"
+    },
+    "goel_judge_similarity_r": {
+      "source": "goel2025",
+      "value": 0.84,
+      "unit": "average Pearson r"
+    }
+  }
+}

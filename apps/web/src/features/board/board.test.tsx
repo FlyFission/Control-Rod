@@ -721,6 +721,32 @@ describe("BoardView", () => {
     expect(document.activeElement).toBe(captureBtn);
   });
 
+  it("N skips a capture whose latest read failed, though the stream stays live", async () => {
+    api({ packages: [] });
+    server.use(
+      http.get("*/captures", () =>
+        HttpResponse.json([
+          { schema_version: "0.1.0", id: "C-1", text: "Unclassified capture", source: "web", created_at: "2026-11-08T10:00:00Z" },
+        ]),
+      ),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const captureBtn = await screen.findByRole("button", { name: "Unclassified capture" });
+    const tone = captureBtn.closest("article")?.getAttribute("data-tone");
+    expect(tone === "needs" || tone === "block").toBe(true);
+    await user.keyboard("n");
+    expect(document.activeElement).toBe(captureBtn);
+    captureBtn.blur();
+
+    // Someone resolves it elsewhere; the event refreshes captures, and that read fails.
+    server.use(http.get("*/captures", () => HttpResponse.json({ code: "unavailable" }, { status: 503 })));
+    act(() => FakeSource.last!.emit("event", { subject: "C-1" }));
+    await screen.findByText(/Could not read the captures/);
+    await user.keyboard("n");
+    expect(document.activeElement).not.toBe(captureBtn);
+  });
+
   it("N jumps to the next card marked Needs you, in board order, and wraps", async () => {
     const release: ActionDescriptor = { command: "release", label: "Release", allowed: true, signature: "direct" };
     api({

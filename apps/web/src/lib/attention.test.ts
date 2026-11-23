@@ -22,6 +22,12 @@ describe("new arrivals", () => {
     const before = new Set([attentionKey(item())]);
     expect(newArrivals(before, [item({ kind: "dispute" })])).toHaveLength(1);
   });
+  it("treats a requeued run that fails or stops again on the same revision as a new dispute", () => {
+    const first = item({ kind: "dispute", since: "2026-11-23T10:00:00Z" });
+    const before = new Set([attentionKey(first)]);
+    expect(newArrivals(before, [first])).toEqual([]);
+    expect(newArrivals(before, [item({ kind: "dispute", since: "2026-11-23T11:00:00Z" })])).toHaveLength(1);
+  });
   it("tells apart two captures held by the same SCRAM", () => {
     const one = item({ kind: "scram", scram_id: "S-1", capture_id: "C-1" });
     const before = new Set([attentionKey(one)]);
@@ -36,7 +42,7 @@ describe("new arrivals", () => {
 });
 
 describe("notification text", () => {
-  it("names one item by its kind and the record's own title", () => {
+  it("names one item by its kind only, with generic body text", () => {
     expect(notificationText([item()])).toEqual({ title: "Needs you: Accept", body: "Open Control Rod to see it." });
   });
   it("counts several without listing their titles", () => {

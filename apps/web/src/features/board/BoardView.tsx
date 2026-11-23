@@ -374,6 +374,8 @@ export function BoardView() {
   // N reads the stream through a ref, so a card's tone is trusted only while the board is live.
   const streamRef = useRef(data.status);
   streamRef.current = data.status;
+  const capturesFreshRef = useRef(data.capturesFresh);
+  capturesFreshRef.current = data.capturesFresh;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -404,7 +406,11 @@ export function BoardView() {
         // The tone is shown only while the stream is live and the card's reads are current, so a card
         // whose state is unknown is never offered as needing you.
         const marked = titles.filter((t) => {
-          const tone = t.closest<HTMLElement>("article.bd-card, .bd-list-row")?.dataset["tone"];
+          const holder = t.closest<HTMLElement>("article.bd-card, .bd-list-row");
+          // A capture whose last read failed or predates the latest drop keeps its old tone on
+          // screen; it may already be resolved, so N never sends anyone to it.
+          if (holder?.dataset["kind"] === "capture" && !capturesFreshRef.current) return false;
+          const tone = holder?.dataset["tone"];
           return tone === "needs" || tone === "block";
         });
         const next = marked.find((t) => titles.indexOf(t) > idx) ?? marked[0];

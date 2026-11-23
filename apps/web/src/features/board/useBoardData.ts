@@ -45,6 +45,8 @@ export type BoardData = {
   cards: BoardCard[];
   /** Captures not yet drafted into a package, newest first; they sit at the top of Ready (spec 6.2). */
   captures: CaptureView[];
+  /** The captures read succeeded since the latest stream drop: their tones are current, not last known. */
+  capturesFresh: boolean;
   loading: boolean;
   /** The reads the whole board rests on that failed, in plain words; empty when none did. */
   problems: string[];
@@ -246,6 +248,7 @@ export function useBoardData(): BoardData {
   return {
     cards,
     captures: pendingCaptures(capturesQ.data ?? []),
+    capturesFresh: fresh(capturesQ),
     loading: packages.isPending || capturesQ.isPending,
     problems,
     retry: () => {

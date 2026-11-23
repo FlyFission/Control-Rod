@@ -19,10 +19,13 @@ export const ATTENTION_LABEL: Record<AttentionItem["kind"], string> = {
 
 /** The identity of one waiting item: the same thing on a new revision is a new item. */
 export const attentionKey = (i: AttentionItem): string =>
-  // A lost run is one run: a requeued run that is lost again on the same revision is a new item,
-  // told apart by when it became lost.
   // Every id the item carries is part of it, so two captures held by one SCRAM are two items.
-  `${i.kind}-${i.package_id ?? ""}-${i.scram_id ?? ""}-${i.capture_id ?? ""}-${i.package_revision ?? ""}${i.kind === "lost" ? `-${i.since}` : ""}`;
+  `${i.kind}-${i.package_id ?? ""}-${i.scram_id ?? ""}-${i.capture_id ?? ""}-${i.package_revision ?? ""}${RUN_KINDS.has(i.kind) ? `-${i.since}` : ""}`;
+
+// Kinds that stand for one run (or one check of it): a requeued run that ends the same way again on
+// the same revision is a new item. The Inbox item carries no run id, so the time it began is the
+// run's identity here.
+const RUN_KINDS: ReadonlySet<string> = new Set(["lost", "dispute"]);
 
 /** The tab title: a count in front only when it is known and above zero. */
 export function titleWithCount(base: string, count: number | undefined): string {

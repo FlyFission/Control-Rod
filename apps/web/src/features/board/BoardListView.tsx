@@ -83,6 +83,7 @@ export function BoardListView({
                       key={cap.id}
                       className={selectedCaptureId === cap.id ? "bd-list-row selected" : "bd-list-row"}
                       data-tone={line.tone}
+                      data-kind="capture"
                     >
                       <span className="bd-list-dot" title={g.label} aria-hidden="true">
                         {g.sym}

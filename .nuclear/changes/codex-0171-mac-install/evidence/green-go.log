@@ -1,0 +1,13 @@
+go version go1.24.7 linux/amd64
+--- PASS: TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree (0.00s)
+--- PASS: TestCodexTreeRefusesLinks (0.00s)
+--- PASS: TestNormalizesCodexJSON (0.00s)
+--- PASS: TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode (0.00s)
+--- PASS: TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand (0.00s)
+--- PASS: TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures (0.00s)
+--- PASS: TestPreflightRefusesWithTheFixAndNeverFallsBack (0.00s)
+--- SKIP: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.00s)
+--- PASS: TestPreflightRefusesUnreadableFeatureListsAndUnqualifiedPlatforms (0.00s)
+--- PASS: TestCodex0171FeaturesAreQualified (0.00s)
+--- PASS: TestACodexTurnThatCompletedButDidNotExitEndsOnItsResult (0.34s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.361s

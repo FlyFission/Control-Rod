@@ -101,12 +101,10 @@ describe("LensBar", () => {
     await user.click(screen.getByRole("button", { name: /^Code\s*1$/ }));
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_LENS, kind: "code" });
 
-    await user.click(screen.getByRole("button", { name: "Needs you" }));
-    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_LENS, needs: true });
-
     await user.click(screen.getByRole("button", { name: "Mine" }));
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_LENS, mine: true });
 
+    await user.click(screen.getByText("View options", { exact: false }));
     await user.selectOptions(screen.getByLabelText("Color by"), "person");
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_LENS, colorBy: "person" });
 
@@ -139,6 +137,7 @@ describe("LensBar", () => {
       />,
     );
     const user = userEvent.setup();
+    await user.click(screen.getByText("View options", { exact: false }));
     await user.click(screen.getByRole("button", { name: "Delete view" }));
     expect(onDeleteView).toHaveBeenCalledWith("Code only");
   });
@@ -155,6 +154,7 @@ describe("LensBar", () => {
         onDeleteView={vi.fn()}
       />,
     );
+    await userEvent.setup().click(screen.getByText("View options", { exact: false }));
     const select = screen.getByLabelText("Saved view") as HTMLSelectElement;
     expect(select.value).toBe("__custom__");
     expect(screen.getByRole("option", { name: "Custom view" })).toBeTruthy();

@@ -1,0 +1,2 @@
+$ controlrod runtimes
+--    Claude Code: Claude Code's sandbox needs bwrap, which is not installed here. Install bubblewrap (on Ubuntu: `sudo apt install bubblewrap`)

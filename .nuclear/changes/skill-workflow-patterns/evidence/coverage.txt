@@ -1,0 +1,2 @@
+superpowers: 15 skills in scope, 15 named in the note, 0 missing
+pocock: 27 skills in scope, 27 named in the note, 0 missing

@@ -138,10 +138,52 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 	// A named credential store that is a link, or that holds links, is denied at the real paths
 	// too: hiding the home folder hides the link, not what it points to. The walk follows linked
 	// folders (each real folder once), so a link inside a linked folder is found too.
+	// A target already inside a denied path that does not contain the workspace (for example an
+	// internal symlink inside ~/.codex/packages/node_modules) is already covered by that denial
+	// and does not need to be repeated in the policy argument list.
+	alreadyCovered := func(target string) bool {
+		for _, existing := range out {
+			if at.Workspace != "" && within(at.Workspace, existing) {
+				continue
+			}
+			if within(target, existing) {
+				return true
+			}
+		}
+		return false
+	}
 	visited := map[string]bool{}
 	entries := 0
 	deadline := time.Now().Add(maxStoreWalk)
 	var walk func(dir string) error
+	var walkCanonical func(real string) error
+	walkCanonical = func(real string) error {
+		if visited[real] {
+			return nil
+		}
+		visited[real] = true
+		list, err := os.ReadDir(real)
+		if err != nil {
+			return err
+		}
+		for _, e := range list {
+			entries++
+			if entries > maxStoreEntries || (entries&4095 == 0 && time.Now().After(deadline)) {
+				return fmt.Errorf("more entries than can be checked for links (%d after %s)", entries, maxStoreWalk)
+			}
+			child := filepath.Join(real, e.Name())
+			if e.Type()&os.ModeSymlink != 0 {
+				if err := walk(child); err != nil {
+					return err
+				}
+			} else if e.IsDir() {
+				if err := walkCanonical(child); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	walk = func(dir string) error {
 		real, err := filepath.EvalSymlinks(dir)
 		if err != nil {
@@ -150,36 +192,21 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 			}
 			return err
 		}
+		if real != dir && !alreadyCovered(real) {
+			add(real)
+		}
 		if visited[real] {
 			return nil
-		}
-		visited[real] = true
-		if real != dir {
-			add(real)
 		}
 		fi, err := os.Stat(real)
 		if err != nil {
 			return err
 		}
 		if !fi.IsDir() {
+			visited[real] = true
 			return nil
 		}
-		list, err := os.ReadDir(real)
-		if err != nil {
-			return err
-		}
-		for _, e := range list {
-			if entries++; entries > maxStoreEntries || time.Now().After(deadline) {
-				return fmt.Errorf("more entries than can be checked for links (%d after %s)", entries, maxStoreWalk)
-			}
-			child := filepath.Join(real, e.Name())
-			if e.Type()&os.ModeSymlink != 0 || e.IsDir() {
-				if err := walk(child); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
+		return walkCanonical(real)
 	}
 	for _, d := range slices.Clone(out) {
 		// Named stores in the home folder, and login folders wherever they are. Never the daemon's
@@ -203,7 +230,7 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 // in tens of milliseconds); the bounds stop a link into a huge tree, and the launch then refuses.
 var (
 	maxStoreEntries = 1_000_000
-	maxStoreWalk    = 5 * time.Second
+	maxStoreWalk    = 15 * time.Second
 )
 
 // LoginLocations are where the CLIs keep their logins, wherever they really are: the folders the
@@ -374,14 +401,21 @@ var CodexDisabledFeatures = []string{
 
 // CodexSafeFeatures may stay enabled: they change how Codex talks to its own provider or renders
 // output, not what an agent action can reach.
+// The nine features Codex 0.171.0 added (code_mode_host_grpc, code_mode_host_output_truncation,
+// guardian_include_additional_context, incremental_tools_legacy, incremental_tools_legacy_gcp,
+// retain_client_tool_outputs, tui_workspace, unified_image_budget, untrusted_as_tool_output) were
+// read in codex-rs/features/src/lib.rs at rust-v0.171.0: transport, context rendering, image
+// budgets, Bedrock/GCP tool publishing and TUI-only behavior; none adds a tool or reach (change
+// record codex-0171-mac-install, evidence/codex-0.171.0-features.md).
 var CodexSafeFeatures = []string{
 	"api_key_cyber_access_programs", "api_key_model_discovery", "auth_elicitation", "bedrock_setup_wizard",
-	"browser_annotation_api", "cli_daybreak", "code_mode_host", "code_mode_interrupt", "compaction_image_budget",
-	"content_item_kinds", "enable_request_compression", "fast_mode", "guardian_reuse_parent_compaction",
+	"browser_annotation_api", "cli_daybreak", "code_mode_host", "code_mode_host_grpc", "code_mode_host_output_truncation", "code_mode_interrupt", "compaction_image_budget",
+	"content_item_kinds", "enable_request_compression", "fast_mode", "guardian_include_additional_context", "guardian_reuse_parent_compaction",
 	"in_app_chat", "in_app_dictation", "in_app_updates", "in_app_voice", "incremental_tools",
+	"incremental_tools_legacy", "incremental_tools_legacy_gcp",
 	"instant_interrupt", "mcp_oauth_refresh_coordination", "mentions_v2", "prediction_preserve_parent_tools",
-	"reasoning_effort_override", "shell_tool", "sleep_tool", "system_proxy_fallback", "ultrafast_mode",
-	"unbounded_connection_retries", "unified_exec", "unified_exec_tty", "write_stdin_approval",
+	"reasoning_effort_override", "retain_client_tool_outputs", "shell_tool", "sleep_tool", "system_proxy_fallback", "tui_workspace", "ultrafast_mode",
+	"unbounded_connection_retries", "unified_exec", "unified_exec_tty", "unified_image_budget", "untrusted_as_tool_output", "write_stdin_approval",
 }
 
 // CodexPolicyArgs is Codex's permission profile for a run, passed as overrides so the user's
@@ -391,6 +425,10 @@ var CodexSafeFeatures = []string{
 // environment, and never ask to run unsandboxed. sandbox_mode is never set, because Codex ignores
 // a permission profile whenever it is.
 func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
+	return codexPolicyArgsFor(nil, p, at)
+}
+
+func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 	if len(p.AllowedHosts) > 0 {
 		return nil, errors.New("Codex cannot limit an agent's network to named hosts, so it cannot run under this policy")
 	}
@@ -401,7 +439,21 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 			return nil, fmt.Errorf("Codex cannot run without its %s tool, so it cannot run under this policy", t)
 		}
 	}
+	checker := ws != nil && ws.Checker
 	fs := map[string]string{":slash_tmp": "read", ":tmpdir": "read"}
+	if checker {
+		// A checker workspace is mounted read-only by Control Rod's outer bwrap, with only scratch
+		// writable. Explicitly declaring :root=read + ws.Dir=read + scratch=write (instead of
+		// extends=":workspace") avoids Codex's nested bwrap attempting to mkdir protected dotdirs
+		// on a read-only workspace while keeping every denied host path blocked.
+		fs[":root"] = "read"
+		if ws.Dir != "" {
+			fs[ws.Dir] = "read"
+		}
+		if ws.Scratch != "" {
+			fs[ws.Scratch] = "write"
+		}
+	}
 	for _, d := range outermost(p.Denied(at)) {
 		fs[d] = "deny"
 	}
@@ -417,8 +469,12 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 	args := []string{
 		"--ignore-user-config", "--ignore-rules", "--ephemeral",
 		"-c", `default_permissions="control-rod"`,
-		"-c", `permissions.control-rod.extends=":workspace"`,
-		"-c", "permissions.control-rod.filesystem={" + strings.Join(inline, ",") + "}",
+	}
+	if !checker {
+		args = append(args, "-c", `permissions.control-rod.extends=":workspace"`)
+	}
+	args = append(args,
+		"-c", "permissions.control-rod.filesystem={"+strings.Join(inline, ",")+"}",
 		"-c", "permissions.control-rod.network.enabled=false",
 		"-c", `approval_policy="never"`,
 		// Hosted web search is a provider-side tool outside the command sandbox (ADR 0021: off).
@@ -426,7 +482,7 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 		// Notification commands run outside the sandbox when a turn ends: none.
 		"-c", "notify=[]",
 		"-c", `shell_environment_policy.inherit="core"`,
-	}
+	)
 	for _, f := range CodexDisabledFeatures {
 		args = append(args, "--disable", f)
 	}

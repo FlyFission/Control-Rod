@@ -14,7 +14,7 @@ export type LensBarProps = {
 };
 
 /**
- * Board lens bar (M2): kind filter with counts, Needs you & Mine toggles, Color by, Group by,
+ * Board lens bar (M2): kind filter with counts, Mine, Color by, Group by,
  * density switch, and per-user saved views. Uses real buttons and selects.
  */
 export function LensBar({ lens, cards, countsStatus = "current", views, onChange, onSaveView, onDeleteView }: LensBarProps) {
@@ -37,6 +37,8 @@ export function LensBar({ lens, cards, countsStatus = "current", views, onChange
   // Distinguish an unsaved non-default lens from "Default view" so "Default view" stays selectable to reset.
   const isDefault = lensesEqual(lens, DEFAULT_LENS);
   const selectValue = matchedView !== "" ? matchedView : isDefault ? "" : "__custom__";
+  const customizedLayout = lens.colorBy !== DEFAULT_LENS.colorBy ||
+    lens.groupBy !== DEFAULT_LENS.groupBy || lens.density !== DEFAULT_LENS.density;
 
   function update(patch: Partial<Lens>) {
     onChange({ ...lens, ...patch });
@@ -53,7 +55,7 @@ export function LensBar({ lens, cards, countsStatus = "current", views, onChange
   }
 
   return (
-    <div className="bd-lensbar" role="toolbar" aria-label="Board lenses">
+    <div className="bd-lensbar" role="group" aria-label="Board lenses">
       <div className="bd-lens-kinds" role="group" aria-label="Kind">
         {(
           [
@@ -89,153 +91,152 @@ export function LensBar({ lens, cards, countsStatus = "current", views, onChange
       <button
         type="button"
         className="bd-filter-btn"
-        aria-pressed={lens.needs}
-        onClick={() => update({ needs: !lens.needs })}
-      >
-        Needs you
-      </button>
-
-      <button
-        type="button"
-        className="bd-filter-btn"
         aria-pressed={lens.mine}
         onClick={() => update({ mine: !lens.mine })}
       >
         Mine
       </button>
 
-      <span className="bd-lens-spacer" />
-
-      <label className="bd-lens-ctl">
-        <span>Color by</span>
-        <select
-          className="bd-lens-select"
-          value={lens.colorBy}
-          onChange={(e) => update({ colorBy: e.target.value as ColorBy })}
-        >
-          <option value="kind">Kind</option>
-          <option value="state">State</option>
-          <option value="agent">Agent</option>
-          <option value="person">Person</option>
-          <option value="none">None</option>
-        </select>
-      </label>
-
-      <label className="bd-lens-ctl">
-        <span>Group by</span>
-        <select
-          className="bd-lens-select"
-          value={lens.groupBy}
-          onChange={(e) => update({ groupBy: e.target.value as GroupBy })}
-        >
-          <option value="none">None</option>
-          <option value="kind">Kind</option>
-          <option value="person">Person</option>
-          <option value="project">Project</option>
-        </select>
-      </label>
-
-      <div className="bd-lens-seg" role="group" aria-label="Density">
-        {(
-          [
-            ["comfortable", "Comfortable"],
-            ["compact", "Compact"],
-          ] as const
-        ).map(([d, label]) => (
-          <button
-            key={d}
-            type="button"
-            className="bd-lens-btn"
-            aria-pressed={lens.density === d}
-            onClick={() => update({ density: d as Density })}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="bd-lens-views">
-        <label className="bd-lens-ctl">
-          <span>Saved view</span>
-          <select
-            className="bd-lens-select"
-            value={selectValue}
-            onChange={(e) => {
-              const name = e.target.value;
-              if (name === "__custom__") return;
-              setSelectedName(name);
-              if (!name) {
-                onChange({ ...DEFAULT_LENS });
-                return;
-              }
-              const picked = views.find((v) => v.name === name);
-              if (picked) onChange(picked.lens);
-            }}
-          >
-            <option value="">Default view</option>
-            {selectValue === "__custom__" && (
-              <option value="__custom__" disabled>
-                Custom view
-              </option>
-            )}
-            {views.map((v) => (
-              <option key={v.name} value={v.name}>
-                {v.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {matchedView !== "" && (
-          <button
-            type="button"
-            className="btn small"
-            onClick={() => {
-              onDeleteView(matchedView);
-              setSelectedName("");
-            }}
-          >
-            Delete view
-          </button>
-        )}
-
-        {saving ? (
-          <form className="bd-lens-save-form" onSubmit={submitSave}>
-            <input
-              type="text"
-              className="bd-lens-input"
-              aria-label="View name"
-              placeholder="View name"
-              value={viewName}
-              onChange={(e) => setViewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setSaving(false);
-                  setViewName("");
-                }
-              }}
-              autoFocus
-            />
-            <button type="submit" className="btn small primary" disabled={viewName.trim().length === 0}>
-              Save
-            </button>
-            <button
-              type="button"
-              className="btn small"
-              onClick={() => {
-                setSaving(false);
-                setViewName("");
-              }}
+      <details className="bd-view-settings">
+        <summary className="btn small">
+          View options
+          {(matchedView || customizedLayout) && (
+            <span className="bd-view-custom">{matchedView || "Customized"}</span>
+          )}
+        </summary>
+        <div className="bd-view-options">
+          <label className="bd-lens-ctl">
+            <span>Color by</span>
+            <select
+              className="bd-lens-select"
+              value={lens.colorBy}
+              onChange={(e) => update({ colorBy: e.target.value as ColorBy })}
             >
-              Cancel
-            </button>
-          </form>
-        ) : (
-          <button type="button" className="btn small" onClick={() => setSaving(true)}>
-            Save view
-          </button>
-        )}
-      </div>
+              <option value="kind">Kind</option>
+              <option value="state">State</option>
+              <option value="agent">Agent</option>
+              <option value="person">Person</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+
+          <label className="bd-lens-ctl">
+            <span>Group by</span>
+            <select
+              className="bd-lens-select"
+              value={lens.groupBy}
+              onChange={(e) => update({ groupBy: e.target.value as GroupBy })}
+            >
+              <option value="none">None</option>
+              <option value="kind">Kind</option>
+              <option value="person">Person</option>
+              <option value="project">Project</option>
+            </select>
+          </label>
+
+          <div className="bd-lens-seg" role="group" aria-label="Density">
+            {(
+              [
+                ["comfortable", "Comfortable"],
+                ["compact", "Compact"],
+              ] as const
+            ).map(([d, label]) => (
+              <button
+                key={d}
+                type="button"
+                className="bd-lens-btn"
+                aria-pressed={lens.density === d}
+                onClick={() => update({ density: d as Density })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="bd-lens-views">
+            <label className="bd-lens-ctl">
+              <span>Saved view</span>
+              <select
+                className="bd-lens-select"
+                value={selectValue}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  if (name === "__custom__") return;
+                  setSelectedName(name);
+                  if (!name) {
+                    onChange({ ...DEFAULT_LENS });
+                    return;
+                  }
+                  const picked = views.find((v) => v.name === name);
+                  if (picked) onChange(picked.lens);
+                }}
+              >
+                <option value="">Default view</option>
+                {selectValue === "__custom__" && (
+                  <option value="__custom__" disabled>
+                    Custom view
+                  </option>
+                )}
+                {views.map((v) => (
+                  <option key={v.name} value={v.name}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {matchedView !== "" && (
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => {
+                  onDeleteView(matchedView);
+                  setSelectedName("");
+                }}
+              >
+                Delete view
+              </button>
+            )}
+
+            {saving ? (
+              <form className="bd-lens-save-form" onSubmit={submitSave}>
+                <input
+                  type="text"
+                  className="bd-lens-input"
+                  aria-label="View name"
+                  placeholder="View name"
+                  value={viewName}
+                  onChange={(e) => setViewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setSaving(false);
+                      setViewName("");
+                    }
+                  }}
+                  autoFocus
+                />
+                <button type="submit" className="btn small primary" disabled={viewName.trim().length === 0}>
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => {
+                    setSaving(false);
+                    setViewName("");
+                  }}
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <button type="button" className="btn small" onClick={() => setSaving(true)}>
+                Save view
+              </button>
+            )}
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

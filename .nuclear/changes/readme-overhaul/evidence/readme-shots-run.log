@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › e2e/readme-shots.spec.ts:172:1 › readme shots (8.8s)
+
+  1 passed (22.4s)

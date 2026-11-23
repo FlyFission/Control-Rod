@@ -268,6 +268,19 @@ describe("administration forms", () => {
     expect(sent[0]!.body.payload).toEqual({ project_id: "prj_1", qa_overlays: ["nqa-1"] });
   });
 
+  it("sets a project's default workflow, beside its default context", async () => {
+    const user = userEvent.setup();
+    await renderPage(<ProjectsSection view={view()} passkeys={passkeys} />);
+    const f = form("Update a project");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Project (required)" }), "prj_1");
+    expect(within(f).getByRole("combobox", { name: "New default context (leave empty to keep)" })).toBeTruthy();
+    await user.selectOptions(within(f).getByRole("combobox", { name: "New default workflow (leave empty to keep)" }), "pocock-superpowers");
+    expect(within(f).getByText("Changes Plant A's default workflow to Pocock Superpowers.")).toBeTruthy();
+    await user.click(within(f).getByRole("button", { name: "Sign with your passkey and update" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]!.body.payload).toEqual({ project_id: "prj_1", default_workflow: "pocock-superpowers" });
+  });
+
   it("starts a first proposal from the formats signing accepts now, when no policy has been approved", async () => {
     const user = userEvent.setup();
     await renderPage(<PolicySection view={view({ policy: null, hardware_formats_in_force: ["packed", "fido-u2f", "tpm"] })} passkeys={passkeys} />);

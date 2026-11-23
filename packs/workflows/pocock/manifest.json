@@ -1,0 +1,163 @@
+{
+  "workflow": "pocock",
+  "upstream": "https://github.com/mattpocock/skills",
+  "commit": "abeeaf95660ba9e8b7c753eb38f441ca707a8823",
+  "license": "MIT",
+  "generated_by": "scripts/generate-workflow-packs.mjs",
+  "skills": {
+    "ask-matt": [
+      "reference/ask-matt/PHASE-BOUNDARIES.md",
+      "reference/ask-matt/SKILL.md"
+    ],
+    "code-review": [
+      "reference/code-review/SKILL.md"
+    ],
+    "codebase-design": [
+      "reference/codebase-design/DEEPENING.md",
+      "reference/codebase-design/DESIGN-IT-TWICE.md",
+      "reference/codebase-design/SKILL.md"
+    ],
+    "diagnosing-bugs": [
+      "reference/diagnosing-bugs/SKILL.md"
+    ],
+    "domain-modeling": [
+      "reference/domain-modeling/ADR-FORMAT.md",
+      "reference/domain-modeling/GLOSSARY-FORMAT.md",
+      "reference/domain-modeling/SKILL.md"
+    ],
+    "grill-me": [
+      "reference/grill-me/SKILL.md"
+    ],
+    "grill-with-docs": [
+      "reference/grill-with-docs/SKILL.md"
+    ],
+    "grilling": [
+      "reference/grilling/SKILL.md"
+    ],
+    "handoff": [
+      "reference/handoff/SKILL.md"
+    ],
+    "implement": [
+      "reference/implement/SKILL.md"
+    ],
+    "implement-spec": [
+      "reference/implement-spec/SKILL.md"
+    ],
+    "improve-codebase-architecture": [
+      "reference/improve-codebase-architecture/HTML-REPORT.md",
+      "reference/improve-codebase-architecture/SKILL.md"
+    ],
+    "prototype": [
+      "reference/prototype/LOGIC.md",
+      "reference/prototype/SKILL.md",
+      "reference/prototype/UI.md"
+    ],
+    "research": [
+      "reference/research/SKILL.md"
+    ],
+    "retro": [
+      "reference/retro/SKILL.md"
+    ],
+    "setup-matt-pocock-skills": [
+      "reference/setup-matt-pocock-skills/SKILL.md",
+      "reference/setup-matt-pocock-skills/domain.md",
+      "reference/setup-matt-pocock-skills/issue-tracker-github.md",
+      "reference/setup-matt-pocock-skills/issue-tracker-gitlab.md",
+      "reference/setup-matt-pocock-skills/issue-tracker-local.md",
+      "reference/setup-matt-pocock-skills/triage-labels.md"
+    ],
+    "tdd": [
+      "reference/tdd/SKILL.md",
+      "reference/tdd/mocking.md",
+      "reference/tdd/tests.md"
+    ],
+    "teach": [
+      "reference/teach/GLOSSARY-FORMAT.md",
+      "reference/teach/LEARNING-RECORD-FORMAT.md",
+      "reference/teach/MISSION-FORMAT.md",
+      "reference/teach/RESOURCES-FORMAT.md",
+      "reference/teach/SKILL.md"
+    ],
+    "to-questionnaire": [
+      "reference/to-questionnaire/SKILL.md"
+    ],
+    "to-spec": [
+      "reference/to-spec/SKILL.md"
+    ],
+    "to-tickets": [
+      "reference/to-tickets/SKILL.md"
+    ],
+    "triage": [
+      "reference/triage/AGENT-BRIEF.md",
+      "reference/triage/OUT-OF-SCOPE.md",
+      "reference/triage/SKILL.md"
+    ],
+    "wait-what": [
+      "reference/wait-what/SKILL.md"
+    ],
+    "wayfinder": [
+      "reference/wayfinder/SKILL.md"
+    ],
+    "wizard": [
+      "reference/wizard/SKILL.md"
+    ],
+    "writing-for-agents": [
+      "reference/writing-for-agents/SKILL-MECHANICS.md",
+      "reference/writing-for-agents/SKILL.md"
+    ]
+  },
+  "excluded": {
+    "pr": "Its Summary section reproduces Dex Horthy's show-me skill from humanlayer/humanlayer (Apache-2.0) almost word for word, per its CREDITS.md; its stage (opening a pull request) is out of scope for this version."
+  },
+  "files": {
+    "LICENSE": "sha256:0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5",
+    "reference/ask-matt/PHASE-BOUNDARIES.md": "sha256:a8aa20158609ef39e2b308b6ba0660c91066838d07a867202e63a7744a88a3ed",
+    "reference/ask-matt/SKILL.md": "sha256:1371f5ce005de0992a44b137748bfb960a56948aa9871b405fe9d90b24332e3c",
+    "reference/code-review/SKILL.md": "sha256:9c921a8d88138a41401d8897ca1bb852088ab1b7b605cdd04edc13e3e8aab6dd",
+    "reference/codebase-design/DEEPENING.md": "sha256:f3dd099ce99289bd213914d8ee3e2429b78309c3957ca4583f7659551b1d53c1",
+    "reference/codebase-design/DESIGN-IT-TWICE.md": "sha256:c222ab5a82e0405672eb9062d62496139a08828e45d07fc5f18e4952c10fac1a",
+    "reference/codebase-design/SKILL.md": "sha256:2c20617f87ec8af6a434859f381b2f061a69b530444e74eb39e78bb016a6d1e2",
+    "reference/diagnosing-bugs/SKILL.md": "sha256:849198df88cdb65fd0d97236604c1fca7ff2f22d2f705f9724a800d0266b118d",
+    "reference/domain-modeling/ADR-FORMAT.md": "sha256:944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0",
+    "reference/domain-modeling/GLOSSARY-FORMAT.md": "sha256:21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801",
+    "reference/domain-modeling/SKILL.md": "sha256:7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3",
+    "reference/grill-me/SKILL.md": "sha256:caaf8b8de1684f96e26b28f3c29189db5c89cce4b73e1c93d86164f66ef88637",
+    "reference/grill-with-docs/SKILL.md": "sha256:7de372c13488f1ee96cc11cd8907b56b6809cc93eef776eeddd37de6b6cbe3fe",
+    "reference/grilling/SKILL.md": "sha256:a146842ed93ca43d833550fa9adf02e58cb63c83fea9d4b4522995b82242d4e2",
+    "reference/handoff/SKILL.md": "sha256:4cbb043950dad2ffd3662ff1a5a0b51ae676004b5cae10e3787e8ee7a4ee69d3",
+    "reference/implement-spec/SKILL.md": "sha256:1993a473cec40ac85d081c112cdffdc63ec3267c2e412055ad09e013a2f623d1",
+    "reference/implement/SKILL.md": "sha256:483bdc4ccf4ac31d86ac7beeaa0d0db80313e71e120bb8c59b3196ae5decd53d",
+    "reference/improve-codebase-architecture/HTML-REPORT.md": "sha256:581e8bb5a521e46bbda8ca7e19b15948bed882187108092ebb90c62513b77528",
+    "reference/improve-codebase-architecture/SKILL.md": "sha256:35b03a3db61e0f5aa333ea59b54963e45a3d2ace6649b2ef4f9576603e2582a6",
+    "reference/prototype/LOGIC.md": "sha256:f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9",
+    "reference/prototype/SKILL.md": "sha256:714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3",
+    "reference/prototype/UI.md": "sha256:723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3",
+    "reference/research/SKILL.md": "sha256:1f629e18ab899412683bc6a1c4efb4339999e27c2fdac328f26ee10a8c031d33",
+    "reference/retro/SKILL.md": "sha256:33fbc28568e3146f20fd908b12998bc0ab30aa4f4c87288199a40793efa94696",
+    "reference/setup-matt-pocock-skills/SKILL.md": "sha256:b01e05bfe8c323171275c6ceec78b12f1bd4c62dfd26c2cfe8be806d3883f1ed",
+    "reference/setup-matt-pocock-skills/domain.md": "sha256:593a7042218689f1d24df89df14eaf0a20e19e0d0a7d479a01947ac78f0784b9",
+    "reference/setup-matt-pocock-skills/issue-tracker-github.md": "sha256:6fdb3e9b00b7b0b115ecac3b1c00e3790f637f190abf598815368722c0a94692",
+    "reference/setup-matt-pocock-skills/issue-tracker-gitlab.md": "sha256:947602d33a80f98f939fb990995b8f95a3459b114b919c4221d08bd75d7cffe0",
+    "reference/setup-matt-pocock-skills/issue-tracker-local.md": "sha256:7dcda20a2eb4bdc89b95d1143423c0691309921cadae3132e6424f371030506e",
+    "reference/setup-matt-pocock-skills/triage-labels.md": "sha256:ae512af838c78b8750471c42cd2b20fa32319553e61d84c9a23d171b40ce14aa",
+    "reference/tdd/SKILL.md": "sha256:5505d25bbaa8fc14a79e4d20163936958992a2995b7f1dd1d6197edc9ed722e0",
+    "reference/tdd/mocking.md": "sha256:3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef",
+    "reference/tdd/tests.md": "sha256:859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a",
+    "reference/teach/GLOSSARY-FORMAT.md": "sha256:9b99859ec28437668130d8f2ce5a342938970f8a1ed4fd38c3eab4f4b5fff210",
+    "reference/teach/LEARNING-RECORD-FORMAT.md": "sha256:701fa34b6748aa89e6c960ffb815257f481a7d77fb2900f9028f7edf3fdd6052",
+    "reference/teach/MISSION-FORMAT.md": "sha256:8cacbb3c0644d3ae0ea4965564797099401a6930a23f7cf462918576587f2418",
+    "reference/teach/RESOURCES-FORMAT.md": "sha256:e9cacf34026e11a8d1c8f9de88abe5bcbf654f4ebdb25cae8c0de0d5f48f44ec",
+    "reference/teach/SKILL.md": "sha256:550482c2d674b085c9043b87bfdc14a8f2ec453c736119e7fcbb1e9332bffeba",
+    "reference/to-questionnaire/SKILL.md": "sha256:b5eb929842ee0e93d867c5e906d183d350f2f2d149eaeaa86967d94d8eda1d3b",
+    "reference/to-spec/SKILL.md": "sha256:43ad9cf318e5e7d3d1fa360253a37021796dc87a0c2e595ad262661a10f85088",
+    "reference/to-tickets/SKILL.md": "sha256:56ec23c5b2782785d4e65bff9e315b6d3aeb4ef977c174a219e99489fada1995",
+    "reference/triage/AGENT-BRIEF.md": "sha256:7f5f87fed3033df1b06e083c480f3e847b1fbb0647746b8a4c6a50f9f26ef44f",
+    "reference/triage/OUT-OF-SCOPE.md": "sha256:1fbf9b432130c6380aa65813b55553cfda150309b27c595e183f8e335b8a190d",
+    "reference/triage/SKILL.md": "sha256:917b0baf74be583e74f110857ed45df2766617f75c00baf61fd136d7af515edf",
+    "reference/wait-what/SKILL.md": "sha256:d961bb37defd975c539427edb8f450cdbccdcdd552e213c1ece46676a7970905",
+    "reference/wayfinder/SKILL.md": "sha256:0c9fa96791aebf3b7d654cf35c6aadde97d81f57c17b07d13b27c14d9c46561f",
+    "reference/wizard/SKILL.md": "sha256:bdf31d48211ea559878f95a4f344aeabf8d85897488ba564382bab0b000daac1",
+    "reference/writing-for-agents/SKILL-MECHANICS.md": "sha256:c768e6307c7c10728c401c213f2c4ba71c542127eeb7ad2956aabd15a0fa0059",
+    "reference/writing-for-agents/SKILL.md": "sha256:551adca942227b44192edba88acd4e8db911f0121ce58ad16944ccf6a896a74a"
+  }
+}

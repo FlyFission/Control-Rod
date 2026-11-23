@@ -1,0 +1,45 @@
+# obra/superpowers @ 22f0b463e7a5e579904dd6211a520321035526f7
+brainstorming                    -> writing-plans  | human touchpoints: 7
+diagnosing-superpowers           -> -  | human touchpoints: 3
+dispatching-parallel-agents      -> -  | human touchpoints: 0
+executing-plans                  -> finishing-a-development-branch, requesting-code-review, subagent-driven-development, systematic-debugging, test-driven-development, using-git-worktrees, using-superpowers, verification-before-completion, writing-plans  | human touchpoints: 8
+finishing-a-development-branch   -> -  | human touchpoints: 8
+receiving-code-review            -> -  | human touchpoints: 9
+requesting-code-review           -> -  | human touchpoints: 0
+subagent-driven-development      -> executing-plans, finishing-a-development-branch, using-git-worktrees  | human touchpoints: 2
+systematic-debugging             -> test-driven-development, verification-before-completion  | human touchpoints: 2
+test-driven-development          -> -  | human touchpoints: 3
+using-git-worktrees              -> -  | human touchpoints: 1
+using-superpowers                -> brainstorming, systematic-debugging  | human touchpoints: 1
+verification-before-completion   -> -  | human touchpoints: 0
+writing-plans                    -> brainstorming, executing-plans, subagent-driven-development, using-git-worktrees  | human touchpoints: 1
+writing-skills                   -> test-driven-development, using-superpowers, verification-before-completion  | human touchpoints: 0
+
+# mattpocock/skills @ abeeaf95660ba9e8b7c753eb38f441ca707a8823 (engineering, productivity)
+ask-matt                         -> code-review, codebase-design, diagnosing-bugs, domain-modeling, grill-me, grill-with-docs, grilling, handoff, implement, implement-spec, improve-codebase-architecture, pr, prototype, research, retro, setup-matt-pocock-skills, tdd, teach, to-questionnaire, to-spec, to-tickets, triage, wait-what, wayfinder, wizard, writing-for-agents  | human touchpoints: 7
+code-review                      -> implement, setup-matt-pocock-skills  | human touchpoints: 1
+codebase-design                  -> -  | human touchpoints: 0
+diagnosing-bugs                  -> -  | human touchpoints: 2
+domain-modeling                  -> -  | human touchpoints: 0
+grill-with-docs                  -> domain-modeling, grilling  | human touchpoints: 1
+implement                        -> code-review, tdd  | human touchpoints: 0
+implement-spec                   -> code-review, implement, research, setup-matt-pocock-skills, tdd, to-spec, to-tickets  | human touchpoints: 0
+improve-codebase-architecture    -> codebase-design, domain-modeling, grilling  | human touchpoints: 1
+pr                               -> -  | human touchpoints: 0
+prototype                        -> -  | human touchpoints: 0
+research                         -> -  | human touchpoints: 0
+retro                            -> writing-for-agents  | human touchpoints: 0
+setup-matt-pocock-skills         -> to-spec, to-tickets, triage  | human touchpoints: 3
+tdd                              -> code-review, codebase-design  | human touchpoints: 0
+to-spec                          -> prototype, setup-matt-pocock-skills, triage  | human touchpoints: 2
+to-tickets                       -> prototype, setup-matt-pocock-skills, triage  | human touchpoints: 2
+triage                           -> domain-modeling, grilling, setup-matt-pocock-skills  | human touchpoints: 0
+wayfinder                        -> domain-modeling, grilling, prototype, research, setup-matt-pocock-skills, triage  | human touchpoints: 1
+wizard                           -> -  | human touchpoints: 1
+grill-me                         -> grilling  | human touchpoints: 1
+grilling                         -> -  | human touchpoints: 3
+handoff                          -> -  | human touchpoints: 0
+teach                            -> -  | human touchpoints: 1
+to-questionnaire                 -> -  | human touchpoints: 1
+wait-what                        -> -  | human touchpoints: 0
+writing-for-agents               -> -  | human touchpoints: 0

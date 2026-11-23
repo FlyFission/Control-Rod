@@ -1,6 +1,6 @@
 # ADR 0024: Council first, simple by default
 
-- Status: Proposed. The owner chose these decisions in his project thread on 2026-11-22 and 2026-11-23 (owner decisions table in `.nuclear/changes/council-first-direction/basis.md`). Under ADR 0001 and the sole-maintainer sign-off in `docs/collaboration.md`, it becomes Accepted only when his recorded yes on this pull request is in that record's `Signature` table. The kernel and policy parts of decisions 6 and 7 need their own signed changes.
+- Status: Accepted on 2026-11-23. The owner chose these decisions in his project thread on 2026-11-22 and 2026-11-23 (owner decisions table in `.nuclear/changes/council-first-direction/basis.md`), and his recorded yes on pull request #150 is in that record's `Signature` table, as ADR 0001 and the sole-maintainer sign-off in `docs/collaboration.md` require. The kernel and policy parts of decisions 6 and 7 need their own signed changes.
 - Date: 2026-11-23
 - Relates to: ADR 0019 (own workbench), ADR 0023 (role casting). Decision 6 amends ADR 0023 decision 2 for author roles only.
 

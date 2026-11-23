@@ -23,8 +23,8 @@
 | Numbers from scripts | pass | E-001 |
 | Public claims and originality | pass | E-002, E-003 |
 | Trust surfaces | none edited | E-005 |
-| Owner read | pending | E-004 |
-| Owner's recorded yes for `docs/adr/` | pending | E-006, Signature below |
+| Owner read | pass: owner accepted the decisions and signed on 2026-11-23 | E-004 |
+| Owner's recorded yes for `docs/adr/` | recorded | E-006, Signature below |
 
 ## Residual risks and gaps
 
@@ -46,7 +46,7 @@ Revert the commit.
 
 ## Release decision
 
-- **Decision:** merge only after the owner's recorded yes is in the Signature table, CI is green and the blind re-check passes. Until then ADR 0024 stays Proposed.
+- **Decision:** merge. The owner's recorded yes is in the Signature table, and the Codex blind check returned MERGE at `f495239`. Merge once CI is green.
 - **Decision maker:** Ben Huffer.
 - **Rationale:** documentation only and reversible, but `docs/adr/` is a CODEOWNERS path.
 
@@ -54,11 +54,12 @@ Revert the commit.
 
 | Field | Entry |
 |---|---|
-| Decision | Pending: approve pull request #150, which adds ADR 0024 under `docs/adr/`, and mark ADR 0024 Accepted |
-| Question | Not yet asked |
-| Answer | Not yet given |
-| Head when asked | Not yet asked |
-| Recorded by | To be filled by an agent from the owner's own words. No signature or initials are typed for him |
+| Decision | Approve pull request #150, which adds ADR 0024 under `docs/adr/`, and mark ADR 0024 Accepted |
+| Question | "Sign ADR 0024 (council first) so #150 can merge?" (decision card in the owner's project thread, 2026-11-23) |
+| Answer | Ben Huffer chose "Yes, accept ADR 0024 and merge" at 2026-11-23T20:22:49Z |
+| Head when asked | `f495239b40647a09f03ac43872cc55aab26a0de6` (Codex blind check round 4: MERGE) |
+| Later changes | A merge of main (no files of this change touched), the ADR status line set to Accepted, and this table |
+| Recorded by | Claude, from the owner's own choice on the card. No signature or initials are typed for him |
 
 ## Required links
 

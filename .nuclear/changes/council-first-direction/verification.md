@@ -47,8 +47,8 @@ A blind check by a different-vendor agent (Codex) at `8f14a98` returned HOLD wit
 | C-001, C-002 | `reproduce.sh` | pass | The snapshots are what was captured on 2026-11-23; a new pull will differ. |
 | C-003 | Script | pass | None. |
 | C-004 | Diff scope | pass | None. |
-| C-005 | Owner read | pending | Not yet supplied. |
-| C-006 | Signature table | pending | Not yet supplied. |
+| C-005 | Owner read | pass | Ben Huffer chose "Yes, accept ADR 0024 and merge" on 2026-11-23T20:22:49Z (ship.md Signature). |
+| C-006 | Signature table | pass | `ship.md` Signature, head when asked `f495239`. |
 
 ## Required links
 

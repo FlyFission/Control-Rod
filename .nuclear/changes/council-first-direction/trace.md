@@ -12,8 +12,8 @@
 | C-002 | Every committed output reproduces byte for byte from committed inputs, issue snapshots included. | `risk.md` Success criterion | `reproduce.sh` | E-001 | Merge | pass |
 | C-003 | The new text passes the public-claims and originality checks. | `risk.md` Success criterion | `tools/check_public_claims.py`, `tools/check_originality.py` | E-002, E-003 | Merge | pass |
 | C-004 | No AGENTS.md rule 2 trust surface is edited; the only CODEOWNERS path touched is `docs/adr/`. | `plan.md` Not touched | Diff scope | E-005 | Merge | pass |
-| C-006 | ADR 0024 is accepted only by the owner's recorded yes. | `risk.md` Trust surface | `ship.md` Signature table | E-006 | Hold until recorded | pending |
-| C-005 | ADR 0024 decisions 1 to 7 match the owner's messages, and the kernel and policy parts of 6 and 7 are left for signed changes. | `basis.md` Mission / need | Owner read | E-004 | Merge | pending owner read |
+| C-006 | ADR 0024 is accepted only by the owner's recorded yes. | `risk.md` Trust surface | `ship.md` Signature table | E-006 | Hold until recorded | pass: recorded 2026-11-23T20:22:49Z |
+| C-005 | ADR 0024 decisions 1 to 7 match the owner's messages, and the kernel and policy parts of 6 and 7 are left for signed changes. | `basis.md` Mission / need | Owner read | E-004 | Merge | pass: owner accepted |
 | N-001 | **Not claimed:** that the personas are real users, or any assurance, certification or compliance. | `risk.md` | none | none | n/a | n/a |
 
 ## Required links

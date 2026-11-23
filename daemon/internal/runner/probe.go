@@ -25,6 +25,10 @@ type RuntimeStatus struct {
 	Artifact *RuntimeArtifact `json:"artifact,omitempty"`
 	// Models are the model names or aliases discovered for this CLI on this host.
 	Models []string `json:"models,omitempty"`
+	// timedOut is set when the probe stopped because one of its commands ran past probeTimeout, not
+	// because the CLI answered. It is never reported: it only lets the daemon tell a slow host from
+	// a runtime that is gone (see Daemon.probe).
+	timedOut bool
 }
 
 // CommandRunner runs a short command and returns its combined output and exit code. err is set
@@ -75,7 +79,14 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 	}
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Env = env
+	// A helper the CLI started can keep its output pipe open after the CLI is killed; stop waiting
+	// for it shortly after the deadline, so a probe never hangs past its timeout.
+	cmd.WaitDelay = probeWaitDelay
 	out, err := cmd.CombinedOutput()
+	// The CLI itself exited and only a helper held the pipe: its own exit code is the answer.
+	if errors.Is(err, exec.ErrWaitDelay) && cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+		return string(out), cmd.ProcessState.ExitCode(), nil
+	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
 		return string(out), exit.ExitCode(), nil
@@ -86,7 +97,12 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 	return string(out), 0, nil
 }
 
-const probeTimeout = 10 * time.Second
+// probeTimeout bounds each probe command. A var so tests can shorten it.
+var probeTimeout = 10 * time.Second
+
+// probeWaitDelay is how long a killed probe command's output pipes may stay open before they are
+// closed and the command returns (exec.Cmd.WaitDelay).
+var probeWaitDelay = 2 * time.Second
 
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
@@ -126,8 +142,14 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 // Claude and Codex they are the same string, so the sentences stay the ones the probes used
 // before the registry. login, when set, runs after a version answer and reports whether the probe
 // should stop before the runtime is marked ready.
-func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) RuntimeStatus {
-	st := RuntimeStatus{Runtime: id}
+func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) (st RuntimeStatus) {
+	st = RuntimeStatus{Runtime: id}
+	timedOut := false
+	defer func() {
+		if !st.Ready && timedOut {
+			st.timedOut = true
+		}
+	}()
 	// Identify the executable before running anything: a launcher Control Rod cannot pin is never
 	// executed, not even for its version.
 	if art, aerr := resolveArtifact(binary); aerr == nil {
@@ -143,7 +165,18 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 	call := func(args ...string) (string, int, error) {
 		c, cancel := context.WithTimeout(probed, probeTimeout)
 		defer cancel()
-		return run(c, binary, args...)
+		out, code, err := run(c, binary, args...)
+		// Only this command's own deadline counts: a daemon shutting down cancels ctx, which is not
+		// a slow host.
+		// A command that exited on its own (a code of 0 or more) answered, even if the deadline passed
+		// at the same moment: a sign-out at the deadline is a sign-out, not a slow host.
+		// A definite error (the executable is gone) is an answer too: only a command the deadline
+		// stopped, or one that could not start because the deadline had passed, is a timeout.
+		stopped := (err == nil && code < 0) || errors.Is(err, context.DeadlineExceeded)
+		if errors.Is(c.Err(), context.DeadlineExceeded) && ctx.Err() == nil && stopped {
+			timedOut = true
+		}
+		return out, code, err
 	}
 	out, code, err := call("--version")
 	if err != nil || code != 0 || firstLine(out) == "" {
@@ -155,7 +188,15 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 		return st
 	}
 	st.Version = firstLine(out)
-	if login != nil && login(call, &st) {
+	stop := login != nil && login(call, &st)
+	// A login check that ran out of time (its help or its status command) said nothing about the
+	// login: never ready on it, and never reported as signed out either.
+	if timedOut {
+		st.LoginChecked = false
+		st.Reason = fmt.Sprintf("%s is installed but its login check did not answer in time", binary)
+		return st
+	}
+	if stop {
 		return st
 	}
 	st.Ready = true

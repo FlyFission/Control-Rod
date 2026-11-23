@@ -142,8 +142,11 @@ type Daemon struct {
 	// quit ends when Run is asked to stop; completion retries stop waiting then.
 	quit context.Context
 
-	probeMu       sync.Mutex
-	status        []RuntimeStatus
+	probeMu sync.Mutex
+	status  []RuntimeStatus
+	// probeTimeouts counts, per runtime, the probe passes in a row it was held ready through a
+	// timeout (holdThroughTimeout).
+	probeTimeouts map[string]int
 	subscriptions *SubscriptionReport
 
 	activeMu    sync.Mutex
@@ -377,9 +380,21 @@ func (d *Daemon) preflight(ctx context.Context, rt string) error {
 // probe checks every runtime found on PATH and logs, in one plain sentence each, any that is
 // not ready or has become ready again. Only ready runtimes are offered for work.
 func (d *Daemon) probe(ctx context.Context) {
+	d.probeMu.Lock()
+	last := map[string]RuntimeStatus{}
+	for _, s := range d.status {
+		last[s.Runtime] = s
+	}
+	d.probeMu.Unlock()
 	next := make([]RuntimeStatus, 0, len(d.cfg.Runtimes))
+	held := map[string]bool{}
 	for _, rt := range d.cfg.Runtimes {
 		st := Probe(ctx, rt, d.cfg.Version, d.cfg.Probe)
+		if h, ok := d.holdThroughTimeout(rt, st, last[rt]); ok {
+			next = append(next, h)
+			held[rt] = true
+			continue
+		}
 		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
 		if st.Ready {
 			if err := d.preflight(preflightContext(ctx, st), rt); err != nil {
@@ -388,13 +403,28 @@ func (d *Daemon) probe(ctx context.Context) {
 		}
 		next = append(next, st)
 	}
-	report := SubscriptionFromStatuses(next, CurrentPlatform())
 	d.probeMu.Lock()
 	prev := map[string]bool{}
 	for _, s := range d.status {
 		prev[s.Runtime] = s.Ready
+		// A held status is the one read before this pass. If a launch withdrew the runtime since
+		// (markNotReady), the withdrawal stands until a probe answers.
+		if held[s.Runtime] && !s.Ready {
+			for i := range next {
+				if next[i].Runtime == s.Runtime {
+					next[i] = s
+				}
+			}
+		}
 	}
 	d.status = next
+	for _, s := range next {
+		// Logged only after a withdrawal during the pass has been kept, so the line is true.
+		if held[s.Runtime] && s.Ready {
+			d.log.Info(displayName(s.Runtime)+" did not answer its probe in time; it stays offered until the next probe, which must answer.", "runtime", s.Runtime)
+		}
+	}
+	report := SubscriptionFromStatuses(next, CurrentPlatform())
 	d.subscriptions = &report
 	d.probeMu.Unlock()
 	var notYet []string
@@ -413,6 +443,33 @@ func (d *Daemon) probe(ctx context.Context) {
 	if len(notYet) > 0 {
 		d.log.Info("found " + strings.Join(notYet, ", ") + ": not supported yet, so never started until Control Rod can sandbox them")
 	}
+}
+
+// probeTimeoutGrace is how many probe passes in a row a ready runtime may time out and still be
+// offered for work. One slow pass (a host under load, a CLI updating itself) does not take a
+// runtime away; a second one does. Any answer that says the runtime is not ready, a sign-out
+// included, takes it away at once.
+const probeTimeoutGrace = 1
+
+// holdThroughTimeout returns the runtime's last ready status when this pass only timed out and the
+// grace is not used up. It reports false, and resets the count, in every other case.
+func (d *Daemon) holdThroughTimeout(rt string, st, last RuntimeStatus) (RuntimeStatus, bool) {
+	d.probeMu.Lock()
+	defer d.probeMu.Unlock()
+	if d.probeTimeouts == nil {
+		d.probeTimeouts = map[string]int{}
+	}
+	// A new executable (a different digest from the one that was ready) is not the runtime that was
+	// offered; it must answer before it is offered.
+	changed := st.Artifact != nil && last.Artifact != nil && st.Artifact.Digest.Value != last.Artifact.Digest.Value
+	if st.Ready || !st.timedOut || !last.Ready || changed || d.probeTimeouts[rt] >= probeTimeoutGrace {
+		if st.Ready || !st.timedOut {
+			delete(d.probeTimeouts, rt)
+		}
+		return RuntimeStatus{}, false
+	}
+	d.probeTimeouts[rt]++
+	return last, true
 }
 
 // awaitingConfinement reports whether a runtime is detected but never started (AwaitingConfinement).

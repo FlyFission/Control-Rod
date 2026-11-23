@@ -815,9 +815,14 @@ func CodexEffectiveFeatures(ctx context.Context) (string, error) {
 		args = append(args, "--disable", f)
 	}
 	// Binary() is the PATH name. For Codex it is the same string as the runtime id.
-	a, err := probedArtifact(ctx, codexAdapter{}.Binary())
+	// Resolve and hash again here, as before: this runs with the daemon's own permissions, so it
+	// runs only an executable the resolver accepts now, and only if it is the one the probe found.
+	a, err := resolveArtifact(codexAdapter{}.Binary())
 	if err != nil {
 		return "", err
+	}
+	if probed, ok := ctx.Value(probeArtifactKey{}).(RuntimeArtifact); ok && probed.Digest.Value != a.Digest.Value {
+		return "", fmt.Errorf("codex changed after it was probed (%s, now %s); it is probed again before it is offered", short(probed.Digest.Value), short(a.Digest.Value))
 	}
 	c, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()

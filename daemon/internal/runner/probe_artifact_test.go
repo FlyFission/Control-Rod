@@ -52,9 +52,32 @@ esac
 	if calls != 1 {
 		t.Fatalf("resolveArtifact ran %d times; a probe resolves once", calls)
 	}
-	// Its preflight context carries the same artifact, so the preflight checks the same file.
-	if art, err := probedArtifact(preflightContext(context.Background(), st), "codex"); err != nil || art.Path != native {
-		t.Fatalf("preflight would check %q (%v); want the probed artifact", art.Path, err)
+}
+
+// The Codex feature check in the sandbox preflight runs with the daemon's own permissions. It
+// resolves again and runs only the executable the probe found: a replacement since the probe is
+// refused before anything runs.
+func TestTheCodexFeatureCheckRefusesAnExecutableThatChangedSinceTheProbe(t *testing.T) {
+	dir := t.TempDir()
+	ran := filepath.Join(dir, "ran")
+	native := filepath.Join(dir, "codex")
+	writeFile(t, native, []byte("#!/bin/sh\ntouch "+ran+"\necho 'feature stable true'\n"), 0o755)
+	digest := func(v string) Digest { return Digest{Algorithm: "sha256", Value: strings.Repeat(v, 64)} }
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) { return RuntimeArtifact{Path: native, Digest: digest("b")}, nil }
+	t.Cleanup(func() { resolveArtifact = old })
+
+	probed := RuntimeStatus{Runtime: RuntimeCodex, Ready: true, Artifact: &RuntimeArtifact{Path: native, Digest: digest("a")}}
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err == nil || !strings.Contains(err.Error(), "changed after it was probed") {
+		t.Fatalf("a changed executable must be refused: %v", err)
+	}
+	if _, err := os.Stat(ran); err == nil {
+		t.Fatal("the changed executable ran")
+	}
+	probed.Artifact.Digest = digest("b")
+	_, _ = CodexEffectiveFeatures(preflightContext(context.Background(), probed))
+	if _, err := os.Stat(ran); err != nil {
+		t.Fatal("the probed executable, unchanged, must run")
 	}
 }
 

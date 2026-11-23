@@ -238,16 +238,8 @@ func withProbeArtifact(ctx context.Context, art RuntimeArtifact) context.Context
 	return context.WithValue(ctx, probeArtifactKey{}, art)
 }
 
-// probedArtifact returns the artifact a probe identified for this context, or resolves binary when
-// there is none.
-func probedArtifact(ctx context.Context, binary string) (RuntimeArtifact, error) {
-	if art, ok := ctx.Value(probeArtifactKey{}).(RuntimeArtifact); ok {
-		return art, nil
-	}
-	return resolveArtifact(binary)
-}
-
-// preflightContext carries a probed status's artifact into its preflight, so both check one file.
+// preflightContext carries a probed status's artifact into its preflight, which refuses to run
+// Codex if the executable now resolved is not that one.
 func preflightContext(ctx context.Context, st RuntimeStatus) context.Context {
 	if st.Artifact == nil {
 		return ctx

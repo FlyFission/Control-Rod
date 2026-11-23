@@ -11,11 +11,12 @@ Evidence is in `evidence/`; `evidence/SHA256SUMS` holds each file's digest from 
 
 | Evidence | File | What it shows |
 |---|---|---|
-| E-001 | `reproduce.log` | `score.py`, `classify_all.py` and `onboarding_count.py` outputs are identical to the committed ones. |
+| E-001 | `reproduce.log` | `docs/research/user-demand-2026-11/reproduce.sh` re-ran every script from the committed inputs, including the issue snapshots, and every output was identical. |
 | E-002 | `public-claims.log` | The public-claims check passed. |
 | E-003 | `originality.log` | The originality check passed. |
 | E-004 | Owner read on the pull request | The owner checks ADR 0024 against his messages and the evidence. |
-| E-005 | `trust-surface-diff.txt` | No diff under `.github/workflows`, `policies`, `tests/redteam`, `spec` or `kernel`. |
+| E-005 | `trust-surface-diff.txt` | No diff under `.github/workflows`, `policies`, `tests/redteam`, `spec` or `kernel`. `docs/adr/` is touched and is covered by E-006. |
+| E-006 | `ship.md` Signature table | The owner's recorded yes for the ADR. Not yet given. |
 
 ## Evidence custody and coupling
 
@@ -26,6 +27,7 @@ Evidence is in `evidence/`; `evidence/SHA256SUMS` holds each file's digest from 
 | E-003 | C-003 | yes | evidence/originality.log | Implementing agent | tools/check_originality.py | Implementing agent | none | Local toolchain | Packet | Implementing agent | Self-check |
 | E-004 | C-005 | yes | Owner read of the pull request | Implementing agent | Owner | Owner | none | Owner | GitHub | Implementing agent | Not supplied |
 | E-005 | C-004 | yes | evidence/trust-surface-diff.txt | Implementing agent | git | Implementing agent | none | Local toolchain | Packet | Implementing agent | Self-check |
+| E-006 | C-006 | yes | ship.md Signature table | Implementing agent | Owner | Owner | none | Owner | Packet | Implementing agent | Not supplied |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
@@ -34,17 +36,19 @@ Evidence is in `evidence/`; `evidence/SHA256SUMS` holds each file's digest from 
 | E-003 | coupled: implementing agent | coupled: implementation session | separated: repository script | partially separated: owner decides the merge | coupled: local machine | self-check | Denylist only [Ship limits](ship.md) |
 | E-004 | separated: the owner | separated: their own review | separated: their own reading | separated: the owner decides | separated: their own machine | independent reproduction | Not yet supplied [Ship limits](ship.md) |
 | E-005 | coupled: implementing agent | coupled: implementation session | separated: git | partially separated: owner decides the merge | coupled: local machine | self-check | Scope only [Ship limits](ship.md) |
+| E-006 | separated: the owner | separated: their own review | separated: their own decision | separated: the owner decides | separated: their own machine | independent reproduction | Not yet supplied [Ship limits](ship.md) |
 
-No independent review was done by an agent. The independent check is the owner's read (E-004).
+A blind check by a different-vendor agent (Codex) at `8f14a98` returned HOLD with 2 P1, 3 P2 and 1 P3 findings; all are addressed in this revision and the check is to be re-run on the new head. The owner's read (E-004) and recorded yes (E-006) are the human checks.
 
 ## Claim status
 
 | Claim | Method | Result | Gap |
 |---|---|---|---|
-| C-001, C-002 | Script and cmp | pass | Raw pulls are not committed; their digests are. |
+| C-001, C-002 | `reproduce.sh` | pass | The snapshots are what was captured on 2026-11-23; a new pull will differ. |
 | C-003 | Script | pass | None. |
 | C-004 | Diff scope | pass | None. |
 | C-005 | Owner read | pending | Not yet supplied. |
+| C-006 | Signature table | pending | Not yet supplied. |
 
 ## Required links
 

@@ -1,13 +1,15 @@
-"""python3 -I classify_all.py > counts_all.json. Per repo: theme counts over issues and feature requests. Cross-repo: each repo weighted equally (theme share of that repo's feature-request reactions+requests), so big repos do not dominate."""
-import json,glob,hashlib,os
+"""python3 classify_all.py > counts_all.json. Per repo: theme counts over issues and feature requests. Cross-repo: each repo weighted equally (theme share of that repo's feature-request reactions+requests), so big repos do not dominate."""
+import json,glob,hashlib,os,sys
+sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
+import snap
 R=json.load(open("rules_all.json")); T=R["themes"]
 def match(x,kws): return any(k in (" "+x["title"].lower()+" ") for k in kws)
 FR_LABELS=("enhancement","feature-req","feature request","feature","triage:feature-request","feature-request","type: feature","kind/feature")
 out={"digests":{"rules_all.json":hashlib.sha256(open("rules_all.json","rb").read()).hexdigest()},"repos":{},"cross":{}}
 shares={t:[] for t in T}; top3={t:0 for t in T}
-for f in sorted(glob.glob("repos/*.json")):
-    name=os.path.basename(f)[:-5].replace("_","/",1); d=json.load(open(f))
-    out["digests"][f]=hashlib.sha256(open(f,"rb").read()).hexdigest()
+for key,v in snap.load_all().items():
+    name=key.replace("_","/",1); d=v["items"]
+    out["digests"]["snapshots/"+key+".json.gz"]=v["sha256"]
     iss=[x for x in d if not x["pr"]]
     fr=[x for x in iss if any(l.lower() in FR_LABELS for l in x["labels"]) or x["title"].lower().lstrip("[(").startswith(("feature","feat","rfe","proposal","request","enhancement"))]
     row={"issues":len(iss),"prs":len(d)-len(iss),"feature_requests":len(fr),"themes":{}}

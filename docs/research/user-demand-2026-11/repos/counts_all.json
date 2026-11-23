@@ -1,21 +1,21 @@
 {
  "digests": {
   "rules_all.json": "14defeb378a9c92e9c6b295381016abbf2d2ed2ced7fded1d75852d4a041aef5",
-  "repos/BloopAI_vibe-kanban.json": "384f2c6559cf4bfd739defed1c05b01e2b623b41e2d45554cc80cd6746e3a98f",
-  "repos/OrchestratorInc_agent-orchestrator.json": "b28017aeb9a1caaa411a30557a94f3f3334d94e35100300dae7245e5dbd7dbee",
-  "repos/ParadevAI_Paradev.json": "8eafb7fb159dbb2c0ee59a55f55a24a8acb814d5909790c4a0587bf216bfc0c5",
-  "repos/agent-of-empires_agent-of-empires.json": "1525d1737b12d8ba7367700b5e263afd65c0e3ebbcb3830817e4d9aaee1976ab",
-  "repos/code-yeongyu_oh-my-openagent.json": "a2d579b0ea5270b67d4d1301cc5214d2f19c96c78c4d843b6b962522f20eff1d",
-  "repos/generalaction_emdash.json": "186a4f33eece069e1539ea900cc4effef47124e14fd6932e76a4c2c805c49578",
-  "repos/herdrdev_herdr-app.json": "196625841d3df3e93dc2c89521e104f44e19e6246ce1f4ae4a37f3fea35b3baa",
-  "repos/herdrdev_herdr.json": "ae0c2153b1b494c88695c0967d0f7daed617cc61e5d0ab582167fca977deb231",
-  "repos/kdlbs_kandev.json": "1b859243843b714f852f6eae7d7fa045fb2e4ec35f2acbdafa0b0f46cec85a78",
-  "repos/mistralai_mistral-vibe.json": "4e92cb3a44988b149534c9f89e86beef944cd7e4d289284c2bc7ba91a4889ac0",
-  "repos/multica-ai_multica.json": "075050ef7aced7b134da9315b56a9d2451a860a7b9e0c726961961b4b75c515d",
-  "repos/nimbalyst_nimbalyst.json": "8641b0d7d6bd4abc6df5f3e41c6f625610b4faab27c6d0ca7a02b2cd90bf96c2",
-  "repos/paperclipai_paperclip.json": "71179dec26ed376c9bf6097cf5ff285ff0b9f984a97d9f2f795129f97b15e8bd",
-  "repos/smtg-ai_claude-squad.json": "13feb1ed8d423c8859dbdb02c4e9c2b3b55dbfa61d3fa94a975468d9d7f61b18",
-  "repos/stravu_crystal.json": "f549553c4be5882a470e44fecc1e16906afa4ea4d7b2025f809fc2eb81e7e2aa"
+  "snapshots/BloopAI_vibe-kanban.json.gz": "17d34561d362ebe051d34a9d7fd432e42cb270aabb5030fe6423350db142dfff",
+  "snapshots/OrchestratorInc_agent-orchestrator.json.gz": "becd5f62440441655a2ed0ece1b467ff278d6b2538acc046596bf79c7eddbb9c",
+  "snapshots/ParadevAI_Paradev.json.gz": "3edc444f4df6b1230959784007c664ab9005aa1826290a5b0b1894f91f0af705",
+  "snapshots/agent-of-empires_agent-of-empires.json.gz": "97d316bd6859bb0f7cd5ca6a5fe306d3dd8396d309db2248209b305d2c4968b2",
+  "snapshots/code-yeongyu_oh-my-openagent.json.gz": "524ca9ced1063551af5427ad80922763d6f41fc3f62d1beca181d50eb9af5426",
+  "snapshots/generalaction_emdash.json.gz": "cffa753e243dc0702b2c0fcf1a15d83c664cfb04bda240ec4f5ce125d4ac1f84",
+  "snapshots/herdrdev_herdr-app.json.gz": "266841d14706041aa641d3bbc5a148f6134290dd23d160454350abe89fe234fe",
+  "snapshots/herdrdev_herdr.json.gz": "eae88fd58bbd174f2a1e7ffdeec88cd4c1d18c52d0154faa5a0424e07f759eb3",
+  "snapshots/kdlbs_kandev.json.gz": "77502e697161c3814b23e7f5383c95704d26f5cfca3cdb3061dd7f5bc8689f23",
+  "snapshots/mistralai_mistral-vibe.json.gz": "60570786496b3f5650b66d58598bdf6c9568dde5843aaa2ceb1328bc7ae856f9",
+  "snapshots/multica-ai_multica.json.gz": "fa2cd2085e45f6525f26206f6556db6a9fdde603c2049264c0344ccae2de4bb8",
+  "snapshots/nimbalyst_nimbalyst.json.gz": "fbaca8814bfed9100c07e0a4325a02a009f9ea438310e0cf1dc9c9d5f7760989",
+  "snapshots/paperclipai_paperclip.json.gz": "aed6192956bfff335461f8063c22b79751defadefdf32a12111dfd84812b9bb3",
+  "snapshots/smtg-ai_claude-squad.json.gz": "b288d7868f0f720f4cc6d63a6f0453ac41745b0e3a5571e897b52cc468640548",
+  "snapshots/stravu_crystal.json.gz": "1fc70f96b97d844e6c89d539080fcb62ffa8f622c4226b57b9b249d5052ae81b"
  },
  "repos": {
   "BloopAI/vibe-kanban": {

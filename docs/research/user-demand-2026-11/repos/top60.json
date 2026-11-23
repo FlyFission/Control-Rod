@@ -63,19 +63,19 @@
 "repo": "code-yeongyu_oh-my-openagent",
 "n": 854,
 "react": 35,
-"title": "[Feature]: Add `/omo-spec` \u2014 A Unified Spec\u2011Driven Workflow for Oh\u2011My\u2011OpenCode"
-},
-{
-"repo": "herdrdev_herdr-app",
-"n": 63,
-"react": 34,
-"title": "Share agents between Herdr TUI and the app?"
+"title": "[Feature]: Add `/omo-spec` — A Unified Spec‑Driven Workflow for Oh‑My‑OpenCode"
 },
 {
 "repo": "herdrdev_herdr",
 "n": 1134,
 "react": 34,
 "title": "60Hz Limit"
+},
+{
+"repo": "herdrdev_herdr-app",
+"n": 63,
+"react": 34,
+"title": "Share agents between Herdr TUI and the app?"
 },
 {
 "repo": "mistralai_mistral-vibe",
@@ -271,27 +271,27 @@
 },
 {
 "repo": "BloopAI_vibe-kanban",
-"n": 3396,
-"react": 19,
-"title": "Support for self-hosted projects and better export"
-},
-{
-"repo": "BloopAI_vibe-kanban",
 "n": 765,
 "react": 19,
 "title": "[Feature Request] Configurable automatic cleanup of worktrees"
 },
 {
-"repo": "mistralai_mistral-vibe",
-"n": 1303,
+"repo": "BloopAI_vibe-kanban",
+"n": 3396,
 "react": 19,
-"title": "bug: regression: voice capture no longer works on Linux after v3.0.0 (Rust TUI ships without voice)"
+"title": "Support for self-hosted projects and better export"
 },
 {
 "repo": "mistralai_mistral-vibe",
 "n": 1301,
 "react": 19,
 "title": "Vibe CLI 3.0.0"
+},
+{
+"repo": "mistralai_mistral-vibe",
+"n": 1303,
+"react": 19,
+"title": "bug: regression: voice capture no longer works on Linux after v3.0.0 (Rust TUI ships without voice)"
 },
 {
 "repo": "multica-ai_multica",
@@ -319,9 +319,9 @@
 },
 {
 "repo": "code-yeongyu_oh-my-openagent",
-"n": 1189,
+"n": 359,
 "react": 18,
-"title": "[Bug]:  please stop overengineering shit"
+"title": "[Feature] Add Mode Task Planning with beads"
 },
 {
 "repo": "code-yeongyu_oh-my-openagent",
@@ -331,15 +331,15 @@
 },
 {
 "repo": "code-yeongyu_oh-my-openagent",
-"n": 359,
+"n": 1189,
 "react": 18,
-"title": "[Feature] Add Mode Task Planning with beads"
+"title": "[Bug]:  please stop overengineering shit"
 },
 {
-"repo": "herdrdev_herdr-app",
-"n": 117,
+"repo": "herdrdev_herdr",
+"n": 1170,
 "react": 18,
-"title": "No command to resize a pane in a split"
+"title": "Remote sessions don't appear in `agents` section"
 },
 {
 "repo": "herdrdev_herdr",
@@ -348,10 +348,10 @@
 "title": "Line wrapped links are not properly highlighted and clickable"
 },
 {
-"repo": "herdrdev_herdr",
-"n": 1170,
+"repo": "herdrdev_herdr-app",
+"n": 117,
 "react": 18,
-"title": "Remote sessions don't appear in `agents` section"
+"title": "No command to resize a pane in a split"
 },
 {
 "repo": "multica-ai_multica",

@@ -1,6 +1,6 @@
 # Pattern notes: onboarding
 
-> **Provenance.** Written on 2026-11-23 from the install sections of 15 public READMEs (the repositories listed in `docs/research/user-demand-2026-11/README.md`) and from the titles of their public issues. Only README install sections and issue titles were read; no source code and no other documentation. Some of these projects are AGPL or source-available, so this file records ideas only, in our own words. Counts come from `docs/research/user-demand-2026-11/repos/onboarding_count.py`.
+> **Provenance.** Written on 2026-11-23. Install patterns come only from the README install sections of the permissively licensed projects in the set (Apache-2.0 or MIT: herdr, herdr-app, emdash, Orchestrator, Nimbalyst, Paradev, Vibe Kanban, Paperclip, Mistral Vibe, agent-of-empires). Kandev, claude-squad (AGPL), Multica and oh-my-openagent (source-available) fall under the clean-room rule (ADR 0019, `docs/patterns/README.md`), so nothing here comes from their documentation; they appear only in the issue-title counts. No source code was read. This file records ideas only, in our own words. Counts come from `docs/research/user-demand-2026-11/repos/onboarding_count.py`.
 
 ## Answer first
 
@@ -8,7 +8,7 @@ The best installs in this set follow one shape: **one command or one download, n
 
 ## What breaks onboarding, counted
 
-Across 29,938 issues, 5,505 titles (18.4%) match an install, sign-in, agent-detection, prerequisite, permission or first-run keyword. Keyword matching over-counts ("token", "path" and "package" are noisy), so read the ranking rather than the totals.
+Across 29,938 captured issue titles from all 15 repositories, 5,505 (18.4%) match an install, sign-in, agent-detection, prerequisite, permission or first-run keyword. Keyword matching over-counts ("token", "path" and "package" are noisy), so read the ranking rather than the totals.
 
 | Theme | Issues | Reactions |
 | --- | --- | --- |
@@ -27,17 +27,17 @@ Named examples, by reactions: "Make login non-required" (Paradev, 23), "Why do I
 
 | Pattern | Who does it | Our version |
 | --- | --- | --- |
-| One shell line per OS (`curl … \| sh`, PowerShell `irm … \| iex`), plus Homebrew | herdr, herdr-app, oh-my-openagent, agent-of-empires, claude-squad, Mistral Vibe, Multica | A prebuilt binary with the web app embedded and the database bundled, installed by one line per OS and by `brew` |
+| One shell line per OS (`curl … \| sh`, PowerShell `irm … \| iex`), plus Homebrew | herdr, herdr-app, agent-of-empires, Mistral Vibe | A prebuilt binary with the web app embedded and the database bundled, installed by one line per OS and by `brew` |
 | A desktop download for every OS, with the daemon run for you | Orchestrator, emdash, Nimbalyst, Paradev (macOS first) | The desktop shell in the plan's craft track, later; the one-line install comes first |
-| `npx <name>` with nothing else | Vibe Kanban, Paperclip (`onboard --yes`), Kandev | Offer it, but only as a launcher for the binary, as Kandev does, so Node is not a hard requirement |
-| "That's the whole setup": run it in a project and describe the job | oh-my-openagent | First run opens on the Planner box in the current folder's repository |
+| `npx <name>` with nothing else | Vibe Kanban, Paperclip | Optional, and only if it does not make Node a requirement for people who install the binary |
+| Run it inside a project and start by describing the job | (idea from the issue titles; no README used) | First run opens on the Planner box in the current folder's repository |
 | Detect installed agent CLIs automatically | emdash, Orchestrator, herdr | Find every supported CLI on PATH and its sign-in state; seat them by default |
-| The only prerequisite is one agent CLI you are already signed in to | Multica, Paradev (plus Git) | Same, and say so in one line on the install page |
-| Migrate from the tool you used before in one command | oh-my-openagent (`omo setup`) | An importer for Vibe Kanban boards (already in the plan) |
-| Rerun the install line to update | oh-my-openagent | Same line updates; the in-app update panel also works |
-| Hand the install guide to your agent | Paperclip | Only if the guide is plain commands. oh-my-openagent's guide drew a prompt-injection complaint |
+| The one prerequisite is an agent CLI you are already signed in to | Paradev (plus Git) | Same, and say so in one line on the install page |
+| Bring work over from the tool you used before | (idea, not from a README in this set) | An importer for Vibe Kanban boards (already in the plan) |
+| Running the install line again updates it | (idea, not from a README in this set) | Same line updates; the in-app update panel also works |
+| Hand the install guide to your agent | Paperclip | Only if the guide is plain commands. A captured issue title in another project reports a prompt-injection complaint about its install guide |
 
-Not adopted: install-time analytics (Nimbalyst sends an anonymous ID, opt-out), a required account (Paradev's remote access needs a Pro plan), and Docker as a requirement (Multica self-host).
+Not adopted: install-time analytics (Nimbalyst sends an anonymous ID, opt-out), a required account (Paradev's remote access needs a Pro plan), and Docker as a requirement.
 
 ## Control Rod's onboarding, step by step
 

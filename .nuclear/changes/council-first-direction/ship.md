@@ -24,6 +24,7 @@
 | Public claims and originality | pass | E-002, E-003 |
 | Trust surfaces | none edited | E-005 |
 | Owner read | pending | E-004 |
+| Owner's recorded yes for `docs/adr/` | pending | E-006, Signature below |
 
 ## Residual risks and gaps
 
@@ -45,9 +46,19 @@ Revert the commit.
 
 ## Release decision
 
-- **Decision:** merge after the owner reads ADR 0024 and CI is green.
+- **Decision:** merge only after the owner's recorded yes is in the Signature table, CI is green and the blind re-check passes. Until then ADR 0024 stays Proposed.
 - **Decision maker:** Ben Huffer.
-- **Rationale:** documentation only, reversible, no trust surface edited.
+- **Rationale:** documentation only and reversible, but `docs/adr/` is a CODEOWNERS path.
+
+## Signature
+
+| Field | Entry |
+|---|---|
+| Decision | Pending: approve pull request #150, which adds ADR 0024 under `docs/adr/`, and mark ADR 0024 Accepted |
+| Question | Not yet asked |
+| Answer | Not yet given |
+| Head when asked | Not yet asked |
+| Recorded by | To be filled by an agent from the owner's own words. No signature or initials are typed for him |
 
 ## Required links
 

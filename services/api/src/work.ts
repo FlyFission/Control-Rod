@@ -1,6 +1,7 @@
 import { authorOutputIntegrity } from "./preparation/artifacts.js";
 import type { VerificationRecord } from "./preparation/types.js";
 import { prepareCriterionResults, persistCriterionResults, preparedAcceptanceGuard, currentCriterionResults, criterionResultFlags, criterionResultSchemaInputs } from "./preparation/results.js";
+import { isDeepStrictEqual } from "node:util";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
@@ -1058,6 +1059,9 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
   return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
 }
 
+const CHECKOUT_DAEMON_KEY = "checkout-daemon";
+const CHECKOUT_DAEMON_HOLD = "This run is bound to a checkout and waits for a connected daemon that can hold exclusive custody of it. The daemon that asked cannot (older version or a host without custody).";
+
 export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number, supportsCheckouts = false) {
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
@@ -1084,7 +1088,6 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
       if (last) cursor = { at: last.created_key, id: last.id };
       for (const candidate of queued.rows) {
         let row=candidate;
-        if (row.body.checkout && !supportsCheckouts) continue;
         if(!legacyRun(row)) continue;
         // SCRAM holds everything in its scope: nothing there is handed out until a restart lifts it.
         const scram = await scramHolding(c, await runSubject(c, row));
@@ -1101,6 +1104,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
           if(!locked.rows[0]) continue;row=locked.rows[0];
           if(!legacyRun(row)) continue;
+          if (row.body.checkout && !supportsCheckouts) {
+            // Another daemon may claim it; until one does, say why it waits rather than skipping it silently.
+            await holdRun(c, cfg, row, pkg.id, CHECKOUT_DAEMON_HOLD, "sandbox", CHECKOUT_DAEMON_KEY);
+            continue;
+          }
+          if (row.body.waiting_key === CHECKOUT_DAEMON_KEY) await releaseHold(c, cfg, row, "sandbox");
           await releaseHold(c, cfg, row, "scram");
           let preparation;
           try {preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);} catch(error) {
@@ -2253,6 +2262,11 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
       throw new Refusal(400, "invalid-trace", `The execution trace is invalid: ${first?.instancePath ?? ""} ${first?.message ?? ""}`.trim());
     }
     if (body.trace.run_id !== runId) throw new Refusal(400, "invalid-trace", "The execution trace names another run");
+    // The daemon ran in the checkout frozen into the run when it was queued; a trace that names any
+    // other checkout (or one where none was frozen) is not evidence of that run.
+    if (!isDeepStrictEqual(body.trace.checkout, row.body.checkout)) {
+      throw new Refusal(400, "invalid-trace", "The execution trace's checkout does not match the checkout frozen into the run");
+    }
   }
   const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
   delete finished.lease_expires_at;

@@ -8,6 +8,10 @@ import (
 	"syscall"
 )
 
+// checkoutCustodySupported reports whether this host can hold exclusive custody of a checkout. It
+// is what the daemon advertises when it claims work.
+func checkoutCustodySupported() bool { return true }
+
 func lockCheckout(path string) (func(), error) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {

@@ -130,7 +130,11 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 		if err := validateCheckout(job.Run.Checkout); err != nil {
 			return nil, err
 		}
-		release, err := lockCheckout(filepath.Join(job.Run.Checkout.GitDir, "controlrod-run.lock"))
+		lockPath, err := checkoutLockPath(root, job.Run.Checkout)
+		if err != nil {
+			return nil, err
+		}
+		release, err := lockCheckout(lockPath)
 		if err != nil {
 			return nil, fmt.Errorf("checkout is unavailable or already in use: %w", err)
 		}
@@ -144,6 +148,10 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 			release()
 			return nil, fmt.Errorf("reserve checkout run directory: %w", err)
 		}
+		// The run directory is this run's own; it is removed with the custody so it is not left in
+		// the user's checkout. RemoveAll never follows a link, so a swapped directory is unlinked.
+		unlock, reserved := release, dir
+		release = func() { _ = os.RemoveAll(reserved); unlock() }
 		ws = &Workspace{Dir: job.Run.Checkout.Path, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out"), Checkout: job.Run.Checkout, releaseCheckout: release}
 		for i, in := range job.Inputs {
 			paths[i], _ = inputPath(ws.Inputs, in.Name) // already validated above
@@ -179,6 +187,62 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 func sha256Hex(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
+}
+
+// beforeStartCheck is the last look at a bound checkout before its process starts: identity, branch
+// and HEAD must still be what the job named. Anything else (a commit, a checkout, a moved Git
+// directory since preparation) refuses the start.
+func (ws *Workspace) beforeStartCheck() error {
+	if ws.Checkout == nil {
+		return nil
+	}
+	return validateCheckout(ws.Checkout)
+}
+
+// checkoutLockPath is the custody lock for one checkout. It lives in the daemon's own home, which no
+// agent can write, and is keyed by the checkout's identity, so neither unlinking files in the
+// checkout nor its Git administration releases custody.
+func checkoutLockPath(root string, b *CheckoutBinding) (string, error) {
+	dir := filepath.Join(root, "checkout-locks")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create checkout lock directory: %w", err)
+	}
+	if st, err := os.Lstat(dir); err != nil || !st.IsDir() {
+		return "", errors.New("checkout lock directory must be a real directory")
+	}
+	return filepath.Join(dir, sha256Hex([]byte(b.Path + "\x00" + b.GitDir + "\x00" + b.CommonDir))[:32]+".lock"), nil
+}
+
+// ErrLinkedRunPath reports a run directory reached through a symbolic link.
+var ErrLinkedRunPath = errors.New("a run directory path contains a symbolic link")
+
+// checkedRunDir refuses a run directory whose path has a link in any component. The directory lives
+// in the agent-writable checkout, so the agent can replace .controlrod-run-<id> with a link to a
+// path the sandbox denies; Capture follows intermediate links, so it must be given a verified path.
+// A missing directory is allowed (Capture then finds nothing).
+func checkedRunDir(dir string) error {
+	real, err := filepath.EvalSymlinks(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil // nothing there, and nothing to follow
+	}
+	if err != nil {
+		return err
+	}
+	if real != filepath.Clean(dir) {
+		return ErrLinkedRunPath
+	}
+	return nil
+}
+
+// CaptureRun is Capture for a run workspace: for a checkout run it first verifies every component
+// of dir without following links.
+func (ws *Workspace) CaptureRun(dir string, maxFile, maxTotal int64) (*Captured, error) {
+	if ws.Checkout != nil {
+		if err := checkedRunDir(dir); err != nil {
+			return nil, fmt.Errorf("%w: %s", err, dir)
+		}
+	}
+	return Capture(dir, maxFile, maxTotal)
 }
 
 // Captured is a run's outputs read into the daemon's memory: their bytes, the files to send and

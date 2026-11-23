@@ -31,6 +31,23 @@ The overseer reported these full-suite results from macOS outside the author san
 
 The fixture now creates its workspace root and checkout under the canonical home directory. The production path check is unchanged. After the fix, API typecheck and `git diff --check` passed. The focused bound-dispatch test stopped in setup with `listen EPERM` on `127.0.0.1`; no assertions ran. The corrected API test and the full API suite still need a rerun outside the author sandbox.
 
+## Fix round
+
+Review findings were fixed in a later commit on this branch. These runs are from the author agent on macOS with PostgreSQL 17; they are not in the retained logs or the [SHA-256 manifest](evidence.sha256), which cover the earlier author run. Counts are from the terminal output, not typed estimates.
+
+| Command | Result |
+| --- | --- |
+| `cd daemon && go test ./...` | One failure, the known `TestInstalledCodexLeavesOnlyQualifiedFeatures`. In `go test ./... -v`: 220 top-level tests passed, 14 skipped, 1 failed. Loopback and the process probe worked in this run, so the earlier blocked daemon rows (`TestDaemonRunsInBoundCheckout`, the wire boundary test) now run and pass. |
+| `cd daemon && go vet ./...`; `GOOS=windows go vet ./internal/runner` | Passed, no output. |
+| `cd services/api && CONTROLROD_TEST_PG_DIR=/opt/homebrew/opt/postgresql@17/bin npx vitest run test/runs.test.ts` | 37 passed of 37, including the bound dispatch test that earlier stopped in setup. |
+| `... npx vitest run test/repos-materialize.test.ts -t "checkout binding"` | 9 passed (2 existing, 7 new), 26 skipped. |
+| `CONTROLROD_TEST_PG_DIR=/opt/homebrew/opt/postgresql@17/bin pnpm --filter ./services/api test` | 70 files, 844 tests passed. |
+| `pnpm -r run typecheck` | Passed for the four projects with a typecheck script. |
+
+New tests, one per fix. Failure without the fix was confirmed by reverting it for `TestCheckoutCaptureRefusesLinkedRunDirectory`, `TestUncontainedRunKeepsCheckoutCustody` and the `runs.test.ts` changes; the others test behaviour that did not exist before the fix: `TestCheckoutCaptureRefusesLinkedRunDirectory`, `TestUncontainedRunKeepsCheckoutCustody`, `TestCheckoutLockLivesOutsideTheCheckout`, `TestCheckoutHostContainment`, `TestDaemonRefusesCheckoutOverProtectedFolders`, `TestCheckoutRefusesGitAdministrationInsideTheCheckout`, `TestCheckoutBeforeStartRefusesHeadDrift`, `TestCheckoutRunDirectoryIsRemovedWithCustody`, `TestClaimAdvertisesCheckoutSupportOnlyWhereCustodyWorks`; in `runs.test.ts` the hold-reason assertion and the two trace-checkout tests; in `repos-materialize.test.ts` the `checkout binding refusals` group. The non-Unix test `TestNoCheckoutSupportWithoutCustody` only compiles here.
+
+Not exercised: the real Claude and Codex sandboxes with a checkout, a signed-in provider run, and the external strict custody validator. The sandbox write scope for a checkout run is unchanged: the working directory, which contains the run's inputs and out directories.
+
 ## Required links
 
 [Basis](basis.md), [plan](plan.md), [risk](risk.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

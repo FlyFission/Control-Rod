@@ -111,6 +111,14 @@ func validateCheckout(b *CheckoutBinding) error {
 	if b.Path == b.Root {
 		return errors.New("checkout cannot be the workspace root")
 	}
+	// Git administration must stay out of the agent-writable tree. A base or fresh clone keeps
+	// .git inside the checkout, where hooks and config would be writable; only a linked worktree
+	// keeps it outside.
+	for _, admin := range []string{b.GitDir, b.CommonDir} {
+		if within(admin, b.Path) {
+			return errors.New("checkout Git administration is inside the checkout; only linked worktrees can be bound")
+		}
+	}
 	if err := checkoutGitDirs(b); err != nil {
 		return err
 	}
@@ -137,4 +145,48 @@ func validateCheckout(b *CheckoutBinding) error {
 
 func checkoutPrompt(ws *Workspace) string {
 	return fmt.Sprintf("Read the Control Rod brief at %q and do exactly what it says. Your working directory is the selected repository checkout on branch %q. Edit project files here. Write deliverable files, including a patch of your changes, into %q. References in the brief to inputs/ and out/ mean %q and %q. Do not alter the reserved .controlrod-run-* directories except this run's output directory. Exclude .controlrod-run-* directories from deliverable patches. Shared Git administration outside this checkout is not writable.", filepath.Join(ws.Inputs, "BRIEF.md"), ws.Checkout.Branch, ws.Out, ws.Inputs, ws.Out)
+}
+
+// validateCheckoutHost is the daemon's own containment rule for a job-supplied binding. It does not
+// trust the API: the workspace root and checkout must sit in the home folder outside any dot folder
+// (the same rule the API applies to a workspace root), and neither may overlap the daemon's home,
+// a CLI login location or a path the run's policy denies. Without this a checkout under ~/.ssh or
+// ~/.controlrod would turn a denied folder into the writable workspace.
+func validateCheckoutHost(b *CheckoutBinding, at SandboxPaths, p *SandboxPolicy) error {
+	if at.Home == "" || !filepath.IsAbs(at.Home) {
+		return errors.New("the home folder cannot be resolved, so a checkout cannot be placed in it")
+	}
+	home := filepath.Clean(at.Home)
+	if real, err := filepath.EvalSymlinks(home); err == nil {
+		home = real
+	}
+	for _, path := range []string{b.Root, b.Path} {
+		rel, err := filepath.Rel(home, path)
+		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, "../") {
+			return errors.New("checkout and workspace root must be inside the home folder")
+		}
+		if first := strings.Split(rel, string(filepath.Separator))[0]; strings.HasPrefix(first, ".") {
+			return errors.New("checkout and workspace root cannot be inside a dot folder")
+		}
+	}
+	// Paths that must not overlap the checkout or its root, in either direction.
+	keep := append([]string{}, at.Logins...)
+	if at.DaemonHome != "" {
+		keep = append(keep, at.DaemonHome)
+	}
+	if p != nil {
+		for _, d := range p.Denied(at) {
+			if d != home && d != filepath.Clean(at.Home) { // the home folder itself holds every checkout
+				keep = append(keep, d)
+			}
+		}
+	}
+	for _, k := range keep {
+		for _, path := range []string{b.Root, b.Path} {
+			if within(path, k) || within(k, path) {
+				return fmt.Errorf("checkout overlaps a protected location (%s)", k)
+			}
+		}
+	}
+	return nil
 }

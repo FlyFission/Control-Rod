@@ -133,7 +133,7 @@ func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeS
 	if runtimes == nil {
 		runtimes = []string{}
 	}
-	req := ClaimRequest{SupportsCheckouts: true, Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report}
+	req := ClaimRequest{SupportsCheckouts: checkoutCustodySupported(), Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report}
 	resp, err := c.post(ctx, "/runner/claim", req, 30*time.Second)
 	if err != nil {
 		return nil, err

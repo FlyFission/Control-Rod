@@ -111,6 +111,10 @@ async function releasedPackage(key: string, role = "general-author", checkout?: 
   return id;
 }
 
+const complete = (job: Job, body: Record<string, unknown>) => asDaemon(`/runner/runs/${job.run.id}/complete`, body);
+const runRow = async (id: string) =>
+  (await h.db.query<{ status: string; body: Record<string, any> }>("select status, body from runs where id = $1", [id])).rows[0];
+
 describe("launch inputs", () => {
   it("dispatches a bound checkout only to a capable author daemon", async () => {
     // The capture route requires an explicit workspace root beneath the current home.
@@ -126,7 +130,13 @@ describe("launch inputs", () => {
       git(base, "worktree", "add", "-b", "topic", path);
       const id = await releasedPackage("CHECKOUT", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
       expect(await claim()).toBeNull();
+      // Skipped for this daemon, but held with a visible reason rather than silently.
+      const held = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'author'", [id])).rows[0]!.body;
+      expect(held).toMatchObject({ waiting_cause: "sandbox", waiting_key: "checkout-daemon" });
+      expect(held.waiting_reason).toMatch(/custody/);
       const author = await claim(["fake"], true);
+      const started = (await h.db.query<{ body: Record<string, any> }>("select body from runs where id = $1", [author!.run.id])).rows[0]!.body;
+      expect(started.waiting_cause).toBeUndefined();
       expect(author?.run).toMatchObject({
         role: "author", package_id: id,
         checkout: { repo: "demo", root, path, branch: "topic", head: git(path, "rev-parse", "HEAD"),
@@ -142,6 +152,37 @@ describe("launch inputs", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it("refuses a completion whose trace names a different checkout than the one frozen into the run", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-trace-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      await releasedPackage("TRACECO", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+      const author = (await claim(["fake"], true)) as Job;
+      const frozen = (author.run as unknown as { checkout: Record<string, string> }).checkout;
+      const other = { ...frozen, path: join(root, "elsewhere"), head: "0".repeat(40) };
+      const r = await complete(author, { status: "succeeded", trace: trace(author, { checkout: other }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+      expect(r.json().refusal.code).toBe("invalid-trace");
+      expect(String(r.json().refusal.message ?? "")).toMatch(/checkout/);
+      expect((await runRow(author.run.id))?.status).toBe("failed");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a trace that claims a checkout for a run that had none", async () => {
+    await releasedPackage("TRACENONE");
+    const job = (await claim()) as Job;
+    const r = await complete(job, { status: "succeeded", trace: trace(job, { checkout: { repo: "demo", root: "/r", path: "/r/p", branch: "b", head: "h", git_dir: "/r/g", common_dir: "/r/c" } }), outputs: [{ name: "r.md", content_base64: b64("ok") }] });
+    expect(r.json().refusal.code).toBe("invalid-trace");
   });
 
   it("holds a role that needs named hosts when only Codex is offered, saying why, and dispatches it once a runtime can limit them", async () => {

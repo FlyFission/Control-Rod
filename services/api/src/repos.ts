@@ -1435,6 +1435,11 @@ export async function bindCheckout(selection: unknown) {
   if (![base, linked, fresh].includes(path)) {
     throw new Refusal(409, "repo-identity-mismatch", "The checkout path does not match the prepared repository and branch.");
   }
+  // The author gets write access to the checkout. A base or fresh clone keeps .git inside it, so
+  // hooks and config would be writable; only a linked worktree keeps Git administration outside.
+  if (path !== linked) {
+    throw new Refusal(409, "checkout-not-linked-worktree", "Only a linked worktree can be bound to a run; a base or fresh clone would give the author writable Git administration.");
+  }
   return withGitRefusal(async () => {
     await validateExistingRepoDir(path, root, isGithub);
     const opts = { cwd: path, workspaceRoot: root };
@@ -1452,8 +1457,12 @@ export async function bindCheckout(selection: unknown) {
     const gitDir = await git(["rev-parse", "--absolute-git-dir"], opts);
     const commonDir = await git(["rev-parse", "--path-format=absolute", "--git-common-dir"], opts);
     for (const dir of [gitDir, commonDir]) {
-      if (!isContainedIn(root, resolveWithoutSymlinks(dir))) {
+      const real = resolveWithoutSymlinks(dir);
+      if (!isContainedIn(root, real)) {
         throw new Refusal(400, "invalid-repo-path", "Git administration must stay inside the workspace root.");
+      }
+      if (real === path || isContainedIn(path, real)) {
+        throw new Refusal(409, "checkout-not-linked-worktree", "Git administration is inside the checkout, so the author would be able to write it.");
       }
     }
     return { repo, root, path, branch, head, git_dir: gitDir, common_dir: commonDir };

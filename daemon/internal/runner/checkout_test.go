@@ -16,8 +16,14 @@ import (
 
 func checkoutFixture(t *testing.T) *CheckoutBinding {
 	t.Helper()
-	root, err := filepath.EvalSymlinks(t.TempDir())
+	home, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
+		t.Fatal(err)
+	}
+	// The daemon's own rule: a checkout lives in a non-dot folder under the home folder.
+	t.Setenv("HOME", home)
+	root := filepath.Join(home, "projects")
+	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	base := filepath.Join(root, "repo")
@@ -56,7 +62,8 @@ func TestCheckoutAuthorLaunchAndCustody(t *testing.T) {
 	run := testRun("checkout-author", "author")
 	run.Checkout = binding
 	job := &Job{Run: run, Inputs: []NamedFile{{Name: "BRIEF.md", ContentBase64: b64("Edit project.txt")}, {Name: "FAKE.sh", ContentBase64: b64(checkoutEditScript)}}}
-	ws, err := Prepare(t.TempDir(), job)
+	prepRoot := t.TempDir()
+	ws, err := Prepare(prepRoot, job)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +98,7 @@ func TestCheckoutAuthorLaunchAndCustody(t *testing.T) {
 	}
 	other := *job
 	other.Run.ID = "checkout-other"
-	if next, err := Prepare(t.TempDir(), &other); err == nil {
+	if next, err := Prepare(prepRoot, &other); err == nil {
 		next.releaseCheckout()
 		t.Fatal("two runs acquired the same checkout")
 	}
@@ -199,7 +206,11 @@ func TestDaemonRunsInBoundCheckout(t *testing.T) {
 		t.Fatal("run log omitted the effective checkout")
 	}
 	// The lock is released after execution, so a later run can use the checkout.
-	release, err := lockCheckout(filepath.Join(b.GitDir, "controlrod-run.lock"))
+	lockPath, err := checkoutLockPath(d.cfg.Home, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := lockCheckout(lockPath)
 	if err != nil {
 		t.Fatal(err)
 	}

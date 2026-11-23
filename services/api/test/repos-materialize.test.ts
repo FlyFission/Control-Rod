@@ -170,6 +170,90 @@ describe("repos.ts hardening", () => {
     });
   });
 
+  describe("checkout binding refusals", () => {
+    const code = (p: Promise<unknown>) => p.then(() => "accepted", (e: unknown) => (e instanceof Refusal ? e.code : `unexpected: ${String(e)}`));
+
+    function linkedWorktree(): { root: string; base: string; path: string } {
+      const root = join(tempHome, "projects");
+      const base = join(root, "demo");
+      const path = join(root, ".worktrees", "demo", "topic");
+      gitInitRepo(base);
+      mkdirSync(join(path, ".."), { recursive: true });
+      execFileSync("git", ["worktree", "add", "-b", "topic", path], { cwd: base, stdio: "ignore" });
+      return { root, base, path };
+    }
+
+    it("matches only the linked worktree; the base and fresh clones would hand the author a writable .git", async () => {
+      const { root, base, path } = linkedWorktree();
+      await expect(code(bindCheckout({ repo: "demo", local_path: path, branch: "topic", workspace_root: root }))).resolves.toBe("accepted");
+      execFileSync("git", ["checkout", "-b", "topic2"], { cwd: base, stdio: "ignore" });
+      await expect(code(bindCheckout({ repo: "demo", local_path: base, branch: "topic2", workspace_root: root }))).resolves.toBe("checkout-not-linked-worktree");
+      const fresh = join(root, "demo-topic3");
+      execFileSync("git", ["clone", "-q", "-b", "main", base, fresh], { stdio: "ignore" });
+      execFileSync("git", ["checkout", "-q", "-b", "topic3"], { cwd: fresh, stdio: "ignore" });
+      await expect(code(bindCheckout({ repo: "demo", local_path: fresh, branch: "topic3", workspace_root: root }))).resolves.toBe("checkout-not-linked-worktree");
+    });
+
+    it("refuses a clone placed at the linked path, whose .git is inside the checkout", async () => {
+      const root = join(tempHome, "projects");
+      const path = join(root, ".worktrees", "demo", "topic");
+      gitInitRepo(path);
+      execFileSync("git", ["checkout", "-q", "-b", "topic"], { cwd: path, stdio: "ignore" });
+      await expect(code(bindCheckout({ repo: "demo", local_path: path, branch: "topic", workspace_root: root }))).resolves.toBe("checkout-not-linked-worktree");
+    });
+
+    it("refuses another repository's or branch's linked path", async () => {
+      const { root, path } = linkedWorktree();
+      await expect(code(bindCheckout({ repo: "demo", local_path: path, branch: "other", workspace_root: root }))).resolves.toBe("repo-identity-mismatch");
+      await expect(code(bindCheckout({ repo: "other", local_path: path, branch: "topic", workspace_root: root }))).resolves.toBe("repo-identity-mismatch");
+    });
+
+    it("refuses symlinked checkouts and symlinked parents", async () => {
+      const { root, path } = linkedWorktree();
+      const link = join(root, "link-to-worktree");
+      symlinkSync(path, link);
+      await expect(code(bindCheckout({ repo: "demo", local_path: link, branch: "topic", workspace_root: root }))).resolves.not.toBe("accepted");
+      // The .worktrees folder itself replaced by a link.
+      const elsewhere = join(tempHome, "elsewhere");
+      mkdirSync(elsewhere);
+      execFileSync("mv", [join(root, ".worktrees"), join(elsewhere, ".worktrees")]);
+      symlinkSync(join(elsewhere, ".worktrees"), join(root, ".worktrees"));
+      await expect(code(bindCheckout({ repo: "demo", local_path: path, branch: "topic", workspace_root: root }))).resolves.not.toBe("accepted");
+    });
+
+    it("refuses traversal out of the root or back to the base clone", async () => {
+      const { root, path } = linkedWorktree();
+      await expect(code(bindCheckout({ repo: "demo", local_path: join(path, "..", "..", "..", "..", "outside"), branch: "topic", workspace_root: root }))).resolves.not.toBe("accepted");
+      await expect(code(bindCheckout({ repo: "demo", local_path: `${path}/../../../demo`, branch: "topic", workspace_root: root }))).resolves.toBe("checkout-not-linked-worktree");
+      await expect(code(bindCheckout({ repo: "demo", local_path: root, branch: "topic", workspace_root: root }))).resolves.toBe("invalid-repo-path");
+    });
+
+    it("refuses a workspace root that is a dot folder, outside home, or above home", async () => {
+      const hidden = join(tempHome, ".hidden");
+      const path = join(hidden, ".worktrees", "demo", "topic");
+      gitInitRepo(join(hidden, "demo"));
+      mkdirSync(join(path, ".."), { recursive: true });
+      execFileSync("git", ["worktree", "add", "-b", "topic", path], { cwd: join(hidden, "demo"), stdio: "ignore" });
+      await expect(code(bindCheckout({ repo: "demo", local_path: path, branch: "topic", workspace_root: hidden }))).resolves.toBe("invalid-workspace-root");
+      const outside = realpathSync(mkdtempSync(join(tmpdir(), "controlrod-outside-")));
+      try {
+        await expect(code(bindCheckout({ repo: "demo", local_path: join(outside, "x"), branch: "topic", workspace_root: outside }))).resolves.toBe("invalid-workspace-root");
+        await expect(code(bindCheckout({ repo: "demo", local_path: join(tempHome, "x"), branch: "topic", workspace_root: tempHome }))).resolves.toBe("invalid-workspace-root");
+        await expect(code(bindCheckout({ repo: "demo", local_path: join(tempHome, "..", "x"), branch: "topic", workspace_root: join(tempHome, "..") }))).resolves.toBe("invalid-workspace-root");
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    });
+
+    it("refuses a checkout outside its workspace root", async () => {
+      const { root } = linkedWorktree();
+      const other = join(tempHome, "other-root");
+      mkdirSync(other);
+      const path = join(root, ".worktrees", "demo", "topic");
+      await expect(code(bindCheckout({ repo: "demo", local_path: path, branch: "topic", workspace_root: other }))).resolves.toBe("invalid-repo-path");
+    });
+  });
+
   async function assertPlainDirIgnoresAncestorGit(ancestorDir: string, originUrl?: string): Promise<void> {
     gitInitRepo(ancestorDir, originUrl);
     const ws = join(tempHome, "projects");

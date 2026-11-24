@@ -170,6 +170,15 @@ class Book:
                 h = math_("ADD", X, math_("MULTIPLY", Y, -1.0))
                 fr = math_("FRACT", math_("MULTIPLY", h, 1.0 / 0.9))
                 efac = math_("MULTIPLY_ADD", math_("MINIMUM", fr, math_("SUBTRACT", 1.0, fr)), 0.9, 0.62)
+            elif emit_pat == "core":    # v3 fuel: rod stripes x radial falloff from the core axis x falloff with depth below the water surface
+                h = math_("ADD", X, math_("MULTIPLY", Y, -1.0))
+                fr = math_("FRACT", math_("MULTIPLY", h, 1.0 / 1.1))
+                stripes = math_("MULTIPLY_ADD", math_("MINIMUM", fr, math_("SUBTRACT", 1.0, fr)), 0.8, 0.66)
+                r2 = math_("ADD", math_("POWER", X, 2.0), math_("POWER", Y, 2.0))
+                radial_f = math_("MULTIPLY_ADD", math_("EXPONENT", math_("MULTIPLY", r2, -1.0 / (2 * 80.0 ** 2))), 0.50, 0.50)
+                zf_ = math_("MULTIPLY_ADD", math_("MAXIMUM", math_("MINIMUM", math_("DIVIDE", math_("SUBTRACT", Z, 34.0), 78.0), 1.0), 0.0), 0.62, 0.38)
+                lam_ = math_("MAXIMUM", vec_("DOT_PRODUCT", geo.outputs["Normal"], tuple(LIGHT)).outputs["Value"], 0.0)
+                efac = math_("MULTIPLY", math_("MULTIPLY", math_("MULTIPLY", stripes, radial_f), zf_), math_("MULTIPLY_ADD", lam_, 0.6, 0.48))
             elif emit_pat == "voronoi":
                 vn = N("ShaderNodeTexVoronoi"); vn.feature = "DISTANCE_TO_EDGE"
                 L(pos, vn.inputs["Vector"]); vn.inputs["Scale"].default_value = 0.06

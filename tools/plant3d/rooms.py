@@ -35,8 +35,10 @@ CREW = {
     "review": {1: "waiting", 2: "waiting", 3: "working", 4: "working"},
     "interface": {1: "working", 2: "working", 3: "waiting"},
     "bench": {1: "working", 2: "working", 3: "working", 5: "working", 6: "stuck", 7: "working"},
+    "quarantine": {2: "walking", 6: "walking"},          # radwaste yard: two workers on foot (anti-C)
 }
 LIT = set(CREW)
+COMPOSITE_ROOMS = ("your-office", "process", "mechanical", "electrical", "assurance", "review", "bench", "quarantine")   # ~8 rooms with workers in the composites
 
 
 # ------------------------------------------------------------------------------------------------ small helpers
@@ -409,15 +411,16 @@ def build_room(cx, rid, arch, ox, oy, w, d, h, lit, crew=None, reg=None, front_o
 
 def crew_build(cx, rid, anchors, offs, ox, oy, crew, accent="accent"):
     g = cx.mesher(f"crew_{rid}")
+    garb = S.garb_for(rid)
     for (n, kind, _k, yaw), (n2, sx, sy) in zip(anchors, offs):
         pose = crew.get(n)
         if not pose:
             continue
         if kind == "seat":
-            g.push(place(ox + sx, oy + sy, yaw - 0.5 if abs(yaw) < 1e-6 else yaw + 0.5)); W.build_worker(g, pose, accent); g.pop()
+            g.push(place(ox + sx, oy + sy, yaw - 0.5 if abs(yaw) < 1e-6 else yaw + 0.5)); W.build_worker(g, pose, accent, garb=garb); g.pop()
         else:
             yw = POSE_YAW["walk"] if pose == "walking" else POSE_YAW["stand"]
-            g.push(place(ox + sx, oy + sy, yw)); W.build_worker(g, pose, accent); g.pop()
+            g.push(place(ox + sx, oy + sy, yw)); W.build_worker(g, pose, accent, garb=garb); g.pop()
             if pose == "needs-you":
                 ring = cx.mesher(f"ring_{rid}")
                 ring.sector(7.5, 9.0, 0, 360, 0.0, 0.5, 40, {"*": "amber_ring"}, closed=True)
@@ -428,13 +431,15 @@ def crew_build(cx, rid, anchors, offs, ox, oy, crew, accent="accent"):
     cx.done(g, "fine", cx.reg["crew"].setdefault(rid, []))
 
 
-def build_all(cx, state, crew=True, only=None, lit_ids=None):
+def build_all(cx, state, crew=True, only=None, lit_ids=None, crew_rooms=None, front=False):
+    """crew_rooms: {room id: {anchor n: pose}} overriding CREW (None = CREW). front: emit only the near walls and lip of each room."""
     for rm in LAY["rooms"]:
         if only and rm["id"] not in only:
             continue
         lit = rm["id"] in (lit_ids if lit_ids is not None else LIT)
-        build_room(cx, rm["id"], rm["archetype"], rm["x"], rm["y"], rm["w"], rm["d"], rm["wall_height"], lit, CREW.get(rm["id"]) if lit else None,
-                   with_crew=crew)
+        cm = (crew_rooms if crew_rooms is not None else CREW).get(rm["id"])
+        build_room(cx, rm["id"], rm["archetype"], rm["x"], rm["y"], rm["w"], rm["d"], rm["wall_height"], lit, cm if lit else None,
+                   with_crew=crew, front_only=front)
 
 
 # ------------------------------------------------------------------------------------------------ tiles and sprites

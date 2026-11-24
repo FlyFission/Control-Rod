@@ -29,7 +29,7 @@ def reset():
         bpy.data.collections.remove(c)
 
 
-def setup_render(scale, samples, transparent, freestyle=True, res=None, cam_centre=None):
+def setup_render(scale, samples, transparent, freestyle=True, res=None, cam_centre=None, border=None):
     sc = bpy.context.scene
     sc.render.engine = "CYCLES"
     cy = sc.cycles
@@ -43,11 +43,16 @@ def setup_render(scale, samples, transparent, freestyle=True, res=None, cam_cent
     sc.render.film_transparent = transparent
     sc.render.image_settings.file_format = "PNG"; sc.render.image_settings.color_mode = "RGBA"; sc.render.image_settings.compression = 12
     w = bpy.data.worlds.new("W"); w.use_nodes = True
-    bg = w.node_tree.nodes["Background"]; bg.inputs[0].default_value = kit.lin(kit.P["ground"]); bg.inputs[1].default_value = 1.0
+    bg = w.node_tree.nodes["Background"]; bg.inputs[0].default_value = kit.lin(S.GROUND_COL); bg.inputs[1].default_value = 1.0
     sc.world = w
     sc.render.use_freestyle = freestyle
     K.make_camera(bpy, scale=scale, centre_px=cam_centre, res=res)
     sc.render.use_border = False
+    if border:                      # (x0, y0, x1, y1) in output px, y from the top; pixels outside stay transparent, resolution unchanged
+        W_, H_ = sc.render.resolution_x, sc.render.resolution_y
+        sc.render.use_border = True; sc.render.use_crop_to_border = False
+        sc.render.border_min_x, sc.render.border_max_x = border[0] / W_, border[2] / W_
+        sc.render.border_min_y, sc.render.border_max_y = 1 - border[3] / H_, 1 - border[1] / H_
 
 
 def setup_freestyle(cx, tscale, state):
@@ -91,10 +96,10 @@ def do_render(path):
     return time.time() - t0
 
 
-def render_pair(cx, out, name, scale, samples, state="healthy", transparent=False, glow_pass=True, res=None, cam_centre=None, tscale=None):
+def render_pair(cx, out, name, scale, samples, state="healthy", transparent=False, glow_pass=True, res=None, cam_centre=None, tscale=None, border=None):
     sc = bpy.context.scene
     ts = tscale if tscale is not None else max(scale, 0.6)
-    setup_render(scale, samples, transparent, True, res, cam_centre)
+    setup_render(scale, samples, transparent, True, res, cam_centre, border)
     setup_freestyle(cx, ts, state)
     res_ = (sc.render.resolution_x, sc.render.resolution_y)
     cx.book.set_screen(res_, scale)
@@ -159,10 +164,24 @@ def main():
     out = Path(a.out); (out / "raw").mkdir(parents=True, exist_ok=True)
     timings = {}
     suffix = "" if a.scale == 1.0 else f"_{a.scale}"
-    modes = ["healthy", "site", "scram", "tiles", "sprites", "volumes"] if a.mode == "all" else [a.mode]
+    modes = ["healthy", "site", "scram", "tiles", "sprites", "volumes"] if a.mode == "all" else a.mode.split(",")
+    import layers as LY
     for md in modes:
         t0 = time.time()
-        if md == "healthy":
+        if md == "v3-plate":
+            timings[md] = LY.render_plate(out, a.samples)
+        elif md == "v3-core":
+            timings[md] = {"healthy": LY.render_core(out, "healthy", a.samples), "tripped": LY.render_core(out, "scram", a.samples)}
+        elif md == "v3-rooms":
+            timings[md] = LY.render_rooms(out, a.samples, a.only.split(",") if a.only else None)
+        elif md == "v3-sprites":
+            timings[md] = LY.render_sprites(out, a.samples)
+        elif md == "v3-full":
+            timings[md] = {"healthy": LY.render_full(out, "healthy", a.samples, "full-healthy"), "scram": LY.render_full(out, "scram", a.samples, "full-scram"),
+                           "stackref": LY.render_stack_ref(out, a.samples)}
+        elif md == "v3-markers":
+            timings[md] = LY.render_markers(out)
+        elif md == "healthy":
             timings[md] = full(out, "healthy", a.scale, a.samples, "healthy" + suffix)
         elif md == "scram":
             timings[md] = full(out, "scram", a.scale, a.samples, "scram" + suffix)

@@ -24,7 +24,23 @@ GROUND_Z = -6.0
 WT = 14.0                       # containment wall thickness (blockout)
 DRUM_R, DRUM_H = CORE["vessel_radius"], CORE["vessel_height"]    # primary shield drum (blockout 'vessel' volume)
 CUT = (0, 90)                   # layout angles removed from the shield drum and vessel (the near quadrant, centred on the viewer)
+GROUND_COL = mix(P["ground"], P["surface"], 0.95)   # v3: ground lifted one value step (was #000e23)
 K_SCRAM = 0.16                  # containment interior brightness factor on SCRAM
+
+
+# ---- worker garb: one switch. "realistic": anti-C white coveralls (hood up, dosimeter) in RCA rooms and anywhere inside containment,
+# navy station coveralls (dosimeter badge, no hood) elsewhere. "anti-c-everywhere": every worker in anti-C.
+GARB_MODE = "realistic"                     # "realistic" | "anti-c-everywhere"
+GARB = {"quarantine": "antic", "bench": "antic", "containment": "antic",       # radwaste yard, I&C shop, anything inside containment
+        "your-office": "station", "process": "station", "mechanical": "station", "electrical": "station", "civil": "station",
+        "assurance": "station", "project-controls": "station", "review": "station", "interface": "station",
+        "verification": "station", "document-control": "station"}
+
+
+def garb_for(room_id):
+    if GARB_MODE == "anti-c-everywhere":
+        return "antic"
+    return GARB.get(room_id, "station")
 
 
 def pol(r, a):
@@ -53,12 +69,16 @@ def make_book(state="healthy"):
     t = b.tone
     hi, lo = mix(sf, lw, 0.20), mix(gd, sf, 0.55)
     hatchc = mix(lw, PALE, 0.30)
-    # --- ground, pads, road
-    t("ground", gd, amb=None, ao=0)
-    t("pad", sf, amb=None, ao=0)                                     # bare matte #091930
-    t("pad_side", mix(gd, sf, 0.55), amb=None, ao=0)
-    t("road", mix(gd, sf, 0.45), amb=None, ao=0)
-    t("road_line", lw, amb=None, ao=0)
+    # --- ground (lifted one value step in v3), paving grid, pads, road, markings, trenches
+    t("ground", GROUND_COL, amb=None, ao=0, pat=("grid", 96.0, 1.1), pat_col=mix(GROUND_COL, lw, 0.24))
+    t("pad", mix(sf, lw, 0.07), amb=None, ao=0)
+    t("pad_side", mix(GROUND_COL, sf, 0.6), amb=None, ao=0)
+    t("road", mix(GROUND_COL, sf, 0.75), amb=None, ao=0)
+    t("road_line", mix(lw, PALE, 0.10), amb=None, ao=0)
+    t("road_mark", mix(lw, PALE, 0.28), amb=None, ao=0)
+    t("path", mix(GROUND_COL, sf, 0.85), amb=None, ao=0)
+    t("trench", mix(gd, GROUND_COL, 0.55), amb=None, ao=0)
+    t("trench_cap", mix(GROUND_COL, lw, 0.30), amb=None, ao=0)
     t("duct", mix(sf, lw, 0.42), amb=None, ao=0)
     t("rack", mix(sf, lw, 0.40), amb=0.40, ao=0)
     # --- cut material: section hatching (fine 45 degrees, screen space); every cut face uses it
@@ -83,8 +103,9 @@ def make_book(state="healthy"):
     t("ghost", mix(lw, PALE, 0.4), amb=None, ao=0, alpha=0.05, k=kc)
     # --- the one light: Cherenkov fuel + volumetric falloff (off on SCRAM) ; red emergency fixtures on SCRAM only
     fk = 0.0 if scram else 1.0
-    t("fuel", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.06), emit_k=1.5 * fk if fk else 0.0, emit_pat="rods")
-    t("fuel_top", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.30), emit_k=2.1 * fk if fk else 0.0)
+    t("fuel", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.06), emit_k=1.2 * fk if fk else 0.0, emit_pat="core")
+    t("fuel_cap", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.0), emit_k=0.7 * fk if fk else 0.0)
+    t("fuel_top", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.30), emit_k=1.55 * fk if fk else 0.0)
     t("trip_em", P["trip"], amb=None, ao=0, emit=P["trip"], emit_k=4.2 if scram else 0.0)
     t("trip_dim", mix(gd, sf, 0.6), amb=None, ao=0, emit=P["trip"], emit_k=0.0)
     # --- rooms: lighter step floors and walls, steel/furniture tones, screens flat #3b95b7
@@ -123,6 +144,11 @@ def make_book(state="healthy"):
     t("suit", mix(sf, WHITE, 0.62), amb=0.34, ao=0)
     t("suit_dk", mix(sf, WHITE, 0.40), amb=0.34, ao=0)
     t("hood", mix(sf, WHITE, 0.66), amb=0.34, ao=0)
+    # station coverall (navy, no hood): a mid navy that reads against the floor, dark boots, cool dark hair
+    t("suit_n", mix(sf, lw, 0.70), amb=0.34, ao=0)
+    t("suit_n_dk", mix(sf, lw, 0.44), amb=0.34, ao=0)
+    t("boot_n", mix(gd, sf, 0.75), amb=0.34, ao=0)
+    t("hair", mix(gd, sf, 0.55), amb=0.34, ao=0)
     t("skin", mix(lw, WHITE, 0.55), amb=0.55, ao=0)
     t("eye", mix(gd, sf, 0.2), amb=None, ao=0)
     t("glasses", mix(gd, lw, 0.45), amb=None, ao=0)
@@ -150,9 +176,9 @@ def make_book(state="healthy"):
                 nt.links.new(v, n.inputs[i])
         return n.outputs[0]
     r2 = mth("ADD", mth("POWER", sep.outputs[0], 2.0), mth("POWER", sep.outputs[1], 2.0))
-    gr = mth("EXPONENT", mth("MULTIPLY", r2, -1.0 / (2 * 20.0 ** 2)))
-    gz = mth("EXPONENT", mth("MULTIPLY", mth("POWER", mth("SUBTRACT", sep.outputs[2], 58.0), 2.0), -1.0 / (2 * 34.0 ** 2)))
-    st_ = mth("MULTIPLY", mth("MULTIPLY", gr, gz), 0.10 * fk)
+    gr = mth("EXPONENT", mth("MULTIPLY", r2, -1.0 / (2 * 80.0 ** 2)))
+    gz = mth("EXPONENT", mth("MULTIPLY", mth("POWER", mth("SUBTRACT", sep.outputs[2], 112.0), 2.0), -1.0 / (2 * 52.0 ** 2)))
+    st_ = mth("MULTIPLY", mth("MULTIPLY", gr, gz), 0.030 * fk)
     em = nt.nodes.new("ShaderNodeEmission"); em.inputs[0].default_value = kit.lin(mix(gl, (0.35, 0.8, 1.0), 0.25))
     nt.links.new(st_, em.inputs[1])
     out = nt.nodes.new("ShaderNodeOutputMaterial"); nt.links.new(em.outputs[0], out.inputs["Volume"])
@@ -198,80 +224,95 @@ def ellipse_profile(r, h, z0, n=10, top=True):
 
 
 # ------------------------------------------------------------------------------------------------ containment parts
+# v3 core (sectioned reactor): vessel + core barrel + grid of square fuel assemblies + water cavity + CRDM housings above the head.
+SHIELD_RI = 150.0               # shield drum inner radius (the reactor cavity)
+CORE_V3 = dict(ro=128.0, ri=119.0, z0=8.0, zf=124.0, barrel=(104.0, 107.5), pitch=14.0, width=12.2, z_fuel=(36.0, 110.0), r_limit=96.0,
+               crdm_rings=((0.0, 1), (34.0, 6), (68.0, 12), (101.0, 18)), crdm_top=196.0)
+
+
 def vessel(cx, f):
-    """Reactor pressure vessel sectioned on the near quadrant: shell + core barrel + bolted domed head + CRDM housings + fuel."""
+    """Reactor sectioned on the near quadrant: shell and bowl, core barrel (cut open), a grid of upright square fuel assemblies with top and
+    bottom nozzles and spacer grids, water-filled cavity (volume glow falling off with radius and depth), bolted head with CRDM housings."""
+    V = CORE_V3
     a0, a1 = CUT[1], CUT[0] + 360
-    ro, ri, z0, zf = 57.0, 50.0, 8.0, 118.0
-    bowl = ellipse_profile(ro, 26, z0 + 26, 8, top=False)                         # outer bottom head (r, z) from the wall to the pole
-    bowl_i = ellipse_profile(ri, 24, z0 + 28, 8, top=False)
-    poly = [(2.0, z0 + 0.1)] + [(r, z) for r, z in reversed(bowl[:-1]) if r > 2.0] + [(ro, zf), (ro + 6, zf), (ro + 6, zf + 10), (ri, zf + 10)] + \
-           [(ri, z0 + 28)] + [(r, z) for r, z in bowl_i[1:-1] if r > 2.0] + [(2.0, z0 + 4.1)]
-    # outer wall edges steel, flange top, inner steel_in
+    ro, ri, z0, zf = V["ro"], V["ri"], V["z0"], V["zf"]
+    kb = ro / 57.0
+    bowl = ellipse_profile(ro, 34, z0 + 34, 8, top=False)
+    bowl_i = ellipse_profile(ri, 32, z0 + 36, 8, top=False)
+    poly = [(2.0, z0 + 0.1)] + [(r, z) for r, z in reversed(bowl[:-1]) if r > 2.0] + [(ro, zf), (ro + 8, zf), (ro + 8, zf + 12), (ri, zf + 12)] + \
+           [(ri, z0 + 36)] + [(r, z) for r, z in bowl_i[1:-1] if r > 2.0] + [(2.0, z0 + 4.1)]
     n = len(poly)
     mats = ["c_steel"] * n
     for i in range(n):
-        if poly[i][0] > 0 and poly[(i + 1) % n][0] > 0 and poly[i][0] <= ri + 0.1 and poly[(i + 1) % n][0] <= ri + 0.1 and poly[i][1] > z0 + 6:
+        if poly[i][0] <= ri + 0.1 and poly[(i + 1) % n][0] <= ri + 0.1 and poly[i][1] > z0 + 6:
             mats[i] = "c_steel_in"
-    m = cx.mesher("vessel"); m.lathe(poly, a0, a1, 54, mats)
-    # bolted domed head
-    dome = ellipse_profile(ro, 26, zf + 10, 10, top=True)
-    domei = ellipse_profile(ro - 5, 21, zf + 10, 10, top=True)
-    hp = [(ri, zf + 10), (ro + 6, zf + 10), (ro + 6, zf + 16), (ro, zf + 16)] + dome[:] + [(0, domei[-1][1])] + list(reversed(domei[1:-1])) + [(ro - 5, zf + 16), (ri, zf + 16)]
-    hp = [(ri, zf + 10), (ro + 6, zf + 10), (ro + 6, zf + 17), (ro, zf + 17)] + [(r, z + 7) for r, z in dome[1:]] + [(0, domei[-1][1] + 7)] + \
-         [(r, z + 7) for r, z in reversed(domei[1:-1])] + [(ro - 5, zf + 17), (ri, zf + 17)]
-    m.lathe(hp, a0, a1, 54, ["c_dome"] * len(hp))
-    # head studs and nuts (every 9 degrees on the flange ring)
-    for a in range(0, 360, 9):
-        if CUT[0] - 1 < a < CUT[1] + 1 or (a % 360) in range(CUT[0], CUT[1] + 1):
+    m = cx.mesher("vessel"); m.lathe(poly, a0, a1, 72, mats)
+    # bolted domed head (flange, shell, apex)
+    hz = zf + 12
+    dome = ellipse_profile(ro, 36, hz + 8, 12, top=True)
+    domei = ellipse_profile(ro - 6, 31, hz + 8, 12, top=True)
+    hp = [(ri, hz), (ro + 8, hz), (ro + 8, hz + 9), (ro, hz + 9)] + [(r, z) for r, z in dome[1:]] + [(0, domei[-1][1])] + \
+         [(r, z) for r, z in reversed(domei[1:-1])] + [(ro - 6, hz + 9), (ri, hz + 9)]
+    hp = [(ri, hz), (ro + 8, hz), (ro + 8, hz + 9), (ro, hz + 9)] + [(r, z + 1) for r, z in dome[1:]] + [(0, domei[-1][1] + 1)] + \
+         [(r, z + 1) for r, z in reversed(domei[1:-1])] + [(ro - 6, hz + 9), (ri, hz + 9)]
+    m.lathe(hp, a0, a1, 72, ["c_dome"] * len(hp))
+    for a in range(0, 360, 6):                              # head studs and nuts on the flange
+        if CUT[0] - 1 < a < CUT[1] + 1:
             continue
-        x, y = pol(ro + 2.6, a)
-        m.cyl((x, -y, zf + 17), 1.5, 4.5, "c_pale", 6, smooth=False)
+        x, y = pol(ro + 4.0, a)
+        m.cyl((x, -y, hz + 9), 1.7, 5.0, "c_pale", 6, smooth=False)
     cx.done(m, "cont", cx.reg["site"])
-    # core barrel (thin shell with cut) and fuel assemblies
-    barrel = [(44, 22), (47, 22), (47, 114), (44, 114)]
-    g = cx.mesher("barrel"); g.lathe(barrel, a0, a1, 54, ["c_steel", "c_steel", "c_steel_in", "c_steel_in"]); cx.done(g, "contf", cx.reg["site"])
-    fa = cx.mesher("fuel")
-    pitch = 8.0
-    for i in range(-7, 7):
-        for j in range(-7, 7):
-            cxm, cym = pitch * (i + 0.5), pitch * (j + 0.5)
-            if cxm > 0 and cym > 0:                     # inside the removed quadrant (gx > 0, gy > 0)
+    # core barrel (cut open: hatched cut faces), lower core plate and upper plate
+    b0, b1 = V["barrel"]
+    g = cx.mesher("barrel")
+    g.lathe([(b0, 30), (b1, 30), (b1, 124), (b0, 124)], a0, a1, 72, ["c_steel", "c_steel", "c_steel_in", "c_steel_in"])
+    g.lathe([(2.0, 28), (b1, 28), (b1, 33), (2.0, 33)], a0, a1, 72, ["c_steel_in", "c_steel", "c_steel_in", "c_steel_in"])
+    cx.done(g, "contf", cx.reg["site"])
+    # fuel: square assemblies on a pitch grid inside the barrel; bottom nozzle, emissive body, spacer grids, top nozzle with hold-down legs
+    fa = cx.mesher("fuel"); gs = cx.mesher("fuel_grids")
+    p_, w = V["pitch"], V["width"]; hw = w / 2
+    zb, zt = V["z_fuel"]
+    nmax = int(V["r_limit"] / p_) + 2
+    for i in range(-nmax, nmax):
+        for j in range(-nmax, nmax):
+            cxm, cym = p_ * (i + 0.5), p_ * (j + 0.5)
+            if cxm > 0 and cym > 0:
                 continue
-            if math.hypot(cxm, cym) > 38:
+            if math.hypot(abs(cxm) + hw, abs(cym) + hw) > V["r_limit"] + 3:
                 continue
-            ht = 70 - (3 if (i + j) % 3 == 0 else 0) - (3 if (i * j) % 4 == 0 else 0)
-            fa.lbox(cxm - 3.6, cym - 3.6, cxm + 3.6, cym + 3.6, 24, 24 + ht, {"top": "fuel_top", "*": "fuel"})
-    for zz in (44, 66):                                 # spacer grids: dark bands across the bundle
-        for i in range(-7, 7):
-            for j in range(-7, 7):
-                cxm, cym = pitch * (i + 0.5), pitch * (j + 0.5)
-                if (cxm > 0 and cym > 0) or math.hypot(cxm, cym) > 38:
-                    continue
-                fa.lbox(cxm - 3.7, cym - 3.7, cxm + 3.7, cym + 3.7, zz, zz + 1.5, "c_steel")
-    cx.done(fa, "contf", cx.reg["site"])
-    # volumetric falloff in the cavity water (270 degree sweep, shader-only mesh)
+            ht = zt - (2.0 if (i + 3 * j) % 5 == 0 else 0.0) - (2.0 if (i * j) % 7 == 3 else 0.0)
+            gs.lbox(cxm - 3.4, cym - 3.4, cxm + 3.4, cym + 3.4, 33, zb, "c_steel_in")                            # bottom nozzle
+            fa.lbox(cxm - hw, cym - hw, cxm + hw, cym + hw, zb, ht, {"top": "fuel_cap", "*": "fuel"})
+            for zz in (zb + 14, zb + 38, zb + 62):                                                               # spacer grids
+                gs.lbox(cxm - hw - 0.35, cym - hw - 0.35, cxm + hw + 0.35, cym + hw + 0.35, zz, zz + 1.8, "c_steel")
+            gs.lbox(cxm - 4.4, cym - 4.4, cxm + 4.4, cym + 4.4, ht, ht + 4.2, "fuel_top")                          # top nozzle
+            for sx_, sy_ in ((-4.8, -4.8), (4.8, -4.8), (-4.8, 4.8), (4.8, 4.8)):                               # hold-down legs
+                gs.lbox(cxm + sx_ - 0.5, cym + sy_ - 0.5, cxm + sx_ + 0.5, cym + sy_ + 0.5, ht, ht + 5.5, "c_pale")
+    cx.done(fa, "contf", cx.reg["site"]); cx.done(gs, "contf", cx.reg["site"])
+    # water: volume in the vessel interior (strongest on the fuel, falling off with radius and with depth), shader-only mesh
     vm = cx.mesher("water"); vm.book = cx.book
-    vol = [(0.0, 20), (43.6, 20), (43.6, 126), (0.0, 126)]
-    vm.lathe(vol, a0, a1, 40, "water_vol", cutmat="water_vol")
+    vm.lathe([(0.0, 22), (ri - 0.4, 22), (ri - 0.4, hz + 8), (0.0, hz + 8)], a0, a1, 48, "water_vol", cutmat="water_vol")
     cx.done(vm, "none", cx.reg["site"])
-    # control rod drive housings on the head (hex pattern), caps and a short shroud ring
+    # control rod drive housings above the head: rings of tall housings with caps, band and a seismic tie ring
     hh = cx.mesher("crdm")
-    pts = [(0, 0)] + [(15 * math.cos(math.radians(60 * k)), 15 * math.sin(math.radians(60 * k))) for k in range(6)] + \
-          [(30 * math.cos(math.radians(30 * k)), 30 * math.sin(math.radians(30 * k))) for k in range(12)]
-    for x, y in pts:
-        if x > -1.0 and y > -1.0 and (x > 1 or y > 1):
-            continue
-        rr = math.hypot(x, y)
-        zb = zf + 10 + 7 + 21 * math.sqrt(max(0, 1 - (rr / (ro - 1)) ** 2)) - 3
-        hh.cyl((x, -y, zb), 2.6, 176 - zb + (2 if rr < 16 else 0), "c_steel", 8)
-        hh.cyl((x, -y, 175 + (2 if rr < 16 else 0)), 3.4, 4, "c_pale", 8)
-        hh.cyl((x, -y, zb + 12), 3.2, 1.6, "c_band", 8)
+    for rr_, cnt in V["crdm_rings"]:
+        for k in range(cnt):
+            ang = 360.0 * k / cnt + (15 if rr_ > 40 else 0)
+            x, y = rr_ * math.cos(math.radians(ang)), rr_ * math.sin(math.radians(ang))
+            if x > -1.0 and y > -1.0 and (x > 1 or y > 1):
+                continue
+            zb_ = hz + 9 + 36.0 * math.sqrt(max(0, 1 - (rr_ / (ro - 1)) ** 2)) - 4
+            top = V["crdm_top"]
+            hh.cyl((x, -y, zb_), 3.0, top - zb_, "c_steel", 8)
+            hh.cyl((x, -y, top - 1), 4.0, 5, "c_pale", 8)
+            hh.cyl((x, -y, zb_ + 14), 3.8, 2.0, "c_band", 8)
+            hh.cyl((x, -y, zb_ + 36), 3.5, 1.6, "c_band", 8)
     cx.done(hh, "contf", cx.reg["site"])
 
 
 def shield_drum(cx):
     a0, a1 = CUT[1], CUT[0] + 360
-    ri = 72.0
+    ri = SHIELD_RI
     poly = [(ri, 0), (DRUM_R, 0), (DRUM_R, DRUM_H), (ri, DRUM_H)]
     m = cx.mesher("shield"); m.lathe(poly, a0, a1, 90, ["c_conc", "c_conc", "c_conc_top", "c_conc"], cutmat="hatch")
     # drum footing band and a rear-rim lip ring
@@ -282,7 +323,7 @@ def shield_drum(cx):
         f.lathe([(DRUM_R, z), (DRUM_R + 0.7, z), (DRUM_R + 0.7, z + 1.4), (DRUM_R, z + 1.4)], a0, a1, 90, ["c_band"] * 4)
     # sectioned pipe stubs (loop piping runs below the floor): round hatched sections on the two cut planes at the base
     for ang, nrm in ((CUT[0], (0, 1)), (CUT[1], (1, 0))):
-        for rr in (95, 160):
+        for rr in (166, 188):
             x, y = pol(rr, ang)
             for rad, mat in ((11, "c_steel"), (7.4, "hatch")):
                 f.cone(B(x, y, 26) + Vector((nrm[0], -nrm[1], 0)) * (0.1 + (1 if mat == "hatch" else 0) * 0.3),
@@ -510,6 +551,77 @@ def build_containment(cx, state):
         scram_lights(cx)
 
 
+def strip(m, p0, p1, w, z0, z1, mat, ang_tol=None):
+    """Flat strip between two layout points (gx, gy) as a rotated box in B space."""
+    (x0, y0), (x1, y1) = p0, p1
+    L = math.hypot(x1 - x0, y1 - y0)
+    c = ((x0 + x1) / 2, -(y0 + y1) / 2, (z0 + z1) / 2)
+    m.box(c, (L, w, z1 - z0), mat, rot=(0, 0, math.atan2(-(y1 - y0), x1 - x0)))
+
+
+def room_centre(rm):
+    return rm["x"] + rm["w"] / 2, rm["y"] + rm["d"] / 2
+
+
+def site_structure(cx, reg):
+    """v3 site structure so the space between the ring and the rooms is not a void: road markings (crossings at every room, arrows,
+    stop bars), access paths from the ring road to every pad, concentric and radial cable trenches with cover ticks. The paving grid is
+    a pattern in the ground material."""
+    rr = LAY["params"]["ring_road"]
+    mid = (rr["inner_radius"] + rr["outer_radius"]) / 2
+    g0 = GROUND_Z
+    mk = cx.mesher("markings")
+    # access paths (ring road -> pad centre; the pad hides the end)
+    for rm in LAY["rooms"]:
+        cxr, cyr = room_centre(rm)
+        r_c = math.hypot(cxr, cyr); ux, uy = cxr / r_c, cyr / r_c
+        start = (ux * rr["outer_radius"], uy * rr["outer_radius"]) if r_c > rr["outer_radius"] else (ux * rr["inner_radius"], uy * rr["inner_radius"])
+        strip(mk, start, (cxr, cyr), 26, g0, g0 + 1.2, "path")
+        for sgn in (-1, 1):                                     # kerb lines
+            ox, oy = -uy * 13 * sgn, ux * 13 * sgn
+            strip(mk, (start[0] + ox, start[1] + oy), (cxr + ox, cyr + oy), 0.9, g0 + 1.2, g0 + 1.5, "road_line")
+        # zebra crossing on the ring road
+        ang = math.degrees(math.atan2(cyr, cxr))
+        for k in range(-4, 5):
+            tx, ty = -uy * k * 5.2, ux * k * 5.2
+            a_ = (ux * (rr["inner_radius"] + 8) + tx, uy * (rr["inner_radius"] + 8) + ty)
+            b_ = (ux * (rr["outer_radius"] - 8) + tx, uy * (rr["outer_radius"] - 8) + ty)
+            strip(mk, a_, b_, 2.0, g0 + 2.5, g0 + 2.85, "road_mark")
+    # direction chevrons on the ring road every 30 degrees (offset from the crossings)
+    for a in range(7, 360, 30):
+        for dr in (0,):
+            c = pol(mid, a); t = (-math.sin(math.radians(a)), math.cos(math.radians(a))); n_ = (math.cos(math.radians(a)), math.sin(math.radians(a)))
+            tip = (c[0] + t[0] * 12, c[1] + t[1] * 12)
+            for sgn in (-1, 1):
+                tail = (c[0] - t[0] * 6 + n_[0] * 11 * sgn, c[1] - t[1] * 6 + n_[1] * 11 * sgn)
+                strip(mk, tail, tip, 2.0, g0 + 2.5, g0 + 2.85, "road_mark")
+    # stop bars / edge dashes beside the ring road lanes
+    for a in range(0, 360, 2):
+        for r_ in (rr["inner_radius"] - 6, rr["outer_radius"] + 6):
+            if a % 4 == 0:
+                mk.sector(r_, r_ + 1.2, a, a + 1.6, g0, g0 + 0.5, 1, {"*": "road_line"}, smooth=False)
+    cx.done(mk, "none", reg)
+    # cable trenches: recessed-looking dark strips with lighter cover ticks
+    tr = cx.mesher("trenches")
+    r_t = 934.0
+    tr.sector(r_t - 2.6, r_t + 2.6, 0, 360, g0, g0 + 0.7, 240, {"*": "trench"}, closed=True, smooth=False)
+    for a in range(0, 360, 3):
+        tr.sector(r_t - 3.4, r_t + 3.4, a, a + 0.45, g0 + 0.7, g0 + 0.95, 1, {"*": "trench_cap"}, smooth=False)
+    r_in = rr["inner_radius"] - 24
+    for a in range(15, 360, 30):                                     # radial trenches from the containment slab to the ring road
+        p0, p1 = pol(R + 12, a), pol(r_in, a)
+        strip(tr, p0, p1, 5.0, g0, g0 + 0.7, "trench")
+        L = math.hypot(p1[0] - p0[0], p1[1] - p0[1]); n = int(L // 14)
+        for k in range(n):
+            q = (p0[0] + (p1[0] - p0[0]) * (k + 0.5) / n, p0[1] + (p1[1] - p0[1]) * (k + 0.5) / n)
+            c, s_ = math.cos(math.radians(a)), math.sin(math.radians(a))
+            strip(tr, (q[0] - s_ * 3.4, q[1] + c * 3.4), (q[0] + s_ * 3.4, q[1] - c * 3.4), 0.5, g0 + 0.7, g0 + 0.95, "trench_cap")
+    # trench ring inside the containment apron
+    r_a = R + 30
+    tr.sector(r_a - 1.6, r_a + 1.6, 0, 360, g0, g0 + 0.6, 200, {"*": "trench"}, closed=True, smooth=False)
+    cx.done(tr, "none", reg)
+
+
 # ------------------------------------------------------------------------------------------------ site
 def build_site(cx, state=None, with_pads=True):
     reg = cx.reg["site"]
@@ -525,6 +637,7 @@ def build_site(cx, state=None, with_pads=True):
     for k in range(0, 360, 4):               # dashed centre line
         rd.sector(mid - 0.6, mid + 0.6, k, k + 2.2, GROUND_Z + 2.5, GROUND_Z + 2.8, 1, {"*": "road_line"}, smooth=False)
     cx.done(rd, "none", reg)
+    site_structure(cx, reg)
     # low utility rack along the inside of the ring road
     ur = cx.mesher("util_rack")
     rin = rr["inner_radius"] - 9
@@ -565,13 +678,14 @@ def build_site(cx, state=None, with_pads=True):
         cx.done(pd, "main", reg)
 
 
-def build(state="healthy", rooms=True, site=True, crew=True, only=None, lit_ids=None, book=None):
+def build(state="healthy", rooms=True, site=True, crew=True, only=None, lit_ids=None, book=None, contain=True, crew_rooms=None, front=False):
     import rooms as RM
     book = book or make_book(state)
     cx = Ctx(book)
     if site and only is None:
-        build_containment(cx, state)
+        if contain:
+            build_containment(cx, state)
         build_site(cx, state)
     if rooms:
-        RM.build_all(cx, state, crew=crew, only=only, lit_ids=lit_ids)
+        RM.build_all(cx, state, crew=crew, only=only, lit_ids=lit_ids, crew_rooms=crew_rooms, front=front)
     return cx

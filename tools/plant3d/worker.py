@@ -4,7 +4,7 @@ safety glasses, nitrile gloves, shoe covers, a dosimeter on the chest, taped cuf
 Scale: 1 layout unit ~ 3.1 cm, a standing worker is 56 units (head incl. hood 8.0 = 1/7.0 of height). A tiny armature in code: each pose is a dict of
 joint targets in the worker's local frame (x right, y forward, z up, origin on the floor under the hips); limbs come from two-bone IK,
 the torso is stacked bevelled boxes (suit folds come from bevels and small joint bulges). build_worker() emits into a Mesher.
-Materials expected in the book: suit, suit_dk, hood, skin, eye, glasses, glove, shoe, tape, badge, accent (or the given accent), lamp.
+Materials expected in the book: suit, suit_dk, hood, suit_n, suit_n_dk, boot_n, hair, skin, eye, glasses, glove, shoe, tape, badge, accent (or the given accent), lamp.
 """
 import math
 from mathutils import Matrix, Vector
@@ -64,9 +64,13 @@ def torus(m, c, axis, ru, rv, r, mat, n=16):
     m.tube(pts, r, mat, 6, caps=False)
 
 
-def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None):
-    """Emit one worker into Mesher m, current transform = worker placement (anchor: the floor point under the hips)."""
+def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None, garb="antic"):
+    """Emit one worker into Mesher m, current transform = worker placement (anchor: the floor point under the hips).
+    garb: "antic" = white anti-contamination coverall, hood up, shoe covers, nitrile gloves, taped cuffs (RCA rooms and containment);
+          "station" = navy station coverall, no hood (short cool-dark hair), dark work boots, bare hands, collar; both carry a dosimeter badge."""
     p = POSES[pose]
+    A = garb == "antic"
+    SUIT, SUIT_DK, SHOE, GLOVE, TAPE = ("suit", "suit_dk", "shoe", "glove", "tape") if A else ("suit_n", "suit_n_dk", "boot_n", "skin", "suit_n_dk")
     H = Vector(p["hip"])
     pitch = rot_x(-p["torso"])               # a forward lean rotates +y (forward) downwards about local x
     up = pitch @ Vector((0, 0, 1))
@@ -78,20 +82,25 @@ def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None):
     # --- torso: pelvis, abdomen, chest (bevelled boxes, tapered), shoulder caps, collar
     def tbox(c, size, mat, bev=0.9):
         m.push(Matrix.Translation(c) @ fr.to_4x4()); m.box((0, 0, 0), size, mat, bevel=bev); m.pop()
-    tbox(H + up * 0.4, (11.2, 6.6, 5.6), "suit", 1.2)
-    tbox(H + up * 5.8, (10.6, 6.3, 6.4), "suit", 1.2)
-    tbox(H + up * 11.4, (12.6, 6.9, 7.2), "suit", 1.4)
+    tbox(H + up * 0.4, (11.2, 6.6, 5.6), SUIT, 1.2)
+    tbox(H + up * 5.8, (10.6, 6.3, 6.4), SUIT, 1.2)
+    tbox(H + up * 11.4, (12.6, 6.9, 7.2), SUIT, 1.4)
     for sgn in (-1, 1):                      # shoulder caps
-        m.ellipsoid(S + side * (sgn * (SHO_W - 0.2)) + Vector((0, 0, 0.2)), (3.1, 3.1, 3.0), "suit")
-    m.ellipsoid(N - up * 0.8, (6.2, 3.9, 1.9), "hood", fr, u=14, v=8)           # hood cowl over the shoulders
+        m.ellipsoid(S + side * (sgn * (SHO_W - 0.2)) + Vector((0, 0, 0.2)), (3.1, 3.1, 3.0), SUIT)
+    if A:
+        m.ellipsoid(N - up * 0.8, (6.2, 3.9, 1.9), "hood", fr, u=14, v=8)           # hood cowl over the shoulders
+    else:
+        m.ellipsoid(N - up * 0.4, (4.6, 3.3, 1.3), "suit_n_dk", fr, u=12, v=6)      # open collar
     # zip line, pocket, elastic waist cinch, folds
-    tbox(H + up * 7.2 + fwd * 3.2, (0.5, 0.5, 14.0), "suit_dk", 0.0)
-    tbox(H + up * 12.4 + fwd * 3.55 + side * 3.7, (3.4, 0.5, 3.2), "suit_dk", 0.2)
-    tbox(H + up * 2.7 + fwd * 3.2, (10.4, 0.5, 0.9), "suit_dk", 0.0)
-    tbox(H + up * 8.4 - side * 0.0 + fwd * 0.0, (10.9, 6.9, 0.9), "suit_dk", 0.3)     # waist seam ring
+    tbox(H + up * 7.2 + fwd * 3.2, (0.5, 0.5, 14.0), SUIT_DK, 0.0)
+    tbox(H + up * 12.4 + fwd * 3.55 + side * 3.7, (3.4, 0.5, 3.2), SUIT_DK, 0.2)
+    tbox(H + up * 2.7 + fwd * 3.2, (10.4, 0.5, 0.9), SUIT_DK, 0.0)
+    tbox(H + up * 8.4 - side * 0.0 + fwd * 0.0, (10.9, 6.9, 0.9), SUIT_DK, 0.3)     # waist seam ring
+    if not A:
+        tbox(H + up * 4.4 + fwd * 3.25, (10.8, 0.5, 0.9), "badge", 0.0)                # reflective belt stripe
     # dosimeter on the left chest, with clip and indicator dot; accent band on the right upper arm
     tbox(H + up * 12.6 + fwd * 3.8 - side * 3.9, (2.8, 0.8, 3.4), "badge", 0.3)
-    tbox(H + up * 14.4 + fwd * 3.6 - side * 3.9, (1.0, 0.7, 1.2), "metal" if False else "suit_dk", 0.0)
+    tbox(H + up * 14.4 + fwd * 3.6 - side * 3.9, (1.0, 0.7, 1.2), "metal" if False else SUIT_DK, 0.0)
     # --- head: skin face inside a close hood with a drawn opening
     hturn = p.get("turn", 0) if turn_deg is None else turn_deg
     hf = rot_x(-p["head"]) @ rot_z(-hturn) if False else (rot_z(-hturn) @ rot_x(-p["head"]))
@@ -100,13 +109,17 @@ def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None):
     hfr = frame(hup, hfw)
     m.cone(N - up * 0.8, hc - hup * 2.0, 2.6, 2.4, "skin", 8)                                    # neck
     m.ellipsoid(hc + hfw * 0.1, (3.05, 3.5, 4.0), "skin", hfr, u=18, v=12)                    # head
-    m.ellipsoid(hc - hfw * 0.9 + hup * 0.6, (3.8, 4.0, 4.5), "hood", hfr, u=18, v=12)         # hood shell, set back so the face shows
+    if A:
+        m.ellipsoid(hc - hfw * 0.9 + hup * 0.6, (3.8, 4.0, 4.5), "hood", hfr, u=18, v=12)     # hood shell, set back so the face shows
+    else:
+        m.ellipsoid(hc - hfw * 0.7 + hup * 1.2, (3.25, 3.45, 3.3), "hair", hfr, u=16, v=10)    # short hair, no hood
     m.ellipsoid(hc + hfw * 3.4 - hup * 0.2, (0.8, 0.9, 1.0), "skin", hfr, u=8, v=6)           # nose
-    torus(m, hc + hfw * 2.55 + hup * 0.2, hfw, 2.95, 3.55, 0.55, "tape", 18) if False else None
+    torus(m, hc + hfw * 2.55 + hup * 0.2, hfw, 2.95, 3.55, 0.55, TAPE, 18) if False else None
     ring_c = hc + hfw * 1.7 + hup * 0.1
     fr_ring = frame(hfw, hup)
     pts = [ring_c + fr_ring @ Vector((math.cos(2 * math.pi * k / 20) * 3.2, math.sin(2 * math.pi * k / 20) * 3.9, 0)) for k in range(21)]
-    m.tube(pts, 0.55, "hood", 6, caps=False)                                                  # drawn hood edge round the face
+    if A:
+        m.tube(pts, 0.55, "hood", 6, caps=False)                                              # drawn hood edge round the face
     for sgn in (-1, 1):
         m.ellipsoid(hc + hfw * 2.95 + hrt * (sgn * 1.15) + hup * 0.7, (0.42, 0.3, 0.42), "eye", hfr, u=6, v=4)
     m.box(hc + hfw * 3.0 + hup * 0.7, (3.4, 0.5, 1.2), "glasses", bevel=0.2) if False else None
@@ -116,24 +129,24 @@ def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None):
     for sgn, foot in ((-1, p["foot"][0]), (1, p["foot"][1])):
         hip = H + Vector((sgn * HIP_W, 0, -1.0))
         knee, ank = ik2(hip, foot, L_THIGH, L_SHIN, (sgn * 0.12, 1.0, 0))
-        m.cone(hip, knee, 3.5, 2.8, "suit", 10); m.ellipsoid(knee + Vector((0, 0.9, 0)), (3.0, 2.6, 3.0), "suit")
-        m.cone(knee, ank, 2.8, 2.2, "suit", 10)
-        m.cone(ank - (ank - knee).normalized() * 1.6, ank, 2.25, 2.3, "tape", 8, True, False)
-        m.ellipsoid(ank + Vector((0, 2.6, -0.4)), (2.9, 5.7, 2.5), "shoe", None, 12, 8)           # shoe cover
-        m.ellipsoid(ank + Vector((0, 5.2, -0.9)), (2.4, 2.2, 1.8), "shoe", None, 10, 6)
+        m.cone(hip, knee, 3.5, 2.8, SUIT, 10); m.ellipsoid(knee + Vector((0, 0.9, 0)), (3.0, 2.6, 3.0), SUIT)
+        m.cone(knee, ank, 2.8, 2.2, SUIT, 10)
+        m.cone(ank - (ank - knee).normalized() * 1.6, ank, 2.25, 2.3, TAPE, 8, True, False)
+        m.ellipsoid(ank + Vector((0, 2.6, -0.4)), (2.9, 5.7, 2.5), SHOE, None, 12, 8)           # shoe cover
+        m.ellipsoid(ank + Vector((0, 5.2, -0.9)), (2.4, 2.2, 1.8), SHOE, None, 10, 6)
     # --- arms
     for sgn, hand in ((-1, p["hand"][0]), (1, p["hand"][1])):
         sh = S + side * (sgn * SHO_W) + Vector((0, 0, -0.6))
         elb, hnd = ik2(sh, hand, L_UPPER, L_FORE, (sgn * 0.7, -0.6, -0.7))
-        m.cone(sh, elb, 2.7, 2.2, "suit", 10); m.ellipsoid(elb, (2.2, 2.2, 2.2), "suit")
-        m.cone(elb, hnd, 2.2, 1.75, "suit", 10)
+        m.cone(sh, elb, 2.7, 2.2, SUIT, 10); m.ellipsoid(elb, (2.2, 2.2, 2.2), SUIT)
+        m.cone(elb, hnd, 2.2, 1.75, SUIT, 10)
         wd = (hnd - elb).normalized()
-        m.cone(hnd - wd * 1.5, hnd - wd * 0.2, 1.9, 1.9, "tape", 8, True, False)
-        m.ellipsoid(hnd + wd * 1.4, (1.7, 1.9, 2.3), "glove", frame(wd), 10, 8)
-        m.ellipsoid(hnd + wd * 0.8 + Vector((sgn * 1.2, 0.8, 0)), (0.8, 1.1, 1.0), "glove")
+        m.cone(hnd - wd * 1.5, hnd - wd * 0.2, 1.9, 1.9, TAPE, 8, True, False)
+        m.ellipsoid(hnd + wd * 1.4, (1.7, 1.9, 2.3), GLOVE, frame(wd), 10, 8)
+        m.ellipsoid(hnd + wd * 0.8 + Vector((sgn * 1.2, 0.8, 0)), (0.8, 1.1, 1.0), GLOVE)
         if sgn == 1:                                                  # accent band on the right upper arm (per-agent colour)
             mid = sh + (elb - sh) * 0.42
             m.cone(mid - (elb - sh).normalized() * 1.2, mid + (elb - sh).normalized() * 1.2, 2.95, 2.9, accent, 12, True, False)
         if sgn == 1 and p.get("lamp"):
-            m.cone(hnd + Vector((0, 0, 1.0)), hnd + Vector((0, 0, 3.2)), 1.2, 1.2, "suit_dk", 8)
+            m.cone(hnd + Vector((0, 0, 1.0)), hnd + Vector((0, 0, 3.2)), 1.2, 1.2, SUIT_DK, 8)
             m.ellipsoid(hnd + Vector((0, 0, 5.4)), (2.4, 2.4, 2.8), "lamp")

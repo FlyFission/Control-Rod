@@ -28,6 +28,17 @@ At opening, the change is the plan only. Results per step are added here as each
 | Screenshots (Playwright, 1440x900 at 2x, 390 at 2x): healthy, crowded room with "+N more", SCRAM, phone | `/mnt/project-files/control-rod/step2e/` |
 | `git diff --check`, `tools/check_originality.py`, `tools/check_offline_assets.py` | pass |
 
+
+## Steps 4 and 5 (Today, Inbox, Sign in, Setup, roster)
+
+| Check | Result |
+|---|---|
+| `cd apps/web && pnpm -s vitest run` | 74 files, 803 tests pass |
+| `pnpm -s tsc --noEmit` | pass for these files (two unrelated errors in step 3 files `NewWorkModal.tsx`, `newwork.test.tsx` from concurrent work) |
+| contrast and type-scale tests | extended to `pages/screens.css` and `components/agents.css`; pass |
+| `git diff --check`, `tools/check_originality.py` | pass |
+| Screenshots (Playwright, 1440x900 at 2x and 390x844 at 2x): Today busy and calm, Inbox list, Inbox signing drawer, Inbox empty, four sign-in states, Setup, roster; no horizontal scroll at 390 | `/mnt/project-files/control-rod/step4-5/` (script `shoot.cjs`, API mocked in the browser) |
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).

@@ -143,7 +143,91 @@ describe("first-run setup", () => {
   });
 });
 
+describe("seats at the table", () => {
+  it("shows each agent as a seat with its icon, status lamp and a found count, lighting up in setup", async () => {
+    api();
+    const { container } = await renderPage(<Setup />);
+    await screen.findByText(/won't give it work yet/);
+    const seats = container.querySelectorAll("li.seat");
+    expect(seats.length).toBeGreaterThanOrEqual(2);
+    const claude = container.querySelector('li.seat[data-state="ready"]')!;
+    expect(claude.querySelector(".seat-lamp svg[data-badge='claude']")).not.toBeNull();
+    expect(claude.hasAttribute("data-light")).toBe(true);
+    expect(screen.getByText("2 found, 1 ready")).toBeTruthy();
+    // The three-way confirm still follows the table.
+    expect(screen.getByRole("button", { name: "Looks right" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Change" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Skip for now" })).toBeTruthy();
+  });
+
+  it("does not light seats up under reduced motion", async () => {
+    const real = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes("reduce"), media: q, addEventListener() {}, removeEventListener() {} })) as never;
+    try {
+      api();
+      const { container } = await renderPage(<Setup />);
+      await screen.findByText(/won't give it work yet/);
+      expect(container.querySelector("li.seat[data-light]")).toBeNull();
+    } finally {
+      window.matchMedia = real;
+    }
+  });
+});
+
 describe("agents roster", () => {
+  const usage = (over: object = {}) => ({
+    budgets: [],
+    records: [],
+    telemetry: [{ runtime: "claude", runs: 12, reported: 10 }, { runtime: "codex", runs: 1, reported: 1 }],
+    near_share: null,
+    ...over,
+  });
+
+  it("reads runs this window per runtime on each seat, from /usage telemetry", async () => {
+    server.use(http.get("*/usage", () => HttpResponse.json(usage())));
+    api({ confirmed: true, confirmed_at: AT, seats: [], check_in: "start-and-merge" });
+    await renderPage(<AgentsRoster />);
+    expect(await screen.findByText("12 runs this window")).toBeTruthy();
+    expect(screen.getByText("1 run this window")).toBeTruthy();
+  });
+
+  it("says no runs rather than hiding the line, and says so when usage cannot be read", async () => {
+    server.use(http.get("*/usage", () => HttpResponse.json(usage({ telemetry: [] }))));
+    api({ confirmed: true, confirmed_at: AT, seats: [], check_in: "start-and-merge" });
+    const first = await renderPage(<AgentsRoster />);
+    expect((await screen.findAllByText("No runs this window")).length).toBeGreaterThanOrEqual(2);
+    first.unmount();
+    server.use(http.get("*/usage", () => HttpResponse.json({ code: "error", message: "x" }, { status: 500 })));
+    await renderPage(<AgentsRoster />);
+    expect((await screen.findAllByText("Runs not available")).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows the organization's remaining budget once, above the seats, and no per-agent budget", async () => {
+    const b = (id: string, scope: string, value: string, used: number | null, state = "within") => ({
+      budget: { id, org_id: "o", scope, scope_id: scope === "organization" ? "o" : "claude", mode: "alert", limit: { value, unit: "USD" }, period: "P1M", status: "active" },
+      used, in_flight: 0, unreported_runs: 0, since: AT, state,
+    });
+    server.use(http.get("*/usage", () => HttpResponse.json(usage({ budgets: [b("B-1", "organization", "100", 37.5), b("B-2", "agent", "10", 9, "near")] }))));
+    api({ confirmed: true, confirmed_at: AT, seats: [], check_in: "start-and-merge" });
+    const { container } = await renderPage(<AgentsRoster />);
+    const budget = await screen.findByRole("region", { name: "Organization budget" });
+    expect(budget.textContent).toContain("62.50 USD left");
+    expect(budget.textContent).toContain("37.50 of 100 used this month");
+    expect(screen.getAllByRole("region", { name: "Organization budget" })).toHaveLength(1);
+    expect(container.querySelector("li.seat")!.textContent).not.toMatch(/USD|budget/i);
+    const table = screen.getByRole("region", { name: "Council table" });
+    expect(budget.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("says a budget is not reported instead of showing a number", async () => {
+    const b = { budget: { id: "B-1", org_id: "o", scope: "organization", scope_id: "o", mode: "track", limit: { value: "100", unit: "token" }, period: "P1M", status: "active" }, used: null, in_flight: 0, unreported_runs: 0, since: AT, state: "not-reported" };
+    server.use(http.get("*/usage", () => HttpResponse.json(usage({ budgets: [b] }))));
+    api({ confirmed: true, confirmed_at: AT, seats: [], check_in: "start-and-merge" });
+    await renderPage(<AgentsRoster />);
+    const budget = await screen.findByRole("region", { name: "Organization budget" });
+    expect(budget.textContent).toContain("Not reported");
+  });
+
   it("saves a switch at once and keeps the technical tables behind Advanced", async () => {
     const user = userEvent.setup();
     const sent: unknown[] = [];

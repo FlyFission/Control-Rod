@@ -4,7 +4,9 @@ import { api, ApiError, explain } from "../api/client.js";
 import { adoptSession, sessionGeneration } from "../lib/session.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
+import { TileGlyphIcon } from "../design/instruments/AnnunciatorTile.js";
 import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invitation.js";
+import "./screens.css";
 
 /**
  * First run registers a passkey for the first person; a person an administrator invited registers
@@ -76,9 +78,21 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
       return api.loginVerify(assertion);
     });
 
+  const mode = invitation !== undefined ? "invitation" : session.registered ? "sign-in" : "register";
   return (
-    <main className="signin">
-      <div className="signin-card">
+    <main className="signin" data-mode={mode}>
+      {/* The plant at night, dimmed: raster art only, decorative. On a phone it crops to the core. */}
+      <img
+        className="signin-backdrop"
+        src="/plant/base-1440.webp"
+        srcSet="/plant/base-1440.webp 1440w, /plant/base.webp 2400w"
+        sizes="100vw"
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+      />
+      <div className="signin-veil" aria-hidden="true" />
+      <div className="signin-card" data-mode={mode} data-state={error !== null ? "error" : "ready"}>
         <span className="signin-corner signin-corner-tl" aria-hidden="true" />
         <span className="signin-corner signin-corner-tr" aria-hidden="true" />
         <span className="signin-corner signin-corner-bl" aria-hidden="true" />
@@ -132,9 +146,12 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
           </form>
         )}
         {error !== null && (
-          <p role="alert" className="error">
-            {error}
-          </p>
+          <div className="signin-error">
+            <TileGlyphIcon glyph="cross" size={16} />
+            <p role="alert" className="error">
+              {error}
+            </p>
+          </div>
         )}
       </div>
     </main>

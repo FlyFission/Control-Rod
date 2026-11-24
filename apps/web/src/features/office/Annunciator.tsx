@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_GLYPH, type TileGlyph, TileGlyphIcon, type TileLamp } from "../../design/instruments/AnnunciatorTile.js";
+import { useInstrumentMotion } from "../../design/instruments/useInstrumentMotion.js";
 import { useVisible } from "./OfficeStage.js";
 import type { AnnunciatorWindow } from "./plant-instruments.js";
 
@@ -49,6 +50,9 @@ const FLASH_MS = 2400;
  */
 export function Annunciator({ windows, scope = "", linkInbox = true, flashMs = FLASH_MS }: { windows: readonly AnnunciatorWindow[]; scope?: string; linkInbox?: boolean; flashMs?: number }) {
   const visible = useVisible();
+  // Lamps pulse only while the view is on screen and the person has not asked for reduced motion.
+  const motion = useInstrumentMotion();
+  const pulse = visible && motion === "full" ? "full" : "paused";
   // The last confirmed reading of each window: lit or dark. Loading and unavailable confirm nothing,
   // so a window that loses its read is never announced as clear, nor flashes when the read returns.
   const confirmed = useRef<{ scope: string; states: Map<string, "lit" | "dark"> } | undefined>(undefined);
@@ -111,11 +115,11 @@ export function Annunciator({ windows, scope = "", linkInbox = true, flashMs = F
           return (
             <li key={w.id} className="plant-window" data-window={w.id} data-state={w.state} data-flash={flashing.has(w.id) ? "" : undefined}>
               {w.id === "waiting-on-you" && linkInbox ? (
-                <Link to="/inbox" className="plant-window-body annunciator-tile" data-lit={lit} data-lamp={lamp} data-state={w.state} data-motion={visible ? "full" : "paused"} title="Open the Inbox">
+                <Link to="/inbox" className="plant-window-body annunciator-tile" data-lit={lit} data-lamp={lamp} data-state={w.state} data-motion={pulse} title="Open the Inbox">
                   {body}
                 </Link>
               ) : (
-                <span className="plant-window-body annunciator-tile" data-lit={lit} data-lamp={lamp} data-state={w.state} data-motion={visible ? "full" : "paused"}>
+                <span className="plant-window-body annunciator-tile" data-lit={lit} data-lamp={lamp} data-state={w.state} data-motion={pulse}>
                   {body}
                 </span>
               )}

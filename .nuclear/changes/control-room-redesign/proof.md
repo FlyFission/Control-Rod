@@ -48,3 +48,4 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - RodGauge drill accessible name is now "Drill SCRAM in force: work stopped", matching the spec that a drill really stops work (`RodGauge.tsx`; `instruments.test.tsx`).
 - Drill lock (Nov 24): lockFrom now locks under drills too (server holds work under a drill per spec/workbench.tsp); words say 'SCRAM drill'. vitest shell-scram 10/10.
 - CaptureBox (Nov 24): unscoped captures use the organization-only lock (useActionLock(null)), per Codex review.
+- Plant annunciator honours reduced motion via useInstrumentMotion (Codex review on 7e88032); annunciator test.

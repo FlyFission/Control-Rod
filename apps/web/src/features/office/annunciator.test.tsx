@@ -1,6 +1,6 @@
 import { act, screen } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "../../test/render.js";
 import { Annunciator } from "./Annunciator.js";
 import type { AnnunciatorWindow, WindowState } from "./plant-instruments.js";
@@ -108,5 +108,17 @@ describe("the annunciator's announcements and flash", () => {
     // Every window is a tile, with the count in its own mono element.
     for (const id of ["waiting-on-you", "stuck", "changed", "scram"]) expect(body(id).classList.contains("annunciator-tile")).toBe(true);
     expect(body("waiting-on-you").querySelector(".plant-window-count")!.textContent).toBe("3");
+  });
+});
+
+describe("the annunciator under reduced motion", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("never marks a lit window for full motion when the person asks for reduced motion", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce"), media: q, addEventListener: () => {}, removeEventListener: () => {} }));
+    await renderPage(<Driven />);
+    act(() => setState("lit"));
+    const tile = document.querySelector('.plant-window[data-window="stuck"] .annunciator-tile')!;
+    expect(tile.getAttribute("data-lit")).toBe("true");
+    expect(tile.getAttribute("data-motion")).toBe("paused");
   });
 });

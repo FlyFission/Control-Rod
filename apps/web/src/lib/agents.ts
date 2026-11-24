@@ -7,7 +7,7 @@ import type { AgentSetupView, CheckIn, RuntimeStatus, SubscriptionView } from ".
  * is or is not able to work, so the roster and Provider CLIs never disagree.
  */
 
-export type AgentId = "claude" | "codex" | "agy" | "grok" | "opencode" | "ollama";
+export type AgentId = "claude" | "codex" | "agy" | "grok" | "opencode" | "omp" | "ollama";
 
 export interface AgentInfo {
   id: AgentId;
@@ -28,6 +28,7 @@ export const AGENTS: readonly AgentInfo[] = [
   { id: "agy", name: "Antigravity", vendor: "Google", runnable: false },
   { id: "grok", name: "Grok CLI", vendor: "xAI", runnable: false },
   { id: "opencode", name: "OpenCode", vendor: "any provider", runnable: false },
+  { id: "omp", name: "Oh My Pi", vendor: "multi-provider", runnable: false },
   { id: "ollama", name: "Local model (Ollama)", vendor: "runs on this computer", runnable: false },
 ];
 

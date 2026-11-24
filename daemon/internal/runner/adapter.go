@@ -151,6 +151,7 @@ var registry = []Adapter{
 	opencodeAdapter{},
 	agyAdapter{},
 	ollamaAdapter{},
+	ompAdapter{},
 	fakeAdapter{},
 }
 

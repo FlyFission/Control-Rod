@@ -1,0 +1,396 @@
+/* Visual Casting Desk (components/CastingDesk.tsx). Uses Control Rod design tokens across all looks. */
+.casting-desk {
+  display: grid;
+  gap: 14px;
+}
+
+.casting-intro {
+  margin: 0;
+  max-width: var(--measure);
+  color: var(--text-2);
+}
+
+.casting-draft-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--accent-dim);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-2);
+  max-width: var(--measure);
+}
+
+.casting-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.casting-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-small);
+  cursor: pointer;
+}
+
+.casting-preset-btn:hover {
+  border-color: var(--accent-dim);
+}
+
+.casting-preset-btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.casting-roles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.casting-role-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.casting-role-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.casting-role-title {
+  margin: 0;
+  font-size: var(--fs-ui);
+  color: var(--text);
+}
+
+.casting-role-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.casting-role-desc {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-small);
+}
+
+.casting-field {
+  display: grid;
+  gap: 4px;
+}
+
+.casting-field-label {
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+
+.casting-select {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-small);
+}
+
+.casting-effort-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.casting-effort-btn {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-label);
+  cursor: pointer;
+}
+
+.casting-effort-btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.casting-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--needs);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-small);
+  max-width: var(--measure);
+}
+
+.casting-warning strong {
+  color: var(--needs);
+}
+
+.casting-readback {
+  margin: 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+  max-width: var(--measure);
+}
+
+.casting-advanced {
+  padding-top: 4px;
+}
+
+.casting-advanced > summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: var(--fs-small);
+}
+
+.casting-advanced-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.casting-fallback-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.casting-fallback-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.casting-fallback-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.casting-fallback-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.casting-fallback-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.casting-fallback-add .casting-select {
+  flex: 1 1 240px;
+  width: auto;
+}
+
+.casting-callout {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  max-width: var(--measure);
+}
+
+.casting-advanced-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Custom Agent Studio (components/AgentStudio.tsx). Shares Casting Desk tokens & grid. */
+.agent-studio {
+  display: grid;
+  gap: 14px;
+}
+
+.agent-studio-head-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-studio-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.agent-studio-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.agent-studio-input,
+.agent-studio-textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-small);
+  box-sizing: border-box;
+}
+
+.agent-studio-input {
+  min-height: 36px;
+}
+
+.agent-studio-textarea {
+  min-height: 84px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.agent-studio-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-studio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agent-studio-card[data-enabled="false"] {
+  opacity: 0.72;
+}
+
+.agent-studio-resolved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: var(--fs-small);
+}
+
+.agent-studio-resolved-model {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.agent-studio-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.agent-studio-card-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-studio-pack-box {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.agent-studio-pack-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.agent-studio-pack-pre {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-label);
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agent-studio-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 720px) {
+  .casting-roles-grid,
+  .agent-studio-grid,
+  .agent-studio-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,7 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { AgentList } from "../components/AgentList.js";
+import { AgentStudio } from "../components/AgentStudio.js";
+import { CastingDesk } from "../components/CastingDesk.js";
 import { CHECK_IN_CHOICES, readBack } from "../lib/agents.js";
+import { loadCastingDraft, saveCastingDraft, type CastingSheetDraft } from "../lib/casting.js";
 import type { Passkeys } from "../lib/decide.js";
 import { useAgents } from "../lib/useAgents.js";
 import { RosterDetails } from "./Roster.js";
@@ -14,8 +17,12 @@ import { ProviderDetails } from "./Subscriptions.js";
  */
 export function AgentsRoster({ passkeys }: { passkeys?: Passkeys } = {}) {
   const agents = useAgents();
+  const [castingDraft, setCastingDraft] = useState<CastingSheetDraft>(() => loadCastingDraft());
   const hash = useRouterState({ select: (st) => st.location.hash });
   const advancedRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    saveCastingDraft(castingDraft);
+  }, [castingDraft]);
   useEffect(() => {
     const clean = hash.replace(/^#/, "");
     if (clean === "advanced" || clean === "roster") {
@@ -73,6 +80,8 @@ export function AgentsRoster({ passkeys }: { passkeys?: Passkeys } = {}) {
           </p>
         )}
       </section>
+      <CastingDesk draft={castingDraft} onDraftChange={setCastingDraft} />
+      <AgentStudio castingDraft={castingDraft} />
       <details ref={advancedRef} id="advanced" className="advanced">
         <summary>Advanced: versions, pins, sandbox and probe details</summary>
         <RosterDetails {...(passkeys ? { passkeys } : {})} />

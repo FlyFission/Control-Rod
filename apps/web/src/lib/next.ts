@@ -7,7 +7,50 @@ export type NextLine = {
   command?: string;
   /** Set on the line of a run that is executing now: when it started, so the card can show the elapsed time. */
   since?: string;
+  /** The run a "requeue" line would queue again. */
+  runId?: string;
+  /** One more line under the next step: what went wrong, in the runner's words. */
+  detail?: string;
 };
+
+/**
+ * The run that ended without a result and is the card's to fix: the newest author or pre-check run,
+ * when it failed, was stopped or was lost and has not been queued again. A failed check is not the author's fault, so the next step is to run it again, not to return the work.
+ */
+export function stalledRun(runs: readonly Run[] | undefined): Run | undefined {
+  const newest = [...(runs ?? [])]
+    .filter((r) => r.role === "author" || r.role === "pre-check")
+    .sort((a, b) => (Date.parse(b.queued_at) || 0) - (Date.parse(a.queued_at) || 0))[0];
+  if (!newest) return undefined;
+  if (newest.status !== "failed" && newest.status !== "stopped" && newest.status !== "lost") return undefined;
+  if (newest.requeued_as !== undefined) return undefined;
+  return newest;
+}
+
+/** What to tell the person about a run that ended without a result, and the one thing to do. */
+export function stalledLine(run: Run): NextLine {
+  const who = run.role === "pre-check" ? "The check" : "The agent";
+  const what =
+    run.status === "lost" ? `${who} stopped answering` : run.status === "stopped" ? `${who} was stopped` : `${who} could not finish`;
+  const detail = run.error?.trim();
+  // Its process may still be running somewhere: requeue stays shut until the run log settles it.
+  if (run.outcome_unknown !== undefined && run.reconciliation === undefined) {
+    return {
+      tone: "needs",
+      text: `${what}, and it may not have stopped. Open its run log to confirm, then run it again`,
+      command: "open-run-log",
+      runId: run.id,
+      ...(detail ? { detail: detail.length > 160 ? `${detail.slice(0, 157)}...` : detail } : {}),
+    };
+  }
+  return {
+    tone: "needs",
+    text: `${what}. Run it again`,
+    command: "requeue",
+    runId: run.id,
+    ...(detail ? { detail: detail.length > 160 ? `${detail.slice(0, 157)}...` : detail } : {}),
+  };
+}
 
 const RUN_ROLE_WORD: Record<Run["role"], string> = {
   intake: "Intake",
@@ -102,6 +145,11 @@ export function nextLine(i: NextInput): NextLine {
       text: holdReason ? `Pre-check held: ${holdReason}` : "Pre-check held: it needs a runtime independent of the author's, or your signed override",
     };
   }
+
+  // A run that ended without a result needs the person, and the step is to run it again. Returning
+  // the work would send a finished author back over a check that never ran.
+  const stalled = i.runActive ? undefined : stalledRun(i.runs);
+  if (stalled) return stalledLine(stalled);
 
   // Ruling 16: the verification outranks an allowed accept (screen-only until D-4; see blockUnverifiedAccept).
   const offered = blockUnverifiedAccept(pkg, i.actions, verified);

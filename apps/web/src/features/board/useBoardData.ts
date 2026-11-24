@@ -34,6 +34,10 @@ export type BoardCard = {
   digest?: Digest;
   /** The run that Stop would end, when one is queued or running. */
   activeRunId?: string;
+  /** The run "Run again" would queue again, when the newest run ended without a result. */
+  requeueRunId?: string;
+  /** The run whose log must settle an unknown outcome before it can run again. */
+  settleRunId?: string;
   /** The runtime providers of the latest author run and the latest pre-check run, for the card's agent icons. */
   author?: string;
   checker?: string;
@@ -234,6 +238,8 @@ export function useBoardData(): BoardData {
       ...(actionable?.offered && actionable.view ? { offered: actionable.offered, digest: actionable.view.subject_digest } : {}),
       // Stop only while the run can still be stopped: not after a stop was requested (the run log's rule).
       ...(actionable?.offered && actionable.view && activeRun && canStop(activeRun) ? { activeRunId: activeRun.id } : {}),
+      ...(actionable?.offered && actionable.view && next.command === "requeue" && next.runId ? { requeueRunId: next.runId } : {}),
+      ...(actionable?.offered && actionable.view && next.command === "open-run-log" && next.runId ? { settleRunId: next.runId } : {}),
     });
   });
 

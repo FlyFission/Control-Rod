@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
 import type { DecisionKind } from "../../api/types.js";
 import { needsIndependentCheck } from "../../lib/board.js";
@@ -26,7 +27,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
   const scramLock = useActionLock(card.pkg.project);
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [reason, setReason] = useState("");
-  const [busyWith, setBusyWith] = useState<"sign" | "stop" | null>(null);
+  const [busyWith, setBusyWith] = useState<"sign" | "stop" | "requeue" | null>(null);
   const busy = busyWith !== null;
   // One outstanding operation per card: a ref so a second click in the same tick is refused too.
   const inFlight = useRef(false);
@@ -35,7 +36,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
 
   if (card.offered === undefined || card.digest === undefined) return null;
   const base = menuItems(card.offered, card.activeRunId !== undefined);
-  if (base.length === 0) return null;
+  if (base.length === 0 && card.requeueRunId === undefined && card.settleRunId === undefined) return null;
   // Under a SCRAM or drill every decision is held, so each is shown refused with the lock's reason; Stop stays open.
   const items: MenuItem[] = scramLock.locked ? base.map((i) => (i.id === "stop" ? i : { ...i, enabled: false, ...(scramLock.why ? { reason: scramLock.why } : {}) })) : base;
   const primary = primaryItem(base);
@@ -96,6 +97,24 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
     }
   }
 
+  async function requeue() {
+    if (card.requeueRunId === undefined || inFlight.current) return;
+    inFlight.current = true;
+    setBusyWith("requeue");
+    setAlert(null);
+    setDone(null);
+    try {
+      await api.requeueRun(pkg.id, card.requeueRunId);
+      setDone("Queued again. The card moves on when an agent picks it up.");
+      refresh();
+    } catch (e) {
+      setAlert(explain(e, "The run was not queued again."));
+    } finally {
+      inFlight.current = false;
+      setBusyWith(null);
+    }
+  }
+
   function choose(item: MenuItem) {
     if (inFlight.current) return;
     setDone(null);
@@ -119,12 +138,22 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
   return (
     <div className="bd-actions">
       <div className="bd-actions-row">
-        {primary && (
+        {card.requeueRunId !== undefined && (
+          <button type="button" className="btn small primary" disabled={busy || scramLock.locked} title={scramLock.why} onClick={() => void requeue()}>
+            Run again
+          </button>
+        )}
+        {card.settleRunId !== undefined && (
+          <Link to="/packages/$id" params={{ id: pkg.id }} className="btn small primary">
+            Open run log
+          </Link>
+        )}
+        {primary && card.requeueRunId === undefined && card.settleRunId === undefined && (
           <button type="button" className="btn small primary" disabled={busy || scramLock.locked} title={scramLock.why} onClick={() => choose(primary)}>
             {primary.label}
           </button>
         )}
-        <MoveMenu items={items} onChoose={choose} cardTitle={pkg.title} disabled={busy} />
+        {items.length > 0 && <MoveMenu items={items} onChoose={choose} cardTitle={pkg.title} disabled={busy} />}
       </div>
       {pending !== null && !pendingOpen && (
         <p role="alert" className="bd-alert small">
@@ -149,6 +178,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
       )}
       {busyWith === "sign" && <p className="small muted">Waiting for your passkey</p>}
       {busyWith === "stop" && <p className="small muted">Sending the stop request</p>}
+      {busyWith === "requeue" && <p className="small muted">Queuing the run again</p>}
       {alert !== null && (
         <p role="alert" className="bd-alert small">
           {alert}

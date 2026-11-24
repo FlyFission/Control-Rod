@@ -241,3 +241,34 @@ describe("CardActions", () => {
     expect(await screen.findByRole("status")).toHaveProperty("textContent", expect.stringContaining("Stop requested"));
   });
 });
+
+describe("Run again on a card whose run ended without a result", () => {
+  it("queues the run again from the card face and puts Return behind Move to", async () => {
+    let requeued = "";
+    server.use(
+      http.post("*/packages/WP-7/runs/:runId/requeue", ({ params }) => {
+        requeued = String(params.runId);
+        return HttpResponse.json({ id: "R-2", role: "pre-check", status: "queued", queued_at: "2026-11-24T18:20:00Z" });
+      }),
+    );
+    const c = card({ offered: [refuse("accept", "The pre-check has not passed", "Run the check"), allow("return")], requeueRunId: "R-1", next: { tone: "needs", text: "The check could not finish. Run it again", command: "requeue", runId: "R-1" } });
+    await renderPage(<CardActions card={c} />);
+    expect(screen.queryByRole("button", { name: "Return with direction" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Run again" }));
+    await waitFor(() => expect(requeued).toBe("R-1"));
+    expect(await screen.findByText(/Queued again/)).toBeTruthy();
+  });
+
+  it("shows Run again even when no decision is offered", async () => {
+    await renderPage(<CardActions card={card({ offered: [], requeueRunId: "R-1" })} />);
+    expect(screen.getByRole("button", { name: "Run again" })).toBeTruthy();
+  });
+});
+
+describe("a run whose outcome is unknown", () => {
+  it("sends the person to its run log, not to Run again", async () => {
+    await renderPage(<CardActions card={card({ offered: [allow("return")], settleRunId: "R-1" })} />);
+    expect(screen.getByRole("link", { name: "Open run log" }).getAttribute("href")).toBe("/packages/WP-7");
+    expect(screen.queryByRole("button", { name: "Run again" })).toBeNull();
+  });
+});

@@ -28,7 +28,7 @@ const box = (u: number, id: string): Rect => {
   return { x: x0 * u, y: y0 * u, w: (x1 - x0) * u, h: (y1 - y0) * u };
 };
 
-/** Every rule the plan owes: each label is whole, clear of every other, and off every room edge. */
+/** Every rule the plan owes: each label is whole, clear of every other, of every room's painted box (its own count plate aside) and of every figure. */
 function problems(figs: PlanFigure[], u: number): string[] {
   const plan = planScene({ figures: figs, u, name });
   const all = labelRects(plan);
@@ -41,60 +41,72 @@ function problems(figs: PlanFigure[], u: number): string[] {
     });
     for (const id of rooms) {
       const r = box(u, id);
-      if (a.kind === "room") {
-        // A room's name stands clear of every room, its own included.
-        if (intersects(a.rect, r)) bad.push(`${key} touches the ${id} room`);
-      } else if (a.room === id) {
-        const inside = a.rect.x >= r.x && a.rect.y >= r.y && a.rect.x + a.rect.w <= r.x + r.w && a.rect.y + a.rect.h <= r.y + r.h;
-        if (!inside) bad.push(`${key} crosses its room's edge`);
-      } else if (intersects(a.rect, r)) bad.push(`${key} enters the ${id} room`);
+      if (a.kind === "count") {
+        if (a.room === id) {
+          const inside = a.rect.x >= r.x && a.rect.y >= r.y && a.rect.x + a.rect.w <= r.x + r.w && a.rect.y + a.rect.h <= r.y + r.h;
+          if (!inside) bad.push(`${key} crosses its tile's edge`);
+        } else if (intersects(a.rect, r)) bad.push(`${key} enters the ${id} room`);
+      } else if (intersects(a.rect, r)) {
+        // A roster stands clear of every room, its own included.
+        bad.push(`${key} touches the ${id} room`);
+      }
     }
+    // No label covers any standing figure.
+    if (a.kind === "roster") for (const r of plan.rooms) for (const p of r.placed) if (intersects(a.rect, p.body)) bad.push(`${key} covers figure ${p.id}`);
   });
-  // A nameplate never covers another figure's body.
-  for (const r of plan.rooms) for (const p of r.placed) for (const q of r.placed) if (p !== q && intersects(p.plate, q.body)) bad.push(`plate ${p.id} covers ${q.id}`);
   return bad;
 }
 
 describe("plant scene layout", () => {
-  it("draws no label over another or over a room edge, for 40 agents at every scale", () => {
+  it("draws no roster plate over another, a room or a figure, for 40 agents at every scale", () => {
     for (const u of SCALES) expect(problems(forty(), u), `u=${u}`).toEqual([]);
   });
 
-  it("holds three or more figures in one room without overlap, at every scale", () => {
-    for (const n of [3, 4, 6, 8, 12]) {
+  it("lists at most three rows per room plus a +N more, and stands as many figures as the room has seats, at every scale", () => {
+    for (const n of [1, 3, 4, 6, 8, 12]) {
       for (const u of SCALES) {
         const figs: PlanFigure[] = Array.from({ length: n }, (_, i) => ({ id: `p${i}`, region: "process", state: STATES[i % 5]! }));
         expect(problems(figs, u), `${n} figures, u=${u}`).toEqual([]);
         const room = planScene({ figures: figs, u, name }).rooms.find((r) => r.id === "process")!;
-        // Everyone is accounted for: drawn, or behind the stack (or counted on a plate).
-        if (modeAt(u) === "figures") expect(room.placed.length + room.more).toBe(n);
-        else expect(room.total).toBe(n);
+        expect(room.total).toBe(n);
+        if (room.mode === "figures") {
+          expect(room.rows.length).toBeLessThanOrEqual(3);
+          expect(room.placed.length).toBe(Math.min(n, ROOMS.process.seats.length));
+          // Everyone is accounted for: listed on a row, or behind "+N more".
+          expect(room.rows.length + room.more).toBe(n);
+        } else expect(room.placed).toEqual([]);
       }
     }
   });
 
-  it("shows what needs the viewer first and stacks the rest behind +N", () => {
+  it("lists what most needs the viewer first", () => {
     const figs: PlanFigure[] = ["working", "working", "working", "needs", "stuck", "working"].map((state, i) => ({ id: `f${i}`, region: "process", state: state as FigureState }));
     const room = planScene({ figures: figs, u: 1176 / CANVAS.width, name }).rooms.find((r) => r.id === "process")!;
-    expect(room.placed.length).toBeGreaterThan(0);
-    expect(room.placed.length).toBeLessThan(figs.length);
-    expect(room.stack).toBeDefined();
-    expect(room.more).toBe(figs.length - room.placed.length);
-    // The first drawn is a needs-you figure, never a working one while one needs the viewer.
-    expect(room.placed[0]!.state).toBe("needs");
-    expect(room.placed.every((p) => p.state !== "working" || room.placed.some((q) => q.state === "stuck"))).toBe(true);
+    expect(room.mode).toBe("figures");
+    expect(room.rows[0]).toBe("f3");
+    expect(room.rows[1]).toBe("f4");
+    expect(room.placed.length).toBe(6);
+    expect(room.more).toBe(6 - room.rows.length);
   });
 
-  it("draws every figure, and no stack, where they all fit", () => {
+  it("stands every figure and lists it, with no +N more, where they all fit", () => {
     const u = 2400 / CANVAS.width;
     const figs: PlanFigure[] = [{ id: "a", region: "process", state: "working" }];
     const room = planScene({ figures: figs, u, name }).rooms.find((r) => r.id === "process")!;
     expect(room.placed.map((p) => p.id)).toEqual(["a"]);
-    expect(room.stack).toBeUndefined();
+    expect(room.rows).toEqual(["a"]);
     expect(room.more).toBe(0);
   });
 
-  it("sizes the crew from the scale: about 64 px at a 1440 window, bigger above, and count plates once figures would be under 40 px", () => {
+  it("counts agents that have no seat, and folded ones, in +N more", () => {
+    const figs: PlanFigure[] = [{ id: "a", region: "review", state: "working" }];
+    const room = planScene({ figures: figs, extra: [{ region: "review", state: "stuck" }], folded: new Map([["review", 2]]), u: 1176 / CANVAS.width, name }).rooms.find((r) => r.id === "review")!;
+    expect(room.total).toBe(4);
+    expect(room.rows.length + room.more).toBe(4);
+    expect(room.more).toBeGreaterThanOrEqual(3);
+  });
+
+  it("sizes the crew from the scale: about 64 px at a 1440 window, bigger above, and count plates once figures would be under 42 px", () => {
     const at1440 = frameAt(1176 / CANVAS.width) * METRICS.crewFill;
     expect(at1440).toBeGreaterThan(58);
     expect(at1440).toBeLessThan(70);
@@ -124,14 +136,10 @@ describe("plant scene layout", () => {
     expect(plan.rooms.every((r) => r.total === 0)).toBe(true);
   });
 
-  it("leaves a room's name off rather than overlap, and every placed name stands clear", () => {
-    for (const u of SCALES) {
-      const plan = planScene({ figures: [], u, name });
-      const labels = labelRects(plan).filter((l) => l.kind === "room");
-      expect(labels.length).toBeGreaterThan(0);
-      expect(problems([], u), `u=${u}`).toEqual([]);
-    }
-    // At 1440 every room is named.
-    expect(planScene({ figures: [], u: 1176 / CANVAS.width, name }).rooms.every((r) => r.label)).toBe(true);
+  it("names every room at 1440 and leaves a name off rather than overlap at any scale", () => {
+    for (const u of SCALES) expect(problems([], u), `u=${u}`).toEqual([]);
+    expect(planScene({ figures: [], u: 1176 / CANVAS.width, name }).rooms.every((r) => r.roster)).toBe(true);
+    // A roster that cannot be placed at the busiest scale leaves the room a count plate, never a plate on top of something.
+    for (const u of SCALES) for (const r of planScene({ figures: forty(), u, name }).rooms) if (r.total > 0) expect(Boolean(r.roster) || Boolean(r.count)).toBe(true);
   });
 });

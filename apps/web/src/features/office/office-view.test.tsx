@@ -134,7 +134,7 @@ describe("office view", () => {
     expect(within(screen.getByRole("region", { name: "Reactor building" })).getByText("1 agent working")).toBeTruthy();
     const office = screen.getByRole("region", { name: /^Your office, Main control room:/ });
     expect(office).toBeTruthy();
-    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept. Marks: a gate decision waits, Safety grade. Status lens: Needs you." });
+    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Line sizing. Pre-check passed. Review and accept. Marks: a gate decision waits, Safety grade. Status lens: Needs you." });
     await userEvent.click(needs);
     const card = screen.getByRole("complementary", { name: "Selected agent" });
     expect(within(card).getByText("Pre-check passed. Review and accept.")).toBeTruthy();
@@ -397,7 +397,7 @@ describe("the Plant and the archived office themes", () => {
     const five = ["A", "B", "C", "D", "E"].map((x, i) => figure({ id: `R-${x}`, package_id: `WP-${x}`, title: `Job ${x}`, place: "process", since: new Date(Date.now() - (9 - i) * 60e3).toISOString() }));
     server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: five, needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })));
     await renderPage(<OfficeView drafts={false} />);
-    const stack = await screen.findByRole("button", { name: /^Process: \d+ more agents? not drawn/ });
+    const stack = await screen.findByRole("button", { name: /^Process: \d+ more agents?\. Show them/ });
     expect(screen.queryByRole("region", { name: "Process: every agent" })).toBeNull();
     await userEvent.click(stack);
     const open = screen.getByRole("region", { name: "Process: every agent" });

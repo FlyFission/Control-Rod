@@ -23,7 +23,7 @@ const regions: Region[] = Object.entries(ROOMS).map(([id, room]) => {
   return {
     id: id as RegionId,
     kind: meta?.kind ?? "room",
-    name: meta?.name ?? humanize(id),
+    name: meta?.name ?? room.label,
     purpose: meta?.purpose ?? "",
     x: x0,
     y: y0,

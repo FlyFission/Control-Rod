@@ -25,24 +25,51 @@ export function StateChip({ state, tint, size = 10 }: { state: FigureState; tint
   );
 }
 
+/** The marks a figure carries (gate, changed input, loop count), as small shapes; empty when it has none. */
+export function Marks({ figure: f }: { figure: StageFigure }) {
+  const m = f.marks ?? {};
+  if (!(m.gate || m.changed || (m.loop && m.loop > 1))) return null;
+  return (
+    <span className="plant-np-marks" data-semantic="flags">
+      {m.gate && (
+        <svg className="office-flag" data-mark="gate" width="10" height="10" viewBox="0 0 10 10">
+          <path d="M2 1v8.5" style={{ stroke: "var(--text, #e8f0f8)" }} strokeWidth="1.5" fill="none" />
+          <path d="M2.5 1.2h6l-1.6 2.2 1.6 2.2h-6z" style={{ fill: "var(--text, #e8f0f8)" }} />
+        </svg>
+      )}
+      {m.changed && (
+        <svg className="office-flag" data-mark="changed" width="10" height="10" viewBox="0 0 10 10">
+          <path d="M5 1.2 9 8.6H1z" style={{ stroke: "var(--changed, #ffb347)" }} strokeWidth="1.6" strokeLinejoin="round" fill="none" />
+        </svg>
+      )}
+      {m.loop && m.loop > 1 && (
+        <span className="office-loop" data-mark="loop">
+          {m.loop}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /**
- * One agent on the Plant: a button whose box is the figure and the nameplate under it. The painted
- * crew is drawn separately, under this layer (PlantScene); this is the semantic layer, with the full
- * accessible name, the visible nameplate (badge, short title, state chip and marks) and a tooltip
- * with the full name that opens on hover and on focus. The focus ring is the accent outline.
+ * One agent on the Plant: a button over the painted figure, with its full accessible name and a
+ * tooltip with the full name that opens on hover and on focus. The agent's badge, short title and
+ * state chip are on the room's roster plate (PlantRoster), not here; focusing or hovering a figure
+ * highlights its roster row and the other way round (`hot`). The focus ring is the accent outline.
  */
-export function PlantFigure({ figure: f, placed, title, selected, onSelect }: { figure: StageFigure; placed: Placed; title: string; selected: boolean; onSelect: ((id: string) => void) | undefined }) {
+export function PlantFigure({ figure: f, placed, selected, hot, onSelect, onHot }: { figure: StageFigure; placed: Placed; selected: boolean; hot: boolean; onSelect: ((id: string) => void) | undefined; onHot: (id: string | undefined) => void }) {
   const label = STATE_INFO[f.state].label;
   const name = f.name ?? f.code;
   const m = f.marks ?? {};
   const words = marksInWords(m);
-  const spoken = `${name}: ${label}. ${f.cause}${words ? ` Marks: ${words}.` : ""}${f.lensNote ? ` ${f.lensNote}.` : ""}`;
-  const { box, plate } = placed;
+  const agent = f.runtime ? ` Agent: ${f.runtime}.` : "";
+  const spoken = `${name}: ${label}. ${f.title ? `${f.title}. ` : ""}${f.cause}${words ? ` Marks: ${words}.` : ""}${f.lensNote ? ` ${f.lensNote}.` : ""}${agent}`;
+  const { body } = placed;
   return (
     <button
       type="button"
       className="plant-figure"
-      style={{ left: px(box.x), top: px(box.y), width: px(box.w), height: px(box.h) }}
+      style={{ left: px(body.x), top: px(body.y), width: px(body.w), height: px(body.h) }}
       aria-pressed={selected}
       aria-label={spoken}
       aria-description={f.title}
@@ -50,37 +77,15 @@ export function PlantFigure({ figure: f, placed, title, selected, onSelect }: { 
       data-state={f.state}
       data-figure={f.id}
       data-region={f.region}
+      data-hot={hot ? "" : undefined}
       data-safety={m.safety ? "" : undefined}
       data-tint={f.tint}
       onClick={() => onSelect?.(f.id)}
+      onMouseEnter={() => onHot(f.id)}
+      onMouseLeave={() => onHot(undefined)}
+      onFocus={() => onHot(f.id)}
+      onBlur={() => onHot(undefined)}
     >
-      <span className="plant-nameplate" data-label="plate" aria-hidden="true" style={{ left: px(plate.x - box.x), top: px(plate.y - box.y), width: px(plate.w), height: px(plate.h) }}>
-        <span className="plant-np-head">
-          <AgentBadge runtime={f.runtime} role={f.role} />
-          <span className="plant-np-title">{title}</span>
-          {(m.gate || m.changed || (m.loop && m.loop > 1)) && (
-            <span className="plant-np-marks" data-semantic="flags">
-              {m.gate && (
-                <svg className="office-flag" data-mark="gate" width="10" height="10" viewBox="0 0 10 10">
-                  <path d="M2 1v8.5" style={{ stroke: "var(--text, #e8f0f8)" }} strokeWidth="1.5" fill="none" />
-                  <path d="M2.5 1.2h6l-1.6 2.2 1.6 2.2h-6z" style={{ fill: "var(--text, #e8f0f8)" }} />
-                </svg>
-              )}
-              {m.changed && (
-                <svg className="office-flag" data-mark="changed" width="10" height="10" viewBox="0 0 10 10">
-                  <path d="M5 1.2 9 8.6H1z" style={{ stroke: "var(--changed, #ffb347)" }} strokeWidth="1.6" strokeLinejoin="round" fill="none" />
-                </svg>
-              )}
-              {m.loop && m.loop > 1 && (
-                <span className="office-loop" data-mark="loop">
-                  {m.loop}
-                </span>
-              )}
-            </span>
-          )}
-        </span>
-        <StateChip state={f.state} tint={f.tint} />
-      </span>
       <span className="plant-tip" data-side={placed.tip} data-align={placed.align} aria-hidden="true">
         {name}
         {f.title ? `: ${f.title}` : ""}

@@ -64,9 +64,9 @@ async function open(browser, viewport, scram) {
 /** Every visible text run in a label, with its colour and the page rectangle it fills. */
 const collect = () => {
   const out = [];
-  const roots = document.querySelectorAll(".plant-scene .plant-room-label, .plant-scene .plant-nameplate, .plant-scene .plant-stack, .plant-scene .plant-count, .plant-scene .plant-reactor-plate, .plant-scene .plant-tip");
+  const roots = document.querySelectorAll(".plant-scene .plant-roster, .plant-scene .plant-count, .plant-scene .plant-reactor-plate, .plant-scene .plant-tip");
   for (const root of roots) {
-    if (root.closest("[aria-hidden='true']") && !root.classList.contains("plant-nameplate") && !root.classList.contains("plant-tip") && !root.closest(".plant-nameplate")) continue;
+
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       if (!n.textContent.trim()) continue;
@@ -77,7 +77,7 @@ const collect = () => {
       const cs = getComputedStyle(el);
       if (cs.visibility === "hidden" || cs.display === "none") continue;
       // Text cut by an ellipsis runs past its plate; only the part drawn inside the plate is read.
-      const clip = (el.closest(".plant-np-title, .plant-room-label, .plant-tip") ?? root).getBoundingClientRect();
+      const clip = (el.closest(".plant-row-title, .plant-roster-name, .plant-tip") ?? root).getBoundingClientRect();
       for (const r of rects) {
         const x0 = Math.max(r.left, clip.left), x1 = Math.min(r.right, clip.right);
         const y0 = Math.max(r.top, clip.top), y1 = Math.min(r.bottom, clip.bottom);

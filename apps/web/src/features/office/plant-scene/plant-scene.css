@@ -43,7 +43,7 @@
 .plant-fade {
   transition: opacity 200ms linear;
 }
-.plant-fade[data-room][data-lit="false"],
+.plant-fade[data-tile-layer="lit"][data-lit="false"],
 .plant-fade[data-core][data-shown="false"] {
   opacity: 0;
 }
@@ -133,9 +133,7 @@
   z-index: 1;
 }
 /* A plate: near-opaque ground and a 1 px linework border, so text never depends on the art behind it. */
-.plant-room-label,
-.plant-nameplate,
-.plant-stack,
+.plant-roster,
 .plant-count,
 .plant-tip,
 .plant-reactor-plate {
@@ -146,20 +144,6 @@
   border-radius: 4px;
   color: var(--text, #e8f0f8);
   font-family: var(--sans);
-}
-.plant-room-label {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
-  color: var(--text-2, #c5d0dc);
-  font-size: var(--fs-label);
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
 }
 .plant-reactor {
   pointer-events: none;
@@ -198,13 +182,16 @@
   display: none;
 }
 
-/* A figure: a button over its painted crew, with its nameplate under it. */
+/* A figure: a button over its painted crew. Its name, title and state are on the room's roster plate. */
 .plant-figure,
-.plant-stack,
-.plant-count {
-  position: absolute;
+.plant-count,
+.plant-more {
   margin: 0;
   cursor: pointer;
+}
+.plant-figure,
+.plant-count {
+  position: absolute;
 }
 .plant-figure {
   padding: 0;
@@ -216,54 +203,97 @@
   text-align: left;
 }
 .plant-figure:focus-visible,
-.plant-stack:focus-visible,
+.plant-more:focus-visible,
 .plant-count:focus-visible {
   outline: 2px solid var(--accent, #00f2ff);
   outline-offset: 1px;
 }
-.plant-figure[aria-pressed="true"] {
+.plant-figure[aria-pressed="true"],
+.plant-figure[data-hot] {
   outline: 2px solid var(--accent, #00f2ff);
   outline-offset: 1px;
 }
-.plant-nameplate {
+/* A needs-you ring at the figure's feet: a shape in the needs-you colour that reads at a glance, painted under the crew. */
+.plant-halo {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 3px solid var(--plant-needs-you, #fbc246);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--plant-needs-you, #fbc246) 38%, transparent), transparent);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--plant-needs-you, #fbc246) 70%, transparent);
+  box-sizing: border-box;
+}
+.plant-figure-art[data-hot] .plant-crew {
+  filter: drop-shadow(0 0 4px var(--accent, #00f2ff));
+}
+/* The state's colour is an accent on a row's left edge and on the chip's shape; never the only signal. */
+.plant-row[data-state="working"],
+.plant-count-row[data-state="working"] { --accent-state: var(--accent, #00f2ff); }
+.plant-row[data-state="needs"],
+.plant-count-row[data-state="needs"] { --accent-state: var(--needs, #ffaa00); }
+.plant-row[data-state="waiting"],
+.plant-count-row[data-state="waiting"] { --accent-state: var(--waiting, #b89cff); }
+.plant-row[data-state="stuck"],
+.plant-count-row[data-state="stuck"] { --accent-state: var(--stuck, #ff7a59); }
+.plant-row[data-state="changed"],
+.plant-count-row[data-state="changed"] { --accent-state: var(--changed, #ffb347); }
+
+/* A room's roster plate: its name, up to three rows, and "+N more". */
+.plant-roster {
   position: absolute;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 0 4px;
-  border-left-width: 3px;
-  overflow: hidden;
+  padding: 2px 4px;
   font-size: var(--fs-chip);
   line-height: 15px;
+  overflow: hidden;
 }
-.plant-figure[data-safety] .plant-nameplate {
-  border-bottom: 3px double var(--text, #e8f0f8);
+.plant-roster[data-empty] {
+  padding: 0 6px;
+  justify-content: center;
+  color: var(--text-2, #c5d0dc);
+  font-size: var(--fs-label);
 }
-/* The state's colour is an accent on the plate's left edge and on the chip's shape; never the only signal. */
-.plant-figure[data-state="working"] .plant-nameplate,
-.plant-count-row[data-state="working"] { --accent-state: var(--accent, #00f2ff); }
-.plant-figure[data-state="needs"] .plant-nameplate,
-.plant-count-row[data-state="needs"] { --accent-state: var(--needs, #ffaa00); }
-.plant-figure[data-state="waiting"] .plant-nameplate,
-.plant-count-row[data-state="waiting"] { --accent-state: var(--waiting, #b89cff); }
-.plant-figure[data-state="stuck"] .plant-nameplate,
-.plant-count-row[data-state="stuck"] { --accent-state: var(--stuck, #ff7a59); }
-.plant-figure[data-state="changed"] .plant-nameplate,
-.plant-count-row[data-state="changed"] { --accent-state: var(--changed, #ffb347); }
-.plant-nameplate {
-  border-left-color: var(--accent-state, var(--plant-linework, #255375));
+.plant-roster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 18px;
+  font-size: var(--fs-label);
+  white-space: nowrap;
 }
-.plant-np-head {
+.plant-roster-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+.plant-roster-total {
+  color: var(--text-2, #c5d0dc);
+  font-variant-numeric: tabular-nums;
+}
+.plant-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 15px;
+  height: 20px;
+  padding: 0 3px 0 5px;
+  border-left: 3px solid var(--accent-state, var(--plant-linework, #255375));
+  border-radius: 2px;
+  cursor: pointer;
 }
-.plant-np-head .agent-badge {
+.plant-row[data-hot] {
+  background: color-mix(in srgb, var(--accent, #00f2ff) 22%, transparent);
+  outline: 1px solid var(--accent, #00f2ff);
+}
+.plant-row[data-safety] {
+  border-bottom: 2px double var(--text, #e8f0f8);
+}
+.plant-row .agent-badge {
   flex: none;
   color: var(--text-2, #c5d0dc);
 }
-.plant-np-title {
+.plant-row-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -286,9 +316,28 @@
   font-weight: 600;
   white-space: nowrap;
 }
+.plant-row .plant-chip {
+  flex: none;
+}
 .plant-chip .state-mark,
 .plant-count-row .state-mark {
   flex: none;
+}
+/* "+N more": the one real button on a roster; it opens the room's panel. */
+.plant-more {
+  display: block;
+  height: 20px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--text, #e8f0f8);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+.plant-more:hover {
+  background: color-mix(in srgb, var(--accent, #00f2ff) 18%, transparent);
 }
 .plant-tip {
   display: none;
@@ -325,15 +374,7 @@
 .plant-figure:focus-visible .plant-tip {
   display: block;
 }
-/* The "+N" stack and the count plate: buttons that open the room's figures. */
-.plant-stack {
-  display: grid;
-  place-items: center;
-  padding: 0;
-  font-size: var(--fs-label);
-  font-weight: 700;
-  line-height: 1;
-}
+/* The count plate: a button that opens the room's figures. */
 .plant-count {
   display: flex;
   flex-direction: column;
@@ -349,7 +390,9 @@
 .plant-count-row b {
   font-variant-numeric: tabular-nums;
 }
-.plant-stack[aria-expanded="true"],
+.plant-more[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--accent, #00f2ff) 28%, transparent);
+}
 .plant-count[aria-expanded="true"] {
   border-color: var(--accent, #00f2ff);
 }

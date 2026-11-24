@@ -8,13 +8,19 @@
 
 ## Claim proven
 
-Filled in at the end of the build with each check's actual result.
+Work lanes place work and name the Plant's six bays by project; the checks below passed where marked, and the database-backed API tests were not run in this session.
 
 ## Method and results
 
 | Check | Result |
 |---|---|
-| Every check named in the plan | planned |
+| `pnpm spec` regenerates with the committed output | pass |
+| `cd apps/web && pnpm -s vitest run` | pass: 72 files, 780 tests (baseline 70 / 768; new `lanes.test.tsx`, `work-lanes-setting.test.tsx`) |
+| `tsc --noEmit` for apps/web and services/api | pass |
+| `services/api` `test/work-lanes.test.ts` (pure: presets, validation, tag > paths > keywords > default, capital-project parity with `cubeFor`, setup detection) | pass: 17 tests |
+| `test/migration-lock.test.ts` with 027 locked | pass |
+| API database tests (`figures.test.ts` lane placement, `admin.test.ts` storage, proposal and legacy default, migration preservation) | gap: written, not run here; no PostgreSQL 17 in this environment, CI runs them |
+| Screenshot, Plant with the Software preset, 1440x900 at 2x | pass: bays read Frontend, Backend, Platform, Data, Tests, Docs; `/mnt/project-files/control-rod/lanes/plant-software.png` |
 
 ## Required links
 

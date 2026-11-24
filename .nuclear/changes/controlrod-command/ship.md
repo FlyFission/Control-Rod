@@ -15,6 +15,7 @@ Rollback: revert the commit. `~/.local/bin/controlrod` then points at a `cr.mjs`
 |---|---|---|---|
 | 1 | f443ba9 | Codex HOLD: 5 P1, 7 P2, 1 P3 | 72e86c4, 7fa9ba1, except as noted below |
 | 2 | 1e36fd9 | Codex HOLD: 4 P1, 9 P2, 1 P3 | cdc8d5a, except as noted below |
+| 3 | 829ddec | Codex HOLD: 2 P1, 3 P2, 2 P3 | the round 3 commit, except as noted below |
 
 Round 1 dispositions:
 - P1 process identity: fixed with pid plus start time plus an exact `scripts/cr.mjs start` command line, and no second signal to a pid whose start time changed. A separate authenticated shutdown channel was not added: the same signal as Ctrl+C keeps one stop path.
@@ -29,6 +30,15 @@ Round 2 dispositions:
 - P1 lock race: the lock and the instance record are written whole and hard-linked into place; a dead holder is taken over by renaming it aside and checking it is still the one judged dead; release removes only our own lock. `--check` fetches to its own ref.
 - P2 fixed: graceful-only SIGTERM (a repeated `stop` never forces), `restart` through the canonical `cr.mjs start`, lock released before a restart, sealed shim (edited copies are the person's; mutation 9), skip an old Node on PATH, macOS bash startup file, absolute `CONTROLROD_HOME`, divergence advice that keeps edits and rebuilds, PostgreSQL advice wording.
 - P2 declined: recovering an update when the dependency install left Commander missing (the next command reinstalls dependencies first, which is that recovery); recovering offline (an update needs the network anyway); two `start --background` both building at the same moment (only one launcher can claim the record and run; the other reports it running).
+
+Round 3 dispositions:
+- P1 stale-lock takeover race: the hand-made locks are replaced with proper-lockfile (MIT), which holds a lock folder created atomically, refreshes it while held and takes over a stale one safely. It holds the update lock and the one-launcher claim; a launcher killed outright loses its claim within 15 seconds, and the start message says so (E-07).
+- P1 rollback turning a kept file into a folder: rollback now checks every path it would change and each parent folder against what git tracks, and stops if any is an ignored or untracked file, or if it cannot tell (test).
+- P2 offline recovery: an unfinished update of the checkout as it stands now finishes from local files when the fetch fails (test). Commander missing: covered by the existing reinstall before parsing.
+- P2 divergence advice: now `git branch my-work && git reset --keep origin/main && controlrod setup`, which never pops an unrelated stash.
+- P2 `node ./scripts/cr.mjs`: recognised as this checkout's launcher.
+- P3 Linux advice: the shared-memory advice is now per platform; `doctor --fix` is offered only on macOS (test).
+- P3 declined: a non-login bash on macOS. Terminal and iTerm open login shells, which read the file `link` edits; writing `.bashrc` too would add a second PATH line for most people.
 
 ## Signature
 

@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { claimRecord, clearRecord, findRunning, parseSegments, readRecord, startedOf, stopLauncher, writeRecord } from "../lib/instance.mjs";
+import { claimRecord, clearRecord, findRunning, parseSegments, readRecord, releaseClaim, startedOf, stopLauncher, writeRecord } from "../lib/instance.mjs";
 import { link, MARK, shellProfile, shim, unlink } from "../lib/link.mjs";
 import { gitRunner, update, UpdateError } from "../lib/update.mjs";
 
@@ -356,6 +356,34 @@ test("going back never writes over an ignored file the person keeps; it stops an
   assert.match(f.logs(), /Not going back automatically.*notes\.txt/s);
 });
 
+test("going back never turns a kept file into a folder the old version needs", async () => {
+  const f = fixture();
+  mkdirSync(join(f.origin, "config"));
+  commit(f.origin, "config/item", "x\n", "A: config/item");
+  await update(f.root, {}, { ...f.deps, stop: async () => ({ wasRunning: false }) });
+  const a = gitIn(f.root, "rev-parse", "HEAD");
+  gitIn(f.origin, "rm", "-q", "-r", "config");
+  gitIn(f.origin, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "B: no config");
+  const b = gitIn(f.origin, "rev-parse", "HEAD");
+  gitIn(f.root, "fetch", "-q", "origin", "main");
+  gitIn(f.root, "merge", "-q", "--ff-only", b);
+  writeFileSync(join(f.root, ".git", "controlrod-update.json"), JSON.stringify({ pending: b, from: a }));
+  writeFileSync(join(f.root, "config"), "my file\n");
+  f.deps.build = () => false;
+  assert.equal(await update(f.root, {}, f.deps), 1);
+  assert.equal(readFileSync(join(f.root, "config"), "utf8"), "my file\n");
+  assert.match(f.logs(), /Not going back automatically.*config/s);
+});
+
+test("offline, an unfinished update of the checkout as it stands is finished", async () => {
+  const f = fixture();
+  writeFileSync(join(f.root, ".git", "controlrod-update.json"), JSON.stringify({ pending: f.first, from: f.first }));
+  gitIn(f.root, "remote", "set-url", "origin", join(tmp("gone"), "nowhere"));
+  f.deps.stop = async () => ({ wasRunning: false });
+  assert.equal(await update(f.root, {}, f.deps), 0);
+  assert.deepEqual(f.steps(), ["hold", "install", "build"]);
+});
+
 test("a restart in this terminal happens after the update lock is released", async () => {
   const f = fixture();
   commit(f.origin, "a.txt", "two\n", "new");
@@ -416,15 +444,18 @@ test("a stale record is dropped and never signalled: not a launcher, a look-alik
   for (const p of [sleeper, lookalike, real]) p.kill("SIGKILL");
 });
 
-test("only one launcher can claim the record; a dead claim is taken over", () => {
+test("only one launcher can claim this machine's Control Rod; the claim is released for the next", async () => {
   const home = tmp("home");
-  writeRecord(home, { pid: 999999, started: "gone", mode: "foreground" });
-  assert.equal(claimRecord(home, { mode: "foreground" }), true, "a stale record is taken over");
+  assert.equal(await claimRecord(home, { mode: "foreground" }), true);
   assert.equal(readRecord(home).pid, process.pid);
-  // This test process is not a launcher, so a second claim is let through only because the holder
-  // is not live; with a live launcher holding it, claimRecord returns false (covered end to end).
+  // A second claimant (here a child process) is refused while the claim is held.
+  const probe = `import { claimRecord } from ${JSON.stringify(join(repoRoot, "scripts", "lib", "instance.mjs"))}; process.exit((await claimRecord(${JSON.stringify(home)}, {})) ? 0 : 3);`;
+  const held = spawnSync(process.execPath, ["--input-type=module", "-e", probe], { encoding: "utf8" });
+  assert.equal(held.status, 3, held.stderr);
+  await releaseClaim();
   clearRecord(home);
-  assert.equal(readRecord(home), null);
+  const free = spawnSync(process.execPath, ["--input-type=module", "-e", probe], { encoding: "utf8" });
+  assert.equal(free.status, 0, free.stderr);
 });
 
 test("dead PostgreSQL shared memory is found by header, with the live and the foreign left alone", () => {

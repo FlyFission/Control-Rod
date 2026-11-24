@@ -26,6 +26,7 @@ The same day his start failed with "Control Rod could not start its database ...
 | Source | License | Taken |
 | --- | --- | --- |
 | Commander | MIT | the command parser and help (dependency) |
+| proper-lockfile | MIT | the update lock and the one-launcher claim, with stale-lock takeover (dependency) |
 | Homebrew `brew update` | BSD-2-Clause | stash uncommitted edits under a fixed git identity, say how to `git stash pop` instead of popping; ignore Ctrl+C while the checkout changes |
 | Oh My Zsh `tools/upgrade.sh` | MIT | fetch plus `git merge --ff-only`; keep the previous version in git config (`controlrod.lastVersion`); print the old..new change list |
 | uv installer, Claude Code native installer | MIT/Apache-2.0 (uv) | `~/.local/bin` plus one PATH line in the shell's startup file |

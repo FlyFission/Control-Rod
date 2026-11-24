@@ -1,7 +1,8 @@
 // The running Control Rod on this machine: a small record the launcher writes while it runs, so
 // `controlrod stop`, `status`, `restart` and `update` can find it from any terminal.
 import { spawnSync } from "node:child_process";
-import { linkSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import lockfile from "proper-lockfile";
 import { join } from "node:path";
 
 export const recordPath = (home) => join(home, "launcher.json");
@@ -63,56 +64,37 @@ export function recordIsLive(r) {
 }
 
 /**
- * Claims the record for this launcher, atomically: false when a live launcher already holds it.
- * A stale record (its process gone or replaced) is taken over.
+ * Claims this machine's Control Rod for this launcher: false when another live launcher holds it.
+ * The claim is a proper-lockfile lock (MIT; the lock npm's own tooling family uses) held for the
+ * launcher's whole life and refreshed every few seconds, so a launcher that dies loses it on its
+ * own; only the holder then writes the record.
  */
-export function claimRecord(home, record) {
-  const path = recordPath(home);
-  const full = { ...record, pid: process.pid, started: startedOf(process.pid) };
-  // Written whole to a private file, then hard-linked into place: the link either creates the
-  // record with its full content or fails because one exists. No reader sees it half written.
-  const tmp = `${path}.${process.pid}.${Date.now()}`;
-  writeFileSync(tmp, `${JSON.stringify(full, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+export async function claimRecord(home, record) {
+  let release;
   try {
-    for (let i = 0; i < 3; i++) {
-      try {
-        linkSync(tmp, path);
-        return true;
-      } catch (e) {
-        if (e?.code !== "EEXIST") throw e;
-        const held = readRecord(home);
-        if (recordIsLive(held)) return false;
-        // Take over a dead record only if it is still the one judged dead.
-        const stale = `${path}.stale.${process.pid}`;
-        try {
-          renameSync(path, stale);
-        } catch {
-          continue;
-        }
-        const moved = (() => {
-          try {
-            return JSON.parse(readFileSync(stale, "utf8"));
-          } catch {
-            return null;
-          }
-        })();
-        if (held && moved && (moved.pid !== held.pid || moved.started !== held.started)) {
-          // Another launcher claimed it in between: put its record back and give way.
-          try {
-            linkSync(stale, path);
-          } catch {
-            /* a third one got there; it decides */
-          }
-          rmSync(stale, { force: true });
-          return false;
-        }
-        rmSync(stale, { force: true });
-      }
-    }
-    return false;
-  } finally {
-    rmSync(tmp, { force: true });
+    release = await lockfile.lock(home, {
+      lockfilePath: join(home, "launcher.lock"),
+      stale: 15000,
+      update: 3000,
+      retries: 0,
+      realpath: false,
+      onCompromised: () => undefined,
+    });
+  } catch (e) {
+    if (e?.code === "ELOCKED") return false;
+    throw e;
   }
+  writeRecord(home, { ...record, pid: process.pid, started: startedOf(process.pid) });
+  heldRelease = release;
+  return true;
+}
+let heldRelease = null;
+
+/** Gives the claim back (the record is cleared separately). */
+export async function releaseClaim() {
+  const r = heldRelease;
+  heldRelease = null;
+  await r?.().catch(() => undefined);
 }
 
 /** The working directory of a process, via lsof (macOS and Linux). */
@@ -171,7 +153,7 @@ export async function findRunning(home, port, root = null) {
     const cmd = parent ? commandOf(parent) : null;
     const ours =
       parent && isLauncher(parent) && root &&
-      (cmd.includes(`${root}/scripts/cr.mjs`) || (/(^|\s)scripts\/cr\.mjs/.test(cmd) && samePath(cwdOf(parent) ?? "", root)));
+      (cmd.includes(`${root}/scripts/cr.mjs`) || (/(^|\s)(\.\/)?scripts\/cr\.mjs/.test(cmd) && samePath(cwdOf(parent) ?? "", root)));
     if (ours) return { pid: parent, mode: "foreground", record: null, started: startedOf(parent) };
     return { foreign: true, pid: listener, command: commandOf(listener) };
   }

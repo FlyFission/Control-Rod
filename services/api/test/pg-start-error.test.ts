@@ -9,12 +9,16 @@ describe("pgStartFailure", () => {
       "2026-11-24 LOG:  starting PostgreSQL 17\nFATAL:  could not create shared memory segment: No space left on device\n" +
         "DETAIL:  Failed system call was shmget(key=10216519, size=56, 03600).\nLOG:  database system is shut down\n",
     );
-    const text = pgStartFailure("/home/u/.controlrod/pg", 7301, tail.all(), undefined);
+    const text = pgStartFailure("/home/u/.controlrod/pg", 7301, tail.all(), undefined, "darwin");
     expect(text).not.toContain("undefined");
     expect(text).toContain("could not create shared memory segment");
     expect(text).toContain("shared memory");
     expect(text).toContain("controlrod doctor --fix");
     expect(text).not.toContain("starting PostgreSQL 17");
+    // Elsewhere the macOS-only fix is not offered.
+    const linux = pgStartFailure("/home/u/.controlrod/pg", 7301, tail.all(), undefined, "linux");
+    expect(linux).not.toContain("doctor --fix");
+    expect(linux).toContain("ipcs -m");
   });
 
   it("names the process holding a lock file and keeps the data", () => {

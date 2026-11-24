@@ -285,7 +285,8 @@ async function start() {
   if (await alreadyRunning()) return;
   // Claimed before anything is built or started, so two starts at once cannot both go ahead.
   const background = process.env.CONTROLROD_LAUNCH_MODE === "background";
-  const claimed = claimRecord(home, {
+  mkdirSync(home, { recursive: true, mode: 0o700 });
+  const claimed = await claimRecord(home, {
     root,
     port,
     url: origin(),
@@ -294,7 +295,7 @@ async function start() {
     startedAt: new Date().toISOString(),
   });
   if (!claimed) {
-    if (!(await alreadyRunning())) console.log(`Another Control Rod is starting. See \`${me} status\`.`);
+    if (!(await alreadyRunning())) console.log(`Another Control Rod is starting. See \`${me} status\`; if none is, one just stopped abruptly: try again in 15 seconds.`);
     return;
   }
   process.on("exit", () => clearRecord(home));

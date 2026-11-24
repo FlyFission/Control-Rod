@@ -11,7 +11,8 @@
 // them, from Homebrew's `brew update` (BSD-2-Clause); ignoring Ctrl+C while the checkout is changing,
 // also from `brew update`.
 import { spawnSync } from "node:child_process";
-import { linkSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import lockfile from "proper-lockfile";
 import { isAbsolute, join, resolve } from "node:path";
 
 export const BRANCH = "main";
@@ -45,57 +46,22 @@ const isAlive = (pid) => {
 };
 
 /**
- * One update per checkout at a time. The lock file is written whole, then hard-linked into place,
- * so it never exists without its owner's pid; a lock whose owner died is taken over by renaming it
- * aside first, so two contenders cannot both remove it. Release removes it only while it is ours.
+ * One update per checkout at a time: a proper-lockfile lock (MIT) in the git directory, refreshed
+ * while the update runs and treated as stale only when its owner stopped refreshing it.
  */
-function takeLock(path) {
-  const mine = `${process.pid}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  const tmp = `${path}.${process.pid}`;
-  writeFileSync(tmp, mine, { mode: 0o600 });
+async function takeLock(gitDir) {
   try {
-    for (let i = 0; i < 3; i++) {
-      try {
-        linkSync(tmp, path);
-        return () => {
-          try {
-            if (readFileSync(path, "utf8") === mine) rmSync(path, { force: true });
-          } catch {
-            /* already gone */
-          }
-        };
-      } catch (e) {
-        if (e?.code !== "EEXIST") throw e;
-        let held = "";
-        try {
-          held = readFileSync(path, "utf8");
-        } catch {
-          continue;
-        }
-        const owner = Number(held.split(":")[0]);
-        if (Number.isInteger(owner) && owner > 1 && isAlive(owner)) return null;
-        const aside = `${path}.stale.${process.pid}`;
-        try {
-          renameSync(path, aside);
-        } catch {
-          continue;
-        }
-        if (readFileSync(aside, "utf8") !== held) {
-          // Someone else took it over in between: theirs goes back, and this one gives way.
-          try {
-            linkSync(aside, path);
-          } catch {
-            /* a third one holds it */
-          }
-          rmSync(aside, { force: true });
-          return null;
-        }
-        rmSync(aside, { force: true });
-      }
-    }
-    return null;
-  } finally {
-    rmSync(tmp, { force: true });
+    return await lockfile.lock(gitDir, {
+      lockfilePath: join(gitDir, "controlrod-update.lock"),
+      stale: 15000,
+      update: 3000,
+      retries: 0,
+      realpath: false,
+      onCompromised: () => undefined,
+    });
+  } catch (e) {
+    if (e?.code === "ELOCKED") return null;
+    throw e;
   }
 }
 
@@ -152,7 +118,7 @@ export async function update(root, opts, deps) {
         `Switch with \`git -C ${root} switch ${BRANCH}\`, then run \`controlrod update\` again.`,
     );
   }
-  const release = check ? () => undefined : takeLock(join(gitDir, "controlrod-update.lock"));
+  const release = check ? async () => undefined : await takeLock(gitDir);
   if (!release) throw new UpdateError("Another `controlrod update` is running for this copy. Let it finish, then try again.");
   // The restart happens after the lock is released: a restart in this terminal runs until the
   // person stops it, and must not hold up the next update.
@@ -160,7 +126,7 @@ export async function update(root, opts, deps) {
   try {
     after = await run();
   } finally {
-    release();
+    await release().catch(() => undefined);
   }
   if (typeof after === "number") return after;
   const code = await deps.restart({ mode: after.mode });
@@ -175,12 +141,14 @@ export async function update(root, opts, deps) {
     // A private ref, so another git command's FETCH_HEAD cannot change what this update installs.
     const ref = check ? "refs/controlrod/check-target" : "refs/controlrod/update-target";
     const fetched = git(["fetch", "--quiet", "--no-tags", "origin", `+refs/heads/${BRANCH}:${ref}`]);
-    if (!fetched.ok) {
+    const old = git(["rev-parse", "HEAD"]).out;
+    const state = readState();
+    if (!fetched.ok && !(state?.pending === old && !check)) {
       throw new UpdateError(`Could not reach GitHub to check for updates. Check your connection and try again.\n  ${fetched.err.split("\n")[0]}`);
     }
-    const old = git(["rev-parse", "HEAD"]).out;
-    const target = git(["rev-parse", ref]).out;
-    const state = readState();
+    // Offline, an unfinished update of the checkout as it stands is still finished from local files.
+    if (!fetched.ok) log("Could not reach GitHub; finishing the last update from what is here.");
+    const target = fetched.ok ? git(["rev-parse", ref]).out : old;
     // The last version known to build: an unfinished earlier update keeps the one it started from.
     const good = state?.from && git(["merge-base", "--is-ancestor", state.from, old]).ok ? state.from : old;
     // A checkout left unbuilt by an interrupted or failed update is finished even when it is current.
@@ -192,9 +160,9 @@ export async function update(root, opts, deps) {
     if (!resume && !git(["merge-base", "--is-ancestor", old, target]).ok) {
       throw new UpdateError(
         `This copy has commits of its own that are not on ${BRANCH}, so it cannot simply move forward. Nothing was changed.\n` +
-          `See them with \`git -C ${root} log origin/${BRANCH}..HEAD\`. To keep them and any edits, move them to a branch:\n` +
-          `  cd ${root} && git stash && git branch my-work && git reset --keep origin/${BRANCH} && git stash pop\n` +
-          `then run \`controlrod setup\` to rebuild.`,
+          `See them with \`git -C ${root} log origin/${BRANCH}..HEAD\`. To keep them on a branch and move ${BRANCH} on\n` +
+          `(\`reset --keep\` keeps your uncommitted edits, and refuses if they would be lost):\n` +
+          `  cd ${root} && git branch my-work && git reset --keep origin/${BRANCH} && controlrod setup`,
       );
     }
     const changes = resume ? [] : git(["log", "--oneline", "--no-decorate", `${old}..${target}`]).out.split("\n").filter(Boolean);
@@ -253,17 +221,38 @@ export async function update(root, opts, deps) {
     const backOnGood = async (step) => {
       log(`\nThe update failed while ${step}. Going back to the version you had (${short(good)})...`);
       const head = git(["rev-parse", "HEAD"]).out;
-      // Going back must not write over a file the person keeps that git now ignores.
+      // Going back must not write over anything the person keeps that git does not track: a file
+      // at a path the old version writes, or a file where the old version needs a folder.
       if (head !== good) {
-        const paths = git(["diff", "--name-only", "-z", head, good]).out.split("\0").filter(Boolean);
-        const kept = paths.length
-          ? git(["ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", ...paths]).out.split("\0").filter(Boolean)
-          : [];
-        if (kept.length) {
+        const listed = git(["diff", "--name-only", "-z", head, good]);
+        const tracked = git(["ls-files", "-z"]);
+        if (!listed.ok || !tracked.ok) {
+          writeState({ pending: head, from: good });
+          log("Not going back automatically: could not list what that would change. Run `controlrod update` again.");
+          return 1;
+        }
+        const known = new Set(tracked.out.split("\0").filter(Boolean));
+        const kept = new Set();
+        for (const p of listed.out.split("\0").filter(Boolean)) {
+          const parts = p.split("/");
+          for (let i = 1; i <= parts.length; i++) {
+            const sub = parts.slice(0, i).join("/");
+            let st = null;
+            try {
+              st = lstatSync(join(root, sub));
+            } catch {
+              break;
+            }
+            const last = i === parts.length;
+            if (!known.has(sub) && (!st.isDirectory() || last)) kept.add(sub);
+            if (!st.isDirectory()) break;
+          }
+        }
+        if (kept.size) {
           writeState({ pending: head, from: good });
           log(
-            `Not going back automatically: that would replace files you keep here that git ignores:\n` +
-              kept.slice(0, 10).map((f) => `  ${f}`).join("\n") +
+            `Not going back automatically: that would replace files you keep here that git does not track:\n` +
+              [...kept].slice(0, 10).map((f) => `  ${f}`).join("\n") +
               `\nMove them somewhere safe, then run \`controlrod update\` again.`,
           );
           return 1;

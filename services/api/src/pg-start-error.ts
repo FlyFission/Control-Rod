@@ -23,7 +23,7 @@ export class PgLogTail {
 }
 
 /** The text thrown when the bundled database will not start after every attempt. */
-export function pgStartFailure(pgDir: string, port: number, log: string[], error: unknown): string {
+export function pgStartFailure(pgDir: string, port: number, log: string[], error: unknown, os: string = process.platform): string {
   const text = log.join("\n");
   const important = log.filter((l) => /\b(FATAL|PANIC|ERROR|DETAIL|HINT):/.test(l));
   const shown = (important.length ? important : log).slice(-12);
@@ -46,9 +46,12 @@ export function pgStartFailure(pgDir: string, port: number, log: string[], error
       `(it holds your records) and report this; do not delete it to get started.`;
   } else if (/could not create shared memory segment/i.test(text) && /No space left on device/i.test(text)) {
     advice =
-      "The system has no System V shared memory segments left for PostgreSQL. This is not disk space: macOS allows only " +
-      "32 in all, and PostgreSQL runs that were killed leave theirs behind. `controlrod doctor` lists the ones whose " +
-      "PostgreSQL is gone and `controlrod doctor --fix` frees them; restarting the computer frees them too.";
+      os === "darwin"
+        ? "The system has no System V shared memory segments left for PostgreSQL. This is not disk space: macOS allows only " +
+          "32 in all, and PostgreSQL runs that were killed leave theirs behind. `controlrod doctor` lists the ones whose " +
+          "PostgreSQL is gone and `controlrod doctor --fix` frees them; restarting the computer frees them too."
+        : "The system has no System V shared memory segments left for PostgreSQL. This is not disk space. `ipcs -m` lists them; " +
+          "ones with 0 attached whose creating process is gone can be freed with `ipcrm -m <id>`, or restart the computer.";
   } else if (/could not map anonymous shared memory|could not create shared memory segment/i.test(text)) {
     advice = "The system would not give PostgreSQL the shared memory it asked for. Close memory-hungry programs or restart the computer, then try again.";
   } else if (/Permission denied/i.test(text)) {

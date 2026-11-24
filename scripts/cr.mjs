@@ -334,6 +334,42 @@ function verify(files) {
   process.exit(r.status ?? 1);
 }
 
+/**
+ * Builds an honest Markdown PR receipt from a downloaded package inclusion proof offline.
+ */
+function receipt(file) {
+  if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
+  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "pr-receipt.js"))) {
+    run("pnpm", ["--filter", "@control-rod/api", "build"]);
+  }
+  const r = spawnSync("node", [join(root, "services", "api", "dist", "pr-receipt.js"), ...(file ? [file] : [])], { stdio: "inherit" });
+  process.exit(r.status ?? 1);
+}
+
+function resolveCliArgs(argv) {
+  const cwd = process.env.INIT_CWD ?? process.cwd();
+  const out = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--receipt") {
+      out.push(a);
+      if (i + 1 < argv.length) out.push(resolve(cwd, argv[++i]));
+      continue;
+    }
+    if (a === "--diff-sha256" || a === "--head-sha" || a === "--revision") {
+      out.push(a);
+      if (i + 1 < argv.length) out.push(argv[++i]);
+      continue;
+    }
+    if (a.startsWith("-")) {
+      out.push(a);
+      continue;
+    }
+    out.push(resolve(cwd, a));
+  }
+  return out;
+}
+
 const cmd = process.argv[2] ?? "start";
 if (cmd === "doctor") process.exit(doctor({ agents: true }) ? 0 : 1);
 else if (cmd === "setup") setup();
@@ -350,8 +386,9 @@ else if (cmd === "bench") {
     cwd: process.env.INIT_CWD ?? process.cwd(),
   });
   process.exit(r.status ?? 1);
-} else if (cmd === "verify") verify(process.argv.slice(3).map((f) => resolve(process.env.INIT_CWD ?? process.cwd(), f)));
+} else if (cmd === "verify") verify(resolveCliArgs(process.argv.slice(3)));
+else if (cmd === "receipt") receipt(process.argv[3] ? resolveCliArgs(process.argv.slice(3))[0] : undefined);
 else {
-  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|bench <init|select|preflight|probe|controls|run|lock|adjudicate|evaluate|score|size|release> ...]");
+  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|receipt <inclusion-proof.json>|bench <init|select|preflight|probe|controls|run|lock|adjudicate|evaluate|score|size|release> ...]");
   process.exit(2);
 }

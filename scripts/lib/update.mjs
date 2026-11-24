@@ -11,7 +11,7 @@
 // them, from Homebrew's `brew update` (BSD-2-Clause); ignoring Ctrl+C while the checkout is changing,
 // also from `brew update`.
 import { spawnSync } from "node:child_process";
-import { closeSync, existsSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { linkSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 
 export const BRANCH = "main";
@@ -44,22 +44,59 @@ const isAlive = (pid) => {
   }
 };
 
-/** One update per checkout at a time: an exclusive lock file in the git directory, freed if its owner died. */
+/**
+ * One update per checkout at a time. The lock file is written whole, then hard-linked into place,
+ * so it never exists without its owner's pid; a lock whose owner died is taken over by renaming it
+ * aside first, so two contenders cannot both remove it. Release removes it only while it is ours.
+ */
 function takeLock(path) {
-  for (let i = 0; i < 2; i++) {
-    try {
-      const fd = openSync(path, "wx", 0o600);
-      writeSync(fd, String(process.pid));
-      closeSync(fd);
-      return () => rmSync(path, { force: true });
-    } catch (e) {
-      if (e?.code !== "EEXIST") throw e;
-      const owner = Number(readFileSync(path, "utf8").trim());
-      if (Number.isInteger(owner) && owner > 1 && isAlive(owner)) return null;
-      rmSync(path, { force: true });
+  const mine = `${process.pid}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  const tmp = `${path}.${process.pid}`;
+  writeFileSync(tmp, mine, { mode: 0o600 });
+  try {
+    for (let i = 0; i < 3; i++) {
+      try {
+        linkSync(tmp, path);
+        return () => {
+          try {
+            if (readFileSync(path, "utf8") === mine) rmSync(path, { force: true });
+          } catch {
+            /* already gone */
+          }
+        };
+      } catch (e) {
+        if (e?.code !== "EEXIST") throw e;
+        let held = "";
+        try {
+          held = readFileSync(path, "utf8");
+        } catch {
+          continue;
+        }
+        const owner = Number(held.split(":")[0]);
+        if (Number.isInteger(owner) && owner > 1 && isAlive(owner)) return null;
+        const aside = `${path}.stale.${process.pid}`;
+        try {
+          renameSync(path, aside);
+        } catch {
+          continue;
+        }
+        if (readFileSync(aside, "utf8") !== held) {
+          // Someone else took it over in between: theirs goes back, and this one gives way.
+          try {
+            linkSync(aside, path);
+          } catch {
+            /* a third one holds it */
+          }
+          rmSync(aside, { force: true });
+          return null;
+        }
+        rmSync(aside, { force: true });
+      }
     }
+    return null;
+  } finally {
+    rmSync(tmp, { force: true });
   }
-  return null;
 }
 
 export class UpdateError extends Error {
@@ -117,16 +154,26 @@ export async function update(root, opts, deps) {
   }
   const release = check ? () => undefined : takeLock(join(gitDir, "controlrod-update.lock"));
   if (!release) throw new UpdateError("Another `controlrod update` is running for this copy. Let it finish, then try again.");
+  // The restart happens after the lock is released: a restart in this terminal runs until the
+  // person stops it, and must not hold up the next update.
+  let after;
   try {
-    return await run();
+    after = await run();
   } finally {
     release();
   }
+  if (typeof after === "number") return after;
+  const code = await deps.restart({ mode: after.mode });
+  if (after.updated && typeof code === "number" && code !== 0) {
+    // The new version stays: once it has started, its database may already be upgraded.
+    log("\nThe new version is installed but did not start. See `controlrod logs` and `controlrod doctor`.");
+  }
+  return after.failed ? 1 : typeof code === "number" ? code : 0;
 
   async function run() {
     log(`Checking for updates (${root})...`);
     // A private ref, so another git command's FETCH_HEAD cannot change what this update installs.
-    const ref = "refs/controlrod/update-target";
+    const ref = check ? "refs/controlrod/check-target" : "refs/controlrod/update-target";
     const fetched = git(["fetch", "--quiet", "--no-tags", "origin", `+refs/heads/${BRANCH}:${ref}`]);
     if (!fetched.ok) {
       throw new UpdateError(`Could not reach GitHub to check for updates. Check your connection and try again.\n  ${fetched.err.split("\n")[0]}`);
@@ -144,9 +191,10 @@ export async function update(root, opts, deps) {
     }
     if (!resume && !git(["merge-base", "--is-ancestor", old, target]).ok) {
       throw new UpdateError(
-        `This copy has commits of its own that are not on ${BRANCH}, so it cannot simply move forward.\n` +
-          `See them with \`git -C ${root} log origin/${BRANCH}..HEAD\`. Keep them on a branch of your own, then\n` +
-          `\`git -C ${root} reset --hard origin/${BRANCH}\` and run \`controlrod update\` again.`,
+        `This copy has commits of its own that are not on ${BRANCH}, so it cannot simply move forward. Nothing was changed.\n` +
+          `See them with \`git -C ${root} log origin/${BRANCH}..HEAD\`. To keep them and any edits, move them to a branch:\n` +
+          `  cd ${root} && git stash && git branch my-work && git reset --keep origin/${BRANCH} && git stash pop\n` +
+          `then run \`controlrod setup\` to rebuild.`,
       );
     }
     const changes = resume ? [] : git(["log", "--oneline", "--no-decorate", `${old}..${target}`]).out.split("\n").filter(Boolean);
@@ -192,11 +240,11 @@ export async function update(root, opts, deps) {
       ]);
       if (!s.ok) {
         abandon();
-        if (running.wasRunning && restart) await deps.restart({ mode: running.mode });
-        throw new UpdateError(
+        log(
           `Could not set your edits to ${files.length} file${files.length === 1 ? "" : "s"} aside (git said: ${s.err.split("\n")[0]}).\n` +
             `Nothing was changed. Save them yourself, or undo them with \`git -C ${root} restore .\`, then try again.`,
         );
+        return running.wasRunning && restart ? { mode: running.mode, failed: true } : 1;
       }
       stashed = true;
       log(`Set your edits to ${files.length} file${files.length === 1 ? "" : "s"} aside (${files.slice(0, 3).join(", ")}${files.length > 3 ? ", ..." : ""}).`);
@@ -205,6 +253,22 @@ export async function update(root, opts, deps) {
     const backOnGood = async (step) => {
       log(`\nThe update failed while ${step}. Going back to the version you had (${short(good)})...`);
       const head = git(["rev-parse", "HEAD"]).out;
+      // Going back must not write over a file the person keeps that git now ignores.
+      if (head !== good) {
+        const paths = git(["diff", "--name-only", "-z", head, good]).out.split("\0").filter(Boolean);
+        const kept = paths.length
+          ? git(["ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", ...paths]).out.split("\0").filter(Boolean)
+          : [];
+        if (kept.length) {
+          writeState({ pending: head, from: good });
+          log(
+            `Not going back automatically: that would replace files you keep here that git ignores:\n` +
+              kept.slice(0, 10).map((f) => `  ${f}`).join("\n") +
+              `\nMove them somewhere safe, then run \`controlrod update\` again.`,
+          );
+          return 1;
+        }
+      }
       const reset = head === good ? { ok: true } : git(["reset", "--keep", good]);
       if (!reset.ok) log(reset.err);
       const rebuilt = reset.ok && deps.install() && deps.build();
@@ -218,8 +282,7 @@ export async function update(root, opts, deps) {
       }
       rmSync(statePath, { force: true });
       log(`Back on ${short(good)}, as before.${stashed ? ` Your edits are set aside; to get them back: cd ${root} && git stash pop` : ""}`);
-      if (running.wasRunning && restart) await deps.restart({ mode: running.mode });
-      return 1;
+      return running.wasRunning && restart ? { mode: running.mode, failed: true } : 1;
     };
 
     // 3. Move forward, then install and build with the new code.
@@ -242,14 +305,7 @@ export async function update(root, opts, deps) {
     for (const c of changes.slice(0, 15)) log(`  ${c}`);
     if (changes.length > 15) log(`  ...and ${changes.length - 15} more`);
     if (stashed) log(`Your edits are set aside. To get them back: cd ${root} && git stash pop`);
-    if (running.wasRunning && restart) {
-      const code = await deps.restart({ mode: running.mode });
-      if (typeof code === "number" && code !== 0) {
-        // The new version stays: once it has started, its database may already be upgraded.
-        log("\nThe new version is installed but did not start. See `controlrod logs` and `controlrod doctor`.");
-      }
-      return typeof code === "number" ? code : 0;
-    }
+    if (running.wasRunning && restart) return { mode: running.mode, updated: true };
     log(running.wasRunning ? "Start it again with `controlrod start`." : "Start it with `controlrod start`.");
     return 0;
   }

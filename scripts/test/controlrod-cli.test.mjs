@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { claimRecord, clearRecord, findRunning, parseSegments, readRecord, startedOf, stopLauncher, writeRecord } from "../lib/instance.mjs";
-import { link, MARK, shellProfile, unlink } from "../lib/link.mjs";
+import { link, MARK, shellProfile, shim, unlink } from "../lib/link.mjs";
 import { gitRunner, update, UpdateError } from "../lib/update.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -55,7 +55,11 @@ test("link never replaces a controlrod it did not write; unlink removes only its
   assert.equal(link(repoRoot, { env }).status, "foreign");
   assert.equal(unlink(env).status, "foreign");
   assert.match(readFileSync(path, "utf8"), /someone else's/);
-  writeFileSync(path, `#!/bin/sh\n${MARK}\n`);
+  // Marked but edited by the person: theirs now.
+  writeFileSync(path, `#!/bin/sh\n${MARK}\necho edited\n`);
+  assert.equal(link(repoRoot, { env }).status, "foreign");
+  assert.equal(unlink(env).status, "foreign");
+  writeFileSync(path, shim(repoRoot));
   assert.equal(unlink(env).status, "removed");
   assert.equal(existsSync(path), false);
 });
@@ -84,6 +88,25 @@ test("the PATH line never lets the shell run text from a folder name", () => {
   assert.equal(odd, `export PATH='/home/u/$(touch x)/bin'":$PATH"`);
   const out = spawnSync("sh", ["-c", `${odd}; printf %s "$PATH"`], { encoding: "utf8", env: { PATH: "/bin" } });
   assert.equal(out.stdout, "/home/u/$(touch x)/bin:/bin");
+});
+
+test("a login bash on macOS gets the startup file it already reads", () => {
+  const home = tmp("home");
+  writeFileSync(join(home, ".profile"), "# mine\n");
+  assert.equal(shellProfile("/x/bin", { HOME: home, SHELL: "/bin/bash" }, "darwin").file, join(home, ".profile"));
+  writeFileSync(join(home, ".bash_login"), "# mine\n");
+  assert.equal(shellProfile("/x/bin", { HOME: home, SHELL: "/bin/bash" }, "darwin").file, join(home, ".bash_login"));
+  assert.equal(shellProfile("/x/bin", { HOME: tmp("h2"), SHELL: "/bin/bash" }, "darwin").file.endsWith(".bash_profile"), true);
+});
+
+test("the command skips a Node on PATH that is too old", () => {
+  const home = tmp("home");
+  const r = link(repoRoot, { env: { HOME: home, PATH: join(home, ".local", "bin") } });
+  const fakeBin = tmp("oldnode");
+  writeFileSync(join(fakeBin, "node"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+  const out = spawnSync(r.path, ["version"], { encoding: "utf8", env: { ...process.env, PATH: `${fakeBin}:/usr/bin:/bin` } });
+  assert.equal(out.status, 0, out.stderr);
+  assert.match(out.stdout, /^Control Rod /);
 });
 
 test("link refuses native Windows", () => {
@@ -309,6 +332,45 @@ test("a restart that fails after a good update says so and keeps the new version
   assert.equal(await update(f.root, {}, f.deps), 1);
   assert.equal(gitIn(f.root, "rev-parse", "HEAD"), next);
   assert.match(f.logs(), /installed but did not start/);
+});
+
+test("going back never writes over an ignored file the person keeps; it stops and says so", async () => {
+  const f = fixture();
+  // B stops tracking notes.txt and ignores it; the person then keeps their own notes.txt.
+  commit(f.origin, "notes.txt", "tracked\n", "track notes");
+  await update(f.root, {}, { ...f.deps, stop: async () => ({ wasRunning: false }) });
+  const a = gitIn(f.root, "rev-parse", "HEAD");
+  gitIn(f.origin, "rm", "-q", "notes.txt");
+  writeFileSync(join(f.origin, ".gitignore"), "notes.txt\n");
+  gitIn(f.origin, "add", ".gitignore");
+  gitIn(f.origin, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "B: ignore notes");
+  const b = gitIn(f.origin, "rev-parse", "HEAD");
+  gitIn(f.root, "fetch", "-q", "origin", "main");
+  gitIn(f.root, "merge", "-q", "--ff-only", b);
+  writeFileSync(join(f.root, ".git", "controlrod-update.json"), JSON.stringify({ pending: b, from: a }));
+  writeFileSync(join(f.root, "notes.txt"), "my notes\n");
+  f.deps.build = () => false;
+  assert.equal(await update(f.root, {}, f.deps), 1);
+  assert.equal(readFileSync(join(f.root, "notes.txt"), "utf8"), "my notes\n");
+  assert.equal(gitIn(f.root, "rev-parse", "HEAD"), b);
+  assert.match(f.logs(), /Not going back automatically.*notes\.txt/s);
+});
+
+test("a restart in this terminal happens after the update lock is released", async () => {
+  const f = fixture();
+  commit(f.origin, "a.txt", "two\n", "new");
+  let lockAtRestart;
+  f.deps.restart = async () => ((lockAtRestart = existsSync(join(f.root, ".git", "controlrod-update.lock"))), 0);
+  assert.equal(await update(f.root, {}, f.deps), 0);
+  assert.equal(lockAtRestart, false);
+});
+
+test("update --check never moves the ref a running update installs", async () => {
+  const f = fixture();
+  commit(f.origin, "a.txt", "two\n", "new");
+  await update(f.root, { check: true }, f.deps);
+  const r = spawnSync("git", ["rev-parse", "--verify", "-q", "refs/controlrod/update-target"], { cwd: f.root, env: gitEnv });
+  assert.notEqual(r.status, 0);
 });
 
 // ---------- running instance ----------

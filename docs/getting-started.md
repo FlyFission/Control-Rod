@@ -41,7 +41,7 @@ controlrod start    # control plane, embedded Postgres and daemon; Ctrl+C stops 
 
 ### When the database will not start
 
-The control plane prints what PostgreSQL said and the likely fix. On macOS, the most common cause is shared memory: macOS has only 32 System V shared memory segments in all, and a PostgreSQL that is killed outright leaves its segment behind. When they run out, PostgreSQL fails with `could not create shared memory segment: No space left on device`, which has nothing to do with disk space. `controlrod start` frees segments left by PostgreSQL processes that no longer exist (only your own, only PostgreSQL's 56-byte size, only with nothing attached); `controlrod doctor` reports them and `controlrod doctor --fix` frees them. Restarting the Mac also clears them.
+The control plane prints what PostgreSQL said and the likely fix. On macOS, the most common cause is shared memory: macOS has only 32 System V shared memory segments in all, and a PostgreSQL that is killed outright leaves its segment behind. When they run out, PostgreSQL fails with `could not create shared memory segment: No space left on device`, which has nothing to do with disk space. `controlrod start` warns when the Mac is close to that limit. `controlrod doctor` lists segments that look left behind by PostgreSQL (your own, PostgreSQL's 56-byte size, nothing attached, the process that made them gone), and `controlrod doctor --fix` frees those. Restarting the Mac also clears them.
 
 Open <http://localhost:7300>, choose **Set up this machine**, and register a passkey. Your data lives in `~/.controlrod` unless you set `CONTROLROD_HOME`; use a separate home for experiments so you never touch real records:
 

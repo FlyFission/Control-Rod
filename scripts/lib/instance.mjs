@@ -1,7 +1,7 @@
 // The running Control Rod on this machine: a small record the launcher writes while it runs, so
 // `controlrod stop`, `status`, `restart` and `update` can find it from any terminal.
 import { spawnSync } from "node:child_process";
-import { closeSync, openSync, readFileSync, renameSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { linkSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const recordPath = (home) => join(home, "launcher.json");
@@ -49,8 +49,9 @@ export function startedOf(pid) {
   return r.status === 0 ? r.stdout.trim() || null : null;
 }
 
-// `node /path/to/scripts/cr.mjs start` or, under pnpm, `node scripts/cr.mjs start`.
-const LAUNCHER = /(^|[\s/])scripts\/cr\.mjs\s+start(\s|$)/;
+// `node /path/to/scripts/cr.mjs start`, or under pnpm `node scripts/cr.mjs start` (or bare
+// `node scripts/cr.mjs`, which starts too).
+const LAUNCHER = /(^|[\s/])scripts\/cr\.mjs(\s+start(\s|$)|\s*$)/;
 const isLauncher = (pid) => {
   const c = commandOf(pid);
   return c !== null && LAUNCHER.test(c);
@@ -68,20 +69,66 @@ export function recordIsLive(r) {
 export function claimRecord(home, record) {
   const path = recordPath(home);
   const full = { ...record, pid: process.pid, started: startedOf(process.pid) };
-  for (let i = 0; i < 3; i++) {
-    try {
-      const fd = openSync(path, "wx", 0o600);
-      writeSync(fd, `${JSON.stringify(full, null, 2)}\n`);
-      closeSync(fd);
-      return true;
-    } catch (e) {
-      if (e?.code !== "EEXIST") throw e;
-      if (recordIsLive(readRecord(home))) return false;
-      rmSync(path, { force: true });
+  // Written whole to a private file, then hard-linked into place: the link either creates the
+  // record with its full content or fails because one exists. No reader sees it half written.
+  const tmp = `${path}.${process.pid}.${Date.now()}`;
+  writeFileSync(tmp, `${JSON.stringify(full, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+  try {
+    for (let i = 0; i < 3; i++) {
+      try {
+        linkSync(tmp, path);
+        return true;
+      } catch (e) {
+        if (e?.code !== "EEXIST") throw e;
+        const held = readRecord(home);
+        if (recordIsLive(held)) return false;
+        // Take over a dead record only if it is still the one judged dead.
+        const stale = `${path}.stale.${process.pid}`;
+        try {
+          renameSync(path, stale);
+        } catch {
+          continue;
+        }
+        const moved = (() => {
+          try {
+            return JSON.parse(readFileSync(stale, "utf8"));
+          } catch {
+            return null;
+          }
+        })();
+        if (held && moved && (moved.pid !== held.pid || moved.started !== held.started)) {
+          // Another launcher claimed it in between: put its record back and give way.
+          try {
+            linkSync(stale, path);
+          } catch {
+            /* a third one got there; it decides */
+          }
+          rmSync(stale, { force: true });
+          return false;
+        }
+        rmSync(stale, { force: true });
+      }
     }
+    return false;
+  } finally {
+    rmSync(tmp, { force: true });
   }
-  return false;
 }
+
+/** The working directory of a process, via lsof (macOS and Linux). */
+function cwdOf(pid) {
+  const r = spawnSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8" });
+  const line = r.status === 0 ? r.stdout.split("\n").find((l) => l.startsWith("n")) : null;
+  return line ? line.slice(1) : null;
+}
+
+const samePath = (a, b) => {
+  try {
+    return realpathSync(a) === realpathSync(b);
+  } catch {
+    return false;
+  }
+};
 
 /** The process listening on a local TCP port, via lsof when it is installed. */
 function listenerOf(port) {
@@ -112,14 +159,20 @@ export async function healthy(port, timeoutMs = 1500) {
  * user can find, or null when nothing runs. A launcher started before the record existed is found
  * through the control plane listening on the port, whose parent is the launcher.
  */
-export async function findRunning(home, port) {
+export async function findRunning(home, port, root = null) {
   const record = readRecord(home);
   if (recordIsLive(record)) return { pid: record.pid, mode: record.mode ?? "foreground", record, started: record.started };
   if (record) clearRecord(home, record.pid);
   const listener = listenerOf(port);
   if (listener) {
     const parent = parentOf(listener);
-    if (parent && isLauncher(parent)) return { pid: parent, mode: "foreground", record: null, started: startedOf(parent) };
+    // Without a record, only a launcher of this very checkout counts: one whose command names this
+    // checkout's cr.mjs, or a `pnpm cr` launcher whose working directory is this checkout.
+    const cmd = parent ? commandOf(parent) : null;
+    const ours =
+      parent && isLauncher(parent) && root &&
+      (cmd.includes(`${root}/scripts/cr.mjs`) || (/(^|\s)scripts\/cr\.mjs/.test(cmd) && samePath(cwdOf(parent) ?? "", root)));
+    if (ours) return { pid: parent, mode: "foreground", record: null, started: startedOf(parent) };
     return { foreign: true, pid: listener, command: commandOf(listener) };
   }
   if (await healthy(port)) return { foreign: true, pid: null, command: null };
@@ -140,7 +193,8 @@ export async function stopLauncher(pid, { now = false, timeoutMs = 180000, log =
   process.kill(pid, "SIGTERM");
   if (now) {
     await sleep(1200);
-    if (same()) process.kill(pid, "SIGTERM");
+    // The launcher treats a second Ctrl+C (SIGINT) as "stop now"; SIGTERM alone never forces.
+    if (same()) process.kill(pid, "SIGINT");
   }
   const t0 = Date.now();
   let told = t0;

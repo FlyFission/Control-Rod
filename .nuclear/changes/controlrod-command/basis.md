@@ -19,7 +19,7 @@ The same day his start failed with "Control Rod could not start its database ...
 - The launcher writes `~/.controlrod/launcher.json` while it runs, so another terminal can find and stop it with the same signal as Ctrl+C. A launcher started before this change is found through the control plane listening on the port.
 - `update`: checks first (git clone, on `main`, fetch, fast-forward possible), stops a running copy gracefully, sets uncommitted edits aside in `git stash`, fast-forwards, installs, and builds with the new checkout's own `setup`. Any failure returns to the old commit and rebuilds it. A checkout left unbuilt is finished by the next `update`.
 - The control plane now prints PostgreSQL's own error lines with advice for the common causes (shared memory, a held lock file, a busy port, a version mismatch, permissions) instead of "undefined".
-- On macOS, `start` frees, and `doctor` reports (`--fix` frees), shared memory segments that are this user's, PostgreSQL's interlock size (56 bytes), not attached, and whose creating process no longer exists.
+- On macOS, `start` warns when System V shared memory is nearly used up, `doctor` lists segments that look left behind by PostgreSQL (this user's, 56 bytes, not attached, creator gone), and `doctor --fix` frees them on request.
 
 ## Reuse (patterns, no code copied)
 

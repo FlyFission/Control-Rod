@@ -33,7 +33,7 @@ export function pgStartFailure(pgDir: string, port: number, log: string[], error
   if (lock) {
     advice =
       `Another PostgreSQL${pid ? ` (process ${pid})` : ""} may still be using this data folder, usually one left behind when ` +
-      `Control Rod was stopped abruptly. Stop Control Rod everywhere (\`controlrod stop\`), wait a few seconds and start again. ` +
+      `Control Rod was stopped abruptly. Stop this Control Rod (\`controlrod stop\`) and any other one using this data folder, wait a few seconds and start again. ` +
       `If it still fails, check \`ps -p ${pid ?? "<pid>"} -o command=\`: if that is a postgres for ${pgDir}, stop it with ` +
       `\`kill ${pid ?? "<pid>"}\`. Do not delete files in ${pgDir}: it holds your records.`;
   } else if (/Address already in use/i.test(text)) {
@@ -44,11 +44,13 @@ export function pgStartFailure(pgDir: string, port: number, log: string[], error
     advice =
       `The data in ${pgDir} was made by a different PostgreSQL version than the bundled one. Keep the folder ` +
       `(it holds your records) and report this; do not delete it to get started.`;
-  } else if (/could not create shared memory segment|could not map anonymous shared memory/i.test(text)) {
+  } else if (/could not create shared memory segment/i.test(text) && /No space left on device/i.test(text)) {
     advice =
-      "The system has no shared memory left for PostgreSQL. This is not disk space: on macOS only 32 shared memory " +
-      "segments exist, and PostgreSQL runs that were killed leave theirs behind. `controlrod start` (or `pnpm cr start`) " +
-      "clears segments left by dead processes; restarting the computer clears them too.";
+      "The system has no System V shared memory segments left for PostgreSQL. This is not disk space: macOS allows only " +
+      "32 in all, and PostgreSQL runs that were killed leave theirs behind. `controlrod doctor` lists the ones whose " +
+      "PostgreSQL is gone and `controlrod doctor --fix` frees them; restarting the computer frees them too.";
+  } else if (/could not map anonymous shared memory|could not create shared memory segment/i.test(text)) {
+    advice = "The system would not give PostgreSQL the shared memory it asked for. Close memory-hungry programs or restart the computer, then try again.";
   } else if (/Permission denied/i.test(text)) {
     advice = `PostgreSQL cannot read or write ${pgDir}. It must be owned by you with permissions 700 (\`chmod 700 ${pgDir}\`).`;
   } else {

@@ -5,6 +5,7 @@
 // put their command in ~/.local/bin and, when that folder is not on PATH, add one line for it to the
 // shell's startup file, once.
 import { appendFileSync, chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { homedir, platform } from "node:os";
 import { basename, delimiter, dirname, join, resolve } from "node:path";
 
@@ -18,7 +19,16 @@ export const commandPath = (env = process.env) => join(binDir(env), "controlrod"
 
 const sq = (s) => `'${String(s).replaceAll("'", `'\\''`)}'`;
 
+const SEAL = "# controlrod-shim-sha256 ";
+const digest = (text) => createHash("sha256").update(text).digest("hex");
+
+/** The command script. Its last line seals the rest, so an edited copy is recognisably the person's. */
 export function shim(root, nodePath = process.execPath) {
+  const body = shimBody(root, nodePath);
+  return `${body}${SEAL}${digest(body)}\n`;
+}
+
+function shimBody(root, nodePath) {
   return `#!/bin/sh
 ${MARK} from the checkout below.
 # Run \`pnpm cr link\` in a checkout to point it there instead; \`pnpm cr unlink\` removes it.
@@ -28,14 +38,16 @@ if [ ! -f "$root/scripts/cr.mjs" ]; then
   exit 1
 fi
 export CONTROLROD_CLI=1
-if command -v node >/dev/null 2>&1; then
+# Node 22.12 or later: the one on PATH first (what version managers select), then the one that ran \`pnpm cr link\`.
+ok='const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)'
+if command -v node >/dev/null 2>&1 && node -e "$ok" 2>/dev/null; then
   exec node "$root/scripts/cr.mjs" "$@"
 fi
 node=${sq(nodePath)}
-if [ -x "$node" ]; then
+if [ -x "$node" ] && "$node" -e "$ok" 2>/dev/null; then
   PATH="$(dirname "$node"):$PATH" exec "$node" "$root/scripts/cr.mjs" "$@"
 fi
-echo "controlrod: Node.js was not found. Install Node 22.12 or later: https://nodejs.org" >&2
+echo "controlrod: Control Rod needs Node.js 22.12 or later (found: $(node --version 2>/dev/null || echo none)). https://nodejs.org" >&2
 exit 1
 `;
 }
@@ -51,7 +63,12 @@ export function ownerOf(path) {
   // A symlink (even a dangling one) or anything but a plain file is someone else's.
   if (!st.isFile()) return "foreign";
   try {
-    return readFileSync(path, "utf8").includes(MARK) ? "ours" : "foreign";
+    // Ours only if written by this (any version) and unchanged since: the seal still matches.
+    const text = readFileSync(path, "utf8");
+    const at = text.lastIndexOf(SEAL);
+    if (at < 0 || !text.includes(MARK)) return "foreign";
+    const body = text.slice(0, at);
+    return text.slice(at) === `${SEAL}${digest(body)}\n` ? "ours" : "foreign";
   } catch {
     return "foreign";
   }
@@ -71,7 +88,12 @@ export function shellProfile(dir, env = process.env, os = platform()) {
   const rest = dir.startsWith(`${home}/`) ? dir.slice(home.length + 1) : null;
   const line = rest !== null && /^[A-Za-z0-9._/-]+$/.test(rest) ? `export PATH="$HOME/${rest}:$PATH"` : `export PATH=${sq(dir)}":$PATH"`;
   if (shell === "zsh") return { file: join(env.ZDOTDIR ?? home, ".zshrc"), line };
-  if (shell === "bash") return { file: join(home, os === "darwin" ? ".bash_profile" : ".bashrc"), line };
+  if (shell === "bash") {
+    if (os !== "darwin") return { file: join(home, ".bashrc"), line };
+    // A login bash reads the first of these that exists; never create one that hides the others.
+    const first = [".bash_profile", ".bash_login", ".profile"].find((f) => existsSync(join(home, f)));
+    return { file: join(home, first ?? ".bash_profile"), line };
+  }
   return { file: join(home, ".profile"), line };
 }
 
@@ -123,7 +145,7 @@ export function refresh(root, env = process.env) {
   const path = commandPath(env);
   if (ownerOf(path) !== "ours") return false;
   const text = readFileSync(path, "utf8");
-  if (!text.includes(`root=${sq(root)}`)) return false;
+  if (!text.includes(`\nroot=${sq(root)}\n`)) return false;
   return link(root, { env, editProfile: false }).status === "written";
 }
 

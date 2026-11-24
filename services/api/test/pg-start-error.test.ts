@@ -13,7 +13,7 @@ describe("pgStartFailure", () => {
     expect(text).not.toContain("undefined");
     expect(text).toContain("could not create shared memory segment");
     expect(text).toContain("shared memory");
-    expect(text).toContain("controlrod start");
+    expect(text).toContain("controlrod doctor --fix");
     expect(text).not.toContain("starting PostgreSQL 17");
   });
 

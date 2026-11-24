@@ -16,7 +16,10 @@ import { commandPath, link, ownerOf, refresh, unlink } from "./lib/link.mjs";
 import { cleanEnv, gitRunner, update, UpdateError } from "./lib/update.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const home = process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod");
+// Resolved once against the folder the command was run in, and handed to every child as an
+// absolute path, so a relative CONTROLROD_HOME means the same folder everywhere.
+const home = resolve(process.env.INIT_CWD ?? process.cwd(), process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod"));
+process.env.CONTROLROD_HOME = home;
 const bin = join(home, "bin");
 const port = Number(process.env.CONTROLROD_PORT ?? 7300);
 const logFile = join(home, "logs", "controlrod.log");
@@ -158,7 +161,7 @@ function doctor({ agents = false, fix = false } = {}) {
     } else {
       console.log(
         `--    database memory: ${dead.length} shared memory segment${dead.length === 1 ? "" : "s"} left behind by PostgreSQL runs that were killed.` +
-          `\n      macOS has 32 in all; when they run out the database cannot start. \`${me} doctor --fix\` or \`${me} start\` frees them.`,
+          `\n      macOS has 32 in all; when they run out the database cannot start. \`${me} doctor --fix\` frees them (only ones whose PostgreSQL is gone).`,
       );
     }
   }
@@ -240,7 +243,7 @@ function setup() {
 
 /** Says what runs already; true when the caller should not start another. */
 async function alreadyRunning() {
-  const running = await findRunning(home, port);
+  const running = await findRunning(home, port, root);
   if (!running) return false;
   if (running.foreign) {
     console.error(
@@ -256,17 +259,18 @@ async function alreadyRunning() {
 
 /**
  * macOS has only 32 shared memory segments in all, and every PostgreSQL that is killed outright
- * leaves one behind; when they run out, no PostgreSQL starts. Only when they are about to run out,
- * free the PostgreSQL-sized ones whose creator is gone and that nothing is attached to.
+ * leaves one behind; when they run out, no PostgreSQL starts. Say so before starting; freeing them
+ * is the person's call (`doctor --fix`), since nothing proves a segment was PostgreSQL's.
  */
-function freeDeadDatabaseMemory() {
+function warnDeadDatabaseMemory() {
   if (platform() !== "darwin" || process.env.CONTROLROD_DATABASE_URL) return;
   const use = segmentUse();
   if (!use || use.used < use.limit - 2) return;
   const dead = orphanedSegments();
-  if (!dead.length) return;
-  const n = freeOrphanedSegments(dead);
-  if (n) console.log(`Freed ${n} shared memory segment${n === 1 ? "" : "s"} left behind by PostgreSQL runs that were stopped abruptly.`);
+  console.log(
+    `\nmacOS is almost out of shared memory segments (${use.used} of ${use.limit} in use), so the database may not start.` +
+      (dead.length ? `\n${dead.length} look left behind by PostgreSQL runs that were killed; \`${me} doctor --fix\` frees them, or restart the Mac.` : "\nRestarting the Mac frees them."),
+  );
 }
 
 /** The address the browser uses. In GitHub Codespaces that is the forwarded https address. */
@@ -298,7 +302,7 @@ async function start() {
   setup();
   // On a first run the database package was not installed yet when `doctor` looked; look again now.
   if (!databaseOk()) process.exit(1);
-  freeDeadDatabaseMemory();
+  warnDeadDatabaseMemory();
   const env = { ...process.env, CONTROLROD_HOME: home };
   // In GitHub Codespaces the browser reaches the app at a forwarded https address, not localhost, and a
   // passkey is bound to the address it was made on. Use that address unless the caller chose one.
@@ -347,9 +351,11 @@ async function start() {
       afterDaemon(() => process.exit(apiExitCode || 1));
     }
   });
-  const stop = () => {
+  // A second Ctrl+C (SIGINT) skips the drain. SIGTERM and SIGHUP, which `controlrod stop` and a
+  // closed terminal send, only ever ask for the graceful stop, however often they arrive.
+  const stop = (force) => {
     if (stopping) {
-      if (performance.now() - stopAt < 1000) return;
+      if (!force || performance.now() - stopAt < 1000) return;
       // A second Ctrl+C does not wait: stop both now. Unsaved completions stay in the daemon's outbox.
       console.error("\nStopping now.");
       if (daemon && !daemonExited) daemon.kill("SIGKILL");
@@ -369,9 +375,9 @@ async function start() {
     });
   };
   // Installed before the health wait, so a Ctrl+C during startup also stops the control plane.
-  process.on("SIGINT", stop);
-  process.on("SIGTERM", stop);
-  process.on("SIGHUP", stop);
+  process.on("SIGINT", () => stop(true));
+  process.on("SIGTERM", () => stop(false));
+  process.on("SIGHUP", () => stop(false));
   // If the launcher exits any other way (an error such as a failed start), take the children with it.
   process.on("exit", () => {
     clearRecord(home);
@@ -539,7 +545,7 @@ async function startBackground() {
   if (child.exitCode === null && alive(child.pid)) child.kill("SIGTERM");
   else {
     // Another start won the race: that one is running, which is what was asked for.
-    const other = await findRunning(home, port);
+    const other = await findRunning(home, port, root);
     if (other && !other.foreign) {
       console.log(`\nControl Rod is already running at ${readRecord(home)?.url ?? appUrl()} (started by another command).`);
       return 0;
@@ -551,7 +557,7 @@ async function startBackground() {
 }
 
 async function stopCommand({ now = false, quiet = false } = {}) {
-  const running = await findRunning(home, port);
+  const running = await findRunning(home, port, root);
   if (!running) {
     if (!quiet) console.log("Control Rod is not running.");
     return { code: 0, wasRunning: false };
@@ -583,7 +589,7 @@ function startHere() {
 }
 
 async function status() {
-  const running = await findRunning(home, port);
+  const running = await findRunning(home, port, root);
   const r = readRecord(home);
   console.log(versionLine());
   console.log(`  code:  ${root}`);
@@ -616,7 +622,7 @@ function openUrl(url) {
 }
 
 async function openCommand() {
-  const running = await findRunning(home, port);
+  const running = await findRunning(home, port, root);
   if (running?.foreign) {
     console.error(`Port ${port} is in use by something else${running.command ? `: ${running.command}` : ""}.`);
     return 1;
@@ -778,7 +784,7 @@ program.command("restart").description("stop, then start again the same way")
     const s = await stopCommand({ now: o.now, quiet: true });
     if (s.code !== 0) exit(s.code);
     if (s.mode === "background" || o.background) exit(await startBackground());
-    else await start();
+    else exit(await startHere());
   });
 program.command("status").description("is it running, where, and which version").action(async () => exit(await status()));
 program.command("open").description("open the app in your browser (starts it in the background if needed)").action(async () => exit(await openCommand()));

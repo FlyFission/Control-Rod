@@ -16,7 +16,7 @@ You do not have to adopt the full board or set up a local database to see what C
 
 ## Option 1: Run locally on any git branch
 
-Build the CLI once from this repository (requires Go `1.23+` or `mise install`, plus signed-in `claude` and `codex` CLIs):
+Build the CLI once from this repository (requires Go `1.24+` or `mise install`, plus signed-in `claude` and `codex` CLIs):
 
 ```sh
 cd daemon && go build -o ~/.local/bin/controlrod ./cmd/controlrod
@@ -27,13 +27,13 @@ Then, inside **any git repository** where an agent just wrote changes on a branc
 ```sh
 controlrod check \
   --author-runtime claude \
-  --checker-runtime codex \
+  --checker codex \
   --base main \
   --head HEAD \
   --criteria-text "1. Callback rejects missing or mismatched PKCE state before token exchange.
 2. Expired state cookies return 401 and clear session state.
 3. No test assertions were weakened or skipped." \
-  --format markdown
+  --output markdown
 ```
 
 ### Exit codes (built for scripts and CI gates)

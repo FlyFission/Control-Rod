@@ -9,7 +9,7 @@
  */
 import { cpSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = resolve(ROOT, "site");
@@ -44,7 +44,7 @@ export function buildSite() {
   return DIST;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const out = buildSite();
   console.log(`Built static landing site -> ${out}`);
 }

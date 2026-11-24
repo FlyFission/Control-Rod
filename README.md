@@ -35,16 +35,16 @@
 Not ready to spin up the full board yet? Run Control Rod's cross-vendor blind checker standalone on **any git branch or GitHub pull request** with [`controlrod check`](docs/quickstart-check.md) or the reusable [`packages/check-action`](packages/check-action/README.md):
 
 ```sh
-# 1. Build the standalone CLI once (requires Go 1.23+ and signed-in claude + codex CLIs)
+# 1. Build the standalone CLI once (requires Go 1.24+ and signed-in claude + codex CLIs)
 cd daemon && go build -o ~/.local/bin/controlrod ./cmd/controlrod
 
 # 2. Check any branch diff against base-branch criteria using a distinct vendor family
 controlrod check \
   --author-runtime claude \
-  --checker-runtime codex \
+  --checker codex \
   --base main --head HEAD \
   --criteria docs/acceptance.md \
-  --format markdown
+  --output markdown
 ```
 
 ![Control Rod verifiable PR provenance receipt comparing full governed workspace receipts and standalone CLI checks.](docs/assets/readme/pr-receipt-card.svg)

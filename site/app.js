@@ -17,9 +17,9 @@ cd daemon && go build -o ~/.local/bin/controlrod ./cmd/controlrod
 
 controlrod check \\
   --author-runtime claude \\
-  --checker-runtime codex \\
+  --checker codex \\
   --base main --head HEAD \\
-  --criteria docs/acceptance.md --format markdown`,
+  --criteria docs/acceptance.md --output markdown`,
       note: "Zero Postgres or web server needed. Enforces distinct vendor families (exit 0 pass, 1 fail/inconclusive, 2 refused).",
     },
     action: {
@@ -300,8 +300,8 @@ No further review needed—all edge cases around cookie TTL are handled."
 -----------------------------------------------------------------------
 [BLIND WALL] -> STRIPPED BEFORE STAGE 3
 Why: Published studies show LLM judges recognize their own phrasing 73.5%
-of the time (Panickssery 2024) and fold under confident framing up to 98%
-of the time (Sharma 2023). Stripping the pitch forces Codex to judge the
+of the time (Panickssery 2024) and wrongly concede a correct answer when challenged up
+to 98% of the time (Sharma 2023). Stripping the pitch forces Codex to judge the
 bytes of the diff and test output alone.`;
 
   let inspMode = "receipt";

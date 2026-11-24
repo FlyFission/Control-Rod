@@ -6,12 +6,13 @@
  */
 import { createServer } from "node:http";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { extname, normalize, resolve } from "node:path";
+import { extname, normalize, resolve, sep } from "node:path";
 import { buildSite } from "./build-site.mjs";
 
 const DIST = buildSite();
 const PORT = Number(process.env.SITE_PORT || 7310);
-const HOST = process.env.SITE_HOST || "0.0.0.0";
+// Loopback by default: a local preview should not be reachable from the network.
+const HOST = process.env.SITE_HOST || "127.0.0.1";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -27,10 +28,17 @@ const MIME = {
 };
 
 const server = createServer((req, res) => {
-  const urlPath = new URL(req.url || "/", `http://${HOST}:${PORT}`).pathname;
-  const rel = normalize(decodeURIComponent(urlPath)).replace(/^(\.\.(\/|\\|$))+/, "");
+  let rel;
+  try {
+    const urlPath = new URL(req.url || "/", "http://localhost").pathname;
+    rel = normalize(decodeURIComponent(urlPath)).replace(/^(\.\.(\/|\\|$))+/, "");
+  } catch {
+    res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Bad request");
+    return;
+  }
   let filePath = resolve(DIST, "." + (rel === "/" ? "/index.html" : rel));
-  if (!filePath.startsWith(DIST)) {
+  if (filePath !== DIST && !filePath.startsWith(DIST + sep)) {
     res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("Forbidden");
     return;
@@ -53,5 +61,5 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Control Rod landing page listening on http://localhost:${PORT}`);
+  console.log(`Control Rod landing page listening on http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
 });

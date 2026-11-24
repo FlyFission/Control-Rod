@@ -53,7 +53,7 @@ async function mockBoardApi(page: Page, look: string) {
   });
   await page.route("**/inbox**", (r) => r.fulfill({ json: { items: [], since: [] } }));
   await page.route("**/office", (r) => r.fulfill({ json: [{ id: "o1", kind: "accept", package_id: "WP-1", package_revision: 0 }] }));
-  await page.route("**/admin", (r) => r.fulfill({ json: { members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [] } } }));
+  await page.route("**/admin", (r) => r.fulfill({ json: { bootstrap: false, actions: [], members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [] } } }));
   await page.route("**/packages", (r) => r.fulfill({ json: packages }));
   await page.route("**/packages/*", (r) => {
     const id = new URL(r.request().url()).pathname.split("/")[2];

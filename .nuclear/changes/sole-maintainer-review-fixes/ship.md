@@ -9,11 +9,11 @@ Release decision: **draft pull request for the owner's yes; no merge or release 
 
 | Field | Entry |
 |---|---|
-| Decision | not yet given |
-| Question | not yet asked |
-| Answer | not yet given |
-| Given | not yet given |
-| Recorded by | not yet recorded |
+| Decision | Approve: merge on green CI |
+| Question | "Should I merge #98 — it changes `docs/adr/` (new ADR 0025 sole-maintainer sign-off, renamed from 0024 to resolve the collision with the accepted council-first ADR; ADR 0001 gains an 'Amended by' line) and `.github/` (the PR and issue templates list all of `.github/` and `docs/adr/` as trust surfaces), and it confirms the `.github/` edits #97 made?" |
+| Answer | "yes" (2026-11-24 sign-off form, this session) |
+| Given | 2026-11-24, Claude Code session sign-off form |
+| Recorded by | The implementing agent, from the sign-off form answer. Ben Huffer did not type this entry, and no signature or initials were typed for him. |
 
 ## Rollback and monitoring
 

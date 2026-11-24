@@ -15,6 +15,9 @@ import { OfficeStage } from "./OfficeStage.js";
 import { PLANT_LAYOUT } from "./plant-layout.js";
 import { type Read, annunciator, coreState, emptyFloorNote, rodState } from "./plant-instruments.js";
 import { PlantList } from "./PlantList.js";
+import { PlantScene } from "./plant-scene/PlantScene.js";
+import { SCENE_LAYOUT } from "./plant-scene/scene-layout.js";
+import { RodGauge } from "../../design/instruments/RodGauge.js";
 import { PLANT_THEME, archivedThemeChoices, draftBuild } from "./registry.js";
 import { seatFigures } from "./seat.js";
 
@@ -141,7 +144,16 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const exceptions = useMemo(() => exceptionsView(floor?.figures ?? [], showEveryone), [floor, showEveryone]);
   const projects = useMemo(() => portfolio(floor?.figures ?? []), [floor]);
   const groups = useMemo(() => causeGroups(floor?.figures ?? []), [floor]);
-  const { seated, overflow } = useMemo(() => seatFigures(exceptions.shown, active.tint, active.unavailable ? undefined : active, layout), [exceptions, active, layout]);
+  const { seated, overflow } = useMemo(() => seatFigures(exceptions.shown, active.tint, active.unavailable ? undefined : active, isPlant ? SCENE_LAYOUT : layout), [exceptions, active, layout, isPlant]);
+  // Every figure on the floor, by place, so a room is lit while it holds one even when its figure is folded or over capacity.
+  const occupancy = useMemo(() => {
+    const m = new Map<string, { count: number; working: number }>();
+    for (const f of floor?.figures ?? []) {
+      const o = m.get(f.place) ?? { count: 0, working: 0 };
+      m.set(f.place, { count: o.count + 1, working: o.working + (f.state === "working" ? 1 : 0) });
+    }
+    return m;
+  }, [floor]);
   const floorRead = readOf(q, now);
   const scramRead = readOf(scrams, now);
   const windows = annunciator(floorRead, scramRead);
@@ -152,7 +164,10 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
     <section className="office-view" aria-labelledby="office-title">
       <header className="office-head">
         <div className="plant-title">
-          <h1 id="office-title">Plant</h1>
+          <div className="plant-title-row">
+            <h1 id="office-title">Plant</h1>
+            {isPlant && <RodGauge position={instruments.rods.position} {...(instruments.rods.caption ? { caption: instruments.rods.caption } : {})} />}
+          </div>
           {isPlant ? (
             floor && (
               <p className="office-count">
@@ -316,17 +331,10 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           <div className="office-scroll">
             {showList ? (
               <PlantList figures={floor.figures} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
+            ) : isPlant ? (
+              <PlantScene figures={seated} selected={selected} onSelect={setSelected} instruments={instruments} occupancy={occupancy} labels={theme.regions} />
             ) : (
               <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} {...(isPlant ? { instruments } : {})} />
-            )}
-            {isPlant && !showList && (
-              <ul className="plant-legend" aria-label="Zones">
-                {PLANT_LAYOUT.zones.map((z) => (
-                  <li key={z.id}>
-                    <strong>{z.name}</strong>: {z.meaning}
-                  </li>
-                ))}
-              </ul>
             )}
             {floor.figures.length === 0 && (
               <p className="office-note">

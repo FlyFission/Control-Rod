@@ -1,0 +1,223 @@
+{
+  "generated_by": "tools/cut_plant_layers.py",
+  "canvas": [
+    2400,
+    1500
+  ],
+  "inputs": {
+    "design/art/source/base-dark.webp": "4721cb5656b94381add3af0f857d61742dc889c223f1bd86043bb5a80c916a68",
+    "design/art/source/base-lit.webp": "68e2ed555a57ab6a6497febcccb37ad13e9e6dc5a82b7ea4d4158d3b9e219064",
+    "design/art/source/core-tripped.webp": "535e1bf7b67906bef7990391db292a4211b7af924d15090b23af39a53dc058da",
+    "design/art/source/crew-needs-you.webp": "972bff587242e0893c5b7d40db28896a53ea00c3c841686db091329fcd898200",
+    "design/art/source/crew-stuck.webp": "24ca50459664a019d5ac1f95a77258578e54647de5d7e4c4efb819e017d78020",
+    "design/art/source/crew-waiting.webp": "46776994b828fffc38eb66d8a0c5174c9365754958bf2927850c52a37a7ad8a4",
+    "design/art/source/crew-working.webp": "e7e63b9bff57b33e09958973fd1824ffb48d9275ee9dbbeae3cbf9cdc8f01dd7",
+    "design/art/blockout/anchors.json": "ed619c2d75e4cc7eb6d62d45d00f6814bf1f95f7d1fad07d5be5a7aad5239d5e",
+    "design/art/blockout/room-masks/process.png": "02688f616843c181c5136c1c8843c3e187a069479930f454bc5c3cbd44ee785f",
+    "design/art/blockout/room-masks/mechanical.png": "74ca6c1fa87d593e93080dbdb1e01a61a19c4ecdd9306db6692760f1b1f1f44e",
+    "design/art/blockout/room-masks/electrical.png": "02688f616843c181c5136c1c8843c3e187a069479930f454bc5c3cbd44ee785f",
+    "design/art/blockout/room-masks/civil.png": "d2978f3c72034db82756946d3831be4d3b81175174554fe6fd25f696f623930f",
+    "design/art/blockout/room-masks/assurance.png": "595bf23751831711fbce1b1c22ff02a2744d54fd55ffd6e18c0224ac24058891",
+    "design/art/blockout/room-masks/project-controls.png": "d2978f3c72034db82756946d3831be4d3b81175174554fe6fd25f696f623930f",
+    "design/art/blockout/room-masks/review.png": "3ef415c650ec1347685b3e47b8ca1802936bc1505b646f8b48bd774ae742bfdc",
+    "design/art/blockout/room-masks/interface.png": "93cdfc67c64a6d47d7024b07081579567dff7c1cfbbb177e26251a679858c736",
+    "design/art/blockout/room-masks/verification.png": "3ef415c650ec1347685b3e47b8ca1802936bc1505b646f8b48bd774ae742bfdc",
+    "design/art/blockout/room-masks/your-office.png": "3ef415c650ec1347685b3e47b8ca1802936bc1505b646f8b48bd774ae742bfdc",
+    "design/art/blockout/room-masks/document-control.png": "c1300933f03829ce5c135ebfb0da6b7640f09a3d35f53387da16bb3120b6219a",
+    "design/art/blockout/room-masks/bench.png": "7f8d5575a1e6d22b2c76069dbcba61f806ca3c9117f58a6812e112144f86e777",
+    "design/art/blockout/room-masks/quarantine.png": "7f8d5575a1e6d22b2c76069dbcba61f806ca3c9117f58a6812e112144f86e777"
+  },
+  "outputs": [
+    {
+      "path": "base-1440.webp",
+      "size": [
+        1440,
+        900
+      ],
+      "bytes": 109036,
+      "sha256": "42b7d38e3cd7868e74b3005293dc5749d9db6a0432a5cf03dcf04546fb719744"
+    },
+    {
+      "path": "base.webp",
+      "size": [
+        2400,
+        1500
+      ],
+      "bytes": 223432,
+      "sha256": "8b42fc541aec2d4cc3bd8a59603cdbe2df746b421389508e5d7a5ab1eef366ea"
+    },
+    {
+      "path": "core-healthy.webp",
+      "size": [
+        1330,
+        992
+      ],
+      "bytes": 143164,
+      "sha256": "e2b64e7ef38264d78ed398cc822b210c07dece302561bc23669512fcdd90dcd1"
+    },
+    {
+      "path": "core-tripped.webp",
+      "size": [
+        1330,
+        992
+      ],
+      "bytes": 152344,
+      "sha256": "3236b745b02130db383ee0da11a885a96f97845034f7544b95420d892b55756e"
+    },
+    {
+      "path": "crew/needs-you.webp",
+      "size": [
+        128,
+        128
+      ],
+      "bytes": 4348,
+      "sha256": "926808334dd7acf8359fac2ef858c664139877ec2bd3d9aaba356f5db257bf1b"
+    },
+    {
+      "path": "crew/stuck.webp",
+      "size": [
+        128,
+        128
+      ],
+      "bytes": 3648,
+      "sha256": "cda9a2d7809c17b4e0e7c73840545d0a8cb939cc17aa85aeaf2b7f59e67cfca1"
+    },
+    {
+      "path": "crew/waiting.webp",
+      "size": [
+        128,
+        128
+      ],
+      "bytes": 4118,
+      "sha256": "3aaf58b67b4b93f7049c052c12d6d70558628c90bfc0f0cf2b7804bb1ecd3e4b"
+    },
+    {
+      "path": "crew/working.webp",
+      "size": [
+        128,
+        128
+      ],
+      "bytes": 4640,
+      "sha256": "28cf99c6e393ce09537a94a9d1b757a499ae2b0cf41dad0ef30ea3eca8911f1b"
+    },
+    {
+      "path": "rooms/assurance-lit.webp",
+      "size": [
+        261,
+        242
+      ],
+      "bytes": 10590,
+      "sha256": "9197f67763031685bb0d0abd78366cc54cfd25e423651174f4735850fb7b79c6"
+    },
+    {
+      "path": "rooms/bench-lit.webp",
+      "size": [
+        331,
+        231
+      ],
+      "bytes": 11488,
+      "sha256": "4dd297237b851dd75a5262c38b4c321f71a02f6441eadc49c42cecdde644de83"
+    },
+    {
+      "path": "rooms/civil-lit.webp",
+      "size": [
+        262,
+        242
+      ],
+      "bytes": 8994,
+      "sha256": "47a4889b30aabf55822604fb23d9050acd9cf577be86ae71caafd0586abab4fd"
+    },
+    {
+      "path": "rooms/document-control-lit.webp",
+      "size": [
+        331,
+        232
+      ],
+      "bytes": 12018,
+      "sha256": "6402bf93e27723f535d7083df4969e1a806bd9c97aa1ccf997a0bd3b06b8417d"
+    },
+    {
+      "path": "rooms/electrical-lit.webp",
+      "size": [
+        262,
+        242
+      ],
+      "bytes": 10150,
+      "sha256": "b135f3f21c195922fefa169dc81fd8238769f9c124d9b1dd41dd34113f8d425d"
+    },
+    {
+      "path": "rooms/interface-lit.webp",
+      "size": [
+        253,
+        227
+      ],
+      "bytes": 10450,
+      "sha256": "4f2ab3fc491db3520a2818f59c5ab7d330f2fdc56155c7fe407c01699879054f"
+    },
+    {
+      "path": "rooms/mechanical-lit.webp",
+      "size": [
+        261,
+        242
+      ],
+      "bytes": 11736,
+      "sha256": "696d047a4d9a1e487ded494c2e2a7f6664afc0f371b337f8c4629e02b669325d"
+    },
+    {
+      "path": "rooms/process-lit.webp",
+      "size": [
+        262,
+        242
+      ],
+      "bytes": 10470,
+      "sha256": "7b75bd5d77dd78f7fe82dcfdebf39a1691a7552476df610754fc7ec01b413338"
+    },
+    {
+      "path": "rooms/project-controls-lit.webp",
+      "size": [
+        262,
+        242
+      ],
+      "bytes": 11812,
+      "sha256": "fc5e9b844f1ceedf56737f713e9a5c483d39196b2f8be139a0ba4f6ada21c203"
+    },
+    {
+      "path": "rooms/quarantine-lit.webp",
+      "size": [
+        331,
+        231
+      ],
+      "bytes": 10570,
+      "sha256": "8aef2722705ebae035163b3d459676e65cfc0d9938d644be096181d44faf1630"
+    },
+    {
+      "path": "rooms/review-lit.webp",
+      "size": [
+        253,
+        227
+      ],
+      "bytes": 8998,
+      "sha256": "3b5e59690faa07d9adbb57a74bd28c3684a477227816fd3e04f1ce78c5cf6287"
+    },
+    {
+      "path": "rooms/verification-lit.webp",
+      "size": [
+        253,
+        227
+      ],
+      "bytes": 9502,
+      "sha256": "ea7ffd817bfbbc067f8b3d6681f227020b2dff13e3f8c6b692d0442dc83d5c94"
+    },
+    {
+      "path": "rooms/your-office-lit.webp",
+      "size": [
+        253,
+        227
+      ],
+      "bytes": 10536,
+      "sha256": "65c3fe11e641c44bfddbe53cf8f0e5c620f1926eb5a720145bf0c196631edb3b"
+    }
+  ],
+  "bytes_1440_path": 558612,
+  "budget_1440_path": 1500000
+}

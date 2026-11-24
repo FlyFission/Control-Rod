@@ -271,9 +271,11 @@ describe("the Plant and the archived office themes", () => {
   it("opens on the Plant, with its site drawing and no theme picker in the header", async () => {
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().length).toBe(14);
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
-    expect(document.querySelector('[data-site]')).toBeTruthy();
+    // The Plant is the painted scene (application art under /plant), not a theme: no theme art loads.
+    expect(art().length).toBe(0);
+    expect(document.querySelector(".plant-scene")).toBeTruthy();
+    expect([...document.querySelectorAll<HTMLImageElement>(".plant-scene [data-hero]")].every((i) => (i.getAttribute("src") ?? "").startsWith("/plant/"))).toBe(true);
+    expect(screen.getByRole("img", { name: /Control rods withdrawn/ })).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
     expect(screen.getByRole("heading", { name: "Plant" })).toBeTruthy();
   });
@@ -302,25 +304,25 @@ describe("the Plant and the archived office themes", () => {
     await screen.findByRole("button", { name: /^WP-0001/ });
     await waitFor(() => expect(art().every((src) => src.startsWith("/office-themes/orbital-shipyard/"))).toBe(true));
     await userEvent.click(screen.getByRole("button", { name: "Back to the Plant" }));
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(art().length === 0 && Boolean(document.querySelector(".plant-scene"))).toBe(true);
     again.unmount();
     // Another member signing in on this browser gets their own choice, not the last member's.
     member = "dora";
     await renderPage(<OfficeView drafts />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(art().length === 0 && Boolean(document.querySelector(".plant-scene"))).toBe(true);
   });
 
   it("lands everyone on the Plant once: the old office theme choice is not read, and a choice this build does not offer falls back", async () => {
     localStorage.setItem("controlrod.office.theme.ben", "orbital-shipyard");
     const first = await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(art().length === 0 && Boolean(document.querySelector(".plant-scene"))).toBe(true);
     first.unmount();
     localStorage.setItem("controlrod.plant.view.ben", "harness-bright");
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(art().length === 0 && Boolean(document.querySelector(".plant-scene"))).toBe(true);
   });
 
   it("lists every agent by zone and place, and opens the same card from the list", async () => {

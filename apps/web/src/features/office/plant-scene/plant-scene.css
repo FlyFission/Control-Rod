@@ -1,0 +1,241 @@
+/*
+ * The painted Plant. One canvas (2400 x 1500) scaled to its container: --u is one canvas unit in
+ * screen pixels. Painted layers are raster images under the semantic layer, which holds the
+ * focusable figures and room names at fixed pixel sizes, so text never shrinks with the picture.
+ */
+.plant-scene {
+  --office-plate: var(--plant-ground, #000e23);
+  --office-ring: transparent; /* the painted art gives figures their own edge */
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  background: var(--plant-ground, #000e23);
+  border: 1px solid var(--plant-linework, #255375);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.plant-scene[data-scram] {
+  border-color: var(--plant-trip, #db535f);
+}
+.plant-scene-canvas {
+  --u: calc(100cqw / 2400);
+  position: relative;
+  width: 100%;
+  isolation: isolate;
+}
+.plant-scene-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+.plant-scene-art * {
+  pointer-events: none;
+}
+.plant-art,
+.plant-crew {
+  position: absolute;
+  display: block;
+  max-width: none;
+}
+/* Room and core state changes are 200 ms opacity crossfades; instant under reduced motion. */
+.plant-fade {
+  transition: opacity 200ms linear;
+}
+.plant-fade[data-room][data-lit="false"],
+.plant-fade[data-core][data-shown="false"] {
+  opacity: 0;
+}
+.plant-fade[data-core][data-cold] {
+  filter: brightness(0.55) saturate(0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .plant-fade {
+    transition: none;
+  }
+}
+.plant-scene[data-motion="still"] .plant-fade {
+  transition: none;
+}
+.plant-scene-flow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.plant-flow-stripe {
+  fill: none;
+  stroke: var(--plant-screen, #3b95b7);
+  stroke-width: 9;
+  stroke-dasharray: 26 14;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+.plant-flow-stripe[data-tone="needs-you"] {
+  stroke: var(--plant-needs-you, #fbc246);
+}
+.plant-lamp {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--plant-core-glow, #6bd8f0);
+  box-shadow: 0 0 6px 1px currentColor;
+  color: var(--plant-core-glow, #6bd8f0);
+}
+.plant-lamp[data-tone="needs-you"] {
+  background: var(--plant-needs-you, #fbc246);
+  color: var(--plant-needs-you, #fbc246);
+}
+.plant-lamp[data-tone="trip"] {
+  background: var(--plant-trip, #db535f);
+  color: var(--plant-trip, #db535f);
+}
+.plant-lamp[data-tone="neutral"] {
+  width: 12px;
+  height: 12px;
+  background: var(--plant-surface, #091930);
+  color: var(--plant-screen, #3b95b7);
+  box-shadow: 0 0 0 1px var(--plant-screen, #3b95b7);
+}
+.plant-lamp svg {
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: var(--plant-screen, #3b95b7);
+  stroke-width: 1.4;
+}
+.plant-lamp[data-pulse] {
+  width: 14px;
+  height: 14px;
+  animation: plant-lamp-pulse 4s ease-in-out infinite;
+}
+@keyframes plant-lamp-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+.plant-scene[data-motion="still"] .plant-lamp[data-pulse] {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .plant-lamp[data-pulse] {
+    animation: none;
+  }
+}
+
+/* Semantic layer. */
+.plant-scene .office-semantic {
+  z-index: 1;
+}
+.plant-room-label {
+  position: absolute;
+  transform: translate(-50%, 0);
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--plant-ground, #000e23);
+  color: var(--plant-screen, #3b95b7);
+  font-family: var(--sans);
+  font-size: var(--fs-label);
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.plant-reactor {
+  pointer-events: none;
+}
+.plant-reactor-plate {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  background: var(--plant-ground, #000e23);
+  box-shadow: 0 0 0 1px var(--plant-linework, #255375);
+  font-size: var(--fs-label);
+  line-height: 1.25;
+  text-align: center;
+  max-width: 90%;
+}
+.plant-reactor-name {
+  font-weight: 700;
+  color: var(--plant-core-glow, #6bd8f0);
+}
+.plant-reactor-caption {
+  color: var(--text, #e8f0f8);
+}
+.plant-reactor-caption[data-trip] {
+  box-shadow: inset 3px 0 0 var(--plant-trip, #db535f);
+  padding-left: 6px;
+}
+
+/* A figure: a button standing on its seat's floor anchor, its label above, no always-on ring. */
+.plant-figure-slot {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.plant-scene .office-figure {
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -100%);
+  flex-direction: column-reverse;
+  gap: 0;
+}
+.plant-scene .office-figure-outline {
+  width: calc(34 * var(--u));
+  height: calc(46 * var(--u));
+  min-width: 18px;
+  min-height: 24px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  box-shadow: none;
+  animation: none;
+}
+.plant-scene .office-figure:focus-visible .office-figure-outline,
+.plant-scene .office-figure[aria-pressed="true"] .office-figure-outline {
+  border-color: var(--accent, #00f2ff);
+}
+.plant-scene .office-figure-code {
+  margin: 0 0 1px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0;
+  box-shadow: none;
+  color: var(--text, #e8f0f8);
+}
+.plant-scene .office-figure-mark {
+  top: auto;
+  bottom: 2px;
+  left: calc(50% + 8px);
+  width: 18px;
+  height: 18px;
+  box-shadow: none;
+}
+.plant-scene .office-figure-flags {
+  top: auto;
+  bottom: 2px;
+  left: calc(50% - 22px);
+  box-shadow: none;
+}
+.plant-scene .office-figure-safety {
+  display: none;
+}
+.plant-scene .office-figure[data-safety] .office-figure-code {
+  box-shadow: inset 0 -2px 0 var(--text, #e8f0f8);
+}
+
+/* The rod gauge sits beside the Plant title. */
+.plant-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

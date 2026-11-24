@@ -440,7 +440,7 @@ function PlantConsole({
   );
 }
 
-function FigureMark({
+export function FigureMark({
   canvas,
   figure: f,
   selected,

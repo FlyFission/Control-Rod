@@ -11,7 +11,7 @@ Release decision: **authorized on green CI without a sign-off table entry for th
 
 The follow-up change will commit `proposed-release-workflow.yml` (in this record) verbatim as `.github/workflows/release.yml`. The question, asked in the prep PR:
 
-> "Do you approve committing the proposed release workflow from .nuclear/changes/r3-distribution-prep/proposed-release-workflow.yml verbatim as .github/workflows/release.yml — a new trust surface under .github/? It is on-demand only (workflow_dispatch with a tag, a notes-from ref and an optional preamble), refuses a tag that is not annotated, not on main, or whose commit lacks a green ci run, attaches that run's control-rod-sbom.cdx.json, and creates the GitHub release with git-generated notes using only the job token. It never runs on push; the first release also waits on your version string and macOS check."
+> "Do you approve committing the proposed release workflow from .nuclear/changes/r3-distribution-prep/proposed-release-workflow.yml verbatim as .github/workflows/release.yml — a new trust surface under .github/? It is on-demand only (workflow_dispatch with a tag and a notes path), refuses a tag that is not annotated, not on main, or whose commit lacks a green ci run, refuses to run unless the release notes file is committed at the tag (so it publishes the reviewed bytes, never notes generated at dispatch time), attaches that run's control-rod-sbom.cdx.json, and creates the GitHub release using only the job token. It never runs on push; the first release also waits on your version string and macOS check."
 
 The answer, when given in the owner's own words, goes in the follow-up record's Signature table under the ADR 0025 conditions. Until then, no `.github/` file is written.
 

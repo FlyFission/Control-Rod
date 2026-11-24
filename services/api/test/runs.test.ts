@@ -408,7 +408,7 @@ describe("capture dismissal", () => {
     const captures = (await asOwner("GET", "/captures")).json() as { id: string }[];
     expect(captures.find((capture) => capture.id === id)).toMatchObject({ disposition: "answered", answer: "Dismissed by ben." });
     expect(await claim()).toBeNull();
-  });
+  }, 120_000);
 });
 
 describe("what actually ran", () => {

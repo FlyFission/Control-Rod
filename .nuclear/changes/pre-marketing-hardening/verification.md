@@ -19,9 +19,21 @@
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local compiler and bundler | separated: owner retains merge decision | coupled: local machine | self-check | Static checks only; full integration deferred to CI  [Ship limits](ship.md) |
-| E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local Vitest/MSW suite | separated: owner retains merge decision | coupled: local machine | self-check | jsdom + MSW mocks; live Chromium e2e pending CI  [Ship limits](ship.md) |
+| E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local Vitest/MSW suite | separated: owner retains merge decision | coupled: local machine | self-check | jsdom + MSW mocks only. CI runs Vitest, not the Playwright e2e specs (`.github/workflows/ci.yml` test job), so live Chromium e2e is not covered by CI for this change  [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic `go test ./...` suite | separated: owner retains merge decision | coupled: local machine | self-check | Full Go runner/digest suites passed on macOS host  [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: implementation session | separated: deterministic `vitest` and Python gates | separated: owner retains merge decision | coupled: local machine | self-check | 59 DB-backed API tests blocked by macOS SysV shm `initdb`; Linux CI runs full DB suite  [Ship limits](ship.md) |
+
+## Review fixes (Codex blind check of PR #164)
+
+Fixed on `claude/project-thread-2ozsln` after the Codex blind check; findings and lines are in the review note `pr164-pr165-codex-findings.md`.
+
+- P1 egress: a ChatGPT-signed-in Codex reaches `chatgpt.com` and `auth.openai.com`, which are not model endpoints in `models.json`. `harnessSignInHosts` in `daemon/internal/runner/daemon.go` adds them to the Codex author allowlist only. Test: `TestAuthorEgressHostsAllowCodexChatGPTSignIn`, and the Codex case of `TestWireAuthorEgressFilterPoliciesAndCheckerSkip`.
+- P2 lock order: `dismissCapture` now locks the intake runs before the capture, the same order as the intake claim.
+- P2 completion events: savepoints are refused by the command executor, so `recordRunEvents` refuses an `events_from` whose origins would not fit the int column before it writes anything, and the refused-completion path rethrows any non-refusal error instead of writing into an aborted transaction. Test: "refuses an events_from whose origins would overflow" in `services/api/test/run-events.test.ts`.
+- P2 shutdown: `pnpm cr start` stops the daemon first and waits for it to exit with no fixed cap (the daemon bounds its own grace, stop ladder and drain), including when the control plane exits unexpectedly. A second Ctrl+C stops both at once.
+- P3: `apps/web/e2e/phase3-exit.spec.ts` uses `.places-group-toggle`, the class the shell renders. A local Chromium run of that spec passes 2, skips 1 and fails 2 (the keyboard test stops at its skip-link step, before the group toggles, and the 320 px reflow test). The same two fail the same way without these fixes, so they are recorded as follow-ups, not caused here.
+
+Local results for these fixes: daemon `go vet` and `go test ./...` pass apart from the bubblewrap checker tests (no `bwrap` on the test machine); API suite 897 passed, 2 failed (SEC-01 and SEC-03, the trust-authentication environment issue in `docs/status.md`); web typecheck and Vitest 823 passed.
 
 ## Required links
 

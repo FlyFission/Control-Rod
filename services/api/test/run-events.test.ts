@@ -67,6 +67,20 @@ describe("run stories", () => {
     expect((await kinds()).slice(3)).toEqual(["dropped", "message:f", "exit:exited"]);
   });
 
+  it("refuses an events_from whose origins would overflow, and still ends a completion that carries one", async () => {
+    const job = await claimed("WP-EV-BIG", "fake");
+    const msg = (text: string) => ({ kind: "message", at: at(), text });
+    // run_events.origin is a PostgreSQL int: the last origin of this batch would be one past its largest value.
+    const big = 2147483647;
+    expect((await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [msg("a"), msg("b")], events_from: big })).statusCode).toBe(400);
+    expect((await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [msg("a")], events_from: big })).statusCode).toBe(200);
+    const done = { status: "failed", error: "x", outputs: [], idempotency_key: "events-key-big", events: [msg("b"), msg("c")], events_from: big + 1 };
+    const res = await daemon(`/runner/runs/${job.run.id}/complete`, done);
+    expect(res.statusCode, res.body).toBeLessThan(500);
+    const status = (await h.db.query<{ status: string }>("select status from runs where id = $1", [job.run.id])).rows[0]!.status;
+    expect(status).not.toBe("running");
+  });
+
   it("keeps the exit event even past the per-run cap", async () => {
     const job = await claimed("WP-EV-CAP", "fake");
     await h.admin.query(

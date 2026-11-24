@@ -235,11 +235,12 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 	t.Run("sandbox empty AllowedHosts still includes runtime provider host without mutating policy", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "1")
 		for _, tc := range []struct {
-			runtime  string
-			wantHost string
+			runtime   string
+			wantHosts []string
 		}{
-			{runtime: RuntimeClaude, wantHost: "api.anthropic.com:443"},
-			{runtime: RuntimeCodex, wantHost: "api.openai.com:443"},
+			{runtime: RuntimeClaude, wantHosts: []string{"api.anthropic.com:443"}},
+			// Codex also carries its ChatGPT sign-in hosts (harnessSignInHosts).
+			{runtime: RuntimeCodex, wantHosts: []string{"api.openai.com:443", "chatgpt.com:443", "auth.openai.com:443"}},
 		} {
 			t.Run(tc.runtime, func(t *testing.T) {
 				var gotHosts []string
@@ -259,8 +260,8 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 				}
 				defer ef.Close()
 
-				if !slices.Equal(gotHosts, []string{tc.wantHost}) {
-					t.Fatalf("hosts=%v want [%s]", gotHosts, tc.wantHost)
+				if !slices.Equal(gotHosts, tc.wantHosts) {
+					t.Fatalf("hosts=%v want %v", gotHosts, tc.wantHosts)
 				}
 				if len(p.AllowedHosts) != 0 {
 					t.Fatalf("sandbox.AllowedHosts was mutated: %v", p.AllowedHosts)
@@ -378,5 +379,31 @@ func TestCheckerExecuteNeverStartsAuthorEgressProxy(t *testing.T) {
 		strings.Contains(comp.Error, "not available") ||
 		strings.Contains(comp.Error, "sandbox policy") {
 		t.Fatalf("checker run aborted before reaching egress wiring point: %+v", comp)
+	}
+}
+
+// A ChatGPT-signed-in Codex talks to chatgpt.com and refreshes at auth.openai.com. The
+// default-on author egress filter must let both through, or Codex fails on its first run.
+func TestAuthorEgressHostsAllowCodexChatGPTSignIn(t *testing.T) {
+	for _, sandbox := range []*SandboxPolicy{nil, {AllowedHosts: []string{"github.com"}}} {
+		hosts := authorEgressHosts("codex", sandbox)
+		ef, err := StartEgressFilter(hosts)
+		if err != nil {
+			t.Fatalf("start egress filter: %v", err)
+		}
+		for _, h := range []string{"api.openai.com:443", "chatgpt.com:443", "auth.openai.com:443"} {
+			if !ef.isAllowed(h) {
+				t.Errorf("sandbox=%v: %s blocked; allowlist %v", sandbox != nil, h, hosts)
+			}
+		}
+		if ef.isAllowed("example.com:443") {
+			t.Errorf("sandbox=%v: example.com allowed; allowlist %v", sandbox != nil, hosts)
+		}
+		_ = ef.Close()
+	}
+	for _, h := range authorEgressHosts("claude", nil) {
+		if strings.HasPrefix(h, "chatgpt.com") || strings.HasPrefix(h, "auth.openai.com") {
+			t.Errorf("claude allowlist carries Codex sign-in host %s", h)
+		}
 	}
 }

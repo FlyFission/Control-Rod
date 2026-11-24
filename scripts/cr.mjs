@@ -226,13 +226,24 @@ async function start() {
   let apiExited = false;
   let apiExitCode = 0;
   let stopping = false;
+  /** @type {import("node:child_process").ChildProcess | undefined} */
+  let daemon;
+  let daemonExited = false;
+  // Exit only after the daemon has stopped: it lets running work finish and saves completions to its
+  // outbox, and the daemon bounds that wait itself (its grace, stop ladder and final drain).
+  const afterDaemon = (exit) => {
+    if (!daemon || daemonExited) return exit();
+    daemon.once("exit", exit);
+    daemon.kill("SIGTERM");
+  };
   const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], { env, stdio: "inherit" });
   api.on("exit", (code, signal) => {
     apiExited = true;
     apiExitCode = code ?? (signal ? 1 : 0);
     if (!stopping) {
-      console.error(`\nThe control plane exited unexpectedly (code=${code ?? signal}).`);
-      process.exit(apiExitCode || 1);
+      stopping = true;
+      console.error(`\nThe control plane exited unexpectedly (code=${code ?? signal}). Stopping the run daemon first.`);
+      afterDaemon(() => process.exit(apiExitCode || 1));
     }
   });
   for (let i = 0; i < 120; i++) {
@@ -250,11 +261,10 @@ async function start() {
   // plane restarts and writes a new one; passing it in the environment would pin the old token.
   const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}` };
   delete daemonEnv.CONTROLROD_DAEMON_TOKEN;
-  const daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
+  daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
     env: daemonEnv,
     stdio: "inherit",
   });
-  let daemonExited = false;
   daemon.on("exit", (code, signal) => {
     daemonExited = true;
     if (!stopping) {
@@ -263,32 +273,26 @@ async function start() {
   });
   console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);
   const stop = () => {
-    if (stopping) return;
-    stopping = true;
-    const finish = () => {
+    if (stopping) {
+      // A second Ctrl+C does not wait: stop both now. Unsaved completions stay in the daemon's outbox.
+      console.error("\nStopping now.");
+      if (daemon && !daemonExited) daemon.kill("SIGKILL");
       if (!apiExited) api.kill("SIGTERM");
+      process.exit(130);
+    }
+    stopping = true;
+    console.log("\nStopping: running work finishes and its results are saved first (Ctrl+C again to stop now).");
+    // The daemon stops first, while the control plane is still up to take its final completions.
+    afterDaemon(() => {
+      if (apiExited) process.exit(apiExitCode);
       const hardExit = setTimeout(() => process.exit(0), 5000);
       hardExit.unref();
-      if (apiExited) process.exit(apiExitCode);
       api.once("exit", () => process.exit(0));
-    };
-    if (daemonExited) {
-      finish();
-      return;
-    }
-    daemon.kill("SIGTERM");
-    const waitDaemon = setTimeout(finish, 8000);
-    waitDaemon.unref();
-    daemon.once("exit", () => {
-      clearTimeout(waitDaemon);
-      finish();
+      api.kill("SIGTERM");
     });
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
-  api.on("exit", () => {
-    if (!stopping && !daemonExited) daemon.kill("SIGTERM");
-  });
 }
 
 /**

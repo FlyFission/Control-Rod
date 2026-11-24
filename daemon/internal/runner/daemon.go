@@ -873,7 +873,19 @@ func authorEgressHosts(runtime string, sandbox *SandboxPolicy) []string {
 	for _, h := range runtimeProviderHosts(runtime) {
 		add(h)
 	}
+	for _, h := range harnessSignInHosts[runtime] {
+		add(h)
+	}
 	return hosts
+}
+
+// harnessSignInHosts are the hosts a harness reaches when it runs on the person's
+// subscription sign-in instead of an API key. Codex signed in with ChatGPT sends model
+// traffic to chatgpt.com (backend-api/codex) and refreshes its token at auth.openai.com,
+// neither of which is a model endpoint in models.json. Without them the default-on egress
+// filter blocks a ChatGPT-signed-in Codex on its first run.
+var harnessSignInHosts = map[string][]string{
+	"codex": {"chatgpt.com", "auth.openai.com"},
 }
 
 // setProxyEnv removes any case-insensitive HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, and NO_PROXY

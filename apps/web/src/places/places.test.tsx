@@ -332,3 +332,18 @@ describe("places", () => {
     expect(reset).toBe(1);
   });
 });
+
+describe("the Plant's old address", () => {
+  it("sends /office to /plant, so the shell's SCRAM banner and older links still arrive", async () => {
+    const { router } = await import("../router.js");
+    const office = (router.routesByPath as unknown as Record<string, { options: { beforeLoad?: () => unknown } }>)["/office"];
+    let thrown: unknown;
+    try {
+      office!.options.beforeLoad?.();
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({ options: { to: "/plant" } });
+    expect((router.routesByPath as Record<string, unknown>)["/plant"]).toBeTruthy();
+  });
+});

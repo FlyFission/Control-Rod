@@ -815,14 +815,19 @@ func CodexEffectiveFeatures(ctx context.Context) (string, error) {
 		args = append(args, "--disable", f)
 	}
 	// Binary() is the PATH name. For Codex it is the same string as the runtime id.
-	a, err := resolveArtifact(codexAdapter{}.Binary())
+	// Resolve and hash again here, as before: this runs with the daemon's own permissions, so it
+	// runs only an executable the resolver accepts now, and only if it is the one the probe found.
+	a, ok, err := preflightArtifact(ctx, codexAdapter{}.Binary())
+	if !ok {
+		a, err = resolveArtifact(codexAdapter{}.Binary())
+	}
 	if err != nil {
 		return "", err
 	}
 	c, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(c, a.Path, args...)
-	cmd.Env = append(append(AgentEnv(os.Environ()), a.Env...), "CODEX_HOME="+tmp)
+	cmd.Env = withEnv(append(AgentEnv(os.Environ()), a.Env...), "CODEX_HOME="+tmp)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

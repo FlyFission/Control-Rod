@@ -1,5 +1,6 @@
 import { type ReactNode, useContext, useEffect, useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { AgentUpdates } from "./AgentUpdates.js";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
@@ -19,6 +20,10 @@ import { ActiveRuns } from "./ActiveRuns.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
+import { ShortcutHelp } from "./ShortcutHelp.js";
+import { OPEN_MODAL, singleKeysOn } from "../lib/singleKeys.js";
+import { anyRealScram } from "../features/office/plant-instruments.js";
+import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 import { useFirstRunSetup } from "../lib/firstRun.js";
 import { readString, writeString } from "../lib/storage.js";
@@ -83,6 +88,22 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     enabled: Boolean(projectUser),
     retry: false,
   });
+  // The trip styling needs only whether a real SCRAM is active, so the shell makes the redacted
+  // (presenting) read, which keeps scope and the drill flag and leaves out every reason.
+  const scramsQuery = useQuery({
+    queryKey: ["scrams", true],
+    queryFn: () => api.scrams(true),
+    retry: false,
+    staleTime: 10_000,
+  });
+  const scramActive = anyRealScram(scramsQuery.data?.scrams);
+  // The trip pulses stop while the tab is hidden, as the plant's own motion does (OfficeStage useVisible).
+  const [tabHidden, setTabHidden] = useState(() => document.visibilityState === "hidden");
+  useEffect(() => {
+    const on = () => setTabHidden(document.visibilityState === "hidden");
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
   useEffect(() => {
     if (serverProjects.data) {
       hydrateServerProjects(projectUser, serverProjects.data);
@@ -100,6 +121,10 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       return next;
     });
   }
+  const [helpOpen, setHelpOpen] = useState(false);
+  const navigate = useNavigate();
+  // The tab title count and opt-in notifications read the same Inbox as the rail badge (pattern AW1, AW2).
+  useAttentionSignals(session.user, inbox, () => void navigate({ to: "/inbox" }));
   const shortcut = isMac() ? "⌘K" : "Ctrl K";
   const look = useLook();
   const mode = useMode();
@@ -137,8 +162,17 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       // The board's quick add claims `c` first (its listener prevents the default). Its state update can
       // re-render before this listener runs and remove the .bd-add opener, so look at the event too.
       if (e.defaultPrevented) return;
-      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
-      const hasOpenOverlay = document.querySelector("dialog[open], .palette") !== null;
+      // Every key below is a single character: none fires when the person turned them off.
+      if (!singleKeysOn()) return;
+      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-add-form") !== null;
+      const hasOpenOverlay = document.querySelector(OPEN_MODAL) !== null;
+      // `?` opens the shortcut list only when nothing modal is open: inside New Work or the palette
+      // the list would open behind it. The list closes itself on `?` and Escape from its own handler.
+      if (!inField && !hasOpenOverlay && e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
       if (!inField && !hasBoardQuickAdd && !hasOpenOverlay && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         setNewWorkOpen(true);
@@ -167,7 +201,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
 
   return (
-    <div className="shell" data-look={look} data-mode={mode}>
+    <div className="shell" data-look={look} data-mode={mode} data-scram={scramActive ? "active" : undefined} data-tab-hidden={tabHidden ? "" : undefined}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -286,6 +320,9 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
             </span>
             <span>{session.user ?? "Signed in"}</span>
           </div>
+          <button type="button" className="btn small rail-shortcuts" aria-keyshortcuts="?" onClick={() => setHelpOpen(true)}>
+            Shortcuts <kbd>?</kbd>
+          </button>
           <button type="button" className="btn small" disabled={pendingSignOut} onClick={() => void logout()}>
             Sign out
           </button>
@@ -293,8 +330,10 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       </aside>
 
       <div className="main">
+        <AgentUpdates />
         <header className="topbar">
           <div className="top-left">
+            <span className="console-live-dot" aria-hidden="true" />
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>
             <details
               className="workspace-options"
@@ -363,7 +402,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
               <kbd>{shortcut}</kbd>
             </button>
 
-            <Link to="/office" className="btn small danger">
+            <Link to="/office" className="btn small danger topbar-scram">
               SCRAM
             </Link>
           </div>
@@ -377,6 +416,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
       <NewWorkModal open={newWorkOpen} mode={mode} onClose={() => setNewWorkOpen(false)} />
       {newProjectOpen && <ProjectModal open={newProjectOpen} defaultMode={mode} onClose={() => setNewProjectOpen(false)} />}
+      <ShortcutHelp open={helpOpen} mac={isMac()} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

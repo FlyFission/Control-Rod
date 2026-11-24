@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { api } from "../api/client.js";
 import type { AdminView } from "../api/types.js";
 import { time } from "../lib/format.js";
@@ -137,6 +137,27 @@ function Commands({ view }: { view: AdminView }) {
               <span className={d.allowed ? "small ok" : "small error"}>{d.allowed ? "You may" : "Not available to you"}</span>
             </div>
             <p className="small muted">Needs: {needText(need.get(d.command))}</p>
+            {d.command.startsWith("scram.") && (
+              <p className="small">
+                <Link className="small" to="/office">
+                  Open Office
+                </Link>
+              </p>
+            )}
+            {d.command.startsWith("runtime.") && (
+              <p className="small">
+                <Link className="small" to="/agents" hash="advanced">
+                  Open Agents roster
+                </Link>
+              </p>
+            )}
+            {d.command === "chain.seal" && (
+              <p className="small">
+                <Link className="small" to="/records">
+                  Open Records
+                </Link>
+              </p>
+            )}
             {!d.allowed && (
               <p className="small">
                 {d.reason} {d.change !== undefined && <span className="muted">{d.change}</span>}

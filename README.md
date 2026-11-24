@@ -20,6 +20,32 @@ Control Rod is a free, open-source workspace that runs on your own machine. You 
 - **You choose where you come in** *(planned)*. Today you step in twice: when work is released and when a result is accepted. Next, you pick your own stops, from one yes at the start to a look at every stage, and any check that falls back to something weaker is logged and flagged so you can step in before it merges.
 - **One board for everything.** Every task, what it is waiting on and who has it, in one place, with a big red **SCRAM** button that stops runs on the record when you need everything to halt.
 
+## The research behind it
+
+Control Rod's three core moves, locked work, an independent check and your sign-off, each answer a failure that published research keeps measuring.
+
+**When GPT-4 checked its own graph-coloring answers, it solved 2% of them, down from 16% with no check at all. With a checker outside the model, it solved 38%.** Self-checking is not always harmful: on Blocksworld planning in the same study it rose from 40% to 55%, though the outside checker still did better at 60%.
+
+![Bar chart from Stechly et al. 2024, Table 1. Graph coloring: answers alone 16%, GPT-4 checks itself 2%, outside checker 38%. Game of 24: 5%, 3% and 36%.](docs/assets/readme/second-checker.svg)
+
+**Why the work is locked before an agent starts**
+
+- **Models get lost when instructions arrive piece by piece.** Across 15 models and six generation tasks in simulated conversations, giving the same instructions over several turns instead of all at once cut performance by an average of **39%** ([Laban et al., 2025](https://arxiv.org/abs/2505.06120)). Control Rod gives each agent one complete, signed brief.
+- **Clear roles help the same model do better.** In a study of why multi-agent systems fail, rewriting only the agents' role prompts raised ChatDev's success rate on the ProgramDev benchmark by **9.4 percentage points**, with the same user prompt and the same model, GPT-4o ([Cemri et al., 2025](https://arxiv.org/abs/2503.13657)).
+
+**Why a different model checks, without seeing the author's reasoning**
+
+- **Checking itself can make a model worse.** Asked to review its own answers with no outside feedback, GPT-4 went from **95.5%** to **89.0%** on grade-school math after two rounds, and GPT-3.5 went from **75.8%** to **38.1%** on common-sense questions after one ([Huang et al., 2024](https://arxiv.org/abs/2310.01798), Table 3). A survey of the field found self-correction "works well in tasks that can use reliable external feedback" ([Kamoi et al., 2024](https://arxiv.org/abs/2406.01297)).
+- **Models recognize their own work and go easy on it.** Asked to tell its own news summaries apart from other models' and people's, GPT-4 was right **73.5%** of the time, and in fine-tuning experiments with GPT-3.5 and Llama 2, stronger self-recognition went with stronger self-preference ([Panickssery et al., 2024](https://arxiv.org/abs/2404.13076)).
+- **Models bend to whoever is talking to them.** Challenged on a correct answer, Claude 1.3 wrongly admitted a mistake on **98%** of questions, and a user suggesting a wrong answer cut accuracy by up to **27%** (LLaMA 2) ([Sharma et al., 2023](https://arxiv.org/abs/2310.13548)). The checker never sees the author's pitch, only the work and the evidence.
+- **Look-alike models share blind spots.** AI judges gave higher scores to models more similar to themselves, measured by chance-adjusted overlap in their mistakes (average Pearson **r = 0.84**), and among the models studied, the more capable ones make more similar mistakes ([Goel et al., 2025](https://arxiv.org/abs/2502.04313)).
+
+**Why a person signs off**
+
+- **Passing the tests is not the same as being right.** Maintainers of scikit-learn, Sphinx and pytest reviewed **296** AI-written pull requests from SWE-bench Verified. By METR's estimate, **roughly half** of the ones that passed the automated tests would not have been merged, even after adjusting for noise in the maintainers' own decisions ([METR, 2026](https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/)).
+
+Control Rod stops at one author and one checker by default: more agents is not automatically better, and each one costs time and money. To be clear about the evidence: the outside checker in the chart is a program that checks answers exactly, not a second AI model, and none of these studies measures one vendor's agent reviewing another's code. That is the bet Control Rod makes, and its records let you measure how it pays off on your own work. Every figure, its conditions and the script that draws the chart are in [docs/research/second-checker](docs/research/second-checker/).
+
 ## The table
 
 Bring the agents you use. Control Rod seats them as authors and checkers and keeps the doing and the checking apart.
@@ -47,29 +73,23 @@ Each card can run with **Light** context, which keeps the agent's brief short, o
 
 When the checker passes something, it shows up in your **Inbox** with the result, the evidence and the checker's findings. Accept it, send it back with notes, or reject it. Your signature covers exactly what you looked at, and the history keeps every step.
 
-### The office
+### The Plant
 
-![Fifteen office worlds, each with its own cast of six agents at their desks.](docs/assets/readme/office-worlds.png)
+![The Plant: an annunciator strip of four windows over a plan view of the facility, with the main control room, the reactor, verification, work control and the review board inside the plant fence, six work bays in the auxiliary building, and the staging yard, records vault and hold yard outside.](docs/assets/readme/plant.png)
 
-Watch your agents at their desks. Each figure's state comes from the real run, so you can see at a glance who is working, who is being checked and what is waiting on you. Pick one of fifteen worlds from the **Theme** menu, from The Coffee House Crew to Starport Shipyard; a world changes the look and never the facts. **Presenting mode** hides spend, so you can put it on a shared screen.
+Watch your agents across one facility drawn in plan. Each figure's state comes from the real run, so you can see at a glance who is working, who is being checked and what is waiting on you. The **annunciator** across the top stays dark while the plant is normal and lights a window for work waiting on you, stuck work, changed inputs or a SCRAM in force. The reactor core is lit while any agent is working, and its control rods go in when you pull a SCRAM. Every place also has a plain list view, and the older office themes are kept under **Advanced**. **Presenting mode** hides spend, so you can put it on a shared screen.
 
 ### And the rest
 
 - **Today** gathers what needs you and what is running.
-- **Compare** puts two candidate packages side by side before you decide, and **Snapshots** saves checkpoints of a repository you're working in.
+- **Compare** lines up package headers, metadata, and status side by side with temporary session-local review notes before you decide, and **Snapshots** saves private checkpoints and freezes of a repository you're working in.
 - **Usage** shows whether agents are earning their place: acceptance, findings caught before review, and time to done.
 - **Records** keep who did, checked and approved what, and `pnpm cr verify` checks an exported record offline.
 - **Software** and **Capital Projects** modes run the same discipline on a code change or an engineering deliverable such as a calculation package.
 
 ## Try it
 
-**Fastest:** open it in a ready-made environment with everything installed.
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FlyFission/Control-Rod)
-
-When it finishes setting up, run `pnpm cr start` in its terminal and the app opens in your browser. With Docker and VS Code, **Reopen in Container** does the same. A Codespace is good for trying the app; [the devcontainer notes](docs/getting-started.md#dev-container-and-codespaces) say what doesn't work there yet.
-
-**On your own machine** you need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/), or run `mise install` and [mise](https://mise.jdx.dev) fetches them all. Sign in to [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex) or both. Use an ordinary user account, since the bundled database won't run as root.
+Control Rod runs on your own machine, with your own agents and sign-ins. You need [Node 22+](https://nodejs.org) (`>= 22.12.0`), [pnpm](https://pnpm.io/installation), and [Go](https://go.dev/dl/) (plus [uv](https://docs.astral.sh/uv/getting-started/installation/) if you run Python checks or the Python SDK), or run `mise install` and [mise](https://mise.jdx.dev) fetches the full toolchain. Sign in to [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex) or both. Use an ordinary user account, since the bundled database won't run as root.
 
 ```sh
 git clone https://github.com/FlyFission/Control-Rod.git
@@ -83,8 +103,8 @@ Choose **Set up this machine** and register a passkey. That's the whole account:
 
 | | Windows (WSL2) | Linux | macOS |
 | --- | --- | --- | --- |
-| The app | Yes | Yes | Expected to work, not yet verified |
-| Agents working inside their sandbox | Yes | Yes ([Ubuntu 24.04 needs one step](docs/daemon.md#linux-setup)) | Yes |
+| The app | Yes | Scripted CI only | Expected to work, not yet verified live |
+| Agents working inside their sandbox | Yes (live login verified) | Yes (scripted CI; [Ubuntu 24.04 needs one step](docs/daemon.md#linux-setup)) | Yes (scripted CI only) |
 
 Stuck? [docs/getting-started.md](docs/getting-started.md) covers troubleshooting, including what to do when the database won't start.
 
@@ -92,7 +112,7 @@ Stuck? [docs/getting-started.md](docs/getting-started.md) covers troubleshooting
 
 A request becomes a card with clear acceptance criteria, which you release. An author agent does the work inside the sandbox recorded for that run, while Control Rod saves the test runs and changes as evidence. A checker from a different vendor gets the result and that evidence, and nothing else. Then the card waits for you.
 
-Every state change is decided by a small Rust program (the *kernel*) that no agent can touch, so an agent can't release its own work, accept its own result, edit its own tests or type up a number and have it believed. When Control Rod refuses something, it says why. We keep a [catalog of known ways around a control](tests/redteam/catalog.yaml); each is meant to become a test that keeps failing, and some are still pending.
+Every state change is decided by a small Rust program (the *kernel*) that no agent can touch, so an agent can't release its own work, accept its own result, edit its own tests or type up a number and have it believed. When Control Rod refuses something, it says why. We keep a [catalog of known ways around a control](tests/redteam/catalog.yaml); each is meant to become a test that keeps failing, and most are still pending.
 
 ## What it is not
 
@@ -114,7 +134,7 @@ Each change gets a short record under `.nuclear/changes/`, contracts in `spec/` 
 | `kernel/` | The Rust kernel that decides every state change |
 | `daemon/` | The Go daemon that runs agents and collects evidence |
 | `spec/` | The contracts everything else is generated from |
-| `packs/` | Agent roles and playbooks: general, software and nuclear-grade |
+| `packs/` | Agent roles and playbooks: general, software, nuclear-grade, and `packs/workflows/` |
 
 ## License
 

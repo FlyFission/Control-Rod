@@ -4,6 +4,7 @@
 //	controlrod daemon [--parallel N] [--timeout 45m]
 //	controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR [--home DIR] [--daemon-home DIR]
 //	controlrod attestation-public
+//	controlrod agents [check] | controlrod agents update [--all] [--yes] [agent...]
 //	controlrod runtimes
 //
 // The daemon claims jobs from the control plane, runs an agent runtime in a per-job workspace
@@ -21,14 +22,16 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
 	"github.com/flyfission/control-rod/daemon/internal/runner"
 	"github.com/flyfission/control-rod/daemon/internal/version"
 )
 
-const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR | controlrod attestation-public | controlrod runtimes"
+const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR | controlrod attestation-public | controlrod agents [check|update] | controlrod runtimes"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -44,6 +47,8 @@ func main() {
 		os.Exit(sandboxArgs(os.Args[2:]))
 	case "attestation-public":
 		os.Exit(attestationPublic())
+	case "agents":
+		os.Exit(agents(os.Args[2:]))
 	case "runtimes":
 		os.Exit(runtimesCheck())
 	default:
@@ -67,6 +72,7 @@ func daemon(args []string) int {
 	fs := flag.NewFlagSet("daemon", flag.ContinueOnError)
 	parallel := fs.Int("parallel", 3, "jobs to run at once")
 	timeout := fs.Duration("timeout", 45*time.Minute, "longest a single run may take")
+	noUpdateCheck := fs.Bool("no-update-check", false, "do not check agent CLIs for newer versions at startup (also CONTROLROD_UPDATE_CHECK=0)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -87,7 +93,8 @@ func daemon(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	d := runner.New(runner.Config{
+	ctx = stopWhenLauncherGone(ctx, os.Getenv("CONTROLROD_LAUNCHER_PID"), os.Getppid)
+	cfg := runner.Config{
 		API:       api,
 		Token:     token,
 		TokenFile: runner.TokenFile(os.Getenv, home),
@@ -97,7 +104,19 @@ func daemon(args []string) int {
 		Runtimes:  runner.Detect(exec.LookPath, os.Getenv),
 		Version:   version.Version,
 		Logger:    logger,
-	})
+	}
+	// Once, at startup, never on a timer: the daemon says which agent CLIs have a newer version.
+	// It never installs; the person runs `controlrod agents update` or the command the app shows.
+	if !*noUpdateCheck && !updateCheckOff(os.Getenv) {
+		cfg.UpdateCheck = func(ctx context.Context) []agentupdate.Status {
+			return agentupdate.Check(ctx, hostEnv(), agentupdate.Catalog)
+		}
+		env := hostEnv()
+		cfg.UpdateStamp = func(binary string) string { return agentupdate.Stamp(env, binary) }
+	} else {
+		cfg.UpdateCheckOff = true
+	}
+	d := runner.New(cfg)
 	if err := d.Run(ctx); err != nil {
 		logger.Error(err.Error())
 		return 1
@@ -159,4 +178,31 @@ func sandboxArgs(args []string) int {
 	out, _ := json.MarshalIndent(map[string]any{"argv": cmd.Args, "env": cmd.Env, "dir": cmd.Dir}, "", "  ")
 	fmt.Println(string(out))
 	return 0
+}
+
+// stopWhenLauncherGone ends ctx, the same graceful stop as a signal, once the launcher named by
+// launcherPID (set by `pnpm cr start`) is no longer this process's parent: a launcher killed outright
+// cannot stop its children, so the daemon notices on its own. An empty or invalid value does nothing.
+func stopWhenLauncherGone(ctx context.Context, launcherPID string, getppid func() int) context.Context {
+	pid, err := strconv.Atoi(launcherPID)
+	if err != nil || pid <= 1 {
+		return ctx
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		defer cancel()
+		t := time.NewTicker(time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if getppid() != pid {
+					return
+				}
+			}
+		}
+	}()
+	return ctx
 }

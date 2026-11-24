@@ -1,0 +1,9 @@
+$ git stash spec and wire schemas (the previous lookahead pattern); go test ./internal/wire/
+  -> FAIL: '^(?![/\\])...' is not valid regex: invalid or unsupported Perl syntax: (?!
+$ go test -v ./internal/wire/ (this change)
+=== RUN   TestEmbeddedSchemasCompile
+--- PASS: TestEmbeddedSchemasCompile (0.02s)
+=== RUN   TestFindingScopePaths
+--- PASS: TestFindingScopePaths (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/wire	0.030s

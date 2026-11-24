@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import { ActiveRunList } from "../components/ActiveRuns.js";
+import { STATUS_LABEL } from "../lib/format.js";
 
 /**
  * Today (Wave 3): unified attention view highlighting packages waiting for human
@@ -43,16 +44,17 @@ export function Today() {
         {packages !== undefined && (
           <section className="panel">
             <h2>Needs Your Decision ({awaitingHuman.length})</h2>
+            <p className="muted small">Drafts and in-verification packages.</p>
             {awaitingHuman.length === 0 ? (
               <p className="muted">Nothing awaiting a decision right now.</p>
             ) : (
-              <ul style={{ paddingLeft: "1.2rem" }}>
+              <ul className="today-list">
                 {awaitingHuman.map((p) => (
-                  <li key={p.id}>
-                    <Link to="/packages/$id" params={{ id: p.id }}>
+                  <li key={p.id} className="today-row">
+                    <Link to="/packages/$id" params={{ id: p.id }} className="today-link">
                       {p.title || p.id}
-                    </Link>{" "}
-                    <span className="pill">{p.status}</span>
+                    </Link>
+                    <span className="pill">{STATUS_LABEL[p.status] ?? p.status}</span>
                   </li>
                 ))}
               </ul>

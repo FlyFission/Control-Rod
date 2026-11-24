@@ -15,11 +15,13 @@ import { MODE_COPY, type EngineeringMode } from "../../lib/mode.js";
 import { ContextSwitch } from "./ContextSwitch.js";
 import { WorkflowSwitch } from "./WorkflowSwitch.js";
 import { projectWorkflowDefault } from "../../lib/workflow.js";
+import { FindingDetail, ScopeDriftNote } from "../../components/FindingDetail";
 
 interface BoardReviewDrawerProps {
   packageId: string;
   initialPkg?: WorkPackage;
   mode: EngineeringMode;
+  autoFocus?: boolean;
   onClose: () => void;
 }
 
@@ -27,7 +29,7 @@ interface BoardReviewDrawerProps {
  * Non-obscuring split review drawer for the Board. Preserves Board scroll, filters, and context
  * while offering full evidence summary, custody chain, direct Full case link, and kernel-gated DecisionBar.
  */
-export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: BoardReviewDrawerProps) {
+export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = true, onClose }: BoardReviewDrawerProps) {
   const projects = useProjects();
   const copy = MODE_COPY[mode];
   const asideRef = useRef<HTMLElement>(null);
@@ -39,8 +41,8 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
   const admin = useQuery({ queryKey: ["admin"], queryFn: api.admin });
   useEffect(() => {
     setTab("overview");
-    asideRef.current?.focus();
-  }, [packageId]);
+    if (autoFocus) asideRef.current?.focus();
+  }, [packageId, autoFocus]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -211,12 +213,14 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
                         by {view.pre_check.verifier} · {view.pre_check.method}
                       </span>
                     </p>
+                    <ScopeDriftNote drift={view.scope_drift} />
                     {view.pre_check.findings.length > 0 ? (
                       <ul className="bd-drawer-list">
                         {view.pre_check.findings.map((f) => (
                           <li key={f.id} className="small">
                             <span className={`tag sev-${f.severity}`}>{f.severity}</span>{" "}
                             <span className="mono">{f.id}</span> {f.text}
+                            <FindingDetail finding={f} />
                             {f.resolution !== undefined && <span className="muted"> · Resolution: {f.resolution}</span>}
                           </li>
                         ))}

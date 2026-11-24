@@ -7,6 +7,7 @@ import type { NextLine } from "../../lib/next.js";
 import { splitAttachments } from "../../lib/attachments.js";
 import { captureLine, captureSummaryText } from "./CaptureCard.js";
 import { sinceText } from "./Card.js";
+import { attentionFirst } from "./boardOrder.js";
 import type { BoardCard } from "./useBoardData.js";
 
 const TONE_GLYPH: Record<NextLine["tone"] | "unknown", { sym: string; label: string }> = {
@@ -50,7 +51,7 @@ export function BoardListView({
   return (
     <div className="bd-list" role="region" aria-label="Work list">
       {COLUMNS.map((col) => {
-        const colCards = cards.filter((c) => c.column === col.id);
+        const colCards = attentionFirst(cards.filter((c) => c.column === col.id), stream);
         const colCaptures = col.id === "ready" ? captures : [];
         const total = colCards.length + colCaptures.length;
         if (total === 0) return null;
@@ -82,6 +83,7 @@ export function BoardListView({
                       key={cap.id}
                       className={selectedCaptureId === cap.id ? "bd-list-row selected" : "bd-list-row"}
                       data-tone={line.tone}
+                      data-kind="capture"
                     >
                       <span className="bd-list-dot" title={g.label} aria-hidden="true">
                         {g.sym}

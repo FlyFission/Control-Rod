@@ -1,0 +1,12 @@
+
+ RUN  v5.1.0 /home/claude/Control-Rod/apps/web
+
+ ✓ src/components/finding-detail.test.tsx > finding detail and scope drift > shows a finding's location, evidence and fix scope 36ms
+ ✓ src/components/finding-detail.test.tsx > finding detail and scope drift > renders nothing for a finding without detail, or for no drift 4ms
+ ✓ src/components/finding-detail.test.tsx > finding detail and scope drift > names the files changed outside the fix scope 30ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  02:39:26
+   Duration  784ms (environment 60%, setup 17%, tests 11%, import 7%, transform 4%, worker 1%)
+

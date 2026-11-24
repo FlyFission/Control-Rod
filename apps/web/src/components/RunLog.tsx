@@ -5,6 +5,7 @@ import type { Run } from "../api/types.js";
 import { isVisible } from "../lib/live.js";
 import { type Passkeys, browserPasskeys, signOverride, signReconcile } from "../lib/decide.js";
 import { time } from "../lib/format.js";
+import { modelRouting } from "../lib/modelRouting.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 import { VendorBadge } from "./VendorBadge.js";
 
@@ -185,6 +186,7 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
   const [frozen, setFrozen] = useState<string[] | null>(null);
   const lines = frozen ?? latest;
   const waiting = frozen === null ? 0 : Math.max(0, latest.length - frozen.length);
+  const routing = modelRouting(run.trace, run.finished_at !== undefined);
   return (
     // A run that needs the person (requeue it, or reconcile it first) is shown open, so its buttons are seen.
     <details
@@ -209,6 +211,13 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
           {run.agent_baseline} · queued {time(run.queued_at)}
           {run.finished_at !== undefined && ` · finished ${time(run.finished_at)}`}
         </p>
+        {routing.kind === "rerouted" ? (
+          <p className="run-rerouted small" role="note">
+            <strong>Fallback:</strong> {routing.text}
+          </p>
+        ) : routing.kind !== "none" ? (
+          <p className="muted small">{routing.text}</p>
+        ) : null}
         {run.error !== undefined && (
           <p className="error" role="alert">
             {run.error}

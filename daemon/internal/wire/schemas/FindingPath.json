@@ -1,0 +1,8 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "FindingPath.json",
+    "type": "string",
+    "maxLength": 512,
+    "pattern": "^(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+)(?:/(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+))*/?$",
+    "description": "A relative path inside the deliverable: no leading slash, no empty or `..` segment, no backslash.\nWritten without lookaheads so Go's RE2-based schema validator in the daemon can compile it."
+}

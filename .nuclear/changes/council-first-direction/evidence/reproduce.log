@@ -1,0 +1,19 @@
+$ bash reproduce.sh
+redact self-test passed (7 cases, each idempotent)
+personas/outputs.json: identical
+repos/counts.json: identical
+repos/counts_all.json: identical
+repos/onboarding_counts.json: identical
+repos/top60.json: identical
+repos/top60_counts.txt: identical
+exit 0
+
+$ forced mismatch: append one byte to a copy of repos/top60_counts.txt, then bash reproduce.sh on the copy
+redact self-test passed (7 cases, each idempotent)
+personas/outputs.json: identical
+repos/counts.json: identical
+repos/counts_all.json: identical
+repos/onboarding_counts.json: identical
+repos/top60.json: identical
+cmp: EOF on <tmp> after byte 696, line 15
+exit 1

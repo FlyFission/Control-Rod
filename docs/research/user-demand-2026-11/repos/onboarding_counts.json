@@ -1,0 +1,574 @@
+{
+ "rules_sha256": "6df31b8c2dc2cfab4db465c67712e57f3fdccdb2d3e95714575a535aaa5eb3d5",
+ "repos": {
+  "BloopAI_vibe-kanban": {
+   "issues": 888,
+   "Install fails or install method": [
+    25,
+    11
+   ],
+   "Prerequisites and dependencies": [
+    17,
+    18
+   ],
+   "Sign-in, login, auth, API keys": [
+    34,
+    19
+   ],
+   "First run, setup wizard, onboarding": [
+    9,
+    5
+   ],
+   "Agent or CLI not detected": [
+    32,
+    18
+   ],
+   "Permissions and OS security prompts": [
+    11,
+    1
+   ],
+   "Windows and WSL": [
+    17,
+    2
+   ],
+   "Docs unclear": [
+    19,
+    20
+   ]
+  },
+  "OrchestratorInc_agent-orchestrator": {
+   "issues": 2681,
+   "Install fails or install method": [
+    122,
+    6
+   ],
+   "Prerequisites and dependencies": [
+    51,
+    4
+   ],
+   "Sign-in, login, auth, API keys": [
+    127,
+    2
+   ],
+   "First run, setup wizard, onboarding": [
+    43,
+    1
+   ],
+   "Agent or CLI not detected": [
+    140,
+    3
+   ],
+   "Permissions and OS security prompts": [
+    54,
+    1
+   ],
+   "Windows and WSL": [
+    122,
+    2
+   ],
+   "Docs unclear": [
+    51,
+    0
+   ]
+  },
+  "ParadevAI_Paradev": {
+   "issues": 1685,
+   "Install fails or install method": [
+    14,
+    3
+   ],
+   "Prerequisites and dependencies": [
+    19,
+    17
+   ],
+   "Sign-in, login, auth, API keys": [
+    72,
+    36
+   ],
+   "First run, setup wizard, onboarding": [
+    27,
+    13
+   ],
+   "Agent or CLI not detected": [
+    50,
+    31
+   ],
+   "Permissions and OS security prompts": [
+    20,
+    25
+   ],
+   "Windows and WSL": [
+    10,
+    29
+   ],
+   "Docs unclear": [
+    12,
+    4
+   ]
+  },
+  "agent-of-empires_agent-of-empires": {
+   "issues": 2351,
+   "Install fails or install method": [
+    55,
+    5
+   ],
+   "Prerequisites and dependencies": [
+    77,
+    15
+   ],
+   "Sign-in, login, auth, API keys": [
+    81,
+    10
+   ],
+   "First run, setup wizard, onboarding": [
+    54,
+    8
+   ],
+   "Agent or CLI not detected": [
+    116,
+    16
+   ],
+   "Permissions and OS security prompts": [
+    139,
+    27
+   ],
+   "Windows and WSL": [
+    8,
+    0
+   ],
+   "Docs unclear": [
+    48,
+    7
+   ]
+  },
+  "code-yeongyu_oh-my-openagent": {
+   "issues": 5876,
+   "Install fails or install method": [
+    365,
+    202
+   ],
+   "Prerequisites and dependencies": [
+    247,
+    102
+   ],
+   "Sign-in, login, auth, API keys": [
+    325,
+    66
+   ],
+   "First run, setup wizard, onboarding": [
+    69,
+    13
+   ],
+   "Agent or CLI not detected": [
+    346,
+    56
+   ],
+   "Permissions and OS security prompts": [
+    103,
+    4
+   ],
+   "Windows and WSL": [
+    467,
+    113
+   ],
+   "Docs unclear": [
+    143,
+    84
+   ]
+  },
+  "generalaction_emdash": {
+   "issues": 774,
+   "Install fails or install method": [
+    19,
+    7
+   ],
+   "Prerequisites and dependencies": [
+    14,
+    7
+   ],
+   "Sign-in, login, auth, API keys": [
+    26,
+    12
+   ],
+   "First run, setup wizard, onboarding": [
+    8,
+    0
+   ],
+   "Agent or CLI not detected": [
+    34,
+    10
+   ],
+   "Permissions and OS security prompts": [
+    12,
+    0
+   ],
+   "Windows and WSL": [
+    29,
+    9
+   ],
+   "Docs unclear": [
+    9,
+    1
+   ]
+  },
+  "herdrdev_herdr-app": {
+   "issues": 779,
+   "Install fails or install method": [
+    25,
+    27
+   ],
+   "Prerequisites and dependencies": [
+    9,
+    4
+   ],
+   "Sign-in, login, auth, API keys": [
+    11,
+    10
+   ],
+   "First run, setup wizard, onboarding": [
+    3,
+    2
+   ],
+   "Agent or CLI not detected": [
+    26,
+    10
+   ],
+   "Permissions and OS security prompts": [
+    5,
+    2
+   ],
+   "Windows and WSL": [
+    68,
+    87
+   ],
+   "Docs unclear": [
+    1,
+    0
+   ]
+  },
+  "herdrdev_herdr": {
+   "issues": 2997,
+   "Install fails or install method": [
+    111,
+    43
+   ],
+   "Prerequisites and dependencies": [
+    49,
+    9
+   ],
+   "Sign-in, login, auth, API keys": [
+    45,
+    17
+   ],
+   "First run, setup wizard, onboarding": [
+    12,
+    2
+   ],
+   "Agent or CLI not detected": [
+    216,
+    45
+   ],
+   "Permissions and OS security prompts": [
+    38,
+    50
+   ],
+   "Windows and WSL": [
+    341,
+    83
+   ],
+   "Docs unclear": [
+    14,
+    0
+   ]
+  },
+  "kdlbs_kandev": {
+   "issues": 673,
+   "Install fails or install method": [
+    16,
+    5
+   ],
+   "Prerequisites and dependencies": [
+    37,
+    6
+   ],
+   "Sign-in, login, auth, API keys": [
+    29,
+    1
+   ],
+   "First run, setup wizard, onboarding": [
+    5,
+    1
+   ],
+   "Agent or CLI not detected": [
+    27,
+    1
+   ],
+   "Permissions and OS security prompts": [
+    11,
+    2
+   ],
+   "Windows and WSL": [
+    15,
+    3
+   ],
+   "Docs unclear": [
+    3,
+    0
+   ]
+  },
+  "mistralai_mistral-vibe": {
+   "issues": 869,
+   "Install fails or install method": [
+    28,
+    24
+   ],
+   "Prerequisites and dependencies": [
+    32,
+    36
+   ],
+   "Sign-in, login, auth, API keys": [
+    38,
+    16
+   ],
+   "First run, setup wizard, onboarding": [
+    11,
+    4
+   ],
+   "Agent or CLI not detected": [
+    27,
+    16
+   ],
+   "Permissions and OS security prompts": [
+    22,
+    13
+   ],
+   "Windows and WSL": [
+    40,
+    30
+   ],
+   "Docs unclear": [
+    13,
+    28
+   ]
+  },
+  "multica-ai_multica": {
+   "issues": 3260,
+   "Install fails or install method": [
+    66,
+    24
+   ],
+   "Prerequisites and dependencies": [
+    72,
+    16
+   ],
+   "Sign-in, login, auth, API keys": [
+    209,
+    68
+   ],
+   "First run, setup wizard, onboarding": [
+    31,
+    1
+   ],
+   "Agent or CLI not detected": [
+    94,
+    10
+   ],
+   "Permissions and OS security prompts": [
+    69,
+    13
+   ],
+   "Windows and WSL": [
+    113,
+    11
+   ],
+   "Docs unclear": [
+    37,
+    11
+   ]
+  },
+  "nimbalyst_nimbalyst": {
+   "issues": 1482,
+   "Install fails or install method": [
+    41,
+    3
+   ],
+   "Prerequisites and dependencies": [
+    20,
+    3
+   ],
+   "Sign-in, login, auth, API keys": [
+    74,
+    6
+   ],
+   "First run, setup wizard, onboarding": [
+    4,
+    2
+   ],
+   "Agent or CLI not detected": [
+    65,
+    5
+   ],
+   "Permissions and OS security prompts": [
+    53,
+    7
+   ],
+   "Windows and WSL": [
+    80,
+    11
+   ],
+   "Docs unclear": [
+    5,
+    0
+   ]
+  },
+  "paperclipai_paperclip": {
+   "issues": 5351,
+   "Install fails or install method": [
+    168,
+    99
+   ],
+   "Prerequisites and dependencies": [
+    264,
+    132
+   ],
+   "Sign-in, login, auth, API keys": [
+    553,
+    223
+   ],
+   "First run, setup wizard, onboarding": [
+    127,
+    70
+   ],
+   "Agent or CLI not detected": [
+    251,
+    76
+   ],
+   "Permissions and OS security prompts": [
+    221,
+    93
+   ],
+   "Windows and WSL": [
+    128,
+    48
+   ],
+   "Docs unclear": [
+    77,
+    50
+   ]
+  },
+  "smtg-ai_claude-squad": {
+   "issues": 134,
+   "Install fails or install method": [
+    10,
+    13
+   ],
+   "Prerequisites and dependencies": [
+    1,
+    0
+   ],
+   "Sign-in, login, auth, API keys": [
+    2,
+    0
+   ],
+   "First run, setup wizard, onboarding": [
+    2,
+    8
+   ],
+   "Agent or CLI not detected": [
+    0,
+    0
+   ],
+   "Permissions and OS security prompts": [
+    4,
+    1
+   ],
+   "Windows and WSL": [
+    3,
+    0
+   ],
+   "Docs unclear": [
+    2,
+    0
+   ]
+  },
+  "stravu_crystal": {
+   "issues": 138,
+   "Install fails or install method": [
+    1,
+    0
+   ],
+   "Prerequisites and dependencies": [
+    4,
+    7
+   ],
+   "Sign-in, login, auth, API keys": [
+    2,
+    0
+   ],
+   "First run, setup wizard, onboarding": [
+    0,
+    0
+   ],
+   "Agent or CLI not detected": [
+    3,
+    0
+   ],
+   "Permissions and OS security prompts": [
+    2,
+    4
+   ],
+   "Windows and WSL": [
+    1,
+    0
+   ],
+   "Docs unclear": [
+    2,
+    0
+   ]
+  }
+ },
+ "total": {
+  "Sign-in, login, auth, API keys": {
+   "issues": 1628,
+   "reactions": 486,
+   "pct_of_issues": 5.4
+  },
+  "Windows and WSL": {
+   "issues": 1442,
+   "reactions": 428,
+   "pct_of_issues": 4.8
+  },
+  "Agent or CLI not detected": {
+   "issues": 1427,
+   "reactions": 297,
+   "pct_of_issues": 4.8
+  },
+  "Install fails or install method": {
+   "issues": 1066,
+   "reactions": 472,
+   "pct_of_issues": 3.6
+  },
+  "Prerequisites and dependencies": {
+   "issues": 913,
+   "reactions": 376,
+   "pct_of_issues": 3.0
+  },
+  "Permissions and OS security prompts": {
+   "issues": 764,
+   "reactions": 243,
+   "pct_of_issues": 2.6
+  },
+  "Docs unclear": {
+   "issues": 436,
+   "reactions": 205,
+   "pct_of_issues": 1.5
+  },
+  "First run, setup wizard, onboarding": {
+   "issues": 405,
+   "reactions": 130,
+   "pct_of_issues": 1.4
+  }
+ },
+ "all_issues": 29938,
+ "any_onboarding_theme_excl_docs_windows": 5505
+}

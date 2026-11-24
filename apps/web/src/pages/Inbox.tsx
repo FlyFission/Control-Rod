@@ -8,16 +8,10 @@ import { BoardReviewDrawer } from "../features/board/BoardReviewDrawer.js";
 import { useMode } from "../lib/mode.js";
 import { age } from "../lib/office.js";
 import { lastSeenKey, readNumber, writeNumber } from "../lib/storage.js";
+import { ATTENTION_LABEL, attentionKey } from "../lib/attention.js";
+import { NotifyToggle } from "../components/NotifyToggle.js";
 
-const KIND_LABEL: Record<AttentionItem["kind"], string> = {
-  scram: "SCRAM",
-  confirm: "Confirm requirements",
-  permission: "Waiting agent",
-  lost: "Lost run",
-  dispute: "Dispute",
-  accept: "Accept",
-  release: "Release",
-};
+const KIND_LABEL = ATTENTION_LABEL;
 
 /** A mark by gate risk, shape as well as colour: a security hold or held agent is stuck, a decision needs you. */
 const markFor = (item: AttentionItem): StateKind =>
@@ -90,6 +84,7 @@ export function Inbox() {
             <h1 id="inbox-title">Inbox</h1>
             <span className="muted small">Riskiest first: security holds, waiting agents, unknown outcomes, disputes, then decisions by consequence; oldest first within each.</span>
           </div>
+          <NotifyToggle user={user} />
           {notReady.length > 0 && (
             <ul className="runtime-alerts" aria-label="Runtimes not ready">
               {notReady.map((r) => (
@@ -140,6 +135,7 @@ export function Inbox() {
         <BoardReviewDrawer
           packageId={activePkgId}
           mode={mode}
+          autoFocus={selectedPkgId !== undefined}
           onClose={() => setSelectedPkgId(null)}
         />
       )}
@@ -147,7 +143,7 @@ export function Inbox() {
   );
 }
 
-const itemKey = (i: AttentionItem) => `${i.kind}-${i.package_id ?? i.scram_id ?? i.capture_id}-${i.package_revision ?? ""}`;
+const itemKey = attentionKey;
 
 function Item({
   item,

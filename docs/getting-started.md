@@ -12,7 +12,7 @@ The toolchain is pinned in [`mise.toml`](../mise.toml). The easiest route is [mi
 | pnpm | 10.28.0 | workspace and scripts |
 | Rust | 1.97.0 | kernel (and its WASM binding) |
 | Go | 1.24.7 | run daemon |
-| Python and uv | 3.13, uv 0.11.32 | Python SDK and tools |
+| Python and uv | 3.13, uv 0.11.32 | Optional for running Control Rod; required for Python SDK and repository checks |
 
 Optional, for real agent runs: [Claude Code](https://claude.com/claude-code) signed in (agents run on your own subscription) and Codex (so pre-checks have an independent runtime). Without Codex, a pre-check waits until you sign a written override with your passkey; `pnpm cr doctor` explains this.
 
@@ -34,16 +34,18 @@ Open <http://localhost:7300>, choose **Set up this machine**, and register a pas
 export CONTROLROD_HOME="$HOME/.controlrod-dev"
 ```
 
-Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATABASE_URL` (use your own Postgres instead of the embedded one), `CONTROLROD_GUIDED_PREPARATION=1` and `CONTROLROD_PREPARED_RELEASE=1` (turn on guided preparation and prepared release, both off by default). The step-by-step owner run is in [owner-pilot.md](owner-pilot.md).
+Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATABASE_URL` (use your own Postgres instead of the embedded one), `CONTROLROD_EGRESS_FILTER` (outbound egress filtering for real author runs is **on by default**; set `0` or `false` to disable), `CONTROLROD_GUIDED_PREPARATION=1` and `CONTROLROD_PREPARED_RELEASE=1` (turn on guided preparation and prepared release, both off by default). The step-by-step owner run is in [owner-pilot.md](owner-pilot.md).
 
 **Agents run for real.** `pnpm cr start` also starts the daemon, which launches Claude Code or Codex processes under your login, inside the sandbox policy recorded for the run ([ADR 0021](adr/0021-native-cli-sandboxes.md)). If you only want the API and web app, see the pilot guide for starting the API alone.
 
 ## Dev container and Codespaces
 
+**For contributors only.** This is a place to build and test Control Rod's code, not the way to try it. To use Control Rod, install it on your own machine as above.
+
 `.devcontainer/` describes an Ubuntu 24.04 environment with Node 22, pnpm, Go, Python, uv and Rust at the pinned versions. Open the repository in GitHub Codespaces, or in VS Code with the Dev Containers extension (**Reopen in Container**). Setup installs dependencies and builds everything (a few minutes on first build); then run `pnpm cr start`.
 
 - In VS Code the app is at <http://localhost:7300> through port forwarding, same as on your own machine.
-- In Codespaces the app is at a forwarded `https://<name>-7300.app.github.dev` address. `pnpm cr start` detects Codespaces and sets the passkey origin to match. A passkey is bound to the address it was created on, so one made in a Codespace does not work anywhere else, and the data goes when the Codespace is deleted. Treat it as a place to try and build, not to keep real records.
+- In Codespaces the app is at a forwarded `https://<name>-7300.app.github.dev` address. `pnpm cr start` detects Codespaces and sets the passkey origin to match. A passkey is bound to the address it was created on, so one made in a Codespace does not work anywhere else, and the data goes when the Codespace is deleted. Treat it as a place to build and test, not to keep real records.
 - Agent runs need Claude Code signed in inside the container (`npm i -g @anthropic-ai/claude-code`, then `claude`). The agent sandbox is bubblewrap, and a container often stops bubblewrap from creating the user namespace it needs. `pnpm cr doctor` tests this and says so; when it fails, the preflight refuses agent runs with the reason. Expect the container to be fine for the web app, the API, and all the tests, and use a Linux machine, a Mac or WSL2 for real agent runs.
 - The configuration was checked by running its setup script on a fresh clone as a non-root user and starting the app with Codespaces-style variables. The container image itself has not yet been built by anyone, so report anything that breaks.
 

@@ -138,6 +138,16 @@ describe("control room: usage limits", () => {
     expect(calm.className).not.toContain("warm");
   });
 
+  it("says there are no current readings when every window has reset, still showing the stale rows", async () => {
+    serve(view({ providers: [{ id: "codex", source: "cli-log", observed_at: at(-6 * HOUR), windows: [{ id: "five_hour", window_minutes: 300, used_percent: 90, resets_at: at(-HOUR) }] }] }));
+    const { container } = await renderPage(<ControlRoom />);
+    const head = await screen.findByText("No current readings: every window has reset since it was read.");
+    expect(head.className).toContain("muted");
+    expect(head.className).not.toContain("warm");
+    expect(screen.queryByText(/All reserves above 20%/)).toBeNull();
+    expect(container.querySelector(".is-stale")).toBeTruthy();
+  });
+
   it("marks a reading whose window has already reset", async () => {
     serve(view({ providers: [{ id: "codex", source: "cli-log", observed_at: at(-6 * HOUR), windows: [{ id: "five_hour", window_minutes: 300, used_percent: 90, resets_at: at(-HOUR) }] }] }));
     const { container } = await renderPage(<ControlRoom />);

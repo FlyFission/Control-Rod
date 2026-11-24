@@ -72,10 +72,15 @@ function cleanTime(v: unknown): string | undefined {
   const [y, mo, d, h, mi, sec] = m.slice(1, 7).map(Number) as [number, number, number, number, number, number];
   if (h > 23 || mi > 59 || sec > 59) return undefined;
   if (m[8] !== undefined && (Number(m[8]) > 23 || Number(m[9]) > 59)) return undefined;
-  const cal = new Date(Date.UTC(y, mo - 1, d));
-  if (cal.getUTCFullYear() !== y || cal.getUTCMonth() !== mo - 1 || cal.getUTCDate() !== d) return undefined;
+  // Calendar check on the components themselves: Date.UTC would remap years 0-99 to 19xx.
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+  if (mo < 1 || mo > 12 || d < 1 || d > (dim as number)) return undefined;
   const t = Date.parse(v);
-  return Number.isFinite(t) ? new Date(t).toISOString() : undefined;
+  if (!Number.isFinite(t)) return undefined;
+  const iso = new Date(t).toISOString();
+  // A UTC-normalized year outside 0000-9999 would be a six-digit year the read path drops.
+  return /^\d{4}-/.test(iso) ? iso : undefined;
 }
 
 function cleanWindow(v: unknown): UsageWindow | undefined {
@@ -107,17 +112,16 @@ function cleanProvider(v: unknown, strict = false): UsageProvider | undefined {
   if (strict && (!Array.isArray(v.windows) || v.windows.length > MAX_WINDOWS)) return undefined;
   const windows: UsageWindow[] = [];
   const seen = new Set<string>();
-  if (source !== "none") {
-    for (const item of Array.isArray(v.windows) ? v.windows.slice(0, MAX_WINDOWS) : []) {
-      const w = cleanWindow(item);
-      if (!w) {
-        if (strict) return undefined;
-        continue;
-      }
-      if (seen.has(w.id)) continue;
-      seen.add(w.id);
-      windows.push(w);
+  for (const item of Array.isArray(v.windows) ? v.windows.slice(0, MAX_WINDOWS) : []) {
+    const w = cleanWindow(item);
+    if (!w) {
+      if (strict) return undefined;
+      continue;
     }
+    // Windows of a "none" provider are validated, then discarded.
+    if (source === "none" || seen.has(w.id)) continue;
+    seen.add(w.id);
+    windows.push(w);
   }
   const out: UsageProvider = { id, source, windows };
   const observed = cleanTime(v.observed_at);

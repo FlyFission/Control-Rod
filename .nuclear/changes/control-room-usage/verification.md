@@ -29,6 +29,8 @@ Codex (gpt-6.2-astra) blind review round 1 on head 62a0b653 asked for changes: 3
 
 Round 2 on head 2323debf asked for changes with no blockers: claim path could still block on disk, shutdown did not reach a CodexBar refresh, a malformed report could still replace a good one, Claude windows shared one observation time, Codex picked a rollout by creation name, plus three minors (missing percent read as zero, loose timestamps, drag pointer capture). All fixed with regression tests. The note that the Codex reader reads raw log tail bytes into memory before filtering is recorded in ADR 0025 decision 1 rather than changed.
 
+Round 3 on head 34351114 found no privacy path and no blockers; 4 majors and 3 minors on edge cases (process-group kill after reaping, persistence goroutine backlog, a "none" provider with invalid windows passing validation, a completed fetch with no reading keeping the old one, same-second Codex ties, a stale-only headline, timestamp years). All fixed with regression tests except pgid reuse, which cannot be triggered deterministically; it now uses the package's wait-without-reap mechanism.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

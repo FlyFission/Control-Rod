@@ -126,6 +126,11 @@ describe("usage limits", () => {
       { read_at: at, providers: [{ id: "claude", source: "cli-stream", windows: [{ id: "weird", used_percent: 1 }] }] },
       { read_at: at, providers: [{ id: "claude", source: "cli-stream", windows: [{ id: "monthly", used_percent: 140 }, { id: "primary", used_percent: 1 }] }] },
       { read_at: at, providers: [{ id: "claude", source: "cli-stream", windows: [null] }] },
+      { read_at: at, providers: [{ id: "grok", source: "none", windows: [null] }] },
+      { read_at: at, providers: [{ id: "grok", source: "none", windows: [{ id: "weird", used_percent: 1 }] }] },
+      { read_at: at, providers: [{ id: "grok", source: "none" }] },
+      { read_at: "9999-12-31T23:59:59-01:00", providers: [] },
+      { read_at: "2027-02-29T00:00:00Z", providers: [] },
     ];
     for (const bad of bads) {
       await claim({ runtimes: [], usage_limits: bad });
@@ -143,5 +148,17 @@ describe("usage limits", () => {
       { id: "five_hour", used_percent: 1, resets_at: "2026-11-24T15:00:00", observed_at: "2026-02-30T00:00:00Z" },
     ] }] } });
     expect((await get()).json().providers).toEqual([{ id: "claude", source: "cli-stream", windows: [{ id: "five_hour", used_percent: 1 }] }]);
+  });
+
+  it("checks calendar components directly: leap days, year 0099, and years that overflow when normalized", async () => {
+    const at = (read_at: string) => claim({ runtimes: [], usage_limits: { read_at, providers: [] } });
+    await at("2028-02-29T00:00:00Z");
+    expect((await get()).json().read_at).toBe("2028-02-29T00:00:00.000Z");
+    await at("2027-02-29T00:00:00Z");
+    expect((await get()).json().read_at).toBe("2028-02-29T00:00:00.000Z");
+    await at("0099-06-01T00:00:00Z");
+    expect((await get()).json().read_at).toBe("0099-06-01T00:00:00.000Z");
+    await at("9999-12-31T23:59:59-01:00");
+    expect((await get()).json().read_at).toBe("0099-06-01T00:00:00.000Z");
   });
 });

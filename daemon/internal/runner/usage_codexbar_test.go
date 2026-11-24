@@ -859,3 +859,68 @@ func TestCodexbarWindowsCarryObservedAt(t *testing.T) {
 		}
 	}
 }
+
+// modalCodexbar answers warp's usage call from <dir>/mode: "good" gives a reading, "bad" exits 0
+// with JSON that holds no valid window (a schema change), "fail" exits non-zero.
+func modalCodexbar(t *testing.T) (bin, mode string) {
+	t.Helper()
+	dir := t.TempDir()
+	bin, mode = filepath.Join(dir, "codexbar"), filepath.Join(dir, "mode")
+	script := "#!/bin/sh\ncase \"$1\" in\n--version) echo 'CodexBar 1.2.3';;\n" +
+		"config) echo '[{\"provider\":\"warp\",\"enabled\":true}]';;\n" +
+		"usage) case \"$(cat '" + mode + "')\" in\n" +
+		"good) echo '[{\"provider\":\"warp\",\"usage\":{\"primary\":{\"usedPercent\":7}}}]';;\n" +
+		"bad) echo '[{\"provider\":\"warp\",\"usage\":{\"newShape\":{\"pct\":7}}}]';;\n" +
+		"*) exit 5;;\nesac;;\nesac\n"
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return bin, mode
+}
+
+func TestCodexbarFailedFetchKeepsReadingOnlyWhileRecent(t *testing.T) {
+	bin, mode := modalCodexbar(t)
+	set := func(m string) {
+		if err := os.WriteFile(mode, []byte(m), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e := testEngine(map[string]string{codexbarEnv: bin})
+	now := cbFetched
+	e.now = func() time.Time { return now }
+	set("good")
+	e.refresh()
+	if _, p := e.snapshot(); len(p) != 1 {
+		t.Fatalf("%+v", p)
+	}
+	set("fail")
+	now = cbFetched.Add(29 * time.Minute)
+	e.refresh()
+	if _, p := e.snapshot(); len(p) != 1 {
+		t.Fatalf("reading under 30 minutes old dropped: %+v", p)
+	}
+	now = cbFetched.Add(31 * time.Minute)
+	e.refresh()
+	if _, p := e.snapshot(); len(p) != 0 {
+		t.Fatalf("stale reading kept: %+v", p)
+	}
+}
+
+func TestCodexbarCompletedFetchWithNoWindowsClearsProvider(t *testing.T) {
+	bin, mode := modalCodexbar(t)
+	e := testEngine(map[string]string{codexbarEnv: bin})
+	if err := os.WriteFile(mode, []byte("good"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.refresh()
+	if _, p := e.snapshot(); len(p) != 1 {
+		t.Fatalf("%+v", p)
+	}
+	if err := os.WriteFile(mode, []byte("bad"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.refresh() // same instant: age is no reason to drop it, the schema is
+	if _, p := e.snapshot(); len(p) != 0 {
+		t.Fatalf("reading kept after a completed fetch with no valid window: %+v", p)
+	}
+}

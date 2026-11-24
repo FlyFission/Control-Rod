@@ -178,17 +178,25 @@ func codexWindow(w *codexRateWindow, fallback string) (UsageWindow, bool) {
 
 // parseCodexLine returns the provider snapshot in one rollout line, if it has one.
 func parseCodexLine(line []byte) (UsageProvider, bool) {
+	p, _, ok := parseCodexLineAt(line)
+	return p, ok
+}
+
+// parseCodexLineAt is parseCodexLine plus the event's own time at full precision (zero when the
+// line has none). The provider's ObservedAt is the same instant formatted to the second; selection
+// compares the parsed time, so events within one second still order.
+func parseCodexLineAt(line []byte) (UsageProvider, time.Time, bool) {
 	// Cheap substring checks first: most lines are not quota events and are never JSON-decoded.
 	if !bytes.Contains(line, []byte(`"token_count"`)) || !bytes.Contains(line, []byte(`"rate_limits"`)) {
-		return UsageProvider{}, false
+		return UsageProvider{}, time.Time{}, false
 	}
 	var l codexLine
 	if json.Unmarshal(line, &l) != nil || l.Payload.Type != "token_count" || l.Payload.RateLimits == nil {
-		return UsageProvider{}, false
+		return UsageProvider{}, time.Time{}, false
 	}
 	// A snapshot for another named limit (a per-model quota) is not the subscription window.
 	if id := l.Payload.RateLimits.LimitID; id != "" && id != "codex" {
-		return UsageProvider{}, false
+		return UsageProvider{}, time.Time{}, false
 	}
 	p := UsageProvider{ID: RuntimeCodex, Source: usageSourceLog, Windows: []UsageWindow{}}
 	if w, ok := codexWindow(l.Payload.RateLimits.Primary, "primary"); ok {
@@ -198,14 +206,16 @@ func parseCodexLine(line []byte) (UsageProvider, bool) {
 		p.Windows = append(p.Windows, w)
 	}
 	if len(p.Windows) == 0 {
-		return UsageProvider{}, false
+		return UsageProvider{}, time.Time{}, false
 	}
+	var at time.Time
 	if t, err := time.Parse(time.RFC3339Nano, l.Timestamp); err == nil {
-		p.ObservedAt = t.UTC().Format(time.RFC3339)
+		at = t.UTC()
+		p.ObservedAt = at.Format(time.RFC3339)
 	}
 	p.Plan = usagePlan(l.Payload.RateLimits.PlanType)
 	stampWindows(&p)
-	return p, true
+	return p, at, true
 }
 
 // stampWindows gives every window of p that has no time of its own the provider's observed_at.
@@ -394,12 +404,13 @@ func newestCodexInFile(path string) (UsageProvider, time.Time, bool) {
 	}
 	for end := len(buf); end > 0; {
 		start := bytes.LastIndexByte(buf[:end], '\n') + 1
-		if p, ok := parseCodexLine(buf[start:end]); ok {
+		if p, at, ok := parseCodexLineAt(buf[start:end]); ok {
 			if p.ObservedAt == "" {
-				p.ObservedAt = mtime.UTC().Format(time.RFC3339)
+				at = mtime.UTC()
+				p.ObservedAt = at.Format(time.RFC3339)
 				stampWindows(&p)
 			}
-			return p, observedTime(p.ObservedAt), true // strings are copies; buf is released on return
+			return p, at, true // strings are copies; buf is released on return
 		}
 		end = start - 1
 	}
@@ -481,6 +492,11 @@ type usageStore struct {
 	wmu         sync.Mutex
 	written     uint64
 	wg          sync.WaitGroup
+
+	// dirty has capacity 1: a change sends without blocking, and the one worker flushes once per
+	// token it takes, so a stalled disk leaves at most one flush pending however many records arrive.
+	dirty      chan struct{}
+	workerOnce sync.Once
 }
 
 // usageStampedFile is the on-disk shape. used_percent is a pointer so a missing or null value is
@@ -608,11 +624,24 @@ func (s *usageStore) record(provider string, w UsageWindow, now time.Time) {
 	if s.path == "" {
 		return
 	}
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.workerOnce.Do(func() {
+		s.dirty = make(chan struct{}, 1)
+		go s.persistWorker()
+	})
+	s.wg.Add(1) // one count per queued flush, released by the worker after it runs
+	select {
+	case s.dirty <- struct{}{}:
+	default: // a flush is already pending and will read the newest state
+		s.wg.Done()
+	}
+}
+
+// persistWorker is the one writer. It lives for the daemon's life; wg counts queued flushes.
+func (s *usageStore) persistWorker() {
+	for range s.dirty {
 		s.persist()
-	}()
+		s.wg.Done()
+	}
 }
 
 // persist writes the current map. It hydrates first, so the file is never overwritten with less

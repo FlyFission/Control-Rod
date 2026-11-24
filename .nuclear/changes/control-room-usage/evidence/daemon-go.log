@@ -266,3 +266,13 @@ $ go test ./internal/runner/
 FAIL
 FAIL	github.com/flyfission/control-rod/daemon/internal/runner	28.770s
 FAIL
+
+== Codex review round 3 (usage.go, usage_codexbar.go) ==
+fixes: (1) runCodexbarCtx observes the leader with waitExitNoReap, kills the group, then cmd.Wait once (fallback unchanged where canWaitNoReap is false);
+ (2) usageStore uses one persistWorker fed by a capacity-1 dirty channel (non-blocking send);
+ (3) codexbar refresh: failed/skipped/timed-out fetch keeps the previous reading only under 30 min old, completed fetch with no valid windows clears the provider;
+ (4) Codex selection compares parsed time.Time (parseCodexLineAt), formats only at the end.
+tests added: TestUsageStoreSingleWorkerBoundedFlushes, TestReadCodexUsageSameSecondOrdering, TestCodexbarFailedFetchKeepsReadingOnlyWhileRecent, TestCodexbarCompletedFetchWithNoWindowsClearsProvider
+gofmt -l: clean; go vet ./... : clean; GOOS=darwin go vet and GOOS=windows go build: ok
+go test -race -count=1 ./internal/runner/ -run 'Usage|Codex|Claude|CodexBar': ok
+go test -race -count=1 ./internal/runner/ : 16 FAIL, all the known host sandbox/bubblewrap/checker failures; no others

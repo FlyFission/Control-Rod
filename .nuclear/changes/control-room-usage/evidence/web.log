@@ -56,3 +56,11 @@ web typecheck: clean; full suite: 66 files, 855 tests passed (before final test 
 
  Test Files  66 passed (66)
       Tests  855 passed (855)
+--- round 3 2026-11-24T17:15:24Z
+web typecheck: clean
+Not implemented: HTMLCanvasElement's getContext() method: without installing the @napi-rs/canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the @napi-rs/canvas npm package
+
+ Test Files  66 passed (66)
+      Tests  856 passed (856)
+   Start at  17:14:35

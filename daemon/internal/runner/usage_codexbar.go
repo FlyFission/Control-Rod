@@ -253,17 +253,30 @@ func runCodexbarCtx(ctx context.Context, path string, timeout time.Duration, lim
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
+	// Where the platform allows, the leader's exit is observed without reaping it, so its process
+	// group number cannot be reused before the last group signal. cmd.Wait runs once, after that.
+	exited := make(chan struct{})
 	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
+	go func() {
+		if canWaitNoReap && waitExitNoReap(cmd.Process.Pid) == nil {
+			close(exited)
+			return
+		}
+		done <- cmd.Wait()
+	}()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	var (
-		err      error
-		finished bool
+		err        error
+		finished   bool
+		waitResult error
+		waited     bool // cmd.Wait already ran (fallback path)
 	)
 	select {
-	case err = <-done:
+	case <-exited:
 		finished = true
+	case waitResult = <-done:
+		finished, waited = true, true
 	case <-w.over:
 		err = errors.New("codexbar output over the cap")
 	case <-timer.C:
@@ -272,10 +285,20 @@ func runCodexbarCtx(ctx context.Context, path string, timeout time.Duration, lim
 		err = ctx.Err()
 	}
 	// The group is killed after every run, so a helper the child started cannot outlive it. The
-	// leader is this process's own child; an emptied group makes the signal a no-op.
+	// leader is still unreaped here where the platform allows, so the group number is still ours.
 	killProcessGroup(cmd)
 	if !finished {
-		<-done
+		select {
+		case <-exited:
+		case waitResult = <-done:
+			waited = true
+		}
+	}
+	if !waited {
+		waitResult = cmd.Wait()
+	}
+	if finished {
+		err = waitResult
 	}
 	if err == nil && w.overflow {
 		err = errors.New("codexbar output over the cap")
@@ -425,9 +448,13 @@ func (e *codexbarEngine) run(ctx context.Context, deadline time.Time, limit time
 // e.timeout, counted from the start of the refresh, covers every call; each usage call also has
 // its own shorter limit, and the start of the provider order rotates every refresh so a hung
 // provider cannot starve the same later ones. If listing fails, nothing is fetched and the cache
-// is cleared; there is no unfiltered fallback. A provider whose fetch fails keeps its previous
-// reading this round.
+// is cleared; there is no unfiltered fallback. A provider whose fetch does not complete keeps its previous
+// reading while it is under codexbarKeepPrevious old; one whose fetch completes with no valid
+// windows is cleared.
 func (e *codexbarEngine) refresh() { e.refreshCtx(context.Background()) }
+
+// codexbarKeepPrevious is how long a reading survives failed fetches before it is dropped.
+const codexbarKeepPrevious = 30 * time.Minute
 
 // refreshCtx is refresh under ctx: every subprocess launch checks ctx first, and a cancel while one
 // runs kills its process group (runCodexbarCtx) and ends the refresh without replacing the cache.
@@ -479,11 +506,13 @@ func (e *codexbarEngine) refreshCtx(ctx context.Context) {
 	e.mu.Unlock()
 
 	got := map[string]*UsageProvider{}
+	failed := map[string]bool{} // the call did not complete: skipped, timed out, cancelled or exited non-zero
 	for i := range ids {
 		raw := ids[(start+i)%len(ids)]
 		ours := codexbarIDs[raw]
 		out, err := e.run(ctx, deadline, e.probeTimeout, path, codexbarMaxOutput, "usage", "--provider", raw, "--format", "json")
 		if err != nil {
+			failed[ours] = true
 			continue
 		}
 		for _, p := range parseCodexbarUsage(out, e.now()) {
@@ -503,7 +532,9 @@ func (e *codexbarEngine) refreshCtx(ctx context.Context) {
 		switch {
 		case got[ours] != nil:
 			provs = append(provs, *got[ours])
-		case prevHas(prev, ours):
+		case failed[ours] && prevHas(prev, ours) && e.now().Sub(observedTime(prev[ours].ObservedAt)) < codexbarKeepPrevious:
+			// The fetch did not complete: the last reading stands, but only while it is recent.
+			// A fetch that completed with nothing valid (a schema change) clears the provider.
 			provs = append(provs, prev[ours])
 		}
 	}

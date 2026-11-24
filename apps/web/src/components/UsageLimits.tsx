@@ -167,8 +167,10 @@ export function UsageLimits() {
     <div className="cr-usage">
       {hasReadings ? (
         <>
-          <p className={`cr-summary${warm ? " warm" : ""}`}>
-            {lowest && warm
+          <p className={`cr-summary${warm ? " warm" : ""}${lowest === null ? " muted" : ""}`}>
+            {lowest === null
+              ? "No current readings: every window has reset since it was read."
+              : warm
               ? `Lowest reserve: ${providerName(lowest.provider.id)} ${lowerFirst(windowLabel(lowest.window))}, ${readoutWords(lowest.reading)}${
                   lowest.reading.resetsInMs === null ? "" : `, resets in ${shortDuration(lowest.reading.resetsInMs)}`
                 }`

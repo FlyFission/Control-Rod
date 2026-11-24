@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -528,5 +529,50 @@ func TestReadCodexUsageNewestEventAcrossFiles(t *testing.T) {
 	}
 	if n := len(candidateRollouts(root2)); n != usageMaxFiles {
 		t.Fatalf("%d candidates", n)
+	}
+}
+
+// A stalled disk must not accumulate goroutines: many records during a blocked write leave one
+// worker and at most one pending flush, and the final state is still written.
+func TestUsageStoreSingleWorkerBoundedFlushes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "x")
+	s := &usageStore{path: path}
+	now := time.Now()
+	reset := now.Add(time.Hour).UTC().Format(time.RFC3339)
+	rec := func(p float64) {
+		s.record(RuntimeClaude, UsageWindow{ID: "five_hour", WindowMinutes: 300, UsedPercent: p, ResetsAt: reset}, now)
+	}
+	rec(1)
+	s.wmu.Lock() // the disk is "stalled"
+	time.Sleep(50 * time.Millisecond)
+	before := runtime.NumGoroutine()
+	for i := 0; i < 500; i++ {
+		rec(float64(2 + i%90))
+	}
+	rec(99)
+	if after := runtime.NumGoroutine(); after > before+2 {
+		t.Fatalf("goroutines grew from %d to %d during a blocked write", before, after)
+	}
+	if n := len(s.dirty); n > 1 {
+		t.Fatalf("%d flushes pending", n)
+	}
+	s.wmu.Unlock()
+	s.wait()
+	b, err := os.ReadFile(path)
+	if err != nil || !strings.Contains(string(b), `"used_percent":99`) {
+		t.Fatalf("final state not persisted: %v %s", err, b)
+	}
+}
+
+// Two events inside one second in different files: the later one wins, not the first file seen.
+func TestReadCodexUsageSameSecondOrdering(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "sessions")
+	writeRollout(t, root, "2025/11/24", "rollout-2025-11-24T01-00-00-a.jsonl", rl("2025-11-24T10:00:00.900Z", "11.0", "plus"))
+	writeRollout(t, root, "2025/11/24", "rollout-2025-11-24T02-00-00-b.jsonl", rl("2025-11-24T10:00:00.100Z", "22.0", "plus"))
+	for i := 0; i < 5; i++ { // file order must not matter
+		p, ok := ReadCodexUsage(root)
+		if !ok || p.Windows[0].UsedPercent != 11 || p.ObservedAt != "2025-11-24T10:00:00Z" {
+			t.Fatalf("%+v %v", p, ok)
+		}
 	}
 }

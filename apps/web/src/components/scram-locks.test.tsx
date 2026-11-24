@@ -66,6 +66,8 @@ describe.each(SCOPES)("under %s", (_name, scrams) => {
     const accept = (await screen.findByRole("button", { name: "Accept" })) as HTMLButtonElement;
     expect(accept.disabled).toBe(true);
     expect(accept.title).toMatch(/SCRAM is in force/);
+    // A phone has no hover, so the reason is also written beside the buttons.
+    expect(screen.getByText(/SCRAM is in force/, { selector: ".lock-note" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Reject" }) as HTMLButtonElement).disabled).toBe(true);
   });
 

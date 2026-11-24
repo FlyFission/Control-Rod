@@ -143,3 +143,8 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - Touch: micro count plates and the seat switch get 44 px hit areas on phone or coarse pointers (`::after` hit area, `min-height: 44px`); visuals unchanged.
 - Card: a running run with no start time shows a lit dot and the running wording, not "Waiting:". Seat-on animation plays once per seat per session (not under reduced motion). Closing the Inbox review drawer returns focus to its "Inspect and sign" button.
 - vitest 81 files, 871 tests pass; tsc clean.
+
+## Locked decisions read as locked (Nov 24)
+
+- Screenshot check after the review fixes (/mnt/project-files/control-rod/fixes/signing-scram-390.png): under an organization SCRAM the cockpit's Accept was disabled but still looked lit (cyan fill at 55% opacity), and the reason was only a hover title, which a phone can't show.
+- Fix: disabled primary and danger buttons drop their fill and glow (styles.css), and DecisionBar writes the lock reason above the buttons (`.lock-note`, role=status). Test added in components/scram-locks.test.tsx for both SCRAM scopes.

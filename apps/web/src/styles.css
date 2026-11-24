@@ -142,6 +142,21 @@ p {
   opacity: 0.55;
   cursor: not-allowed;
 }
+/* A locked primary or danger button must not still read as the lit target: drop its fill and glow. */
+.btn.primary:disabled,
+.btn.danger:disabled {
+  background-color: transparent;
+  background-image: none;
+  color: var(--muted);
+  border-color: var(--line-2);
+  box-shadow: none;
+  opacity: 0.7;
+}
+.lock-note {
+  margin: 0 0 8px;
+  color: #ffd6d6;
+  font-size: var(--fs-ui);
+}
 .field {
   display: flex;
   flex-direction: column;

@@ -121,6 +121,11 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
           </button>
         </div>
       )}
+      {allowed.length > 0 && scramLock.locked && scramLock.why && (
+        <p className="lock-note" role="status">
+          {scramLock.why}
+        </p>
+      )}
       {allowed.length > 0 && (
         <div className="decide-buttons">
           {allowed.map((k) => (

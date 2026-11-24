@@ -1,6 +1,6 @@
 # Ship: worktree daemon binding
 
-Release decision: **authorized for the diff at head `372b80bf`** by the owner's recorded yes in the Signature table, including the linked-worktrees-only behaviour change it names. The independent different-vendor checker verdict was not run on this diff; that residual risk is accepted by the same yes. [Verification](verification.md) records the author checks, the overseer's macOS suite results and the [fix round](verification.md#fix-round).
+Release decision: **authorized for the diff at head `372b80bf`** by the owner's recorded yes in the Signature table, including the linked-worktrees-only behaviour change it names. The independent different-vendor checker verdict was not run on this diff; that residual risk is accepted by the same yes. [Verification](verification.md) records the author checks, the overseer's macOS suite results and the [fix round](verification.md#fix-round). Erratum: after the yes, the merge's over-broad `.npmrc` restore (which had silently dropped main's `update-notifier=false` line, added by #157) was reverted in a commit that restores main's exact bytes; it changes no behavior the owner was asked about.
 
 ## Behaviour change for Ben to confirm
 

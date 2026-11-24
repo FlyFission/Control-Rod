@@ -1,0 +1,30 @@
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/confinement	[no test files]
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.112s
+--- FAIL: TestClaimRejectsInvalidRawWireBeforeStartingWork (0.00s)
+    --- FAIL: TestClaimRejectsInvalidRawWireBeforeStartingWork/partial_run (0.00s)
+panic: httptest: failed to listen on a port: listen tcp6 [::1]:0: bind: operation not permitted [recovered, repanicked]
+
+goroutine 125 [running]:
+testing.tRunner.func1.2({0x104d3e620, 0x41e47cba7850})
+	/opt/homebrew/Cellar/go/1.27.4/libexec/src/testing/testing.go:2125 +0x1a0
+testing.tRunner.func1()
+	/opt/homebrew/Cellar/go/1.27.4/libexec/src/testing/testing.go:2128 +0x2c8
+panic({0x104d3e620?, 0x41e47cba7850?})
+	/opt/homebrew/Cellar/go/1.27.4/libexec/src/runtime/panic.go:859 +0x120
+net/http/httptest.newLocalListener()
+	/opt/homebrew/Cellar/go/1.27.4/libexec/src/net/http/httptest/server.go:226 +0xd4
+net/http/httptest.NewUnstartedServer(...)
+	/opt/homebrew/Cellar/go/1.27.4/libexec/src/net/http/httptest/server.go:284
+net/http/httptest.NewServer({0x104da70d8, 0x41e47ca980c0})
+	/opt/homebrew/Cellar/go/1.27.4/libexec/src/net/http/httptest/server.go:267 +0x28
+github.com/flyfission/control-rod/daemon/internal/runner.TestClaimRejectsInvalidRawWireBeforeStartingWork.func1(0x41e47cc72d88)
+	<workspace>/daemon/internal/runner/boundary_test.go:22 +0x90
+testing.tRunner(0x41e47cc72d88, 0x41e47ca98078)
+	/opt/homebrew/Cellar/go/1.27.4/libexec/src/testing/testing.go:2195 +0xc4
+created by testing.(*T).Run in goroutine 124
+	/opt/homebrew/Cellar/go/1.27.4/libexec/src/testing/testing.go:2260 +0x3b8
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.552s
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
+FAIL

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { DataLane, WorkspaceProject } from "../api/types.js";
+import type { DataLane, NewCapture, WorkspaceProject } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
 import { WORKFLOWS, WORKFLOW_DESCRIPTION, WORKFLOW_LABEL, type Workflow } from "../lib/workflow.js";
@@ -40,6 +40,15 @@ function suggestBranchName(text: string): string {
     .slice(0, 36);
   return slug ? `cr/${slug}` : "cr/work-package";
 }
+
+const STRATEGY_NOTE: Record<RepoOutfallStrategy, string> = {
+  worktree:
+    "Selected strategy (worktree) prepares an isolated checkout for author runs.",
+  "fresh-clone":
+    "Selected strategy (fresh-clone) prepares a fresh checkout for author runs.",
+  branch:
+    "Selected strategy (branch in base clone) prepares the local checkout for author runs.",
+};
 
 interface PrepareSnapshot {
   seq: number;
@@ -281,8 +290,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   }, [open]);
 
   const send = useMutation({
-    mutationFn: ({ body, lane: submittedLane }: { body: string; lane: DataLane; session: number }) =>
-      api.capture({ text: body, source: "web", lane: submittedLane }),
+    mutationFn: ({ body, lane: submittedLane, checkout }: { body: string; lane: DataLane; session: number; checkout?: NewCapture["checkout"] }) =>
+      api.capture({ text: body, source: "web", lane: submittedLane, ...(checkout ? { checkout } : {}) }),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["captures"] });
       if (vars.session !== modalSessionRef.current) return;
@@ -386,7 +395,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       repo ? `[repo:${repo}]` : null,
       repo ? `[branch:${captureBranch}]` : null,
       repo ? `[outfall:${repoStrategy}]` : null,
-      preparedPath ? `[workspace:${preparedPath}]` : null,
       workflow ? `[workflow:${workflow}]` : null,
       `[stage:${stage}]`,
       `[purpose:${purpose}]`,
@@ -407,7 +415,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     }
     const session = modalSessionRef.current;
     setPendingCaptureSession(session);
-    send.mutate({ body, lane, session });
+    send.mutate({ body, lane, session, ...(preparedPath ? { checkout: {
+      repo, local_path: preparedPath, branch: captureBranch,
+      ...(activeWorkspaceRoot ? { workspace_root: activeWorkspaceRoot } : {}),
+    } } : {}) });
   }
 
   const independent = isIndependentCustody(author, checker);
@@ -595,11 +606,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                     </button>
                   </div>
                 )}
-                {repo && (
-                  <p className="small muted" style={{ margin: "8px 0 0" }}>
-                    Prepare a local checkout for manual use; agent runs still use an isolated package workspace until Cycle 2 repo binding lands.
-                  </p>
-                )}
+          <p className="small muted" style={{ margin: "8px 0 0" }}>
+            {repo
+              ? STRATEGY_NOTE[repoStrategy]
+              : "Prepare a repository to use its local checkout for the author run."}
+          </p>
               </fieldset>
 
               <div className="cr-form-grid">

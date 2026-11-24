@@ -1,0 +1,8 @@
+
+> @control-rod/api@0.0.0 test <workspace>/services/api
+> node ../../tools/test-api.mjs
+
+[test-api] Provide TEST_DATABASE_URL or working PG17 binaries; the source fallback requires non-root Linux.
+<workspace>/services/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @control-rod/api@0.0.0 test: `node ../../tools/test-api.mjs`
+Exit status 1

@@ -1,0 +1,4 @@
+python3 tools/check_owner_decisions.py
+owner decision check passed
+
+Exit: 0

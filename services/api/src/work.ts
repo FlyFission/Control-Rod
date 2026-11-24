@@ -1,6 +1,7 @@
 import { authorOutputIntegrity } from "./preparation/artifacts.js";
 import type { VerificationRecord } from "./preparation/types.js";
 import { prepareCriterionResults, persistCriterionResults, preparedAcceptanceGuard, currentCriterionResults, criterionResultFlags, criterionResultSchemaInputs } from "./preparation/results.js";
+import { isDeepStrictEqual } from "node:util";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
@@ -21,6 +22,7 @@ import { RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
+import { bindCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -107,7 +109,8 @@ function safeName(name: string): string {
   return base;
 }
 
-export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, lane?: unknown) {
+export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, lane?: unknown, checkoutSelection?: unknown) {
+  const checkout = checkoutSelection === undefined ? undefined : await bindCheckout(checkoutSelection);
   const files: { name: string; bytes: Buffer }[] = [];
   const names = new Set<string>();
   const visible = text
@@ -127,6 +130,7 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
     id: `C-${randomUUID().slice(0, 8)}`,
     text: visible.slice(0, 20000),
     source,
+    ...(checkout ? { checkout } : {}),
     created_at: now(),
     disposition: "pending",
   };
@@ -675,6 +679,26 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     }
   }
   const manifest=(await c.query<{digest:string}>("select digest from preparation_release_manifests where package_id=$1 and package_revision=$2",[packageId,revision])).rows[0];
+  // Only author runs inherit explicit checkout authority. Capture text is untrusted context.
+  let checkout = role === "author" ? (await c.query<{ checkout: Json | null }>(
+    "select c.body->'checkout' as checkout from captures c join packages p on p.capture_id=c.id where p.id=$1 and p.revision=$2",
+    [packageId, revision],
+  )).rows[0]?.checkout : undefined;
+  // A later author round starts from where the last successful one left the checkout: the daemon
+  // accepts a descendant commit at the end of a run but requires an exact match at launch, so the
+  // binding's head advances to that run's recorded checkout_final.head (same branch and identity).
+  if (checkout && role === "author") {
+    const prior = (await c.query<{ body: Json }>(
+      `select body from runs where package_id = $1 and role = 'author' and status = 'succeeded'
+         and body->'trace'->'checkout_final'->>'head' is not null order by created_at desc, id desc limit 1`,
+      [packageId],
+    )).rows[0]?.body;
+    const final = prior?.trace?.checkout_final;
+    const was = prior?.checkout;
+    if (final && was && final.branch === checkout.branch && was.path === checkout.path && was.git_dir === checkout.git_dir && was.common_dir === checkout.common_dir && was.repo === checkout.repo) {
+      checkout = { ...checkout, head: final.head };
+    }
+  }
   // The generation fence: each attempt at this revision, role and round is numbered.
   const attempts = await c.query<{ n: number }>(
     "select count(*)::int as n from runs where package_id = $1 and package_revision = $2 and role = $3 and round = $4",
@@ -688,6 +712,7 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     role,
     agent_baseline: "unassigned",
     runtime: { kind: "local", provider: "any", model: "any" },
+    ...(checkout ? { checkout } : {}),
     round,
     status: "queued",
     queued_at: now(),
@@ -1261,7 +1286,8 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   const header = briefHeader(run);
   if (run.role === "intake") {
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
-    const capture = cap.rows[0]?.body;
+    const capture = cap.rows[0] ? { ...cap.rows[0].body } : undefined;
+    if (capture) delete capture.checkout;
     const workflow = await workflowContext(c, cfg, run, undefined);
     const isNuclearCapture = (captureTags(capture?.text) ?? []).some(
       (t) => t.key === "mode" && t.value.toLowerCase() === "nuclear-grade",
@@ -1385,9 +1411,13 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
   return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
 }
 
+const CHECKOUT_DAEMON_KEY = "checkout-daemon";
+const CHECKOUT_DAEMON_HOLD = "This run is bound to a checkout and waits for a connected daemon that can hold exclusive custody of it. The daemon that asked cannot (older version or a host without custody).";
+
 export async function claim(
   db: Db, cfg: WorkConfig, offered: string[], artifacts: Map<string, string> = new Map(),
   runCeilingSeconds?: number, reportedModels: ReadonlyMap<string, readonly string[]> = new Map(),
+  supportsCheckouts = false,
 ) {
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
@@ -1435,6 +1465,12 @@ export async function claim(
           const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
           if(!locked.rows[0]) continue;row=locked.rows[0];
           if(!legacyRun(row)) continue;
+          if (row.body.checkout && !supportsCheckouts) {
+            // Another daemon may claim it; until one does, say why it waits rather than skipping it silently.
+            await holdRun(c, cfg, row, pkg.id, CHECKOUT_DAEMON_HOLD, "sandbox", CHECKOUT_DAEMON_KEY);
+            continue;
+          }
+          if (row.body.waiting_key === CHECKOUT_DAEMON_KEY) await releaseHold(c, cfg, row, "sandbox");
           await releaseHold(c, cfg, row, "scram");
           let preparation;
           try {preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);} catch(error) {
@@ -1947,7 +1983,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     tokenHash(token).toString("hex"),
     lease,
   ]);
-  await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease });
+  await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease, ...(body.checkout ? { checkout: body.checkout } : {}) });
   issuedLease(c, cfg, row.id);
   const job = await buildJob(c, cfg, body, runtime, hosts);
   const pin = await activePin(c, runtime, row.role);
@@ -2620,6 +2656,10 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     if(outputs.some(v=>v.name===o.name)) throw new Refusal(400,"duplicate-output","Output names must be unique");
     outputs.push({ name: o.name, bytes: Buffer.from(String(o.content_base64 ?? ""), "base64") });
   }
+  // A bound run's success is evidence only with the trace that names its checkout.
+  if (row.body.checkout && body.status === "succeeded" && body.trace === undefined) {
+    throw new Refusal(400, "invalid-trace", "A run bound to a checkout must report an execution trace naming that checkout");
+  }
   if (body.trace !== undefined) {
     const v = cfg.ajv.getSchema("ExecutionTrace.json");
     if (!v || !v(body.trace)) {
@@ -2627,6 +2667,19 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
       throw new Refusal(400, "invalid-trace", `The execution trace is invalid: ${first?.instancePath ?? ""} ${first?.message ?? ""}`.trim());
     }
     if (body.trace.run_id !== runId) throw new Refusal(400, "invalid-trace", "The execution trace names another run");
+    // The daemon ran in the checkout frozen into the run when it was queued; a trace that names any
+    // other checkout (or one where none was frozen) is not evidence of that run.
+    if (!isDeepStrictEqual(body.trace.checkout, row.body.checkout)) {
+      throw new Refusal(400, "invalid-trace", "The execution trace's checkout does not match the checkout frozen into the run");
+    }
+    // What the daemon found after the run must agree with the frozen branch; a success needs it.
+    if (row.body.checkout && body.status === "succeeded") {
+      const final = body.trace.checkout_final;
+      if (!final) throw new Refusal(400, "invalid-trace", "A succeeded run bound to a checkout must report the checkout it found after the run");
+      if (final.branch !== row.body.checkout.branch) {
+        throw new Refusal(400, "invalid-trace", "The checkout the daemon found after the run is on a different branch than the one frozen into the run");
+      }
+    }
   }
   const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
   delete finished.lease_expires_at;

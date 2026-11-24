@@ -23,13 +23,14 @@ type RuntimeRef struct {
 
 // Run is the part of the Run record the daemon needs.
 type Run struct {
-	ID              string     `json:"id"`
-	PackageID       string     `json:"package_id"`
-	PackageRevision int        `json:"package_revision"`
-	Role            string     `json:"role"`
-	AgentBaseline   string     `json:"agent_baseline"`
-	Runtime         RuntimeRef `json:"runtime"`
-	Round           int        `json:"round"`
+	ID              string           `json:"id"`
+	PackageID       string           `json:"package_id"`
+	PackageRevision int              `json:"package_revision"`
+	Role            string           `json:"role"`
+	AgentBaseline   string           `json:"agent_baseline"`
+	Runtime         RuntimeRef       `json:"runtime"`
+	Checkout        *CheckoutBinding `json:"checkout,omitempty"`
+	Round           int              `json:"round"`
 	// Generation is which attempt this is at its package revision, role and round (from 1).
 	Generation int `json:"generation,omitempty"`
 	// AttemptID is the checker attempt id when one was assigned. Otherwise the
@@ -37,6 +38,23 @@ type Run struct {
 	AttemptID string `json:"checker_attempt_id,omitempty"`
 	// SandboxPolicy is the policy version the control plane recorded on the run (plan task 6.1).
 	SandboxPolicy *PolicyRef `json:"sandbox_policy,omitempty"`
+}
+
+// CheckoutObserved is the branch and commit read from a bound checkout after its run.
+type CheckoutObserved struct {
+	Branch string `json:"branch"`
+	Head   string `json:"head"`
+}
+
+// CheckoutBinding is the API's host-validated immutable author checkout selection.
+type CheckoutBinding struct {
+	Repo      string `json:"repo"`
+	Root      string `json:"root"`
+	Path      string `json:"path"`
+	Branch    string `json:"branch"`
+	Head      string `json:"head"`
+	GitDir    string `json:"git_dir"`
+	CommonDir string `json:"common_dir"`
 }
 
 // RunClaim is the daemon's custody of one run: a token to present on every log and completion,
@@ -88,23 +106,26 @@ type ToolRef struct {
 
 // ExecutionTrace is proof of where outputs came from, recorded by the daemon.
 type ExecutionTrace struct {
-	SchemaVersion    string     `json:"schema_version"`
-	RunID            string     `json:"run_id"`
-	PackageID        string     `json:"package_id"`
-	PackageRevision  int        `json:"package_revision"`
-	AgentBaseline    string     `json:"agent_baseline"`
-	BaselineRevision int        `json:"baseline_revision"`
-	Tool             ToolRef    `json:"tool"`
-	Inputs           []Artifact `json:"inputs"`
-	Outputs          []Artifact `json:"outputs"`
-	StartedAt        string     `json:"started_at"`
-	FinishedAt       string     `json:"finished_at"`
-	RuntimeMode      string     `json:"runtime_mode,omitempty"`
-	RequestedModel   string     `json:"requested_model,omitempty"`
-	ReportedModel    string     `json:"reported_model,omitempty"`
-	PermissionMode   string     `json:"permission_mode,omitempty"`
-	AllowedTools     []string   `json:"allowed_tools,omitempty"`
-	Sandbox          string     `json:"sandbox,omitempty"`
+	SchemaVersion    string           `json:"schema_version"`
+	RunID            string           `json:"run_id"`
+	PackageID        string           `json:"package_id"`
+	PackageRevision  int              `json:"package_revision"`
+	AgentBaseline    string           `json:"agent_baseline"`
+	BaselineRevision int              `json:"baseline_revision"`
+	Tool             ToolRef          `json:"tool"`
+	Inputs           []Artifact       `json:"inputs"`
+	Outputs          []Artifact       `json:"outputs"`
+	StartedAt        string           `json:"started_at"`
+	FinishedAt       string           `json:"finished_at"`
+	RuntimeMode      string           `json:"runtime_mode,omitempty"`
+	RequestedModel   string           `json:"requested_model,omitempty"`
+	ReportedModel    string           `json:"reported_model,omitempty"`
+	PermissionMode   string           `json:"permission_mode,omitempty"`
+	AllowedTools     []string         `json:"allowed_tools,omitempty"`
+	Sandbox          string           `json:"sandbox,omitempty"`
+	Checkout         *CheckoutBinding `json:"checkout,omitempty"`
+	// CheckoutFinal is what was read from the checkout after the run, not the requested binding.
+	CheckoutFinal *CheckoutObserved `json:"checkout_final,omitempty"`
 }
 
 // Completion is the body of POST /runner/runs/{id}/complete.

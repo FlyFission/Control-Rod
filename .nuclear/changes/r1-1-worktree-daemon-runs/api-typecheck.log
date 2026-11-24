@@ -1,0 +1,4 @@
+
+> @control-rod/api@0.0.0 typecheck <workspace>/services/api
+> tsc -p tsconfig.json --noEmit
+

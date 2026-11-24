@@ -96,6 +96,9 @@ func setCheckerTmpEnv(cmd *exec.Cmd, dir string) {
 // prepareWorkspace builds a checker workspace for a sandboxed pre-check and the
 // ordinary workspace for every other run. Author and intake launches are unchanged.
 func prepareWorkspace(root string, job *Job, a Adapter) (*Workspace, error) {
+	if job != nil && job.Run.Checkout != nil && job.Run.Role != "author" {
+		return nil, errors.New("only an author run may carry a checkout binding")
+	}
 	if job != nil && job.Run.Role == "pre-check" && a != nil && a.SandboxRequired() {
 		return PrepareChecker(root, job)
 	}

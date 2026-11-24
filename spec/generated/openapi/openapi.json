@@ -6127,6 +6127,10 @@
                       "$ref": "#/components/schemas/Runner.RuntimeStatus"
                     }
                   },
+                  "supports_checkouts": {
+                    "type": "boolean",
+                    "description": "Required to claim an author run with a checkout binding; omitted means unsupported."
+                  },
                   "subscription_report": {
                     "$ref": "#/components/schemas/SubscriptionReport",
                     "description": "Provider CLI probes for Settings. Output of a status command is not included."
@@ -8636,6 +8640,10 @@
               "chat"
             ]
           },
+          "checkout": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
+            "description": "Validated structured input; capture text cannot grant checkout access."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -8734,6 +8742,29 @@
               "voice",
               "chat"
             ]
+          },
+          "checkout": {
+            "type": "object",
+            "properties": {
+              "repo": {
+                "type": "string"
+              },
+              "local_path": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "workspace_root": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "repo",
+              "local_path",
+              "branch"
+            ],
+            "description": "An explicitly prepared checkout. The API validates it and records its Git identity."
           },
           "lane": {
             "$ref": "#/components/schemas/ControlRod.Records.DataLane",
@@ -10341,6 +10372,10 @@
               "chat"
             ]
           },
+          "checkout": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
+            "description": "Validated structured input; capture text cannot grant checkout access."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -10621,6 +10656,58 @@
           "cancelled"
         ],
         "description": "What one checker attempt counts as. A checker may report pass, fail or inconclusive.\nTimeout, error, quota and cancelled are recorded as themselves and count as inconclusive:\nthey are never a pass, and they never erase a fail already recorded for the same deliverable."
+      },
+      "ControlRod.Records.CheckoutBinding": {
+        "type": "object",
+        "required": [
+          "repo",
+          "root",
+          "path",
+          "branch",
+          "head",
+          "git_dir",
+          "common_dir"
+        ],
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "head": {
+            "type": "string"
+          },
+          "git_dir": {
+            "type": "string"
+          },
+          "common_dir": {
+            "type": "string"
+          }
+        },
+        "description": "A host-validated checkout selection. Only author runs may use it as their working directory."
+      },
+      "ControlRod.Records.CheckoutObserved": {
+        "type": "object",
+        "required": [
+          "branch",
+          "head"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "head": {
+            "type": "string"
+          }
+        },
+        "description": "What the daemon read from a bound checkout after its run, not what was requested."
       },
       "ControlRod.Records.CodeOrStandard": {
         "type": "object",
@@ -11021,6 +11108,14 @@
             "type": "string",
             "maxLength": 100,
             "description": "The sandbox the run was launched under: `native-cli:<policy id>@v<version>` for an agent CLI\nunder its recorded sandbox policy (plan task 6.2), or \"none\" for the test runtime. Runs recorded\nbefore plan Phase 6 carry the request they made then (\"workspace-write\" and the like)."
+          },
+          "checkout": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
+            "description": "Verified repository checkout selected for this execution, when bound."
+          },
+          "checkout_final": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutObserved",
+            "description": "The branch and commit the daemon read from that checkout after the run ended, when bound."
           }
         },
         "description": "Proof of where outputs came from. Recorded by the runner, never by the agent."
@@ -11923,6 +12018,10 @@
           },
           "runtime": {
             "$ref": "#/components/schemas/ControlRod.Records.RuntimeRef"
+          },
+          "checkout": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
+            "description": "Frozen when queued, for an author only. A daemon must refuse an unavailable or changed checkout."
           },
           "round": {
             "type": "integer",

@@ -5,7 +5,7 @@ import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
 import { pkg } from "../test/fixtures.js";
 import { renderPage } from "../test/render.js";
-import type { Session, WorkspaceProject } from "../api/types.js";
+import type { NewCapture, Session, WorkspaceProject } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { Shell } from "./Shell.js";
 import { MODE_COPY, PRO_LANE_SKILLS, saveMode } from "../lib/mode.js";
@@ -286,8 +286,8 @@ describe("engineering mode toggle and NewWorkModal", () => {
     resetWorkDefaults("capital-projects");
     mockDialogMethods();
 
-    let capturedBody: { text?: string; lane?: string } | null = null;
-    const materializeRequests: Array<{ mode?: string }> = [];
+    let capturedBody: NewCapture | null = null;
+    const materializeRequests: Array<{ mode?: string; branch: string }> = [];
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
       http.get("*/runtimes", () =>
@@ -320,7 +320,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
         });
       }),
       http.post("*/captures", async ({ request }) => {
-        capturedBody = (await request.json()) as { text?: string; lane?: string };
+        capturedBody = (await request.json()) as NewCapture;
         return HttpResponse.json({ id: "cap-1", received_at: "2026-11-15T12:00:00Z", lane: capturedBody.lane ?? "internal", source: "web", text: capturedBody.text ?? "" });
       }),
     );
@@ -347,7 +347,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const repoSelect = screen.getByLabelText("Repository");
     await within(repoSelect).findByRole("option", { name: /FlyFission\/Control-Rod/i });
     await user.selectOptions(repoSelect, "FlyFission/Control-Rod");
-    expect(screen.getByText(/Prepare a local checkout for manual use/i)).toBeTruthy();
+    expect(screen.getByText(/prepares an isolated checkout for author runs/i)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
     expect(materializeRequests.at(-1)?.mode).toBe("capital-projects");
@@ -393,7 +393,14 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(capturedBody!.text).toContain("[mode:capital-projects]");
     expect(capturedBody!.text).toContain("[repo:FlyFission/Control-Rod]");
     expect(capturedBody!.text).toContain("[outfall:worktree]");
-    expect(capturedBody!.text).toContain("[workspace:/home/flyfission/projects/.worktrees/Control-Rod/");
+    const branch = materializeRequests.at(-1)!.branch;
+    expect(capturedBody!.checkout).toEqual({
+      repo: "FlyFission/Control-Rod",
+      local_path: `/home/flyfission/projects/.worktrees/Control-Rod/${branch.replace(/\//g, "-")}`,
+      workspace_root: "/home/flyfission/projects",
+      branch,
+    });
+    expect(capturedBody!.text).not.toContain("[workspace:");
     expect(capturedBody!.text).toContain("[stage:Detailed Design (60%)]");
     expect(capturedBody!.text).toContain("[purpose:Issue for Permit (IFP)]");
     expect(capturedBody!.text).toContain("[author:claude/default@default]");
@@ -682,8 +689,8 @@ describe("engineering mode toggle and NewWorkModal", () => {
     resetWorkDefaults("software");
     mockDialogMethods();
 
-    let capturedBody: { text?: string } | null = null;
-    const materializeRequests: Array<{ mode?: string }> = [];
+    let capturedBody: NewCapture | null = null;
+    const materializeRequests: Array<{ mode?: string; branch: string }> = [];
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
       http.get("*/runtimes", () =>
@@ -716,7 +723,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
         });
       }),
       http.post("*/captures", async ({ request }) => {
-        capturedBody = (await request.json()) as { text?: string };
+        capturedBody = (await request.json()) as NewCapture;
         return HttpResponse.json({ id: "cap-2", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: capturedBody.text ?? "" });
       }),
     );
@@ -742,7 +749,12 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await user.click(screen.getByRole("button", { name: "Capture change" }));
     await waitFor(() => expect(capturedBody).not.toBeNull());
     expect(capturedBody!.text).toContain("[branch:cr/initial-task]");
-    expect(capturedBody!.text).toContain("[workspace:/home/flyfission/projects/.worktrees/Control-Rod/cr-initial-task]");
+    expect(capturedBody!.checkout).toEqual({
+      repo: "Control-Rod",
+      local_path: "/home/flyfission/projects/.worktrees/Control-Rod/cr-initial-task",
+      workspace_root: "/home/flyfission/projects",
+      branch: "cr/initial-task",
+    });
 
     // Re-open, prepare again, then change explicit branch in capture settings -> clears preparedPath
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
@@ -995,7 +1007,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     mockDialogMethods();
 
     let attempt = 0;
-    let capturedBody: { text?: string } | null = null;
+    let capturedBody: NewCapture | null = null;
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
       http.get("*/runtimes", () =>
@@ -1030,7 +1042,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
         return HttpResponse.json({ code: "git_error", message: "git worktree add failed" }, { status: 500 });
       }),
       http.post("*/captures", async ({ request }) => {
-        capturedBody = (await request.json()) as { text?: string };
+        capturedBody = (await request.json()) as NewCapture;
         return HttpResponse.json({ id: "cap-3", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: capturedBody.text ?? "" });
       }),
     );
@@ -1055,6 +1067,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await waitFor(() => expect(capturedBody).not.toBeNull());
     expect(capturedBody!.text).not.toContain("[workspace:");
     expect(capturedBody!.text).toContain("[branch:cr/fix-bug]");
+    expect(capturedBody!.checkout).toBeUndefined();
   });
 
   it("defensively validates corrupt localStorage values in loadWorkDefaults and renders NewWorkModal safely", async () => {
@@ -1192,7 +1205,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const capturePromise = new Promise<Response>((res) => {
       resolveCapture = res;
     });
-    const capturedPayload: { text?: string; lane?: string } = {};
+    const capturedPayload: Partial<NewCapture> = {};
 
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
@@ -1209,7 +1222,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
         HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
       ),
       http.post("*/captures", async ({ request }) => {
-        Object.assign(capturedPayload, (await request.json()) as { text?: string; lane?: string });
+        Object.assign(capturedPayload, (await request.json()) as NewCapture);
         return capturePromise;
       }),
     );

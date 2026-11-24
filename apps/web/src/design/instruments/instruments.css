@@ -1,0 +1,101 @@
+/* Instrument components (control room redesign, section 3). Colours come only from --plant-* tokens. */
+
+.instrument-frame {
+  --frame-rule: var(--plant-linework);
+  --notch: 8px;
+  position: relative;
+  box-sizing: border-box;
+  padding: 12px;
+  background: var(--plant-surface);
+  border: 1px solid var(--frame-rule);
+  /* Machined corners: four 8 px notches cut from the box. */
+  clip-path: polygon(
+    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%, var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
+  );
+  color: var(--plant-core-glow);
+}
+.instrument-frame[data-tone="needs"] { --frame-rule: var(--plant-needs-you); }
+.instrument-frame[data-tone="trip"] { --frame-rule: var(--plant-trip); }
+/* The engraved label sits on the top rule: a ground-coloured plate that breaks the line. */
+.instrument-frame-label {
+  position: absolute;
+  top: -1px;
+  left: calc(var(--notch) + 4px);
+  transform: translateY(-50%);
+  padding: 0 4px;
+  background: var(--plant-surface);
+  color: var(--plant-screen);
+  font-family: var(--sans);
+  font-size: var(--fs-chip);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.rod-gauge {
+  position: relative;
+  display: inline-flex;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 18px;
+  height: 56px;
+  padding: 2px;
+  border: 1px solid var(--plant-linework);
+  background: var(--plant-ground);
+  overflow: hidden;
+}
+.rod-gauge-rod {
+  display: block;
+  width: 4px;
+  height: 20px;
+  background: var(--plant-screen);
+  transform: translateY(0);
+}
+.rod-gauge-rod[data-dropped="true"] { transform: translateY(28px); }
+.rod-gauge[data-motion="full"] .rod-gauge-rod { transition: transform 600ms cubic-bezier(0.5, 0, 1, 1); }
+.rod-gauge[data-position="bank"] .rod-gauge-rod[data-dropped="true"],
+.rod-gauge[data-position="inserted"] .rod-gauge-rod { background: var(--plant-trip); }
+/* A drill: outline only, dashed, never the trip colour. */
+.rod-gauge[data-position="drill"] .rod-gauge-rod { background: transparent; border: 1px dashed var(--plant-screen); box-sizing: border-box; }
+/* Unknown: hatched. */
+.rod-gauge[data-position="unknown"] { background: repeating-linear-gradient(45deg, var(--plant-ground) 0 3px, var(--plant-linework) 3px 4px); }
+.rod-gauge[data-position="unknown"] .rod-gauge-rod { background: transparent; border: 1px dotted var(--plant-linework); box-sizing: border-box; }
+
+.annunciator-tile {
+  --lamp: var(--plant-screen);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 160px;
+  height: 56px;
+  padding: 0 12px;
+  border: 1px solid var(--plant-linework);
+  background: var(--plant-ground);
+  color: var(--plant-linework);
+  font-family: var(--sans);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+.annunciator-tile:focus-visible { outline: 2px solid var(--plant-core-glow); outline-offset: 2px; }
+.annunciator-tile[data-lamp="needs-you"] { --lamp: var(--plant-needs-you); }
+.annunciator-tile[data-lamp="trip"] { --lamp: var(--plant-trip); }
+.annunciator-tile[data-lit="true"] {
+  border-color: var(--lamp);
+  background: color-mix(in srgb, var(--lamp) 22%, var(--plant-ground));
+  color: var(--lamp);
+}
+.annunciator-tile[data-lit="true"][data-motion="full"] { animation: tile-pulse 2.4s ease-in-out infinite; }
+@keyframes tile-pulse { 50% { opacity: 0.8; } }
+.annunciator-tile-glyph { flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.annunciator-tile-glyph[data-glyph="diamond"] { fill: currentColor; }
+.annunciator-tile-text { display: flex; flex-direction: column; min-width: 0; }
+.annunciator-tile-readout { font-family: var(--mono); font-size: var(--fs-label); font-weight: 400; line-height: 1.2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rod-gauge-rod { transition: none; }
+  .annunciator-tile { animation: none; }
+}

@@ -1310,6 +1310,25 @@
                           "format": "int32",
                           "description": "Figures left out because presenting mode hides lanes above internal."
                         },
+                        "lane_sets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "project_id": {
+                                "type": "string"
+                              },
+                              "work_lanes": {
+                                "$ref": "#/components/schemas/ControlRod.Records.WorkLaneSet"
+                              }
+                            },
+                            "required": [
+                              "project_id",
+                              "work_lanes"
+                            ]
+                          },
+                          "description": "The work lanes of each project that has a figure, so bay names follow the project."
+                        },
                         "generated_at": {
                           "type": "string",
                           "format": "date-time"
@@ -6127,6 +6146,10 @@
                       "$ref": "#/components/schemas/Runner.RuntimeStatus"
                     }
                   },
+                  "supports_checkouts": {
+                    "type": "boolean",
+                    "description": "Required to claim an author run with a checkout binding; omitted means unsupported."
+                  },
                   "subscription_report": {
                     "$ref": "#/components/schemas/SubscriptionReport",
                     "description": "Provider CLI probes for Settings. Output of a status command is not included."
@@ -8284,6 +8307,14 @@
             "type": "string",
             "description": "The project that owns the work, for the portfolio rollup; absent for organization level work."
           },
+          "lane": {
+            "type": "string",
+            "description": "The id of the project work lane that placed this figure's bay, absent outside a work bay."
+          },
+          "lane_name": {
+            "type": "string",
+            "description": "That lane's name, so a card reads right even when the Plant's bays follow another project's lanes."
+          },
           "run_status": {
             "$ref": "#/components/schemas/ControlRod.Records.RunStatus",
             "description": "The run's own status, so the card offers stop exactly when the command layer would take it."
@@ -8636,6 +8667,10 @@
               "chat"
             ]
           },
+          "checkout": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
+            "description": "Validated structured input; capture text cannot grant checkout access."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -8734,6 +8769,29 @@
               "voice",
               "chat"
             ]
+          },
+          "checkout": {
+            "type": "object",
+            "properties": {
+              "repo": {
+                "type": "string"
+              },
+              "local_path": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "workspace_root": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "repo",
+              "local_path",
+              "branch"
+            ],
+            "description": "An explicitly prepared checkout. The API validates it and records its Git identity."
           },
           "lane": {
             "$ref": "#/components/schemas/ControlRod.Records.DataLane",
@@ -10341,6 +10399,10 @@
               "chat"
             ]
           },
+          "checkout": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
+            "description": "Validated structured input; capture text cannot grant checkout access."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -10621,6 +10683,58 @@
           "cancelled"
         ],
         "description": "What one checker attempt counts as. A checker may report pass, fail or inconclusive.\nTimeout, error, quota and cancelled are recorded as themselves and count as inconclusive:\nthey are never a pass, and they never erase a fail already recorded for the same deliverable."
+      },
+      "ControlRod.Records.CheckoutBinding": {
+        "type": "object",
+        "required": [
+          "repo",
+          "root",
+          "path",
+          "branch",
+          "head",
+          "git_dir",
+          "common_dir"
+        ],
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "head": {
+            "type": "string"
+          },
+          "git_dir": {
+            "type": "string"
+          },
+          "common_dir": {
+            "type": "string"
+          }
+        },
+        "description": "A host-validated checkout selection. Only author runs may use it as their working directory."
+      },
+      "ControlRod.Records.CheckoutObserved": {
+        "type": "object",
+        "required": [
+          "branch",
+          "head"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "head": {
+            "type": "string"
+          }
+        },
+        "description": "What the daemon read from a bound checkout after its run, not what was requested."
       },
       "ControlRod.Records.CodeOrStandard": {
         "type": "object",
@@ -11021,6 +11135,14 @@
             "type": "string",
             "maxLength": 100,
             "description": "The sandbox the run was launched under: `native-cli:<policy id>@v<version>` for an agent CLI\nunder its recorded sandbox policy (plan task 6.2), or \"none\" for the test runtime. Runs recorded\nbefore plan Phase 6 carry the request they made then (\"workspace-write\" and the like)."
+          },
+          "checkout": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
+            "description": "Verified repository checkout selected for this execution, when bound."
+          },
+          "checkout_final": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutObserved",
+            "description": "The branch and commit the daemon read from that checkout after the run ended, when bound."
           }
         },
         "description": "Proof of where outputs came from. Recorded by the runner, never by the agent."
@@ -11695,6 +11817,10 @@
             ],
             "description": "The workflow packages carry when they name none. Absent means the playbook."
           },
+          "work_lanes": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkLaneSet",
+            "description": "The work lanes the Plant's bays follow. Absent means the capital-project preset."
+          },
           "lanes": {
             "type": "array",
             "items": {
@@ -11923,6 +12049,10 @@
           },
           "runtime": {
             "$ref": "#/components/schemas/ControlRod.Records.RuntimeRef"
+          },
+          "checkout": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckoutBinding",
+            "description": "Frozen when queued, for an author only. A daemon must refuse an unavailable or changed checkout."
           },
           "round": {
             "type": "integer",
@@ -12752,6 +12882,107 @@
         },
         "description": "Evidence that a result met its criteria. Inconclusive never counts as a pass."
       },
+      "ControlRod.Records.WorkLane": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$",
+            "description": "Stable, lowercase, used by a card's lane tag."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24,
+            "description": "The name on the bay's plate. Short enough for a plate at minimum zoom."
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "What happens in this lane, for screen readers and the legend."
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "Whole words (or word runs) in a card's discipline that place it here. Matched on word boundaries, never inside a word."
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "Repository paths that place work here: a directory prefix (\"apps/web/\"), an exact path, or a glob (`*` within a segment, `**` across segments)."
+          }
+        },
+        "description": "One work lane: one work bay on the Plant. Its position in its set is its bay (the first lane is the\nfirst slot of WorkBaySlot, and so on). Not a data lane (DataLane), which classifies information."
+      },
+      "ControlRod.Records.WorkLaneChoice": {
+        "type": "object",
+        "required": [
+          "preset"
+        ],
+        "properties": {
+          "preset": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkLanePreset"
+          },
+          "lanes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.WorkLane"
+            },
+            "minItems": 1,
+            "maxItems": 6
+          },
+          "default_lane": {
+            "type": "string",
+            "description": "The id of the lane that takes work no tag, path or keyword places. Absent means the preset's own default (the first lane for custom)."
+          }
+        },
+        "description": "A request to set a project's work lanes. `lanes` is required (one to six) for the custom preset and\nignored for the others, whose lanes the control plane supplies."
+      },
+      "ControlRod.Records.WorkLanePreset": {
+        "type": "string",
+        "enum": [
+          "capital-project",
+          "software",
+          "custom"
+        ],
+        "description": "Which set of work lanes a project uses."
+      },
+      "ControlRod.Records.WorkLaneSet": {
+        "type": "object",
+        "required": [
+          "preset",
+          "lanes",
+          "default_lane"
+        ],
+        "properties": {
+          "preset": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkLanePreset"
+          },
+          "lanes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.WorkLane"
+            },
+            "minItems": 1,
+            "maxItems": 6
+          },
+          "default_lane": {
+            "type": "string"
+          }
+        },
+        "description": "A project's work lanes as stored and returned: the preset, its one to six lanes, and the lane that\ntakes work nothing else places. Work is placed by, in order: the card's lane tag (its discipline\nequal to a lane id or name), the repository paths its recorded outputs touch, whole-word keywords,\nthen the default lane. A project without one reads as the capital-project preset."
+      },
       "ControlRod.Records.WorkPackage": {
         "type": "object",
         "required": [
@@ -12962,7 +13193,7 @@
           "bench",
           "quarantine"
         ],
-        "description": "Where a figure stands in the office (specification 13): a discipline's cube set, or a room."
+        "description": "Where a figure stands in the office (specification 13): a work bay or a room. The six bay ids are\npositions (WorkBaySlot); a project's work lanes say what each is called. Under the capital-project\npreset they are the six disciplines, as before."
       },
       "FigureSpend": {
         "type": "object",
@@ -14770,6 +15001,10 @@
           "checker": {
             "$ref": "#/components/schemas/WorkspaceProjects.RuntimeSelection"
           },
+          "work_lanes": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkLaneChoice",
+            "description": "Sets the project's work lanes. On create, absent means the preset proposed from the repository."
+          },
           "laneAgents": {
             "type": "object",
             "additionalProperties": {
@@ -14870,6 +15105,10 @@
               }
             ],
             "description": "Null clears the configured lane overrides."
+          },
+          "work_lanes": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkLaneChoice",
+            "description": "Sets the project's work lanes. On create, absent means the preset proposed from the repository."
           }
         }
       },
@@ -14949,6 +15188,10 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "work_lanes": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkLaneSet",
+            "description": "The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset)."
           },
           "createdAt": {
             "type": "string",

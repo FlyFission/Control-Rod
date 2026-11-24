@@ -1,0 +1,2035 @@
+{
+ "note": "feet_px = floor point under the worker's hips (the seat) in plate px (2400x1500). Draw sprite worker-<garb>-<pose>.png scaled by 1/6 (85.33 plate px square) so that its hip_floor_anchor_px_by_sprite[<garb>-<pose>] pixel lands on feet_px: top-left = feet_px - anchor/6. The lowest foot pixel of every sprite is at y=496 of the 512 sprite.",
+ "ring_sprite": "sprites/ring-needs-you.png (512x512, ring centred on the worker floor point at (256,256), same 6 px per plate px)",
+ "sprite": {
+  "size": 512,
+  "lowest_foot_y_px": 496,
+  "px_per_plate_px": 6.0,
+  "hip_floor_anchor_px_by_sprite": {
+   "antic-working": [
+    256,
+    489
+   ],
+   "antic-waiting": [
+    256,
+    488
+   ],
+   "antic-stuck": [
+    256,
+    488
+   ],
+   "antic-needs-you": [
+    256,
+    461
+   ],
+   "antic-walking": [
+    256,
+    445
+   ],
+   "station-working": [
+    256,
+    489
+   ],
+   "station-waiting": [
+    256,
+    488
+   ],
+   "station-stuck": [
+    256,
+    488
+   ],
+   "station-needs-you": [
+    256,
+    461
+   ],
+   "station-walking": [
+    256,
+    445
+   ]
+  },
+  "measured_anchor_delta_px": [
+   -0.5,
+   -1.0
+  ],
+  "measured_anchor_note": "marker disc rendered at the render-time anchor (256,440) vs its centroid"
+ },
+ "garb_mode": "realistic",
+ "seats": [
+  {
+   "id": "process:1",
+   "room": "process",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    136.34,
+    475.34
+   ],
+   "anchors_json_px": [
+    136.34,
+    475.34
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.001,
+    -0.005
+   ],
+   "blender_marker_px": [
+    135.69,
+    474.81
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.65,
+    -0.53
+   ]
+  },
+  {
+   "id": "process:2",
+   "room": "process",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    177.33,
+    499.0
+   ],
+   "anchors_json_px": [
+    177.33,
+    499.0
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    176.82,
+    498.47
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.51,
+    -0.53
+   ]
+  },
+  {
+   "id": "process:3",
+   "room": "process",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    218.33,
+    522.67
+   ],
+   "anchors_json_px": [
+    218.33,
+    522.67
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    217.81,
+    522.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.52,
+    -0.67
+   ]
+  },
+  {
+   "id": "process:4",
+   "room": "process",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    92.17,
+    500.84
+   ],
+   "anchors_json_px": [
+    92.17,
+    500.84
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    -0.005
+   ],
+   "blender_marker_px": [
+    91.67,
+    500.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.77
+   ]
+  },
+  {
+   "id": "process:5",
+   "room": "process",
+   "n": 5,
+   "garb": "station",
+   "feet_px": [
+    133.16,
+    524.5
+   ],
+   "anchors_json_px": [
+    133.16,
+    524.5
+   ],
+   "delta_vs_anchors_json_px": [
+    0.001,
+    0.0
+   ],
+   "blender_marker_px": [
+    132.67,
+    523.93
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.49,
+    -0.57
+   ]
+  },
+  {
+   "id": "process:6",
+   "room": "process",
+   "n": 6,
+   "garb": "station",
+   "feet_px": [
+    174.16,
+    548.17
+   ],
+   "anchors_json_px": [
+    174.16,
+    548.17
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    173.5,
+    547.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.66,
+    -0.5
+   ]
+  },
+  {
+   "id": "mechanical:1",
+   "room": "mechanical",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    472.0,
+    260.1
+   ],
+   "anchors_json_px": [
+    472.0,
+    260.1
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    471.5,
+    259.5
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.6
+   ]
+  },
+  {
+   "id": "mechanical:2",
+   "room": "mechanical",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    513.0,
+    283.77
+   ],
+   "anchors_json_px": [
+    513.0,
+    283.77
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.001,
+    0.0
+   ],
+   "blender_marker_px": [
+    512.5,
+    283.12
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.64
+   ]
+  },
+  {
+   "id": "mechanical:3",
+   "room": "mechanical",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    553.99,
+    307.44
+   ],
+   "anchors_json_px": [
+    553.99,
+    307.44
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    -0.005
+   ],
+   "blender_marker_px": [
+    553.5,
+    306.88
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.49,
+    -0.56
+   ]
+  },
+  {
+   "id": "mechanical:4",
+   "room": "mechanical",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    427.83,
+    285.6
+   ],
+   "anchors_json_px": [
+    427.83,
+    285.6
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    427.19,
+    285.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.64,
+    -0.6
+   ]
+  },
+  {
+   "id": "mechanical:5",
+   "room": "mechanical",
+   "n": 5,
+   "garb": "station",
+   "feet_px": [
+    468.83,
+    309.27
+   ],
+   "anchors_json_px": [
+    468.83,
+    309.27
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    468.5,
+    308.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.33,
+    -0.6
+   ]
+  },
+  {
+   "id": "mechanical:6",
+   "room": "mechanical",
+   "n": 6,
+   "garb": "station",
+   "feet_px": [
+    509.82,
+    332.94
+   ],
+   "anchors_json_px": [
+    509.82,
+    332.94
+   ],
+   "delta_vs_anchors_json_px": [
+    0.001,
+    -0.005
+   ],
+   "blender_marker_px": [
+    509.5,
+    332.33
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.32,
+    -0.61
+   ]
+  },
+  {
+   "id": "electrical:1",
+   "room": "electrical",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    930.28,
+    142.31
+   ],
+   "anchors_json_px": [
+    930.28,
+    142.31
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    -0.005
+   ],
+   "blender_marker_px": [
+    929.65,
+    141.71
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.63,
+    -0.6
+   ]
+  },
+  {
+   "id": "electrical:2",
+   "room": "electrical",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    971.27,
+    165.97
+   ],
+   "anchors_json_px": [
+    971.27,
+    165.97
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.005,
+    0.0
+   ],
+   "blender_marker_px": [
+    970.65,
+    165.29
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.62,
+    -0.68
+   ]
+  },
+  {
+   "id": "electrical:3",
+   "room": "electrical",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    1012.25,
+    189.64
+   ],
+   "anchors_json_px": [
+    1012.25,
+    189.64
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    -0.005
+   ],
+   "blender_marker_px": [
+    1011.81,
+    189.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.44,
+    -0.64
+   ]
+  },
+  {
+   "id": "electrical:4",
+   "room": "electrical",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    886.11,
+    167.81
+   ],
+   "anchors_json_px": [
+    886.11,
+    167.81
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.001,
+    -0.005
+   ],
+   "blender_marker_px": [
+    885.67,
+    167.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.44,
+    -0.74
+   ]
+  },
+  {
+   "id": "electrical:5",
+   "room": "electrical",
+   "n": 5,
+   "garb": "station",
+   "feet_px": [
+    927.1,
+    191.47
+   ],
+   "anchors_json_px": [
+    927.1,
+    191.47
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    926.67,
+    190.93
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.43,
+    -0.54
+   ]
+  },
+  {
+   "id": "electrical:6",
+   "room": "electrical",
+   "n": 6,
+   "garb": "station",
+   "feet_px": [
+    968.09,
+    215.14
+   ],
+   "anchors_json_px": [
+    968.09,
+    215.14
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.003,
+    -0.005
+   ],
+   "blender_marker_px": [
+    967.59,
+    214.59
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.55
+   ]
+  },
+  {
+   "id": "civil:1",
+   "room": "civil",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    1431.91,
+    142.31
+   ],
+   "anchors_json_px": [
+    1431.91,
+    142.31
+   ],
+   "delta_vs_anchors_json_px": [
+    0.003,
+    -0.005
+   ],
+   "blender_marker_px": [
+    1431.5,
+    141.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.41,
+    -0.64
+   ]
+  },
+  {
+   "id": "civil:2",
+   "room": "civil",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    1472.9,
+    165.97
+   ],
+   "anchors_json_px": [
+    1472.9,
+    165.97
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    1472.5,
+    165.33
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.4,
+    -0.64
+   ]
+  },
+  {
+   "id": "civil:3",
+   "room": "civil",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    1513.89,
+    189.64
+   ],
+   "anchors_json_px": [
+    1513.89,
+    189.64
+   ],
+   "delta_vs_anchors_json_px": [
+    0.001,
+    -0.005
+   ],
+   "blender_marker_px": [
+    1513.33,
+    189.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.56,
+    -0.57
+   ]
+  },
+  {
+   "id": "civil:4",
+   "room": "civil",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    1387.75,
+    167.81
+   ],
+   "anchors_json_px": [
+    1387.75,
+    167.81
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    -0.005
+   ],
+   "blender_marker_px": [
+    1387.33,
+    167.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.42,
+    -0.74
+   ]
+  },
+  {
+   "id": "civil:5",
+   "room": "civil",
+   "n": 5,
+   "garb": "station",
+   "feet_px": [
+    1428.73,
+    191.47
+   ],
+   "anchors_json_px": [
+    1428.73,
+    191.47
+   ],
+   "delta_vs_anchors_json_px": [
+    0.005,
+    0.0
+   ],
+   "blender_marker_px": [
+    1428.19,
+    191.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.54,
+    -0.47
+   ]
+  },
+  {
+   "id": "civil:6",
+   "room": "civil",
+   "n": 6,
+   "garb": "station",
+   "feet_px": [
+    1469.72,
+    215.14
+   ],
+   "anchors_json_px": [
+    1469.72,
+    215.14
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    -0.005
+   ],
+   "blender_marker_px": [
+    1469.33,
+    214.5
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.39,
+    -0.64
+   ]
+  },
+  {
+   "id": "assurance:1",
+   "room": "assurance",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    1890.18,
+    260.11
+   ],
+   "anchors_json_px": [
+    1890.18,
+    260.11
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.001,
+    -0.005
+   ],
+   "blender_marker_px": [
+    1889.67,
+    259.5
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.51,
+    -0.61
+   ]
+  },
+  {
+   "id": "assurance:2",
+   "room": "assurance",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    1931.17,
+    283.77
+   ],
+   "anchors_json_px": [
+    1931.17,
+    283.77
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    1930.67,
+    283.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.7
+   ]
+  },
+  {
+   "id": "assurance:3",
+   "room": "assurance",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    1972.17,
+    307.44
+   ],
+   "anchors_json_px": [
+    1972.17,
+    307.44
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    1971.67,
+    306.93
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.51
+   ]
+  },
+  {
+   "id": "assurance:4",
+   "room": "assurance",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    1846.01,
+    285.61
+   ],
+   "anchors_json_px": [
+    1846.01,
+    285.61
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    -0.005
+   ],
+   "blender_marker_px": [
+    1845.5,
+    285.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.51,
+    -0.61
+   ]
+  },
+  {
+   "id": "assurance:5",
+   "room": "assurance",
+   "n": 5,
+   "garb": "station",
+   "feet_px": [
+    1887.0,
+    309.27
+   ],
+   "anchors_json_px": [
+    1887.0,
+    309.27
+   ],
+   "delta_vs_anchors_json_px": [
+    0.001,
+    0.0
+   ],
+   "blender_marker_px": [
+    1886.5,
+    308.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.6
+   ]
+  },
+  {
+   "id": "assurance:6",
+   "room": "assurance",
+   "n": 6,
+   "garb": "station",
+   "feet_px": [
+    1928.0,
+    332.94
+   ],
+   "anchors_json_px": [
+    1928.0,
+    332.94
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    1927.5,
+    332.33
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.61
+   ]
+  },
+  {
+   "id": "project-controls:1",
+   "room": "project-controls",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    2225.84,
+    475.33
+   ],
+   "anchors_json_px": [
+    2225.84,
+    475.33
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    2225.35,
+    474.71
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.49,
+    -0.62
+   ]
+  },
+  {
+   "id": "project-controls:2",
+   "room": "project-controls",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    2266.84,
+    499.0
+   ],
+   "anchors_json_px": [
+    2266.84,
+    499.0
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.001,
+    0.0
+   ],
+   "blender_marker_px": [
+    2266.5,
+    498.33
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.34,
+    -0.67
+   ]
+  },
+  {
+   "id": "project-controls:3",
+   "room": "project-controls",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    2307.83,
+    522.66
+   ],
+   "anchors_json_px": [
+    2307.83,
+    522.66
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    0.005
+   ],
+   "blender_marker_px": [
+    2307.33,
+    522.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.59
+   ]
+  },
+  {
+   "id": "project-controls:4",
+   "room": "project-controls",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    2181.67,
+    500.83
+   ],
+   "anchors_json_px": [
+    2181.67,
+    500.83
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    2181.33,
+    500.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.34,
+    -0.76
+   ]
+  },
+  {
+   "id": "project-controls:5",
+   "room": "project-controls",
+   "n": 5,
+   "garb": "station",
+   "feet_px": [
+    2222.67,
+    524.5
+   ],
+   "anchors_json_px": [
+    2222.67,
+    524.5
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    2222.19,
+    524.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.48,
+    -0.5
+   ]
+  },
+  {
+   "id": "project-controls:6",
+   "room": "project-controls",
+   "n": 6,
+   "garb": "station",
+   "feet_px": [
+    2263.66,
+    548.16
+   ],
+   "anchors_json_px": [
+    2263.66,
+    548.16
+   ],
+   "delta_vs_anchors_json_px": [
+    0.001,
+    0.005
+   ],
+   "blender_marker_px": [
+    2263.18,
+    547.53
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.48,
+    -0.63
+   ]
+  },
+  {
+   "id": "review:1",
+   "room": "review",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    1825.7,
+    1195.75
+   ],
+   "anchors_json_px": [
+    1825.7,
+    1195.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    1825.19,
+    1195.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.51,
+    -0.75
+   ]
+  },
+  {
+   "id": "review:2",
+   "room": "review",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    1882.86,
+    1228.75
+   ],
+   "anchors_json_px": [
+    1882.86,
+    1228.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.001,
+    0.0
+   ],
+   "blender_marker_px": [
+    1882.33,
+    1228.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.53,
+    -0.68
+   ]
+  },
+  {
+   "id": "review:3",
+   "room": "review",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    1781.54,
+    1221.25
+   ],
+   "anchors_json_px": [
+    1781.54,
+    1221.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    1781.07,
+    1220.6
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.47,
+    -0.65
+   ]
+  },
+  {
+   "id": "review:4",
+   "room": "review",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    1838.69,
+    1254.25
+   ],
+   "anchors_json_px": [
+    1838.69,
+    1254.25
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    1838.35,
+    1253.71
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.34,
+    -0.54
+   ]
+  },
+  {
+   "id": "interface:1",
+   "room": "interface",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    561.31,
+    1195.75
+   ],
+   "anchors_json_px": [
+    561.31,
+    1195.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    560.81,
+    1195.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.75
+   ]
+  },
+  {
+   "id": "interface:2",
+   "room": "interface",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    618.46,
+    1228.75
+   ],
+   "anchors_json_px": [
+    618.46,
+    1228.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    618.0,
+    1228.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.46,
+    -0.75
+   ]
+  },
+  {
+   "id": "interface:3",
+   "room": "interface",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    517.14,
+    1221.25
+   ],
+   "anchors_json_px": [
+    517.14,
+    1221.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.001,
+    0.0
+   ],
+   "blender_marker_px": [
+    516.5,
+    1220.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.64,
+    -0.58
+   ]
+  },
+  {
+   "id": "interface:4",
+   "room": "interface",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    574.3,
+    1254.25
+   ],
+   "anchors_json_px": [
+    574.3,
+    1254.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    573.65,
+    1253.71
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.65,
+    -0.54
+   ]
+  },
+  {
+   "id": "verification:1",
+   "room": "verification",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    2087.57,
+    830.75
+   ],
+   "anchors_json_px": [
+    2087.57,
+    830.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    2087.0,
+    830.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.57,
+    -0.75
+   ]
+  },
+  {
+   "id": "verification:2",
+   "room": "verification",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    2144.73,
+    863.75
+   ],
+   "anchors_json_px": [
+    2144.73,
+    863.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.0,
+    0.0
+   ],
+   "blender_marker_px": [
+    2144.33,
+    863.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.4,
+    -0.68
+   ]
+  },
+  {
+   "id": "verification:3",
+   "room": "verification",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    2043.4,
+    856.25
+   ],
+   "anchors_json_px": [
+    2043.4,
+    856.25
+   ],
+   "delta_vs_anchors_json_px": [
+    0.005,
+    0.0
+   ],
+   "blender_marker_px": [
+    2042.81,
+    855.69
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.59,
+    -0.56
+   ]
+  },
+  {
+   "id": "verification:4",
+   "room": "verification",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    2100.56,
+    889.25
+   ],
+   "anchors_json_px": [
+    2100.56,
+    889.25
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    2100.07,
+    888.6
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.49,
+    -0.65
+   ]
+  },
+  {
+   "id": "your-office:1",
+   "room": "your-office",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    1193.5,
+    1346.94
+   ],
+   "anchors_json_px": [
+    1193.5,
+    1346.94
+   ],
+   "delta_vs_anchors_json_px": [
+    0.005,
+    0.0
+   ],
+   "blender_marker_px": [
+    1193.07,
+    1346.4
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.43,
+    -0.54
+   ]
+  },
+  {
+   "id": "your-office:2",
+   "room": "your-office",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    1250.66,
+    1379.94
+   ],
+   "anchors_json_px": [
+    1250.66,
+    1379.94
+   ],
+   "delta_vs_anchors_json_px": [
+    0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    1250.35,
+    1379.29
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.31,
+    -0.65
+   ]
+  },
+  {
+   "id": "your-office:3",
+   "room": "your-office",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    1149.34,
+    1372.44
+   ],
+   "anchors_json_px": [
+    1149.34,
+    1372.44
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    1148.81,
+    1372.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.53,
+    -0.44
+   ]
+  },
+  {
+   "id": "your-office:4",
+   "room": "your-office",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    1206.5,
+    1405.44
+   ],
+   "anchors_json_px": [
+    1206.5,
+    1405.44
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.005,
+    0.0
+   ],
+   "blender_marker_px": [
+    1206.0,
+    1405.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.44
+   ]
+  },
+  {
+   "id": "document-control:1",
+   "room": "document-control",
+   "n": 1,
+   "garb": "station",
+   "feet_px": [
+    145.41,
+    86.25
+   ],
+   "anchors_json_px": [
+    145.41,
+    86.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    144.81,
+    85.69
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.6,
+    -0.56
+   ]
+  },
+  {
+   "id": "document-control:2",
+   "room": "document-control",
+   "n": 2,
+   "garb": "station",
+   "feet_px": [
+    191.31,
+    112.75
+   ],
+   "anchors_json_px": [
+    191.31,
+    112.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    190.81,
+    112.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.5,
+    -0.75
+   ]
+  },
+  {
+   "id": "document-control:3",
+   "room": "document-control",
+   "n": 3,
+   "garb": "station",
+   "feet_px": [
+    237.2,
+    139.25
+   ],
+   "anchors_json_px": [
+    237.2,
+    139.25
+   ],
+   "delta_vs_anchors_json_px": [
+    0.005,
+    0.0
+   ],
+   "blender_marker_px": [
+    236.5,
+    138.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.7,
+    -0.58
+   ]
+  },
+  {
+   "id": "document-control:4",
+   "room": "document-control",
+   "n": 4,
+   "garb": "station",
+   "feet_px": [
+    283.1,
+    165.75
+   ],
+   "anchors_json_px": [
+    283.1,
+    165.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    282.67,
+    165.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.43,
+    -0.68
+   ]
+  },
+  {
+   "id": "document-control:5",
+   "room": "document-control",
+   "n": 5,
+   "garb": "station",
+   "feet_px": [
+    96.91,
+    114.25
+   ],
+   "anchors_json_px": [
+    96.91,
+    114.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.001,
+    0.0
+   ],
+   "blender_marker_px": [
+    96.5,
+    113.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.41,
+    -0.58
+   ]
+  },
+  {
+   "id": "document-control:6",
+   "room": "document-control",
+   "n": 6,
+   "garb": "station",
+   "feet_px": [
+    142.81,
+    140.75
+   ],
+   "anchors_json_px": [
+    142.81,
+    140.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.002,
+    0.0
+   ],
+   "blender_marker_px": [
+    142.33,
+    140.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.48,
+    -0.68
+   ]
+  },
+  {
+   "id": "document-control:7",
+   "room": "document-control",
+   "n": 7,
+   "garb": "station",
+   "feet_px": [
+    188.71,
+    167.25
+   ],
+   "anchors_json_px": [
+    188.71,
+    167.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    188.35,
+    166.71
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.36,
+    -0.54
+   ]
+  },
+  {
+   "id": "document-control:8",
+   "room": "document-control",
+   "n": 8,
+   "garb": "station",
+   "feet_px": [
+    234.61,
+    193.75
+   ],
+   "anchors_json_px": [
+    234.61,
+    193.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    234.0,
+    193.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.61,
+    -0.75
+   ]
+  },
+  {
+   "id": "bench:1",
+   "room": "bench",
+   "n": 1,
+   "garb": "antic",
+   "feet_px": [
+    205.4,
+    1286.25
+   ],
+   "anchors_json_px": [
+    205.4,
+    1286.25
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    204.81,
+    1285.69
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.59,
+    -0.56
+   ]
+  },
+  {
+   "id": "bench:2",
+   "room": "bench",
+   "n": 2,
+   "garb": "antic",
+   "feet_px": [
+    251.3,
+    1312.75
+   ],
+   "anchors_json_px": [
+    251.3,
+    1312.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    250.81,
+    1312.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.49,
+    -0.75
+   ]
+  },
+  {
+   "id": "bench:3",
+   "room": "bench",
+   "n": 3,
+   "garb": "antic",
+   "feet_px": [
+    297.2,
+    1339.25
+   ],
+   "anchors_json_px": [
+    297.2,
+    1339.25
+   ],
+   "delta_vs_anchors_json_px": [
+    0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    296.5,
+    1338.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.7,
+    -0.58
+   ]
+  },
+  {
+   "id": "bench:4",
+   "room": "bench",
+   "n": 4,
+   "garb": "antic",
+   "feet_px": [
+    343.1,
+    1365.75
+   ],
+   "anchors_json_px": [
+    343.1,
+    1365.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    342.67,
+    1365.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.43,
+    -0.68
+   ]
+  },
+  {
+   "id": "bench:5",
+   "room": "bench",
+   "n": 5,
+   "garb": "antic",
+   "feet_px": [
+    156.91,
+    1314.25
+   ],
+   "anchors_json_px": [
+    156.91,
+    1314.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    156.5,
+    1313.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.41,
+    -0.58
+   ]
+  },
+  {
+   "id": "bench:6",
+   "room": "bench",
+   "n": 6,
+   "garb": "antic",
+   "feet_px": [
+    202.81,
+    1340.75
+   ],
+   "anchors_json_px": [
+    202.81,
+    1340.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    202.33,
+    1340.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.48,
+    -0.68
+   ]
+  },
+  {
+   "id": "bench:7",
+   "room": "bench",
+   "n": 7,
+   "garb": "antic",
+   "feet_px": [
+    248.71,
+    1367.25
+   ],
+   "anchors_json_px": [
+    248.71,
+    1367.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    248.35,
+    1366.71
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.36,
+    -0.54
+   ]
+  },
+  {
+   "id": "bench:8",
+   "room": "bench",
+   "n": 8,
+   "garb": "antic",
+   "feet_px": [
+    294.61,
+    1393.75
+   ],
+   "anchors_json_px": [
+    294.61,
+    1393.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.005,
+    0.0
+   ],
+   "blender_marker_px": [
+    294.0,
+    1393.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.61,
+    -0.75
+   ]
+  },
+  {
+   "id": "quarantine:1",
+   "room": "quarantine",
+   "n": 1,
+   "garb": "antic",
+   "feet_px": [
+    2105.39,
+    1286.25
+   ],
+   "anchors_json_px": [
+    2105.39,
+    1286.25
+   ],
+   "delta_vs_anchors_json_px": [
+    0.005,
+    0.0
+   ],
+   "blender_marker_px": [
+    2104.81,
+    1285.69
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.58,
+    -0.56
+   ]
+  },
+  {
+   "id": "quarantine:2",
+   "room": "quarantine",
+   "n": 2,
+   "garb": "antic",
+   "feet_px": [
+    2151.29,
+    1312.75
+   ],
+   "anchors_json_px": [
+    2151.29,
+    1312.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    2150.81,
+    1312.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.48,
+    -0.75
+   ]
+  },
+  {
+   "id": "quarantine:3",
+   "room": "quarantine",
+   "n": 3,
+   "garb": "antic",
+   "feet_px": [
+    2197.19,
+    1339.25
+   ],
+   "anchors_json_px": [
+    2197.19,
+    1339.25
+   ],
+   "delta_vs_anchors_json_px": [
+    0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    2196.5,
+    1338.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.69,
+    -0.58
+   ]
+  },
+  {
+   "id": "quarantine:4",
+   "room": "quarantine",
+   "n": 4,
+   "garb": "antic",
+   "feet_px": [
+    2243.09,
+    1365.75
+   ],
+   "anchors_json_px": [
+    2243.09,
+    1365.75
+   ],
+   "delta_vs_anchors_json_px": [
+    0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    2242.67,
+    1365.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.42,
+    -0.68
+   ]
+  },
+  {
+   "id": "quarantine:5",
+   "room": "quarantine",
+   "n": 5,
+   "garb": "antic",
+   "feet_px": [
+    2056.9,
+    1314.25
+   ],
+   "anchors_json_px": [
+    2056.9,
+    1314.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    2056.5,
+    1313.67
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.4,
+    -0.58
+   ]
+  },
+  {
+   "id": "quarantine:6",
+   "room": "quarantine",
+   "n": 6,
+   "garb": "antic",
+   "feet_px": [
+    2102.8,
+    1340.75
+   ],
+   "anchors_json_px": [
+    2102.8,
+    1340.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.003,
+    0.0
+   ],
+   "blender_marker_px": [
+    2102.33,
+    1340.07
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.47,
+    -0.68
+   ]
+  },
+  {
+   "id": "quarantine:7",
+   "room": "quarantine",
+   "n": 7,
+   "garb": "antic",
+   "feet_px": [
+    2148.7,
+    1367.25
+   ],
+   "anchors_json_px": [
+    2148.7,
+    1367.25
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    2148.35,
+    1366.71
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.35,
+    -0.54
+   ]
+  },
+  {
+   "id": "quarantine:8",
+   "room": "quarantine",
+   "n": 8,
+   "garb": "antic",
+   "feet_px": [
+    2194.6,
+    1393.75
+   ],
+   "anchors_json_px": [
+    2194.6,
+    1393.75
+   ],
+   "delta_vs_anchors_json_px": [
+    -0.004,
+    0.0
+   ],
+   "blender_marker_px": [
+    2194.0,
+    1393.0
+   ],
+   "delta_blender_vs_anchors_px": [
+    -0.6,
+    -0.75
+   ]
+  }
+ ]
+}

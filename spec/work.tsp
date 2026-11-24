@@ -18,6 +18,18 @@ model Actor {
   id: string;
 }
 
+/** A host-validated checkout selection. Only author runs may use it as their working directory. */
+@extension("unevaluatedProperties", false)
+model CheckoutBinding {
+  repo: string;
+  root: string;
+  path: string;
+  branch: string;
+  head: string;
+  git_dir: string;
+  common_dir: string;
+}
+
 /** Something a person said they want done, before intake turns it into a package. */
 @extension("unevaluatedProperties", false)
 model Capture {
@@ -29,6 +41,8 @@ model Capture {
   text: string;
 
   source: "web" | "cli" | "voice" | "chat";
+  /** Validated structured input; capture text cannot grant checkout access. */
+  checkout?: CheckoutBinding;
   created_at: utcDateTime;
 
   /** Intake either answers a quick question directly or drafts a work package. */
@@ -94,6 +108,8 @@ model Run {
   role: RunRole;
   agent_baseline: string;
   runtime: RuntimeRef;
+  /** Frozen when queued, for an author only. A daemon must refuse an unavailable or changed checkout. */
+  checkout?: CheckoutBinding;
 
   /** Author and pre-check rounds start at 1; round 3 escalates a dispute to a person. */
   @minValue(1)

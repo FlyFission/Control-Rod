@@ -1,13 +1,13 @@
 # Verification: sole-maintainer sign-off for trust surfaces
 
-Evidence status: **pass** for RS-01 to RS-03 locally; CI on the pull request is E-04.
+Evidence status: **pass** for RS-01 to RS-03, locally and in CI (E-04).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | The rule text, template wording and screenshot-record entry, as a diff against `main` at 1fe7cf8. Wording reviewed by the implementing agent only. | `evidence/rule-diff.patch` |
 | E-02 | pass | Every tracked statement of the signer rule outside change records and plans: the current rule files (`AGENTS.md`, `CONTRIBUTING.md`, `docs/collaboration.md`, both templates, CODEOWNERS) name the exception. `policies/README.md` and ADR 0001 still state the default rule and are left as they are (see ship). Text search only. | `evidence/signer-rule-grep.txt` |
 | E-03 | pass | This record and `readme-shots-lockdown` validate with the pinned validator under `--strict-custody`. | `evidence/validate.log` |
-| E-04 | pending | CI on the pull request. | the pull request's checks |
+| E-04 | pass | `ci`, all seven jobs, green on the pull request at 49e2853 (run 44447178509) and aa6617e (run 44514223831), and on `main` after the merge at 608c189 (run 44514692185). CI checks records and code, not the rule's wording. | GitHub Actions runs 44447178509, 44514223831, 44514692185 |
 
 ## Evidence custody and coupling
 
@@ -16,7 +16,7 @@ Evidence status: **pass** for RS-01 to RS-03 locally; CI on the pull request is 
 | E-01 | RS-01 | yes | evidence/rule-diff.patch | Implementing agent | git diff | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-02 | RS-02 | yes | evidence/signer-rule-grep.txt | Implementing agent | git grep | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-03 | RS-03 | yes | evidence/validate.log | Implementing agent | ng.py | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
-| E-04 | RS-01 | no | pull request checks | Implementing agent | GitHub Actions | Implementing agent | Implementing agent | GitHub-hosted runner | GitHub | Implementing agent | Self-check |
+| E-04 | RS-01 | no | GitHub Actions runs 44447178509, 44514223831, 44514692185 | Implementing agent | GitHub Actions | Implementing agent | Implementing agent | GitHub-hosted runner | GitHub | Implementing agent | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|

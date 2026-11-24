@@ -27,6 +27,10 @@
         "runtime": {
             "$ref": "RuntimeRef.json"
         },
+        "checkout": {
+            "$ref": "CheckoutBinding.json",
+            "description": "Frozen when queued, for an author only. A daemon must refuse an unavailable or changed checkout."
+        },
         "round": {
             "type": "integer",
             "minimum": 1,

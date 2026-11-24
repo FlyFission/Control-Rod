@@ -1,0 +1,356 @@
+name: Control Rod Blind Check
+description: Run Control Rod's independent blind checker on a diff and acceptance criteria without editing workflows or bypassing agent sandboxes.
+
+inputs:
+  author-runtime:
+    description: Caller-declared runtime or vendor family that authored the diff (e.g. claude, codex, grok, agy)
+    required: true
+  checker-runtime:
+    description: Checker runtime from a different vendor family (auto-selected from installed runtimes if omitted)
+    required: false
+    default: ""
+  model:
+    description: Checker model ID (defaults to the runtime's registered deciding model)
+    required: false
+    default: ""
+  diff-file:
+    description: Path to a unified diff file; if omitted, computed via git diff merge-base(base-ref, head-ref)..head-ref
+    required: false
+    default: ""
+  base-ref:
+    description: Base git ref when computing a diff (defaults to PR base SHA or HEAD~1)
+    required: false
+    default: ""
+  head-ref:
+    description: Head git ref when computing a diff (defaults to the pull request head SHA from the event, else HEAD)
+    required: false
+    default: ""
+  criteria:
+    description: Path to acceptance criteria file (read from the base ref by default so PRs cannot edit their own criteria)
+    required: false
+    default: ""
+  criteria-from-base:
+    description: Read the criteria file from the base git ref instead of the PR working tree (set false only if criteria lives outside the PR branch)
+    required: false
+    default: "true"
+  criteria-text:
+    description: Inline acceptance criteria text (used when criteria file is omitted)
+    required: false
+    default: ""
+  grade:
+    description: Package grade (general-service, material, or safety)
+    required: false
+    default: "general-service"
+  package-id:
+    description: Target label for the verdict and summary
+    required: false
+    default: ""
+  package-revision:
+    description: Optional Control Rod package revision integer bound to the receipt
+    required: false
+    default: ""
+  inclusion-proof:
+    description: Optional Control Rod inclusion proof bundle to verify against the checked PR revision/diff
+    required: false
+    default: ""
+  controlrod-bin:
+    description: Path to a prebuilt controlrod binary (optional; builds from daemon/ if omitted)
+    required: false
+    default: ""
+  fail-on-fail:
+    description: Fail the action step when the verdict is fail or inconclusive (infrastructure/usage errors always fail)
+    required: false
+    default: "true"
+  timeout:
+    description: Maximum duration for the checker run (e.g. 15m)
+    required: false
+    default: "15m"
+  post-comment:
+    description: Post the PR receipt summary (linked for pnpm cr verify) as a pull request comment (requires github-token)
+    required: false
+    default: "false"
+  github-token:
+    description: GitHub token used only to post the PR comment when post-comment is true (never passed to the agent)
+    required: false
+    default: ""
+
+outputs:
+  outcome:
+    description: Verdict outcome (pass, fail, inconclusive, or error)
+    value: ${{ steps.run.outputs.outcome }}
+  findings-count:
+    description: Number of findings reported by the checker
+    value: ${{ steps.run.outputs.findings-count }}
+  diff-sha256:
+    description: SHA-256 hex digest of the checked diff
+    value: ${{ steps.run.outputs.diff-sha256 }}
+  head-sha:
+    description: Git head commit SHA checked
+    value: ${{ steps.run.outputs.head-sha }}
+  proof-verified:
+    description: Whether inputs.inclusion-proof is authentic and its accepted deliverables cover the checked diff, revision and head commit (true, true-not-head-bound when the bundle records no head commit to compare, false, or none). It does not bind this check's checker, verdict or criteria to the bundle's pre-check, so true is not a verified human acceptance of this check.
+    value: ${{ steps.run.outputs.proof-verified }}
+  receipt:
+    description: Path to the generated Markdown check summary file
+    value: ${{ steps.run.outputs.receipt }}
+  verdict-file:
+    description: Path to the generated JSON verdict file
+    value: ${{ steps.run.outputs.verdict-file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Locate or build controlrod CLI
+      id: bin
+      shell: bash
+      env:
+        INPUT_BIN: ${{ inputs.controlrod-bin }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        if [ -n "$INPUT_BIN" ]; then
+          BIN="$INPUT_BIN"
+        elif command -v controlrod >/dev/null 2>&1; then
+          BIN="$(command -v controlrod)"
+        else
+          BIN="$RUNNER_TEMP/controlrod"
+          go -C "$ACTION_PATH/../../daemon" build -o "$BIN" ./cmd/controlrod
+        fi
+        if [ ! -x "$BIN" ]; then
+          echo "controlrod binary is not executable: $BIN" >&2
+          exit 2
+        fi
+        echo "path=$BIN" >> "$GITHUB_OUTPUT"
+
+    - name: Run blind checker
+      id: run
+      shell: bash
+      env:
+        CONTROLROD_BIN: ${{ steps.bin.outputs.path }}
+        ACTION_PATH: ${{ github.action_path }}
+        AUTHOR_RUNTIME: ${{ inputs.author-runtime }}
+        CHECKER_RUNTIME: ${{ inputs.checker-runtime }}
+        MODEL: ${{ inputs.model }}
+        DIFF_FILE: ${{ inputs.diff-file }}
+        BASE_REF: ${{ inputs.base-ref }}
+        HEAD_REF: ${{ inputs.head-ref }}
+        CRITERIA_FILE: ${{ inputs.criteria }}
+        CRITERIA_FROM_BASE: ${{ inputs.criteria-from-base }}
+        CRITERIA_TEXT: ${{ inputs.criteria-text }}
+        GRADE: ${{ inputs.grade }}
+        PACKAGE_ID: ${{ inputs.package-id }}
+        PACKAGE_REVISION: ${{ inputs.package-revision }}
+        INCLUSION_PROOF: ${{ inputs.inclusion-proof }}
+        TIMEOUT: ${{ inputs.timeout }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set -uo pipefail
+        WORK_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/controlrod-check.XXXXXX")"
+        VERDICT_FILE="$WORK_DIR/verdict.json"
+        RECEIPT_FILE="$WORK_DIR/receipt.md"
+        BASE="${BASE_REF:-${PR_BASE_SHA:-HEAD~1}}"
+        HEAD_REF="${HEAD_REF:-${PR_HEAD_SHA:-HEAD}}"
+        ARGS=(check --author-runtime "$AUTHOR_RUNTIME" --grade "$GRADE" --timeout "$TIMEOUT" --output text --verdict-out "$VERDICT_FILE" --receipt-out "$RECEIPT_FILE")
+
+        if [ -n "$CHECKER_RUNTIME" ]; then
+          ARGS+=(--checker "$CHECKER_RUNTIME")
+        fi
+        if [ -n "$MODEL" ]; then
+          ARGS+=(--model "$MODEL")
+        fi
+        if [ -n "$PACKAGE_ID" ]; then
+          ARGS+=(--package-id "$PACKAGE_ID")
+        elif [ -n "${PR_NUMBER:-}" ]; then
+          ARGS+=(--package-id "PR #$PR_NUMBER")
+        fi
+        if [ -n "${PACKAGE_REVISION:-}" ]; then
+          ARGS+=(--revision "$PACKAGE_REVISION")
+        fi
+        if [ -n "$DIFF_FILE" ]; then
+          ARGS+=(--diff "$DIFF_FILE")
+          # A diff file is not tied to any commit, so no head SHA is attached: the
+          # verdict is labelled with a diff file and its head is not verified.
+        else
+          if [[ "$BASE" == -* ]] || [[ "$HEAD_REF" == -* ]]; then
+            echo "Invalid git ref: leading '-' is disallowed" >&2
+            printf '{"outcome":"error","findings":[],"error":"invalid git ref"}\n' > "$VERDICT_FILE"
+            echo "outcome=error" >> "$GITHUB_OUTPUT"
+            echo "findings-count=0" >> "$GITHUB_OUTPUT"
+            echo "has-error=true" >> "$GITHUB_OUTPUT"
+            echo "diff-sha256=" >> "$GITHUB_OUTPUT"
+            echo "head-sha=" >> "$GITHUB_OUTPUT"
+            echo "proof-verified=none" >> "$GITHUB_OUTPUT"
+            echo "receipt=" >> "$GITHUB_OUTPUT"
+            echo "verdict-file=$VERDICT_FILE" >> "$GITHUB_OUTPUT"
+            echo "exit-code=2" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          DIFF_BASE="$BASE"
+          if git rev-parse --git-dir >/dev/null 2>&1; then
+            set +e
+            DIFF_BASE="$(git merge-base "$BASE" "$HEAD_REF" 2>&1)"
+            MB_RC=$?
+            set -e
+            if [ "$MB_RC" -ne 0 ] || [ -z "$DIFF_BASE" ]; then
+              echo "Cannot resolve merge-base between $BASE and $HEAD_REF (ensure full git history with fetch-depth: 0): $DIFF_BASE" >&2
+              python3 -c 'import json,sys; json.dump({"outcome":"error","findings":[],"error":sys.argv[1]}, open(sys.argv[2],"w"))' "failed to resolve git merge-base between $BASE and $HEAD_REF" "$VERDICT_FILE"
+              echo "outcome=error" >> "$GITHUB_OUTPUT"
+              echo "findings-count=0" >> "$GITHUB_OUTPUT"
+              echo "has-error=true" >> "$GITHUB_OUTPUT"
+              echo "diff-sha256=" >> "$GITHUB_OUTPUT"
+              echo "head-sha=" >> "$GITHUB_OUTPUT"
+              echo "proof-verified=none" >> "$GITHUB_OUTPUT"
+              echo "receipt=" >> "$GITHUB_OUTPUT"
+              echo "verdict-file=$VERDICT_FILE" >> "$GITHUB_OUTPUT"
+              echo "exit-code=2" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          ARGS+=(--base "$DIFF_BASE" --head "$HEAD_REF")
+        fi
+        if [ -n "$CRITERIA_FILE" ]; then
+          ARGS+=(--criteria "$CRITERIA_FILE")
+          if [ "$CRITERIA_FROM_BASE" = "true" ]; then
+            ARGS+=(--criteria-ref "$BASE")
+          fi
+        elif [ -n "$CRITERIA_TEXT" ]; then
+          ARGS+=(--criteria-text "$CRITERIA_TEXT")
+        fi
+
+        # Disable errexit around the CLI call so nonzero verdicts (exit 1/2)
+        # still export outputs and step summary before Enforce verdict decides.
+        set +e
+        "$CONTROLROD_BIN" "${ARGS[@]}"
+        RC=$?
+        set -e
+
+        OUTCOME="error"
+        FINDINGS_COUNT="0"
+        HAS_ERROR="true"
+        DIFF_SHA256=""
+        HEAD_SHA=""
+        if [ -f "$VERDICT_FILE" ]; then
+          OUTCOME="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("outcome","error"))' "$VERDICT_FILE" 2>/dev/null || echo error)"
+          FINDINGS_COUNT="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get("findings") or []))' "$VERDICT_FILE" 2>/dev/null || echo 0)"
+          HAS_ERROR="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("true" if (d.get("error") or "").strip() else "false")' "$VERDICT_FILE" 2>/dev/null || echo true)"
+          DIFF_SHA256="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print((d.get("diff_digest") or {}).get("value",""))' "$VERDICT_FILE" 2>/dev/null || true)"
+          HEAD_SHA="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("head_sha") or "")' "$VERDICT_FILE" 2>/dev/null || true)"
+        fi
+
+        PROOF_VERIFIED="none"
+        if [ -n "${INCLUSION_PROOF:-}" ]; then
+          PROOF_VERIFIED="false"
+          HAS_ERROR="true"
+          VERIFY_JS="${CONTROLROD_VERIFY_JS:-${ACTION_PATH:-}/../../services/api/dist/verify-bundle.js}"
+          if [ ! -f "$VERDICT_FILE" ]; then
+            echo "::error::Cannot verify inclusion-proof because controlrod check produced no verdict file" >&2
+          elif [ ! -f "$VERIFY_JS" ]; then
+            echo "::error::Offline bundle verifier not found at $VERIFY_JS. The Action does not build it: run 'pnpm install --frozen-lockfile && pnpm --filter @control-rod/api build' in the Control Rod checkout before this step, or set CONTROLROD_VERIFY_JS to a built verify-bundle.js. Inclusion proof is treated as NOT verified." >&2
+          else
+            VERIFY_ARGS=(--receipt "$VERDICT_FILE")
+            if [ -n "${PACKAGE_REVISION:-}" ]; then
+              VERIFY_ARGS+=(--revision "$PACKAGE_REVISION")
+            fi
+            set +e
+            VERIFY_OUT="$(node "$VERIFY_JS" "${VERIFY_ARGS[@]}" "$INCLUSION_PROOF" 2>&1)"
+            VRC=$?
+            set -e
+            if [ "$VRC" -eq 0 ]; then
+              PROOF_VERIFIED="true"
+              case "$VERIFY_OUT" in
+                *"not head-bound"*) PROOF_VERIFIED="true-not-head-bound" ;;
+              esac
+              HAS_ERROR="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("true" if (d.get("error") or "").strip() else "false")' "$VERDICT_FILE" 2>/dev/null || echo true)"
+              if [ -f "$RECEIPT_FILE" ]; then
+                printf '\n> **Inclusion proof not bound to this check:** `%s` is authentic and its accepted deliverables cover this diff and revision, but it does not bind this check'"'"'s checker, verdict or acceptance criteria to the bundle'"'"'s pre-check. This is not a verified acceptance of this check.\n' "$INCLUSION_PROOF" >> "$RECEIPT_FILE"
+              fi
+            else
+              echo "Inclusion proof verification failed for $INCLUSION_PROOF: $VERIFY_OUT" >&2
+              if [ -f "$RECEIPT_FILE" ]; then
+                CLEAN_ERR="${VERIFY_OUT//$'\n'/ }"
+                printf '\n> **ACCEPTANCE PROOF MISMATCH:** `pnpm cr verify` rejected `%s` against this checked PR diff/revision: `%s`\n' "$INCLUSION_PROOF" "$CLEAN_ERR" >> "$RECEIPT_FILE"
+              fi
+            fi
+          fi
+        fi
+
+        if [ -n "$DIFF_FILE" ] && [ -f "$RECEIPT_FILE" ]; then
+          printf '\n> **Diff file, head not verified:** this check used a supplied diff file; no head commit is attached or verified.\n' >> "$RECEIPT_FILE"
+        fi
+
+        if [ -f "$RECEIPT_FILE" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          cat "$RECEIPT_FILE" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
+        echo "findings-count=$FINDINGS_COUNT" >> "$GITHUB_OUTPUT"
+        echo "has-error=$HAS_ERROR" >> "$GITHUB_OUTPUT"
+        echo "diff-sha256=$DIFF_SHA256" >> "$GITHUB_OUTPUT"
+        echo "head-sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+        echo "proof-verified=$PROOF_VERIFIED" >> "$GITHUB_OUTPUT"
+        if [ -f "$RECEIPT_FILE" ]; then
+          echo "receipt=$RECEIPT_FILE" >> "$GITHUB_OUTPUT"
+        else
+          echo "receipt=" >> "$GITHUB_OUTPUT"
+        fi
+        if [ -f "$VERDICT_FILE" ]; then
+          echo "verdict-file=$VERDICT_FILE" >> "$GITHUB_OUTPUT"
+        else
+          echo "verdict-file=" >> "$GITHUB_OUTPUT"
+        fi
+        echo "exit-code=$RC" >> "$GITHUB_OUTPUT"
+
+    - name: Post PR receipt comment
+      if: ${{ always() && inputs.post-comment == 'true' && github.event.pull_request.number != '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        RECEIPT_FILE: ${{ steps.run.outputs.receipt }}
+      run: |
+        set -uo pipefail
+        if [ -z "$GH_TOKEN" ]; then
+          echo "::warning::post-comment is true but github-token is empty; skipping PR comment"
+          exit 0
+        fi
+        if [ -n "$RECEIPT_FILE" ] && [ -f "$RECEIPT_FILE" ]; then
+          COMMENT_FILE="$(dirname "$RECEIPT_FILE")/comment.md"
+          python3 -c 'import pathlib, sys; raw = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace"); limit = 60000; out = raw[:limit] + "\n\n*(truncated to fit GitHub comment limit)*\n" if len(raw) > limit else raw; pathlib.Path(sys.argv[2]).write_text(out, encoding="utf-8")' "$RECEIPT_FILE" "$COMMENT_FILE"
+          if ! gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$COMMENT_FILE"; then
+            echo "::warning::gh pr comment failed (for example read-only token on a fork PR)"
+          fi
+        fi
+
+    - name: Enforce verdict
+      if: ${{ always() }}
+      shell: bash
+      env:
+        RC: ${{ steps.run.outputs.exit-code }}
+        OUTCOME: ${{ steps.run.outputs.outcome }}
+        HAS_ERROR: ${{ steps.run.outputs.has-error }}
+        PROOF_VERIFIED: ${{ steps.run.outputs.proof-verified }}
+        FAIL_ON_FAIL: ${{ inputs.fail-on-fail }}
+      run: |
+        if [ -z "${RC:-}" ]; then
+          echo "controlrod check did not produce an exit code" >&2
+          exit 1
+        fi
+        if [ "${PROOF_VERIFIED:-none}" = "false" ]; then
+          echo "Control Rod inclusion proof does not cover this PR revision or diff" >&2
+          exit 1
+        fi
+        if [ "$RC" -eq 2 ]; then
+          exit 2
+        fi
+        if [ "${HAS_ERROR:-true}" = "true" ] || [ "$OUTCOME" = "error" ]; then
+          if [ "$RC" -ne 0 ]; then
+            exit "$RC"
+          fi
+          exit 1
+        fi
+        if [ "$RC" -ne 0 ] && [ "$FAIL_ON_FAIL" = "true" ]; then
+          exit "$RC"
+        fi

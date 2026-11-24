@@ -1,0 +1,39 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CheckoutBinding.json",
+    "type": "object",
+    "properties": {
+        "repo": {
+            "type": "string"
+        },
+        "root": {
+            "type": "string"
+        },
+        "path": {
+            "type": "string"
+        },
+        "branch": {
+            "type": "string"
+        },
+        "head": {
+            "type": "string"
+        },
+        "git_dir": {
+            "type": "string"
+        },
+        "common_dir": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "repo",
+        "root",
+        "path",
+        "branch",
+        "head",
+        "git_dir",
+        "common_dir"
+    ],
+    "description": "A host-validated checkout selection. Only author runs may use it as their working directory.",
+    "unevaluatedProperties": false
+}

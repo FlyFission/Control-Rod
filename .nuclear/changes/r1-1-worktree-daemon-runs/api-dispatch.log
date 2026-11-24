@@ -1,0 +1,20 @@
+
+ RUN  v5.1.0 <workspace>/services/api
+
+ ❯ test/runs.test.ts (35 tests | 35 skipped) 6ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/runs.test.ts [ test/runs.test.ts ]
+Error: listen EPERM: operation not permitted 127.0.0.1
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  35 skipped (35)
+   Start at  11:13:34
+   Duration  586ms (transform 55%, import 43%, tests 1%)
+
+undefined
+<workspace>/services/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run test/runs.test.ts -t bound checkout

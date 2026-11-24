@@ -1,0 +1,8 @@
+diff --git a/lists.py b/lists.py
+index ca562d9..0a4cbe0 100644
+--- a/lists.py
++++ b/lists.py
+@@ -1,2 +1,2 @@
+ def last_n(items, n):
+-    return items[-n:]
++    return items[-n:] if n else []

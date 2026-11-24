@@ -45,6 +45,7 @@ import { attentionFirst } from "./boardOrder.js";
 import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
 import { type BoardCard, useBoardData } from "./useBoardData.js";
 import { readString, writeString } from "../../lib/storage.js";
+import { WorkLanesSetting } from "./WorkLanesSetting.js";
 import "./board.css";
 
 const VIEW_MODE_KEY = "cr.board-view";
@@ -137,6 +138,8 @@ export function BoardView() {
       qc.setQueryData(queryKey, loadProjects(projectUser));
       void qc.invalidateQueries({ queryKey });
       void qc.invalidateQueries({ queryKey: ["admin"] });
+      // The Plant names its bays by the project's lanes.
+      void qc.invalidateQueries({ queryKey: ["office-figures"] });
     } catch (err) {
       if (stillCurrent(startedUnder)) setProjectError(explain(err, fallback));
     } finally {
@@ -679,6 +682,17 @@ export function BoardView() {
                     )}
                 </select>
               </label>
+              <WorkLanesSetting
+                key={`${activeProject.id}:${JSON.stringify(activeProject.work_lanes ?? null)}`}
+                current={activeProject.work_lanes}
+                pending={projectPending}
+                onSave={(work_lanes) =>
+                  void applyProjectChange({
+                    command: "project.workspace-update",
+                    payload: { project_id: activeProject.id, patch: { work_lanes } },
+                  }, "Could not update the Plant bays.")
+                }
+              />
               <span className="mono small muted">
                 {activeProject.laneAgents?.drafting ?? activeProject.author.ecosystem} →{" "}
                 {activeProject.laneAgents?.["agent-check"] ?? activeProject.checker.ecosystem}

@@ -111,3 +111,25 @@ export const CHECK_IN_CHOICES: readonly { id: CheckIn; label: string; detail: st
 /** Said under a choice that is saved now but changes nothing yet. */
 export const CHECK_IN_LATER =
   "Saved for when check-in points arrive. Until then every card stops for your signed release at the start and your signed acceptance at the end, as it does today.";
+
+/**
+ * Which known agent a run's provider names (RuntimeRef.provider), so a figure can show its agent's
+ * icon. Providers are matched exactly, lower-cased; a provider this table does not list has no icon
+ * of its own and gets the generic glyph. Add a row here to give a new agent its badge.
+ */
+const PROVIDER_AGENT: Readonly<Record<string, AgentId>> = {
+  claude: "claude",
+  "claude-code": "claude",
+  anthropic: "claude",
+  codex: "codex",
+  openai: "codex",
+  agy: "agy",
+  antigravity: "agy",
+  grok: "grok",
+  opencode: "opencode",
+  ollama: "ollama",
+};
+
+export function agentIdForProvider(provider: string | undefined): AgentId | undefined {
+  return provider ? PROVIDER_AGENT[provider.toLowerCase()] : undefined;
+}

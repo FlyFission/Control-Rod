@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WorkLanePreset.json",
+    "anyOf": [
+        {
+            "type": "string",
+            "const": "capital-project",
+            "description": "Process, Mechanical, Electrical, Civil, Assurance, Project controls: the six bays as drawn before lanes existed."
+        },
+        {
+            "type": "string",
+            "const": "software",
+            "description": "Frontend, Backend, Platform, Data, Tests, Docs."
+        },
+        {
+            "type": "string",
+            "const": "custom",
+            "description": "Up to six lanes the project names itself."
+        }
+    ],
+    "description": "Which set of work lanes a project uses."
+}

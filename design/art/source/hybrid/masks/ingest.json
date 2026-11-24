@@ -1,0 +1,144 @@
+{
+ "generated_by": "tools/cut_plant_layers.py --ingest",
+ "blender_version": "plant3d-v3",
+ "garb_table": {
+  "process": "station",
+  "mechanical": "station",
+  "electrical": "station",
+  "civil": "station",
+  "assurance": "station",
+  "project-controls": "station",
+  "review": "station",
+  "interface": "station",
+  "verification": "station",
+  "your-office": "station",
+  "document-control": "station",
+  "bench": "antic",
+  "quarantine": "antic"
+ },
+ "inside_containment_garb": "antic",
+ "stack_order": [
+  "layers/plate-dark.png",
+  "layers/core-healthy.png | layers/core-tripped.png",
+  "layers/rooms/<id>-lit.png",
+  "sprites/worker-<garb>-<pose>.png at seat-feet.json",
+  "layers/rooms/<id>-front.png",
+  "layers/overlay-ticks.png"
+ ],
+ "seat_feet_sha256": "2950bca97fcfdd6b8560dfcf6aeacac0cd52f486fec4e5cb662d1a533e369d59",
+ "blender_manifest_sha256": "fc0e99810c5f4cd7f33e8b83fbdeb6969530442e73072ffa446a85fccb21aace",
+ "masks": {
+  "process-lit.png": {
+   "source": "layers/rooms/process-lit.png",
+   "source_sha256": "03216c6a4e05fac3e3ed98bffe2cbbbc9554cd8661f86df85a70a3d7ff936e79"
+  },
+  "process-front.png": {
+   "source": "layers/rooms/process-front.png",
+   "source_sha256": "0fda1c6725db20a498a23e3df353422fc38db3dd80f741c058d14c82169f0106"
+  },
+  "mechanical-lit.png": {
+   "source": "layers/rooms/mechanical-lit.png",
+   "source_sha256": "e21017d62cd202fbc37e0ae2e426ed8958227f27e108030b1816c26f4913ba25"
+  },
+  "mechanical-front.png": {
+   "source": "layers/rooms/mechanical-front.png",
+   "source_sha256": "2891aa1290254efd3958f68b694eccccc08f3d655bcaea8f331a0d21ec6eba6d"
+  },
+  "electrical-lit.png": {
+   "source": "layers/rooms/electrical-lit.png",
+   "source_sha256": "debd2eb9bc3d73fb20ba65911e80bcf179ace89481c514322fa7aeee57a1cea3"
+  },
+  "electrical-front.png": {
+   "source": "layers/rooms/electrical-front.png",
+   "source_sha256": "6b9c001e286981800c8a6e4877e60082108d337cd47ac977b7b7df6995200c05"
+  },
+  "civil-lit.png": {
+   "source": "layers/rooms/civil-lit.png",
+   "source_sha256": "edf59bca125d530482cf732fb112751a5001152919110d0395d0f584200e2404"
+  },
+  "civil-front.png": {
+   "source": "layers/rooms/civil-front.png",
+   "source_sha256": "6b6a85d57c50718627495717dda6aad361045f99941affde86115c3025f0dde7"
+  },
+  "assurance-lit.png": {
+   "source": "layers/rooms/assurance-lit.png",
+   "source_sha256": "5d3d51d6a1ddffa61a4be2f78f0017f7bf9f7bb41fc3513633725fad80bb9a55"
+  },
+  "assurance-front.png": {
+   "source": "layers/rooms/assurance-front.png",
+   "source_sha256": "f45d913210d10b0e9b6e1e222f9e681fdcb5e4a6e2b450261847aede50110afb"
+  },
+  "project-controls-lit.png": {
+   "source": "layers/rooms/project-controls-lit.png",
+   "source_sha256": "6398f4f46cd3ca2119cf49218009c709473fb67a03ad39a8fe656292619fe571"
+  },
+  "project-controls-front.png": {
+   "source": "layers/rooms/project-controls-front.png",
+   "source_sha256": "e14592826e09f836a72bc785f1ce3538c2383a45d2b0fc1082fa2a26eff4e59a"
+  },
+  "review-lit.png": {
+   "source": "layers/rooms/review-lit.png",
+   "source_sha256": "9d2516369bb8d5b95882398aa845a49adf81a994ee7a11bafa99dd2c8eaf416a"
+  },
+  "review-front.png": {
+   "source": "layers/rooms/review-front.png",
+   "source_sha256": "ff285819fdbb5bce44706bb0d141c91d9a25b4c5f11526a01bc91221c73d0da8"
+  },
+  "interface-lit.png": {
+   "source": "layers/rooms/interface-lit.png",
+   "source_sha256": "a2fd2dcf32e3852630f7ee3115d1af9f17014c10cf83bd1d3b5ccc73f8a09245"
+  },
+  "interface-front.png": {
+   "source": "layers/rooms/interface-front.png",
+   "source_sha256": "ac3c049d023b17fc4fe08867d490c3d665145da2d486a914e24143c5c269fbb9"
+  },
+  "verification-lit.png": {
+   "source": "layers/rooms/verification-lit.png",
+   "source_sha256": "696fbcc239d24184a5e298373af58833c6320d95c7aef8acc3ad4e1b220b89ff"
+  },
+  "verification-front.png": {
+   "source": "layers/rooms/verification-front.png",
+   "source_sha256": "c4411b4470227a0e04bf2dd6110a1e8253875eba472161a472d8f7b6bdcadf26"
+  },
+  "your-office-lit.png": {
+   "source": "layers/rooms/your-office-lit.png",
+   "source_sha256": "c8e2d96207e27b2e8851237ea0757713e5b9765b049c4082ffed8f3f5090c738"
+  },
+  "your-office-front.png": {
+   "source": "layers/rooms/your-office-front.png",
+   "source_sha256": "5f49e3344f2cd75b36a13772f8c7199bfe75d142bfc60ac894849a8d403333f4"
+  },
+  "document-control-lit.png": {
+   "source": "layers/rooms/document-control-lit.png",
+   "source_sha256": "eca520566311df4eb6a573a8f9b1d9bcc60d8d3ce316e299017ddc3f5ebd7368"
+  },
+  "document-control-front.png": {
+   "source": "layers/rooms/document-control-front.png",
+   "source_sha256": "bfe6b2627077db814df04229d1a87a9d1330a724d6e81dc1276afdc205ff7f71"
+  },
+  "bench-lit.png": {
+   "source": "layers/rooms/bench-lit.png",
+   "source_sha256": "efe017a9bcca7ba0c1052d378db5a4b0f3b081b2cdb98ab02bb69cdbe556ec3f"
+  },
+  "bench-front.png": {
+   "source": "layers/rooms/bench-front.png",
+   "source_sha256": "e8751f9c63a4356fba9dd9430e6e6d973b4477a3e1be43ff55cafbf0244c0157"
+  },
+  "quarantine-lit.png": {
+   "source": "layers/rooms/quarantine-lit.png",
+   "source_sha256": "9138a80a4f89c7d96aa254079646fbf4d17a3cf39bf475b21589250e4296283a"
+  },
+  "quarantine-front.png": {
+   "source": "layers/rooms/quarantine-front.png",
+   "source_sha256": "56328885ea21746cf6bf467daecc0ef0741c4357584ea880ccc9d14664fda34f"
+  },
+  "core-healthy.png": {
+   "source": "layers/core-healthy.png",
+   "source_sha256": "bb3594c56f66b1b3b5017c3b915bc8535f65e7db1e79afdeec7615f6441717a4"
+  },
+  "core-tripped.png": {
+   "source": "layers/core-tripped.png",
+   "source_sha256": "633f2880987ae042b75b5ec1b45f6a9f00620b0c6effc05cd891d4e72ec79505"
+  }
+ }
+}

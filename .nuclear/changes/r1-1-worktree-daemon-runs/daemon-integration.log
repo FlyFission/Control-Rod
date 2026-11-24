@@ -1,0 +1,8 @@
+=== RUN   TestDaemonRunsInBoundCheckout
+    checkout_test.go:182: failed: the run could not be owned, so it was stopped: fork/exec /bin/ps: operation not permitted
+        time=2026-11-22T11:18:18.823-05:00 level=INFO msg="run started" run=checkout-e2e role=author runtime=fake workspace=<temp>/TestDaemonRunsInBoundCheckout1756419865/001/selected-checkout
+        time=2026-11-22T11:18:18.899-05:00 level=WARN msg="log upload failed; its events go with the completion" run=checkout-e2e err="POST /runner/runs/checkout-e2e/log: Post \"/runner/runs/checkout-e2e/log\": unsupported protocol scheme \"\""
+--- FAIL: TestDaemonRunsInBoundCheckout (0.32s)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.570s
+FAIL

@@ -1,0 +1,25 @@
+{
+ "source": "tools/extract_palette.py",
+ "method": "ground/linework: 10th/85th value percentile of B-healthy; surface: 40th percentile inside room boxes; core-glow: median bright cyan in core bbox; screen: median saturated cyan; needs-you: median of the brightest decile of warm pixels in your-office bbox of B-needs-you; trip: median of the brightest decile of red in core bbox of B-scram",
+ "roles": {
+  "ground": "#000e23",
+  "surface": "#091930",
+  "linework": "#255375",
+  "core-glow": "#6bd8f0",
+  "screen": "#3b95b7",
+  "needs-you": "#fbc246",
+  "trip": "#db535f"
+ },
+ "pixel_counts": {
+  "core-glow": 20677,
+  "screen": 76120,
+  "needs-you": 38,
+  "trip": 3100
+ },
+ "inputs": {
+  "B-healthy-1440.jpg": "413a72d08e578ccebc375732c6faebe330d7df45e1b6e8b503496f883c99bf64",
+  "B-needs-you-1440.jpg": "ac6cd92a5694a55fd13e5be71a65d96e11b13cc6630ad83c682eee4087ddcfb4",
+  "B-scram-1440.jpg": "60f2d831612ea2d556b9edddaddcf1de3da9c671195de88fe0ddeb1e2f91e327",
+  "anchors.json": "ed619c2d75e4cc7eb6d62d45d00f6814bf1f95f7d1fad07d5be5a7aad5239d5e"
+ }
+}

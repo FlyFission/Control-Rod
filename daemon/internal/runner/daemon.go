@@ -367,11 +367,18 @@ func (d *Daemon) preflightedArtifact(runtime string, launched Digest) error {
 // sandboxPaths are the paths a run's policy names on this host.
 func (d *Daemon) sandboxPaths(ws *Workspace) SandboxPaths {
 	home, _ := os.UserHomeDir() // never empty here: the launch refuses first (homeKnown)
+	return d.sandboxPathsFor(home, ws.Dir)
+}
+
+// sandboxPathsFor is sandboxPaths for a known home folder and workspace directory.
+func (d *Daemon) sandboxPathsFor(home, workspace string) SandboxPaths {
 	dh, err := filepath.Abs(d.cfg.Home)
 	if err != nil {
 		dh = d.cfg.Home
 	}
-	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: ws.Dir, Logins: LoginLocations(os.Getenv, home)}
+	// The deny list names the daemon home as it really resolves, so an alias cannot dodge it.
+	dh = resolveOrClean(dh)
+	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: workspace, Logins: LoginLocations(os.Getenv, home)}
 }
 
 // preflight checks that this host can run rt under its sandbox (plan task 6.3).
@@ -1318,7 +1325,7 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 
 // execute runs one job. ErrUncontained means processes of the run could not be confirmed gone,
 // so the completion must not be sent.
-func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
+func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resultErr error) {
 	started := time.Now().UTC()
 	fail := func(msg string) Completion {
 		return Completion{Status: "failed", Error: msg, Outputs: []NamedFile{}}
@@ -1368,11 +1375,32 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		d.log.Warn("no contact with the control plane for a whole lease; stopping the run", "run", job.Run.ID)
 		release(errOutOfContact)
 	})
+	if job.Run.Checkout != nil {
+		// The daemon's own containment rule, before anything is written in the checkout.
+		home, _ := os.UserHomeDir()
+		if err := validateCheckoutHost(job.Run.Checkout, d.sandboxPathsFor(home, ""), sandbox); err != nil {
+			return fail("checkout refused: " + err.Error()), nil
+		}
+	}
 	ws, err := prepareWorkspace(d.cfg.Home, job, a)
 	if err != nil {
 		return fail(err.Error()), nil
 	}
-	_, inArts, err := Collect(ws.Inputs, MaxOutputTotal, 1<<40)
+	if ws.releaseCheckout != nil {
+		// Custody ends when the run's processes are confirmed gone. When they could not be
+		// confirmed (ErrUncontained) the lock stays held for the daemon's lifetime, so no other run
+		// can start in a checkout something may still be writing to.
+		defer func() {
+			if !errors.Is(resultErr, ErrUncontained) {
+				ws.releaseCheckout()
+			}
+		}()
+	}
+	inCap, err := ws.CaptureRun(ws.Inputs, MaxOutputTotal, 1<<40)
+	var inArts []Artifact
+	if inCap != nil {
+		inArts = inCap.Arts
+	}
 	if err != nil {
 		return fail("read inputs: " + err.Error()), nil
 	}
@@ -1434,7 +1462,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	var frozen *Captured
 	var snapshotErr error
 	snapshot := func() {
-		c, err := Capture(ws.Out, MaxOutputFile, MaxOutputTotal)
+		c, err := ws.CaptureRun(ws.Out, MaxOutputFile, MaxOutputTotal)
 		frozen, snapshotErr = c, err
 		if err == nil && frozen == nil {
 			frozen = &Captured{Raw: map[string][]byte{}}
@@ -1550,6 +1578,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					if !time.Now().Before(lease.deadline()) {
 						return errOutOfContact
 					}
+					if err := ws.beforeStartCheck(); err != nil {
+						return err
+					}
 					return verified.Ready()
 				},
 				Started: func(pid int) (*SpawnReceipt, error) {
@@ -1651,13 +1682,28 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			comp.Status = "stopped"
 		}
 	}
+	// A bound checkout is read again now that the run's processes are gone. The trace carries what
+	// was found; a checkout that is not the bound one (other than by commits on the bound branch)
+	// fails the run.
+	var checkoutFinal *CheckoutObserved
+	if ws.Checkout != nil {
+		obs, cerr := checkoutAfterRun(ws.Checkout)
+		checkoutFinal = obs
+		if cerr != nil {
+			if comp.Status == "succeeded" {
+				comp.Status, comp.Error = "failed", "checkout check after the run: "+cerr.Error()
+			} else {
+				comp.Error = strings.TrimSpace(comp.Error + "; checkout check after the run: " + cerr.Error())
+			}
+		}
+	}
 	// After a stop, the capture taken while frozen is the run's only output.
 	if snapshotErr != nil {
 		comp.Status, comp.Error = "failed", "outputs could not be snapshot when the run was stopped: "+snapshotErr.Error()
 	}
 	captured := frozen
 	if captured == nil && snapshotErr == nil {
-		c, cerr := Capture(ws.Out, MaxOutputFile, MaxOutputTotal)
+		c, cerr := ws.CaptureRun(ws.Out, MaxOutputFile, MaxOutputTotal)
 		if cerr != nil {
 			comp.Status, comp.Error = "failed", "collect outputs: "+cerr.Error()
 		}
@@ -1777,6 +1823,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		PermissionMode:  launch.PermissionMode,
 		AllowedTools:    launch.AllowedTools,
 		Sandbox:         launch.Sandbox,
+		Checkout:        ws.Checkout,
+		CheckoutFinal:   checkoutFinal,
 	}
 	comp.Events, comp.EventsFrom = buf.leftEvents(finalEvents...)
 	return comp, nil

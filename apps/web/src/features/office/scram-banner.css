@@ -1,0 +1,46 @@
+/*
+ * The SCRAM hazard banner (control room redesign, section 6.6). Colours come only from --plant-*
+ * tokens. A real trip uses --plant-trip; a drill never does: its stripe and plate are neutral
+ * (--plant-screen on --plant-ground), so a drill can never be mistaken for a trip.
+ */
+.scram-banner {
+  display: grid;
+  gap: 0;
+  flex-shrink: 0;
+  background: var(--plant-ground);
+  color: var(--text);
+}
+.scram-banner-item {
+  --edge: var(--plant-trip);
+  position: relative;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 8px 16px 8px 40px;
+  background: var(--plant-ground);
+  border-bottom: 1px solid var(--edge);
+}
+.scram-banner-item[data-kind="drill"] { --edge: var(--plant-screen); }
+/* The diagonal stripe edge. */
+.scram-banner-item::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 24px;
+  background: repeating-linear-gradient(135deg, var(--edge) 0 6px, var(--plant-ground) 6px 12px);
+}
+.scram-banner-item p { margin: 0; }
+.scram-banner-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.scram-banner-glyph { flex: none; fill: none; stroke: var(--edge); stroke-width: 2; stroke-linecap: round; }
+.scram-banner-item[data-kind="drill"] .scram-banner-glyph { stroke-dasharray: 3 2.5; }
+.scram-banner-scope { font-size: var(--fs-title); font-weight: 700; line-height: 1.2; color: var(--text); }
+.scram-banner-plate {
+  padding: 2px 10px;
+  border: 1px solid var(--plant-screen);
+  background: repeating-linear-gradient(135deg, var(--plant-surface) 0 6px, var(--plant-ground) 6px 12px);
+  color: var(--plant-core-glow);
+  font-family: var(--mono);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}

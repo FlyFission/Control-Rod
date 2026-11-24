@@ -1,4 +1,5 @@
 import { type ClipboardEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { useActionLock } from "../../lib/scramLock.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
 import { api, explain } from "../../api/client.js";
@@ -29,6 +30,7 @@ export function inTypingContext(target: EventTarget | null): boolean {
  * data lane, so nothing reaches an AI runtime until a person classifies it on the new card (M-0).
  */
 export function QuickAdd() {
+  const scramLock = useActionLock();
   const qc = useQueryClient();
   const mode = useMode();
   const activeProject = useActiveProject();
@@ -134,7 +136,7 @@ export function QuickAdd() {
   }
 
   function submitMany() {
-    if (many === null || many.length === 0 || send.isPending) return;
+    if (many === null || many.length === 0 || send.isPending || scramLock.locked) return;
     const problem = validateMany(many);
     if (problem !== null) {
       setError(problem);
@@ -146,7 +148,7 @@ export function QuickAdd() {
 
   function submitOne() {
     const title = text.trim();
-    if (title.length === 0 || send.isPending) return;
+    if (title.length === 0 || send.isPending || scramLock.locked) return;
     const maxTitle = Math.max(0, CAPTURE_LIMIT - capturePrefix.length);
     if (capturePrefix.length + title.length > CAPTURE_LIMIT) {
       setError(`Too long for one card (${title.length.toLocaleString()} of ${maxTitle.toLocaleString()} available characters).`);
@@ -179,7 +181,7 @@ export function QuickAdd() {
 
   if (!open) {
     return (
-      <button ref={opener} type="button" className="btn small bd-add" onClick={() => setOpen(true)} aria-keyshortcuts="c">
+      <button ref={opener} type="button" className="btn small bd-add" onClick={() => setOpen(true)} disabled={scramLock.locked} title={scramLock.why} aria-keyshortcuts="c">
         + Add a card
       </button>
     );
@@ -219,11 +221,11 @@ export function QuickAdd() {
       </p>
       <div className="bd-add-row">
         {many !== null ? (
-          <button type="submit" className="btn primary small" disabled={send.isPending}>
+          <button type="submit" className="btn primary small" disabled={send.isPending || scramLock.locked} title={scramLock.why}>
             {send.isPending ? "Adding" : `Add ${many.length} cards`}
           </button>
         ) : (
-          <button type="submit" className="btn primary small" disabled={send.isPending || text.trim().length === 0}>
+          <button type="submit" className="btn primary small" disabled={send.isPending || scramLock.locked || text.trim().length === 0} title={scramLock.why}>
             {send.isPending ? "Adding" : "Add"}
           </button>
         )}

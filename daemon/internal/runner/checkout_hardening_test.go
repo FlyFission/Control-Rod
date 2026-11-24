@@ -219,6 +219,40 @@ func TestUncontainedRunKeepsCheckoutCustody(t *testing.T) {
 	}
 }
 
+// Two author runs bound to the same checkout: while the first holds custody the second
+// is refused outright, never staged into the checkout, and after the release a new run
+// may take it. Each run's directory inside the checkout is its own, named for its run.
+func TestASecondAuthorRunOnTheSameCheckoutIsRefusedNotShared(t *testing.T) {
+	b := checkoutFixture(t)
+	home := t.TempDir()
+	wsA, err := Prepare(home, authorCheckoutJob(t, "race-a", b, "exit 0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Prepare(home, authorCheckoutJob(t, "race-b", b, "exit 0"))
+	if err == nil {
+		t.Fatal("a second run took the checkout while the first held custody")
+	}
+	if !strings.Contains(err.Error(), "already in use") {
+		t.Fatalf("unexpected refusal for the second run: %v", err)
+	}
+	// The refused run never touched the checkout: no directory of its own was created.
+	if _, lerr := os.Lstat(filepath.Join(b.Path, ".controlrod-run-race-b")); !os.IsNotExist(lerr) {
+		t.Fatalf("the refused run left a directory in the checkout: %v", lerr)
+	}
+	// The first run's directory is its own, inside the one checkout, named for its run.
+	if _, lerr := os.Lstat(filepath.Join(b.Path, ".controlrod-run-race-a")); lerr != nil {
+		t.Fatalf("the first run's directory is missing: %v", lerr)
+	}
+	wsA.releaseCheckout()
+	// Custody left with the first run, so a later run may take the same checkout again.
+	wsC, err := Prepare(home, authorCheckoutJob(t, "race-c", b, "exit 0"))
+	if err != nil {
+		t.Fatalf("the checkout stayed locked after its run ended: %v", err)
+	}
+	wsC.releaseCheckout()
+}
+
 func TestCheckoutBeforeStartRefusesHeadDrift(t *testing.T) {
 	b := checkoutFixture(t)
 	job := authorCheckoutJob(t, "drift", b, checkoutEditScript)

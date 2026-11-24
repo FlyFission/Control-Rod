@@ -4,19 +4,22 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { FastifyInstance } from "fastify";
 import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
-import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, rootWithFixturePacks, signIn, startHarness, withClaim } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, restartedApp, rootWithFixturePacks, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Run custody, launch inputs and serving: what the daemon and the owner see around a run. */
 const repo = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 /** A job pack fixture (test/fixtures/packs), laid out under packs/ in a temporary root. */
 const jobPack = fileURLToPath(new URL("./fixtures/packs/capital-projects/pump-replacement/", import.meta.url));
+/** The root the harness was started with, so a restarted app uses the same packs. */
+const testRoot = rootWithFixturePacks();
 let h: Harness;
 let cookie: string;
 const passkey = new VirtualAuthenticator();
 
 beforeAll(async () => {
-  h = await startHarness({ root: rootWithFixturePacks() });
+  h = await startHarness({ root: testRoot });
   cookie = await signIn(h.app, passkey);
 }, 120_000);
 afterAll(async () => h?.stop());
@@ -262,6 +265,32 @@ describe("launch inputs", () => {
     const job = (await claim()) as Job;
     const r = await complete(job, { status: "succeeded", trace: trace(job, { checkout: { repo: "demo", root: "/r", path: "/r/p", branch: "b", head: "h", git_dir: "/r/g", common_dir: "/r/c" } }), outputs: [{ name: "r.md", content_base64: b64("ok") }] });
     expect(r.json().refusal.code).toBe("invalid-trace");
+  });
+
+  it("gives a queued run to exactly one of two claims that race for it, and the winner's evidence path is intact", async () => {
+    const id = await releasedPackage("RACE");
+    // Two daemons race for the same queued author run. Every claim takes the budget
+    // advisory lock and then the run row with `for update skip locked`, so the loser
+    // re-reads a queue without that run and returns no job, not a second lease.
+    const [a, b] = await Promise.all([claim(), claim()]);
+    expect([a, b].filter(Boolean)).toHaveLength(1);
+    const winner = (a ?? b) as Job;
+    expect(winner.run).toMatchObject({ role: "author", package_id: id });
+    // Claimed exactly once: no waiting cause, and the row is out of the queue.
+    const row = await runRow(winner.run.id);
+    expect(row?.status).toBe("running");
+    expect(row?.body.waiting_cause).toBeUndefined();
+    // The loser holds no token, and nothing else is queued for it to pick up.
+    expect(await claim()).toBeNull();
+    // The winner's evidence path is intact: its token records a completion once.
+    const r = await complete(winner, { status: "succeeded", outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+    expect(r.statusCode, r.body).toBeLessThan(300);
+    expect((await runRow(winner.run.id))?.status).toBe("succeeded");
+    // The package's pre-check queues next; drain it so later tests see a clean queue.
+    const check = await claim(["codex"]);
+    expect(check?.run).toMatchObject({ role: "pre-check", package_id: id });
+    const c = await complete(check as Job, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+    expect(c.statusCode, c.body).toBeLessThan(300);
   });
 
   it("holds a role that needs named hosts when only Codex is offered, saying why, and dispatches it once a runtime can limit them", async () => {
@@ -575,6 +604,53 @@ describe("run custody", () => {
     expect((await runRow(job.run.id))?.body.requeued_as).toBe(rq.json().id);
     const next = (await claim()) as Job;
     expect(next.run.id).toBe(rq.json().id);
+  });
+
+  it("still holds a claimed run after the control plane restarts on the same database", async () => {
+    await releasedPackage("RESTART");
+    const job = (await claim()) as Job;
+    const before = Date.parse(job.claim.lease_expires_at);
+    // The restart: a fresh app instance over the same database and repository root. Custody
+    // (claim token, lease, idempotency receipts) is rows, not process memory, so the new
+    // instance must honour what the old one issued. A second instance is built after the
+    // completion is recorded, so the replay proves the receipt itself survived a restart.
+    const original = h.app;
+    const restarted = restartedApp(h.db, testRoot);
+    await restarted.ready();
+    let afterCompletion: FastifyInstance | undefined;
+    h.app = restarted;
+    try {
+      const beat = await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: [] });
+      expect(beat.statusCode, beat.body).toBe(200);
+      expect(beat.json().stop).toBe(false);
+      expect(Date.parse(beat.json().lease_expires_at)).toBeGreaterThan(before);
+      const body = { idempotency_key: "key-restart-0001", status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] };
+      const first = await complete(job, body);
+      expect(first.statusCode, first.body).toBe(200);
+      expect(first.json().status).toBe("succeeded");
+      afterCompletion = restartedApp(h.db, testRoot);
+      await afterCompletion.ready();
+      // The receipt must survive its own restart: the replay and the refusal go through
+      // the instance built after the completion was recorded, never the one that took it.
+      h.app = afterCompletion;
+      const again = await complete(job, body);
+      expect(again.statusCode, again.body).toBe(200);
+      expect(again.json()).toEqual(first.json());
+      const other = await complete(job, { ...body, idempotency_key: "key-restart-0002" });
+      expect(other.statusCode).toBe(409);
+      expect(other.json().code).toBe("already-complete");
+      expect((await runRow(job.run.id))?.status).toBe("succeeded");
+      expect(await claim()).toBeNull();
+      // The package's pre-check queues next; drain it so later tests see a clean queue.
+      const check = (await claim(["codex"])) as Job;
+      expect(check.run).toMatchObject({ role: "pre-check", package_id: job.run.package_id });
+      const c = await complete(check, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+      expect(c.statusCode, c.body).toBeLessThan(300);
+    } finally {
+      h.app = original;
+      await restarted.close();
+      await afterCompletion?.close();
+    }
   });
 });
 

@@ -4,6 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { FastifyInstance } from "fastify";
 import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, restartedApp, rootWithFixturePacks, signIn, startHarness, withClaim } from "./harness.js";
 
@@ -616,8 +617,7 @@ describe("run custody", () => {
     const original = h.app;
     const restarted = restartedApp(h.db, testRoot);
     await restarted.ready();
-    const afterCompletion = restartedApp(h.db, testRoot);
-    await afterCompletion.ready();
+    let afterCompletion: FastifyInstance | undefined;
     h.app = restarted;
     try {
       const beat = await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: [] });
@@ -628,6 +628,8 @@ describe("run custody", () => {
       const first = await complete(job, body);
       expect(first.statusCode, first.body).toBe(200);
       expect(first.json().status).toBe("succeeded");
+      afterCompletion = restartedApp(h.db, testRoot);
+      await afterCompletion.ready();
       // The receipt must survive its own restart: the replay and the refusal go through
       // the instance built after the completion was recorded, never the one that took it.
       h.app = afterCompletion;
@@ -647,7 +649,7 @@ describe("run custody", () => {
     } finally {
       h.app = original;
       await restarted.close();
-      await afterCompletion.close();
+      await afterCompletion?.close();
     }
   });
 });

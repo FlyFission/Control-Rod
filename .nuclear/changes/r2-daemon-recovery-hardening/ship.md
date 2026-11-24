@@ -12,6 +12,13 @@ Rollback: revert the squash commit. No production code, contract, migration or p
 
 Monitoring after merge: the matrix's Test column is the contract — if a change to the claim path, custody locks, outbox or SCRAM breaks any test named there, the matrix row and the change that broke it must be updated together.
 
+## Erratum after merge
+
+Two corrections to this record's first wording, made in the follow-up commit rather than left for a reader to discover:
+
+- The recovery matrix's "Daemon killed with runs alive" row promised more than the code guarantees. Under process-group containment a restarted daemon can safely reach only the run's leader (a pidfd on Linux; nothing on macOS) and must not signal the group by number, because the process group id may have been reused; so a run with members it cannot prove gone is never reported process-gone — its receipt is kept and retried, its lease lapses, and its outcome stays unknown for a person to reconcile. `TestAnOrphanGroupIsNeverSignalledByNumber` proves this on purpose. The row is corrected, and the gap is filed as #178, the split of #120's orphan-cleanup invariant.
+- The restart test built its replay instance before the completion was recorded, so the code did not match this record's "built after the completion" wording. The construction now happens after the completion, and the wording stands.
+
 ## Required links
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship.md).
 

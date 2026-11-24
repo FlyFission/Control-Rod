@@ -254,14 +254,14 @@ async function start() {
     apiExitCode = code ?? (signal ? 1 : 0);
     if (!stopping) {
       stopping = true;
-      stopAt = Date.now();
+      stopAt = performance.now();
       console.error(`\nThe control plane exited unexpectedly (code=${code ?? signal}). Stopping the run daemon first.`);
       afterDaemon(() => process.exit(apiExitCode || 1));
     }
   });
   const stop = () => {
     if (stopping) {
-      if (Date.now() - stopAt < 1000) return;
+      if (performance.now() - stopAt < 1000) return;
       // A second Ctrl+C does not wait: stop both now. Unsaved completions stay in the daemon's outbox.
       console.error("\nStopping now.");
       if (daemon && !daemonExited) daemon.kill("SIGKILL");
@@ -269,7 +269,7 @@ async function start() {
       process.exit(130);
     }
     stopping = true;
-    stopAt = Date.now();
+    stopAt = performance.now();
     console.log("\nStopping: running work finishes and its results are saved first (Ctrl+C again to stop now).");
     // The daemon stops first, while the control plane is still up to take its final completions.
     afterDaemon(() => {

@@ -35,6 +35,8 @@ Fixed on `claude/project-thread-2ozsln` after the Codex blind check; findings an
 
 Local results for these fixes: daemon `go vet` and `go test ./...` pass apart from the bubblewrap checker tests (no `bwrap` on the test machine); API suite 897 passed, 2 failed (SEC-01 and SEC-03, the trust-authentication environment issue in `docs/status.md`); web typecheck and Vitest 823 passed.
 
+Codex round 5 (head 789fab8): MERGE-WITH-P3S. The repeat-signal guard now uses a monotonic clock (`performance.now()`). Follow-up, not fixed here: if the launcher is killed while `initdb` runs on a first start, the control plane exits before initialization removes its owner-only temporary password file.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

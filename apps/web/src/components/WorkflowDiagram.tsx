@@ -105,11 +105,13 @@ export function CouncilStrip({ flow }: { flow: CouncilFlow }) {
   );
 }
 
-/** The flow as text, for screen readers: every step, who takes it, whether it stops, and where it can go next. */
+/** The flow as text, for everyone (keyboard, touch, screen readers): every step, who takes it, whether it stops, and where it can go next. */
 function StepList({ flow }: { flow: CouncilFlow }) {
   const title = (id: string) => flow.steps.find((s) => s.id === id)?.title ?? id;
   return (
-    <ol className="sr-only" aria-label="Workflow steps">
+    <details className="wf-steps">
+      <summary>Read the flow as steps</summary>
+      <ol>
       {flow.steps.map((s) => {
         const next = flow.edges.filter((e) => e.from === s.id);
         return (
@@ -121,7 +123,8 @@ function StepList({ flow }: { flow: CouncilFlow }) {
           </li>
         );
       })}
-    </ol>
+      </ol>
+    </details>
   );
 }
 
@@ -144,7 +147,6 @@ export function WorkflowDiagram({ flow, initialView = "flow" }: { flow: CouncilF
         </div>
       </div>
       <p className="sr-only">{flow.summary}</p>
-      {view === "flow" && <StepList flow={flow} />}
       {view === "flow" ? (
         <>
           <Suspense fallback={<div className="wf-canvas wf-loading" style={{ height: 360 }} aria-hidden="true" />}>
@@ -157,6 +159,7 @@ export function WorkflowDiagram({ flow, initialView = "flow" }: { flow: CouncilF
             <li><span className="wf-key wf-key-sendback" />Sent back with findings</li>
             <li><span className="wf-key wf-key-you" />Stops for you</li>
           </ul>
+          <StepList flow={flow} />
         </>
       ) : (
         <DecisionMatrix flow={flow} />

@@ -81,7 +81,7 @@ export function Setup() {
         <p>{readBack(rows)}</p>
         <p>
           Check-in preference: {choice.label.toLowerCase()}.
-          {!choice.today && " Today every card still stops at the start and before merge."}
+          {!choice.today && " Today every card still stops for your signed release at the start and your signed acceptance at the end."}
         </p>
         {!agents.loading && <WorkflowDiagram flow={buildCouncilFlow(rows, chosenCheckIn)} />}
         {agents.save.error && (

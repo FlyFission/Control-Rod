@@ -63,6 +63,9 @@ const probe = (id, n, f, v) => ({ id, display_name: n, vendor_family: f, install
       return { problems: [...new Set(out)], edges: document.querySelectorAll('.react-flow__edge').length, nodes: nodes.length };
     });
     runs++;
+    // An empty or half-drawn canvas is a failure, not a pass: every step and every edge of the flow must be drawn.
+    const want = ans === 'every-step' ? { nodes: 15, edges: 16 } : { nodes: 13, edges: 14 };
+    if (res.nodes !== want.nodes || res.edges !== want.edges) res.problems.push(`drew ${res.nodes} blocks and ${res.edges} edges, expected ${want.nodes} and ${want.edges}`);
     const tag = `${sc} ${ans} ${w}px: ${res.nodes} blocks, ${res.edges} edges`;
     if (res.problems.length) { bad++; console.log(`FAIL ${tag}\n  ${res.problems.join('\n  ')}`); } else console.log(`ok   ${tag}`);
     await ctx.close();

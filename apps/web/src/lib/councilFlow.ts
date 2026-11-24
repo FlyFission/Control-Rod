@@ -234,7 +234,7 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
     kind: "you",
     stop: "always",
     title: "You settle the dispute",
-    detail: `After ${CHECK_ROUNDS} checks that did not pass: accept with findings, return to planning or reject`,
+    detail: `After ${CHECK_ROUNDS} checks that did not pass: return to planning, reject, or accept with findings where every result is in and its evidence kept`,
   });
   edge("verdict", "dispute", "no", `${ordinal(CHECK_ROUNDS)} time`);
   steps.push({
@@ -245,7 +245,7 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
     detail:
       checkIn === "start"
         ? "Stays on: skipping it needs a signed standing acceptance, not built yet"
-        : "Signed and recorded; merging or shipping is a separate step",
+        : "Signed and recorded. A prepared package also needs every criterion's result in. Merging or shipping is a separate step",
   });
   edge("verdict", "merge", "yes", "yes");
   steps.push({ id: "ship", kind: "end", title: "Accepted", detail: "Control Rod records your signed acceptance with who wrote, who checked and who signed. Merging or shipping is a separate step you take" });
@@ -260,12 +260,14 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       who: who(author),
       does: "Produces the deliverable in its own worktree",
       stopsForYou: s.afterAuthor ?? "no",
-      ifItFails: fallback
-        ? `If ${author!.name} is signed out or missing, ${fallback.name} takes the work` +
-          (fallback.ready ? "" : " once it is ready itself") +
-          (fallbackChecker ? "" : `, and its check waits for a vendor other than ${fallback.vendor}`) +
-          ". Logged, flagged fall-over when a run hits its limit is coming."
-        : "The card waits; no other author is seated",
+      ifItFails:
+        (fallback
+          ? `Before it starts: if ${author!.name} is signed out or missing, ${fallback.name} takes the work` +
+            (fallback.ready ? "" : " once it is ready itself") +
+            (fallbackChecker ? "" : `, and its check waits for a vendor other than ${fallback.vendor}`) +
+            ". "
+          : "Before it starts: the card waits; no other author is seated. ") +
+        "Once it has started, a run that fails, stops or loses contact stops for you: requeue it, return it or reject it. Logged, flagged fall-over when a run hits its limit is coming.",
     },
     {
       step: "Check it blind",
@@ -280,28 +282,30 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
             ? `${fallbackChecker.name} checks ${fallback.name}'s work${checksOnReturn ? ` once it is back` : ""}. `
             : `${fallback.name}'s work waits for a vendor other than ${fallback.vendor}. `
           : "") +
-        "A check is never moved to another checker to get a pass.",
+        "A check is never moved to another checker to get a pass. A check run that fails, stops or loses contact stops for you.",
     },
     {
       step: "Settle a dispute",
       who: "you",
       does: `Decides after ${CHECK_ROUNDS} checks that did not pass`,
       stopsForYou: "always",
-      ifItFails: "Accept with findings, return to planning or reject",
+      ifItFails: "Return to planning, reject, or accept with findings; findings can be accepted only where every result is in and its evidence kept",
     },
     {
       step: "Accept the work",
       who: "you",
       does: "Signs acceptance; Control Rod records it. Merging or shipping is a separate step you take",
       stopsForYou: "on",
-      ifItFails: checkIn === "start" ? "Return it or reject it. Skipping this stop needs a signed standing acceptance, which is coming." : "Return it with a note, or reject it",
+      ifItFails:
+        (checkIn === "start" ? "Return it or reject it. Skipping this stop needs a signed standing acceptance, which is coming." : "Return it with a note, or reject it.") +
+        " A pass alone does not clear a prepared package: every criterion needs its result in first.",
     },
     {
       step: "After a fall-back",
       who: "you",
       does: "Sees that another author stepped in",
       stopsForYou: "coming",
-      ifItFails: "Until then you still sign off before merge",
+      ifItFails: "Until then you still sign acceptance on every card",
     },
     { step: "SCRAM or a tripped interlock", who: "you", does: "Stops the affected work", stopsForYou: "always", ifItFails: "Nothing restarts until you reset it" },
     {
@@ -315,11 +319,17 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
 
   const summary = !author
     ? "No agent at the table is ready yet, so new cards wait after you ask."
-    : `You ask, ${author.name} plans, you approve, ${author.name} writes${fallback ? ` (${fallback.name} steps in if it is signed out or missing)` : ""}, ${
+    : `You ask, ${author.name} plans, you approve, ${author.name} writes${
+        fallback ? ` (${fallback.name} steps in if it is signed out or missing${fallback.ready ? "" : ", once it is ready itself"})` : ""
+      }, ${
         checker ? `${checker.name} checks it blind` : "the check waits for a second vendor unless you sign an override"
       }${
-        fallback ? (fallbackChecker ? `, and ${fallbackChecker.name} checks ${fallback.name}'s work` : `, and ${fallback.name}'s work waits for another vendor's check`) : ""
-      }. A fail or an inconclusive verdict starts a new round, with the author picked again, at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} checks that do not pass you settle it. You sign acceptance, and merging or shipping is a separate step.`;
+        fallback
+          ? fallbackChecker
+            ? `, and ${fallbackChecker.name} checks ${fallback.name}'s work${checksOnReturn ? " once it is back" : ""}`
+            : `, and ${fallback.name}'s work waits for another vendor's check`
+          : ""
+      }. A fail or an inconclusive verdict starts a new round, with the author picked again, at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} checks that do not pass you settle it. You sign acceptance (a prepared package also needs every criterion's result in), and merging or shipping is a separate step.`;
 
   return { council, steps, edges, matrix, summary };
 }

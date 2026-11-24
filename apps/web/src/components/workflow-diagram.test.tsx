@@ -33,6 +33,15 @@ describe("WorkflowDiagram", () => {
     expect(screen.getByRole("button", { name: "Decision matrix" }).getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("offers the flow as numbered steps that anyone can open", async () => {
+    render(<WorkflowDiagram flow={buildCouncilFlow(rows, "start-and-merge")} />);
+    const toggle = screen.getByText("Read the flow as steps");
+    expect(toggle.tagName).toBe("SUMMARY");
+    await userEvent.click(toggle);
+    expect(toggle.closest("details")?.open).toBe(true);
+    expect(screen.getByText(/Check it blind, Codex/)).toBeTruthy();
+  });
+
   it("has a mark for every built-in agent, served from the app", () => {
     for (const a of AGENTS) {
       expect(AGENT_MARKS[a.id].src).toMatch(/^\/agent-marks\/[a-z]+\.svg$/);

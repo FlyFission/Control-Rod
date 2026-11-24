@@ -127,6 +127,21 @@ describe("flow", () => {
     expect(f.steps.find((s) => s.id === "fallback")?.seat).toMatchObject({ id: "codex", ready: false });
     expect(f.steps.find((s) => s.id === "fallback")?.detail).toMatch(/until then the card waits/);
     expect(f.steps.find((s) => s.id === "check")?.seat).toBeUndefined();
+    // The summary and the matrix carry the same wait as the diagram.
+    expect(f.summary).toMatch(/Codex steps in if it is signed out or missing, once it is ready itself/);
+    expect(f.matrix.find((r) => r.step === "Write the work")?.ifItFails).toMatch(/once it is ready itself/);
+  });
+
+  it("says a returning author checks the stand-in's work only once it is back, everywhere", () => {
+    const f = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge");
+    expect(f.summary).toMatch(/Claude Code checks Codex's work once it is back/);
+    expect(f.matrix.find((r) => r.step === "Check it blind")?.ifItFails).toMatch(/Claude Code checks Codex's work once it is back/);
+  });
+
+  it("tells a failed run after it starts apart from an author who is out before it starts", () => {
+    const write = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge").matrix.find((r) => r.step === "Write the work")!;
+    expect(write.ifItFails).toMatch(/^Before it starts:/);
+    expect(write.ifItFails).toMatch(/Once it has started, a run that fails, stops or loses contact stops for you/);
   });
 
   it("gives the spend limit its own row, holding new work only", () => {

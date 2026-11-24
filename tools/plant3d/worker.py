@@ -64,7 +64,7 @@ def torus(m, c, axis, ru, rv, r, mat, n=16):
     m.tube(pts, r, mat, 6, caps=False)
 
 
-def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None, garb="antic"):
+def _build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None, garb="antic"):
     """Emit one worker into Mesher m, current transform = worker placement (anchor: the floor point under the hips).
     garb: "antic" = white anti-contamination coverall, hood up, shoe covers, nitrile gloves, taped cuffs (RCA rooms and containment);
           "station" = navy station coverall, no hood (short cool-dark hair), dark work boots, bare hands, collar; both carry a dosimeter badge."""
@@ -150,3 +150,13 @@ def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None, garb="a
         if sgn == 1 and p.get("lamp"):
             m.cone(hnd + Vector((0, 0, 1.0)), hnd + Vector((0, 0, 3.2)), 1.2, 1.2, SUIT_DK, 8)
             m.ellipsoid(hnd + Vector((0, 0, 5.4)), (2.4, 2.4, 2.8), "lamp")
+
+
+WORKER_SCALE = 1.5     # v4: figures were too small at desktop size (the app magnified sprites 1.5x as a stopgap); the model carries the scale now
+
+
+def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None, garb="antic"):
+    """Worker at WORKER_SCALE about the floor point under the hips (the seat anchor does not move)."""
+    m.push(Matrix.Scale(WORKER_SCALE, 4))
+    _build_worker(m, pose, accent, walk_lift, turn_deg, garb)
+    m.pop()

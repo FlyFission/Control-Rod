@@ -14,7 +14,7 @@ ANCH = json.loads((ROOT / "design/art/blockout/anchors.json").read_text())
 W_, H_ = 2400, 1500
 SCRAM_FILL_SCALE = 0.5            # v3: the style-pass crimson floor fill (#3a1119 ambient .. #6e1d26 at the lamps) halved
 FILL_AMB, FILL_PEAK = "#3a1119", "#6e1d26"
-SPRITE_SCALE, SPRITE_ANCHOR = 6.0, (256, 440)   # render-time anchor; see sprite shifting below
+SPRITE_SCALE, SPRITE_ANCHOR = 4.0, (256, 440)   # render-time anchor; see sprite shifting below
 FEET_Y = 496
 POSES = ("working", "waiting", "stuck", "needs-you", "walking")
 GARBS = ("antic", "station")
@@ -192,8 +192,8 @@ def main():
     for s in seats:
         s["garb"] = (garb_tbl.get("table") or {}).get(s["room"])
         pass
-    sj = {"note": "feet_px = floor point under the worker's hips (the seat) in plate px (2400x1500). Draw sprite worker-<garb>-<pose>.png scaled by 1/6 (85.33 plate px square) so that its hip_floor_anchor_px_by_sprite[<garb>-<pose>] pixel lands on feet_px: top-left = feet_px - anchor/6. The lowest foot pixel of every sprite is at y=496 of the 512 sprite.",
-          "ring_sprite": "sprites/ring-needs-you.png (512x512, ring centred on the worker floor point at (256,256), same 6 px per plate px)", "sprite": {"size": 512, "lowest_foot_y_px": FEET_Y, "px_per_plate_px": SPRITE_SCALE, "hip_floor_anchor_px_by_sprite": spr_anchor,
+    sj = {"note": "feet_px = floor point under the worker's hips (the seat) in plate px (2400x1500). Draw sprite worker-<garb>-<pose>.png scaled by 1/4 (128 plate px square) so that its hip_floor_anchor_px_by_sprite[<garb>-<pose>] pixel lands on feet_px: top-left = feet_px - anchor/4. The lowest foot pixel of every sprite is at y=496 of the 512 sprite.",
+          "ring_sprite": "sprites/ring-needs-you.png (512x512, ring centred on the worker floor point at (256,256), same 4 px per plate px)", "sprite": {"size": 512, "lowest_foot_y_px": FEET_Y, "px_per_plate_px": SPRITE_SCALE, "hip_floor_anchor_px_by_sprite": spr_anchor,
                      "measured_anchor_delta_px": sprite_anchor_delta, "measured_anchor_note": "marker disc rendered at the render-time anchor (256,440) vs its centroid"},
           "garb_mode": garb_tbl.get("mode"), "seats": seats}
     (out / "seat-feet.json").write_text(json.dumps(sj, indent=1)); made["seat-feet.json"] = {"sha256": sha(out / "seat-feet.json")}

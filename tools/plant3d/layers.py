@@ -17,7 +17,7 @@ import kit, scene as S, rooms as RM, worker as W
 import render as R
 
 ANCH = json.loads((K.ART / "blockout" / "anchors.json").read_text())
-SPRITE_PX, SPRITE_SCALE, SPRITE_ANCHOR = 512, 6.0, (256, 440)   # render anchor (floor point under the hips); post shifts each sprite so its lowest foot pixel sits at y=496
+SPRITE_PX, SPRITE_SCALE, SPRITE_ANCHOR = 512, 4.0, (256, 440)   # v4: 4 px per plate px with a 1.5x model = the v3 sprite pixels, drawn 1.5x larger in the plate   # render anchor (floor point under the hips); post shifts each sprite so its lowest foot pixel sits at y=496
 POSES = ("working", "waiting", "stuck", "needs-you", "walking")
 GARBS = ("antic", "station")
 
@@ -79,8 +79,8 @@ def render_sprites(out, samples):
             meta[key] = {"garb": garb, "pose": pose, "seated": W.POSES[pose]["seated"], "yaw_rad": yaw}
     # needs-you floor ring as its own sprite (it extends further below the anchor than the canvas allows): centred, same scale
     R.reset(); book = S.make_book("healthy"); cx = S.Ctx(book)
-    ring = cx.mesher("ring"); ring.sector(7.5, 9.0, 0, 360, 0, 0.5, 40, {"*": "amber_ring"}, closed=True)
-    ring.sector(13.5, 14.5, 0, 360, 0, 0.5, 40, {"*": "amber_ring"}, closed=True)
+    ring = cx.mesher("ring"); ring.sector(7.5 * W.WORKER_SCALE, 9.0 * W.WORKER_SCALE, 0, 360, 0, 0.5, 40, {"*": "amber_ring"}, closed=True)
+    ring.sector(13.5 * W.WORKER_SCALE, 14.5 * W.WORKER_SCALE, 0, 360, 0, 0.5, 40, {"*": "amber_ring"}, closed=True)
     cx.done(ring, "none", cx.reg["site"])
     t["ring"] = R.render_pair(cx, out, "sprite_ring", SPRITE_SCALE, samples + 8, "healthy", True, glow_pass=False, res=(SPRITE_PX, SPRITE_PX), cam_centre=p0, tscale=2.6)["main"]
     (out / "raw" / "sprites_v3.json").write_text(json.dumps(meta, indent=1))

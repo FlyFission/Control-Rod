@@ -447,6 +447,11 @@ textarea {
   box-shadow: 0 0 22px rgb(255 77 77 / 0.55), inset 0 1px 0 rgb(255 200 200 / 0.35);
   animation: scram-beacon 1.6s ease-in-out infinite;
 }
+/* No pulse runs in a hidden tab. */
+.shell[data-tab-hidden] .console-live-dot,
+.shell[data-tab-hidden] .topbar-scram {
+  animation-play-state: paused;
+}
 .stream-pill {
   display: inline-flex;
   align-items: center;
@@ -2429,7 +2434,7 @@ select {
 /* Compact phone-width mobile console header */
 @media (max-width: 820px) {
   .shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     height: auto;
     overflow: visible;
   }
@@ -2439,8 +2444,9 @@ select {
   }
   .rail {
     display: grid;
-    grid-template-columns: auto auto 1fr;
+    grid-template-columns: auto auto minmax(0, 1fr);
     align-items: center;
+    min-width: 0;
     gap: 6px 8px;
     padding: 8px 12px;
     border-right: 0;
@@ -2468,6 +2474,8 @@ select {
   .rail-foot {
     grid-column: 3;
     grid-row: 1;
+    flex-wrap: wrap;
+    min-width: 0;
     border-top: 0;
     padding-top: 0;
     justify-content: flex-end;
@@ -2476,29 +2484,65 @@ select {
   .rail-foot .btn.small {
     min-height: 30px;
     padding: 0 9px;
+    white-space: nowrap;
     font-size: var(--fs-label);
   }
+  /* Projects stay reachable on a phone: one wrapping row under the places, with New project. */
   .rail-projects {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 4px 0 0;
+    margin: 0;
+    border-top: 0;
+    border-bottom: 0;
+  }
+  /* New project (+) follows the projects on the same row. */
+  .rail-projects-head {
+    display: inline-flex;
+    order: 2;
+    padding: 0;
+  }
+  .rail-projects-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .rail-proj-btn {
+    width: auto;
+    max-width: 100%;
+  }
+  .rail-proj-repo {
     display: none;
   }
+  /* Places wrap rather than scroll sideways, so no place hides past the edge of a phone. */
   .places {
     grid-column: 1 / -1;
     grid-row: 2;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     gap: 4px;
+    min-width: 0;
     padding: 4px 0 0;
     border-bottom: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
   }
   .places-group {
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 4px;
     margin: 0;
-    flex-shrink: 0;
+    min-width: 0;
+    max-width: 100%;
   }
   .places-group-label {
     display: none;
@@ -2512,6 +2556,7 @@ select {
   }
   .places ul {
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 4px;
   }
   .place-link {
@@ -2526,14 +2571,12 @@ select {
     min-height: 42px;
     padding: 6px 12px;
     gap: 6px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
   }
   .top-left,
   .top-right {
-    flex-wrap: nowrap;
-    flex-shrink: 0;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 6px;
   }
   .topbar .btn.small {
@@ -2550,6 +2593,10 @@ select {
 }
 @media (max-width: 560px) {
   .user-chip > span:not(.rail-avatar) {
+    display: none;
+  }
+  /* The shortcut list is for a keyboard; on a phone-width rail it would push past the edge. */
+  .rail-shortcuts {
     display: none;
   }
   .brand span {

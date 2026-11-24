@@ -1,0 +1,5 @@
+register check passed (10 rows; 0 overlap(s) for review)
+offline assets check passed
+License gate passed for 232 packages.
+workflow timeouts check passed (4 file(s))
+26 red-team cases (2 active, 24 pending)

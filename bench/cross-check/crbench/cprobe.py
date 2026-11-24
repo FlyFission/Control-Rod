@@ -123,7 +123,8 @@ def lines(text: str) -> dict:
 
 def admission(cfg: dict, label: str, agent: dict, image: str, root: Path, out_dir: Path) -> dict:
     """Each CLI's own sandbox, started the way a call starts it, from a tool child: the sentinel in
-    /work/private is unreadable, the network is unreachable, the repo is readable. No model call."""
+    /work/private is unreadable, the network is unreachable, the repo is readable. No model call.
+    `agent` is the full effective entry from agents.json, as preflight passes it."""
     sentinel = "SENTINEL-" + secrets.token_hex(8)
     pos = "POSITIVE-" + secrets.token_hex(8)
     canary = f"cr-probe-{secrets.token_hex(4)}.example.com"

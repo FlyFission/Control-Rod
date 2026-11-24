@@ -7,7 +7,8 @@ Evidence status: **pass** for the offline harness on fixture tasks with stub age
 | E-01 | pass | 93 offline unit and end-to-end tests of every rule the code enforces (see README, Tests), on Python 3.9 and 3.13, with bwrap confinement on Linux, including the container flags, mounts, env file and the egress proxy against real TLS ClientHellos. Seatbelt is exercised only on macOS. The live container boundary test is skipped here: the pinned image builds only on the owner's Mac (this environment blocks the Debian snapshot). | `evidence/unittest.log` |
 | E-02 | pass | Fixture study through the command line from `init` to `size`. Stub output, never a finding. | `evidence/fixture-dryrun.log`, `evidence/fixture-report.md` |
 | E-03 | open | Real `claude` and `codex` calls, isolation probes, billing route, SWE-bench grading and controls. | Not executed |
-| E-04 | open | Blind code review. Round 1 on e602a360: Codex on Astra and Antigravity on Neon both NOT READY (33 and 24 findings). Confirmation round on 94038ad2: both NOT READY (Seatbelt cannot nest on macOS, plus 17 fix groups). The 17 groups are fixed. Both reviewers accepted the per-call Linux container (DESIGN v3.4 rev 2, owner chose the stricter rule); it is built. Next: image build and no-model boundary checks on the owner's Mac, then a third code round. | Review texts held on the owner's Mac |
+| E-04 | open | Blind code review. Round 1 on e602a360: Codex on Astra and Antigravity on Neon both NOT READY (33 and 24 findings). Confirmation round on 94038ad2: both NOT READY (Seatbelt cannot nest on macOS, plus 17 fix groups). The 17 groups are fixed. Both reviewers accepted the per-call Linux container (DESIGN v3.4 rev 2, owner chose the stricter rule); it is built and its boundary checks pass on the owner's Mac (E-05). Next: a third code round. | Review texts held on the owner's Mac |
+| E-05 | pass | Container boundary on the owner's Mac at 461d4eff, no model call or sign-in: image built from pinned inputs; under Colima (Ubuntu kernel 6.8, AppArmor enforcing, no DENIED lines) admission passes for both CLIs (tool child cannot read the sign-in sentinel, has no network, never reaches the proxy) and all 11 boundary probes pass for both; nothing left behind. The live test needed the real HOME and a test root inside the shared workspace root, both fixed since. | Results file and raw outputs held on the owner's Mac |
 
 ## Evidence custody and coupling
 
@@ -17,13 +18,15 @@ Evidence status: **pass** for the offline harness on fixture tasks with stub age
 | E-02 | XB-06, XB-07, XB-08 | no | evidence/fixture-dryrun.log | Implementing agent | bench.py with stub agents | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
 | E-03 | XB-03, XB-05 | no | Not executed | Implementing agent | Not executed | Implementing agent | Implementing agent | Not executed | Packet | Implementing agent | Not supplied |
 | E-04 | XB-01, XB-02, XB-03, XB-04, XB-05, XB-06, XB-07, XB-08, XB-09, XB-10 | no | Review texts on the owner's Mac | Implementing agent | Codex CLI and Antigravity CLI | Implementing agent | Implementing agent | Owner's Mac | Owner | Implementing agent | Independent reviewers |
+| E-05 | XB-03 | no | Container check results on the owner's Mac | Implementing agent | bench harness probes in Colima | Implementing agent | Implementing agent | Owner's Mac | Owner | Implementing agent | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | stub agents only  [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | stub agents only  [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | partially separated: not executed | separated: owner retains merge decision | coupled: local machine | self-check | real run not made  [Ship limits](ship.md) |
-| E-04 | separated: other vendors' agents | separated: blind review sessions | separated: other vendors' models | separated: owner retains merge decision | separated: owner's Mac | diverse verification | container checks on the Mac and third code round pending  [Ship limits](ship.md) |
+| E-04 | separated: other vendors' agents | separated: blind review sessions | separated: other vendors' models | separated: owner retains merge decision | separated: owner's Mac | diverse verification | third code round pending  [Ship limits](ship.md) |
+| E-05 | coupled: implementing agent | coupled: implementation session | separated: container runtime and kernel | separated: owner retains merge decision | separated: owner's Mac | self-check | no real agent call yet  [Ship limits](ship.md) |
 
 
 ## Required links

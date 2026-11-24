@@ -21,6 +21,7 @@ from pathlib import Path
 from unittest import mock
 
 HERE = Path(__file__).resolve().parent
+REAL_HOME = os.environ.get("HOME", "")  # the docker client finds its context (e.g. Colima) from it
 sys.path.insert(0, str(HERE))
 
 from crbench import adjudicate as adj  # noqa: E402
@@ -875,11 +876,21 @@ class Containers(Tmp):
                          and subprocess.run(["docker", "image", "inspect", "cr-bench-agent:1"], capture_output=True).returncode == 0,
                          "needs a running container runtime and the built cr-bench-agent:1 image")
     def test_live_boundary_in_the_real_image(self):
+        # The runtime's VM shares only the workspace root, so the test works under it, with the real
+        # HOME so the docker client finds its context.
         cfg = {"container": {"image": "cr-bench-agent:1"}, "caps": {}}
-        img = container.image_id("cr-bench-agent:1")
-        root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
+        with mock.patch.dict(os.environ, {"HOME": REAL_HOME}):
+            img = container.image_id("cr-bench-agent:1")
+            base = workspace.workspace_root(cfg)
+            root = workspace.new_dir(base)
+            try:
+                self._live(cfg, img, root)
+            finally:
+                workspace.remove(root)
+
+    def _live(self, cfg, img, root):
         agent = {"kind": "codex", "egress": ["chatgpt.com"], "login_store": {"mode": "none"}, "isolation": {}}
-        r = cprobe.boundary_probes(cfg, "test", agent, img, root, self.d / "bp", "checker", [str(Path.home())])
+        r = cprobe.boundary_probes(cfg, "test", agent, img, root, root / "bp", "checker", [str(Path(self._d)), "/Users"])
         failed = [k for k, v in r["checks"].items() if not v and k != "vendor endpoint reachable"]
         self.assertEqual(failed, [], r)
         self.assertEqual(container.reconcile("test"), [])

@@ -85,7 +85,7 @@ colima ssh -- sudo apparmor_parser -r < bench/cross-check/container/cr-bench-bwr
 python3 bench/cross-check/bench.py image --tag cr-bench-agent:1
 ```
 
-Share only the workspace root into the VM (`--mount`); Colima's default shares your whole home directory. `preflight` refuses if the workspace root is not visible in a container, if the image differs from the one it pinned, or if the VM is short of memory or disk. `bench.py image` builds from pinned inputs (base image digest, a fixed Debian snapshot, exact CLI versions checked against `container/package-lock.json`) and records the image ID and the binaries' digests. The image holds no credential.
+Share only the workspace root into the VM (`--mount`; on macOS give both `/var/tmp/...` and its `/private/var/tmp/...` form); Colima's default shares your whole home directory. The AppArmor profile does not survive a VM restart: load it again after each `colima start`. `preflight` refuses if the workspace root is not visible in a container, if the image differs from the one it pinned, or if the VM is short of memory or disk. `bench.py image` builds from pinned inputs (base image digest, a fixed Debian snapshot, exact CLI versions checked against `container/package-lock.json`) and records the image ID and the binaries' digests. The image holds no credential.
 
 ## Configs
 

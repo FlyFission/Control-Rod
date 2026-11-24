@@ -105,15 +105,19 @@ def image_record(ref: str) -> dict:
     arch, osn = r.stdout.decode().split()
     script = ("for b in claude codex srt bwrap python3 git; do p=$(readlink -f \"$(command -v $b)\"); "
               "printf '%s %s ' \"$b\" \"$p\"; sha256sum \"$p\" | cut -d' ' -f1; done; "
-              "claude --version 2>/dev/null | head -1; codex --version 2>/dev/null | head -1")
+              "claude --version 2>&1 | head -1; codex --version 2>&1 | head -1")
     out = dk(["run", "--rm", "--network", "none", "--cap-drop", "ALL", "--read-only", "--user", "1000:1000",
-              "--entrypoint", "/bin/sh", ref, "-c", script], timeout=120).stdout.decode().splitlines()
+              "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--entrypoint", "/bin/sh", ref, "-c", script],
+             timeout=120).stdout.decode().splitlines()
     bins = {}
     for ln in out:
         parts = ln.split()
         if len(parts) == 3 and len(parts[2]) == 64:
             bins[parts[0]] = {"path": parts[1], "sha256": parts[2]}
     versions = [ln for ln in out if not (len(ln.split()) == 3 and len(ln.split()[2]) == 64)]
+    for cli in ("claude code", "codex"):  # both CLI versions must be on the record, or the build is refused
+        if not any(cli in v.lower() for v in versions):
+            raise Refused("§9 versions", f"image {ref} did not report a {cli} version: {versions}")
     return {"ref": ref, "id": iid, "arch": arch, "os": osn, "binaries": bins, "versions": versions,
             "inputs": inputs_digest()}
 

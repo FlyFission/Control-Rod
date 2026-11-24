@@ -152,7 +152,7 @@ def _build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None, garb="
             m.ellipsoid(hnd + Vector((0, 0, 5.4)), (2.4, 2.4, 2.8), "lamp")
 
 
-WORKER_SCALE = 1.5     # v4: figures were too small at desktop size (the app magnified sprites 1.5x as a stopgap); the model carries the scale now
+from scene_consts import WORKER_SCALE   # v4 carried the scale in the model (1.5); v5 sets it in scene_consts (1.25)
 
 
 def build_worker(m, pose, accent="accent", walk_lift=0.0, turn_deg=None, garb="antic"):

@@ -29,7 +29,7 @@ export interface Rect {
   h: number;
 }
 
-const FIGURE_SCALE = 1.5;
+const FIGURE_SCALE = 1.0;   // the Blender render carries the figure scale (tools/plant3d WORKER_SCALE 1.25, sprites at 6 / 1.25 = 4.8 px per plate px)
 
 /** Label sizes in px (the fonts are the --fs-* tokens; these are the boxes they are set in). */
 export const METRICS = {

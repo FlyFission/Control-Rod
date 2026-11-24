@@ -64,9 +64,32 @@ The owner said the crane was distracting and "much too low to the reactor". Two 
 | `tools/cut_plant_layers.py` | re-cut at quality 84, 1,348,787 bytes (budget 1,500,000); `CORE_CROP` [535,269,…] → [496,216,…] |
 | `npx vitest run src/features/office` | 13 files, 158 tests pass |
 | `git diff --check`, `tools/check_originality.py`, `tools/check_offline_assets.py` | pass |
-| `tsc --noEmit` (apps/web) | 160 errors, identical count on main before this change, none in files this change touches |
+| `pnpm -s typecheck` (apps/web; generates the API types, then `tsc`) | pass (corrected 2026-11-24: an earlier bare `tsc` run without the API codegen reported 160 errors, all from the missing generated types) |
 
 Evidence: `design/art/bakeoff/crane-fix-sheet.jpg` (before/after), and `design/art/source/hybrid/PROMPTS.md`, under "Polar-crane fix".
+
+## Plant art v5 (sectioned reactor, 1.25x radworkers, stronger core)
+
+Brief from the coordinator: WORKER_SCALE 1.25, because 1.5 made seated workers swamp their desks. Give the lit fuel grid more presence without clipping to white or adding caustics. Re-render, register, style-pass, lock, cut, set FIGURE_SCALE, screenshot.
+
+| Check | Result |
+|---|---|
+| Blender scale | `WORKER_SCALE` 1.25 in `tools/plant3d/scene_consts.py`; chairs scale with it; sprites at 6 / 1.25 = 4.8 px per plate px (derived in `layers.py` and `post3.py`) |
+| Desks | unchanged: at 4x zoom the working pose's hands sit at the desk front edge and keyboard level |
+| Core glow | fuel body 1.2 → 1.3, cavity-water volume 0.045 → 0.20 (σ 52 → 64). Core-box bright area: Blender +9% vs v4 with 0 near-white px. Bloom gains 1.2 and 1.3 tried and rejected (clipped). Styled: lum>200 area 14,385 px vs 14,617 on main (v3 chevron); lum>150 area 18% smaller than main because the glowing chevron faces are gone |
+| `tools/plant3d/registration.py` (Blender) | every room and the core: best shift 0 px, max bbox delta 1 px, boundary 1 px, IoU ≥ 0.992 |
+| Styled vs render, full resolution, 1 px search | before fit: 1–3 px left; after `fit_affine.py` (sx 1.000, sy 1.001, tx −1/−2 px, ty −1 px): every room and the core within 1 px for dark, lit and tripped, and for lit vs dark |
+| Identity | lit = dark outside the rooms (max 0); tripped = dark outside containment +120 px (max 3) |
+| Warm colour | dark 0.00%, lit 0.00%, tripped 4.25% of the core box and 0.08% elsewhere; workers: amber only in the needs-you column (1,893 px), 46 px elsewhere (faces) |
+| Gemini | the frame-dark it produced drifted up to 8 px per room at 1264×848; not used |
+| `tools/cut_plant_layers.py --ingest` | 28 masks; quality 85; 1,387,090 bytes (budget 1,500,000); `SPRITE.pxPerPlatePx` 4.8; `FIGURE_SCALE` 1.5 → 1.0 |
+| `cd apps/web && pnpm -s vitest run` | 78 files, 823 tests pass |
+| `pnpm -s typecheck` | pass |
+| `git diff --check`, `tools/check_originality.py`, `tools/check_offline_assets.py` | pass |
+| `node tools/check_plant_contrast.mjs` (Chromium 1248) | busy 1440 worst 7.36:1, busy+tooltip 7.36:1, phone 16.26:1. **SCRAM 1440: 5 roster labels (Electrical, Civil) at 2.95:1.** The same 5 failures occur at the branch tip before this change (identical numbers). origin/main passes. Cause is outside the art: with the reactor plate centred, the top-row rosters sit under the new sticky top bar / SCRAM banner |
+| Screenshots | `design/art/bakeoff/v5/` (healthy busy 1440, SCRAM 1440, phone 390, @2x); `design/art/bakeoff/v5-sheet.jpg` (current main vs v5) |
+
+Provenance: `design/art/source/hybrid/PROMPTS.md`, section "v5 run".
 
 ## Required links
 

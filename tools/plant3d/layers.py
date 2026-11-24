@@ -17,7 +17,7 @@ import kit, scene as S, rooms as RM, worker as W
 import render as R
 
 ANCH = json.loads((K.ART / "blockout" / "anchors.json").read_text())
-SPRITE_PX, SPRITE_SCALE, SPRITE_ANCHOR = 512, 4.0, (256, 440)   # v4: 4 px per plate px with a 1.5x model = the v3 sprite pixels, drawn 1.5x larger in the plate   # render anchor (floor point under the hips); post shifts each sprite so its lowest foot pixel sits at y=496
+SPRITE_PX, SPRITE_SCALE, SPRITE_ANCHOR = 512, __import__("scene_consts").SPRITE_PX_PER_PLATE_PX, (256, 440)   # 6 / WORKER_SCALE px per plate px keeps the v3 sprite pixels; figures are WORKER_SCALE x larger on the plate   # render anchor (floor point under the hips); post shifts each sprite so its lowest foot pixel sits at y=496
 POSES = ("working", "waiting", "stuck", "needs-you", "walking")
 GARBS = ("antic", "station")
 

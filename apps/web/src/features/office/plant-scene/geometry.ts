@@ -28,10 +28,10 @@ export interface Room {
 
 /** The containment's box, and the box the core layers are cut to (the mask grown and feathered). */
 export const CORE_BBOX: Box = [575, 309, 1825, 1221];
-export const CORE_CROP: Box = [496, 216, 1865, 1266];
+export const CORE_CROP: Box = [496, 216, 1924, 1266];
 
 /** The sprite cell, how many sprite px make one plate px, and the pixel of each sprite that stands on its seat's feet point. */
-export const SPRITE = { cell: 512, pxPerPlatePx: 6.0 } as const;
+export const SPRITE = { cell: 512, pxPerPlatePx: 4.8 } as const;
 export const SPRITE_ANCHOR = {
   "antic-working": [256, 489],
   "antic-waiting": [256, 488],
@@ -45,14 +45,14 @@ export const SPRITE_ANCHOR = {
 
 /** What each sprite paints (its alpha bounds in sprite px): a figure's focus box follows it. */
 export const SPRITE_BOX = {
-  "antic-working": [222, 224, 415, 497],
+  "antic-working": [221, 224, 415, 497],
   "antic-waiting": [188, 232, 421, 497],
-  "antic-stuck": [222, 238, 409, 497],
-  "antic-needs-you": [175, 43, 326, 496],
-  "station-working": [222, 228, 415, 497],
+  "antic-stuck": [220, 238, 409, 497],
+  "antic-needs-you": [175, 42, 326, 497],
+  "station-working": [221, 228, 415, 497],
   "station-waiting": [192, 235, 421, 497],
-  "station-stuck": [222, 238, 409, 497],
-  "station-needs-you": [175, 43, 326, 496],
+  "station-stuck": [220, 238, 409, 497],
+  "station-needs-you": [175, 42, 326, 497],
 } as const;
 
 export const ROOMS = {

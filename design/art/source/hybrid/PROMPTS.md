@@ -18,10 +18,10 @@
 
 | File | Size | Bytes | sha256 |
 |---|---|---|---|
-| `frame-dark.webp` | 2400×1500 | 665626 | `1c06fbeee83daf1ca4f65d2c4004854139304a0b364e3b55634b0437e01990fb` |
-| `frame-lit.webp` | 2400×1500 | 645712 | `ed34c36ed11b2bc1f548639554305744c62c607faa1da44425ea3bded6803092` |
-| `frame-tripped.webp` | 2400×1500 | 596910 | `ea7d52addbf35ec51d3cfbba0e4764109e80e5c8554d51b8f06b961ec1a5ae5c` |
-| `workers-sheet.webp` | 2560×1144 | 226116 | `ff6dd76dfeca24aef94b7fd6dfb76603c1496146d36aab84c83eb8f2d92e236c` |
+| `frame-dark.webp` | 2400×1500 | 634524 | `1e4fed02a2d143371f0ad99e19845b9928b26357887babdcb9b365bb9aa71fa1` |
+| `frame-lit.webp` | 2400×1500 | 636834 | `a133a0a9692020d2f89e1baae91a8a0337fbf8a371e60c0646a94c5f55815b63` |
+| `frame-tripped.webp` | 2400×1500 | 558238 | `87c75056468d7dc0f688e9ad56fb077caf4c961f8158a6887b8eb99182b37b4f` |
+| `workers-sheet.webp` | 2560×1144 | 229116 | `674757a0930a5bb22ed20b56eb0c02ed5c9dd56850a6511f99d3139b649801ea` |
 
 ## Input digests
 
@@ -335,4 +335,196 @@ STYLE. Engineering-cutaway general-arrangement sheet. Matte architectural fills 
 
 ```text
 Same rendering, only the reactor has tripped. Edit attachment 1 (the styled dark frame) in place so that every pixel outside the containment's outer wall face stays identical to it, with zero crimson glow or spill past the outer containment rim. Use attachment 2 (frame-tripped.jpg) only to locate the wall lamps, deck beacons and the red cut rim. Inside the containment only: remove the core's cyan power-state overlay and leave the fuel assemblies and vessel in readable dark steel-blue shading (#0c1d33–#183252), a schematic tripped-state cue that implies neither cooling nor decay heat has stopped. Light each existing wall lamp and deck beacon as a diagram annunciator in crimson #e03c42 with a tight local halo, and tint the containment cut-rim hairlines #c93840. These lamps and that line carry the alarm. The deck and equipment stay legible in cool dark navy (#122742–#274b73) with only a faint crimson rim-bounce (#4d1a29) on faces turned toward the lamps. Do not draw or move control rods or drive heads. Keep the polar crane high on the rear wall exactly as in attachment 1: a faint phantom outline, never a solid beam. No people; add none. No text.
+```
+
+## v5 run (2026-11-24)
+
+> The frames and worker sheet in this directory are now the v5 run. The sections above describe the v3 pass and the crane fix and are kept for provenance. Their registration numbers describe those frames, not these.
+
+- **Blender (`tools/plant3d`, on top of d30ddfe9).** `WORKER_SCALE` = 1.25 (in `scene_consts.py`; v4 used 1.5, which made seated workers swamp their desks). Chairs scale with it. Sprites render at `SPRITE_PX_PER_PLATE_PX` = 6 / 1.25 = 4.8 px per plate px, derived rather than typed. Core: fuel body emission 1.2 → 1.3, cavity-water volume 0.045 → 0.20 with its vertical falloff σ 52 → 64. Bloom gain stays 1.1: 1.2 and 1.3 both clipped the assembly tops to white (measured). Crane unchanged from 84951b01. Desk heights unchanged: at 4× zoom the hands of the working pose sit at the desk front edge and keyboard level.
+- **Render.** `render.py --mode v3-plate,v3-core,v3-rooms,v3-sprites,v3-full,v3-markers` (62 s), then `post3.py`, then `registration.py`. Frames are composed from the post3 layers (plate + core + every room's lit layer + overlay ticks). The worker sheet is rebuilt transparent from post3's per-sprite PNGs, in post3's layout (max difference against post3's navy sheet: 1/255).
+- **Style.** Codex `image_gen.imagegen` (gpt-6.2-astra), prompts per `PROMPTS-v4.md` with the crane wording of style-pass-v2's amendment, plus one sentence for a soft glow rising up the inside of the vessel shell and barrel. frame-lit and frame-tripped are edits of the styled frame-dark. Gemini (agy image-generator) produced a frame-dark, but it drifted up to 8 px per room at 1264×848, so it was not used.
+- **Fit and lock.** The styled frames sat 1–2 px left of the render (full-resolution check), so each was fitted back with `fit_affine.py` (log below). frame-lit = frame-dark outside the anchors room boxes; frame-tripped = frame-dark outside the tripped core layer alpha +40 px. The worker sheet takes the Blender sprite alpha exactly.
+- **Cut.** `tools/cut_plant_layers.py --ingest <v5 render out>`; `FIGURE_SCALE` in `figure-layout.ts` = 1.0.
+
+### Blender registration (registration.py: bbox delta, IoU, best shift, boundary px)
+
+```text
+process [0, 1, -1, 0] 0.9941 [0, 0] 1
+mechanical [0, 1, 0, -1] 0.998 [0, 0] 1
+electrical [0, 1, -1, 0] 0.9941 [0, 0] 1
+civil [1, 1, 0, 0] 0.994 [0, 0] 1
+assurance [0, 1, -1, -1] 0.9942 [0, 0] 1
+project-controls [1, 1, 0, 0] 0.9937 [0, 0] 1
+review [1, 1, 0, -1] 0.9945 [0, 0] 1
+interface [0, 1, -1, -1] 0.9945 [0, 0] 1
+verification [0, 1, 0, -1] 0.9966 [0, 0] 1
+your-office [0, 1, 0, -1] 0.9959 [0, 0] 1
+document-control [0, 0, 0, -1] 0.9924 [0, 0] 1
+bench [0, 0, 0, -1] 0.9924 [0, 0] 1
+quarantine [0, 0, 0, -1] 0.9924 [0, 0] 1
+core [0, 0, 0, 0] 0.999 [0, 0] 1
+max bbox delta 1 max boundary px 1
+```
+
+### Global fit of styled frames to the render
+
+```text
+fit rec/styled-dark.png -> rec/blender-dark.png: sx=1.0000 sy=1.0010 tx=-1.0px ty=-1.0px (ref frame), edge NCC 0.767 -> 0.784
+wrote rec/fit-dark.png
+fit rec/styled-lit.png -> rec/blender-lit.png: sx=1.0000 sy=1.0010 tx=-2.0px ty=-1.0px (ref frame), edge NCC 0.699 -> 0.727
+wrote rec/fit-lit.png
+fit rec/styled-tripped.png -> rec/blender-tripped.png: sx=1.0000 sy=1.0010 tx=-1.0px ty=-1.0px (ref frame), edge NCC 0.705 -> 0.728
+wrote rec/fit-tripped.png
+```
+
+### Full-resolution registration (1 px search)
+
+```text
+full-resolution edge NCC, 1 px search within +-6 px, per anchors room bbox (images padded 8 px)
+## final-dark vs Blender dark
+ process best shift (+0,+1) px, ncc 0.563
+ mechanical best shift (-1,+1) px, ncc 0.575
+ electrical best shift (+0,+1) px, ncc 0.548
+ civil best shift (+0,+1) px, ncc 0.565
+ assurance best shift (+0,+0) px, ncc 0.567
+ project-controls best shift (+0,+1) px, ncc 0.579
+ review best shift (+0,+0) px, ncc 0.551
+ interface best shift (-1,+0) px, ncc 0.567
+ verification best shift (-1,-1) px, ncc 0.544
+ your-office best shift (+0,+0) px, ncc 0.475
+ document-control best shift (+0,+1) px, ncc 0.584
+ bench best shift (+0,+0) px, ncc 0.593
+ quarantine best shift (+0,+0) px, ncc 0.611
+ core best shift (+0,+1) px, ncc 0.485
+ max |shift|: 1 px
+## final-lit vs Blender lit
+ process best shift (+0,+1) px, ncc 0.494
+ mechanical best shift (+0,+1) px, ncc 0.528
+ electrical best shift (+0,+1) px, ncc 0.469
+ civil best shift (+0,+1) px, ncc 0.504
+ assurance best shift (+1,+0) px, ncc 0.504
+ project-controls best shift (+0,+1) px, ncc 0.501
+ review best shift (+1,+0) px, ncc 0.519
+ interface best shift (+0,+1) px, ncc 0.533
+ verification best shift (+0,-1) px, ncc 0.510
+ your-office best shift (+0,+0) px, ncc 0.421
+ document-control best shift (+0,+1) px, ncc 0.514
+ bench best shift (+1,+1) px, ncc 0.528
+ quarantine best shift (+1,+0) px, ncc 0.539
+ core best shift (+0,+1) px, ncc 0.485
+ max |shift|: 1 px
+## final-tripped vs Blender tripped
+ process best shift (+0,+1) px, ncc 0.563
+ mechanical best shift (-1,+1) px, ncc 0.575
+ electrical best shift (+0,+1) px, ncc 0.548
+ civil best shift (+0,+1) px, ncc 0.564
+ assurance best shift (+0,+0) px, ncc 0.567
+ project-controls best shift (+0,+1) px, ncc 0.579
+ review best shift (+0,+0) px, ncc 0.551
+ interface best shift (-1,+0) px, ncc 0.568
+ verification best shift (-1,-1) px, ncc 0.544
+ your-office best shift (+0,+0) px, ncc 0.479
+ document-control best shift (+0,+1) px, ncc 0.584
+ bench best shift (+0,+0) px, ncc 0.593
+ quarantine best shift (+0,+0) px, ncc 0.611
+ core best shift (-1,+1) px, ncc 0.486
+ max |shift|: 1 px
+## final-lit vs final-dark
+ process best shift (+1,+0) px, ncc 0.783
+ mechanical best shift (+1,+0) px, ncc 0.808
+ electrical best shift (+0,+0) px, ncc 0.812
+ civil best shift (+0,+0) px, ncc 0.799
+ assurance best shift (+1,+0) px, ncc 0.765
+ project-controls best shift (+1,+0) px, ncc 0.765
+ review best shift (+0,+0) px, ncc 0.729
+ interface best shift (+1,+0) px, ncc 0.842
+ verification best shift (+0,+0) px, ncc 0.763
+ your-office best shift (+0,+0) px, ncc 0.765
+ document-control best shift (+0,+0) px, ncc 0.789
+ bench best shift (+1,+1) px, ncc 0.748
+ quarantine best shift (+0,+1) px, ncc 0.724
+ core best shift (+0,+0) px, ncc 0.993
+ max |shift|: 1 px
+```
+
+### Pixel identity
+
+```text
+final-lit vs final-dark:
+outside rooms: mean |dRGB| 0.00/255, changed>8: 0.00%, max 0
+inside rooms: mean |dRGB| 13.70/255, changed>8: 43.49%, max 222
+final-tripped vs final-dark (outside containment ellipse + 120 px):
+outside core: mean |dRGB| 0.00/255, changed>8: 0.00%, max 3
+inside core: mean |dRGB| 26.46/255, changed>8: 71.05%, max 240
+```
+
+### Warm-colour check
+
+```text
+final-dark.png warm[all]=0.00% warm[your-office]=0.00% warm[core]=0.00% warm[elsewhere]=0.00%
+final-lit.png warm[all]=0.00% warm[your-office]=0.00% warm[core]=0.00% warm[elsewhere]=0.00%
+final-tripped.png warm[all]=1.40% warm[your-office]=0.00% warm[core]=4.25% warm[elsewhere]=0.08%
+```
+
+### Core glow (core box luminance counts)
+
+```text
+main styled dark (v3 + crane) : core box lum>150 px 57471, lum>200 px 14617, near-white (all ch>=250) 27
+v5 styled dark : core box lum>150 px 47162, lum>200 px 14385, near-white (all ch>=250) 26
+```
+
+### Worker sheet
+
+```text
+canvas 2560x1144; generated (1877, 838) scaled to canvas
+alpha IoU generated vs Blender sprite alpha at 0 px: 0.890; best 0.891 at (+0,-2)
+final alpha equals Blender sprite alpha: True
+warm px per 512-px column (col 4 = needs-you lamp): [0, 3, 0, 1893, 43]
+```
+
+### Tool arguments (as Codex recorded them)
+
+#### dark-out.png
+
+- references `frame-dark-in.png`; transparent_background `false`; native 1536×1024
+
+```text
+Pixel-locked style pass over the attached render of a nuclear plant (one production layer frame), for exact-registration interface overlays and per-room masks. Treat the render as a locked drawing: keep its 2400×1500 framing, scale and isometric view, paint inside the existing faces, and keep every Blender edge at its source coordinates, including room corners, desk fronts, chair seats, the crane girder, bridge, trolley and hook block, the vessel cut outline and the square assembly grid. Do not zoom, crop, shift, resize, straighten ellipses, add or remove any object, pipe, road marking, room, furniture piece or centre line. If a style instruction would move an edge, skip it.
+
+Goal: a crisp, legible architectural-engineering cutaway with clear tonal separation between ground, concrete and machinery, never dark, sparse or flat.
+
+Site: preserve the existing survey grid, radial lines, ring-road lanes, directional arrows and zebra crossings without adding or moving any marking. Lift the paved apron between the ring road and the rooms to #0e223d–#173459, one clear tonal step above the outer ground, with subtle matte concrete-slab grain, so it reads as calm structured ground, never a black void.
+
+Containment: lift the operating deck and the raised steam-generator and pump platforms above the site with fine steel grating and floor joints. Give the primary shield (keeping its front cut and circular pipe penetrations crisp), the steam generators, the reactor coolant pumps and the small pressuriser three-step shading with bolted flange seams. Put 45° hatching on cut concrete and a thin steel liner line along the inner face of the containment wall. Keep the far containment wall solid, opaque ribbed concrete with its existing hatch and tank. The polar crane rides high on the rear wall: keep its ring girder, bridge, trolley and hook block as a faint phantom outline (thin, low-contrast dashed hairlines, drafting convention for equipment shown for reference), never a solid or bright beam, so it reads as a crane high above the reactor and does not compete with the core.
+
+Core: keep its outline exactly. It is a sealed PWR reactor vessel, a round cylinder sectioned on the near quadrant. Keep the vessel shell, the core barrel and the pressure-vessel rim as hatched cut rings (45 degree hatching, pale cyan cut line #7ccae6), keep the step down to the cut plane, and keep the flush grid of square fuel assemblies seen from above at the cut, each a crisp upright square. Keep the head and the control-rod-drive housings above and behind, on the uncut part of the vessel. Light only the flush assembly grid, as a schematic power-state overlay in Cherenkov blue #6bd8f0 with #b8f2ff square-top highlights, bright but never clipped flat white, with no pool caustics, no water surface and no spill beyond the vessel rim except a restrained cyan spill on the shield cut faces immediately around it. Give the grid real presence: a soft cyan glow rising a little way up the inside face of the vessel shell and barrel rings around the grid, fading with height, never clipped to white. Do not turn the grid into a wedge, a chevron, a pyramid or glowing vertical faces. The vessel must read as a round cylinder and the assemblies as a square grid. It is the brightest thing in the image.
+
+Rooms are dark but solid and clearly modelled: matte shaded walls, floors and furniture (#122742–#24466b) with crisp #3a6b94 edge hairlines, grounded contact shadows, screens off (#0a1728), no glow. There are no people in this frame; add none. Keep only the existing dash-dot centre lines and site lines as crisp hairlines; add no callout bubbles, leaders, dimension arrows, border ticks, text or numbers.
+
+STYLE. Engineering-cutaway general-arrangement sheet. Matte architectural fills in distinct tiers: site apron #0e223d–#173459; deck and structural concrete #1a3a60–#2d5885; curved vessels and machinery #244b75–#4174a3 with three-step shading and bevel highlights up to #609ac7; deepest recess #061326, never pure black. Structure edges are #3e749e hairlines; cut profiles are crisp pale cyan (#7ccae6) following the existing cut rims, without neon bloom. Reserve the deepest navy for the background and recesses. No people. No readable letters, numbers or logos. Strictly cool navy and cyan: zero yellow, orange, red, pink or magenta. The outer site stays calm enough for interface overlays.
+```
+
+#### lit-out.png
+
+- references `dark-out.png`, `frame-lit-in.png`; transparent_background `false`; native 1536×1024
+
+```text
+Same rendering, only the rooms' lights are on. Edit attachment 1 (the styled dark frame) in place so that every pixel outside the room cutaways stays identical to it: site paving, ring road, containment, core, crane and exterior wall faces (the crane trolley and hook block included). Use attachment 2 (frame-lit.jpg) only to locate which screens, panels and task lights switch on. Change only inside the room cutaways, with zero light spill beyond the room walls. Start each room from its styled dark pixels: light the existing screens and panels in luminous cyan (#68c8e8 with a #bdf2ff top highlight and a tight reflected lift on the desk below), lift lit floors and walls to #1e4268–#2e5d8a under soft cool-cyan overhead light, and shade lit furniture in #28527a–#4a82ad. Rooms without screens (tank and drum storage, labs) get overhead light only. Do not invent fixtures or add a monitor to every bay. Keep chair edges, furniture shadows and wall caps exactly registered. No people; add none. Strictly cool navy and cyan, no warm colours, no text.
+```
+
+#### tripped-out.png
+
+- references `dark-out.png`, `frame-tripped-in.png`; transparent_background `false`; native 1536×1024
+
+```text
+Same rendering, only the reactor has tripped. Edit attachment 1 (the styled dark frame) in place so that every pixel outside the containment's outer wall face stays identical to it, with zero crimson glow or spill past the outer containment rim. Use attachment 2 (frame-tripped.jpg) only to locate the wall lamps, deck beacons and the red cut rim. Inside the containment only: remove the core's cyan power-state overlay and leave the fuel assemblies and vessel in readable dark steel-blue shading (#0c1d33–#183252), a schematic tripped-state cue that implies neither cooling nor decay heat has stopped. Light each existing wall lamp and deck beacon as a diagram annunciator in crimson #e03c42 with a tight local halo, and tint the containment cut-rim hairlines #c93840. These lamps and that line carry the alarm. The deck and equipment stay legible in cool dark navy (#122742–#274b73) with only a faint crimson rim-bounce (#4d1a29) on faces turned toward the lamps. Do not draw or move control rods or drive heads, and keep the crane, trolley, hook block and the vessel and assembly outline exactly as in the styled dark frame. The flush square assembly grid is the part that loses its cyan glow: leave it as readable dark steel-blue squares, outline unchanged. Keep the polar crane high on the rear wall exactly as in attachment 1: a faint phantom outline, never a solid beam. No people; add none. No text.
+```
+
+#### workers-out.png
+
+- references `workers-in.png`; transparent_background `true`; native 1877×838
+
+```text
+Pixel-locked sprite-sheet repaint: preserve every figure's exact silhouette, pose, size and pixel position; the background is fully transparent. Draw nothing between or around the figures: no floor, shadow, frame or checkerboard. Repaint the ten main figures in the same crisp engineering-cutaway illustration style, with #255375 hairline outlines and #6eb8dc pale-cyan rim highlights. At 64 px tall, separate head, hands and torso with broad value shapes rather than an outer halo. Top row: matte white anti-contamination coveralls (#cddbe8–#eef5fa) with the existing fitted hood up, cyan-blue taped gloves and arm and leg bands (#58b4d8), white shoe covers, and a small clip-on dosimeter badge on the chest. Bottom row: station coveralls in a medium steel blue (#3b658c–#5c8db8) that stays clearly lighter than a dark navy background, a cyan armband, pale bare hands and a small chest dosimeter badge. Faces are simple, calm and human, inside the existing head shapes. No warm colours anywhere except the small amber lamp (#ffe27a) held up by the standing needs-you figure in each row; that figure's forearm band is neutral cyan. Repaint the five tiny figures along the bottom edge in their exact positions and sizes with simplified flat shading in the matching palette, with no added detail. No text, no logos. The figures are about one and a quarter times larger on the sheet than in the previous sheet; keep every silhouette, pose, size and pixel position exactly as drawn. Seated figures sit on their own chair and the chair is not in the sheet.
 ```

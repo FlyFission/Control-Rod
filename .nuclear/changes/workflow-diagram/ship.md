@@ -3,6 +3,7 @@
 Release decision: **none yet.** Waiting for the owner's review of the screenshots and the Codex blind check.
 
 - Rollback: revert the merge. No data, route or migration.
+- Monitoring after merge: on a real install, the Workflow page and the Setup read-back name the same author and checker as the setup sentence above them, and the first card run uses the drawn author; any mismatch is a bug in `councilFlow.ts`.
 - Overlaps: draft PR #171 adds `/control-room` near the same router and places lines (trivial rebase); draft PR #170 adds `omp` to `AgentId`, which then needs a mark entry (initial shown until then).
 
 ## Required links

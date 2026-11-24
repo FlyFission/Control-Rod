@@ -62,7 +62,7 @@ The run reports both author directions and their **equal-author-weight mean**. T
 - **State the target population**: languages, repositories and difficulty.
 - **One immutable local snapshot** is used for selection and grading. Its path is passed to the grader explicitly. It is validated for unique IDs, row count, no pagination truncation, split, required fields and a SHA-256 digest.
 - **Audit before any output.** `audit.md` holds each task's issue, its hidden tests (`FAIL_TO_PASS`, `test_patch`), and the base and gold-patch behavior over repeated runs. The audit checks whether the hidden tests ask for more, or less, than the issue does. Flaky or defective tasks are replaced from the frozen reserve order. Exclusions and their reasons are committed before any author runs.
-- **Separation of roles.** The person who audits the hidden tests is never the A4 reviewer (see Open item 3).
+- **Separation of roles.** The person who audits the hidden tests is never the A4 reviewer (see Owner decision 3).
 - Repository and difficulty quotas, with actual numeric limits, and the reserve order are frozen in the manifest. `select` fails if it cannot fill `n`.
 
 ## 4. Isolation and blinding
@@ -143,13 +143,13 @@ The run reports both author directions and their **equal-author-weight mean**. T
   - Each judgment is supported, unsupported or indeterminate. Supported means a concrete in-scope defect backed by the patch or by a counterexample that can be reproduced.
   - Disagreements are resolved independently, and the counts are published.
   - Supported defects found in good patches are reported separately. They never rewrite the reference grade.
-  - **Without this adjudication, the run does not use the words "defects caught".** The scope is Open item 2.
+  - **Without this adjudication, the run does not use the words "defects caught".** The scope is Owner decision 2.
 - **Verdict stability.** Both checks are repeated on a preregistered random 10% of checked patches, at least 12, chosen before any verdict is seen. The report gives the flip rate and Cohen's κ by vendor. **Only the first check enters the primary metrics.** The repeats are paid for from the same budget and never count toward sample size.
 
 ## 8. Human arm (A4)
 
 - A4 is **exploratory and conditional on A3**. It has no human-only baseline, so the run makes **no claim about human time saved**. It can say only how many patches A3 filtered out.
-- A4 is done only by a reviewer independent of the hidden-test audit and of defect adjudication. If no such reviewer exists, A4 is **omitted**, not run unblinded (Open item 3).
+- A4 is done only by a reviewer independent of the hidden-test audit and of defect adjudication. If no such reviewer exists, A4 is **omitted**, not run unblinded (Owner decision 3).
 - The sample is frozen before phase 1:
   - queue size, for example 24 to 30;
   - sampling probabilities;

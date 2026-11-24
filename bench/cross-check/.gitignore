@@ -1,0 +1,4 @@
+work/
+agents.local.json
+__pycache__/
+runs/*/eval/logs/

@@ -1,0 +1,10 @@
+diff --git a/lists.py b/lists.py
+index ca562d9..fbcdc89 100644
+--- a/lists.py
++++ b/lists.py
+@@ -1,2 +1,4 @@
+ def last_n(items, n):
+-    return items[-n:]
++    if n < 0:
++        raise ValueError("n must be >= 0")
++    return items[-n:] if n else []

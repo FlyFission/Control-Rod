@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Control Rod on one machine: `pnpm cr doctor`, `pnpm cr setup`, `pnpm cr start`, and
-// `pnpm cr verify <file>` to check a downloaded inclusion proof offline.
+// `pnpm cr verify <file>` to check a downloaded inclusion proof offline, and `pnpm cr bench` for
+// Control Rod's own cross-vendor checking benchmark.
 // Starts the control plane (with an embedded Postgres unless CONTROLROD_DATABASE_URL is set),
 // the run daemon, and serves the web app at http://localhost:7300.
 import { spawn, spawnSync } from "node:child_process";
@@ -373,9 +374,21 @@ const cmd = process.argv[2] ?? "start";
 if (cmd === "doctor") process.exit(doctor({ agents: true }) ? 0 : 1);
 else if (cmd === "setup") setup();
 else if (cmd === "start") await start();
-else if (cmd === "verify") verify(resolveCliArgs(process.argv.slice(3)));
+else if (cmd === "bench") {
+  // Control Rod's own benchmark (bench/cross-check/README.md). Started by hand only.
+  const py = which("python3") ?? which("python");
+  if (!py) {
+    console.error("pnpm cr bench needs Python 3.");
+    process.exit(1);
+  }
+  const r = spawnSync(py, [join(root, "bench", "cross-check", "bench.py"), ...process.argv.slice(3)], {
+    stdio: "inherit",
+    cwd: process.env.INIT_CWD ?? process.cwd(),
+  });
+  process.exit(r.status ?? 1);
+} else if (cmd === "verify") verify(resolveCliArgs(process.argv.slice(3)));
 else if (cmd === "receipt") receipt(process.argv[3] ? resolveCliArgs(process.argv.slice(3))[0] : undefined);
 else {
-  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|receipt <inclusion-proof.json>]");
+  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|receipt <inclusion-proof.json>|bench <init|select|preflight|probe|controls|run|lock|adjudicate|evaluate|score|size|release> ...]");
   process.exit(2);
 }

@@ -2516,9 +2516,20 @@ select {
     margin: 0;
     padding: 0;
   }
+  .rail-projects-list > li {
+    min-width: 0;
+    max-width: 100%;
+  }
   .rail-proj-btn {
     width: auto;
     max-width: 100%;
+    min-width: 0;
+  }
+  .rail-proj-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .rail-proj-repo {
     display: none;

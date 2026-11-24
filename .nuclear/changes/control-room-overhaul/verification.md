@@ -40,6 +40,7 @@ Fixed after the Codex blind check, which found no P0 or P1:
 - P2 drills: the shell's `data-scram` and the Plant's `data-scram-active` now use `anyRealScram` from `plant-instruments.ts`, the same rule the annunciator uses, so a drill alone never lights trip styling.
 - P2 redaction: the shell reads `GET /scrams?presenting=true`. It needs only scope and the drill flag, which the redacted read keeps, so no SCRAM reason is fetched for the chrome while presenting.
 - P2 phones: at 820px and below, the projects and New project stay visible as a wrapping row, places and the top bar wrap instead of scrolling sideways, and grid tracks can shrink. At 560px and below, Shortcuts is hidden. A local Chromium run of the `phase3-exit` reflow test now passes at 320 px on every place (it failed before at 374 px on main and 334 px on this branch).
+- P2 phones, round 2 (Codex check of PR #168): project list items and buttons can shrink, and a long project name ends in an ellipsis, so every project button and New project stay inside 320 px. Test: "phone: project switching and New project stay in view at 320 CSS px, even with a long project name" in `e2e/phase3-exit.spec.ts` (local Chromium: fails at 478 px without the fix, passes with it; CI does not run e2e).
 - P2 hidden tab: the shell sets `data-tab-hidden` from `visibilitychange` and pauses the trip pulses.
 - P3: `trace.md` T-01, T-02 and T-04 corrected.
 

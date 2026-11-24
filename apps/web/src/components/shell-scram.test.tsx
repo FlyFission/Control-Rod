@@ -83,7 +83,7 @@ describe("the SCRAM banner is app-wide", () => {
     expect(document.querySelector(".shell")!.getAttribute("data-scram")).toBe("clear");
   });
 
-  it("shows a drill as a striped DRILL plate, never the trip palette, and locks nothing", async () => {
+  it("shows a drill as a striped DRILL plate, never the trip palette, and locks like a trip", async () => {
     baseApi();
     scrams({ ...org, id: "scr_d", drill: true });
     await renderShell("/board");
@@ -93,7 +93,8 @@ describe("the SCRAM banner is app-wide", () => {
     expect(banner.querySelector('[data-kind="drill"]')).not.toBeNull();
     expect(banner.querySelector('[data-kind="trip"]')).toBeNull();
     expect(document.querySelector(".shell")!.getAttribute("data-scram")).toBe("drill");
-    expect((screen.getByRole("button", { name: /New change/ }) as HTMLButtonElement).disabled).toBe(false);
+    await waitFor(() => expect((screen.getByRole("button", { name: /New change/ }) as HTMLButtonElement).disabled).toBe(true));
+    expect(screen.getByRole("button", { name: /New change/ }).title).toMatch(/SCRAM drill/);
   });
 
   it("hides a SCRAM's reason while the Plant is presenting", async () => {
@@ -166,10 +167,10 @@ describe("what a SCRAM locks", () => {
     expect(capture().title).toMatch(/this project/);
   });
 
-  it("works out the lock from the SCRAMs in force: drills never lock, project locks match by id or name", () => {
+  it("works out the lock from the SCRAMs in force: drills lock too, project locks match by id or name", () => {
     expect(lockedFor(NO_LOCK, "p1").locked).toBe(false);
     const drill = lockFrom([summary({ ...org, drill: true }) as never]);
-    expect(lockedFor(drill, "p1").locked).toBe(false);
+    expect(lockedFor(drill, "p1")).toMatchObject({ locked: true, why: expect.stringMatching(/SCRAM drill/) });
     const orgLock = lockFrom([summary(org) as never]);
     expect(lockedFor(orgLock, null).locked).toBe(true);
     const p = lockFrom([summary(proj) as never]);

@@ -65,6 +65,10 @@ Round 6 dispositions (all fixed, checked as an ordinary Linux user):
 - P3 Node flags: the fresh process gets the same Node flags.
 - GitHub Codex review of 188ffdc (P2, stale takeover deleting a new repair's lock): takeover renames the stale folder aside and checks it is the same folder (inode) it judged stale, giving back a fresh one; release and refresh touch only the holder's own folder. Four commands started together on a stale lock with a dependency missing ran exactly one repair, twice over.
 
+## Follow-up: one-step start
+
+Built after #177 merged, on a new pull request; review and the owner's yes for that pull request are recorded below the #177 signature.
+
 ## Signature
 
 | Decision | Question | Answer, word for word | When | Where | Recorded by |

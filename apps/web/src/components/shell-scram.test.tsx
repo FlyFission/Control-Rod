@@ -141,6 +141,31 @@ describe("what a SCRAM locks", () => {
     await waitFor(() => expect(cta.disabled).toBe(false));
   });
 
+  it("locks the modal by the project it targets, even from the all-projects view or after editing the field", async () => {
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.setAttribute("open", ""); };
+    HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) { this.removeAttribute("open"); };
+    baseApi([
+      { id: "p1", name: "Plant A", mode: "software" },
+      { id: "p2", name: "Plant B", mode: "software" },
+    ]);
+    scrams(proj);
+    await renderShell("/board");
+    const user = userEvent.setup();
+    // All projects: the sidebar's lock is off, so the button opens the modal.
+    await user.click(await screen.findByRole("button", { name: /New change/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Capture settings" }));
+    const field = within(dialog).getByLabelText("Project / Workstream");
+    const capture = () => within(dialog).getByRole("button", { name: /^Capture (change|packet|deliverable)$/ }) as HTMLButtonElement;
+    await user.clear(field);
+    await user.type(field, "Plant B");
+    expect(capture().disabled).toBe(false);
+    await user.clear(field);
+    await user.type(field, "Plant A");
+    await waitFor(() => expect(capture().disabled).toBe(true));
+    expect(capture().title).toMatch(/this project/);
+  });
+
   it("works out the lock from the SCRAMs in force: drills never lock, project locks match by id or name", () => {
     expect(lockedFor(NO_LOCK, "p1").locked).toBe(false);
     const drill = lockFrom([summary({ ...org, drill: true }) as never]);

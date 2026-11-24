@@ -305,3 +305,13 @@ describe("SCRAM", () => {
     expect(screen.getByText("This lifts SCRAM scr_1 for everything it holds: 3 packages and any intake work on captures in its scope, and the 2 runs it stopped.")).toBeTruthy();
   });
 });
+
+describe("the expanded recovery panel", () => {
+  it("is a keyboard-reachable region and the stylesheet bounds it with its own scroll", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync("src/features/office/office.css", "utf8");
+    const rule = /\.office-scram-detail\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/max-height:[^;]*vh/);
+    expect(rule).toMatch(/overflow-y:\s*auto/);
+  });
+});

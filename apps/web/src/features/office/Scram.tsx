@@ -336,7 +336,7 @@ function ScramDetailPanel({ id, passkeys }: { id: string; passkeys: Passkeys }) 
   if (q.isError) return <p className="error" role="alert">This SCRAM could not be loaded.</p>;
   if (!q.data) return <p className="office-note">Loading…</p>;
   return (
-    <div className="office-scram-detail">
+    <div className="office-scram-detail" role="region" aria-label="Review and restart" tabIndex={0}>
       <h3>What it stopped</h3>
       {q.data.runs.length === 0 ? (
         <p className="small">No run was running when it was pulled; nothing is quarantined.</p>

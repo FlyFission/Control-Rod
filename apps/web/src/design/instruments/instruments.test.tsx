@@ -36,7 +36,7 @@ describe("RodGauge", () => {
     ["withdrawn", /withdrawn, no SCRAM in force/, 0],
     ["bank", /project bank inserted/, 1],
     ["inserted", /all inserted/, 3],
-    ["drill", /SCRAM drill, nothing stopped/, 3],
+    ["drill", /Drill SCRAM in force: work stopped/, 3],
     ["unknown", /SCRAM status unavailable/, 0],
   ];
   it.each(cases)("states %s in words and drops the right rods", (position, name, dropped) => {

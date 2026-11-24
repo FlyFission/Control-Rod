@@ -94,6 +94,7 @@ Control Rod runs on your own machine, with your own agents and sign-ins. You nee
 ```sh
 git clone https://github.com/FlyFission/Control-Rod.git
 cd Control-Rod
+mise install     # fetches every pinned tool (Node, pnpm, Go, and friends); skip it if you already have them
 pnpm install
 pnpm cr doctor   # checks your setup and tells you what to fix
 pnpm cr start    # builds on first run, then opens http://localhost:7300

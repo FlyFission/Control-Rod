@@ -150,3 +150,15 @@ def stamp(study: "Study", phase: str | None = None) -> dict:
         m = study.phase_dir(phase) / "manifest.json"
         out["manifest_sha256"] = read_json(m)["manifest_sha256"] if m.exists() else None
     return out
+
+
+def load_sizing(study: "Study") -> dict | None:
+    """The frozen sizing.json, verified against its own digest and this study; None if absent."""
+    p = study.dir / "sizing.json"
+    if not p.exists():
+        return None
+    sz = read_json(p)
+    if sz.get("sha256") != digest({k: v for k, v in sz.items() if k != "sha256"}) or \
+            sz.get("study_sha256") != study.protocol()["frozen_sha256"]:
+        raise Refused("§2 sizing", "sizing.json changed after it was frozen, or belongs to another study")
+    return sz

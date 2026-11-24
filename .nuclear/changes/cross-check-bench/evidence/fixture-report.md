@@ -1,6 +1,6 @@
 # Cross-vendor checking benchmark: fixture, calibration
 
-Designation: **calibration (never published as findings)**. Scored 2026-11-24T15:53:45Z. Study digest `24d5016bced1`, harness `ae2bfa83688b`, manifest `5c74ec9c9351`.
+Designation: **calibration (never published as findings)**. Scored 2026-11-24T16:43:29Z. Study digest `2dea1671cdfd`, harness `a1c2b94c1166`, manifest `7710d3b8a6b6`.
 
 The benchmark calls the Claude Code and Codex CLIs directly, not through Control Rod's daemon.
 "Rejection" means an explicit fail verdict, not a confirmed defect. Hidden tests measure whether
@@ -134,3 +134,4 @@ API-equivalent for disclosure only: not computed.
 - stub-a CLI: stub (`stub`)
 - stub-b CLI: stub (`stub`)
 - Host: Linux x86_64, Python 3.13.18, confinement bwrap
+- Residual risk: a CLI's own tool shell can read that CLI's own sign-in, as under the product daemon; it cannot read the other vendor's.

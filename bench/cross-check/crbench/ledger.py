@@ -11,7 +11,7 @@ import secrets
 from contextlib import contextmanager
 from datetime import timedelta
 
-from .common import Refused, Study, append_jsonl, now, parse_time, read_json, read_jsonl
+from .common import Refused, Study, append_jsonl, load_sizing, now, parse_time, read_jsonl
 
 QUOTA_GRACE_H = 24
 INFRA_HALT = 3
@@ -22,6 +22,14 @@ def p95(xs: list[int]) -> int | None:
         return None
     xs = sorted(xs)
     return xs[max(0, math.ceil(0.95 * len(xs)) - 1)]
+
+
+def pause_of(e: dict) -> dict | None:
+    if e["event"] == "quota_paused":
+        return e
+    if e["event"] == "done" and e.get("quota_pause"):
+        return {**e["quota_pause"], "at": e["at"]}
+    return None
 
 
 class Ledger:
@@ -72,7 +80,9 @@ class Ledger:
         ev = self.events()
         launches = [e for e in ev if e["event"] == "launch"]
         dones = {e["launch_id"]: e for e in ev if e["event"] == "done"}
-        halted = [e for e in ev if e["event"] == "halt"]
+        halted = [e for e in ev if e["event"] == "halt"] + [{"why": e["halt"], "at": e["at"]} for e in ev
+                                                            if e["event"] == "done" and e.get("halt")]
+        halted.sort(key=lambda e: e["at"])
         return {"events": ev, "launches": launches, "dones": dones, "halted": halted[-1] if halted else None,
                 "in_flight": [e for e in launches if e["launch_id"] not in dones]}
 
@@ -80,8 +90,8 @@ class Ledger:
         return self.frozen_at + timedelta(days=self.caps["calendar_days"])
 
     def frozen_p95(self) -> dict:
-        p = self.study.dir / "sizing.json"
-        return read_json(p).get("token_p95", {}) if p.exists() else {}
+        sz = load_sizing(self.study)
+        return sz.get("token_p95", {}) if sz else {}
 
     @staticmethod
     def known_tokens(st: dict) -> int:
@@ -123,8 +133,9 @@ class Ledger:
         succeeded (ledger order, not timestamps) or the reset has passed."""
         last_pause, last_ok = None, -1
         for i, e in enumerate(st["events"]):
-            if e["event"] == "quota_paused" and e["vendor"] == vendor:
-                last_pause = (i, e)
+            q = pause_of(e)
+            if q and q["vendor"] == vendor:
+                last_pause = (i, q)
             elif e["event"] == "done" and e.get("vendor") == vendor and e["status"] in ("ok", "inconclusive",
                                                                                           "author_timeout"):
                 last_ok = i
@@ -172,35 +183,44 @@ class Ledger:
             self._done(st, e, rec)
 
     def _done(self, st: dict, e: dict, rec: dict) -> None:
-        append_jsonl(self.path, {"event": "done", "launch_id": e["launch_id"], "call": e["call"], "phase": e["phase"],
-                                 "vendor": e["vendor"], "role": e["role"], "probe": e["call"].startswith("probe"),
-                                 "status": rec["status"], "usage": rec.get("usage") or {"known": False},
-                                 "seconds": rec.get("seconds"), "model_resolved": rec.get("model_resolved"), "at": now()})
-        st = self.state()
+        """One ledger line carries the result and its consequences (a quota pause, a halt), so a
+        crash can never record the one without the other."""
+        line = {"event": "done", "launch_id": e["launch_id"], "call": e["call"], "phase": e["phase"],
+                "vendor": e["vendor"], "role": e["role"], "probe": e["call"].startswith("probe"),
+                "status": rec["status"], "usage": rec.get("usage") or {"known": False},
+                "seconds": rec.get("seconds"), "model_resolved": rec.get("model_resolved"), "at": now()}
+        halt = None
         if rec["status"] == "quota_paused":
-            self._quota(st, e["vendor"], rec)
+            line["quota_pause"], halt = self._quota(st, e["vendor"], rec)
         elif rec["status"] == "infra_error":
             if rec.get("auth"):
-                self.halt(f"sign-in error from {e['vendor']}: {(rec.get('why') or '')[:200]}")
+                halt = f"sign-in error from {e['vendor']}: {(rec.get('why') or '')[:200]}"
             recent = [x for x in st["events"] if x["event"] == "done" and x["status"] != "quota_paused"]
-            if len(recent) >= INFRA_HALT and all(x["status"] == "infra_error" for x in recent[-INFRA_HALT:]):
-                self.halt(f"{INFRA_HALT} consecutive infra errors")
+            if len(recent) >= INFRA_HALT - 1 and all(x["status"] == "infra_error" for x in recent[-(INFRA_HALT - 1):]):
+                halt = halt or f"{INFRA_HALT} consecutive infra errors"
+        if rec.get("halt"):
+            halt = rec["halt"]
+        if halt:
+            line["halt"] = halt
+        append_jsonl(self.path, line)
 
-    def _quota(self, st: dict, vendor: str, rec: dict) -> None:
+    def _quota(self, st: dict, vendor: str, rec: dict) -> tuple[dict, str | None]:
         hours = rec.get("reset_hours") or self.caps.get("quota_reset_hours", 5)
         t = parse_time(now())
         first = None
         for e in st["events"]:
-            if e["event"] == "quota_paused" and e["vendor"] == vendor:
-                first = first or e
+            q = pause_of(e)
+            if q and q["vendor"] == vendor:
+                first = first or q
             elif e["event"] == "done" and e.get("vendor") == vendor and e["status"] in ("ok", "inconclusive",
                                                                                         "author_timeout"):
                 first = None
+        halt = None
         if first and t > parse_time(first["expected_reset"]) + timedelta(hours=QUOTA_GRACE_H):
-            self.halt(f"{vendor} still blocked {QUOTA_GRACE_H} h past its expected reset")
-        append_jsonl(self.path, {"event": "quota_paused", "vendor": vendor, "at": now(), "reset_hours": hours,
-                                 "reset_source": "cli message" if rec.get("reset_hours") else "config default",
-                                 "expected_reset": (t + timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")})
+            halt = f"{vendor} still blocked {QUOTA_GRACE_H} h past its expected reset"
+        return ({"vendor": vendor, "reset_hours": hours,
+                 "reset_source": "cli message" if rec.get("reset_hours") else "config default",
+                 "expected_reset": (t + timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")}, halt)
 
     def halt(self, why: str) -> None:
         append_jsonl(self.path, {"event": "halt", "why": why, "at": now()})

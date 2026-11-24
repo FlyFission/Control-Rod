@@ -7,7 +7,7 @@ import json
 import random
 from pathlib import Path
 
-from .common import HERE, Refused, Study, digest, git_dirty, git_head, harness_digest, now, read_json, sha256_file, write_json
+from .common import HERE, Refused, Study, digest, git_dirty, git_head, harness_digest, load_sizing, now, read_json, sha256_file, write_json
 
 REQUIRED_TASK_FIELDS = ("instance_id", "repo", "base_commit", "problem_statement", "test_patch",
                         "FAIL_TO_PASS", "PASS_TO_PASS")
@@ -52,8 +52,9 @@ def validate_config(cfg: dict) -> None:
         raise Refused("§9", "at most 2 evaluation workers")
     if cfg["snapshot"]["kind"] == "swebench":
         snap = cfg["snapshot"]
-        if not snap.get("sha256") or not isinstance(snap.get("expected_rows"), int) or not snap.get("split"):
-            raise Refused("§3 snapshot", "a SWE-bench snapshot needs a pinned sha256, expected_rows and split")
+        if not snap.get("sha256") or not isinstance(snap.get("expected_rows"), int) \
+                or isinstance(snap.get("expected_rows"), bool) or snap["expected_rows"] <= 0 or not snap.get("split"):
+            raise Refused("§3 snapshot", "a SWE-bench snapshot needs a pinned sha256, a positive whole expected_rows and split")
         pre = cfg["selection"].get("pre_exclusions")
         if pre is not None and not (pre.get("path") and pre.get("sha256")):
             raise Refused("§3", "selection.pre_exclusions needs a path and a sha256")
@@ -181,13 +182,9 @@ def select(study: Study, phase: str, n: int | None = None) -> dict:
     if phase == "calibration":
         n = sel["calibration_n"]
     else:
-        sizing = study.dir / "sizing.json"
-        if not sizing.exists():
+        sz = load_sizing(study)
+        if sz is None:
             raise Refused("§2 sizing", "main needs a frozen sizing.json from `size`")
-        sz = read_json(sizing)
-        if sz.get("sha256") != digest({k: v for k, v in sz.items() if k != "sha256"}) or \
-                sz.get("study_sha256") != proto["frozen_sha256"]:
-            raise Refused("§2 sizing", "sizing.json changed after it was frozen, or belongs to another study")
         n = sz["n_phase1"]
         if n < 1:
             raise Refused("§2 sizing", "sizing says stop; no phase 1")
@@ -213,6 +210,7 @@ def select(study: Study, phase: str, n: int | None = None) -> dict:
         "tasks": [r["instance_id"] for r in tasks], "reserve": [r["instance_id"] for r in reserve],
         "block_order": order, "replaced": {}, "rows": {r["instance_id"]: r for r in tasks + reserve},
         "study_sha256": proto["frozen_sha256"],
+        "sizing_sha256": sz["sha256"] if phase == "main" else None,
     }
     manifest["manifest_sha256"] = digest({k: v for k, v in manifest.items() if k != "manifest_sha256"})
     write_json(pdir / "manifest.json", manifest)
@@ -253,11 +251,23 @@ def exclude(study: Study, phase: str, task: str, reason: str) -> dict:
         raise Refused("§3 audit", f"{task} is not a selected task in {phase}")
     if not m["reserve"]:
         raise Refused("§3 quotas", "the reserve is empty; nothing can replace this task")
-    nxt = m["reserve"].pop(0)
+    cap = study.protocol()["frozen"]["config"]["selection"].get("max_per_repo")
+    stratum = m["rows"][task].get("difficulty")
+    left = [t for t in m["tasks"] if t != task]
+
+    def fits(r):
+        row = m["rows"][r]
+        return row.get("difficulty") == stratum and (
+            not cap or sum(m["rows"][t]["repo"] == row["repo"] for t in left) < cap)
+    nxt = next((r for r in m["reserve"] if fits(r)), None)
+    if nxt is None:
+        raise Refused("§3 quotas", f"no reserve task in the same difficulty stratum ({stratum!r}) within the "
+                      "repository cap; the phase cannot keep its sampling design")
+    m["reserve"].remove(nxt)
     i = m["tasks"].index(task)
     m["tasks"][i] = nxt
     m["block_order"] = [nxt if t == task else t for t in m["block_order"]]
-    m["replaced"][task] = {"by": nxt, "reason": reason, "at": now()}
+    m["replaced"][task] = {"by": nxt, "stratum": stratum, "reason": reason, "at": now()}
     excl = exclusions(study)
     excl[task] = reason
     write_json(study.dir / "exclusions.json", excl)

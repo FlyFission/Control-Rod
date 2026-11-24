@@ -16,18 +16,23 @@ CACHE_EXCLUDES = ["__pycache__/", "*.pyc", "*.pyo", ".pytest_cache/", ".mypy_cac
                   "*.egg-info/", ".tox/", ".coverage", ".DS_Store"]
 
 
+def is_git_name(name: str) -> bool:
+    """`.git` in any case: on a case-insensitive Mac volume `.GIT` is the same directory."""
+    return name.casefold() == ".git"
+
+
 def import_tree(src: Path, dst: Path) -> list[str]:
     """Replace dst's worktree (not its .git) with src's regular files and links, never following
-    links and never reading src/.git. Returns skipped special files."""
+    links and never reading any `.git`, at any depth or case. Returns skipped special files."""
     for p in dst.iterdir():
-        if p.name != ".git":
+        if not is_git_name(p.name):
             remove(p) if p.is_dir() and not p.is_symlink() else p.unlink()
     skipped = []
     for dirpath, dirnames, filenames in os.walk(src, followlinks=False):
         rel = Path(dirpath).relative_to(src)
-        if rel == Path("."):
-            dirnames[:] = [n for n in dirnames if n != ".git"]
-            filenames = [n for n in filenames if n != ".git"]
+        skipped += [(rel / n).as_posix() for n in dirnames + filenames if is_git_name(n)]
+        dirnames[:] = [n for n in dirnames if not is_git_name(n)]
+        filenames = [n for n in filenames if not is_git_name(n)]
         (dst / rel).mkdir(parents=True, exist_ok=True)
         for name in list(dirnames):
             s = Path(dirpath) / name
@@ -46,9 +51,31 @@ def import_tree(src: Path, dst: Path) -> list[str]:
     return skipped
 
 
-def capture(author_repo: Path, task: dict, root: Path, cache: Path, rule: list[str]) -> dict:
+def identity(repo: Path) -> list[int]:
+    """The author tree's directory and its parent, by device and inode (lstat, never followed)."""
+    out = []
+    for p in (repo.parent, repo):
+        st = os.lstat(p)
+        if not stat.S_ISDIR(st.st_mode):
+            raise SystemExit(f"{p} is not a directory")
+        out += [st.st_dev, st.st_ino]
+    return out
+
+
+def capture(author_repo: Path, task: dict, root: Path, cache: Path, rule: list[str],
+            ident: list[int] | None = None) -> dict:
     """The author's change as a binary-safe patch against the recorded base, computed in a fresh
-    trusted export. A test-file change or an empty change is recorded, never altered."""
+    trusted export. A test-file change or an empty change is recorded, never altered. ident, taken
+    before the call, must still describe the tree: a swapped directory or a link is refused."""
+    try:
+        if ident is not None and identity(author_repo) != ident:
+            return {"status": "patch_invalid", "why": "the author's tree was replaced during the call", "patch": b"",
+                    "sha256": sha256_bytes(b""), "tree_oid": None, "changes": [], "test_paths": [],
+                    "skipped_special_files": [], "lines": 0}
+    except (OSError, SystemExit) as e:
+        return {"status": "patch_invalid", "why": f"the author's tree is not a plain directory: {e}", "patch": b"",
+                "sha256": sha256_bytes(b""), "tree_oid": None, "changes": [], "test_paths": [],
+                "skipped_special_files": [], "lines": 0}
     trusted = export_base(task, root, cache)
     try:
         base = _git(["rev-parse", "HEAD"], trusted).strip()
@@ -56,7 +83,7 @@ def capture(author_repo: Path, task: dict, root: Path, cache: Path, rule: list[s
         (trusted / ".git" / "info").mkdir(parents=True, exist_ok=True)
         (trusted / ".git" / "info" / "exclude").write_text("\n".join(CACHE_EXCLUDES) + "\n")
         _gitb(["add", "-A"], trusted)
-        raw = _gitb(["diff", "--cached", "--name-status", "-z", "-M", base], trusted).decode(errors="surrogateescape")
+        raw = _gitb(["diff", "--cached", "--name-status", "-z", "-M", base], trusted).decode(errors="replace")
         parts = [p for p in raw.split("\0") if p]
         changes, i = [], 0
         while i < len(parts):

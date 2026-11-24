@@ -23,8 +23,20 @@ SAFE = ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "c
         "-c", "advice.detachedHead=false", "-c", "init.defaultBranch=main"]
 
 
+SYSTEM_PATH = "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"
+
+
+def trusted_git() -> str:
+    """Git by absolute path from system locations only, never a `git` that an earlier PATH
+    entry (a workspace, a project's bin directory) could supply."""
+    g = shutil.which("git", path=SYSTEM_PATH)
+    if not g:
+        raise Refused("§5 trusted git", f"no git in {SYSTEM_PATH}")
+    return os.path.realpath(g)
+
+
 def git_env(extra: dict | None = None) -> dict:
-    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+    env = {"PATH": SYSTEM_PATH, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
            "GIT_TERMINAL_PROMPT": "0", "HOME": "/nonexistent", "LC_ALL": "C", **GENERIC}
     if extra:
         env.update(extra)
@@ -32,7 +44,7 @@ def git_env(extra: dict | None = None) -> dict:
 
 
 def _gitb(args, cwd, stdin: bytes | None = None, env: dict | None = None) -> bytes:
-    r = subprocess.run(["git", *SAFE, *args], cwd=cwd, input=stdin, capture_output=True, env=git_env(env))
+    r = subprocess.run([trusted_git(), *SAFE, *args], cwd=cwd, input=stdin, capture_output=True, env=git_env(env))
     if r.returncode != 0:
         raise SystemExit(f"git {' '.join(map(str, args))} failed: {r.stderr.decode(errors='replace').strip()}")
     return r.stdout
@@ -42,9 +54,14 @@ def _git(args, cwd, env: dict | None = None) -> str:
     return _gitb(args, cwd, env=env).decode(errors="replace")
 
 
-def workspace_root(cfg: dict, study_dir: Path | None = None) -> Path:
+def workspace_root_path(cfg: dict) -> Path:
+    """Where the workspace root is, with no side effect."""
     raw = cfg["caps"].get("workspace_root") or f"/var/tmp/cr-bench-{os.getuid()}"
-    root = Path(os.path.expanduser(raw)).resolve(strict=False)
+    return Path(os.path.expanduser(raw)).resolve(strict=False)
+
+
+def workspace_root(cfg: dict, study_dir: Path | None = None) -> Path:
+    root = workspace_root_path(cfg)
     forbidden = [ROOT.resolve(), Path.home().resolve(strict=False)]
     if study_dir is not None:
         forbidden.append(Path(study_dir).resolve(strict=False))
@@ -70,7 +87,7 @@ def mirror(task: dict, cache: Path) -> Path:
         tmp = m.parent / f".{m.name}.{secrets.token_hex(4)}"
         _gitb(["clone", "-q", "--mirror", f"https://github.com/{task['repo']}.git", str(tmp)], cache)
         os.replace(tmp, m)
-    r = subprocess.run(["git", *SAFE, "--git-dir", str(m), "cat-file", "-e", f"{task['base_commit']}^{{commit}}"],
+    r = subprocess.run([trusted_git(), *SAFE, "--git-dir", str(m), "cat-file", "-e", f"{task['base_commit']}^{{commit}}"],
                        capture_output=True, env=git_env())
     if r.returncode != 0:
         _gitb(["--git-dir", str(m), "fetch", "-q", "origin", task["base_commit"]], cache)

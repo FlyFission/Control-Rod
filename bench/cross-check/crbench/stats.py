@@ -60,6 +60,8 @@ def cluster_bootstrap(clusters: list, stat, B: int, seed) -> dict:
     rng = random.Random(f"{seed}:bootstrap")
     vals, dropped = [], 0
     n = len(clusters)
+    if n == 0:
+        return {"ci95": None, "B": B, "dropped": B}
     for _ in range(B):
         s = [clusters[rng.randrange(n)] for _ in range(n)]
         v = stat(s)

@@ -6,7 +6,7 @@ Every number is kept at full precision in results.json; only the report rounds."
 
 from __future__ import annotations
 
-from .adjudicate import adjudication_done, checks, verify_lock
+from .adjudicate import adjudication_done, checks, judgments_digest, verify_lock
 from .common import Refused, Study, now, read_json, write_json
 from .ledger import Ledger
 from .manifest import load_manifest
@@ -32,8 +32,9 @@ def completeness(study: Study, phase: str) -> list[str]:
     run = pdir / "run.json"
     if not run.exists() or read_json(run)["status"] != "complete":
         probs.append("the run is not complete")
+    lock_rec = None
     try:
-        verify_lock(study, phase)
+        lock_rec = verify_lock(study, phase)
         adj = adjudication_done(study, phase)
         if not adj["complete"]:
             probs.append(f"{adj['pending']} adjudication items pending")
@@ -45,6 +46,10 @@ def completeness(study: Study, phase: str) -> list[str]:
         probs.append("no evaluation.json")
     elif ev.get("manifest_sha256") != m["manifest_sha256"]:
         probs.append("evaluation.json was made from another manifest")
+    elif lock_rec is not None and ev.get("lock_sha256") != lock_rec["sha256"]:
+        probs.append("evaluation.json was made under another verdict lock")
+    elif ev.get("judgments_sha256") != judgments_digest(study, phase):
+        probs.append("adjudication judgments changed after evaluation")
     res = ev["results"] if ev else None
     for tid in m["tasks"]:
         for a in cfg["authors"]:
@@ -316,15 +321,19 @@ def spend(cfg: dict, lg: dict) -> dict:
         for t in ("input", "cached_input", "output"):
             v[t] += b["tokens"][t]
     prices = cfg.get("prices") or {}
-    api = None
-    if prices:
+    api, unpriced = None, []
+    if prices:  # per token class, per million tokens: {"input": x, "cached_input": y, "output": z}
         api = 0.0
-        for vendor, v in by_vendor.items():
-            p = prices.get(vendor)
-            if p:
-                api += v["known_total"] / 1e6 * p["blended_per_mtok"]
+        for vendor, v in sorted(by_vendor.items()):
+            p = prices.get(vendor) or {}
+            if not all(isinstance(p.get(t), (int, float)) and not isinstance(p.get(t), bool)
+                       for t in ("input", "cached_input", "output")):
+                unpriced.append(vendor)
+                continue
+            api += sum(v[t] / 1e6 * p[t] for t in ("input", "cached_input", "output"))
     return {"actual_usd": 0, "basis": "existing subscriptions only, billing route verified in preflight",
-            "by_vendor": by_vendor, "api_equivalent_usd": api, "partial": lg["calls_with_unknown_usage"] > 0,
+            "by_vendor": by_vendor, "api_equivalent_usd": api, "unpriced_vendors": unpriced,
+            "partial": lg["calls_with_unknown_usage"] > 0 or bool(unpriced),
             "calls_with_unknown_usage": lg["calls_with_unknown_usage"]}
 
 
@@ -382,6 +391,11 @@ def fr(r: dict) -> str:
         return "not estimable (0 of 0)"
     lo, hi = r["ci95"]
     return f"{r['k']} of {r['n']} ({r['rate'] * 100:.0f}%, 95% CI {lo * 100:.0f} to {hi * 100:.0f}%)"
+
+
+def cell(x) -> str:
+    """A Markdown table cell: pipes, newlines and backticks cannot break the table."""
+    return " ".join(str(x).replace("|", "/").replace("`", "'").split())
 
 
 def num(x, d=3) -> str:
@@ -464,18 +478,22 @@ def report(res: dict, cfg: dict) -> str:
         L += [f"- Supported rejections of hidden-test-passing patches (the tests missed it, or the rubric was generous): "
               f"same-only {s['same']}, cross-only {s['cross']}.",
               f"- Fail-fail pairs, not audited, by grade: {adj['fail_fail_unaudited_by_grade'] or 'none'}", "",
-              "| Item | Task | Patch | Rejected by | Other verdict | Hidden grade | Judgment | Justification |",
-              "|---|---|---|---|---|---|---|---|"]
+              "| Item | Task | Patch | Rejected by | Citations | Other verdict | Hidden grade | Judgment | Justification |",
+              "|---|---|---|---|---|---|---|---|---|"]
         for t in adj["table"]:
-            L.append(f"| {t['item']} | {t['issue']} | `{t['patch_sha256'][:12]}` | {t['rejected_by']} | {t['other_verdict']} | "
-                     f"{t['hidden_grade']} | {t['judgment']} | {t['justification'].replace('|', '/')} |")
+            cites = "; ".join(cell(f"{c.get('location')}: {c.get('reason')}") for c in (t.get("citations") or [])) or "none"
+            L.append(f"| {cell(t['item'])} | {cell(t['issue'])} | `{t['patch_sha256'][:12]}` | {cell(t['rejected_by'])} | "
+                     f"{cites} | {cell(t['other_verdict'])} | {cell(t['hidden_grade'])} | {cell(t['judgment'])} | "
+                     f"{cell(t['justification'])} |")
         L += ["", f"Disclosure: {adj['disclosure']}.", ""]
     else:
         L += [f"Not available ({adj.get('status')}{': ' + adj['reason'] if adj.get('reason') else ''}). Without "
               "adjudication this report does not use the words \"defects caught\".", ""]
     sp = res["spend"]
     L += ["## Spend", "", f"Actual: ${sp['actual_usd']} ({sp['basis']}). Every launch counts, including retries, probes "
-          "and repeats." + (" **Token totals are partial**: some calls reported no usage." if sp["partial"] else ""), "",
+          "and repeats." + (" **Token totals are partial**: some calls reported no usage." if sp["calls_with_unknown_usage"] else "")
+          + (f" No price is set for {', '.join(sp['unpriced_vendors'])}, so the API-equivalent figure leaves them out."
+             if sp.get("unpriced_vendors") else ""), "",
           "| Vendor | Calls | Unknown usage | Input | Cached input | Output |", "|---|---|---|---|---|---|"]
     for v, b in sp["by_vendor"].items():
         L.append(f"| {v} | {b['calls']} | {b['unknown_usage']} | {b['input']} | {b['cached_input']} | {b['output']} |")
@@ -490,6 +508,13 @@ def report(res: dict, cfg: dict) -> str:
     h = res["environment"]["host"]
     if h:
         L.append(f"- Host: {h.get('system')} {h.get('arch')}, Python {h.get('python')}, confinement {h.get('confinement')}")
+        L.append("- Residual risk: a CLI's own tool shell can read that CLI's own sign-in, as under the product "
+                 "daemon; it cannot read the other vendor's.")
+        if h.get("system") == "Darwin":
+            L.append("- Residual risk: on macOS, agent calls run inside each CLI's own sandbox only, because Seatbelt "
+                     "cannot nest; the harness's outer Seatbelt layer confines the grader and the harness probes. The "
+                     "probes check, per agent, that credentials, other workspaces and the source tree stay unreadable "
+                     "or unwritable as designed.")
     for im in res["environment"]["grader_images"]:
         L.append(f"- Grader image {im.get('Repository')}:{im.get('Tag')} {im.get('Digest')}")
     L.append("")

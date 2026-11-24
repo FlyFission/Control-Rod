@@ -14,11 +14,12 @@ import re
 import shutil
 import signal
 import subprocess
+import threading
 import time
 from pathlib import Path
 
 from . import confine
-from .common import HERE, read_json
+from .common import HERE, Refused, read_json, sha256_file
 
 BILLING_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "OPENAI_API_KEY", "OPENAI_BASE_URL",
                "CODEX_API_KEY", "AZURE_OPENAI_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
@@ -29,7 +30,7 @@ QUOTA = [r"usage limit", r"limit reached", r"rate.?limit", r"\b429\b", r"too man
 AUTH = re.compile(r"not (signed|logged) in|log ?in required|please (run )?(/)?login|unauthori[sz]ed|\b401\b|"
                   r"invalid (api key|token|bearer)|token (has )?expired|authentication_error|oauth token", re.I)
 VERDICT = re.compile(r"<verdict>\s*(\{.*?\})\s*</verdict>", re.S)
-OUTPUT_CAP = 256 * 1024 * 1024
+OUTPUT_CAP = 64 * 1024 * 1024
 
 
 # ------------------------------------------------------------------ local overrides
@@ -196,9 +197,11 @@ def norm_usage(kind: str, usage: dict | None) -> dict:
         return unknown
     need = {"claude": ("input_tokens", "output_tokens"), "codex": ("input_tokens", "output_tokens"),
             "stub": ("input", "output")}[kind]
-    if any(not isinstance(usage.get(k), int) or usage[k] < 0 for k in need):
+    def num(v):  # bool is an int subclass; True is not a token count
+        return isinstance(v, int) and not isinstance(v, bool) and v >= 0
+    if any(not num(usage.get(k)) for k in need):
         return unknown
-    g = lambda k: usage.get(k) if isinstance(usage.get(k), int) and usage[k] >= 0 else 0  # noqa: E731
+    g = lambda k: usage.get(k) if num(usage.get(k)) else 0  # noqa: E731
     if kind == "claude":
         inp, cached, out = g("input_tokens") + g("cache_creation_input_tokens"), g("cache_read_input_tokens"), g("output_tokens")
     elif kind == "codex":
@@ -298,31 +301,110 @@ def quota_reset_hours(text: str) -> float | None:
 
 
 def classify_failure(text: str, agent: dict) -> dict:
-    if AUTH.search(text):
-        return {"status": "infra_error", "auth": True}
+    """text is the CLI's own error output (stderr and its error event), never the transcript, whose
+    tool output can mention 401 or quota for reasons of its own. A usage limit is checked first."""
     if any(re.search(p, text, re.I) for p in (agent.get("quota_patterns") or QUOTA)):
         return {"status": "quota_paused", "reset_hours": quota_reset_hours(text)}
+    if AUTH.search(text):
+        return {"status": "infra_error", "auth": True}
     return {"status": "infra_error"}
 
 
 # ------------------------------------------------------------------ the call
 
 
-def run_proc(args: list[str], cwd: Path, stdin: str, timeout: int, env: dict, out: Path, err: Path) -> tuple[int | None, bool]:
-    """Run in its own process group with output spooled to files. Returns (exit code, timed out)."""
-    with out.open("wb") as fo, err.open("wb") as fe:
-        p = subprocess.Popen(args, cwd=cwd, stdin=subprocess.PIPE, stdout=fo, stderr=fe, env=env,
-                             start_new_session=True)
+def kill_group(pgid: int) -> None:
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
+def run_proc(args: list[str], cwd: Path, stdin: str, timeout: int, env: dict, out: Path, err: Path,
+             cap: int = OUTPUT_CAP, pid_file: Path | None = None) -> tuple[int | None, str | None]:
+    """Run in its own process group. Output is read through pipes and written to files by the
+    harness, which stops writing at the cap, so no file ever grows past it. The group is killed on
+    every exit, so no child outlives the call. pid_file records the group for recovery after a crash
+    of the harness itself. Returns (exit code, None | "timeout" | "output cap")."""
+    written = [0]
+    over = threading.Event()
+    lock = threading.Lock()
+
+    def pump(src, dst: Path):
+        with dst.open("wb") as f:
+            for chunk in iter(lambda: src.read(65536), b""):
+                with lock:
+                    room = cap - written[0]
+                    take = chunk[:max(room, 0)]
+                    written[0] += len(take)
+                if take:
+                    f.write(take)
+                if len(take) < len(chunk):
+                    over.set()
+                    break
+        src.close()
+
+    p = subprocess.Popen(args, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         env=env, start_new_session=True)
+    if pid_file is not None:
+        pid_file.write_text(str(p.pid))
+    pumps = [threading.Thread(target=pump, args=(p.stdout, out), daemon=True),
+             threading.Thread(target=pump, args=(p.stderr, err), daemon=True)]
+    for t in pumps:
+        t.start()
+    stop = None
+    try:
         try:
-            p.communicate(stdin.encode(), timeout=timeout)
-            return p.returncode, False
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(p.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            p.wait()
-            return None, True
+            p.stdin.write(stdin.encode())
+            p.stdin.close()
+        except BrokenPipeError:
+            pass
+        deadline = time.monotonic() + timeout
+        while p.poll() is None:
+            if over.is_set():
+                stop = "output cap"
+                break
+            if time.monotonic() > deadline:
+                stop = "timeout"
+                break
+            time.sleep(0.05)
+    finally:
+        kill_group(p.pid)
+        p.wait()
+        for t in pumps:
+            t.join(timeout=10)
+        if pid_file is not None:
+            pid_file.unlink(missing_ok=True)
+    if stop is None and over.is_set():
+        stop = "output cap"
+    return (None if stop else p.returncode), stop
+
+
+def read_capped(p: Path, cap: int = 4 * 1024 * 1024) -> str:
+    with p.open("rb") as f:
+        return f.read(cap).decode("utf-8", errors="replace")
+
+
+def cli_denies(ws: dict) -> list[str]:
+    """The read denials handed to a CLI's own sandbox: every outer denial that does not contain the
+    call's own directories (those are left to the outer layer and to the opaque names), plus every
+    other directory already in the workspace root, by name. Runs are sequential under the run lock,
+    so no sibling appears during a call."""
+    own = [confine.canonical(ws["workspace"]), confine.canonical(ws["private"])]
+    if ws.get("scratch"):
+        own.append(confine.canonical(ws["scratch"]))
+
+    def contains(d, p):
+        return p == d or p.startswith(d.rstrip("/") + "/")
+    keep = [d for d in (confine.canonical(x) for x in ws["deny"]) if not any(contains(d, o) for o in own)]
+    wsdir = Path(ws["workspace"]).parent
+    root = wsdir.parent
+    mine = {confine.canonical(wsdir), confine.canonical(ws["private"])}
+    try:
+        sibs = [confine.canonical(p) for p in root.iterdir() if confine.canonical(p) not in mine]
+    except OSError:
+        sibs = []
+    return sorted(set(keep + sibs))
 
 
 def confinement_for(role: str, ws: dict) -> dict:
@@ -365,21 +447,27 @@ def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, ti
     binp = resolve_bin(agent)
     if not binp:
         return {"status": "infra_error", "why": f"{kind} CLI not found", "usage": norm_usage(kind, None)}
-    deny = [confine.canonical(d) for d in ws["deny"]]
+    if agent.get("pin_sha256") and sha256_file(binp) != agent["pin_sha256"]:
+        raise Refused("§9 versions", f"{kind} CLI binary differs from the one preflight pinned; the run stops")
+    deny = cli_denies(ws)
     if kind == "claude":
         args = [binp, *claude_args(agent, role, ws["workspace"], ws.get("scratch"), deny)]
     elif kind == "codex":
         args = [binp, *codex_args(agent, role, ws["workspace"], ws.get("scratch"), deny, last)]
     else:
         raise SystemExit(f"unknown agent kind {kind}")
-    c = confinement_for(role, ws)
-    argv, conf = confine.wrap(args, deny_read=c["deny_read"], allow_read=c["allow_read"] + [str(Path(binp).parent)],
-                              writable=c["writable"], read_only=c["read_only"], network=True)
+    if confine.wraps_agents():
+        c = confinement_for(role, ws)
+        argv, conf = confine.wrap(args, deny_read=c["deny_read"], allow_read=c["allow_read"] + [str(Path(binp).parent)],
+                                  writable=c["writable"], read_only=c["read_only"], network=True)
+    else:  # macOS: Seatbelt cannot nest, so the CLI's own sandbox is the boundary (confine.py)
+        argv, conf = args, {"mechanism": "cli-native", "outer": confine.mechanism(), "deny_read": len(deny)}
     (call_dir / "argv.json").write_text(json.dumps(args[1:], indent=1))
     so, se = call_dir / "stdout.jsonl", call_dir / "stderr.txt"
-    code, timed_out = run_proc(argv, ws["workspace"], prompt, timeout, env, so, se)
+    code, stop = run_proc(argv, ws["workspace"], prompt, timeout, env, so, se, pid_file=call_dir / "pgid")
+    timed_out = stop == "timeout"
     rec: dict = {"exit": code, "confinement": conf}
-    if so.stat().st_size + se.stat().st_size > OUTPUT_CAP:
+    if stop == "output cap":
         return {**rec, "status": "infra_error", "why": "output over the cap", "usage": norm_usage(kind, None)}
     stdout, stderr = so.read_text(errors="replace"), se.read_text(errors="replace")
     text, usage, failed = None, None, None
@@ -405,8 +493,8 @@ def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, ti
         rec["model_resolved"] = p["model"]
         usage = p["usage"]
         failed = p["failed"]
-        if last.exists():
-            text = last.read_text(errors="replace")
+        if last.exists() and not last.is_symlink():
+            text = read_capped(last)
     rec["usage"] = norm_usage(kind, usage)
     if timed_out:
         return {**rec, "status": "author_timeout" if role == "author" else "inconclusive",
@@ -414,7 +502,7 @@ def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, ti
     if rec.get("max_turns"):
         return {**rec, "status": "author_timeout" if role == "author" else "inconclusive", "why": "turn limit reached"}
     if code != 0 or failed:
-        return {**rec, **classify_failure(stdout[-4000:] + stderr[-4000:] + (failed or ""), agent),
+        return {**rec, **classify_failure((failed or "") + "\n" + stderr[-4000:], agent),
                 "why": (failed or stderr or stdout)[-500:]}
     if text is None:
         return {**rec, "status": "infra_error", "why": "no final message"}
@@ -444,9 +532,20 @@ def stub_call(agent: dict, role: str, prompt: str, workspace: Path, stub: dict) 
                     except OSError:
                         out.append("denied")
         out.append("COUNT=1")
-        uses = [{"name": "Bash", "input": ln[6:]} for ln in prompt.splitlines() if ln.startswith("READ: ")]
+        uses = [{"name": "Bash", "input": ln[6:]} for ln in prompt.splitlines() if ln.startswith(("READ: ", "LIST: "))]
         if not agent.get("lazy"):
             uses.append({"name": "Bash", "input": "curl"})
+            for ln in prompt.splitlines():
+                if "PROBE_WRITE.txt" in ln:
+                    uses.append({"name": "Bash", "input": "touch PROBE_WRITE.txt"})
+                    try:
+                        (workspace / "PROBE_WRITE.txt").write_text("x") if agent.get("leaky") else None
+                    except OSError:
+                        pass
+                m = re.search(r"named ok\.txt in (\S+)\.$", ln)
+                if m:
+                    uses.append({"name": "Bash", "input": f"touch {m.group(1)}/ok.txt"})
+                    (Path(m.group(1)) / "ok.txt").write_text("ok")
         return {"status": "ok", "text": "\n".join(out), "usage_raw": usage, "model_resolved": model,
                 "tool_uses": [] if agent.get("lazy") else uses, "tools_offered": ["Read", "Bash"]}
     if role == "author":

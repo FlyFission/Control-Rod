@@ -11,6 +11,7 @@ For SWE-bench the executed-test map comes from the pinned harness's own log pars
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
 import subprocess
@@ -19,6 +20,7 @@ from pathlib import Path
 
 from . import confine
 from .common import Refused, now, read_json, sha256_bytes, sha256_file
+from .agents import read_capped, run_proc
 from .workspace import _gitb, apply_patch, export_base, remove
 
 STATUSES = ("graded", "empty", "patch_invalid", "author_timeout", "infra_error")
@@ -54,7 +56,26 @@ row = next(json.loads(l) for l in open(snapshot) if l.strip() and json.loads(l)[
 status, found = get_logs_eval(make_test_spec(row), log)
 print(json.dumps({"found": bool(found), "status": status}))
 '''
+# XFAIL counts as a pass because the pinned harness's own grading counts it so (test_passed).
 SWE_STATUS = {"PASSED": "passed", "XFAIL": "passed", "FAILED": "failed", "ERROR": "error", "SKIPPED": "skipped"}
+COLLECTION_ERROR = re.compile(rb"ERROR collecting|Interrupted: \d+ errors? during collection|"
+                              rb"^(SyntaxError|IndentationError|ImportError|ModuleNotFoundError)\b|"
+                              rb"ImportError while (importing|loading)", re.M)
+
+
+def collection_failed(log: Path) -> bool:
+    """The suite started and then died importing the candidate's code: a failure, not missing evidence."""
+    try:
+        with log.open("rb") as f:
+            return bool(COLLECTION_ERROR.search(f.read(32 * 1024 * 1024)))
+    except OSError:
+        return False
+
+
+def judge_collection_failure(task: dict) -> dict:
+    f2p, p2p = list(task["FAIL_TO_PASS"]), list(task["PASS_TO_PASS"])
+    return {"status": "graded", "a1_pass": False, "resolved": False, "skipped": [], "p2p_failed": sorted(p2p),
+            "f2p_failed": sorted(f2p), "why": "the test suite failed to import the patched code"}
 
 
 def judge(task: dict, outcomes: dict | None) -> dict:
@@ -98,13 +119,16 @@ def grade_fixture(task: dict, patch: bytes, root: Path, cache: Path, deny: list[
         argv, conf = confine.wrap(["python3", "-I", str(runner), str(repo), str(out), *task["FAIL_TO_PASS"],
                                    *task["PASS_TO_PASS"]], deny_read=deny, allow_read=[repo.parent],
                                   writable=[repo.parent], network=False, required=False)
+        _, stop = run_proc(argv, repo, "", timeout, {"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+                                                    "PYTHONDONTWRITEBYTECODE": "1"},
+                           repo.parent / "grader.out", repo.parent / "grader.err", cap=16 * 1024 * 1024)
+        if stop:
+            return {"status": "infra_error", "why": f"grader {stop}"}
         try:
-            subprocess.run(argv, cwd=repo, capture_output=True, timeout=timeout,
-                           env={"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin", "PYTHONDONTWRITEBYTECODE": "1"})
-        except subprocess.TimeoutExpired:
-            return {"status": "infra_error", "why": "grader timeout"}
-        outcomes = json.loads(out.read_text()) if out.exists() else None
-        return {**judge(task, outcomes), "confinement": conf["mechanism"]}
+            outcomes = json.loads(read_capped(out)) if out.exists() and not out.is_symlink() else None
+        except json.JSONDecodeError:
+            outcomes = None
+        return {**judge(task, outcomes), "outcomes": outcomes, "confinement": conf["mechanism"]}
     finally:
         remove(repo.parent)
 
@@ -124,10 +148,11 @@ def parse_swebench_report(path: Path | None, tid: str) -> dict | None:
         return None
     try:
         rj = read_json(path)[tid]
-        return {"applied": bool(rj["patch_successfully_applied"]), "resolved": bool(rj["resolved"]),
-                "tests_status": rj["tests_status"]}
     except (KeyError, json.JSONDecodeError, TypeError):
         return None
+    if not isinstance(rj, dict) or not all(isinstance(rj.get(k), bool) for k in ("patch_successfully_applied", "resolved")):
+        return None  # a verdict field must be a literal boolean, never a truthy string
+    return {"applied": rj["patch_successfully_applied"], "resolved": rj["resolved"], "tests_status": rj.get("tests_status")}
 
 
 def executed_map(ev: dict, snapshot: Path, tid: str, log: Path) -> dict | None:
@@ -167,17 +192,16 @@ def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple
                 "--timeout", str(ev.get("timeout_s", 1800)), "--cache_level", ev.get("cache_level", "env"),
                 "--instance_ids", tid]
         t0 = time.monotonic()
-        try:
-            r = subprocess.run(args, cwd=sub, text=True, capture_output=True, timeout=ev.get("timeout_s", 1800) + 900)
-        except subprocess.TimeoutExpired:
-            out[label] = {"status": "infra_error", "why": "harness exceeded its outer deadline", "evaluator_run_id": rid}
+        code, stop = run_proc(args, sub, "", ev.get("timeout_s", 1800) + 900, dict(os.environ),
+                              sub / "harness.out", sub / "harness.err", cap=256 * 1024 * 1024)
+        if stop:
+            out[label] = {"status": "infra_error", "why": f"harness {stop}", "evaluator_run_id": rid}
             continue
-        (sub / "harness.log").write_text(r.stdout + r.stderr)
         found = next((p for p in report_paths(sub, rid, model, tid) if p.exists()), None)
         base = {"evaluator_run_id": rid, "seconds": round(time.monotonic() - t0, 1),
                 "report_layout": found.relative_to(sub).parts[1] if found else None}
-        if r.returncode != 0:
-            out[label] = {**base, "status": "infra_error", "why": f"harness exit {r.returncode}"}
+        if code != 0:
+            out[label] = {**base, "status": "infra_error", "why": f"harness exit {code}"}
             continue
         rep = parse_swebench_report(found, tid)
         if rep is None:
@@ -186,16 +210,26 @@ def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple
         if not rep["applied"]:
             out[label] = {**base, "status": "patch_invalid", "why": "the harness could not apply the patch"}
             continue
-        g = judge(tasks[tid], executed_map(ev, snapshot, tid, found.parent / "test_output.txt"))
-        if g["status"] == "graded" and g["resolved"] != rep["resolved"]:
+        log = found.parent / "test_output.txt"
+        outcomes = executed_map(ev, snapshot, tid, log)
+        g = judge(tasks[tid], outcomes)
+        if g["status"] == "infra_error" and log.exists() and collection_failed(log):
+            g = judge_collection_failure(tasks[tid])
+            if rep["resolved"]:
+                g = {"status": "infra_error", "why": "report says resolved but the suite failed to import"}
+        elif g["status"] == "graded" and g["resolved"] != rep["resolved"]:
             g = {"status": "infra_error", "why": "report and executed-test map disagree on resolution"}
-        out[label] = {**base, **g}
+        out[label] = {**base, **g, "outcomes": outcomes}
     out["_images"] = docker_images()
     return out
 
 
 def docker_images() -> list[dict]:
-    r = subprocess.run(["docker", "images", "--digests", "--format", "{{json .}}"], capture_output=True, text=True)
+    try:
+        r = subprocess.run(["docker", "images", "--digests", "--format", "{{json .}}"], capture_output=True, text=True,
+                           timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
     rows = []
     for line in r.stdout.splitlines():
         try:
@@ -237,8 +271,24 @@ def noop_patch() -> bytes:
             b"--- /dev/null\n+++ b/CR_BENCH_NOOP.txt\n@@ -0,0 +1 @@\n+control patch: changes nothing\n")
 
 
+def safe_target(repo: Path, rel: str) -> Path:
+    """A path from the dataset's gold patch, checked to be a regular file inside this export
+    with no link anywhere on the way."""
+    if not rel or rel.startswith("/") or any(part in ("", ".", "..") for part in rel.split("/")):
+        raise Refused("§6 controls", f"unsafe path {rel!r} in the gold patch")
+    cur = repo
+    for part in rel.split("/"):
+        cur = cur / part
+        if cur.is_symlink():
+            raise Refused("§6 controls", f"{rel} passes through a link")
+    if not cur.is_file() or not cur.resolve().is_relative_to(repo.resolve()):
+        raise Refused("§6 controls", f"{rel} is not a regular file in the export")
+    return cur
+
+
 def known_bad(task: dict, root: Path, cache: Path) -> bytes:
-    """Empty the first source file the gold patch modifies (not one it creates or deletes)."""
+    """The gold patch with one file it modifies then emptied: any test that gold passes and this
+    fails was broken by the damage, not by the base."""
     if task.get("known_bad"):
         return task["known_bad"].encode()
     gold = task.get("patch") or ""
@@ -248,17 +298,37 @@ def known_bad(task: dict, root: Path, cache: Path) -> bytes:
         raise Refused("§6 controls", f"{task['instance_id']}: the gold patch modifies no existing file")
     repo = export_base(task, root, cache)
     try:
-        (repo / target).write_text("")
+        apply_patch(repo, gold.encode(), index=True)
+        f = safe_target(repo, target)
+        with open(f, "r+b") as fh:
+            fh.truncate(0)
         _gitb(["add", "-A"], repo)
         return _gitb(["diff", "--cached", "--binary", "--full-index", "HEAD"], repo)
     finally:
         remove(repo.parent)
 
 
+def missing_evidence_control(cfg: dict, task: dict, gold: dict, eval_dir: Path) -> dict:
+    """Missing evidence through the real parser: the fixture runner's report with one required ID
+    taken out, or the SWE-bench log parser on an empty log. Either must read as infra_error."""
+    if cfg["snapshot"]["kind"] == "fixture":
+        outcomes = dict(gold.get("outcomes") or {})
+        outcomes.pop(task["FAIL_TO_PASS"][0], None)
+        got = judge(task, outcomes)
+    else:
+        log = eval_dir / "missing-control" / "test_output.txt"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text("")
+        got = judge(task, executed_map(cfg["evaluation"], Path(cfg["snapshot"]["path"]).expanduser(),
+                                       task["instance_id"], log))
+    return {"kind": "missing_report", "task": task["instance_id"], "ok": got["status"] == "infra_error",
+            "got": {"status": got["status"]}}
+
+
 def run_controls(cfg: dict, tasks: dict, ids: list[str], root: Path, cache: Path, eval_dir: Path, deny: list[str],
                  snapshot_sha: str | None = None, repeats: int | None = None) -> dict:
     """Base and gold repeated (flakiness), and a known-bad patch, for every task of the phase; plus
-    a deliberately missing report, which must read as missing evidence."""
+    missing evidence through the real parser, which must read as infra_error."""
     repeats = repeats or cfg["evaluation"].get("control_repeats", 2)
     items, expect = [], {}
     for tid in ids:
@@ -271,6 +341,8 @@ def run_controls(cfg: dict, tasks: dict, ids: list[str], root: Path, cache: Path
             items.append((label, tid, patch))
             expect[label] = (tid, kind)
     got = grade(cfg, items, tasks, root, cache, eval_dir, deny, snapshot_sha)
+    gold_ok = {tid: all(got[lb].get("status") == "graded" and got[lb].get("resolved") is True
+                        for lb, (t, k) in expect.items() if t == tid and k == "gold") for tid in ids}
     results, per_task = {}, {}
     for label, (tid, kind) in expect.items():
         g = got[label]
@@ -278,14 +350,14 @@ def run_controls(cfg: dict, tasks: dict, ids: list[str], root: Path, cache: Path
             ok = g.get("status") == "graded" and g.get("a1_pass") is True and g.get("resolved") is False
         elif kind == "gold":
             ok = g.get("status") == "graded" and g.get("resolved") is True
-        else:
-            ok = g.get("status") == "graded" and g.get("resolved") is False and bool(g.get("f2p_failed"))
+        else:  # gold passes every required test, so any failure here comes from the damage
+            ok = gold_ok[tid] and g.get("status") == "graded" and g.get("resolved") is False and \
+                bool(g.get("f2p_failed") or g.get("p2p_failed"))
         results[label] = {"task": tid, "kind": kind, "ok": ok,
                           "got": {k: g.get(k) for k in ("status", "a1_pass", "resolved", "why", "report_layout", "seconds")}}
         per_task.setdefault(tid, []).append(ok)
-    miss = judge(tasks[ids[0]], None)
-    results["missing_report"] = {"kind": "missing_report", "ok": miss["status"] == "infra_error",
-                                 "got": {"status": miss["status"]}}
+    first_gold = next(lb for lb, (t, k) in expect.items() if k == "gold")
+    results["missing_report"] = missing_evidence_control(cfg, tasks[expect[first_gold][0]], got[first_gold], eval_dir)
     layouts = sorted({r["got"].get("report_layout") for r in results.values() if r["got"].get("report_layout")})
     return {"at": now(), "passed": all(r["ok"] for r in results.values()), "results": results,
             "flaky_or_failing_tasks": sorted(t for t, oks in per_task.items() if not all(oks)),

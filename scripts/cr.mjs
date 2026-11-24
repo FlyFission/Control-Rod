@@ -7,7 +7,7 @@
 // Starts the control plane (with an embedded Postgres unless CONTROLROD_DATABASE_URL is set),
 // the run daemon, and serves the web app at http://localhost:7300.
 import { spawn, spawnSync } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, statSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,22 +35,64 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
   };
   const missing = await missingDeps();
   if (missing.length) {
-    const gd = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, encoding: "utf8" }).stdout?.trim();
-    if (gd && existsSync(join(gd, "controlrod-update.lock"))) {
-      console.error("`controlrod update` is installing a new version right now. Try again when it has finished.");
+    // The repair holds the update lock (the same proper-lockfile folder, kept fresh while pnpm
+    // runs), so it never installs alongside an update or another repair. A lock nobody has
+    // refreshed for 15 seconds is stale, as proper-lockfile treats it.
+    const gitEnv = { ...process.env };
+    for (const k of Object.keys(gitEnv)) if (k.startsWith("GIT_")) delete gitEnv[k];
+    const gd = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, encoding: "utf8", env: gitEnv }).stdout?.trim();
+    const lock = gd ? join(gd, "controlrod-update.lock") : join(root, "node_modules", ".controlrod-repair.lock");
+    const take = () => {
+      try {
+        mkdirSync(lock);
+        return true;
+      } catch (e) {
+        if (e?.code !== "EEXIST") throw e;
+        return false;
+      }
+    };
+    let held = take();
+    if (!held) {
+      let age = 0;
+      try {
+        age = Date.now() - statSync(lock).mtimeMs;
+      } catch {
+        age = Infinity;
+      }
+      if (age > 15000) {
+        rmSync(lock, { recursive: true, force: true });
+        held = take();
+      }
+    }
+    if (!held) {
+      console.error("Control Rod is being updated or its dependencies installed right now. Try again when that has finished.");
       process.exit(1);
     }
     // A plain install first; pnpm trusts a half-installed node_modules, so the second try forces a
     // reinstall. Each try runs this command again in a fresh process, since a module that failed to
     // load stays failed in this one.
     const attempt = Number(process.env.CONTROLROD_DEPS_ATTEMPT ?? 0);
-    if (attempt >= 2) {
+    const installed = attempt < 2;
+    if (installed) {
+      console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
+      const touch = setInterval(() => {
+        try {
+          utimesSync(lock, new Date(), new Date());
+        } catch {}
+      }, 3000);
+      await new Promise((done) => {
+        const child = spawn("pnpm", ["install", "--frozen-lockfile", ...(attempt ? ["--force"] : [])], { cwd: root, stdio: "inherit" });
+        child.on("error", done);
+        child.on("exit", done);
+      });
+      clearInterval(touch);
+    }
+    rmSync(lock, { recursive: true, force: true });
+    if (!installed) {
       console.error(`Could not install ${missing.join(", ")}. In ${root}, run: pnpm install --frozen-lockfile --force`);
       process.exit(1);
     }
-    console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
-    spawnSync("pnpm", ["install", "--frozen-lockfile", ...(attempt ? ["--force"] : [])], { cwd: root, stdio: "inherit" });
-    const again = spawnSync(process.execPath, process.argv.slice(1), {
+    const again = spawnSync(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
       stdio: "inherit",
       env: { ...process.env, CONTROLROD_DEPS_ATTEMPT: String(attempt + 1) },
     });

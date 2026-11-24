@@ -17,7 +17,8 @@ Rollback: revert the commit. `~/.local/bin/controlrod` then points at a `cr.mjs`
 | 2 | 1e36fd9 | Codex HOLD: 4 P1, 9 P2, 1 P3 | cdc8d5a, except as noted below |
 | 3 | 829ddec | Codex HOLD: 2 P1, 3 P2, 2 P3 | e0f47ac, except as noted below |
 | 4 | e0f47ac | Codex HOLD: 2 P1, 4 P2, 1 P3 | e6954cb, except as noted below |
-| 5 | e6954cb | Codex HOLD: 1 P1, 2 P2, 1 P3 | the round 5 commit |
+| 5 | e6954cb | Codex HOLD: 1 P1, 2 P2, 1 P3 | 67ac266 |
+| 6 | 67ac266 | Codex HOLD: 0 P1, 3 P2, 1 P3 | the round 6 commit |
 
 Round 1 dispositions:
 - P1 process identity: fixed with pid plus start time plus an exact `scripts/cr.mjs start` command line, and no second signal to a pid whose start time changed. A separate authenticated shutdown channel was not added: the same signal as Ctrl+C keeps one stop path.
@@ -57,13 +58,19 @@ Round 5 dispositions:
 - P2 dependency repair during an update: the command does not install while an update holds the lock; it says an update is running.
 - P3 half-installed dependencies: each dependency is loaded, not only resolved; a plain install is tried, then a forced reinstall (pnpm trusts a half-installed folder), each in a fresh process (checked as an ordinary user with a transitive dependency removed).
 
+Round 6 dispositions (all fixed, checked as an ordinary Linux user):
+- P2 stale lock blocking repair: a lock not refreshed for 15 seconds is taken over, as proper-lockfile does.
+- P2 git location variables: the repair's probe drops every `GIT_` variable, like the updater.
+- P2 two repairs at once: the repair takes the update lock itself (an atomic folder, kept fresh while pnpm runs), so a second command waits its turn and says so.
+- P3 Node flags: the fresh process gets the same Node flags.
+
 ## Signature
 
 | Decision | Question | Answer, word for word | When | Where | Recorded by |
 |---|---|---|---|---|---|
 | Merge of pull request #177 | Round 5 fixes pushed (67ac266); Codex round 6 running | "Excellent, merge." | 2026-11-24 4:02 PM America/New_York (UTC-05:00) | Claude project thread for the controlrod command | Recorded by the agent (Claude); not signed for the owner |
 
-Merged on the owner's word while Codex round 6 (diff e6954cb..67ac266) was still running; its findings, if any, go to a follow-up pull request. Every finding of rounds 1 to 5 is fixed or declined with its reason above.
+The owner approved while Codex round 6 was running; its four findings, all in the startup dependency repair, were fixed before the merge (below). Every finding of rounds 1 to 6 is fixed or declined with its reason above.
 
 ## Exit criteria
 

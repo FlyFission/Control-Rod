@@ -11,11 +11,35 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import { homedir, platform } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { alive, claimRecord, clearRecord, findRunning, freeOrphanedSegments, healthy, orphanedSegments, readRecord, segmentUse, stopLauncher } from "./lib/instance.mjs";
 import { commandPath, link, ownerOf, refresh, unlink } from "./lib/link.mjs";
-import { cleanEnv, gitRunner, update, UpdateError } from "./lib/update.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
+
+// The command's own dependencies (package.json "dependencies") must be installed before anything
+// imports them; an update stopped between moving the code and installing leaves them missing, and
+// the command then installs them first instead of failing to load.
+{
+  const deps = Object.keys(JSON.parse(readFileSync(join(root, "package.json"), "utf8")).dependencies ?? {});
+  const missing = deps.filter((d) => {
+    try {
+      import.meta.resolve(d);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  if (missing.length) {
+    console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
+    const r = spawnSync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, stdio: "inherit" });
+    if (r.status !== 0) {
+      console.error(`Could not install them. In ${root}, run: pnpm install --frozen-lockfile`);
+      process.exit(1);
+    }
+  }
+}
+const { alive, claimRecord, clearRecord, findRunning, freeOrphanedSegments, healthy, orphanedSegments, readRecord, segmentUse, stopLauncher } =
+  await import("./lib/instance.mjs");
+const { cleanEnv, gitRunner, update, UpdateError } = await import("./lib/update.mjs");
 // Resolved once against the folder the command was run in, and handed to every child as an
 // absolute path, so a relative CONTROLROD_HOME means the same folder everywhere.
 const home = resolve(process.env.INIT_CWD ?? process.cwd(), process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod"));
@@ -648,6 +672,14 @@ function logsCommand(follow) {
   return 0;
 }
 
+// Long steps of an update run without blocking, so the update lock keeps being refreshed while they do.
+const runAsync = (cmd, args, opts) =>
+  new Promise((done) => {
+    const child = spawn(cmd, args, { stdio: "inherit", ...opts });
+    child.on("error", () => done(false));
+    child.on("exit", (code) => done(code === 0));
+  });
+
 async function updateCommand(flags) {
   const pnpmCmd = which("pnpm");
   try {
@@ -671,15 +703,14 @@ async function updateCommand(flags) {
             console.error("pnpm was not found. Install it (https://pnpm.io/installation) and run `controlrod update` again.");
             return false;
           }
-          return spawnSync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, stdio: "inherit", env: cleanEnv() }).status === 0;
+          return runAsync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, env: cleanEnv() });
         },
         // The updated checkout's own setup builds it, so a new version's build steps are the ones used.
         build: () =>
-          spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "setup"], {
+          runAsync(process.execPath, [join(root, "scripts", "cr.mjs"), "setup"], {
             cwd: root,
-            stdio: "inherit",
             env: { ...cleanEnv(), CONTROLROD_FORCE_BUILD: "1" },
-          }).status === 0,
+          }),
         restart: async ({ mode }) => {
           if (mode === "background") {
             return spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "start", "--background"], { cwd: root, stdio: "inherit", env: cleanEnv() }).status ?? 1;
@@ -748,18 +779,7 @@ function bench(rest) {
  * Commander (MIT) parses the commands and writes the help. A fresh clone that skipped
  * `pnpm install` has no node_modules yet: install once, then load it.
  */
-async function loadCommander() {
-  try {
-    return await import("commander");
-  } catch (e) {
-    if (e?.code !== "ERR_MODULE_NOT_FOUND") throw e;
-    console.log("Installing Control Rod's dependencies first (pnpm install)...");
-    run("pnpm", ["install", "--frozen-lockfile"]);
-    return import("commander");
-  }
-}
-
-const { Command } = await loadCommander();
+const { Command } = await import("commander");
 const exit = (code) => process.exit(typeof code === "number" ? code : 0);
 const program = new Command()
   .name(me)

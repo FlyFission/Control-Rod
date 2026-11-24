@@ -10,7 +10,7 @@
 // works where git has no user.name, and telling the person how to get them back rather than popping
 // them, from Homebrew's `brew update` (BSD-2-Clause); ignoring Ctrl+C while the checkout is changing,
 // also from `brew update`.
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { lstatSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import lockfile from "proper-lockfile";
 import { isAbsolute, join, resolve } from "node:path";
@@ -30,10 +30,22 @@ export function cleanEnv(env = process.env) {
 }
 
 export function gitRunner(root) {
-  return (args, opts = {}) => {
+  const runGit = (args, opts = {}) => {
     const r = spawnSync("git", args, { cwd: root, encoding: "utf8", ...opts, env: cleanEnv(opts.env ?? process.env) });
     return { ok: r.status === 0, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim(), missing: r.error?.code === "ENOENT" };
   };
+  // For a slow step (the fetch): it runs without blocking, so the update lock keeps being refreshed.
+  runGit.async = (args) =>
+    new Promise((done) => {
+      const child = spawn("git", args, { cwd: root, env: cleanEnv(process.env), stdio: ["ignore", "pipe", "pipe"] });
+      let out = "";
+      let err = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (err += d));
+      child.on("error", (e) => done({ ok: false, out: "", err: String(e?.message ?? e), missing: e?.code === "ENOENT" }));
+      child.on("close", (code) => done({ ok: code === 0, out: out.trim(), err: err.trim(), missing: false }));
+    });
+  return runGit;
 }
 
 const isAlive = (pid) => {
@@ -73,7 +85,7 @@ export class UpdateError extends Error {
 }
 
 /**
- * deps: { git, install(): boolean, build(): boolean, stop(): Promise<{wasRunning, mode} | null>,
+ * deps: { git, install(): boolean | Promise<boolean>, build(): boolean | Promise<boolean>, stop(): Promise<{wasRunning, mode} | null>,
  *         restart({mode}): Promise<number|void>, log }. stop resolves null when a running copy
  * could not be stopped (nothing has changed then). Returns an exit code.
  */
@@ -140,7 +152,8 @@ export async function update(root, opts, deps) {
     log(`Checking for updates (${root})...`);
     // A private ref, so another git command's FETCH_HEAD cannot change what this update installs.
     const ref = check ? "refs/controlrod/check-target" : "refs/controlrod/update-target";
-    const fetched = git(["fetch", "--quiet", "--no-tags", "origin", `+refs/heads/${BRANCH}:${ref}`]);
+    const fetchArgs = ["fetch", "--quiet", "--no-tags", "origin", `+refs/heads/${BRANCH}:${ref}`];
+    const fetched = git.async ? await git.async(fetchArgs) : git(fetchArgs);
     const old = git(["rev-parse", "HEAD"]).out;
     const state = readState();
     if (!fetched.ok && !(state?.pending === old && !check)) {
@@ -160,8 +173,8 @@ export async function update(root, opts, deps) {
     if (!resume && !git(["merge-base", "--is-ancestor", old, target]).ok) {
       throw new UpdateError(
         `This copy has commits of its own that are not on ${BRANCH}, so it cannot simply move forward. Nothing was changed.\n` +
-          `See them with \`git -C ${root} log origin/${BRANCH}..HEAD\`. To keep them on a branch and move ${BRANCH} on\n` +
-          `(\`reset --keep\` keeps your uncommitted edits, and refuses if they would be lost):\n` +
+          `See them with \`git -C ${root} log origin/${BRANCH}..HEAD\`. To keep them on a branch and move ${BRANCH} on,\n` +
+          `first commit or stash any uncommitted edits (\`git status\` shows them), then:\n` +
           `  cd ${root} && git branch my-work && git reset --keep origin/${BRANCH} && controlrod setup`,
       );
     }
@@ -231,7 +244,12 @@ export async function update(root, opts, deps) {
           log("Not going back automatically: could not list what that would change. Run `controlrod update` again.");
           return 1;
         }
-        const known = new Set(tracked.out.split("\0").filter(Boolean));
+        const known = new Set();
+        for (const f of tracked.out.split("\0").filter(Boolean)) {
+          // A tracked file, and every folder that holds one, is git's own.
+          const parts = f.split("/");
+          for (let i = 1; i <= parts.length; i++) known.add(parts.slice(0, i).join("/"));
+        }
         const kept = new Set();
         for (const p of listed.out.split("\0").filter(Boolean)) {
           const parts = p.split("/");
@@ -260,7 +278,7 @@ export async function update(root, opts, deps) {
       }
       const reset = head === good ? { ok: true } : git(["reset", "--keep", good]);
       if (!reset.ok) log(reset.err);
-      const rebuilt = reset.ok && deps.install() && deps.build();
+      const rebuilt = reset.ok && (await deps.install()) && (await deps.build());
       if (!rebuilt) {
         writeState({ pending: git(["rev-parse", "HEAD"]).out, from: good });
         log(
@@ -284,9 +302,9 @@ export async function update(root, opts, deps) {
       }
     }
     log(`\nInstalling dependencies...`);
-    if (!deps.install()) return backOnGood("installing dependencies");
+    if (!(await deps.install())) return backOnGood("installing dependencies");
     log(`\nBuilding...`);
-    if (!deps.build()) return backOnGood("building");
+    if (!(await deps.build())) return backOnGood("building");
     rmSync(statePath, { force: true });
     git(["config", "controlrod.lastVersion", good]);
 

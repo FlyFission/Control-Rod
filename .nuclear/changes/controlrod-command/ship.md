@@ -15,7 +15,8 @@ Rollback: revert the commit. `~/.local/bin/controlrod` then points at a `cr.mjs`
 |---|---|---|---|
 | 1 | f443ba9 | Codex HOLD: 5 P1, 7 P2, 1 P3 | 72e86c4, 7fa9ba1, except as noted below |
 | 2 | 1e36fd9 | Codex HOLD: 4 P1, 9 P2, 1 P3 | cdc8d5a, except as noted below |
-| 3 | 829ddec | Codex HOLD: 2 P1, 3 P2, 2 P3 | the round 3 commit, except as noted below |
+| 3 | 829ddec | Codex HOLD: 2 P1, 3 P2, 2 P3 | e0f47ac, except as noted below |
+| 4 | e0f47ac | Codex HOLD: 2 P1, 4 P2, 1 P3 | the round 4 commit, except as noted below |
 
 Round 1 dispositions:
 - P1 process identity: fixed with pid plus start time plus an exact `scripts/cr.mjs start` command line, and no second signal to a pid whose start time changed. A separate authenticated shutdown channel was not added: the same signal as Ctrl+C keeps one stop path.
@@ -39,6 +40,15 @@ Round 3 dispositions:
 - P2 `node ./scripts/cr.mjs`: recognised as this checkout's launcher.
 - P3 Linux advice: the shared-memory advice is now per platform; `doctor --fix` is offered only on macOS (test).
 - P3 declined: a non-login bash on macOS. Terminal and iTerm open login shells, which read the file `link` edits; writing `.bashrc` too would add a second PATH line for most people.
+
+Round 4 dispositions:
+- P1 update lock lost during a long step: the fetch, install and build now run without blocking, so the lock keeps being refreshed (test: an 18 second build keeps the lock against a second update at 17 seconds).
+- P1 a second launcher taking a stale claim: a claim is now taken only when the launcher its record names is gone (pid, start time and command), so a launcher busy in a long build keeps it (test).
+- P2 divergence advice and staged edits: the advice now says to commit or stash uncommitted edits first.
+- P2 dependencies missing after an interrupted update: the command checks its own package.json dependencies before loading anything and installs them first (checked as an ordinary user with proper-lockfile removed).
+- P2 Linux shared memory advice: no `ipcrm` advice; it names `ipcs -m` and a restart only.
+- P3 tracked folder treated as kept: every folder holding a tracked file counts as git's own (test).
+- P2 declined: a lock file left by an earlier updater. Only unreleased versions of this pull request wrote one; main never had an updater.
 
 ## Signature
 

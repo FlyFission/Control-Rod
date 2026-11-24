@@ -2,7 +2,7 @@
 // running-instance record. Real git and real processes; the install and build steps are stand-ins.
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -311,6 +311,15 @@ test("only one update runs per checkout at a time", async () => {
   assert.equal(existsSync(join(f.root, ".git", "controlrod-update.lock")), false);
 });
 
+test("an update with a build longer than the lock's stale time keeps its lock", { timeout: 60000 }, async () => {
+  const f = fixture();
+  commit(f.origin, "a.txt", "two\n", "new");
+  const first = update(f.root, {}, { ...f.deps, build: () => new Promise((r) => setTimeout(() => r(true), 18000)) });
+  await new Promise((r) => setTimeout(r, 17000));
+  await assert.rejects(update(f.root, {}, f.deps), /Another `controlrod update` is running/);
+  assert.equal(await first, 0);
+});
+
 test("after an unfinished update, a failing next update goes back to the last version that built", async () => {
   const f = fixture();
   const b = commit(f.origin, "a.txt", "B\n", "B");
@@ -373,6 +382,20 @@ test("going back never turns a kept file into a folder the old version needs", a
   assert.equal(await update(f.root, {}, f.deps), 1);
   assert.equal(readFileSync(join(f.root, "config"), "utf8"), "my file\n");
   assert.match(f.logs(), /Not going back automatically.*config/s);
+});
+
+test("going back over a tracked folder that replaced a tracked file is not blocked", async () => {
+  const f = fixture();
+  commit(f.origin, "config", "file\n", "A: config file");
+  await update(f.root, {}, { ...f.deps, stop: async () => ({ wasRunning: false }) });
+  const a = gitIn(f.root, "rev-parse", "HEAD");
+  gitIn(f.origin, "rm", "-q", "config");
+  mkdirSync(join(f.origin, "config"));
+  commit(f.origin, "config/item", "x\n", "B: config folder");
+  f.deps.build = () => false;
+  assert.equal(await update(f.root, {}, { ...f.deps, stop: async () => ({ wasRunning: false }) }), 1);
+  assert.equal(gitIn(f.root, "rev-parse", "HEAD"), a);
+  assert.equal(readFileSync(join(f.root, "config"), "utf8"), "file\n");
 });
 
 test("offline, an unfinished update of the checkout as it stands is finished", async () => {
@@ -456,6 +479,24 @@ test("only one launcher can claim this machine's Control Rod; the claim is relea
   clearRecord(home);
   const free = spawnSync(process.execPath, ["--input-type=module", "-e", probe], { encoding: "utf8" });
   assert.equal(free.status, 0, free.stderr);
+});
+
+test("a stale claim is not taken while the launcher it names still runs", async () => {
+  const home = tmp("home");
+  const busy = fakeLauncher();
+  await settle();
+  // A launcher stuck in a long build: its lock went stale but it is alive and its record is current.
+  writeRecord(home, { pid: busy.pid, mode: "foreground", started: startedOf(busy.pid) });
+  mkdirSync(join(home, "launcher.lock"));
+  const old = new Date(Date.now() - 60000);
+  utimesSync(join(home, "launcher.lock"), old, old);
+  assert.equal(await claimRecord(home, { mode: "foreground" }), false);
+  assert.equal(readRecord(home).pid, busy.pid);
+  busy.kill("SIGKILL");
+  await settle();
+  assert.equal(await claimRecord(home, { mode: "foreground" }), true, "once it is gone, the claim is taken");
+  await releaseClaim();
+  clearRecord(home);
 });
 
 test("dead PostgreSQL shared memory is found by header, with the live and the foreign left alone", () => {

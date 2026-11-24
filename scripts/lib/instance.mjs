@@ -84,6 +84,13 @@ export async function claimRecord(home, record) {
     if (e?.code === "ELOCKED") return false;
     throw e;
   }
+  // A launcher busy in a long build can miss refreshing its claim, so a claim that went stale is
+  // only taken when the launcher it named is gone: the record, not the lock's age, is the identity.
+  const current = readRecord(home);
+  if (current && current.pid !== process.pid && recordIsLive(current)) {
+    await release().catch(() => undefined);
+    return false;
+  }
   writeRecord(home, { ...record, pid: process.pid, started: startedOf(process.pid) });
   heldRelease = release;
   return true;

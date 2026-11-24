@@ -50,8 +50,8 @@ export function pgStartFailure(pgDir: string, port: number, log: string[], error
         ? "The system has no System V shared memory segments left for PostgreSQL. This is not disk space: macOS allows only " +
           "32 in all, and PostgreSQL runs that were killed leave theirs behind. `controlrod doctor` lists the ones whose " +
           "PostgreSQL is gone and `controlrod doctor --fix` frees them; restarting the computer frees them too."
-        : "The system has no System V shared memory segments left for PostgreSQL. This is not disk space. `ipcs -m` lists them; " +
-          "ones with 0 attached whose creating process is gone can be freed with `ipcrm -m <id>`, or restart the computer.";
+        : "The system has no System V shared memory segments left for PostgreSQL. This is not disk space. `ipcs -m` lists " +
+          "them and their owners; restarting the computer frees them.";
   } else if (/could not map anonymous shared memory|could not create shared memory segment/i.test(text)) {
     advice = "The system would not give PostgreSQL the shared memory it asked for. Close memory-hungry programs or restart the computer, then try again.";
   } else if (/Permission denied/i.test(text)) {

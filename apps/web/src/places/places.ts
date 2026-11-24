@@ -24,6 +24,7 @@ export const PLACES: Place[] = [
   { to: "/records", label: "Records", purpose: "The event chain and its verification", group: "Audit" },
   { to: "/usage", label: "Usage", purpose: "Whether the work is earning its place", group: "Audit" },
   { to: "/setup", label: "Setup", purpose: "Which agents sit at the table and when we check with you", group: "Control / Setup" },
+  { to: "/workflow", label: "Workflow", purpose: "Your workflow as a flow diagram or a decision matrix: who writes, who checks, where it stops for you", group: "Control / Setup" },
   { to: "/agents", label: "Agents roster", purpose: "Turn agents on or off, see why one can't work, add more", group: "Control / Setup" },
   { to: "/policies", label: "Policies", purpose: "Floors in force, members and administration", group: "Control / Setup" },
 ];

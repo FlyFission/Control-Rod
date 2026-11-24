@@ -1,0 +1,496 @@
+/*
+ * Workflow diagram: a block flow drawn like a process engineer's sheet. Normal blocks are near
+ * monochrome; the only warm colour is a step that stops for you (design/references/screens.md).
+ */
+
+/* Agent marks: the vendor's own mark on a square tile. */
+.agent-mark {
+  --mark-size: 40px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--mark-size);
+  height: var(--mark-size);
+  border-radius: calc(var(--mark-size) * 0.24);
+  background: #141c28;
+  box-shadow: inset 0 0 0 1px rgb(180 220 255 / 0.12), 0 1px 0 rgb(0 0 0 / 0.5);
+}
+.agent-mark img,
+.agent-mark-mono {
+  width: 66%;
+  height: 66%;
+  display: block;
+}
+.agent-mark-mono {
+  background-color: var(--text);
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+}
+.agent-mark-initial {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: calc(var(--mark-size) * 0.42);
+  color: var(--text-2);
+}
+
+.wf {
+  display: grid;
+  gap: 12px;
+}
+.wf-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+/* Council strip */
+.wf-council {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wf-seat {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.wf-seat > span:last-child {
+  display: grid;
+  line-height: 1.2;
+}
+.wf-seat strong {
+  font-size: var(--fs-small);
+  color: var(--text);
+}
+.wf-seat-role {
+  font-size: var(--fs-chip);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--mono);
+}
+.wf-seat.not-ready .agent-mark {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.wf-later-marks {
+  display: flex;
+  padding-left: 4px;
+}
+.wf-later-marks .agent-mark {
+  margin-left: -6px;
+  opacity: 0.6;
+  filter: grayscale(1);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* Canvas */
+.wf-canvas {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background:
+    radial-gradient(1200px 300px at 50% 0%, rgb(0 242 255 / 0.04), transparent 70%),
+    var(--ground);
+  overflow: hidden;
+}
+.wf-canvas.wf-scrolls {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.wf-canvas .react-flow {
+  --xy-edge-stroke: #5b7391;
+  --xy-edge-stroke-width: 1.6;
+  --xy-edge-label-color: var(--text-2);
+  --xy-edge-label-background-color: var(--ground);
+  --xy-background-pattern-lines-color: rgb(120 170 220 / 0.035);
+  --xy-node-boxshadow-hover: none;
+  background: transparent;
+}
+.wf-canvas .react-flow__node {
+  cursor: default;
+}
+.wf-canvas .react-flow__edge-text {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  fill: var(--text-2);
+}
+.wf-canvas .react-flow__edge-textbg {
+  fill: var(--ground);
+}
+.wf-handle {
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  pointer-events: none;
+}
+
+/* Edges */
+.wf-edge-baton .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 4px rgb(0 242 255 / 0.45));
+}
+.wf-edge-baton .react-flow__edge-text {
+  fill: var(--accent);
+  font-weight: 600;
+}
+.wf-edge-fallback .react-flow__edge-path {
+  stroke: #7d8ea3;
+  stroke-dasharray: 6 5;
+}
+.wf-edge-sendback .react-flow__edge-path {
+  stroke: #9f8fd6;
+  stroke-dasharray: 3 4;
+}
+.wf-edge-sendback .react-flow__edge-text {
+  fill: #c9bdf2;
+}
+.wf-edge-no .react-flow__edge-path {
+  stroke: var(--needs);
+  stroke-opacity: 0.6;
+  stroke-dasharray: 3 4;
+}
+.wf-canvas .react-flow__arrowhead polyline {
+  stroke: inherit;
+}
+
+/* Blocks */
+.wf-block {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  background: linear-gradient(180deg, #121c2a, #0d1520);
+  box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.9), inset 0 1px 0 rgb(180 220 255 / 0.07);
+  color: var(--text);
+  font-family: var(--sans);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.wf-agent-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.wf-agent-who {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
+}
+.wf-agent-who strong {
+  font-size: 14.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-role {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.wf-role-checker .wf-role {
+  color: var(--check);
+}
+.wf-role-fallback {
+  border-style: dashed;
+  background: linear-gradient(180deg, #0f1824, #0b121b);
+}
+.wf-lamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.wf-lamp::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--idle);
+}
+.wf-lamp.ready::before {
+  background: var(--done);
+  box-shadow: 0 0 6px var(--done);
+}
+.wf-empty {
+  border-style: dashed;
+  opacity: 0.8;
+}
+.wf-seat-empty {
+  --mark-size: 40px;
+  border: 1px dashed var(--line-2);
+  background: transparent;
+  box-shadow: none;
+}
+.wf-step-title {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.wf-step-detail {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+/* Steps that stop for you: the warm ones */
+.wf-you {
+  border-color: rgb(255 176 32 / 0.55);
+  background: linear-gradient(180deg, rgb(255 176 32 / 0.1), rgb(255 176 32 / 0.02) 60%), #0e141d;
+  box-shadow: inset 3px 0 0 var(--needs), 0 10px 24px -14px rgb(0 0 0 / 0.9);
+  padding-left: 14px;
+}
+.wf-you-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.wf-you-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--needs);
+}
+.wf-stop {
+  font-size: 10.5px;
+  color: var(--text-2);
+  text-align: right;
+  line-height: 1.15;
+}
+.wf-stop-always .wf-stop {
+  color: var(--needs);
+  font-weight: 600;
+}
+.wf-stop-coming,
+.wf-stop-skipped {
+  border-style: dashed;
+  border-color: rgb(255 176 32 / 0.35);
+  box-shadow: inset 3px 0 0 rgb(255 176 32 / 0.4);
+  background: #0d131b;
+}
+.wf-stop-coming .wf-you-badge,
+.wf-stop-skipped .wf-you-badge {
+  color: rgb(255 176 32 / 0.7);
+}
+
+/* Decision diamond */
+.wf-decision {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+.wf-diamond {
+  position: absolute;
+  inset: 13px;
+  transform: rotate(45deg);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: linear-gradient(135deg, #16233a, #0d1520);
+  box-shadow: 0 8px 18px -10px rgb(0 0 0 / 0.9);
+}
+.wf-decision-text {
+  position: relative;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* Terminals: start and end */
+.wf-terminal {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.wf-end {
+  border-color: rgb(34 245 158 / 0.45);
+  color: var(--done);
+}
+
+/* Key */
+.wf-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+.wf-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.wf-key {
+  width: 26px;
+  height: 0;
+  border-top: 2px solid #5b7391;
+}
+.wf-key-baton {
+  border-top-color: var(--accent);
+}
+.wf-key-fallback {
+  border-top: 2px dashed #7d8ea3;
+}
+.wf-key-sendback {
+  border-top: 2px dotted #9f8fd6;
+}
+.wf-key-you {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgb(255 176 32 / 0.6);
+  border-left: 3px solid var(--needs);
+  border-radius: 3px;
+  background: rgb(255 176 32 / 0.08);
+}
+
+/* Decision matrix */
+.wf-matrix-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.wf-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+  min-width: 720px;
+}
+.wf-matrix th,
+.wf-matrix td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.wf-matrix thead th {
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  background: var(--surface);
+}
+.wf-matrix tbody th {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wf-matrix tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.wf-matrix td {
+  color: var(--text-2);
+}
+.wf-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  color: var(--text);
+}
+.wf-who-you {
+  color: var(--needs);
+  font-weight: 600;
+}
+.wf-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  font-size: var(--fs-chip);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.wf-pill-on,
+.wf-pill-always {
+  color: var(--needs);
+  border-color: rgb(255 176 32 / 0.5);
+  background: rgb(255 176 32 / 0.08);
+}
+.wf-pill-always {
+  font-weight: 600;
+}
+.wf-pill-coming,
+.wf-pill-skipped {
+  border-style: dashed;
+  white-space: normal;
+}
+
+@media (max-width: 720px) {
+  .wf-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .wf-bar .seg {
+    align-self: flex-start;
+  }
+}
+.wf-method {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-2);
+  vertical-align: 1px;
+}
+.wf-note {
+  font-size: var(--fs-small);
+  margin: 4px 0 0;
+  max-width: var(--measure);
+}
+.wf-terminal .react-flow__handle,
+.wf-decision .react-flow__handle {
+  position: absolute;
+}

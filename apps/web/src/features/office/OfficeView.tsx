@@ -9,7 +9,8 @@ import { Annunciator } from "./Annunciator.js";
 import { layoutOf } from "./contract.js";
 import { ScramControl, useScrams } from "./Scram.js";
 import { type CauseGroup, EXCEPTIONS_AT, causeGroups, exceptionsView, portfolio } from "./exceptions.js";
-import { BayNamesProvider, bayNamesFor, bayOf, plantLaneSet, useBayNames } from "./lanes.js";
+import { BayNamesProvider, bayModeWords, bayOf, plantLaneSet, plantNamesFor, useBayNames } from "./lanes.js";
+import { useMode } from "../../lib/mode.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
 import { PLANT_LAYOUT } from "./plant-layout.js";
@@ -176,7 +177,10 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const instruments = { core: coreState(floorRead), rods: rodState(scramRead), waiting: (floor?.needs_me ?? 0) > 0 };
   const open = floor?.figures.find((f) => f.id === selected);
   // The bays are named by the project's work lanes; the art and each figure's place do not change.
-  const bayNames = useMemo(() => bayNamesFor(plantLaneSet(floor?.figures ?? [], floor?.lane_sets)), [floor]);
+  // Without project lanes, the engineering mode names the bays; the shared rooms always use the mode's words.
+  const engineeringMode = useMode();
+  const laneSet = useMemo(() => plantLaneSet(floor?.figures ?? [], floor?.lane_sets), [floor]);
+  const bayNames = useMemo(() => plantNamesFor(laneSet, engineeringMode), [laneSet, engineeringMode]);
 
   return (
     <BayNamesProvider value={bayNames}>
@@ -190,6 +194,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
             floor && (
               <p className="office-count">
                 {floor.figures.length} {floor.figures.length === 1 ? "agent" : "agents"} in the plant
+                <span className="office-mode"> · {bayModeWords(laneSet, engineeringMode)}</span>
               </p>
             )
           ) : (

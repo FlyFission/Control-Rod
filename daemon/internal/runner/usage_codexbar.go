@@ -157,6 +157,10 @@ func parseCodexbarEntry(raw []byte, fetched time.Time) (UsageProvider, bool) {
 	if p.ObservedAt == "" && !fetched.IsZero() {
 		p.ObservedAt = fetched.UTC().Format(time.RFC3339)
 	}
+	// A reading cannot have been observed after the local fetch that returned it.
+	if !fetched.IsZero() && observedTime(p.ObservedAt).After(fetched) {
+		p.ObservedAt = fetched.UTC().Format(time.RFC3339)
+	}
 	stampWindows(&p) // every window of one snapshot was read at the snapshot's time
 	return p, true
 }
@@ -256,27 +260,26 @@ func runCodexbarCtx(ctx context.Context, path string, timeout time.Duration, lim
 	// Where the platform allows, the leader's exit is observed without reaping it, so its process
 	// group number cannot be reused before the last group signal. cmd.Wait runs once, after that.
 	exited := make(chan struct{})
-	done := make(chan error, 1)
+	observeFailed := make(chan struct{})
 	go func() {
 		if canWaitNoReap && waitExitNoReap(cmd.Process.Pid) == nil {
 			close(exited)
 			return
 		}
-		done <- cmd.Wait()
+		// The observer never reaps: the caller kills the group first, then waits exactly once.
+		close(observeFailed)
 	}()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	var (
-		err        error
-		finished   bool
-		waitResult error
-		waited     bool // cmd.Wait already ran (fallback path)
+		err      error
+		finished bool
 	)
 	select {
 	case <-exited:
 		finished = true
-	case waitResult = <-done:
-		finished, waited = true, true
+	case <-observeFailed:
+		finished = true
 	case <-w.over:
 		err = errors.New("codexbar output over the cap")
 	case <-timer.C:
@@ -290,13 +293,10 @@ func runCodexbarCtx(ctx context.Context, path string, timeout time.Duration, lim
 	if !finished {
 		select {
 		case <-exited:
-		case waitResult = <-done:
-			waited = true
+		case <-observeFailed:
 		}
 	}
-	if !waited {
-		waitResult = cmd.Wait()
-	}
+	waitResult := cmd.Wait() // exactly once, after the group kill
 	if finished {
 		err = waitResult
 	}
@@ -343,6 +343,7 @@ type codexbarEngine struct {
 	path      string
 	version   string
 	providers []UsageProvider
+	expiry    map[string]time.Time // provider id -> local time the cached reading stops being published
 }
 
 func newCodexbarEngine() *codexbarEngine {
@@ -456,6 +457,24 @@ func (e *codexbarEngine) refresh() { e.refreshCtx(context.Background()) }
 // codexbarKeepPrevious is how long a reading survives failed fetches before it is dropped.
 const codexbarKeepPrevious = 30 * time.Minute
 
+// cbExpiry is when a reading fetched at the local time fetch stops being published: 30 minutes
+// after the earlier of the fetch and the upstream observed time (itself clamped to the fetch).
+// An upstream time can only shorten the life, never extend it.
+func cbExpiry(p UsageProvider, fetch time.Time) time.Time {
+	base := fetch
+	if o := observedTime(p.ObservedAt); !o.IsZero() && o.Before(base) {
+		base = o
+	}
+	return base.Add(codexbarKeepPrevious)
+}
+
+// cbExpired reports whether id has a recorded expiry that is not after now. A reading with no
+// recorded expiry (only one injected by a test) is not expired.
+func cbExpired(exp map[string]time.Time, id string, now time.Time) bool {
+	t, ok := exp[id]
+	return ok && !now.Before(t)
+}
+
 // refreshCtx is refresh under ctx: every subprocess launch checks ctx first, and a cancel while one
 // runs kills its process group (runCodexbarCtx) and ends the refresh without replacing the cache.
 func (e *codexbarEngine) refreshCtx(ctx context.Context) {
@@ -498,6 +517,10 @@ func (e *codexbarEngine) refreshCtx(ctx context.Context) {
 	for _, p := range e.providers {
 		prev[p.ID] = p
 	}
+	prevExp := map[string]time.Time{}
+	for k, v := range e.expiry {
+		prevExp[k] = v
+	}
 	start := 0
 	if len(ids) > 0 {
 		start = e.rot % len(ids)
@@ -506,6 +529,7 @@ func (e *codexbarEngine) refreshCtx(ctx context.Context) {
 	e.mu.Unlock()
 
 	got := map[string]*UsageProvider{}
+	gotExp := map[string]time.Time{}
 	failed := map[string]bool{} // the call did not complete: skipped, timed out, cancelled or exited non-zero
 	for i := range ids {
 		raw := ids[(start+i)%len(ids)]
@@ -515,11 +539,13 @@ func (e *codexbarEngine) refreshCtx(ctx context.Context) {
 			failed[ours] = true
 			continue
 		}
-		for _, p := range parseCodexbarUsage(out, e.now()) {
+		fetch := e.now()
+		for _, p := range parseCodexbarUsage(out, fetch) {
 			// Only the asked-for provider is kept, and never claude or codex.
 			if p.ID == ours && !codexbarNeverFetch[p.ID] {
 				p := p
 				got[ours] = &p
+				gotExp[ours] = cbExpiry(p, fetch)
 			}
 		}
 	}
@@ -527,19 +553,25 @@ func (e *codexbarEngine) refreshCtx(ctx context.Context) {
 		return // shutting down: keep the cache as it was
 	}
 	var provs []UsageProvider
+	exp := map[string]time.Time{}
 	for _, raw := range ids {
 		ours := codexbarIDs[raw]
 		switch {
 		case got[ours] != nil:
 			provs = append(provs, *got[ours])
-		case failed[ours] && prevHas(prev, ours) && e.now().Sub(observedTime(prev[ours].ObservedAt)) < codexbarKeepPrevious:
-			// The fetch did not complete: the last reading stands, but only while it is recent.
-			// A fetch that completed with nothing valid (a schema change) clears the provider.
+			exp[ours] = gotExp[ours]
+		case failed[ours] && prevHas(prev, ours) && !cbExpired(prevExp, ours, e.now()):
+			// The fetch did not complete: the last reading stands until its local expiry, which
+			// a failure never extends. A fetch that completed with nothing valid (a schema
+			// change) clears the provider.
 			provs = append(provs, prev[ours])
+			if t, ok := prevExp[ours]; ok {
+				exp[ours] = t
+			}
 		}
 	}
 	e.mu.Lock()
-	e.providers = provs
+	e.providers, e.expiry = provs, exp
 	e.mu.Unlock()
 }
 
@@ -574,10 +606,14 @@ func (e *codexbarEngine) snapshot() (*UsageEngine, []UsageProvider) {
 	if e.found && codexbarVersionRE.MatchString(e.version) {
 		eng.Version = e.version
 	}
-	out := make([]UsageProvider, len(e.providers))
-	for i, p := range e.providers {
+	out := make([]UsageProvider, 0, len(e.providers))
+	now := e.now()
+	for _, p := range e.providers {
+		if cbExpired(e.expiry, p.ID, now) {
+			continue // past its local expiry: not republished while waiting for a refresh
+		}
 		p.Windows = append([]UsageWindow(nil), p.Windows...)
-		out[i] = p
+		out = append(out, p)
 	}
 	return eng, out
 }

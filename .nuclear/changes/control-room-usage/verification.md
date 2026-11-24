@@ -31,6 +31,8 @@ Round 2 on head 2323debf asked for changes with no blockers: claim path could st
 
 Round 3 on head 34351114 found no privacy path and no blockers; 4 majors and 3 minors on edge cases (process-group kill after reaping, persistence goroutine backlog, a "none" provider with invalid windows passing validation, a completed fetch with no reading keeping the old one, same-second Codex ties, a stale-only headline, timestamp years). All fixed with regression tests except pgid reuse, which cannot be triggered deterministically; it now uses the package's wait-without-reap mechanism.
 
+Round 4 on head 691efbed found no blockers; 2 majors and 1 privacy minor. Majors: a wait failure reaped the child before the group kill, and the 30-minute keep-previous used the upstream time and was not enforced between refreshes. Both fixed: the group is killed before a single reap, and each provider now carries a local expiry (fetch time plus 30 minutes, only shortened by an older upstream time, future times clamped) checked at every snapshot, with three regression tests. The privacy minor repeats the round 2 note on the Codex log tail and is left for the owner to decide.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

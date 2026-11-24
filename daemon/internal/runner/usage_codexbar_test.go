@@ -870,6 +870,7 @@ func modalCodexbar(t *testing.T) (bin, mode string) {
 		"config) echo '[{\"provider\":\"warp\",\"enabled\":true}]';;\n" +
 		"usage) case \"$(cat '" + mode + "')\" in\n" +
 		"good) echo '[{\"provider\":\"warp\",\"usage\":{\"primary\":{\"usedPercent\":7}}}]';;\n" +
+		"future) echo '[{\"provider\":\"warp\",\"usage\":{\"primary\":{\"usedPercent\":7},\"updatedAt\":\"2099-01-01T00:00:00Z\"}}]';;\n" +
 		"bad) echo '[{\"provider\":\"warp\",\"usage\":{\"newShape\":{\"pct\":7}}}]';;\n" +
 		"*) exit 5;;\nesac;;\nesac\n"
 	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
@@ -922,5 +923,72 @@ func TestCodexbarCompletedFetchWithNoWindowsClearsProvider(t *testing.T) {
 	e.refresh() // same instant: age is no reason to drop it, the schema is
 	if _, p := e.snapshot(); len(p) != 0 {
 		t.Fatalf("reading kept after a completed fetch with no valid window: %+v", p)
+	}
+}
+
+func TestCodexbarFutureUpdatedAtDoesNotExtendRetention(t *testing.T) {
+	bin, mode := modalCodexbar(t)
+	set := func(m string) {
+		if err := os.WriteFile(mode, []byte(m), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e := testEngine(map[string]string{codexbarEnv: bin})
+	now := cbFetched
+	e.now = func() time.Time { return now }
+	set("future")
+	e.refresh()
+	_, p := e.snapshot()
+	if len(p) != 1 {
+		t.Fatalf("%+v", p)
+	}
+	if p[0].ObservedAt != cbFetched.Format(time.RFC3339) {
+		t.Fatalf("future observed_at not clamped to the local fetch: %q", p[0].ObservedAt)
+	}
+	for _, w := range p[0].Windows {
+		if w.ObservedAt != p[0].ObservedAt {
+			t.Fatalf("window observed_at %q", w.ObservedAt)
+		}
+	}
+	set("fail")
+	now = cbFetched.Add(29 * time.Minute)
+	e.refresh()
+	if _, p := e.snapshot(); len(p) != 1 {
+		t.Fatalf("reading dropped early: %+v", p)
+	}
+	now = cbFetched.Add(31 * time.Minute)
+	e.refresh()
+	if _, p := e.snapshot(); len(p) != 0 {
+		t.Fatalf("future updatedAt extended retention: %+v", p)
+	}
+}
+
+func TestCodexbarExpiredEntryLeavesSnapshotWithoutRefresh(t *testing.T) {
+	bin, mode := modalCodexbar(t)
+	if err := os.WriteFile(mode, []byte("good"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e := testEngine(map[string]string{codexbarEnv: bin})
+	now := cbFetched
+	e.now = func() time.Time { return now }
+	e.refresh()
+	now = cbFetched.Add(29 * time.Minute)
+	if _, p := e.snapshot(); len(p) != 1 {
+		t.Fatalf("%+v", p)
+	}
+	now = cbFetched.Add(31 * time.Minute) // no refresh in between
+	if _, p := e.snapshot(); len(p) != 0 {
+		t.Fatalf("expired entry still published: %+v", p)
+	}
+}
+
+func TestCodexbarOldUpstreamTimeOnlyShortensExpiry(t *testing.T) {
+	p := UsageProvider{ID: "warp", ObservedAt: cbFetched.Add(-20 * time.Minute).Format(time.RFC3339)}
+	if got, want := cbExpiry(p, cbFetched), cbFetched.Add(10*time.Minute); !got.Equal(want) {
+		t.Fatalf("%v want %v", got, want)
+	}
+	p.ObservedAt = cbFetched.Add(time.Hour).Format(time.RFC3339)
+	if got, want := cbExpiry(p, cbFetched), cbFetched.Add(30*time.Minute); !got.Equal(want) {
+		t.Fatalf("%v want %v", got, want)
 	}
 }

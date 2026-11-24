@@ -276,3 +276,11 @@ tests added: TestUsageStoreSingleWorkerBoundedFlushes, TestReadCodexUsageSameSec
 gofmt -l: clean; go vet ./... : clean; GOOS=darwin go vet and GOOS=windows go build: ok
 go test -race -count=1 ./internal/runner/ -run 'Usage|Codex|Claude|CodexBar': ok
 go test -race -count=1 ./internal/runner/ : 16 FAIL, all the known host sandbox/bubblewrap/checker failures; no others
+
+== round 4 fixes (2026-11-24T17:24:42Z) ==
+runCodexbarCtx: observer failure no longer reaps; group killed first, cmd.Wait once after.
+codexbar: local per-provider expiry (min(fetch, clamped upstream)+30m), enforced in snapshot(); future observed_at clamped to fetch.
+gofmt -l: clean; go vet ./...: ok
+go test -race -count=1 ./internal/runner/ -run 'Usage|Codex|Claude|CodexBar': ok
+GOOS=windows go build ./...: ok; GOOS=darwin go vet ./internal/runner: ok
+go test -count=1 ./internal/runner/: 16 FAIL lines (known host failures)

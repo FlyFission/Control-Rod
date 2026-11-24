@@ -19,8 +19,8 @@
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local compiler and bundler | separated: owner retains merge decision | coupled: local machine | self-check | Static checks only; full integration deferred to CI  [Ship limits](ship.md) |
-| E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local Vitest/MSW suite | separated: owner retains merge decision | coupled: local machine | self-check | jsdom + MSW mocks only. CI runs Vitest, not the Playwright e2e specs (`.github/workflows/ci.yml` test job), so live Chromium e2e is not covered by CI for this change  [Ship limits](ship.md) |
-| E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic `go test ./...` suite | separated: owner retains merge decision | coupled: local machine | self-check | Full Go runner/digest suites passed on macOS host  [Ship limits](ship.md) |
+| E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local Vitest and MSW suite | separated: owner retains merge decision | coupled: local machine | self-check | jsdom + MSW mocks only. CI runs Vitest, not the Playwright e2e specs (`.github/workflows/ci.yml` test job), so live Chromium e2e is not covered by CI for this change  [Ship limits](ship.md) |
+| E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic Go test suite | separated: owner retains merge decision | coupled: local machine | self-check | Full Go runner/digest suites passed on macOS host  [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: implementation session | separated: deterministic `vitest` and Python gates | separated: owner retains merge decision | coupled: local machine | self-check | 59 DB-backed API tests blocked by macOS SysV shm `initdb`; Linux CI runs full DB suite  [Ship limits](ship.md) |
 
 ## Review fixes (Codex blind check of PR #164)

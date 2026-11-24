@@ -6,6 +6,10 @@ Release decision: **Branch `fix/pre-marketing-hardening` pushed to `origin` with
 - Trust surfaces: none modified (`git diff --name-only main | grep -E '^(policies|tests/redteam|\.github|kernel|spec|docs/adr)/'` empty).
 - Host/CI verification limits: macOS host hit SysV shared memory limits (`shmget: No space left on device`) during embedded Postgres `initdb` in the 59 DB-backed API test files; the non-DB API tests, web Vitest suite, TypeSpec/TS builds, and Python gates passed locally, and the Linux CI workflow on the draft PR exercises the full PostgreSQL API suite, Rust kernel suite, Go daemon suite, Python SDK suite, license gate, and `--strict-custody` check.
 
+Landing: carried to `main` through PR #166 from `claude/project-thread-2ozsln`, which merges current `main` and adds the fixes for the Codex blind-check findings (see [verification](verification.md#review-fixes-codex-blind-check-of-pr-164)).
+
+Monitoring after merge: watch for a Codex run that fails at sign-in or with an egress block (`X-ControlRod-Egress: blocked`) on its first run; that is the sign the ChatGPT sign-in hosts are incomplete. After a Ctrl+C on `pnpm cr start`, a run left showing as running, or a completion that only arrives on the next start, is the sign the shutdown order is not holding.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

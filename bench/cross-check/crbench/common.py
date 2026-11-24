@@ -136,7 +136,7 @@ class Study:
 def harness_digest() -> str:
     """Digest of the code, prompts and agent specs that decide what a run does (§9)."""
     files = sorted((HERE / "crbench").glob("*.py")) + [HERE / "bench.py", HERE / "agents.json"] + \
-        sorted((HERE / "prompts").glob("*.md"))
+        sorted((HERE / "prompts").glob("*.md")) + sorted(p for p in (HERE / "container").glob("*") if p.is_file())
     h = hashlib.sha256()
     for f in files:
         h.update(f.relative_to(HERE).as_posix().encode() + b"\0" + f.read_bytes() + b"\0")

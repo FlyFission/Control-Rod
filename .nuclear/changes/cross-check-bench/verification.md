@@ -4,10 +4,10 @@ Evidence status: **pass** for the offline harness on fixture tasks with stub age
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | 67 offline unit and end-to-end tests of every rule the code enforces (see README, Tests), on Python 3.9 and 3.13, with bwrap confinement on Linux. Seatbelt is exercised only on macOS. | `evidence/unittest.log` |
+| E-01 | pass | 93 offline unit and end-to-end tests of every rule the code enforces (see README, Tests), on Python 3.9 and 3.13, with bwrap confinement on Linux, including the container flags, mounts, env file and the egress proxy against real TLS ClientHellos. Seatbelt is exercised only on macOS. The live container boundary test is skipped here: the pinned image builds only on the owner's Mac (this environment blocks the Debian snapshot). | `evidence/unittest.log` |
 | E-02 | pass | Fixture study through the command line from `init` to `size`. Stub output, never a finding. | `evidence/fixture-dryrun.log`, `evidence/fixture-report.md` |
 | E-03 | open | Real `claude` and `codex` calls, isolation probes, billing route, SWE-bench grading and controls. | Not executed |
-| E-04 | open | Blind code review. Round 1 on e602a360: Codex on Astra and Antigravity on Neon both NOT READY (33 and 24 findings). Confirmation round on 94038ad2: both NOT READY (Seatbelt cannot nest on macOS, plus 17 fix groups). The 17 groups are fixed; macOS confinement moves to a per-call Linux container (DESIGN v3.4 proposal, design check pending), then a third code round. | Review texts held on the owner's Mac |
+| E-04 | open | Blind code review. Round 1 on e602a360: Codex on Astra and Antigravity on Neon both NOT READY (33 and 24 findings). Confirmation round on 94038ad2: both NOT READY (Seatbelt cannot nest on macOS, plus 17 fix groups). The 17 groups are fixed. Both reviewers accepted the per-call Linux container (DESIGN v3.4 rev 2, owner chose the stricter rule); it is built. Next: image build and no-model boundary checks on the owner's Mac, then a third code round. | Review texts held on the owner's Mac |
 
 ## Evidence custody and coupling
 
@@ -23,7 +23,7 @@ Evidence status: **pass** for the offline harness on fixture tasks with stub age
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | stub agents only  [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | stub agents only  [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | partially separated: not executed | separated: owner retains merge decision | coupled: local machine | self-check | real run not made  [Ship limits](ship.md) |
-| E-04 | separated: other vendors' agents | separated: blind review sessions | separated: other vendors' models | separated: owner retains merge decision | separated: owner's Mac | diverse verification | v3.4 design check and third code round pending  [Ship limits](ship.md) |
+| E-04 | separated: other vendors' agents | separated: blind review sessions | separated: other vendors' models | separated: owner retains merge decision | separated: owner's Mac | diverse verification | container checks on the Mac and third code round pending  [Ship limits](ship.md) |
 
 
 ## Required links

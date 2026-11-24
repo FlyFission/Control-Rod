@@ -1,6 +1,6 @@
 ++ python3 bench/cross-check/bench.py init --config bench/cross-check/configs/fixture.json --study <tmp>/study
 {
-  "frozen_sha256": "2dea1671cdfd4fc81bd9eb9cebb353672b3a3ef6ed71e697108de318a22d6211",
+  "frozen_sha256": "225c5487b8c14cb64485e38d68c8fc1f51d58be3293739559a03e4c3d214ef41",
   "study": "<tmp>/study"
 }
 exit 0
@@ -18,7 +18,7 @@ exit 0
 exit 0
 ++ python3 bench/cross-check/bench.py preflight --phase calibration --study <tmp>/study
 {
-  "at": "2026-11-24T16:43:21Z",
+  "at": "2026-11-24T17:57:29Z",
   "checks": {
     "stub-a": {
       "auth": {
@@ -63,6 +63,10 @@ exit 0
       "ok": true
     }
   },
+  "container": {
+    "not_needed": "stub agents",
+    "ok": true
+  },
   "docker": {
     "not_needed": true,
     "ok": true
@@ -70,7 +74,7 @@ exit 0
   "host": {
     "arch": "x86_64",
     "confinement": "bwrap",
-    "disk_free_gb": 63.9,
+    "disk_free_gb": 63.6,
     "python": "3.13.18",
     "system": "Linux"
   },
@@ -94,19 +98,19 @@ exit 0
   "passed": true,
   "phase": "calibration",
   "stamp": {
-    "harness_sha256": "a1c2b94c11662e47c19bfccdb7df162b5e63ee97bb7979c0f13abd5572cd1a5c",
-    "study_sha256": "2dea1671cdfd4fc81bd9eb9cebb353672b3a3ef6ed71e697108de318a22d6211"
+    "harness_sha256": "427210153a3e87c07f4a88f14afe185faab1a6f8b50486a2746711962365461d",
+    "study_sha256": "225c5487b8c14cb64485e38d68c8fc1f51d58be3293739559a03e4c3d214ef41"
   }
 }
 exit 0
 ++ python3 bench/cross-check/bench.py probe --study <tmp>/study
 {
-  "at": "2026-11-24T16:43:22Z",
+  "at": "2026-11-24T17:57:30Z",
   "passed": true,
   "results": {
     "stub-a/author": {
-      "agent_boundary": "outer + cli",
-      "call": "probe--stub-a--author--7bbc3e",
+      "agent_boundary": "stub",
+      "call": "probe--stub-a--author--98b4a0",
       "checks": {
         "agent: call completed": true,
         "agent: did not list ~/.aws": true,
@@ -152,8 +156,8 @@ exit 0
       "ok": true
     },
     "stub-a/checker": {
-      "agent_boundary": "outer + cli",
-      "call": "probe--stub-a--checker--f6340e",
+      "agent_boundary": "stub",
+      "call": "probe--stub-a--checker--0030ce",
       "checks": {
         "agent: call completed": true,
         "agent: did not list ~/.aws": true,
@@ -203,8 +207,8 @@ exit 0
       "ok": true
     },
     "stub-b/author": {
-      "agent_boundary": "outer + cli",
-      "call": "probe--stub-b--author--20d02d",
+      "agent_boundary": "stub",
+      "call": "probe--stub-b--author--fb3c8b",
       "checks": {
         "agent: call completed": true,
         "agent: did not list ~/.aws": true,
@@ -250,8 +254,8 @@ exit 0
       "ok": true
     },
     "stub-b/checker": {
-      "agent_boundary": "outer + cli",
-      "call": "probe--stub-b--checker--147b91",
+      "agent_boundary": "stub",
+      "call": "probe--stub-b--checker--4e94f5",
       "checks": {
         "agent: call completed": true,
         "agent: did not list ~/.aws": true,
@@ -302,14 +306,14 @@ exit 0
     }
   },
   "stamp": {
-    "harness_sha256": "a1c2b94c11662e47c19bfccdb7df162b5e63ee97bb7979c0f13abd5572cd1a5c",
-    "study_sha256": "2dea1671cdfd4fc81bd9eb9cebb353672b3a3ef6ed71e697108de318a22d6211"
+    "harness_sha256": "427210153a3e87c07f4a88f14afe185faab1a6f8b50486a2746711962365461d",
+    "study_sha256": "225c5487b8c14cb64485e38d68c8fc1f51d58be3293739559a03e4c3d214ef41"
   }
 }
 exit 0
 ++ python3 bench/cross-check/bench.py controls --phase calibration --study <tmp>/study
 {
-  "at": "2026-11-24T16:43:24Z",
+  "at": "2026-11-24T17:57:33Z",
   "flaky_or_failing_tasks": [],
   "images": [],
   "passed": true,
@@ -586,9 +590,9 @@ exit 0
     }
   },
   "stamp": {
-    "harness_sha256": "a1c2b94c11662e47c19bfccdb7df162b5e63ee97bb7979c0f13abd5572cd1a5c",
-    "manifest_sha256": "7710d3b8a6b6176f2302fc4eb36ef14ed230fd8cafe623c2a9ff81e229d3782a",
-    "study_sha256": "2dea1671cdfd4fc81bd9eb9cebb353672b3a3ef6ed71e697108de318a22d6211"
+    "harness_sha256": "427210153a3e87c07f4a88f14afe185faab1a6f8b50486a2746711962365461d",
+    "manifest_sha256": "4a099f07cd9f0824d1b2254bff8788f9b0a4868f31a52fa7ec6394304968d039",
+    "study_sha256": "225c5487b8c14cb64485e38d68c8fc1f51d58be3293739559a03e4c3d214ef41"
   }
 }
 exit 0
@@ -606,7 +610,7 @@ exit 0
 exit 0
 ++ python3 bench/cross-check/bench.py run --phase calibration --yes --study <tmp>/study
 {
-  "at": "2026-11-24T16:43:28Z",
+  "at": "2026-11-24T17:57:36Z",
   "ledger": {
     "by": {
       "calibration/stub-a/author": {
@@ -689,7 +693,7 @@ exit 0
 {
   "judgments": {},
   "skipped": {
-    "at": "2026-11-24T16:43:28Z",
+    "at": "2026-11-24T17:57:36Z",
     "reason": "fixture-dry-run"
   }
 }
@@ -780,10 +784,10 @@ exit 0
     "power must clear the target at its Wilson 95% Monte Carlo lower bound, confirmed by an independent simulation with another seed",
     "calls run one at a time; phase-1 stability repeats follow \u00a77's count at each N"
   ],
-  "at": "2026-11-24T16:43:29Z",
+  "at": "2026-11-24T17:57:38Z",
   "capacity": {
     "calibration_tasks": 4,
-    "days_left": 13.999097222222222,
+    "days_left": 13.999074074074073,
     "left": {
       "calls": 156,
       "tokens": 994720
@@ -922,8 +926,8 @@ exit 0
   },
   "reason": "required count exceeds the verified subscription capacity, the horizon or the task supply",
   "script_sha256": "45cb487863106697d6e19a6b73ffe808a2be114dd522d0e3122714c4ecd26d45",
-  "sha256": "953fa814b1e5c1be2946e39659f52a0d8886620ca3cba18365a19ebe525f6c76",
-  "study_sha256": "2dea1671cdfd4fc81bd9eb9cebb353672b3a3ef6ed71e697108de318a22d6211",
+  "sha256": "4441659227ff4a7cd8ca7217cf300bc6f7a8bba1f25236be7f641c4b909abcab",
+  "study_sha256": "225c5487b8c14cb64485e38d68c8fc1f51d58be3293739559a03e4c3d214ef41",
   "token_p95": {
     "stub-a/author": 120,
     "stub-a/checker": 120,

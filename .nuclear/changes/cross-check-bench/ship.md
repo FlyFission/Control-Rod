@@ -2,7 +2,7 @@
 
 Release decision: **pull request for owner review. This record does not authorize a merge or any run.**
 
-- **Proposed:** merge `bench/cross-check/` (harness rebuilt to DESIGN.md v3.3) and the `pnpm cr bench` subcommand, after blind code review by Codex on Astra and Antigravity on Neon. Round 1 and the confirmation round found it not ready; round-2 fixes are in. Agent confinement moves to a per-call Linux container with an egress allowlist (DESIGN v3.4, pending the reviewers' design check), then a third code round decides.
+- **Proposed:** merge `bench/cross-check/` (harness rebuilt to DESIGN.md v3.3) and the `pnpm cr bench` subcommand, after blind code review by Codex on Astra and Antigravity on Neon. Round 1 and the confirmation round found it not ready; round-2 fixes are in. Agent confinement is now a per-call Linux container with a per-call egress allowlist proxy (DESIGN v3.4 rev 2, accepted by both reviewers). The image build and no-model boundary checks run on the owner's Mac, then a third code round decides.
 - **Not claimed:** any result about cross-vendor checking. The fixture numbers come from stub agents.
 - **Not claimed:** the real CLI calls, isolation probes against real CLIs, the billing-route check and the SWE-bench grader have not run. Calibration exercises them and stops on any failed probe or control.
 - **Owner decisions still open:** the policy values in `configs/verified-historical.json` (calendar horizon, call and token caps, timeouts) before `init`, and the go for calibration.

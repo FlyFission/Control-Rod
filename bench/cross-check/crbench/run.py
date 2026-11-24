@@ -15,6 +15,7 @@ import secrets
 from pathlib import Path
 
 from . import agents as ag
+from . import container as ctr
 from .common import HERE, Refused, Study, load_sizing, now, read_json, sha256_bytes, stamp, write_bytes, write_json
 from .ledger import Ledger
 from .manifest import load_manifest
@@ -78,8 +79,10 @@ class Runner:
         self.cache = study.dir / "cache"
         self.call = run_call
         self.authors = self.cfg["authors"]
-        pf = study.phase_dir("calibration") / "preflight.json"  # the binaries phase 0 pinned
-        self.pins = read_json(pf)["identities"] if pf.exists() else {}
+        pf = study.phase_dir("calibration") / "preflight.json"  # the image phase 0 pinned
+        pre = read_json(pf) if pf.exists() else {}
+        self.image_pin = ((pre.get("container") or {}).get("image") or {}).get("id")
+        self.label = ctr.study_label(study.dir)
         self.max_retries = self.cfg["caps"].get("max_retries", MAX_RETRIES_DEFAULT)
 
     # ------------------------------------------------------------ gates before any call
@@ -98,6 +101,7 @@ class Runner:
                 raise Refused("§4 §6 §9", f"{what} for {self.phase}: {why}")
         versions_unchanged(self.study)
         live_billing_check(self.study)
+        ctr.reconcile(self.label)  # containers a crash or an interrupt left behind
         if self.phase == "main":
             sz = load_sizing(self.study)
             if sz is None:
@@ -127,6 +131,8 @@ class Runner:
                         ag.kill_group(int((d / "pgid").read_text()))
                     except ValueError:
                         pass
+                if claim and (d / "container.json").exists():  # and that its container is gone
+                    ctr.remove(claim["launch_id"])
                 if claim and self.ledger.launched(claim["launch_id"]):
                     self.ledger.reconcile(claim["launch_id"])
                     write_json(res, {"status": "infra_error", "why": "interrupted call", "at": now()})
@@ -174,8 +180,11 @@ class Runner:
         self.ledger.launch(f"{self.phase}/{base}-a{attempt}", self.phase, self.agents[name]["vendor"],
                            "author" if role == "author" else "checker", attempt, lid)
         a = ag.effective(self.agents[name], name)
-        if self.pins.get(name, {}).get("sha256") not in (None, "stub"):
-            a["pin_sha256"] = self.pins[name]["sha256"]
+        if a["kind"] != "stub":  # every real call runs in the image preflight pinned (container.py)
+            if not self.image_pin or not ctr.settings(self.cfg):
+                raise Refused("§4 container", "real agents need the container settings and a pinned image")
+            a["_container"] = {"cfg": self.cfg, "image": self.image_pin, "lid": lid, "label": self.label,
+                              "root": str(self.root)}
         return d, lid, a
 
     def call_agent(self, agent: dict, role: str, prompt: str, repo: Path, scratch: Path | None, d: Path,

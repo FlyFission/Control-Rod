@@ -48,7 +48,7 @@ Only the CLIs' existing subscription sign-ins are used. `preflight` refuses to s
 
 ## Sign-in without exposure
 
-Each call gets a fresh opaque directory under `/var/tmp/cr-bench-<uid>/` holding a single-commit export of the task's base tree, and a separate private directory with only that CLI's sign-in:
+Each call gets a fresh opaque directory under `/var/tmp/cr-bench-<uid>/` holding a single-commit export of the task's base tree, and a separate private directory with only that CLI's sign-in, mounted into the call's container at `/work/private`:
 
 - Codex: an isolated `CODEX_HOME` holding a copy of `auth.json`.
 - Claude Code: a subscription token from `claude setup-token`, kept in `~/.config/cr-bench/claude-oauth-token` (mode 600) and passed as `CLAUDE_CODE_OAUTH_TOKEN`.
@@ -57,15 +57,35 @@ Where those live on your machine goes in `agents.local.json` (ignored by git), w
 
 ## Confinement
 
-Fixture grading runs and the harness's own probes are wrapped in an outer OS sandbox, ported from Control Rod's daemon: Seatbelt (`sandbox-exec`) on macOS, bubblewrap (`bwrap`) on Linux. It denies reads of your home directory, the study directory, this repository and the whole workspace root, then allows back only the call's own directories and the CLI's install directories. Writes go only to the author's tree, or a checker's scratch directory, and the call's private directory; a checker's source tree is read-only, even where it sits inside a writable directory. On Linux, bwrap also hides host sockets (Docker, D-Bus, the SSH agent, the user runtime directory).
+Every real agent call runs in its own fresh Linux container (DESIGN-v3.4-proposal.md). On macOS that container runs in a small Linux VM; the benchmark is tested with Colima. The container mounts only three directories, at fixed paths: the call's tree at `/work/repo` (read-only for a checker), a checker's scratch at `/work/scratch`, and the call's private directory at `/work/private` (the sign-in copy and HOME). Nothing else of your machine is visible.
 
-Agent calls get the same outer layer on Linux. On macOS they do not, because Seatbelt cannot nest: a CLI that starts its own `sandbox-exec` inside one fails (verified: exit 71, `sandbox_apply: Operation not permitted`). There the CLIs' own sandboxes (flags frozen in `agents.json`) are the boundary, and each is handed every outer denial plus every other workspace by name. `preflight` fails for real agents on a host with neither mechanism.
+Each container gets `--cap-drop ALL`, no-new-privileges, a read-only root, a tmpfs `/tmp`, process, memory and CPU limits, a neutral host name, an AppArmor profile (`container/cr-bench-bwrap.apparmor`) and a seccomp profile (`container/seccomp-userns.json`, derived by `container/make_seccomp.py` from Docker's default). The two profiles add only what each CLI's own bubblewrap sandbox needs to start inside an unprivileged container. Both vendors get the same flags.
+
+Network: each call has its own internal network with no route out and no DNS resolver. The only way out is a per-call egress proxy (`crbench/egress.py`) that allows HTTPS `CONNECT` on port 443 to the vendor's exact hosts in `agents.json`, refuses IP literals and any host that resolves to a private, loopback, link-local or shared address, and drops a connection whose TLS server name differs from the host it asked for. It logs host, decision and byte counts, never headers or bodies.
+
+Tool processes get neither the token nor the network: each CLI's own sandbox denies `/work/private` and all network to the commands the model runs. `preflight` checks this with no model call (`admission`): a sentinel file stands in for the token, and a tool child must fail to read it and fail to reach any host.
+
+The container, its proxy and its network are removed, and the removal waited for, before the harness captures the result, so nothing a call started can still write. Leftovers from a crash are removed by label at the next start.
+
+Fixture grading and the stub agents in the tests still use the outer host sandbox ported from Control Rod's daemon (Seatbelt on macOS, bubblewrap on Linux).
 
 Git never runs with your global or system config, hooks or signing. Each task's base tree is exported from git objects and checked by tree OID; an author's change is captured in a fresh trusted export, never by running git in the author's `.git`; patches stay bytes end to end and are re-applied and compared by tree OID.
 
-`probe` checks this before any task call: fixed shell commands under the exact confinement of a real call must fail to read your HOME, the study, a sibling workspace, the other vendor's sign-in, the mirror cache, `~/.ssh` and the like, and must succeed on the call's own files. Then each agent is asked to try the same reads and directory listings, and a checker to write its source tree and its scratch directory; a probe counts only if the transcript shows each tool call, the agent reports its model, and Claude reports its tool list.
+`probe` checks the boundary before any task call. From a plain shell in the call's exact container: no host path is visible, a checker's source is read-only, an off-list host, a raw IP, an IP literal, direct DNS and a mismatched TLS server name all fail, and the vendor host is reachable. Then each agent is asked to try the same reads and an environment token; a probe counts only if the transcript shows each tool call, the agent reports its model, and Claude reports its tool list.
 
-Residual risk, disclosed in every report: a CLI's own tool shell can read that CLI's own sign-in, as it can under the product daemon. It can never read the other vendor's. On macOS, agent calls rely on each CLI's own sandbox alone.
+Residual risk, disclosed in every report: the CLI process itself holds its own sign-in, and its traffic to the vendor's allowed hosts is not inspected.
+
+### Setting up the container runtime (macOS)
+
+```sh
+brew install colima docker
+mkdir -p /var/tmp/cr-bench-$(id -u) && chmod 700 /var/tmp/cr-bench-$(id -u)
+colima start --cpu 4 --memory 8 --disk 60 --mount /var/tmp/cr-bench-$(id -u):w
+colima ssh -- sudo apparmor_parser -r < bench/cross-check/container/cr-bench-bwrap.apparmor
+python3 bench/cross-check/bench.py image --tag cr-bench-agent:1
+```
+
+Share only the workspace root into the VM (`--mount`); Colima's default shares your whole home directory. `preflight` refuses if the workspace root is not visible in a container, if the image differs from the one it pinned, or if the VM is short of memory or disk. `bench.py image` builds from pinned inputs (base image digest, a fixed Debian snapshot, exact CLI versions checked against `container/package-lock.json`) and records the image ID and the binaries' digests. The image holds no credential.
 
 ## Configs
 
@@ -80,11 +100,12 @@ Download the dataset once to a local JSONL file, pin its SHA-256, row count and 
 python3 -m unittest bench/cross-check/test_bench.py
 ```
 
-77 offline tests, run on Python 3.9 and 3.13, cover the rules the code enforces: the freeze, seeded selection and a reserve that must fill, signed sizing, exclusions closing at the first call, single-commit exports by tree OID, git hooks ignored, capture that never reads the author's `.git`, links and binary files in patches, read-only checker trees, the test-path rule (add, edit, delete, rename, `tests/`), the strict verdict schema, the isolation flags, the outer confinement (deny, allow back, read-only, no network; skipped on a host with neither mechanism), billing-key refusal, sealed, leaky and lazy probes, unique attempt IDs, the run lock, the call cap, the calibration allocation, the frozen phase-0 token gate, quota pauses in ledger order and the 24-hour grace, halts on sign-in and repeated infra errors, exhausted retries, the deadline, interrupted calls, model, CLI and harness changes, a checker that writes to source, grading by test ID, every-task controls, the staged verdict lock and its re-verification, the blind queue, scoring, sizing, and the release gate. They use no network and make no model calls.
+93 offline tests, run on Python 3.9 and 3.13, cover the rules the code enforces: the freeze, seeded selection and a reserve that must fill, signed sizing, exclusions closing at the first call, single-commit exports by tree OID, git hooks ignored, capture that never reads the author's `.git`, links and binary files in patches, read-only checker trees, the test-path rule (add, edit, delete, rename, `tests/`), the strict verdict schema, the isolation flags, the container flags, mounts and environment file, the egress proxy (real TLS ClientHellos, server-name mismatch, private-address and rebinding refusals), the outer confinement (deny, allow back, read-only, no network; skipped on a host with neither mechanism), billing-key refusal, sealed, leaky and lazy probes, unique attempt IDs, the run lock, the call cap, the calibration allocation, the frozen phase-0 token gate, quota pauses in ledger order and the 24-hour grace, halts on sign-in and repeated infra errors, exhausted retries, the deadline, interrupted calls, model, CLI and harness changes, a checker that writes to source, grading by test ID, every-task controls, the staged verdict lock and its re-verification, the blind queue, scoring, sizing, and the release gate. They use no network and make no model calls. One more test runs the boundary probes in the real image and is skipped unless the image and a container runtime are present.
 
 ## Limits
 
 - The benchmark calls the CLIs directly, not through Control Rod's daemon.
+- Real calls need a container runtime (Colima on macOS, Docker on Linux) and the pinned image.
 - Two vendors, one model each. The result says nothing about other agents or about vendor diversity in general.
 - Agent calls are not seeded. Every input and output is kept, so a run can be audited but not replayed exactly.
 - Hidden tests are the reference, and they can be wrong. Tasks are audited and can be struck before any call.

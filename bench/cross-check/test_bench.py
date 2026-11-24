@@ -12,7 +12,9 @@ import json
 import os
 import subprocess
 import sys
+import shutil
 import tempfile
+import threading
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -23,7 +25,7 @@ sys.path.insert(0, str(HERE))
 
 from crbench import adjudicate as adj  # noqa: E402
 from crbench import agents as ag  # noqa: E402
-from crbench import confine, grading, manifest, patches, power, preflight, release, run, score, stats, workspace  # noqa: E402
+from crbench import confine, container, cprobe, egress, grading, manifest, patches, power, preflight, release, run, score, stats, workspace  # noqa: E402
 from crbench.common import Refused, Study, digest, load_sizing, read_json, read_jsonl, write_json  # noqa: E402
 from crbench.ledger import Ledger, pause_of  # noqa: E402
 
@@ -582,14 +584,16 @@ class Preflight(Tmp):
         self.assertNotIn("/", d)
 
     def test_auth_status_route(self):
-        fake = self.d / "fakecli"
-        fake.write_text("#!/bin/sh\necho 'Logged in using ChatGPT'\n")
-        fake.chmod(0o755)
         root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
         spec = {"argv": ["login", "status"], "require": "chatgpt", "refuse": "api key"}
-        self.assertTrue(preflight.auth_status({"kind": "codex", "bin": str(fake), "auth_status": spec}, root)["ok"])
-        fake.write_text("#!/bin/sh\necho 'Logged in using an API key'\n")
-        self.assertFalse(preflight.auth_status({"kind": "codex", "bin": str(fake), "auth_status": spec}, root)["ok"])
+        a = {"kind": "codex", "auth_status": spec}
+        cx = {"cfg": {}, "label": "x", "image": "sha256:x", "out_dir": self.d / "pf"}
+        self.assertFalse(preflight.auth_status(a, root)["ok"])  # it runs only inside the pinned image
+        for text, ok in (("Logged in using ChatGPT", True), ("Logged in using an API key", False)):
+            with mock.patch.object(preflight.cprobe, "in_container",
+                                   return_value={"code": 0, "stdout": text, "stderr": "", "egress": []}) as m:
+                self.assertEqual(preflight.auth_status(a, root, cx)["ok"], ok)
+            self.assertIn("'codex' 'login' 'status'", m.call_args[0][5])
 
     def test_probes_need_a_matching_preflight(self):
         s = self.study()
@@ -676,6 +680,209 @@ class Confinement(Tmp):
 
 
 # ---------------------------------------------------------------------- grading
+
+
+def client_hello(name: str) -> bytes:
+    """A real TLS ClientHello for `name`, from the ssl module, with no network."""
+    import ssl
+    ctx = ssl.create_default_context()
+    inc, outg = ssl.MemoryBIO(), ssl.MemoryBIO()
+    obj = ctx.wrap_bio(inc, outg, server_hostname=name)
+    try:
+        obj.do_handshake()
+    except ssl.SSLWantReadError:
+        pass
+    return outg.read()
+
+
+class Egress(unittest.TestCase):
+    def test_connect_parsing(self):
+        self.assertEqual(egress.parse_connect(b"CONNECT api.anthropic.com:443 HTTP/1.1\r\nHost: x\r\n\r\n"),
+                         ("api.anthropic.com", 443))
+        self.assertEqual(egress.parse_connect(b"CONNECT [::1]:443 HTTP/1.1\r\n\r\n"), ("::1", 443))
+        for bad in (b"GET http://x/ HTTP/1.1\r\n\r\n", b"CONNECT x HTTP/1.1\r\n\r\n", b"\xff\xfe", b""):
+            self.assertIsNone(egress.parse_connect(bad))
+
+    def test_sni_from_a_real_client_hello(self):
+        self.assertEqual(egress.sni_of(client_hello("chatgpt.com")), "chatgpt.com")
+        self.assertIsNone(egress.sni_of(b"GET / HTTP/1.1\r\n"))
+        self.assertIsNone(egress.sni_of(b"\x16\x03\x01\x00\x05\x01\x00"))
+
+    def test_addresses_refused(self):
+        for a in ("127.0.0.1", "10.1.2.3", "172.17.0.1", "192.168.5.2", "169.254.169.254", "100.64.0.1", "::1",
+                  "fe80::1", "fc00::1", "::ffff:10.0.0.1", "0.0.0.0", "224.0.0.1"):
+            self.assertIsNotNone(egress.address_refused(a), a)
+        self.assertIsNone(egress.address_refused("104.18.32.47"))
+        import ipaddress
+        self.assertIsNotNone(egress.address_refused("104.18.32.47", [ipaddress.ip_network("104.18.0.0/16")]))
+
+    def test_decisions(self):
+        px = egress.Proxy(["chatgpt.com"], "L", io.StringIO(), resolver=lambda h, p: ["104.18.32.47"])
+        self.assertEqual(px.decide("chatgpt.com", 443), ("104.18.32.47", ""))
+        self.assertEqual(px.decide("chatgpt.com", 80)[1], "port")
+        self.assertEqual(px.decide("evil.chatgpt.com", 443)[1], "not on allowlist")
+        self.assertEqual(px.decide("1.1.1.1", 443)[1], "ip literal")
+        rebind = egress.Proxy(["chatgpt.com"], "L", io.StringIO(), resolver=lambda h, p: ["104.18.32.47", "10.0.0.5"])
+        self.assertIn("refused address", rebind.decide("chatgpt.com", 443)[1])  # DNS rebinding to a private address
+
+    def _session(self, connect: bytes, first: bytes, allow=("chatgpt.com",)):
+        import socket
+        log = io.StringIO()
+        up_a, up_b = socket.socketpair()
+        px = egress.Proxy(list(allow), "L1", log, resolver=lambda h, p: ["104.18.32.47"], dial=lambda a, p: up_a)
+        c, srv = socket.socketpair()
+        t = threading.Thread(target=px.handle, args=(srv,))
+        t.start()
+        c.sendall(connect)
+        reply = c.recv(200)
+        got = b""
+        if reply.startswith(b"HTTP/1.1 200"):
+            c.sendall(first)
+            up_b.settimeout(2)
+            try:
+                got = up_b.recv(65536)
+            except OSError:
+                got = b""
+        c.close()
+        up_b.close()
+        up_a.close()
+        t.join(5)
+        return reply, got, [json.loads(x) for x in log.getvalue().splitlines()]
+
+    def test_matching_server_name_is_relayed_and_logged_without_payload(self):
+        hello = client_hello("chatgpt.com")
+        reply, got, log = self._session(b"CONNECT chatgpt.com:443 HTTP/1.1\r\n\r\n", hello)
+        self.assertTrue(reply.startswith(b"HTTP/1.1 200"))
+        self.assertEqual(got, hello)
+        self.assertEqual(log[-1]["decision"], "allowed")
+        self.assertEqual(set(log[-1]), {"at", "launch", "host", "port", "decision", "reason", "up", "down"})
+
+    def test_fronted_server_name_never_reaches_upstream(self):
+        reply, got, log = self._session(b"CONNECT chatgpt.com:443 HTTP/1.1\r\n\r\n", client_hello("evil.example"))
+        self.assertEqual(got, b"")
+        self.assertIn("server name differs", log[-1]["reason"])
+        reply, got, log = self._session(b"CONNECT chatgpt.com:443 HTTP/1.1\r\n\r\n", b"plain bytes")
+        self.assertEqual((got, log[-1]["reason"]), (b"", "no TLS ClientHello"))
+
+    def test_off_list_and_non_connect_are_refused(self):
+        reply, _, log = self._session(b"CONNECT example.com:443 HTTP/1.1\r\n\r\n", b"")
+        self.assertTrue(reply.startswith(b"HTTP/1.1 403"))
+        self.assertEqual(log[-1]["reason"], "not on allowlist")
+        reply, _, log = self._session(b"GET http://chatgpt.com/ HTTP/1.1\r\n\r\n", b"")
+        self.assertTrue(reply.startswith(b"HTTP/1.1 405"))
+
+
+class Containers(Tmp):
+    CFG = {"container": {"image": "cr-bench-agent:1"}}
+
+    def ws(self):
+        repo, scratch, priv = self.d / "r", self.d / "s", self.d / "p"
+        for x in (repo, scratch, priv):
+            x.mkdir()
+        return {"workspace": repo, "scratch": scratch, "private": priv}
+
+    def test_hardening_is_complete(self):
+        f = " ".join(container.hardening(container.settings(self.CFG)))
+        for flag in ("--cap-drop ALL", "no-new-privileges", "--read-only", "--init", "apparmor=cr-bench-bwrap",
+                     "seccomp=", "--pids-limit", "--memory", "--cpus", "--tmpfs /tmp:"):
+            self.assertIn(flag, f)
+        self.assertNotIn("privileged", f)
+        self.assertNotIn("unconfined", " ".join(container.hardening({**container.settings(self.CFG),
+                                                                     "systempaths_unconfined": False})))
+
+    def test_agent_argv_mounts_only_its_own_dirs_with_opaque_names(self):
+        ws = self.ws()
+        s = container.settings(self.CFG)
+        a = container.agent_argv(s, "sha256:img", "abc123", "lbl", "checker", ws, self.d / "env", ["codex"], "crb-abc123-net")
+        j = " ".join(a)
+        self.assertIn(f"src={ws['workspace']},dst=/work/repo,readonly", j)
+        self.assertIn(f"src={ws['scratch']},dst=/work/scratch", j)
+        self.assertIn(f"src={ws['private']},dst=/work/private", j)
+        self.assertEqual(j.count("--mount"), 3)
+        self.assertIn("--hostname sandbox", j)
+        self.assertIn("--dns 127.0.0.1", j)
+        self.assertNotIn("-e ", j)  # environment only through the owner-only env file
+        author = " ".join(container.agent_argv(s, "sha256:img", "abc123", "lbl", "author", {**ws, "scratch": None},
+                                               self.d / "env", ["claude"], "n"))
+        self.assertNotIn("readonly", author)
+        with self.assertRaises(Refused):
+            container.mount(Path("/tmp/a,dst=/etc"), "/work/repo", ro=True)
+
+    def test_proxy_argv_and_names(self):
+        n = container.names("abc")
+        self.assertEqual(set(n.values()), {"crb-abc", "crb-abc-px", "crb-abc-net"})
+        a = " ".join(container.proxy_argv(container.settings(self.CFG), "img", "abc", "lbl", self.d,
+                                          ["chatgpt.com"], ["172.17.0.0/16"]))
+        self.assertIn("egress.py 3128 abc /log/egress.jsonl chatgpt.com --deny-net 172.17.0.0/16", a)
+        self.assertIn("--cap-drop ALL", a)
+        self.assertNotIn("systempaths", a)
+
+    def test_env_file_holds_no_host_environment(self):
+        priv = self.d / "priv"
+        priv.mkdir()
+        with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-x", "SECRET_HOST_VAR": "1"}):
+            env = ag.container_env({"kind": "stub", "isolation": {"env": {"A": "1"}}}, priv)
+        self.assertEqual(env["PATH"], ag.IMAGE_PATH)
+        self.assertEqual(env["TMPDIR"], "/tmp")
+        self.assertTrue(env["HOME"].startswith("/work/private/"))
+        self.assertNotIn("SECRET_HOST_VAR", env)
+        self.assertNotIn("OPENAI_API_KEY", env)
+        p = container.write_env_file(priv / ".env", env)
+        self.assertEqual(p.stat().st_mode & 0o077, 0)
+        with self.assertRaises(Refused):
+            container.write_env_file(priv / ".e2", {"X": "a\nB=c"})
+
+    def test_in_container_cli_args_use_fixed_paths_and_deny_the_sign_in_dir(self):
+        agents = read_json(HERE / "agents.json")
+        c = " ".join(ag.container_args(ag.effective(agents["codex"], "codex"), "checker", True))
+        self.assertIn('"/work/private"="deny"', c)
+        self.assertIn('"/work/repo"="read"', c)
+        self.assertIn("-C /work/repo", c)
+        self.assertIn("permissions.control-rod.network.enabled=false", c)
+        cl = ag.container_args(ag.effective(agents["claude"], "claude"), "author", False)
+        st = json.loads(cl[cl.index("--settings") + 1])
+        self.assertEqual(st["sandbox"]["filesystem"]["denyRead"], ["/work/private"])
+        self.assertEqual(st["sandbox"]["network"]["allowedDomains"], [])
+        self.assertTrue(st["sandbox"]["failIfUnavailable"])
+
+    def test_real_agents_need_the_container(self):
+        with self.assertRaises(Refused):
+            ag._real_call({"kind": "codex"}, "author", "", {}, self.d, 1)
+        cfg = read_json(HERE / "configs" / "fixture.json")
+        agents = read_json(HERE / "agents.json")
+        cfg["authors"] = ["claude", "codex"]
+        cp, ap = self.d / "c.json", self.d / "a.json"
+        write_json(cp, cfg)
+        write_json(ap, agents)
+        with self.assertRaises(Refused):
+            manifest.init_study(Study(self.d / "s1"), cp, ap)  # no container image
+        cfg["container"] = {"image": "cr-bench-agent:1"}
+        agents["codex"]["egress"] = ["*.openai.com"]
+        write_json(cp, cfg)
+        write_json(ap, agents)
+        with self.assertRaises(Refused):
+            manifest.init_study(Study(self.d / "s2"), cp, ap)  # a wildcard allowlist
+
+    def test_seccomp_profile_is_derived_from_the_pinned_source(self):
+        sys.path.insert(0, str(HERE / "container"))
+        import make_seccomp
+        self.assertEqual(make_seccomp.build(), (HERE / "container" / "seccomp-userns.json").read_bytes())
+        prof = json.loads((HERE / "container" / "seccomp-userns.json").read_bytes())
+        self.assertEqual(prof["defaultAction"], "SCMP_ACT_ERRNO")
+        self.assertIn("unshare", prof["syscalls"][-1]["names"])
+
+    @unittest.skipUnless(shutil.which("docker") and subprocess.run(["docker", "info"], capture_output=True).returncode == 0
+                         and subprocess.run(["docker", "image", "inspect", "cr-bench-agent:1"], capture_output=True).returncode == 0,
+                         "needs a running container runtime and the built cr-bench-agent:1 image")
+    def test_live_boundary_in_the_real_image(self):
+        cfg = {"container": {"image": "cr-bench-agent:1"}, "caps": {}}
+        img = container.image_id("cr-bench-agent:1")
+        root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
+        agent = {"kind": "codex", "egress": ["chatgpt.com"], "login_store": {"mode": "none"}, "isolation": {}}
+        r = cprobe.boundary_probes(cfg, "test", agent, img, root, self.d / "bp", "checker", [str(Path.home())])
+        failed = [k for k, v in r["checks"].items() if not v and k != "vendor endpoint reachable"]
+        self.assertEqual(failed, [], r)
+        self.assertEqual(container.reconcile("test"), [])
 
 
 class Grading(Tmp):

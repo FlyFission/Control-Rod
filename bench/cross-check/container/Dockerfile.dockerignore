@@ -1,0 +1,4 @@
+*
+!container/package.json
+!container/package-lock.json
+!crbench/egress.py

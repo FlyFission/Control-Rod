@@ -16,5 +16,6 @@
                      "tests.py", "*/tests.py", "test/*", "*/test/*", "testing/*"],
   "stability": {"rule": "min(n, max(12, ceil(0.10 n)))"},
   "stats": {"bootstrap_B": 2000},
+  "container": {"image": "cr-bench-agent:1", "cpus": "2", "memory": "4g", "pids": 512, "tmp_size": "1g", "systempaths_unconfined": true},
   "prices": null
 }

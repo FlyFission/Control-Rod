@@ -61,7 +61,10 @@
         "Task",
         "mcp__"
       ]
-    }
+    },
+    "egress": [
+      "api.anthropic.com"
+    ]
   },
   "codex": {
     "kind": "codex",
@@ -190,7 +193,11 @@
       "openai_base_url": [
         "https://chatgpt.com/backend-api/codex"
       ]
-    }
+    },
+    "egress": [
+      "chatgpt.com",
+      "auth.openai.com"
+    ]
   },
   "stub-a": {
     "kind": "stub",

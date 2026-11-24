@@ -19,7 +19,8 @@ import time
 from pathlib import Path
 
 from . import confine
-from .common import HERE, Refused, read_json, sha256_file
+from . import container as ctr
+from .common import HERE, Refused, read_json
 
 BILLING_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "OPENAI_API_KEY", "OPENAI_BASE_URL",
                "CODEX_API_KEY", "AZURE_OPENAI_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
@@ -438,33 +439,74 @@ def run_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, time
     return rec
 
 
-def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, timeout: int) -> dict:
-    kind = agent["kind"]
-    priv = Path(ws["private"])
-    last = priv / "last-message.txt"
-    env = clean_env(login_store(agent, priv))
+IMAGE_PATH = "/usr/local/bin:/usr/bin:/bin"
+
+
+def container_env(agent: dict, priv: Path) -> dict:
+    """The call's environment inside its container: built from nothing, never from the host's.
+    The sign-in copy and HOME live under /work/private, which each CLI's own sandbox denies to
+    tool processes; TMPDIR is the container's tmpfs."""
+    host = login_store(agent, priv)
+    env = {"PATH": IMAGE_PATH, "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": "/tmp"}
+    for k, v in host.items():
+        if k == "TMPDIR":
+            continue
+        env[k] = v.replace(str(priv), ctr.PRIVATE, 1) if isinstance(v, str) and v.startswith(str(priv)) else v
     env.update(agent.get("isolation", {}).get("env", {}))
-    binp = resolve_bin(agent)
-    if not binp:
-        return {"status": "infra_error", "why": f"{kind} CLI not found", "usage": norm_usage(kind, None)}
-    if agent.get("pin_sha256") and sha256_file(binp) != agent["pin_sha256"]:
-        raise Refused("§9 versions", f"{kind} CLI binary differs from the one preflight pinned; the run stops")
-    deny = cli_denies(ws)
-    if kind == "claude":
-        args = [binp, *claude_args(agent, role, ws["workspace"], ws.get("scratch"), deny)]
-    elif kind == "codex":
-        args = [binp, *codex_args(agent, role, ws["workspace"], ws.get("scratch"), deny, last)]
-    else:
-        raise SystemExit(f"unknown agent kind {kind}")
-    if confine.wraps_agents():
-        c = confinement_for(role, ws)
-        argv, conf = confine.wrap(args, deny_read=c["deny_read"], allow_read=c["allow_read"] + [str(Path(binp).parent)],
-                                  writable=c["writable"], read_only=c["read_only"], network=True)
-    else:  # macOS: Seatbelt cannot nest, so the CLI's own sandbox is the boundary (confine.py)
-        argv, conf = args, {"mechanism": "cli-native", "outer": confine.mechanism(), "deny_read": len(deny)}
+    for k in BILLING_ENV:
+        env.pop(k, None)
+    return env
+
+
+def container_args(agent: dict, role: str, scratch: bool) -> list[str]:
+    """The CLI's argv inside the container: fixed paths, and its own sandbox denying /work/private
+    (sign-in copy, HOME, session files) to every tool process."""
+    sc = Path(ctr.SCRATCH) if scratch else None
+    if agent["kind"] == "claude":
+        return ["claude", *claude_args(agent, role, Path(ctr.REPO), sc, [ctr.PRIVATE])]
+    if agent["kind"] == "codex":
+        return ["codex", *codex_args(agent, role, Path(ctr.REPO), sc, [ctr.PRIVATE],
+                                     Path(ctr.PRIVATE) / "last-message.txt")]
+    raise SystemExit(f"unknown agent kind {agent['kind']}")
+
+
+def _container_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, timeout: int) -> dict:
+    """One real call in its own container (container.py). Returns after the container, its proxy
+    and its network are removed, so nothing it started can still write."""
+    cx = agent["_container"]
+    priv = Path(ws["private"])
+    if ctr.image_id(cx["image"]) != cx["image"]:
+        raise Refused("§9 versions", "the agent image differs from the one preflight pinned; the run stops")
+    env = container_env(agent, priv)
+    args = container_args(agent, role, bool(ws.get("scratch")))
     (call_dir / "argv.json").write_text(json.dumps(args[1:], indent=1))
     so, se = call_dir / "stdout.jsonl", call_dir / "stderr.txt"
-    code, stop = run_proc(argv, ws["workspace"], prompt, timeout, env, so, se, pid_file=call_dir / "pgid")
+    with ctr.Call(cx["cfg"], cx["image"], cx["lid"], cx["label"], call_dir, agent.get("egress") or [],
+                  cx["root"]) as c:
+        env.update(c.proxy_env())
+        env_file = ctr.write_env_file(priv / ".env", env)
+        argv = c.argv(role, ws, env_file, args)
+        try:
+            code, stop = run_proc(argv, call_dir, prompt, timeout, ctr.docker_env(), so, se, pid_file=call_dir / "pgid")
+        finally:
+            env_file.unlink(missing_ok=True)
+    log = ctr.egress_log(call_dir)
+    conf = {"mechanism": "container", "image": cx["image"], "apparmor": ctr.APPARMOR,
+            "egress": {"allowed": sorted({e["host"] for e in log if e.get("decision") == "allowed"}),
+                       "denied": sorted({f"{e.get('host')}: {e.get('reason')}" for e in log
+                                         if e.get("decision") != "allowed"})}}
+    return finish_real(agent, role, timeout, priv / "last-message.txt", so, se, code, stop, conf)
+
+
+def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, timeout: int) -> dict:
+    if agent.get("_container"):
+        return _container_call(agent, role, prompt, ws, call_dir, timeout)
+    raise Refused("§4 container", "real agent calls run only in the per-call container (DESIGN-v3.4-proposal.md)")
+
+
+def finish_real(agent: dict, role: str, timeout: int, last: Path, so: Path, se: Path, code, stop, conf: dict) -> dict:
+    """Parse a finished CLI call's output into a record (§5 failure taxonomy)."""
+    kind = agent["kind"]
     timed_out = stop == "timeout"
     rec: dict = {"exit": code, "confinement": conf}
     if stop == "output cap":

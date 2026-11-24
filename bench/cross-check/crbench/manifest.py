@@ -75,6 +75,13 @@ def init_study(study: Study, config_path: Path, agents_path: Path = HERE / "agen
             raise Refused("§5", f"author {a!r} is not in agents.json")
     if agents[cfg["authors"][0]].get("vendor") == agents[cfg["authors"][1]].get("vendor"):
         raise Refused("§1", "the two authors must come from different vendors")
+    for a in cfg["authors"]:
+        if agents[a]["kind"] != "stub":
+            if not (cfg.get("container") or {}).get("image"):
+                raise Refused("§4 container", "real agents run only in the per-call container; set container.image")
+            hosts = agents[a].get("egress")
+            if not hosts or any("*" in h or not h or h != h.lower() for h in hosts):
+                raise Refused("§4 network", f"{a}: egress must list exact lower-case host names, no wildcards")
     frozen = {
         "config": cfg,
         "agents": {a: agents[a] for a in cfg["authors"]},

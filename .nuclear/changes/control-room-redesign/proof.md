@@ -19,6 +19,14 @@ At opening, the change is the plan only. Results per step are added here as each
 | Plan graded blind, round 3 (v3) | 65.4, 70.6, 69.1 |
 | `python3 tools/check_originality.py` | pass |
 | `ng.py validate --strict-custody` on this packet | pass |
+| Step 2e, hybrid layers: `python3 tools/cut_plant_layers.py` (masks ingested once with `--ingest`) | 38 files plus manifest, WebP quality 84 chosen by bisection |
+| Plant art budget, `apps/web/public/plant/` | 1384465 bytes of 1,500,000 (was 1,348,282) |
+| Digests | every input and output sha256 in `apps/web/public/plant/manifest.json`; Blender mask digests in `design/art/source/hybrid/masks/ingest.json` |
+| `cd apps/web && pnpm -s vitest run` | 69 files, 761 tests pass (baseline 68 / 756; new `plant-art.test.ts` checks manifest, digests, offsets, budget, anchors; scene tests check lit, figures, front stacking and garb) |
+| `pnpm -s tsc --noEmit -p tsconfig.json` | pass |
+| `node tools/check_plant_contrast.mjs` against `vite` | pass, 147 text runs, worst 11.15:1; the harness now centres the reactor plate and hides the SCRAM banner while sampling, which removed the "Reactor" artifact |
+| Screenshots (Playwright, 1440x900 at 2x, 390 at 2x): healthy, crowded room with "+N more", SCRAM, phone | `/mnt/project-files/control-rod/step2e/` |
+| `git diff --check`, `tools/check_originality.py`, `tools/check_offline_assets.py` | pass |
 
 ## Required links
 

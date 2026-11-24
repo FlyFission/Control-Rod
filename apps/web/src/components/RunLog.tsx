@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { Run } from "../api/types.js";
+import { useActionLock } from "../lib/scramLock.js";
 import { isVisible } from "../lib/live.js";
 import { type Passkeys, browserPasskeys, signOverride, signReconcile } from "../lib/decide.js";
 import { time } from "../lib/format.js";
@@ -72,6 +73,7 @@ export function canRequeue(run: Run): boolean {
  */
 function Reconcile({ packageId, run, passkeys }: { packageId: string; run: Run; passkeys: Passkeys }) {
   const qc = useQueryClient();
+  const scramLock = useActionLock();
   const [reason, setReason] = useState("");
   const go = useMutation({
     mutationFn: () => signReconcile({ packageId, runId: run.id, reason }, passkeys),
@@ -88,7 +90,7 @@ function Reconcile({ packageId, run, passkeys }: { packageId: string; run: Run; 
         Why will this run never report?
       </label>
       <textarea id={`reconcile-${run.id}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
-      <button type="button" className="btn small" disabled={reason.trim().length === 0 || go.isPending} onClick={() => go.mutate()}>
+      <button type="button" className="btn small" disabled={reason.trim().length === 0 || go.isPending || scramLock.locked} title={scramLock.why} onClick={() => go.mutate()}>
         Sign with passkey and reconcile
       </button>
       {go.isError && (
@@ -147,6 +149,7 @@ export function RunActions({ packageId, run, showStop = true }: { packageId: str
   };
   const requeue = useMutation({ mutationFn: () => api.requeueRun(packageId, run.id), onSuccess: done });
   const stop = useMutation({ mutationFn: () => api.stopRun(packageId, run.id), onSuccess: done });
+  const scramLock = useActionLock();
   if (!canRequeue(run) && !offeredStop) return null;
   const failed = requeue.error ?? stop.error;
   return (
@@ -157,7 +160,7 @@ export function RunActions({ packageId, run, showStop = true }: { packageId: str
         </button>
       )}
       {canRequeue(run) && (
-        <button type="button" className="btn small" disabled={requeue.isPending} onClick={() => requeue.mutate()}>
+        <button type="button" className="btn small" disabled={requeue.isPending || scramLock.locked} title={scramLock.why} onClick={() => requeue.mutate()}>
           Requeue this run
         </button>
       )}

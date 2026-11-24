@@ -104,6 +104,25 @@ function PhoneBar({
     if (!moreOpen) return;
     sheet.current?.querySelector<HTMLElement>("a, button")?.focus();
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Tab" && sheet.current) {
+        // A modal sheet keeps Tab inside itself: wrap from the last control to the first and back.
+        const items = [...sheet.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")];
+        if (items.length === 0) return;
+        const first = items[0]!;
+        const last = items[items.length - 1]!;
+        const at = document.activeElement;
+        if (!sheet.current.contains(at)) {
+          e.preventDefault();
+          first.focus();
+        } else if (e.shiftKey && at === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && at === last) {
+          e.preventDefault();
+          first.focus();
+        }
+        return;
+      }
       if (e.key !== "Escape" || e.defaultPrevented) return;
       e.preventDefault();
       setMoreOpen(false);
@@ -117,7 +136,7 @@ function PhoneBar({
   return (
     <>
       {moreOpen && (
-        <div className="more-scrim" onClick={() => setMoreOpen(false)}>
+        <div className="more-scrim" onClick={() => { setMoreOpen(false); moreBtn.current?.focus(); }}>
           <div
             ref={sheet}
             className="more-sheet"
@@ -639,7 +658,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         </header>
 
         {/* On every screen: a SCRAM locks actions in its scope; a drill locks the same way, since it stops work for real. */}
-        {scrams && scrams.length > 0 && <ScramBanner presenting={presenting} />}
+        <ScramBanner presenting={presenting} />
 
         <main id="main" className="content" tabIndex={-1}>
           {children}

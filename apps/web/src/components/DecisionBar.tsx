@@ -6,6 +6,7 @@ import { decisionLabel, NEEDS_REASON, browserPasskeys, decide, type Passkeys } f
 import { shortDigest } from "../lib/format.js";
 import { useOfferedActions } from "../lib/offered.js";
 import { needsIndependentCheck } from "../lib/board.js";
+import { useActionLock } from "../lib/scramLock.js";
 import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
 import "../pages/screens.css";
 
@@ -23,6 +24,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   const pkg = view.package;
   // The server's actions with the acceptance rule applied (ruling 16), the same rule the board uses.
   const actions = useOfferedActions(pkg);
+  const scramLock = useActionLock(pkg.project);
   const label = (k: DecisionKind) => decisionLabel(k);
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [reason, setReason] = useState("");
@@ -42,6 +44,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   }, [pending, actions.isSuccess, allowed]);
 
   async function sign(kind: DecisionKind) {
+    if (scramLock.locked) return;
     setBusy(true);
     setError(null);
     setDone(null);
@@ -126,7 +129,8 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
               type="button"
               className={k === "accept" || k === "release" ? "btn primary" : k === "reject" ? "btn danger" : "btn ghost"}
               onClick={() => choose(k)}
-              disabled={busy || !current}
+              disabled={busy || !current || scramLock.locked}
+              title={scramLock.why}
             >
               {label(k)}
             </button>
@@ -147,7 +151,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
             <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
           <div className="decide-buttons">
-            <button type="button" className="btn primary" onClick={() => void sign(pending)} disabled={busy || !pendingAllowed || reason.trim().length === 0}>
+            <button type="button" className="btn primary" onClick={() => void sign(pending)} disabled={busy || !pendingAllowed || scramLock.locked || reason.trim().length === 0} title={scramLock.why}>
               Sign: {label(pending)}
             </button>
             <button type="button" className="btn ghost" onClick={() => setPending(null)} disabled={busy}>

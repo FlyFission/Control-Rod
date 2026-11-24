@@ -31,6 +31,8 @@ export function inTypingContext(target: EventTarget | null): boolean {
  */
 export function QuickAdd() {
   const scramLock = useActionLock();
+  const lockedRef = useRef(scramLock.locked);
+  lockedRef.current = scramLock.locked;
   const qc = useQueryClient();
   const mode = useMode();
   const activeProject = useActiveProject();
@@ -61,6 +63,7 @@ export function QuickAdd() {
       if (!singleKeysOn()) return;
       if (inTypingContext(e.target)) return;
       if (document.querySelector(OPEN_MODAL)) return;
+      if (lockedRef.current) return;
       e.preventDefault();
       setOpen(true);
       input.current?.focus();

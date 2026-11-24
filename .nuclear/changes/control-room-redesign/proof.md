@@ -126,3 +126,11 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - Fix (tool only, no layout change): the check reads the scene at the top of its scroll and again with the reactor centred. A label counts only where it is on screen and not covered by chrome outside the scene, and each label keeps its worst reading. Run counts match the earlier single pass (42, 44, 44, 17).
 - Result: PASS, 147 text runs, all at least 4.5:1 (busy 1440 worst 11.06, tooltip 10.32, SCRAM 11.33, phone 7.36).
 - Dead CSS: `.today-grid` removed from styles.css. The other `.signin*` and `.today-*` rules are still referenced. vitest 80 files / 864 tests, tsc clean.
+
+## SCRAM locks, phone cockpit, focus (review fixes, Nov 24)
+
+- SCRAM lock: DecisionBar (decisions and the pending Sign), CardActions (primary button, every menu decision, reason Sign), CaptureCard and CaptureDrawer (Classify, Retry intake) and RunLog Requeue now read `useActionLock` and are disabled with the lock's reason; Stop stays open (it only stops work). QuickAdd's `c` key is blocked while locked, and the Board empty-state button is disabled and no longer clicks a disabled `.places-cta`. `components/scram-locks.test.tsx` checks each control under an organization SCRAM and a project SCRAM.
+- Shell mounts the SCRAM banner always, so its load-error alert shows when `/scrams` fails (test). The phone More sheet traps Tab, and closing by the scrim returns focus to More (tests). BoardReviewDrawer returns focus to its opener on close (test).
+- Phone cockpit: `dock.ts` docks the drawer below the top bar and any banner (the lowest edge of main, `.topbar`, `.scram-banner`); the `top: 0` override at 820 px is removed, so the SCRAM button and banner stay reachable.
+- board.css: the drag trash target no longer scales or transitions under reduced motion; the Board empty state is a solid card with an accent edge (no dashed box); the full digest shows in the cockpit (wrapping, monospace); strip and output buttons are 44 px tall on a phone.
+- Tests: vitest 81 files, 880 pass; tsc clean. The new always-mounted banner alerts when `/scrams` is unmocked, so newwork.test.tsx mocks it.

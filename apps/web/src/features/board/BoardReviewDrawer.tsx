@@ -41,6 +41,15 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
   const copy = MODE_COPY[mode];
   const asideRef = useRef<HTMLElement>(null);
   useDockTop(asideRef);
+  // Closing hands focus back to whatever opened the drawer (the card or button), if it is still on the page.
+  const opener = useRef<Element | null>(null);
+  if (opener.current === null && typeof document !== "undefined") opener.current = document.activeElement;
+  useEffect(() => {
+    return () => {
+      const el = opener.current;
+      if (el instanceof HTMLElement && el.isConnected && el !== document.body) el.focus();
+    };
+  }, []);
   const [detail, setDetail] = useState<Detail | null>(null);
   const q = useQuery({
     queryKey: ["package", packageId],

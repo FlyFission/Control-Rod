@@ -4,6 +4,7 @@ import Markdown from "react-markdown";
 import { api, explain } from "../../api/client.js";
 import type { CaptureView, DataLane } from "../../api/types.js";
 import { LanePicker } from "../../components/LanePicker.js";
+import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
 import { captureLine, captureSummaryText } from "./CaptureCard.js";
 
@@ -22,6 +23,7 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
   const shown = splitAttachments(capture.text);
   const summary = captureSummaryText(shown.text) || shown.files.join(", ");
   const line = captureLine(capture);
+  const scramLock = useActionLock();
   const [lane, setLane] = useState<DataLane>(capture.lane ?? "internal");
 
   useEffect(() => {
@@ -131,7 +133,8 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
               <button
                 type="button"
                 className="btn primary small"
-                disabled={classify.isPending}
+                disabled={classify.isPending || scramLock.locked}
+                title={scramLock.why}
                 onClick={() => classify.mutate()}
               >
                 {classify.isPending ? "Classifying…" : "Classify & start intake"}
@@ -159,7 +162,8 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
                 <button
                   type="button"
                   className="btn primary small"
-                  disabled={requeue.isPending}
+                  disabled={requeue.isPending || scramLock.locked}
+                  title={scramLock.why}
                   onClick={() => requeue.mutate()}
                 >
                   {requeue.isPending ? "Retrying…" : "Retry intake"}

@@ -10,6 +10,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import shutil
@@ -805,6 +806,13 @@ class Egress(unittest.TestCase):
         self.assertEqual(len(rows), 3)
         self.assertLessEqual(len(rows[1]["host"]), 253)
 
+    def test_every_byte_is_charged_before_it_is_sent(self):
+        px = egress.Proxy(["chatgpt.com"], "L", io.StringIO(), max_bytes=100)
+        self.assertTrue(px.charge(60))
+        self.assertFalse(px.charge(41))  # the hello and any buffered bytes count too
+        self.assertTrue(px.charge(40))
+        self.assertFalse(px.charge(1))
+
     def test_off_list_and_non_connect_are_refused(self):
         reply, _, log = self._session(b"CONNECT example.com:443 HTTP/1.1\r\n\r\n", b"")
         self.assertTrue(reply.startswith(b"HTTP/1.1 403"))
@@ -927,7 +935,7 @@ class Containers(Tmp):
         agents = read_json(HERE / "agents.json")
         store = self.d / "codex-store"
         store.mkdir()
-        (store / "auth.json").write_text(json.dumps({"tokens": {"refresh_token": "r1"}}))
+        (store / "auth.json").write_text(json.dumps({"tokens": {"access_token": "a", "refresh_token": "r1"}}))
         a = ag.effective(agents["codex"], "codex")
         a["login_store"] = {**a["login_store"], "source": str(store)}
         priv = self.d / "priv"
@@ -936,18 +944,50 @@ class Containers(Tmp):
         self.assertFalse(ag.write_back_login(a, priv))  # unchanged
         (priv / "login" / "auth.json").write_text("{half")
         self.assertFalse(ag.write_back_login(a, priv))  # never a broken file
-        (priv / "login" / "auth.json").write_text(json.dumps({"tokens": {"refresh_token": "r2"}}))
+        (priv / "login" / "auth.json").write_text(json.dumps({"tokens": {"access_token": "a", "refresh_token": "r2"}}))
         self.assertTrue(ag.write_back_login(a, priv))
         self.assertIn("r2", (store / "auth.json").read_text())
         self.assertEqual((store / "auth.json").stat().st_mode & 0o077, 0)
         self.assertFalse(ag.write_back_login({**a, "login_store": {**a["login_store"], "write_back": False}}, priv))
 
+    def test_write_back_guards(self):
+        agents = read_json(HERE / "agents.json")
+        store = self.d / "codex-store"
+        store.mkdir()
+        good = {"tokens": {"access_token": "a", "refresh_token": "r1"}}
+        (store / "auth.json").write_text(json.dumps(good))
+        a = ag.effective(agents["codex"], "codex")
+        a["login_store"] = {**a["login_store"], "source": str(store)}
+
+        def checkout():
+            priv = Path(tempfile.mkdtemp(dir=self.d))
+            ag.login_store(a, priv)
+            return priv
+        priv = checkout()  # a refresh that turned into an API key is never written back
+        (priv / "login" / "auth.json").write_text(json.dumps({**good, "OPENAI_API_KEY": "sk-x"}))
+        self.assertFalse(ag.write_back_login(a, priv))
+        priv = checkout()  # the store moved on during the call: no rollback
+        (priv / "login" / "auth.json").write_text(json.dumps({"tokens": {"access_token": "a", "refresh_token": "r2"}}))
+        (store / "auth.json").write_text(json.dumps({"tokens": {"access_token": "b", "refresh_token": "r9"}}))
+        self.assertFalse(ag.write_back_login(a, priv))
+        self.assertIn("r9", (store / "auth.json").read_text())
+        priv = checkout()  # a container that swaps the login directory for a link reaches nothing
+        other = self.d / "elsewhere"
+        other.mkdir()
+        (other / "auth.json").write_text(json.dumps({"tokens": {"access_token": "x", "refresh_token": "stolen"}}))
+        shutil.rmtree(priv / "login")
+        (priv / "login").symlink_to(other)
+        self.assertFalse(ag.write_back_login(a, priv))
+        self.assertNotIn("stolen", (store / "auth.json").read_text())
+        home_codex = self.home / ".codex"  # the owner's everyday store is never a write-back target
+        home_codex.mkdir()
+        self.assertFalse(ag._store_ok_for_write_back(home_codex))
+        self.assertTrue(ag._store_ok_for_write_back(store))
+
     def test_local_file_may_move_the_sign_in_only(self):
         agents = read_json(HERE / "agents.json")
-        lp = HERE / "agents.local.json"
-        if lp.exists():
-            self.skipTest("a real agents.local.json is present")
-        try:
+        lp = self.d / "agents.local.json"  # never the repository's own file
+        with mock.patch.object(ag, "HERE", self.d):
             write_json(lp, {"codex": {"login_store": {"source": "/x"}}})
             e = ag.effective(agents["codex"], "codex")
             self.assertEqual((e["login_store"]["source"], e["login_store"]["mode"]), ("/x", "files"))
@@ -955,31 +995,58 @@ class Containers(Tmp):
                 write_json(lp, {"codex": bad})
                 with self.assertRaises(SystemExit):
                     ag.effective(agents["codex"], "codex")
-        finally:
-            lp.unlink(missing_ok=True)
 
     def test_admission_fails_closed(self):
         agent = ag.effective(read_json(HERE / "agents.json")["codex"], "codex")
 
-        def run_with(stdout, egress_rows, code=0):
-            def fake(*a, **kw):
-                done = [x for x in kw.get("script", a[5] if len(a) > 5 else "").split("; ") if "DONE-" in x]
-                tag = done[0].split("echo ")[-1].split("'")[0] if done else "DONE-x"
-                return {"code": code, "stdout": stdout.replace("<DONE>", tag), "stderr": "", "egress": egress_rows}
+        def run_with(edit=lambda out: out, rows=None, code=0, proxy_ip="10.9.0.2", lid="L1"):
+            seen = {}
+
+            def fake(cfg, label, ag_, image, root, script, out_dir, **kw):
+                w = {"private": self.d / "pv", "workspace": self.d / "ws"}
+                for d in w.values():
+                    shutil.rmtree(d, ignore_errors=True)
+                    d.mkdir()
+                env = ag.container_env(ag_, w["private"], sentinel=kw["sentinel"])
+                kw["prepare"](w, env)
+                text = script(proxy_ip)
+                seen["text"] = text
+                done = re.search(r"echo (DONE-[0-9a-f]+)", text).group(1)
+                n = text.count("OUTER_SECRET") // 2
+                out = "".join(f"OUTER_SECRET{i}=read\nSECRET{i}=denied\n" for i in range(n))
+                out += ("OUTER_PXTCP=open\nCTRL=200x\nPOS=read\nENV=clean\nNET=000x\nPXTCP=blocked:EPERM\n"
+                        "RAWTCP=blocked:EPERM\nWRITE=no\nPTY=ok\n" + done + "\n")
+                eg = rows if rows is not None else [
+                    {"launch": lid, "decision": "start"},
+                    {"launch": lid, "host": "chatgpt.com", "decision": "allowed", "reason": "opened"},
+                    {"launch": lid, "host": None, "decision": "denied", "reason": "empty connection"},
+                    {"launch": lid, "host": "chatgpt.com", "decision": "allowed", "reason": "closed"}]
+                return {"code": code, "stdout": edit(out), "stderr": "", "egress": eg, "lid": lid}
             with mock.patch.object(cprobe, "in_container", side_effect=fake):
-                return cprobe.admission({}, "l", agent, "img", self.d, self.d / "o", role="checker")
-        good = ("CTRL=200x\nPOS=read\nSECRET=unread\nENV=clean\nNET=000x\nPXTCP=refused\nRAWTCP=refused\n"
-                "WRITE=no\n<DONE>\nPTY=ok\n")
-        log = [{"decision": "start"}, {"host": "chatgpt.com", "decision": "allowed", "reason": "opened"},
-               {"host": "chatgpt.com", "decision": "allowed", "reason": "closed"}]
-        self.assertTrue(run_with(good, log)["ok"], run_with(good, log))
-        self.assertFalse(run_with("", log)["ok"])  # nothing printed is never a denial
-        self.assertFalse(run_with(good.replace("<DONE>\n", ""), log)["ok"])  # cut short
-        self.assertFalse(run_with(good, [])["ok"])  # no proxy log
-        self.assertFalse(run_with(good.replace("CTRL=200x", "CTRL=000x"), log)["ok"])  # no positive control
-        self.assertFalse(run_with(good, log + [{"host": "chatgpt.com", "decision": "denied", "reason": "x"}])["ok"])
-        self.assertFalse(run_with(good.replace("PXTCP=refused", "PXTCP=open"), log)["ok"])
-        self.assertFalse(run_with(good, log, code=1)["ok"])
+                r = cprobe.admission({}, "l", agent, "img", self.d, self.d / "o", role="checker")
+            return r, seen.get("text", "")
+        r, text = run_with()
+        self.assertTrue(r["ok"], r)
+        self.assertIn("http://10.9.0.2:3128", text)  # the proxy reaches the script as a literal
+        self.assertNotIn("$CR_PX", text)
+        self.assertIn("/work/private/login/auth.json", text)  # the real sign-in path, holding a sentinel
+        self.assertFalse(run_with(lambda o: "")[0]["ok"])  # nothing printed is never a denial
+        self.assertFalse(run_with(lambda o: re.sub(r"DONE-\w+\n", "", o))[0]["ok"])  # cut short
+        self.assertFalse(run_with(rows=[])[0]["ok"])  # no proxy log
+        stale = [{"launch": "OLD", "decision": "start"}]
+        self.assertFalse(run_with(rows=stale)[0]["ok"])  # another launch's log never counts
+        self.assertFalse(run_with(lambda o: o.replace("CTRL=200x", "CTRL=000x"))[0]["ok"])
+        self.assertFalse(run_with(lambda o: o.replace("OUTER_PXTCP=open", "OUTER_PXTCP=blocked:ECONNREFUSED"))[0]["ok"])
+        self.assertFalse(run_with(lambda o: o.replace("PXTCP=blocked:EPERM", "PXTCP=badinput"))[0]["ok"])
+        self.assertFalse(run_with(lambda o: o.replace("OUTER_SECRET0=read", "OUTER_SECRET0=denied"))[0]["ok"])
+        extra = [{"launch": "L1", "decision": "start"},
+                 {"launch": "L1", "host": "chatgpt.com", "decision": "allowed", "reason": "opened"},
+                 {"launch": "L1", "host": None, "decision": "denied", "reason": "empty connection"},
+                 {"launch": "L1", "host": None, "decision": "denied", "reason": "not a CONNECT request"}]
+        self.assertFalse(run_with(rows=extra)[0]["ok"])  # any other connection from inside fails it
+        self.assertFalse(run_with(code=1)[0]["ok"])
+        self.assertFalse(run_with(proxy_ip=None)[0]["ok"])  # no address: the probe cannot run
+        self.assertFalse(run_with(proxy_ip="127.0.0.1")[0]["ok"])
 
     def test_image_must_report_exactly_the_pinned_versions(self):
         def fake_for(codex_line):
@@ -1119,8 +1186,9 @@ class Grading(Tmp):
         log.write_text("1 passed in 0.1s\n")
         self.assertFalse(grading.collection_failed(log))
         task = {"FAIL_TO_PASS": ["f"], "PASS_TO_PASS": ["p"]}
-        g = grading.judge_collection_failure(task, None)
+        g = grading.judge_collection_failure(task, {})
         self.assertEqual((g["status"], g["a1_pass"], g["f2p_failed"], g["p2p_failed"]), ("graded", False, [], []))
+        self.assertEqual(grading.judge_collection_failure(task, None)["status"], "infra_error")  # map unavailable
         self.assertEqual(grading.judge_collection_failure(task, {"p": "passed"})["status"], "infra_error")
 
     def test_known_bad_target_must_be_a_plain_file_inside(self):

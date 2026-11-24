@@ -20,7 +20,7 @@ from .common import HERE, Refused, Study, load_sizing, now, read_json, sha256_by
 from .ledger import Ledger
 from .manifest import load_manifest
 from .patches import capture, identity, reapply_ok
-from .preflight import denied_paths, live_billing_check, versions_unchanged
+from .preflight import denied_paths, live_billing_check, live_runtime_check, versions_unchanged
 from .workspace import base_rev, checker_tree, commit_count, export_base, new_dir, remove, tree_hash, workspace_root
 
 TERMINAL = ("ok", "author_timeout", "inconclusive")
@@ -327,6 +327,9 @@ class Runner:
         with self.ledger.run_lock():
             if ctr.settings(self.cfg):  # containers a crash or an interrupt left behind; only under the lock
                 ctr.reconcile(self.label)
+                if self.image_pin:
+                    write_json(self.pdir / f"resume-{now().replace(':', '')}.json",
+                               live_runtime_check(self.study, self.root, self.image_pin, self.phase))
             try:
                 for t in self.manifest["block_order"]:
                     self.block(t)

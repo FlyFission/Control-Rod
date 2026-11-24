@@ -33,9 +33,11 @@ test_refreshed_codex_sign_in_is_written_back_only_to_its_own_store (bench.cross-
 test_removal_never_reads_an_unanswered_runtime_as_gone (bench.cross-check.test_bench.Containers.test_removal_never_reads_an_unanswered_runtime_as_gone) ... ok
 test_seccomp_profile_is_derived_from_the_pinned_source (bench.cross-check.test_bench.Containers.test_seccomp_profile_is_derived_from_the_pinned_source) ... ok
 test_sentinel_login_has_the_real_layout_and_no_secret (bench.cross-check.test_bench.Containers.test_sentinel_login_has_the_real_layout_and_no_secret) ... ok
+test_write_back_guards (bench.cross-check.test_bench.Containers.test_write_back_guards) ... ok
 test_addresses_refused (bench.cross-check.test_bench.Egress.test_addresses_refused) ... ok
 test_connect_parsing (bench.cross-check.test_bench.Egress.test_connect_parsing) ... ok
 test_decisions (bench.cross-check.test_bench.Egress.test_decisions) ... ok
+test_every_byte_is_charged_before_it_is_sent (bench.cross-check.test_bench.Egress.test_every_byte_is_charged_before_it_is_sent) ... ok
 test_fragmented_or_malformed_hellos_are_refused (bench.cross-check.test_bench.Egress.test_fragmented_or_malformed_hellos_are_refused) ... ok
 test_fronted_server_name_never_reaches_upstream (bench.cross-check.test_bench.Egress.test_fronted_server_name_never_reaches_upstream) ... ok
 test_matching_server_name_is_relayed_and_logged_without_payload (bench.cross-check.test_bench.Egress.test_matching_server_name_is_relayed_and_logged_without_payload) ... ok
@@ -106,10 +108,10 @@ test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 104 tests in 91.374s
+Ran 106 tests in 99.338s
 
 OK (skipped=1)
 # python3.9 --version: Python 3.9.25
-Ran 104 tests in 104.610s
+Ran 106 tests in 111.737s
 
 OK (skipped=1)

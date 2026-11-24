@@ -8,6 +8,7 @@ Rod's daemon; it can never read the other vendor's."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -144,36 +145,75 @@ def synthetic_login(agent: dict, private: Path, sentinel: str) -> dict:
     return env
 
 
+WRITE_BACK_MAX = 256 * 1024
+_CHECKOUT: dict[str, dict[str, str]] = {}  # private dir -> digest of each store file when it was copied
+
+
+def _store_ok_for_write_back(src: Path) -> bool:
+    """Write-back goes only to a dedicated store: never the owner's everyday ~/.codex, never a link."""
+    try:
+        everyday = (Path.home() / ".codex").resolve(strict=False)
+        return not src.is_symlink() and src.resolve(strict=False) != everyday and everyday not in src.resolve().parents
+    except OSError:
+        return False
+
+
+def _valid_codex_auth(j) -> bool:
+    if not isinstance(j, dict) or not isinstance(j.get("tokens"), dict):
+        return False
+    t = j["tokens"]
+    if not (isinstance(t.get("access_token"), str) and isinstance(t.get("refresh_token"), str)):
+        return False
+    if j.get("OPENAI_API_KEY") or j.get("api_key") or str(j.get("auth_mode", "")).lower().startswith("api"):
+        return False  # a refreshed sign-in never turns into a billed API key
+    return True
+
+
 def write_back_login(agent: dict, private: Path) -> bool:
     """A CLI may refresh its sign-in during a call (Codex rotates its refresh token). For a store
     marked write_back (the benchmark's own sign-in, never the owner's everyday one), the refreshed
     copy replaces the store atomically after the container is gone, so the next call starts from
-    the live token. Returns True if the store was updated."""
+    the live token. Guards: no link anywhere on the path, a size cap, the expected shape with no
+    API key, and no overwrite if the store changed since this call's copy was taken (a conflict
+    is left for the owner, never resolved by rolling back). Returns True if the store was updated."""
     ls = agent.get("login_store") or {}
     if ls.get("mode") != "files" or not ls.get("write_back"):
         return False
     src = Path(os.path.expanduser(ls["source"]))
+    checkout = _CHECKOUT.get(str(private))
+    login = private / "login"
+    if checkout is None or not _store_ok_for_write_back(src) or login.is_symlink() or not login.is_dir():
+        return False
     changed = False
     for f in ls["files"]:
-        new, old = private / "login" / f, src / f
-        if not new.is_file() or new.is_symlink():
+        new, old = login / f, src / f
+        if new.is_symlink() or old.is_symlink() or not new.is_file() or not old.is_file():
+            continue
+        if new.stat().st_size > WRITE_BACK_MAX:
             continue
         data = new.read_bytes()
-        if data == old.read_bytes():
+        cur = old.read_bytes()
+        if data == cur:
             continue
+        if hashlib.sha256(cur).hexdigest() != checkout.get(f):
+            continue  # the store moved on since this copy was taken: never roll it back
         try:
             j = json.loads(data)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             continue  # a half-written or foreign file never replaces a working sign-in
-        if not isinstance(j, dict) or not j.get("tokens"):
+        if not _valid_codex_auth(j):
             continue
         tmp = src / f".{f}.{secrets.token_hex(4)}"
-        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, old)
+        try:
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(data)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, old)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
         changed = True
     return changed
 
@@ -191,11 +231,15 @@ def login_store(agent: dict, private: Path) -> dict:
     if ls["mode"] == "files":  # e.g. an isolated CODEX_HOME holding only auth.json
         dst = private / "login"
         dst.mkdir(parents=True)
+        digests = {}
         for f in ls["files"]:
             if not (src / f).is_file() or (src / f).is_symlink():
                 raise SystemExit(f"sign-in file {f} not found (or a link) for {agent['kind']}")
-            shutil.copyfile(src / f, dst / f)
+            data = (src / f).read_bytes()
+            digests[f] = hashlib.sha256(data).hexdigest()
+            (dst / f).write_bytes(data)
             os.chmod(dst / f, 0o600)
+        _CHECKOUT[str(private)] = digests
         return {**env, ls["env"]: str(dst)}
     if ls["mode"] == "token_file":  # a `claude setup-token` subscription token in a 0600 file
         tok = read_token_file(src)
@@ -574,22 +618,25 @@ def _container_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Pat
     (call_dir / "argv.json").write_text(json.dumps(args[1:], indent=1))
     so, se = call_dir / "stdout.jsonl", call_dir / "stderr.txt"
     env_file = Path(cx["root"]) / f"env-{cx['lid']}"  # read by the docker client only, never mounted
-    with ctr.Call(cx["cfg"], cx["image"], cx["lid"], cx["label"], call_dir, agent.get("egress") or [],
-                  cx["root"], systempaths=agent["kind"] == "claude") as c:
-        env.update(c.proxy_env())
-        ctr.write_env_file(env_file, env)
-        argv = c.argv(role, ws, env_file, args)
-        try:
+    refreshed = False
+    call = ctr.Call(cx["cfg"], cx["image"], cx["lid"], cx["label"], call_dir, agent.get("egress") or [],
+                    cx["root"], systempaths=agent["kind"] == "claude")
+    try:
+        with call as c:
+            env.update(c.proxy_env())
+            ctr.write_env_file(env_file, env)
+            argv = c.argv(role, ws, env_file, args)
             code, stop = run_proc(argv, call_dir, prompt, timeout, ctr.docker_env(), so, se, pid_file=call_dir / "pgid")
-        finally:
-            env_file.unlink(missing_ok=True)
+    finally:  # the container is confirmed gone (or never started): keep a refreshed sign-in even on interrupt
+        env_file.unlink(missing_ok=True)
+        if call.removed:  # only once removal is confirmed can nothing in the container still write
+            refreshed = write_back_login(agent, priv)
     log = ctr.egress_log(call_dir)
     conf = {"mechanism": "container", "image": cx["image"], "apparmor": ctr.APPARMOR,
             "egress": {"allowed": sorted({e["host"] for e in log if e.get("decision") == "allowed"}),
                        "denied": sorted({f"{e.get('host')}: {e.get('reason')}" for e in log
                                          if e.get("decision") in ("denied", "error", "log_cap")})}}
-    env_file.unlink(missing_ok=True)
-    conf["sign_in_refreshed"] = write_back_login(agent, priv)  # the container is gone: nothing else writes
+    conf["sign_in_refreshed"] = refreshed
     return finish_real(agent, role, timeout, priv / "last-message.txt", so, se, code, stop, conf)
 
 

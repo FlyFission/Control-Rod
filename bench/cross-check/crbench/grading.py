@@ -78,7 +78,9 @@ def judge_collection_failure(task: dict, outcomes: dict | None) -> dict:
     stand in for a failing test (the known-bad control needs real per-test failures). If some
     required tests ran and others are missing, the evidence is incomplete: infra_error."""
     req = list(task["FAIL_TO_PASS"]) + list(task["PASS_TO_PASS"])
-    if outcomes and any(t in outcomes for t in req):
+    if outcomes is None:
+        return {"status": "infra_error", "why": "collection error, but the executed-test map is unavailable"}
+    if any(t in outcomes for t in req):
         return {"status": "infra_error", "why": "collection error after some required tests ran"}
     return {"status": "graded", "a1_pass": False, "resolved": False, "collection_error": True, "skipped": [],
             "p2p_failed": [], "f2p_failed": [], "why": "the test suite failed to collect before any required test ran"}
@@ -162,7 +164,9 @@ def parse_swebench_report(path: Path | None, tid: str) -> dict | None:
 
 
 def executed_map(ev: dict, snapshot: Path, tid: str, log: Path) -> dict | None:
-    """Per-test outcomes of tests that actually appear in the harness log."""
+    """Per-test outcomes of tests that actually appear in the harness log. Three states: None when
+    the map is unavailable (no log, the parser failed), {} when the log was parsed and holds no
+    test result, and the outcomes otherwise. Only {} can support a collection-error verdict."""
     if not log.exists():
         return None
     r = subprocess.run(["uv", "run", "--python", ev["python"], "--with", ev["harness"], "python", "-c", LOG_MAP,
@@ -174,7 +178,7 @@ def executed_map(ev: dict, snapshot: Path, tid: str, log: Path) -> dict | None:
     except (json.JSONDecodeError, IndexError):
         return None
     if not j.get("found"):
-        return None
+        return {}
     return {k: SWE_STATUS.get(v, "error") for k, v in j["status"].items()}
 
 
@@ -357,8 +361,9 @@ def run_controls(cfg: dict, tasks: dict, ids: list[str], root: Path, cache: Path
         elif kind == "gold":
             ok = g.get("status") == "graded" and g.get("resolved") is True
         else:  # gold passes every required test, so any failure here comes from the damage
+            # the gold patch collected and passed, so a collection error here is the damage's own
             ok = gold_ok[tid] and g.get("status") == "graded" and g.get("resolved") is False and \
-                bool(g.get("f2p_failed") or g.get("p2p_failed"))
+                bool(g.get("f2p_failed") or g.get("p2p_failed") or g.get("collection_error"))
         results[label] = {"task": tid, "kind": kind, "ok": ok,
                           "got": {k: g.get(k) for k in ("status", "a1_pass", "resolved", "why", "report_layout", "seconds")}}
         per_task.setdefault(tid, []).append(ok)

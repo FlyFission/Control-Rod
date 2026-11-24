@@ -220,8 +220,11 @@ def preflight(study: Study, phase: str, overage_off_confirmed: bool = False) -> 
             else:
                 c["inner_sandbox"], inner_ok = {"ok": False, "why": box.get("why")}, False
             c["ok_inner"] = inner_ok and bool(c["egress_allowlist"])
+        ls = a.get("login_store") or {}
+        if ls.get("write_back"):  # a refreshed token is written back only to a dedicated store
+            c["write_back_store_ok"] = ag._store_ok_for_write_back(Path(os.path.expanduser(ls["source"])))
         c["ok"] = bool(ids[name]["version"]) and not billing and c["auth"]["ok"] and c["features"]["ok"] \
-            and c.get("ok_inner", True)
+            and c.get("ok_inner", True) and c.get("write_back_store_ok", True)
         checks[name] = c
     host = {"arch": platform.machine(), "system": platform.system(), "python": platform.python_version(),
             "confinement": "container" if real else confine.mechanism(),
@@ -278,6 +281,33 @@ def live_billing_check(study: Study) -> None:
             hits = scan_billing(a)
             if hits:
                 raise Refused("§9 billing", f"{name}: {hits[0]}")
+
+
+def live_runtime_check(study: Study, root: Path, image: str, phase: str) -> dict:
+    """On every start and resume of a run with real agents, before any call: the pinned image is
+    present, agent containers are confined by the AppArmor profile in enforce mode (it does not
+    survive a VM restart), and each CLI's own status command still shows the subscription route
+    inside the image. Launches containers, so it runs only under the run lock."""
+    cfg = study.protocol()["frozen"]["config"]
+    s = ctr.settings(cfg)
+    if ctr.image_id(image) != image:
+        raise Refused("§9 versions", "the pinned agent image is not present")
+    prof = cprobe.confined_as(s, image)
+    if prof != f"{ctr.APPARMOR} (enforce)":
+        raise Refused("§4 container", f"agent containers are not confined by {ctr.APPARMOR} in enforce mode "
+                                      f"(reload container/cr-bench-bwrap.apparmor in the VM); observed {prof!r}")
+    cx = {"cfg": cfg, "label": ctr.study_label(study.dir), "image": image,
+          "out_dir": study.phase_dir(phase) / "resume-checks" / now().replace(":", "")}
+    out = {"profile": prof, "auth": {}}
+    for name in cfg["authors"]:
+        a = agent_spec(study, name)
+        if a["kind"] == "stub":
+            continue
+        st = auth_status(a, root, cx)
+        if not st["ok"]:
+            raise Refused("§9 billing", f"{name}: sign-in check failed on resume: {st.get('why')}")
+        out["auth"][name] = st["route"]
+    return out
 
 
 def denied_paths(study: Study, root: Path) -> list[str]:

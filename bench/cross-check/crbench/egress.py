@@ -207,6 +207,14 @@ class Proxy:
                 return None, f"resolved to a refused address ({why})"
         return list(dict.fromkeys(addrs)), ""
 
+    def charge(self, n: int) -> bool:
+        """Reserve n bytes of the call's total budget; False once it would be exceeded."""
+        with self.lock:
+            if self.max_bytes is not None and self.total + n > self.max_bytes:
+                return False
+            self.total += n
+            return True
+
     def _peer_ok(self, client: socket.socket) -> bool:
         if self.peers is None:
             return True
@@ -216,10 +224,10 @@ class Proxy:
             return False
         return any(ip.version == n.version and ip in n for n in self.peers)
 
-    def handle(self, client: socket.socket) -> None:
+    def handle(self, client: socket.socket, acquired: bool = False) -> None:
         host, port, up, down = None, None, 0, 0
         upstream = None
-        if not self.slots.acquire(blocking=False):
+        if not acquired and not self.slots.acquire(blocking=False):
             self.record(host=None, port=None, decision="denied", reason="connection cap", up=0, down=0)
             client.close()
             return
@@ -235,6 +243,9 @@ class Proxy:
                 if not chunk:
                     break
                 head += chunk
+            if not head:
+                self.record(host=None, port=None, decision="denied", reason="empty connection", up=0, down=0)
+                return
             target = parse_connect(head)
             if target is None:
                 client.sendall(b"HTTP/1.1 405 Method Not Allowed\r\nConnection: close\r\n\r\n")
@@ -265,6 +276,9 @@ class Proxy:
                 raise last or OSError("dial failed")
             # logged before any byte is relayed, so a connection cut off later is still on record
             self.record(host=host, port=port, decision="allowed", reason="opened", up=0, down=0)
+            if not self.charge(len(hello)):
+                self.record(host=host, port=port, decision="denied", reason="byte cap", up=0, down=0)
+                return
             upstream.sendall(hello)
             up = len(hello)
             up_more, down = self.relay(client, upstream)
@@ -293,10 +307,7 @@ class Proxy:
                     if not data:
                         clean = True
                         break
-                    with self.lock:
-                        self.total += len(data)
-                        over = self.max_bytes is not None and self.total > self.max_bytes
-                    if over:
+                    if not self.charge(len(data)):  # every byte is charged before it is forwarded
                         break
                     dst.sendall(data)
                     counts[i] += len(data)
@@ -320,7 +331,11 @@ class Proxy:
     def serve(self, listener: socket.socket) -> None:
         while True:
             c, _ = listener.accept()
-            threading.Thread(target=self.handle, args=(c,), daemon=True).start()
+            if not self.slots.acquire(blocking=False):  # a slot before a thread: a burst cannot exhaust pids
+                self.record(host=None, port=None, decision="denied", reason="connection cap", up=0, down=0)
+                c.close()
+                continue
+            threading.Thread(target=self.handle, args=(c, True), daemon=True).start()
 
 
 def local_address_in(net) -> str:

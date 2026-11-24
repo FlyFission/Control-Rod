@@ -216,6 +216,7 @@ class Call:
         self.log_dir: Path | None = None
         self.proxy_ip: str | None = None
         self.systempaths = systempaths
+        self.removed = False
 
     def __enter__(self) -> "Call":
         (self.dir / "container.json").write_text(json.dumps({"launch": self.lid, **self.n}))
@@ -257,6 +258,7 @@ class Call:
 
     def __exit__(self, *exc) -> None:
         remove(self.lid)
+        self.removed = True
         if self.log_dir is not None and self.log_dir.exists():
             dest = self.dir / "egress"
             dest.mkdir(mode=0o700, exist_ok=True)

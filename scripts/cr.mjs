@@ -537,6 +537,14 @@ async function startBackground() {
   }
   // Do not leave a launch that never became ready running unseen.
   if (child.exitCode === null && alive(child.pid)) child.kill("SIGTERM");
+  else {
+    // Another start won the race: that one is running, which is what was asked for.
+    const other = await findRunning(home, port);
+    if (other && !other.foreign) {
+      console.log(`\nControl Rod is already running at ${readRecord(home)?.url ?? appUrl()} (started by another command).`);
+      return 0;
+    }
+  }
   console.error(`\nControl Rod did not start. The end of its log (${logFile}):\n`);
   console.error(tail(logFile, 30));
   return 1;

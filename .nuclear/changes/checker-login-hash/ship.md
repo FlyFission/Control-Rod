@@ -1,6 +1,6 @@
 # Ship: Let Codex checks run on a default Mac install
 
-Release decision: **pending** the Codex blind check and the owner's yes.
+Release decision: **pending** the owner's yes. Three Codex blind rounds (verification E-03 to E-05); every finding is fixed, the last by removing tmpfs from the identity allowlist.
 
 ## Signature
 

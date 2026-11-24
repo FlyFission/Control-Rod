@@ -189,7 +189,9 @@ describe("BoardView", () => {
     await renderPage(<Page />);
     const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
     expect(within(card).getByText("Independent check")).toBeTruthy();
-    await waitFor(() => expect(within(card).getByText("Return")).toBeTruthy());
+    // Return is always open on live work, so it is not the card's next line.
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).not.toMatch(/Checking/));
+    expect(card.querySelector(".bd-next")!.textContent).not.toMatch(/Return/);
   });
 
   it("offers no Accept on Safety work that no person has verified, even when the server allows it", async () => {

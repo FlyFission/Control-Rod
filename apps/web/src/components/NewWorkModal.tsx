@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+
+import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { DataLane, WorkspaceProject } from "../api/types.js";
@@ -67,6 +69,8 @@ interface NewWorkModalProps {
  * Capture uses resolved defaults, with repository and runtime overrides in one disclosure.
  */
 export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
+  // A SCRAM in force for the organization or this project stops new work being captured (section 6.6).
+  const scramLock = useActionLock();
   const copy = MODE_COPY[mode];
   const activeProject = useActiveProject();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -341,7 +345,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (pendingCaptureSession !== null) return;
+    if (pendingCaptureSession !== null || scramLock.locked) return;
     const trimmed = objective.trim();
     if (!trimmed) {
       setError("Enter an objective or scope before capturing.");
@@ -742,7 +746,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           <button type="button" className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn primary" disabled={isCapturing}>
+          <button type="submit" className="btn primary" disabled={isCapturing || scramLock.locked} title={scramLock.why}>
             {isCapturing
               ? "Capturing…"
               : mode === "nuclear-grade"

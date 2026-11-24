@@ -83,7 +83,8 @@ const scan = async (page: Page) => {
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
 };
 
-for (const look of ["a", "b", "c"]) {
+// Looks b and c are retired; a stored one reads as a. Add a look here when one is added to tokens.css.
+for (const look of ["a"]) {
   test(`the board has no axe violations in look ${look}, live, with a blocked O6 card, and with the stream unknown`, async ({ page }) => {
     await mockBoardApi(page, look);
     await page.goto("/");
@@ -141,7 +142,8 @@ for (const look of ["a", "b", "c"]) {
   });
 }
 
-for (const look of ["a", "b", "c"]) {
+// Looks b and c are retired; a stored one reads as a. Add a look here when one is added to tokens.css.
+for (const look of ["a"]) {
   test(`the review drawer's agent panel has no axe violations in look ${look}`, async ({ page }) => {
     await mockBoardApi(page, look);
     await page.goto("/");

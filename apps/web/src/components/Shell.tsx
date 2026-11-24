@@ -1,11 +1,17 @@
-import { type ReactNode, useContext, useEffect, useState } from "react";
+import { type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AgentUpdates } from "./AgentUpdates.js";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
-import { type Look, saveLook, useLook } from "../lib/kind.js";
+import { RodGauge } from "../design/instruments/RodGauge.js";
+import { ScramBanner, useScrams } from "../features/office/Scram.js";
+import { type RodPosition, rodState } from "../features/office/plant-instruments.js";
+import { lockFrom, lockedFor, ScramLockContext } from "../lib/scramLock.js";
+import { usePresenting } from "../lib/presenting.js";
+import { useLiveStatus } from "../lib/live.js";
+import { useLook } from "../lib/kind.js";
 import { MODE_COPY, saveMode, useMode, type EngineeringMode } from "../lib/mode.js";
 import {
   hydrateServerProjects,
@@ -43,17 +49,20 @@ function loadCollapsedGroups(): Record<string, boolean> {
   }
 }
 
-const LOOKS: { id: Look; name: string }[] = [
-  { id: "a", name: "A Control room" },
-  { id: "b", name: "B Drafting table" },
-  { id: "c", name: "C Instrument panel" },
-];
-
 const MODES: { id: EngineeringMode; label: string }[] = [
   { id: "software", label: "Software" },
   { id: "capital-projects", label: "Capital Projects" },
   { id: "nuclear-grade", label: "Nuclear-Grade" },
 ];
+
+/** The rod gauge's words, beside it, so the position is never left to a small drawing. */
+const ROD_LABEL: Record<RodPosition, string> = {
+  withdrawn: "No SCRAM",
+  bank: "SCRAM: project",
+  inserted: "SCRAM: organization",
+  drill: "SCRAM drill",
+  unknown: "SCRAM unknown",
+};
 
 const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control / Setup"];
 
@@ -93,6 +102,15 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     }
   }, [projectUser, serverProjects.data]);
   const needs = inbox.data?.items.length ?? 0;
+  // SCRAM is app-wide (control room redesign, section 6.6): one read feeds the banner, the rod gauge,
+  // the frame and the locks, on every screen.
+  const presenting = usePresenting();
+  const scramRead = useScrams(presenting);
+  const scrams = scramRead.data?.scrams;
+  const lock = useMemo(() => lockFrom(scrams), [scrams]);
+  const rods = rodState({ data: scramRead.data, failed: scramRead.isError, at: scramRead.dataUpdatedAt });
+  const scramKind = scrams === undefined ? "unknown" : scrams.some((x) => !x.scram.drill) ? "trip" : scrams.length > 0 ? "drill" : "clear";
+  const live = useLiveStatus();
   const [palette, setPalette] = useState(false);
   const [newWorkOpen, setNewWorkOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -117,6 +135,9 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   useEffect(() => {
     if (activeProjectMode) saveMode(activeProjectMode);
   }, [activeProjectMode]);
+  const newLock = lockedFor(lock, activeProject);
+  const newLocked = useRef(false);
+  newLocked.current = newLock.locked;
   const modeProjects = projects.filter((p) => p.mode === mode);
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
@@ -156,7 +177,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         setHelpOpen(true);
         return;
       }
-      if (!inField && !hasBoardQuickAdd && !hasOpenOverlay && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      if (!inField && !hasBoardQuickAdd && !hasOpenOverlay && !newLocked.current && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         setNewWorkOpen(true);
       }
@@ -184,7 +205,8 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
 
   return (
-    <div className="shell" data-look={look} data-mode={mode}>
+    <ScramLockContext.Provider value={lock}>
+    <div className="shell" data-look={look} data-mode={mode} data-scram={scramKind}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -201,6 +223,8 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
           type="button"
           className="places-cta"
           onClick={() => setNewWorkOpen(true)}
+          disabled={newLock.locked}
+          title={newLock.why}
           aria-keyshortcuts="C"
         >
           <span>+ {modeCopy.newCta}</span>
@@ -349,27 +373,22 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
                     </button>
                   ))}
                 </div>
-
-                <span className="workspace-option-label">Board look</span>
-                <div className="seg" role="group" aria-label="Board look">
-                  {LOOKS.map((l) => (
-                    <button
-                      key={l.id}
-                      type="button"
-                      className={look === l.id ? "active" : ""}
-                      aria-pressed={look === l.id}
-                      title={l.name}
-                      onClick={() => saveLook(l.id)}
-                    >
-                      <span>{l.name}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
             </details>
           </div>
 
           <div className="top-right">
+            {live.status === "unknown" && (
+              <span className="shell-notlive" role="status">
+                Not live
+              </span>
+            )}
+            <span className="shell-rods" data-position={rods.position}>
+              <RodGauge position={rods.position} {...(rods.caption ? { caption: rods.caption } : {})} />
+              <span className="shell-rods-label" aria-hidden="true">
+                {ROD_LABEL[rods.position]}
+              </span>
+            </span>
             <ActiveRuns />
             <button
               type="button"
@@ -390,6 +409,9 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
           </div>
         </header>
 
+        {/* On every screen: a real trip locks actions in its scope, and a drill locks nothing. */}
+        {scrams && scrams.length > 0 && <ScramBanner presenting={presenting} />}
+
         <main id="main" className="content" tabIndex={-1}>
           {children}
         </main>
@@ -400,5 +422,6 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       {newProjectOpen && <ProjectModal open={newProjectOpen} defaultMode={mode} onClose={() => setNewProjectOpen(false)} />}
       <ShortcutHelp open={helpOpen} mac={isMac()} onClose={() => setHelpOpen(false)} />
     </div>
+    </ScramLockContext.Provider>
   );
 }

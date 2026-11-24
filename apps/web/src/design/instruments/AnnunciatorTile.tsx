@@ -6,7 +6,7 @@ export type TileLamp = "needs-you" | "trip" | "neutral";
 export type TileGlyph = "bang" | "cross" | "pause" | "diamond";
 
 /** A lit tile carries a shape as well as a colour. Waiting is a pause and input changed a diamond, both on the neutral lamp. */
-const DEFAULT_GLYPH: Record<TileLamp, TileGlyph> = { "needs-you": "bang", trip: "cross", neutral: "diamond" };
+export const DEFAULT_GLYPH: Record<TileLamp, TileGlyph> = { "needs-you": "bang", trip: "cross", neutral: "diamond" };
 
 const GLYPH_PATH: Record<TileGlyph, ReactNode> = {
   bang: <path d="M8 2 L15 14 H1 Z M8 6 V10 M8 12 V12.5" />,
@@ -14,6 +14,15 @@ const GLYPH_PATH: Record<TileGlyph, ReactNode> = {
   pause: <path d="M5 3 V13 M11 3 V13" />,
   diamond: <path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z" />,
 };
+
+/** The lit glyph on its own, for instruments that are built on the tile's visual language (the Plant's annunciator). */
+export function TileGlyphIcon({ glyph, size = 16 }: { glyph: TileGlyph; size?: number }) {
+  return (
+    <svg className="annunciator-tile-glyph" data-glyph={glyph} viewBox="0 0 16 16" width={size} height={size} aria-hidden="true" focusable="false">
+      {GLYPH_PATH[glyph]}
+    </svg>
+  );
+}
 
 export interface AnnunciatorTileProps {
   label: string;
@@ -37,11 +46,7 @@ export function AnnunciatorTile({ label, active, lamp = "neutral", glyph, readou
   const name = `${label}${readout ? `, ${readout}` : ""}, ${active ? "lit" : "clear"}`;
   return (
     <button type="button" className="annunciator-tile" data-lit={active} data-lamp={lamp} data-motion={motion} aria-label={name} onClick={onActivate}>
-      {active && (
-        <svg className="annunciator-tile-glyph" data-glyph={g} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
-          {GLYPH_PATH[g]}
-        </svg>
-      )}
+      {active && <TileGlyphIcon glyph={g} />}
       <span className="annunciator-tile-text">
         <span className="annunciator-tile-label">{label}</span>
         {readout && <span className="annunciator-tile-readout">{readout}</span>}

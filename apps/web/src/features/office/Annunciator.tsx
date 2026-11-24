@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { StateMark, type StateKind } from "../../components/StateMark.js";
+import { DEFAULT_GLYPH, type TileGlyph, TileGlyphIcon, type TileLamp } from "../../design/instruments/AnnunciatorTile.js";
 import { useVisible } from "./OfficeStage.js";
 import type { AnnunciatorWindow } from "./plant-instruments.js";
 
@@ -14,10 +14,16 @@ import type { AnnunciatorWindow } from "./plant-instruments.js";
  * confirmed readings. A window flashes three times when it comes on, never on the first reading.
  */
 
-const MARK: Partial<Record<AnnunciatorWindow["id"], StateKind>> = {
-  "waiting-on-you": "needs",
-  stuck: "stuck",
-  changed: "changed",
+/**
+ * Each window's lamp and glyph, in the tile's language (design/instruments/AnnunciatorTile.tsx): amber
+ * only for what waits on you, red only for stuck and SCRAM, and input changed a diamond on the neutral
+ * lamp. The shape is always drawn when lit, so nothing is said by colour alone.
+ */
+const LAMP: Record<AnnunciatorWindow["id"], { lamp: TileLamp; glyph: TileGlyph }> = {
+  "waiting-on-you": { lamp: "needs-you", glyph: DEFAULT_GLYPH["needs-you"] },
+  stuck: { lamp: "trip", glyph: DEFAULT_GLYPH.trip },
+  changed: { lamp: "neutral", glyph: DEFAULT_GLYPH.neutral },
+  scram: { lamp: "trip", glyph: DEFAULT_GLYPH.trip },
 };
 
 function value(w: AnnunciatorWindow): string {
@@ -86,34 +92,32 @@ export function Annunciator({ windows, scope = "", linkInbox = true, flashMs = F
     <>
       <ul className="plant-annunciator" aria-label="Annunciator" data-motion={visible ? "running" : "paused"}>
         {windows.map((w) => {
-          const mark = MARK[w.id];
+          const { lamp, glyph } = LAMP[w.id];
+          const lit = w.state === "lit";
+          const note = w.state === "loading" ? "Loading" : w.state === "unavailable" ? "Unavailable" : [w.note, w.asOf].filter(Boolean).join(", ") || (w.state === "dark" ? "Clear" : "");
           const body = (
             <>
               <span className="sr-only">{spoken(w)}</span>
+              {lit && <TileGlyphIcon glyph={glyph} size={20} />}
+              <span className="annunciator-tile-text" aria-hidden="true">
+                <span className="annunciator-tile-label plant-window-label">{w.label}</span>
+                <span className="annunciator-tile-readout plant-window-note">{note}</span>
+              </span>
               <span className="plant-window-count" aria-hidden="true">
                 {value(w)}
-              </span>
-              <span className="plant-window-label" aria-hidden="true">
-                {mark && w.state === "lit" && (
-                  <>
-                    <StateMark kind={mark} size={9} />{" "}
-                  </>
-                )}
-                {w.label}
-              </span>
-              <span className="plant-window-note" aria-hidden="true">
-                {w.state === "loading" ? "Loading" : w.state === "unavailable" ? "Unavailable" : [w.note, w.asOf].filter(Boolean).join(", ") || (w.state === "dark" ? "Clear" : "")}
               </span>
             </>
           );
           return (
             <li key={w.id} className="plant-window" data-window={w.id} data-state={w.state} data-flash={flashing.has(w.id) ? "" : undefined}>
               {w.id === "waiting-on-you" && linkInbox ? (
-                <Link to="/inbox" className="plant-window-body" title="Open the Inbox">
+                <Link to="/inbox" className="plant-window-body annunciator-tile" data-lit={lit} data-lamp={lamp} data-state={w.state} data-motion={visible ? "full" : "paused"} title="Open the Inbox">
                   {body}
                 </Link>
               ) : (
-                <span className="plant-window-body">{body}</span>
+                <span className="plant-window-body annunciator-tile" data-lit={lit} data-lamp={lamp} data-state={w.state} data-motion={visible ? "full" : "paused"}>
+                  {body}
+                </span>
               )}
             </li>
           );

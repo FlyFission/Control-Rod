@@ -83,4 +83,30 @@ describe("the annunciator's announcements and flash", () => {
       delete (document as { visibilityState?: unknown }).visibilityState;
     }
   });
+
+  it("draws each window in the instrument tile's language: dark when clear, lit with its lamp and a glyph, the count in mono", async () => {
+    const windows: AnnunciatorWindow[] = [
+      { id: "waiting-on-you", label: "Waiting on you", state: "lit", count: 3 },
+      { id: "stuck", label: "Stuck", state: "dark", count: 0 },
+      { id: "changed", label: "Input changed", state: "lit", count: 1 },
+      { id: "scram", label: "SCRAM", state: "lit", count: 1 },
+    ];
+    await renderPage(<Annunciator windows={windows} linkInbox={false} />);
+    const body = (id: string) => document.querySelector(`.plant-window[data-window="${id}"] .plant-window-body`)!;
+    // Lit windows carry the tile's lamp, and a glyph by shape: bang (needs you), diamond (changed), cross (SCRAM).
+    expect(body("waiting-on-you").getAttribute("data-lit")).toBe("true");
+    expect(body("waiting-on-you").getAttribute("data-lamp")).toBe("needs-you");
+    expect(body("waiting-on-you").querySelector('[data-glyph="bang"]')).not.toBeNull();
+    expect(body("changed").getAttribute("data-lamp")).toBe("neutral");
+    expect(body("changed").querySelector('[data-glyph="diamond"]')).not.toBeNull();
+    expect(body("scram").getAttribute("data-lamp")).toBe("trip");
+    expect(body("scram").querySelector('[data-glyph="cross"]')).not.toBeNull();
+    // A clear window is dark and has no glyph, and still names itself.
+    expect(body("stuck").getAttribute("data-lit")).toBe("false");
+    expect(body("stuck").querySelector("svg")).toBeNull();
+    expect(body("stuck").textContent).toContain("Stuck");
+    // Every window is a tile, with the count in its own mono element.
+    for (const id of ["waiting-on-you", "stuck", "changed", "scram"]) expect(body(id).classList.contains("annunciator-tile")).toBe(true);
+    expect(body("waiting-on-you").querySelector(".plant-window-count")!.textContent).toBe("3");
+  });
 });

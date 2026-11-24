@@ -3,22 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
 import type { AgentFigure } from "../../api/types.js";
-import { STATE_INFO } from "../../components/StateMark.js";
 import { AgentCard } from "./AgentCard.js";
 import { Annunciator } from "./Annunciator.js";
 import { layoutOf } from "./contract.js";
-import { ScramBanner, ScramControl } from "./Scram.js";
+import { ScramControl, useScrams } from "./Scram.js";
 import { type CauseGroup, EXCEPTIONS_AT, causeGroups, exceptionsView, portfolio } from "./exceptions.js";
 import { REGION } from "./layout.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
 import { PLANT_LAYOUT } from "./plant-layout.js";
 import { type Read, annunciator, coreState, emptyFloorNote, rodState } from "./plant-instruments.js";
-import { PlantList } from "./PlantList.js";
+import { FigureRow, PlantList } from "./PlantList.js";
 import { PlantScene } from "./plant-scene/PlantScene.js";
 import { SCENE_LAYOUT } from "./plant-scene/scene-layout.js";
-import { RodGauge } from "../../design/instruments/RodGauge.js";
-import { PLANT_THEME, archivedThemeChoices, draftBuild } from "./registry.js";
+import { setPresenting as publishPresenting } from "../../lib/presenting.js";
+import { PLANT_LABELS, archivedThemeChoices, draftBuild } from "./registry.js";
 import { seatFigures } from "./seat.js";
 
 /**
@@ -42,6 +41,8 @@ function countLine(needsMe: number, inboxItems: number): string {
 
 // The archived theme, if any, is a per member convenience: remembered in this browser for the signed
 // in member, where storage works, and never required. A new key, so everyone lands on the Plant once.
+/** The Advanced picker's value for "no archived theme: show the Plant". */
+const PLANT_CHOICE = "plant";
 const themeKey = (member: string) => `controlrod.plant.view.${member}`;
 const rememberedTheme = (member: string | undefined) => {
   if (!member) return undefined;
@@ -109,9 +110,11 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   // A choice made in this visit holds for the member who made it; another member gets their own.
   const [chosen, setChosen] = useState<{ member: string; id: string }>();
   const themeId = chosen && chosen.member === member ? chosen.id : rememberedTheme(member);
-  const theme = choices.find((t) => t.id === themeId) ?? PLANT_THEME;
-  const layout = layoutOf(theme);
-  const isPlant = layout.id === "plant";
+  // No archived theme chosen: the Plant, which is first-party art and not a theme.
+  const theme = choices.find((t) => t.id === themeId);
+  const isPlant = theme === undefined;
+  const layout = layoutOf(theme ?? {});
+  const labels = theme?.regions ?? PLANT_LABELS;
   const chooseTheme = (id: string) => {
     if (!member) return;
     setChosen({ member, id });
@@ -123,13 +126,18 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   };
   const [lens, setLens] = useState<LensId>("status");
   const [presenting, setPresenting] = useState(false);
+  // The shell shows the SCRAM banner on every screen; it needs to know when this view is presenting.
+  useEffect(() => {
+    publishPresenting(presenting);
+    return () => publishPresenting(false);
+  }, [presenting]);
   const [selected, setSelected] = useState<string>();
   const [showEveryone, setShowEveryone] = useState(false);
   // The room whose "+N" stack or count plate was used: its figures are listed under the drawing.
   const [openRoom, setOpenRoom] = useState<string>();
   const q = useQuery({ queryKey: ["office-figures", presenting], queryFn: () => api.officeFigures(presenting), refetchInterval: REFRESH_MS });
   // The same read the SCRAM banner makes (same key), so the rods and the banner never disagree.
-  const scrams = useQuery({ queryKey: ["scrams", presenting], queryFn: () => api.scrams(presenting), refetchInterval: REFRESH_MS });
+  const scrams = useScrams(presenting);
   const now = useNow();
   const [measure, width] = useWidth();
   const [listChosen, setListChosen] = useState<boolean>();
@@ -170,7 +178,6 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
         <div className="plant-title">
           <div className="plant-title-row">
             <h1 id="office-title">Plant</h1>
-            {isPlant && <RodGauge position={instruments.rods.position} {...(instruments.rods.caption ? { caption: instruments.rods.caption } : {})} />}
           </div>
           {isPlant ? (
             floor && (
@@ -180,8 +187,8 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
             )
           ) : (
             <p className="office-count">
-              Archived theme: {theme.title}.{" "}
-              <button type="button" className="link" onClick={() => chooseTheme(PLANT_THEME.id)} disabled={!member}>
+              Archived theme: {theme?.title}.{" "}
+              <button type="button" className="link" onClick={() => chooseTheme(PLANT_CHOICE)} disabled={!member}>
                 Back to the Plant
               </button>
             </p>
@@ -245,7 +252,6 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
         </div>
       </header>
       {isPlant && <Annunciator windows={windows} scope={presenting ? "presenting" : "all"} />}
-      <ScramBanner presenting={presenting} />
       {LENSES.filter((l) => why(l)).map((l) => (
         <p key={l.id} id={`lens-why-${l.id}`} className="office-note">
           {l.label} lens: {why(l)}
@@ -340,19 +346,19 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
                 onSelect={setSelected}
                 instruments={instruments}
                 occupancy={occupancy}
-                labels={theme.regions}
+                labels={labels}
                 overflow={overflow}
                 openRoom={openRoom}
                 onOpenRoom={(room) => setOpenRoom((cur) => (cur === room ? undefined : room))}
               />
             )}
             {showScene && openRoom && (
-              <RoomFigures room={openRoom} figures={floor.figures} onSelect={setSelected} onClose={() => setOpenRoom(undefined)} />
+              <RoomFigures room={openRoom} figures={floor.figures} selected={selected} onSelect={setSelected} onClose={() => setOpenRoom(undefined)} />
             )}
             {showList ? (
-              <PlantList figures={floor.figures} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
+              <PlantList figures={floor.figures} layout={isPlant ? PLANT_LAYOUT : undefined} labels={labels} selected={selected} onSelect={setSelected} />
             ) : !isPlant ? (
-              <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} />
+              <OfficeStage theme={theme!} figures={seated} selected={selected} onSelect={setSelected} />
             ) : null}
             {floor.figures.length === 0 && (
               <p className="office-note">
@@ -365,16 +371,13 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
                 )}
               </p>
             )}
-            {!showList && overflow.length > 0 && (
-              <div className="office-overflow">
+            {/* The Plant's rooms show "+N more" and open every figure; only an archived office, which has no such panel, lists what its rooms cannot hold. */}
+            {!showList && !isPlant && overflow.length > 0 && (
+              <div className="office-overflow plant-list">
                 <h2>More than the rooms hold</h2>
                 <ul>
                   {overflow.map((f) => (
-                    <li key={f.id}>
-                      <button type="button" className="link" onClick={() => setSelected(f.id)}>
-                        {f.package_id}: {STATE_INFO[f.state].label} in {REGION[f.place].name}
-                      </button>
-                    </li>
+                    <FigureRow key={f.id} figure={f} selected={selected === f.id} onSelect={setSelected} />
                   ))}
                 </ul>
               </div>
@@ -388,8 +391,8 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           <summary>Advanced</summary>
           <label className="office-theme-choice">
             <span>Archived office themes</span>
-            <select value={isPlant ? PLANT_THEME.id : theme.id} disabled={!member} onChange={(e) => chooseTheme(e.target.value)}>
-              <option value={PLANT_THEME.id}>None: show the Plant</option>
+            <select value={theme?.id ?? PLANT_CHOICE} disabled={!member} onChange={(e) => chooseTheme(e.target.value)}>
+              <option value={PLANT_CHOICE}>None: show the Plant</option>
               {choices.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.title}
@@ -405,12 +408,12 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
 }
 
 /** One room's figures, every one of them, opened by its "+N" stack or count plate (the same buttons as the overflow list). */
-function RoomFigures({ room, figures, onSelect, onClose }: { room: string; figures: readonly AgentFigure[]; onSelect: (id: string) => void; onClose: () => void }) {
+function RoomFigures({ room, figures, selected, onSelect, onClose }: { room: string; figures: readonly AgentFigure[]; selected: string | undefined; onSelect: (id: string) => void; onClose: () => void }) {
   const here = figures.filter((f) => f.place === room);
   const name = SCENE_LAYOUT.region[room as keyof typeof SCENE_LAYOUT.region]?.name ?? room;
   const order = ["needs", "stuck", "changed", "waiting", "working"];
   return (
-    <div className="office-overflow" role="region" aria-label={`${name}: every agent`} data-room-figures={room}>
+    <div className="office-overflow plant-list" role="region" aria-label={`${name}: every agent`} data-room-figures={room}>
       <h2>
         {name}: {here.length} {here.length === 1 ? "agent" : "agents"}
       </h2>
@@ -419,11 +422,7 @@ function RoomFigures({ room, figures, onSelect, onClose }: { room: string; figur
           .slice()
           .sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state))
           .map((f) => (
-            <li key={f.id}>
-              <button type="button" className="link" onClick={() => onSelect(f.id)}>
-                {f.package_id}: {STATE_INFO[f.state].label}. {f.title}
-              </button>
-            </li>
+            <FigureRow key={f.id} figure={f} selected={selected === f.id} onSelect={onSelect} />
           ))}
       </ul>
       <button type="button" className="btn small" onClick={onClose}>

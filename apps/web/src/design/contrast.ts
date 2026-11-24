@@ -27,7 +27,7 @@ export function ratio(a: string, b: string): number {
 
 /**
  * The `--name: #hex` declarations in the `:root` block of a stylesheet: the page tokens, the
- * design as drawn for look a. Look overrides (`[data-look="b"]` and the like) are separate
+ * design as drawn for look a. Look overrides (a `[data-look="x"]` block, when a further look exists) are separate
  * palettes, each checked against its own grounds by scripts/contrast-lib.mjs, so they must not
  * overwrite these.
  */

@@ -1,4 +1,5 @@
 import { useContext, useEffect, useRef, useState } from "react";
+import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { DataLane, WorkspaceProjectCreatePayload } from "../api/types.js";
@@ -27,6 +28,8 @@ interface ProjectModalProps {
  * (Software, Capital Projects, or Nuclear-Grade), optional default repository + outfall strategy, and Author/Checker CLIs.
  */
 export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) {
+  // Creating a project is not tied to one: only an organization SCRAM locks it.
+  const scramLock = useActionLock(null);
   const qc = useQueryClient();
   const projectUser = useContext(WorkspaceProjectUser);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -106,6 +109,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (scramLock.locked) return;
     if (!name.trim()) {
       setError("Enter a project name.");
       return;
@@ -243,7 +247,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
           <button type="button" className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn primary" disabled={createMut.isPending}>
+          <button type="submit" className="btn primary" disabled={createMut.isPending || scramLock.locked} title={scramLock.why}>
             {createMut.isPending ? "Creating…" : "Create project"}
           </button>
         </div>

@@ -275,7 +275,8 @@ describe("the Plant and the archived office themes", () => {
     expect(art().length).toBe(0);
     expect(document.querySelector(".plant-scene")).toBeTruthy();
     expect([...document.querySelectorAll<HTMLImageElement>(".plant-scene [data-hero]")].every((i) => (i.getAttribute("src") ?? "").startsWith("/plant/"))).toBe(true);
-    expect(screen.getByRole("img", { name: /Control rods withdrawn/ })).toBeTruthy();
+    // The rod gauge lives in the shell's top bar now, so the Plant's own header carries none.
+    expect(screen.queryByRole("img", { name: /Control rods/ })).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
     expect(screen.getByRole("heading", { name: "Plant" })).toBeTruthy();
   });
@@ -398,6 +399,8 @@ describe("the Plant and the archived office themes", () => {
     server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: five, needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })));
     await renderPage(<OfficeView drafts={false} />);
     const stack = await screen.findByRole("button", { name: /^Process: \d+ more agents?\. Show them/ });
+    // The "+N more" stack is the way to every figure the rooms cannot seat, so the Plant has no second list under the drawing.
+    expect(screen.queryByRole("heading", { name: "More than the rooms hold" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Process: every agent" })).toBeNull();
     await userEvent.click(stack);
     const open = screen.getByRole("region", { name: "Process: every agent" });

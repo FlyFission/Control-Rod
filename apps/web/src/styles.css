@@ -1627,28 +1627,6 @@ select {
   color: var(--text-2);
 }
 
-/* Look switch in the top bar */
-.look-switch {
-  display: inline-flex;
-  gap: 2px;
-}
-.look-btn {
-  min-width: 26px;
-  padding: 3px 6px;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--line-2);
-  border-radius: 6px;
-  font: inherit;
-  font-size: var(--fs-label);
-  cursor: pointer;
-}
-.look-btn[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
-}
-
 /* Engineering mode switch, rail CTA, grouped nav, and New Work modal */
 .shell {
   background: var(--ground);
@@ -2200,3 +2178,32 @@ select {
   display: block;
   margin: 0;
 }
+
+/* SCRAM, app-wide (control room redesign, section 6.6). A real trip rims the whole frame in the trip colour; a drill never does. */
+.shell[data-scram="trip"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  border: 3px solid var(--plant-trip);
+  pointer-events: none;
+  z-index: 50;
+}
+.shell-rods {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+.shell-rods .rod-gauge { zoom: 0.85; }
+.shell[data-scram="trip"] .shell-rods { color: var(--plant-trip); }
+.shell-notlive {
+  padding: 2px 8px;
+  border: 1px dashed var(--line-2);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+.places-cta:disabled { opacity: 0.5; cursor: not-allowed; }

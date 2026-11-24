@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pkg } from "../test/fixtures.js";
-import { kindsOf, loadLook, saveLook } from "./kind.js";
+import { LOOKS, kindsOf, loadLook, saveLook } from "./kind.js";
 
 describe("kindsOf", () => {
   it("reads code from a code deliverable type, case and spacing ignored", () => {
@@ -34,9 +34,19 @@ describe("look preference", () => {
   it("defaults to look a", () => {
     expect(loadLook()).toBe("a");
   });
-  it("round-trips a saved look", () => {
-    saveLook("c");
-    expect(loadLook()).toBe("c");
+  it("round-trips a saved look, and offers only the looks in force", () => {
+    saveLook("a");
+    expect(loadLook()).toBe("a");
+    expect(LOOKS).toEqual(["a"]);
+  });
+  it("ignores a retired look: a stored b or c reads as a, and saving one stores nothing", () => {
+    window.localStorage.setItem("cr.look", "c");
+    expect(loadLook()).toBe("a");
+    window.localStorage.setItem("cr.look", "b");
+    expect(loadLook()).toBe("a");
+    window.localStorage.clear();
+    saveLook("b" as never);
+    expect(window.localStorage.getItem("cr.look")).toBeNull();
   });
   it("ignores a stored value that is not a look", () => {
     window.localStorage.setItem("cr.look", "zzz");
@@ -52,6 +62,6 @@ describe("look preference", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    expect(() => saveLook("b")).not.toThrow();
+    expect(() => saveLook("a")).not.toThrow();
   });
 });

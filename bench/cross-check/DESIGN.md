@@ -1,82 +1,214 @@
-# Benchmark design v2 (reconciled, for agreement)
+# Benchmark design v3 (for final agreement)
 
-Status: **proposed**. Reconciles two independent, blind reviews of v1 (PR #160 at `d1ef5e7a`). Both reviewers answered "agree with changes":
+Status: **proposed**. This version folds in two rounds of independent review by Antigravity on Gemini 4 Neon (`gemini-4-neon-high`) and Codex on Astra (`gpt-6.2-astra`, medium effort).
 
-- Antigravity on Gemini 4 Neon (`gemini-4-neon-high`): 9 blockers, 7 majors, 4 minors.
-- Codex on Astra (`gpt-6.2-astra`, medium effort): 6 blockers, 8 majors.
+- Round 1, of v1 at `d1ef5e7a`: both answered agree with changes.
+- Round 2, of v2 at `3ef17753`: both answered agree with changes in every section. Their section-by-section rewrites are adopted here. Where the two rewrites differ, the stricter one is used, unless the point is listed under **Open, for the owner**.
 
-Nothing changes in code until both reviewers agree with this document and the owner says go. The planning figures quoted below come from the reviewers. They are inputs to a script that does not exist yet, not results.
+Code changes and paid calls wait until both reviewers agree with this text, with the owner's choices filled in, and the owner says go. All margins and planning numbers here are policy choices or reviewer estimates. None of them is a measurement.
 
 ## 1. What a run claims
 
-The run compares two named systems: Claude Code on one pinned Claude model and Codex on one pinned OpenAI model. It does **not** claim that vendor diversity helps in general (Astra 7). The headline is the paired difference, on the same patches, between the same-model checker and the other-vendor checker. That difference is reported for defects caught and for good patches wrongly rejected.
+The run compares two named systems under a matched capability scaffold: Claude Code on one Claude model snapshot and Codex on one OpenAI model snapshot. **Each vendor's author and same-model checker use exactly the same snapshot.** If a snapshot is not immutable, the run records the resolved model IDs and dates, and it claims an auditable run, not an exact replay. It does **not** claim that vendor diversity helps in general.
 
-## 2. Two phases, so the publication run happens once
+The checker comparison is restricted to identical, nonempty, valid patches that pass A1. Each such patch is either hidden-test-failing ("bad") or hidden-test-passing ("good"). On those patches, the run compares the other-vendor checker with the same-model checker on two rates:
 
-Both reviewers say v1's 20 easy tasks cannot answer the question. They disagree on how many tasks would: Neon says about 60 harder tasks, Astra says about 280 to 620. Both say the number depends on how often a patch passes the public tests but fails the hidden ones. Call that rate q, measured per author attempt. Nobody knows q for these agents yet.
+- (a) **explicit rejection** of bad patches;
+- (b) **explicit rejection** of good patches, which is the false-rejection rate.
 
-- **Phase 0, calibration.** About 6 to 10 tasks drawn from a pool that is **disjoint** from the publication tasks. Phase 0 checks the harness, isolation, grading and cost. It also measures q, how often the two checkers disagree, and how outcomes correlate within a task. Its results are never published as findings.
-- **Sizing.** A script, `power.py`, simulates the clustered paired design using the phase 0 estimates. It gives the task count needed for a chosen effect size at 80% power on both endpoints, catches and false rejections. The count is frozen and committed before phase 1 starts.
-- **Phase 1, the publication run.** It uses the frozen count. If the owner's budget ceiling cannot reach that count, the run is titled "feasibility pilot" everywhere, including `share.md`, and makes no claim about effectiveness. Both reviewers agree on this rule.
+The run reports both author directions and their **equal-author-weight mean**. The equal-weight mean is the headline. A pooled number appears only next to the directional results.
 
-The owner decides the effect size worth detecting and the budget ceiling. Everything else is fixed by this document.
+"Rejection" means the checker returned an explicit fail verdict. It does not mean the checker found a real defect. The words "defects caught" appear only for the adjudicated outcome in §7. Hidden tests measure whether tests pass, not whether a maintainer would merge the patch.
+
+## 2. Phases, sizing, and the one publication run
+
+- **One fresh patch per task per author.** Authors never repeat, so repeats cannot inflate the sample. Let q_a be the rate at which an attempt by author a is nonempty, valid, passes A1, and fails the hidden tests.
+- **Freeze before calibration.** The owner's decision margins (catch gain δ_catch and false-rejection cap δ_FR), the sizing procedure, the uncertainty rule, the nuisance ranges and the spending ceiling are committed before phase 0 starts.
+- **Phase 0, calibration.** 10 to 12 tasks, disjoint from phase 1, with a separate budget. Their results are logged as excluded from phase 1. Phase 0 checks:
+  - the harness;
+  - the isolation probes (§4);
+  - the grading controls (§6);
+  - cold and warm timings;
+  - per-call cost at the median and the 95th percentile;
+  - enforceable reservation bounds (§9);
+  - a sanity band for q_Claude and q_Codex.
+
+  Its results are never published as findings.
+- **Sizing (`power.py`).** The script simulates the clustered paired design for the equal-author-weight contrast. Its inputs are:
+  - the **conservative lower bound of phase 0's q for each author separately**, not a point estimate;
+  - preregistered conservative ranges for paired discordance (at least p_d = 0.30, with sensitivity at 0.35);
+  - preregistered conservative ranges for within-task correlation (at least ρ = 0.20, with sensitivity at 0.30);
+  - missingness.
+
+  **Rule:** choose the smallest task count with at least 80% simulated probability of meeting both success criteria together. The simulation assumes a true catch gain of δ_catch and no true change in false rejection. Success needs two things at once:
+  - the lower end of the 95% interval for the bad-patch contrast is above zero;
+  - the upper end for the good-patch contrast is below +δ_FR.
+
+  Add a 10% attrition buffer, and budget the stability repeats (§7). The design is built to detect a worthwhile effect. It does not certify that the true gain exceeds δ_catch.
+- **Decision gate, frozen before phase 1.**
+  - If phase 0 gives q below 0.15, switch to a harder tier or source (§3) and calibrate again before freezing.
+  - If calibration cannot support a defensible range, or the required count exceeds the money, the time or the task supply, **designate a feasibility pilot or stop.** A feasibility pilot makes no claim about effectiveness, and it carries that label everywhere, including `share.md`.
+  - The script, its inputs, assumptions and output, the task count, and the publication-or-pilot designation are committed before phase 1.
+- **Never top up, relax a margin, or switch cohorts after seeing phase 1 outcomes.**
 
 ## 3. Tasks
 
-- The source must be newer than both models. The first choice is a SWE-bench-Live slice whose issues were created after both models' cutoffs. SWE-bench Pro is the second choice. Verified is the fallback only, harder tiers only, with a pre-run audit (Neon 6, Astra 9). Whether Live and Pro run cleanly in their harness on the owner's Mac is checked in phase 0, not assumed.
-- **One immutable local snapshot** is used for both selection and grading, with validated IDs, row count, fields and digest (Astra 10, Neon 15).
-- **Audit before any output.** `audit.md` shows each task's issue, its hidden tests (`FAIL_TO_PASS`, `test_patch`), and the base and gold-patch behavior, including flakiness. Exclusions and their reasons are committed before agents run. The person who audits the hidden tests is not the A4 reviewer (Neon 6, 12; Astra 9).
-- Repository and difficulty quotas, and the order of reserve tasks, are frozen in the manifest. `select` fails if it cannot fill `n` (Neon 17).
+- **Ranked source.**
+  1. Issues whose problem and solution were first public **after the later of both verified model cutoffs**, for example a dated SWE-bench-Live slice. A dataset's release date does not establish this.
+  2. SWE-bench Pro (public subset).
+  3. SWE-bench Verified restricted to `15 min - 1 hour` and `1-4 hours`, with OpenAI's published list of audited defective tasks excluded before sampling.
 
-## 4. Isolation and blinding (both reviewers: blocker)
+  A cohort that is not post-cutoff is labelled **historical**. It is sized separately, its contamination risk is disclosed in `report.md` and `share.md`, and it is never pooled into a claim about new work. The cited audit percentage applies only to the 138 tasks OpenAI audited, not to all hard tasks. Phase 0 decides which source passes the §6 control gate on the owner's Mac.
+- **State the target population**: languages, repositories and difficulty.
+- **One immutable local snapshot** is used for selection and grading. Its path is passed to the grader explicitly. It is validated for unique IDs, row count, no pagination truncation, split, required fields and a SHA-256 digest.
+- **Audit before any output.** `audit.md` holds each task's issue, its hidden tests (`FAIL_TO_PASS`, `test_patch`), and the base and gold-patch behavior over repeated runs. The audit checks whether the hidden tests ask for more, or less, than the issue does. Flaky or defective tasks are replaced from the frozen reserve order. Exclusions and their reasons are committed before any author runs.
+- **Separation of roles.** The person who audits the hidden tests is never the A4 reviewer (see Open item 3).
+- Repository and difficulty quotas, with actual numeric limits, and the reserve order are frozen in the manifest. `select` fails if it cannot fill `n`.
 
-- Each call gets a fresh, neutrally named directory **outside** the Control Rod repo, the run directory and `$HOME`. The directory holds a single-commit tree with no history, no remotes and no caches, so `git rev-list --all --count` is 1 (Neon 1, 2; Astra 5).
-- Agents cannot see the run directory, task rows, transcripts, other verdicts or credentials. Web search is off for every agent. During its own review, Codex ran about five web searches under a read-only sandbox, which shows this is needed. Network is off except the model transport. Memories, MCP servers, user config, rules and slash commands are disabled, using the same flags as Control Rod's daemon (`daemon/internal/runner`).
-- Phase 0 runs a boundary probe **from inside** each role. It tries to read the run directory, read git history and reach the network, and it must fail at each.
+## 4. Isolation and blinding
 
-## 5. Matched capabilities (both reviewers: blocker or major)
+- Every call gets a fresh directory with an opaque random name. The name carries no author, checker, repository or task identifier. The directory sits **outside** the Control Rod repo, the run directory and `$HOME`, for example `/var/tmp/cr-bench-<uid>/<nonce>/repo`.
+- The directory is built from an **exported base tree** (`git archive`) and committed once with generic author and date metadata. It has no history, no remotes, no caches and no upstream object store, and it is deleted after its diff or verdict is captured.
+- Agents get no run directory, task rows, transcripts, other verdicts, `$HOME`, credentials or parent rules (`AGENTS.md`). The following are all disabled with pinned flags that mirror `daemon/internal/runner`:
+  - web search;
+  - network, except the model transport;
+  - memories, MCP servers, subagents, user config, rules and slash commands.
 
-- **Matched, not stock products.** Both authors get file tools plus a sandboxed shell with the network off. Both checkers get read and search tools plus a sandboxed shell. A checker's tree is verified unchanged afterwards. The Claude checker does not use `plan` mode.
-- The models, CLI builds, reasoning effort and timeouts are pinned and recorded. Separate timeouts apply to authors and checkers. The resolved model identity is taken from each call's own output.
-- Prompts go on stdin. The verdict follows a strict JSON schema, and the example in the prompt is valid JSON. A non-zero exit, a timeout, stale output or a timed-out author's partial work never counts as a normal result (Astra 8, Neon 9).
+  The exact flag lists for Claude and Codex live in the benchmark config, not only by reference to the daemon.
+- **Probes, for each vendor and role, in phase 0.** A permitted read must succeed. Each of these must fail:
+  - reading the run directory, `$HOME` or credentials, upstream objects, git history or `AGENTS.md`;
+  - network egress from the shell;
+  - provider-native web search or tools;
+  - MCP or subagent tools;
+  - a checker writing to source.
+
+  If any probe does not fail, nothing runs.
+
+## 5. Matched capabilities
+
+- **Matched, not stock products.**
+  - Both authors get file tools and a workspace-write shell in a sandbox with the network off.
+  - Both checkers get read and search tools and a shell on **read-only mounted source**, with a separate writable scratch directory, `PYTHONDONTWRITEBYTECODE=1`, and the same access to public tests.
+  - The checker tree is verified unchanged afterwards. A change counts as a harness or policy error.
+  - The Claude checker does not use `plan` mode.
+  - Every call is a fresh session.
+- Tier parity is verified in phase 0, then pinned and recorded: exact model IDs, CLI builds, reasoning effort, context and truncation rules, and separate author and checker timeouts. The resolved model identity comes from each call's own output. A model whose identity cannot be verified is not described as pinned.
+- Prompts go on stdin. The checker prompt asks about functional correctness, completeness and absence of regressions, and drops "would merge". It shows a valid JSON example and requires a strict schema with structured defect citations: a location and a short reason for each.
+- **Failure taxonomy.**
+
+  | What happened | Recorded as | Then |
+  |---|---|---|
+  | Nonzero exit, rate limit, sign-in error, stale output | `infra_error` | Retried or halted under §9 |
+  | Author timeout | `author_timeout` | Partial tree discarded; counts as ineligible and unresolved, not retried |
+  | Checker timeout, or exit 0 with a malformed verdict | `inconclusive` | Scored separately, not retried |
+
+  A valid verdict is never retried.
 
 ## 6. Grading
 
-- The evaluator version is locked, and the split is passed explicitly. Phase 0 checks the report path against the running harness: Astra says the current upstream writes `logs/evaluation`, which is unverified. The exit code is checked. Each patch gets one status: `graded`, `empty`, `patch_invalid` or `infra_error`. **No score is produced while any patch is `infra_error` or missing** (Astra 1, Neon 7).
-- **Control patches** run before any paid call: the unmodified base, the gold fix, a known-bad patch, and a deliberately missing report. The missing report must block scoring.
-- **A1 is renamed** "selected hidden regression tests (SWE-bench `PASS_TO_PASS`)". It passes only with positive evidence that those tests ran and passed. Running the repo's real public test command is preferred where the harness allows it, and phase 0 decides which applies (Astra 2, Neon 11).
-- The diff is taken against the recorded base commit with `-z` and `--binary`, and the raw diff is kept. Edits to hidden-test files are not stripped silently: they are rejected under a published rule and recorded (Astra 10, Neon 9).
+- The evaluator package and its Python and uv interpreter are locked. The split and the local dataset path are passed explicitly. Each evaluation attempt has a unique evaluator run ID.
+- Phase 0 verifies the exact report path, the report schema and the complete ID set against the harness as it actually runs. The exit code is checked.
+- Every patch gets one status: `graded`, `empty`, `patch_invalid`, `author_timeout` or `infra_error`. **No score is produced while any patch is `infra_error` or missing.**
+- **Control patches** are checked against their expected outcomes before any paid call: the unmodified base, the gold fix, a known-bad patch, and a deliberately missing report. The missing report must block scoring.
+- **A1 has one frozen definition per cohort, chosen in phase 0.** The preferred definition is a named, frozen public baseline test command, run on the base and then on the candidate. It records the expected and executed test IDs, skips, timeouts and exit status.
+
+  Otherwise A1 is named "selected hidden regression tests (SWE-bench `PASS_TO_PASS`)", never "public tests" or "CI". It passes only with positive evidence: the patch applied, `tests_status` and `PASS_TO_PASS` are present, there are zero failures, and the success list is not empty whenever `PASS_TO_PASS` is expected. Missing or malformed evidence counts as neither a pass nor a model failure.
+- **Patch capture.**
+  - Untracked build and cache files are excluded.
+  - Paths are enumerated NUL-delimited, and the patch is diffed against the recorded base commit as a binary-safe patch that can be applied again.
+  - The raw submission is kept intact.
+  - A public rule, stated in `author.md`, marks a patch `patch_invalid` if it edits or adds test files by a published path pattern, or if it fails to apply. Secret hidden-test file names are never used for this. `patch_invalid` is excluded from checker calls and from the A1-eligible metrics, and it counts as unresolved in the workflow metrics. It never crashes the run.
+  - The patch is re-applied to the recorded base, and **both checkers and the grader are verified to receive the same SHA-256 digest.**
 
 ## 7. Metrics
 
-- **All four author × checker cells**, both directional paired differences, and an equal-author-weight cross-vendor contrast. The pooled number is shown only next to them (Neon 4, Astra 7).
-- **Checker-only metrics on A1-eligible patches.** On bad patches: catches. On good patches: false rejections. Both get paired tables, McNemar tests and differences in percentage points. Intervals are task-clustered bootstrap intervals with a fixed seed. Wilson intervals are kept only for single-author cells (Neon 10, 14; Astra 11).
-- **Explicit fail is separate from inconclusive.** Timeouts and errors are reported by vendor and role. The fail-closed gate result and a missing-verdict sensitivity analysis are both shown (Neon 8, Astra 3).
-- **Workflow metrics are kept separate from checker metrics.** These are correct patches delivered per task attempted, escapes per attempt, defects among accepted patches, and the checker's marginal cost. `share.md` never credits A1 rejections to a checker.
-- **Verdict stability.** Both checks are repeated on a preregistered random 10% of patches. This measures instability, not sample size (Astra).
+- Every rate prints its numerator and denominator. A rate with no denominator is "not estimable", never zero.
+- **Four author × checker cells.** For each author, the report gives full three-outcome tables (pass, explicit fail, inconclusive) on bad patches and on good patches.
+- The report gives both directional paired differences and the equal-author-weight contrast, in percentage points.
+- **Inference.**
+  - Exact McNemar is used only within one author's stratum, where tasks are independent.
+  - The equal-author-weight and pooled contrasts use a bootstrap that resamples whole tasks with a fixed seed, keeping both authors and both verdicts together.
+  - Wilson intervals are used only for single-author cells.
+  - A repository sensitivity analysis is run, leaving one repository out at a time.
+  - "Not significant" is not equivalence.
+- **Primary checker metrics.**
+  - True-positive rate: explicit rejection of bad patches.
+  - False-positive rate: explicit rejection of good patches.
+  - Youden's J, the true-positive rate minus the false-positive rate, shown with both components. It never replaces the joint decision rule in §2.
+  - Inconclusives are reported by vendor and role. The report shows the complete-case result, the fail-closed gate result, and a worst-case missing-verdict analysis that treats every inconclusive first as a pass and then as a fail.
+- **Workflow metrics are kept separate from checker metrics.** They cover the share of patches the workflow blocked, correct patches delivered per task attempted, escapes per attempt, defects among accepted patches, and the checker's marginal cost. A1 and `patch_invalid` rejections are never credited to a checker.
+- **Substantiated defect (secondary).**
+  - The original verdict and its rationale are preserved before anyone sees the hidden results.
+  - Adjudicators are blind to vendor, to same-model or cross-vendor status, to the other verdict, and to the hidden grade for their first judgment.
+  - Each judgment is supported, unsupported or indeterminate. Supported means a concrete in-scope defect backed by the patch or by a counterexample that can be reproduced.
+  - Disagreements are resolved independently, and the counts are published.
+  - Supported defects found in good patches are reported separately. They never rewrite the reference grade.
+  - **Without this adjudication, the run does not use the words "defects caught".** The scope is Open item 2.
+- **Verdict stability.** Both checks are repeated on a preregistered random 10% of checked patches, at least 12, chosen before any verdict is seen. The report gives the flip rate and Cohen's κ by vendor. **Only the first check enters the primary metrics.** The repeats are paid for from the same budget and never count toward sample size.
 
 ## 8. Human arm (A4)
 
-- A4 is labelled **exploratory and conditional on A3**. It uses a preregistered random sample of A3-passing patches, at most one patch per task, balanced across authors, with opaque review IDs (Neon 12, Astra 12).
-- The reviewer gets the full issue and a read-only checkout. They do not get checker evidence (blinded variant). The order is persisted and survives resume. Sessions are capped. Skips, breaks, active time and pending counts are recorded.
-- No A4 headline is published while reviews are pending.
+- A4 is **exploratory and conditional on A3**. It has no human-only baseline, so the run makes **no claim about human time saved**. It can say only how many patches A3 filtered out.
+- A4 is done only by a reviewer independent of the hidden-test audit and of defect adjudication. If no such reviewer exists, A4 is **omitted**, not run unblinded (Open item 3).
+- The sample is frozen before phase 1:
+  - queue size, for example 24 to 30;
+  - sampling probabilities;
+  - a cap per session, for example 10 patches;
+  - rules for skips;
+  - at most one patch per task, balanced across authors, with opaque IDs.
+- The reviewer gets the full issue and a neutrally named, single-commit, read-only checkout. They get no history, no metadata and no checker evidence. This blinded review is not the same thing as evidence-assisted review in the product.
+- The order is persisted across resumes. Active time includes writing the rationale. Selected, reviewed, skipped and pending counts are reported separately. `score()` refuses to output A4 aggregates while any review is pending.
 
-## 9. Run integrity and budget (both reviewers: blocker or major)
+## 9. Run integrity and budget
 
-- A frozen, hashed manifest records the config, tasks, prompts, model IDs and environment. Every attempt is keyed by those inputs. Records are written atomically. Interrupted calls are reconciled explicitly. A change of CLI or model mid-run stops the run (Astra 6, Neon 15).
-- A **persistent reservation ledger** charges both vendors at an API-equivalent price from a versioned price table kept in the run. Each call's maximum is reserved before launch, and the call is refused if the reservation would pass the cap. A budget stop is never labelled finished. Token fields are normalized so cached input is not double-counted (Neon 13, Astra 6, 13).
-- An infra error (exit code, rate limit, sign-in) is logged as an attempt and not cached as done. The run stops after a sign-in error or 3 consecutive infra errors (Neon 8).
-- The run has a global deadline, separate bounds on evaluation, at most 2 workers per vendor, a Docker disk and architecture preflight, and image cleanup (Neon 16, Astra 14).
-- `agents.local.json` flags are never copied into `run.json`. The record keeps only their names (Neon 15).
+- **Frozen, hashed manifest.** It records:
+  - config, tasks, and the randomized call order (blocked by task);
+  - prompts, model IDs and CLI versions;
+  - the dirty-tree flag, Docker version, image digests and host architecture;
+  - the price table.
+
+  Each attempt gets a unique directory keyed by those inputs. Records are written atomically, and interrupted calls are reconciled explicitly. A change of CLI or model mid-run stops the run.
+- **Concurrency-locked reservation ledger.**
+  - It tracks the cumulative call count across resumes: completed plus in-flight calls may not exceed `max_calls`, and a skipped empty check is never counted.
+  - It tracks normalized API-equivalent USD across both vendors, counting cached input and reasoning tokens once.
+  - Hard caps are passed to a CLI where it supports them, for example Claude `--max-budget-usd`.
+  - For both vendors, the reservation covers **every model turn and tool loop in a session**, set from phase 0 (for example the larger of twice the 95th percentile and the CLI cap). The actual cost is reconciled after each call, and any overshoot is debited.
+  - A new launch is refused if spent plus reserved plus the next reservation would pass the ceiling.
+  - Calibration, retries, interrupted calls and stability repeats are all charged to the same ceiling.
+  - An uncertain charge is never released as zero.
+  - **If phase 0 cannot establish an enforceable bound, phase 1 does not start under a claimed hard cap.**
+- **Retries.** The retry limits and the allowed causes are frozen. `infra_error` goes to `attempts.jsonl` and is never cached as done. The run halts on a sign-in error or 3 consecutive infra errors, and pauses and resumes cleanly around subscription quota windows.
+- **Deadlines and resources.** A global deadline, separate evaluation bounds, at most 2 workers per vendor, a Docker preflight of disk, RAM, architecture and the exact images, cold and warm timings, and image cleanup.
+- **A deadline or budget stop** produces an incomplete ledger, never an effectiveness score. That run either resumes under the unchanged manifest or is published as incomplete.
+- **`agents.local.json`** holds local transport and sign-in flags only. It cannot override model, effort, tools or sandbox. The run records allowlisted, non-secret values and nothing else from it.
 
 ## 10. Release
 
-- The protocol and the analysis script are published, timestamped, **before** phase 1.
-- Compact records are committed. The full transcripts go in a checksummed release asset (Neon 20, Astra 13).
-- Spend is split into actual, API-equivalent and unknown.
-- `share.md` is generated from the released manifest. It says the benchmark called the CLIs directly, not through Control Rod's daemon. After a major product update, the old tasks are labelled a regression set, and claims about new work use a fresh holdout (Astra 13, Neon 18).
+- **Before phase 1**, the following are published and timestamped: the protocol, the `power.py` output, the frozen task manifest, the exclusions and reserve order, and the analysis script.
+- **Compact records are committed**: `run.json`, the task IDs and metadata, the exclusions, the attempt ledger, `evaluation.json`, `reviews.json`, `results.json`, `report.md`, `share.md`, environment and image digests, host architecture, and billing definitions.
+- **Full transcripts, prompts and raw patches** go in a release asset whose SHA-256 is in the released manifest. That asset ships only after inventory, digest, privacy and redistribution checks: no host paths, account details, tokens or local environment. Redactions and restricted artifacts are listed.
+- **Spend** is split into actual, API-equivalent and unknown.
+- **`score()`** validates completeness first.
+- **`share.md`** is generated from the released manifest, only after every referenced artifact is verified to exist. It always carries:
+  - the direct-CLI caveat (the benchmark calls the CLIs directly, not Control Rod's daemon);
+  - both directions and the equal-weight contrast;
+  - numerators, denominators and intervals;
+  - inconclusive and missing counts;
+  - the A4 status;
+  - the historical-cohort disclosure where it applies;
+  - the feasibility-pilot label where it applies.
+- **After a major product update**, the old tasks become a regression set, and claims about new work use a fresh holdout.
 
 ## Open, for the owner
 
-1. **Effect size and budget ceiling.** Neon's design proposes $300 API-equivalent; Astra's proposes up to $4,000 and 14 days. The phase 1 size follows from `power.py` and the budget. Below that size, the run is a feasibility pilot.
-2. **Blind defect adjudication.** Astra asks for a blinded adjudicator to confirm each "substantiated defect", with a second adjudicator for disputes. Neon does not. The proposal is to report "workflow blocked" as primary, and "substantiated defect" as secondary only if adjudicators are available. Whether those are people or a third model is the owner's call.
+1. **Margins and ceiling.** Both reviewers propose a catch gain of **δ_catch = +15 percentage points**. They differ on the rest:
+   - **False-rejection cap δ_FR:** Codex Astra proposes +5 points. Neon proposes +10, or +7.5 for a tighter cap.
+   - **Ceiling, both phases, API-equivalent:** Astra proposes up to $4,000. Neon proposes $1,200 to $1,800 plus about $75 to $100 for calibration.
+   - **Neon's planning estimate** at +15 points is about 125 to 145 eligible bad patches, or roughly 200 to 360 harder tasks depending on q. That is its own simulation and unchecked.
+   - **Below the size the script requires**, the run is a feasibility pilot.
+2. **Defect adjudication scope.** Both reviewers want blind human adjudication, and both reject a third model as ground truth (a third model is acceptable only as a check validated against humans). They differ on scope:
+   - **Astra:** adjudicate every explicit rejection used for a substantiated-catch claim, including those where both checkers rejected.
+   - **Neon:** adjudicate only the discordant rejections, about 30 to 60 patches and about 1 to 2 hours by its estimate, because they alone decide the paired difference. Score 25% twice if a second person is available.
+
+   Without adjudication, "defects caught" is dropped and the run is still publishable on its other metrics.
+3. **People.** Control Rod has one maintainer. The hidden-test auditor, the A4 reviewer and the defect adjudicator must be different people, or else A4 is omitted. Neon allows one person to adjudicate only after A4 is finished and locked, or omitted, with the full table published. The choice is who fills which role, or whether to omit A4.

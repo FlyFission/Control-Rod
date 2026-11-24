@@ -211,6 +211,63 @@ describe("waiting agents", () => {
   });
 });
 
+describe("a run that ended without finished_at", () => {
+  it("gives the same since on every read, from the stop event, not the read time", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-NOFIN', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-IN-NOFIN", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
+    const r = { schema_version: "0.1.0", id: "R-in-nofin", package_id: "WP-IN-NOFIN", package_revision: 0, role: "pre-check", agent_baseline: "author-claude",
+      runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "stopped", queued_at: ago(3), generation: 1 };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, 'WP-IN-NOFIN', 0, 'pre-check', 1, 'stopped', $2, $3)", [r.id, r, r.queued_at]);
+    const since = async () => (await get("/inbox")).items.find((i: Json) => i.package_id === "WP-IN-NOFIN")?.since;
+    // With no stop event, the run row's own creation time.
+    const first = await since();
+    expect(first).toBe(new Date(r.queued_at).toISOString());
+    await new Promise((res) => setTimeout(res, 15));
+    expect(await since()).toBe(first);
+    // With a stop event, its recorded time, on every read.
+    const c = await h.admin.connect();
+    let at: string;
+    try {
+      await c.query("begin");
+      at = (await appendEvent(c as never, "run.stopped", r.id, { kind: "system" as const, id: "control-plane" }, { package: r.package_id })).at;
+      await c.query("commit");
+    } finally {
+      c.release();
+    }
+    expect(await since()).toBe(at);
+    await new Promise((res) => setTimeout(res, 15));
+    expect(await since()).toBe(at);
+  });
+
+  it("takes the earliest of several terminal events, and a requeued attempt never inherits the old one's", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-MULTI', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-IN-MULTI", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
+    const run = (id: string, queued: string) => ({ schema_version: "0.1.0", id, package_id: "WP-IN-MULTI", package_revision: 0, role: "pre-check", agent_baseline: "author-claude",
+      runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "stopped", queued_at: queued, generation: 1 });
+    const first = run("R-in-multi-1", ago(5));
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, 'WP-IN-MULTI', 0, 'pre-check', 1, 'stopped', $2, $3)", [first.id, first, first.queued_at]);
+    const system = { kind: "system" as const, id: "control-plane" };
+    const c = await h.admin.connect();
+    let earliest: string;
+    try {
+      await c.query("begin");
+      earliest = (await appendEvent(c as never, "run.stopped", first.id, system, { package: first.package_id })).at;
+      await appendEvent(c as never, "run.lost", first.id, system, { package: first.package_id });
+      await appendEvent(c as never, "run.stopped", first.id, system, { package: first.package_id });
+      await c.query("commit");
+    } finally {
+      c.release();
+    }
+    const since = async () => (await get("/inbox")).items.find((i: Json) => i.package_id === "WP-IN-MULTI")?.since;
+    expect(await since()).toBe(earliest);
+    // Requeued: a new attempt that also stopped without finished_at and has no event of its own.
+    const second = run("R-in-multi-2", ago(1));
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, 'WP-IN-MULTI', 0, 'pre-check', 1, 'stopped', $2, $3)", [second.id, second, second.queued_at]);
+    expect(await since()).toBe(new Date(second.queued_at).toISOString());
+    expect(await since()).not.toBe(earliest);
+  });
+});
+
 describe("recovery under SCRAM", () => {
   it("never counts recovery work as yours when SCRAM holds it and you cannot settle it", async () => {
     // An author run stopped: requeueing it settles the dispute, which any member may do, unless SCRAM holds the work.

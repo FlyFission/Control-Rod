@@ -41,6 +41,8 @@ import { LensBar } from "./LensBar.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { type SavedView, deleteView, loadViews, saveView } from "./savedViews.js";
 import { DaemonNotice } from "../../components/DaemonNotice.js";
+import { attentionFirst } from "./boardOrder.js";
+import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
 import { type BoardCard, useBoardData } from "./useBoardData.js";
 import { readString, writeString } from "../../lib/storage.js";
 import "./board.css";
@@ -167,6 +169,8 @@ export function BoardView() {
   const [expandedCols, setExpandedCols] = useState<Record<string, boolean>>({});
   const [draggingCard, setDraggingCard] = useState<string | null>(null);
   const [trashOver, setTrashOver] = useState(false);
+  // What N said when no card on the view carries a Needs you or Blocked mark (pattern AW3).
+  const [jumpNote, setJumpNote] = useState<string | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
   const handleDismissCapture = useCallback(
@@ -366,7 +370,12 @@ export function BoardView() {
     }
   }, []);
 
-  // J / K keyboard navigation across visible board card titles.
+  // J / K move across visible board card titles; N jumps to the next one marked Needs you or Blocked.
+  // N reads the stream through a ref, so a card's tone is trusted only while the board is live.
+  const streamRef = useRef(data.status);
+  streamRef.current = data.status;
+  const capturesFreshRef = useRef(data.capturesFresh);
+  capturesFreshRef.current = data.capturesFresh;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -377,13 +386,45 @@ export function BoardView() {
           target.tagName === "SELECT" ||
           target.isContentEditable);
       if (inField || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (document.querySelector("dialog[open], .palette")) return;
+      if (document.querySelector(OPEN_MODAL)) return;
+      if (!singleKeysOn()) return;
       const key = e.key.toLowerCase();
-      if (key !== "j" && key !== "k") return;
+      if (key !== "j" && key !== "k" && key !== "n") return;
       const titles = Array.from(document.querySelectorAll<HTMLButtonElement>(".bd-board button.bd-title, .bd-list button.bd-title"));
+      // The current position is the card holding focus, whichever of its controls has it (the title,
+      // Move to, or another button), so N and J/K continue from that card.
+      const holder = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("article.bd-card, .bd-list-row");
+      const idx = titles.findIndex((t) => t === document.activeElement || (holder != null && t.closest("article.bd-card, .bd-list-row") === holder));
+      if (key === "n") {
+        e.preventDefault();
+        // A capture row keeps its tone from its last read; while the stream is not live, nothing on
+        // screen is current, so N does not send anyone to it.
+        if (streamRef.current !== "live") {
+          setJumpNote("N works while the board is live; it is showing last-known state now.");
+          return;
+        }
+        // The tone is shown only while the stream is live and the card's reads are current, so a card
+        // whose state is unknown is never offered as needing you.
+        const marked = titles.filter((t) => {
+          const holder = t.closest<HTMLElement>("article.bd-card, .bd-list-row");
+          // A capture whose last read failed or predates the latest drop keeps its old tone on
+          // screen; it may already be resolved, so N never sends anyone to it.
+          if (holder?.dataset["kind"] === "capture" && !capturesFreshRef.current) return false;
+          const tone = holder?.dataset["tone"];
+          return tone === "needs" || tone === "block";
+        });
+        const next = marked.find((t) => titles.indexOf(t) > idx) ?? marked[0];
+        if (next === undefined) {
+          setJumpNote("No card on this view is currently marked Needs you or Blocked.");
+          return;
+        }
+        setJumpNote(null);
+        next.focus();
+        return;
+      }
       if (titles.length === 0) return;
       e.preventDefault();
-      const idx = titles.indexOf(document.activeElement as HTMLButtonElement);
+      setJumpNote(null);
       const nextIdx =
         key === "j"
           ? idx < 0
@@ -416,7 +457,7 @@ export function BoardView() {
 
   const renderColumns = (cards: BoardCard[], includeReadyExtras: boolean, Heading: "h2" | "h3", idPrefix: string) =>
     COLUMNS.map((c) => {
-      const here = cards.filter((x) => x.column === c.id);
+      const here = attentionFirst(cards.filter((x) => x.column === c.id), data.status);
       const headingId = `${idPrefix}-${c.id}`;
       const colKey = `${idPrefix}:${c.id}`;
       const isExpanded = Boolean(expandedCols[colKey]);
@@ -499,6 +540,7 @@ export function BoardView() {
               next={x.next}
               column={x.column}
               stream={data.status}
+              runRunning={x.runRunning === true}
               lastKnown={x.lastKnown}
               nuclear={x.nuclear}
               selected={selectedId === x.pkg.id}
@@ -692,6 +734,14 @@ export function BoardView() {
           </p>
         )}
       </header>
+      <p className="sr-only" role="status">
+        {jumpNote ?? ""}
+      </p>
+      {jumpNote !== null && (
+        <p className="bd-jump-note muted small" aria-hidden="true">
+          {jumpNote}
+        </p>
+      )}
       {hiddenProtected > 0 && (
         <div className="bd-guard" role="status">
           <span>

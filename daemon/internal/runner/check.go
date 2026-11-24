@@ -22,7 +22,7 @@ func CheckRuntimes(ctx context.Context, runtimes []string) []RuntimeCheck {
 	for _, rt := range runtimes {
 		st := Probe(ctx, rt, "", ExecRunner)
 		if st.Ready {
-			if err := Preflight(ctx, rt, ExecRunner, LookPathAgent, CodexEffectiveFeatures, ManagedCodexConfig()); err != nil {
+			if err := Preflight(preflightContext(ctx, st), rt, ExecRunner, LookPathAgent, CodexEffectiveFeatures, ManagedCodexConfig()); err != nil {
 				st.Ready, st.Reason = false, err.Error()
 			}
 		}

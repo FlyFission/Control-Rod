@@ -1,5 +1,6 @@
 import { type ClipboardEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
 import { api, explain } from "../../api/client.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { useMode } from "../../lib/mode.js";
@@ -55,8 +56,9 @@ export function QuickAdd() {
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key !== "c" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (!singleKeysOn()) return;
       if (inTypingContext(e.target)) return;
-      if (document.querySelector("dialog[open], .palette")) return;
+      if (document.querySelector(OPEN_MODAL)) return;
       e.preventDefault();
       setOpen(true);
       input.current?.focus();

@@ -23,7 +23,7 @@ Evidence status: **pass** for targeted Go tests (with `SpawnReceipt` / `/bin/ps`
 | E-01 | coupled: authoring agent | coupled: one session | separated: deterministic tests | separated: owner retains merge decision | coupled: local machine | self-check | Fake runtime only; live CLIs and full daemon suite pending CI  [Ship limits](ship.md) |
 | E-02 | coupled: authoring agent | coupled: one session | separated: deterministic tests | separated: owner retains merge decision | coupled: local machine | self-check | Unit tests only; full Postgres API suite pending CI  [Ship limits](ship.md) |
 | E-03 | coupled: authoring agent | coupled: one session | separated: deterministic scripts | separated: owner retains merge decision | coupled: local machine | self-check | Action YAML parsed only, not run in GitHub Actions; `ng.py --strict-custody` pending CI  [Ship limits](ship.md) |
-| E-04 | separated: checker and owner | separated: independent review | separated: blind check | separated: owner decides | separated: review | pending | Required before merge  [Ship limits](ship.md) |
+| E-04 | separated: checker and owner | separated: independent review | separated: blind check | separated: owner decides | separated: review | diverse verification | Required before merge  [Ship limits](ship.md) |
 
 ## Required links
 

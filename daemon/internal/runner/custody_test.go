@@ -243,3 +243,18 @@ func TestAStopFromTheOwnerEndsTheProcessAndCompletesAsStopped(t *testing.T) {
 		t.Errorf("completion %+v", c)
 	}
 }
+
+// A run refused before its process starts reports that nothing ran, so the control plane records
+// it as failed with a reason and lets the owner retry, instead of holding it as outcome unknown.
+func TestRunRefusedBeforeStartReportsNoProcess(t *testing.T) {
+	job := claimedJob("run-never-started", "echo ran > out/x.txt")
+	job.Claim.LeaseExpiresAt = time.Now().Add(-time.Second).Format(time.RFC3339)
+	d := quietDaemon(t)
+	comp, err := d.execute(context.Background(), job)
+	if err != nil || comp.Status != "failed" {
+		t.Fatalf("a run past its lease started or did not fail: %+v %v", comp, err)
+	}
+	if comp.Containment != "none" || comp.Receipt != nil {
+		t.Fatalf("a run that started no process reported containment %q receipt %+v; want none", comp.Containment, comp.Receipt)
+	}
+}

@@ -1697,7 +1697,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
 	var finalEvents []Event
 	switch {
-	case cmd == nil:
+	// No command, or one that never started: exec sets Process only once a process exists, so a
+	// run refused before its start (a failed pre-start check) reports that nothing ran. Without
+	// this, the control plane cannot tell it from a lost process and holds it as outcome unknown.
+	case cmd == nil, cmd.Process == nil:
 		comp.Containment = "none"
 	case spawned != nil:
 		w := spawned.Wire()

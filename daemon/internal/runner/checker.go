@@ -1190,8 +1190,13 @@ func checkerSeatbeltPaths(plan loginPlan) ([]string, error) {
 // hashProtected covers the login directory and the instruction and settings
 // paths inside it. A missing directory is "absent", so creating it changes the
 // hash. A missing name is part of the hash too. Each existing name records its
-// kind, mode, and contents. One budget spans the protected paths and their
-// descendants. Exceeding a file, total byte, or entry limit fails the hash.
+// kind, mode, and contents. One byte budget spans the protected paths and their
+// descendants. A file over the per-file limit, or past the byte budget, is named
+// by its identity (device, inode, size, and modification and change times) instead
+// of its contents: vendor login directories hold app bundles and binaries far over
+// any content budget (Codex keeps its own CLI under plugins/), and any write,
+// replace, or retime still changes the change time. Where the platform has no such
+// record, those files fail the hash as before. Exceeding the entry limit fails it.
 func hashProtected(root string) (string, error) {
 	if root == "" {
 		return "", nil
@@ -1216,7 +1221,7 @@ func hashProtected(root string) (string, error) {
 	if err := writePrefixed(h, []byte(modeOctal(st.Mode()))); err != nil {
 		return "", err
 	}
-	budget := protectedHashBudget{bytesLeft: MaxOutputTotal, entriesLeft: checkerMaxEntries()}
+	budget := protectedHashBudget{bytesLeft: MaxOutputTotal, entriesLeft: protectedMaxEntries}
 	for _, name := range protectedLoginNames {
 		if err := budget.hashOne(h, name, filepath.Join(root, name)); err != nil {
 			return "", err
@@ -1225,6 +1230,10 @@ func hashProtected(root string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// protectedMaxEntries bounds the protected login walk. Entries cost one lstat each;
+// file contents are bounded separately by the byte budget.
+var protectedMaxEntries = 200_000
+
 type protectedHashBudget struct {
 	bytesLeft   int64
 	entriesLeft int
@@ -1232,7 +1241,7 @@ type protectedHashBudget struct {
 
 func (b *protectedHashBudget) chargeEntries(n int) error {
 	if n > b.entriesLeft {
-		return fmt.Errorf("protected login tree has more than %d entries, so the check cannot count", checkerMaxEntries())
+		return fmt.Errorf("protected login tree has more than %d entries, so the check cannot count", protectedMaxEntries)
 	}
 	b.entriesLeft -= n
 	return nil
@@ -1315,6 +1324,10 @@ func (b *protectedHashBudget) hashFile(path string) (string, error) {
 		return "", fmt.Errorf("%s is not a regular file", path)
 	}
 	if err := b.checkBytes(path, st.Size()); err != nil {
+		// Too large to read within the budget: name it by its identity when the platform allows.
+		if id, ok := fileIdentity(st); ok {
+			return "identity:" + id, nil
+		}
 		return "", err
 	}
 	fh := sha256.New()

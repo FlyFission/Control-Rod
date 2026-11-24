@@ -1,0 +1,31 @@
+=== RUN   TestProtectedLoginHashNamesLargeFilesByIdentity
+--- PASS: TestProtectedLoginHashNamesLargeFilesByIdentity (0.03s)
+=== RUN   TestProtectedLoginHashOverBudgetTrees
+=== RUN   TestProtectedLoginHashOverBudgetTrees/file
+=== RUN   TestProtectedLoginHashOverBudgetTrees/total
+=== RUN   TestProtectedLoginHashOverBudgetTrees/entries
+--- PASS: TestProtectedLoginHashOverBudgetTrees (0.86s)
+=== RUN   TestDaemonRefusesCheckoutOverProtectedFolders
+--- PASS: TestDaemonRefusesCheckoutOverProtectedFolders (0.06s)
+=== RUN   TestRunRefusedBeforeStartReportsNoProcess
+--- PASS: TestRunRefusedBeforeStartReportsNoProcess (0.01s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.962s
+
+Full suite, failing tests before and after (identical):
+--- FAIL: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun
+--- FAIL: TestBubblewrapMountsDeliverablesReadOnly
+--- FAIL: TestCheckerCannotReachAHostUnixSocket
+--- FAIL: TestCheckerCannotReachAnAbstractUnixSocket
+--- FAIL: TestCheckerCannotRewriteLoginInstructions
+--- FAIL: TestCheckerKeepsSocketpairAndTCP
+--- FAIL: TestCheckerMountBindsTheVerifiedDescriptor
+--- FAIL: TestCheckerMountBlocksWritesOutsideScratch
+--- FAIL: TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential
+--- FAIL: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath
+--- FAIL: TestCheckerProcDoesNotReachHostProcesses
+--- FAIL: TestCheckerRefusesADatagramSocketpair
+--- FAIL: TestCheckerRejectsX32AndIoUring
+--- FAIL: TestCheckerSessionSymlinkDoesNotGrantHomeWrites
+--- FAIL: TestConfirmSandboxSeesTheBubblewrapChild
+--- FAIL: TestPreparedCheckerThroughTheMount

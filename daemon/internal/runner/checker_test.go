@@ -710,12 +710,77 @@ func TestAbsentLoginDirectoryIsPartOfTheHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.Close()
-	if _, err := hashProtected(dir); err == nil {
-		t.Fatal("a settings file over the output cap was hashed")
+	big, err := hashProtected(dir)
+	if _, ok := fileIdentity(mustLstat(t, settings)); !ok {
+		if err == nil {
+			t.Fatal("a settings file over the output cap was hashed without an identity record")
+		}
+		return
+	}
+	if err != nil || big == changed {
+		t.Fatalf("a settings file over the output cap: %q, %v; want a new digest by identity", big, err)
 	}
 }
 
-func TestProtectedLoginHashRejectsOverBudgetTrees(t *testing.T) {
+func mustLstat(t *testing.T, path string) os.FileInfo {
+	t.Helper()
+	st, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+// Codex keeps its own CLI binary under ~/.codex/plugins (CodexCLI.app), far over any content
+// budget. The login hash must still work there, and still see a change to that binary.
+func TestProtectedLoginHashNamesLargeFilesByIdentity(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "plugins", ".plugin-appserver", "codex-cli", "CodexCLI.app", "Contents", "MacOS")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(bin, "codex")
+	if err := os.WriteFile(exe, nil, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(exe, MaxOutputTotal+1); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := fileIdentity(mustLstat(t, exe)); !ok {
+		t.Skip("no change-time record on this platform; large files still fail closed")
+	}
+	first, err := hashProtected(root)
+	if err != nil {
+		t.Fatalf("a login directory holding a large app binary could not be hashed: %v", err)
+	}
+	again, err := hashProtected(root)
+	if err != nil || again != first {
+		t.Fatalf("an unchanged tree hashed differently: %q vs %q (%v)", first, again, err)
+	}
+	// Same size, contents rewritten, modification time put back: the change time still moves.
+	before := mustLstat(t, exe)
+	time.Sleep(20 * time.Millisecond)
+	f, err := os.OpenFile(exe, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteAt([]byte("tampered"), 0); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if err := os.Chtimes(exe, before.ModTime(), before.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	tampered, err := hashProtected(root)
+	if err != nil || tampered == first {
+		t.Fatalf("rewriting a large protected file did not change the hash: %q, %v", tampered, err)
+	}
+}
+
+func TestProtectedLoginHashOverBudgetTrees(t *testing.T) {
+	saved := protectedMaxEntries
+	protectedMaxEntries = 2000
+	t.Cleanup(func() { protectedMaxEntries = saved })
 	for _, tc := range []struct {
 		name string
 		want string
@@ -754,13 +819,21 @@ func TestProtectedLoginHashRejectsOverBudgetTrees(t *testing.T) {
 				}
 				createFile("skills", "one-more-byte", 1)
 			case "entries":
-				for i := range checkerMaxEntries()/2 + 1 {
+				for i := range protectedMaxEntries/2 + 1 {
 					name := fmt.Sprint(i)
 					createFile("plugins", name, 0)
 					createFile("skills", name, 0)
 				}
 			}
 			digest, err := hashProtected(root)
+			// Over the byte limits, files are named by identity where the platform records a change
+			// time; only the entry limit, or a platform without that record, still fails.
+			if _, ok := fileIdentity(mustLstat(t, root)); ok && tc.name != "entries" {
+				if err != nil || digest == "" {
+					t.Fatalf("hashProtected returned %q, %v; want a digest by identity", digest, err)
+				}
+				return
+			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) || digest != "" {
 				t.Fatalf("hashProtected returned %q, %v; want no digest and an error mentioning %q", digest, err, tc.want)
 			}

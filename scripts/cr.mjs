@@ -278,6 +278,6 @@ else if (cmd === "bench") {
   process.exit(r.status ?? 1);
 } else if (cmd === "verify") verify(process.argv.slice(3).map((f) => resolve(process.env.INIT_CWD ?? process.cwd(), f)));
 else {
-  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|bench <select|run|evaluate|review|score> ...]");
+  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|bench <init|select|preflight|probe|controls|run|lock|adjudicate|evaluate|score|size|release> ...]");
   process.exit(2);
 }

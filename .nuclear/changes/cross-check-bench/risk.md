@@ -6,12 +6,13 @@
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|
-| R-01 | Paid agent calls start without the owner's go-ahead, or run past a budget. | `run` prints the call count and stops unless `--yes`; `max_calls` and `max_reported_usd` stop the loop; a re-run resumes. | A paid call made without `--yes` (test: "paid run needs yes"). |
-| R-02 | A result is shared without its context, or cherry-picked. | `share.md` is generated from `results.json` and always prints n, intervals and limits; excluded tasks must be struck before the run, with a reason. | A post figure with no sample size or interval, or a task struck after results. |
-| R-03 | The checker sees the author's reasoning, so the check is not independent. | Checker prompt is the issue and the diff; the checker works in a fresh checkout with the patch applied. | A checker prompt containing author output (test). |
-| R-04 | An agent run on an untrusted repository damages the owner's machine. | Throwaway checkouts under the run directory; Claude author has no shell, Claude checker is read-only (plan mode); Codex author uses its `workspace-write` sandbox and the checker `read-only`. Tasks are well-known open-source repositories. | An agent writing outside its checkout. |
-| R-05 | The benchmark is read as a scheduled job, against the owner's no-schedules rule. | No cron, timer or workflow; every step is a manual command. | Any schedule added for it. |
-| R-06 | Personal setup leaks into the public repository. | Per-machine CLI flags live in `agents.local.json`, which is ignored by git. | A committed endpoint, account or path from the owner's machine. |
+| R-01 | Model calls start without the owner's go, or past the caps. | `run` prints the plan and stops unless `--yes`; hard call cap across resumes; calibration allocation; phase-1 token gate; frozen deadline. | A call launched past a cap (tests). |
+| R-02 | Spend beyond existing subscriptions. | `preflight` verifies the subscription route and refuses billing keys in env or CLI config; keys are stripped from each call's environment. | Any API-key route in preflight. |
+| R-03 | A result is shared without its context, or cherry-picked. | Protocol, sizing and manifest frozen before phase 1; `share.md` only from the released manifest with mandatory disclosures; exclusions close at the first call. | A post figure with no n or interval, or a task struck after a call. |
+| R-04 | The checker or adjudicator is not blind. | Opaque single-commit workspaces; checker prompt is the issue and the diff; adjudication queue anonymized and built before `evaluation.json`. | A probe or test showing a leak. |
+| R-05 | An agent damages the owner's machine or reads private files. | Network-off sandboxes, read-only checker trees, isolated sign-in stores, HOME and run directory denied, probes before any task call. | Any failed isolation probe stops the run. |
+| R-06 | Personal setup leaks into the public repository or a release. | `agents.local.json` ignored by git; release privacy scan refuses emails and tokens and redacts host paths. | A committed or released account, token or path. |
+| R-07 | The benchmark is read as a scheduled job. | No cron, timer or workflow; quota pauses resume only when a person runs `run` again. | Any schedule added. |
 
 ## Selected mode
 
@@ -24,7 +25,7 @@
 
 ## Exit criteria
 
-`pnpm cr bench` runs the four workflows on the same author patches, started by hand only, and refuses paid agent calls without `--yes` and past the configured budget. A run records its seed, task source digest, models, CLI versions and every prompt, patch and verdict. The score reports each workflow with its sample size and 95% intervals, and the share text always carries its limits. The fixture dry run passes with no network. The owner approves any paid run.
+`pnpm cr bench` implements DESIGN.md v3.3: a frozen protocol, calibration then sizing then phase 1, isolated single-commit workspaces with isolated sign-in, matched capabilities, the failure taxonomy, grading by test ID with controls, a blind adjudication queue built before evaluation, the frozen statistics, and a release gate. Every step is started by hand and refuses to run out of order. Subscription billing is verified before any call; no API key is used. The offline tests pass with no network and no model calls. Nothing runs on the owner's Mac until the owner says go for calibration.
 
 ## Source-lineage note
 

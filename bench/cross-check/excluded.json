@@ -1,4 +1,0 @@
-{
-  "note": "Tasks struck by a person before a run, each with the reason. OpenAI's 2026 audit found material problems in 59.4% of 138 frequently failed SWE-bench Verified tasks; when a task's issue and hidden tests disagree, add it here before the run, not after seeing results.",
-  "excluded": []
-}

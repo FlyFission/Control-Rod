@@ -3,12 +3,12 @@
 **Change slug:** `cross-check-bench`
 **Related risk record:** `risk.md`
 **Owner:** Ben Huffer
-**Date:** 2026-11-23
-**Decision this basis supports:** whether Control Rod may carry its own benchmark of author, same-model checker, cross-vendor checker and human sign-off, run by hand on real tasks.
+**Date:** 2026-11-23, rebuilt 2026-11-24 to design v3.3
+**Decision this basis supports:** whether Control Rod may carry its own benchmark of author, same-model checker and cross-vendor checker, run by hand on real tasks, built to the agreed design `bench/cross-check/DESIGN.md` v3.3.
 
 ## Mission / need
 
-The README's research section (PR #152) ties Control Rod's independent check to published results, and says plainly that no study measures one vendor's coding agent reviewing another vendor's code. The owner asked (2026-11-23, project thread) to send major updates through a repeatable run and get output he can share honestly ("open source, free, try it today"). This change builds that run. It makes no claim about the result: no paid run has happened.
+The README's research section (PR #152) ties Control Rod's independent check to published results, and says plainly that no study measures one vendor's coding agent reviewing another vendor's code. The owner asked (2026-11-23, project thread) to send major updates through a repeatable run and get output he can share honestly ("open source, free, try it today"). The owner then asked (2026-11-24) that the design be agreed with Antigravity on Neon and Codex on Astra before anything runs; DESIGN.md v3.3 is that agreement, with the owner's decisions: $0 extra spend, adjudication of discordant rejections only, A4 omitted. The owner said go for the rebuild. This change makes no claim about any result: no model call has been made.
 
 ## Scope
 
@@ -18,19 +18,20 @@ Out of scope: `kernel/`, `policies/`, `tests/redteam/`, `.github/workflows/`, `s
 
 ## Fixed inputs
 
-- Task source: SWE-bench Verified (`princeton-nlp/SWE-bench_Verified`), fetched at run time; the dataset revision and a digest of the rows are written into `run.json`. Not vendored.
-- Evaluation: the SWE-bench harness (MIT), run in Docker through `uv`; its version is recorded per run.
-- Agents: `claude` and `codex` CLIs, the two that run work in Control Rod today. Models in `bench/cross-check/agents.json`.
-- Research context and limits: `docs/research/second-checker/` on PR #152.
+- Design: `bench/cross-check/DESIGN.md` v3.3 (agreed, four review rounds).
+- Task source: a local snapshot file, validated and digest-pinned (`configs/verified-historical.json`: SWE-bench Verified hard tiers, labelled historical). Not vendored.
+- Evaluation: the SWE-bench harness (MIT), version pinned in the config, run in Docker through `uv`.
+- Agents: `claude` and `codex` CLIs, the two that run work in Control Rod today, on existing subscription sign-ins. Models in `bench/cross-check/agents.json`.
+- Isolation flags mirror `daemon/internal/runner` and are listed in `crbench/agents.py`.
 
 ## Assumptions and invalidation triggers
 
 | Assumption | Basis | Invalidation trigger |
 |---|---|---|
-| Hidden tests are a usable ground truth for "resolved". | SWE-bench design; OpenAI's 2026 audit says some are wrong, so tasks are read and can be struck before a run. | A task struck after its results were seen, or a report that treats resolved as mergeable. |
-| One author patch judged by four gates isolates the checker's effect. | All arms read the same patch; only the gate differs. | Arms built from different author runs. |
-| The checker sees the issue and the diff only. | Prompt template and a test that the checker prompt holds no author transcript. | A checker prompt containing author output or the author's name. |
-| CLI-reported cost and tokens are enough to bound spend. | Claude Code reports an API-equivalent cost; Codex reports tokens. | A run that exceeds its call cap. |
+| Hidden tests are a usable reference for "resolved". | SWE-bench design; tasks are audited and can be struck before any call. | A task struck after any call, or a report that treats resolved as mergeable. |
+| One author patch judged by both checkers isolates the checker's effect. | Both checkers receive the same patch, verified by SHA-256 digest. | A digest mismatch (refused by `score`). |
+| The checker sees the issue and the diff only. | Prompt template; opaque workspace with a single synthetic commit. | A checker prompt holding author output, or a probe that reads outside its tree. |
+| Subscription sign-in costs nothing extra. | `preflight` verifies the route and refuses billing keys. | Any API-key or paid route in preflight. |
 
 ## Required links
 
@@ -38,7 +39,7 @@ Out of scope: `kernel/`, `policies/`, `tests/redteam/`, `.github/workflows/`, `s
 
 ## Exit criteria
 
-`pnpm cr bench` runs the four workflows on the same author patches, started by hand only, and refuses paid agent calls without `--yes` and past the configured budget. A run records its seed, task source digest, models, CLI versions and every prompt, patch and verdict. The score reports each workflow with its sample size and 95% intervals, and the share text always carries its limits. The fixture dry run passes with no network. The owner approves any paid run.
+`pnpm cr bench` implements DESIGN.md v3.3: a frozen protocol, calibration then sizing then phase 1, isolated single-commit workspaces with isolated sign-in, matched capabilities, the failure taxonomy, grading by test ID with controls, a blind adjudication queue built before evaluation, the frozen statistics, and a release gate. Every step is started by hand and refuses to run out of order. Subscription billing is verified before any call; no API key is used. The offline tests pass with no network and no model calls. Nothing runs on the owner's Mac until the owner says go for calibration.
 
 ## Source-lineage note
 

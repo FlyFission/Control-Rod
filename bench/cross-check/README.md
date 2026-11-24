@@ -1,64 +1,78 @@
 # Cross-vendor checking benchmark
 
-Control Rod's core claim is that a second agent, from another vendor, should check an author's work before a person signs off. Published research supports the pieces of that idea (see `docs/research/second-checker/`, PR #152), but no study we found measures one vendor's coding agent reviewing another vendor's code. This benchmark measures it on real tasks, and anyone can re-run it.
+Control Rod's core claim is that a second agent, from another vendor, should check an author's work before a person signs off. Published research supports parts of that idea (see `docs/research/second-checker/`), but no study we found measures one vendor's coding agent reviewing another vendor's code. This benchmark measures it on real tasks, and anyone can re-run it.
+
+The design is [DESIGN.md](DESIGN.md) (v3.3), agreed after four rounds of blind review by Antigravity on Gemini 4 Neon and Codex on Astra. This README says how to run it. Where the two differ, DESIGN.md wins.
 
 It is started by hand, every time. Nothing here runs on a schedule.
 
 ## What it measures
 
-Each task is a real GitHub issue with hidden tests (SWE-bench Verified). Each of the two authors (Claude Code and Codex, the two agents that run work in Control Rod today) solves each task once. Every patch is then checked twice: by a checker running the author's own model, and by a checker from the other vendor. The same patches go through four workflows:
+Two authors, Claude Code and Codex, each solve every task once. Every patch that is nonempty and valid is then checked twice: by a checker on the author's own model ("same") and by one from the other vendor ("cross"). Hidden tests (SWE-bench `FAIL_TO_PASS` and `PASS_TO_PASS`), which no agent sees, grade each patch as hidden-test-failing ("bad") or passing ("good").
 
-| Workflow | Accepts a patch when |
-|---|---|
-| A1 Author + tests | the task's existing tests still pass |
-| A2 + same-model checker | A1, and a checker on the author's own model says pass |
-| A3 + cross-vendor checker | A1, and a checker from the other vendor says pass |
-| A4 + cross-vendor checker + human | A3, and a person accepts it in `review` |
+The headline is the **equal-author-weight contrast**: cross minus same explicit-rejection rate, on bad patches (catches) and on good patches (false rejections), averaged over the two authors, with a 95% task-bootstrap interval. Beside it: both directions, paired 3×3 verdict tables, inconclusive bounds, exact McNemar within each author, Youden's J, leave-one-repository-out, verdict stability, and workflow outcomes for A1 (tests), A2 (+ same) and A3 (+ cross). The human arm (A4) is omitted from this run (DESIGN.md, Owner decision 3).
 
-Ground truth is the task's hidden tests (SWE-bench `FAIL_TO_PASS` and `PASS_TO_PASS`), which neither the author nor the checker sees.
+"Rejection" means an explicit fail verdict. The words "defects caught" are used only for the adjudicated outcome.
 
-For each workflow, `score` reports, with 95% Wilson intervals:
+## The order of a study
 
-- **Accepted:** patches the workflow lets through.
-- **Defects caught:** unresolved patches the workflow rejected.
-- **Good patches rejected:** resolved patches the workflow rejected (the checker's false positives).
-- **Accepted but unresolved:** defects that reached the end anyway.
-- **Agent minutes, human minutes, tokens, and CLI-reported USD.** Claude Code reports an API-equivalent cost; Codex reports tokens only.
-
-It also compares the two checkers on the same patches: of the patches the tests let through that the hidden tests fail, how many did only the cross-vendor checker catch, and how many only the same-model one (exact McNemar test on those two counts).
-
-## Why it is built this way
-
-- **One author patch, judged four ways.** The arms differ only in the gate, so a difference between A2 and A3 comes from the checker, not from a different author run. It also keeps cost down: one task costs 2 author calls and 4 checker calls.
-- **The checker sees the issue and the diff, nothing else.** No transcript, no reasoning, no author name. That matches Control Rod's checker contract and the self-preference results (Panickssery et al. 2024).
-- **Tests are a gate, not the verdict.** METR (2026) found maintainers would not merge roughly half of 296 test-passing AI patches, so A4 adds a person, timed.
-- **Tasks are read before the run.** OpenAI's 2026 audit of 138 often-failed SWE-bench Verified tasks found material problems in 59.4% of them. `select` writes `tasks.md` so a person can strike a task whose tests ask for something its issue does not, in `excluded.json` with the reason, before any paid call. Striking a task after seeing results is not allowed.
-- **Inconclusive is not pass.** A checker answer without a verdict block counts as not passing and is counted separately.
-
-## Running it
+Each step writes its record into the study directory and refuses to run out of order.
 
 ```sh
-pnpm cr bench select --config bench/cross-check/configs/fixture.json   # offline dry run, stub agents
-pnpm cr bench run --run bench/cross-check/runs/<id>
-pnpm cr bench evaluate --run bench/cross-check/runs/<id>
-pnpm cr bench review --run bench/cross-check/runs/<id>
-pnpm cr bench score --run bench/cross-check/runs/<id>
+B="pnpm cr bench"            # or: python3 bench/cross-check/bench.py
+S=~/cr-bench-studies/2026-11  # any directory; keep it outside the repository
+
+$B init      --study $S --config bench/cross-check/configs/verified-historical.json  # freezes the protocol
+$B select    --study $S --phase calibration     # 10-12 tasks and calibration/audit.md
+$B exclude   --study $S --phase calibration --task ID --reason "..."   # strike defective tasks, before any call
+$B preflight --study $S --phase calibration     # billing route, sign-in, CLI versions, host, Docker
+$B probe     --study $S                         # isolation probes, each vendor and role
+$B controls  --study $S --phase calibration     # base, gold, known-bad, missing-report controls
+$B run       --study $S --phase calibration     # prints the plan; add --yes to start
+$B lock      --study $S --phase calibration     # hashes every verdict, builds the blind adjudication queue
+$B adjudicate --study $S --phase calibration --item ID --judgment supported --note "..."   # or --skip REASON
+$B evaluate  --study $S --phase calibration     # hidden tests, only after lock and adjudication
+$B score     --study $S --phase calibration
+$B size      --study $S                         # power.py: phase-1 count, pilot or stop; frozen once
+$B select    --study $S --phase main            # then the same steps for phase main
+$B release   --study $S                         # privacy scan, digests, transcript asset, share.md
 ```
 
-A real run uses `configs/pilot.json` (5 tasks, 30 agent calls) or `configs/v1.json` (20 tasks, 120 calls). It needs the `claude` and `codex` CLIs signed in, Docker, and `uv` for the SWE-bench harness. `run` prints the number of calls and stops; it starts paid calls only with `--yes`. The budget in the config caps calls and CLI-reported cost, and a re-run resumes where it stopped.
+`run` stops cleanly at a usage limit and records a quota pause for that vendor. Start it again after the limit resets; it resumes the same task block. It never runs on a timer.
 
-Per-machine CLI flags (for example a non-default Codex endpoint) go in `agents.local.json`, which is not committed. The model each agent uses is in `agents.json` and is written into the run record.
+## Spend
 
-`python3 -m unittest bench/cross-check/test_bench.py` runs the fixture end to end with no network and no paid calls.
+Only the CLIs' existing subscription sign-ins are used. `preflight` refuses to start if `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY` or another billing key is in the environment or in CLI config, and it checks each CLI's own status command against the isolated login store the calls will use. Reports say $0 actual; any API-equivalent figure is disclosure only and is not money anyone pays.
 
-## What a run leaves behind
+## Sign-in without exposure
 
-`runs/<id>/` holds `run.json` (config and its digest, dataset revision and row digest, seed, Control Rod commit, CLI versions, harness version), `tasks.json` and `tasks.md`, every prompt, patch, transcript and verdict under `calls/`, `evaluation.json`, `reviews.json`, and the scored `results.json`, `report.md` and `share.md`. `share.md` is plain post text that always carries its sample size, intervals and limits.
+Each call gets a fresh opaque directory under `/var/tmp/cr-bench-<uid>/` holding a single-commit export of the task's base tree, and a separate private directory with only that CLI's sign-in:
+
+- Codex: an isolated `CODEX_HOME` holding a copy of `auth.json`.
+- Claude Code: a subscription token from `claude setup-token`, kept in `~/.config/cr-bench/claude-oauth-token` (mode 600) and passed as `CLAUDE_CODE_OAUTH_TOKEN`.
+
+Where those live on your machine goes in `agents.local.json` (ignored by git), which may set only the sign-in store, the CLI path and transport settings. It cannot change model, effort, tools or sandbox.
+
+## Configs
+
+- `configs/fixture.json`: eight offline fixture tasks and two stub agents. The tests run this.
+- `configs/verified-historical.json`: SWE-bench Verified, the `15 min - 1 hour` and `1-4 hours` tiers, labelled historical. Its calendar horizon, call and token caps and timeouts are the owner's to set before `init`. The calibration allocation of 120 calls covers 12 tasks × 6 calls, stability repeats of up to 24, 4 probes and retry headroom.
+
+Download the dataset once to a local JSONL file, pin its SHA-256 in the config, and point `snapshot.path` at it.
+
+## Tests
+
+```sh
+python3 -m unittest bench/cross-check/test_bench.py
+```
+
+48 offline tests cover the rules the code enforces: the freeze, seeded selection and the reserve, exclusions closing at the first call, single-commit exports, read-only checker trees, the test-path rule (add, edit, delete, rename), patch digests, the strict verdict schema, the isolation flags, billing-key refusal, sealed and leaky probes, the call cap, the calibration allocation, the phase-1 token gate, quota pauses and the 24-hour grace, halts on sign-in and repeated infra errors, the deadline, interrupted calls, model and CLI changes, a checker that writes to source, grading by test ID, the controls, the blind queue, scoring, sizing, and the release privacy gate. They use no network and make no model calls.
 
 ## Limits
 
-- Agent calls are not seeded. The task sample is seeded; each call's output is kept, so a run can be audited but not replayed exactly.
-- Two vendors. The result says nothing about other agents.
-- Small samples. A pilot of 5 tasks is a check that the pipeline works, not a result.
-- Authors work in a plain checkout, not the task's test environment. The Codex author can run commands in its own sandbox; the Claude author has no shell. That affects how good the patches are, not how the two checkers compare on them.
-- The hidden tests are the ground truth, and they can be wrong.
+- The benchmark calls the CLIs directly, not through Control Rod's daemon.
+- Two vendors, one model each. The result says nothing about other agents or about vendor diversity in general.
+- Agent calls are not seeded. Every input and output is kept, so a run can be audited but not replayed exactly.
+- Hidden tests are the reference, and they can be wrong. Tasks are audited and can be struck before any call.
+- The isolation probes ask the agent to try each forbidden read. An agent that declines to try passes a negative probe; the flags and the opaque directory names are the primary controls.
+- `power.py` judges each simulated study with a cluster-robust normal interval, not the full task bootstrap that `score` uses. Its output records this.

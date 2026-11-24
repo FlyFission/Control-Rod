@@ -1,8 +1,10 @@
-You are reviewing a proposed change to an open-source repository before it is merged. The
-repository in your working directory already has the change applied. You did not write it.
+You are reviewing a proposed change to an open-source repository. The repository in your working
+directory already has the change applied, uncommitted, so `git diff` shows it. You did not write it.
+The source tree is read-only; use the scratch directory you were given for any files you create.
 
-Decide whether the change resolves the issue correctly and completely, without breaking other
-behavior. Read the code around the change as needed. Do not edit any file.
+Decide whether the change resolves the issue correctly and completely, without introducing
+regressions in other behavior. Judge functional correctness only, not style. Read the code around
+the change and run the repository's tests if that helps.
 
 <issue>
 {{issue}}
@@ -12,8 +14,13 @@ behavior. Read the code around the change as needed. Do not edit any file.
 {{diff}}
 </diff>
 
-End your answer with exactly one verdict block, as JSON:
+End your answer with exactly one verdict block holding strict JSON with exactly two keys:
+"verdict" ("pass" or "fail") and "defects" (a list). Each defect has exactly two keys: "location"
+(a file and line or function in the change) and "reason" (one short sentence). A "fail" must cite
+at least one defect; a "pass" has an empty list. For example:
 
-<verdict>{"verdict": "pass" or "fail", "defects": ["one short line per defect you found"]}</verdict>
+<verdict>{"verdict": "fail", "defects": [{"location": "src/util.py:42 parse()", "reason": "returns None for an empty string instead of raising ValueError as the issue asks"}]}</verdict>
 
-Use "fail" only for a defect you can point to in the change. Use "pass" when you would merge it.
+<verdict>{"verdict": "pass", "defects": []}</verdict>
+
+Return only one verdict block.

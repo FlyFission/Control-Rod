@@ -2,13 +2,17 @@
 
 | Requirement | Change | Tests and checks | Disposition |
 |---|---|---|---|
-| XB-01 Four workflows judge the same author patch. | `bench.py` `plan_calls`, `score` | `test_bench.py` FixtureRun.test_end_to_end | implemented and tested |
-| XB-02 The checker sees the issue and the diff only. | `prompts/checker.md`, `cmd_run` checker branch | same test, checker prompt assertions | implemented and tested |
-| XB-03 Started by hand; paid calls need `--yes` and stop at the budget. | `cmd_run`, `scripts/cr.mjs` `bench` | `test_paid_run_needs_yes` | implemented and tested |
-| XB-04 Seeded, reproducible task sample; struck tasks never selected. | `select_tasks`, `excluded.json` | Selection tests | implemented and tested |
-| XB-05 Every rate has its n and a 95% Wilson interval; paired checker comparison. | `wilson`, `mcnemar_exact`, `rate` | Stats tests | implemented and tested |
-| XB-06 Share text carries its limits and marks a dry run as not a result. | `share` | end-to-end test | implemented and tested |
-| XB-07 Real tasks evaluated by the SWE-bench harness. | `fetch_hf`, `eval_swebench` | not executed: this host's network policy blocks Hugging Face, and no paid run was approved | open |
+| XB-01 Frozen protocol; selection seeded, quota-bound, never re-drawn; exclusions close at the first call (§2, §3). | `manifest.py` | Protocol tests | implemented and tested |
+| XB-02 Opaque single-commit workspaces outside the repo and HOME; read-only checker trees (§4, §5). | `workspace.py`, `run.py` | Workspaces tests, checker-vandal test | implemented and tested |
+| XB-03 Isolation flags, isolated sign-in, billing-key refusal, probes with positive and negative controls (§4, §9). | `agents.py`, `preflight.py` | AgentArgs, Preflight tests | implemented and tested offline; real CLIs open |
+| XB-04 Failure taxonomy, call cap, phase-1 token gate, quota pauses, halts, deadline, resume checks (§5, §9). | `agents.py`, `ledger.py`, `run.py` | LedgerRules, EndToEnd tests | implemented and tested |
+| XB-05 Patch capture, test-path rule, digests; grading by test ID; controls (§6). | `patches.py`, `grading.py` | Workspaces, Grading tests | fixture grader tested; SWE-bench grader open |
+| XB-06 Lock, blind queue before evaluation, judgments (§7, Owner decision 2). | `adjudicate.py` | EndToEnd calibration test | implemented and tested |
+| XB-07 Metrics and inference as frozen (§7). | `score.py`, `stats.py` | Stats, EndToEnd tests | implemented and tested |
+| XB-08 Sizing, pilot or stop (§2, Owner decision 1). | `power.py` | sizing test | implemented and tested on fixtures |
+| XB-09 Release gate and share text with disclosures (§10). | `release.py` | release tests | implemented and tested |
+| XB-10 Started by hand only. | `scripts/cr.mjs`, `bench.py` | `run` without `--yes` makes no call (EndToEnd) | implemented and tested |
+
 
 ## Required links
 
@@ -16,7 +20,7 @@
 
 ## Exit criteria
 
-`pnpm cr bench` runs the four workflows on the same author patches, started by hand only, and refuses paid agent calls without `--yes` and past the configured budget. A run records its seed, task source digest, models, CLI versions and every prompt, patch and verdict. The score reports each workflow with its sample size and 95% intervals, and the share text always carries its limits. The fixture dry run passes with no network. The owner approves any paid run.
+`pnpm cr bench` implements DESIGN.md v3.3: a frozen protocol, calibration then sizing then phase 1, isolated single-commit workspaces with isolated sign-in, matched capabilities, the failure taxonomy, grading by test ID with controls, a blind adjudication queue built before evaluation, the frozen statistics, and a release gate. Every step is started by hand and refuses to run out of order. Subscription billing is verified before any call; no API key is used. The offline tests pass with no network and no model calls. Nothing runs on the owner's Mac until the owner says go for calibration.
 
 ## Source-lineage note
 

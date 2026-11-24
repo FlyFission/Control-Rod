@@ -1,10 +1,11 @@
 # Plan: cross-vendor checking benchmark
 
-1. `bench/cross-check/bench.py`: `select` (seeded sample, `tasks.md` for reading before the run), `run` (author, then same-model and cross-vendor checker per patch, budget, `--yes`), `evaluate` (SWE-bench harness, or fixture tests), `review` (blind, timed human accept for A4), `score` (results, report, share text).
-2. Configs: `fixture` (offline, stub agents), `pilot` (5 tasks, 30 calls), `v1` (20 tasks, 120 calls). Budgets in the configs are the owner's to set before a paid run.
-3. Fixture tasks covering every cell: resolved and accepted, unresolved and caught, resolved and rejected, unresolved and accepted, and a case the two checkers disagree on.
-4. `pnpm cr bench` subcommand. Tests. Draft pull request.
-5. Before any paid run: the owner reads the plan, sets the budget, and says go. The pilot runs on the owner's machine (signed-in CLIs, Docker).
+1. Rebuild `bench/cross-check/` as the `crbench` package to DESIGN.md v3.3: protocol freeze and selection (`manifest.py`), workspaces (`workspace.py`), patch capture (`patches.py`), agent calls and isolation flags (`agents.py`), the ledger (`ledger.py`), preflight and probes (`preflight.py`), grading and controls (`grading.py`), the run (`run.py`), lock, adjudication and evaluation (`adjudicate.py`), scoring (`score.py`, `stats.py`), sizing (`power.py`) and release (`release.py`). `bench.py` is the command line.
+2. Configs: `fixture` (offline, stub agents) and `verified-historical` (the real study template; policy caps are the owner's to set before `init`). Fixtures cover good, bad, falsely rejected and checker-discordant patches.
+3. Offline tests for every rule the code enforces. Update `pnpm cr bench` usage. Draft pull request #160.
+4. Blind code review by Codex on Astra and Antigravity on Neon.
+5. Calibration on the owner's Mac only after the owner says go.
+
 
 ## Required links
 
@@ -12,7 +13,7 @@
 
 ## Exit criteria
 
-`pnpm cr bench` runs the four workflows on the same author patches, started by hand only, and refuses paid agent calls without `--yes` and past the configured budget. A run records its seed, task source digest, models, CLI versions and every prompt, patch and verdict. The score reports each workflow with its sample size and 95% intervals, and the share text always carries its limits. The fixture dry run passes with no network. The owner approves any paid run.
+`pnpm cr bench` implements DESIGN.md v3.3: a frozen protocol, calibration then sizing then phase 1, isolated single-commit workspaces with isolated sign-in, matched capabilities, the failure taxonomy, grading by test ID with controls, a blind adjudication queue built before evaluation, the frozen statistics, and a release gate. Every step is started by hand and refuses to run out of order. Subscription billing is verified before any call; no API key is used. The offline tests pass with no network and no model calls. Nothing runs on the owner's Mac until the owner says go for calibration.
 
 ## Source-lineage note
 

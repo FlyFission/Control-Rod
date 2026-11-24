@@ -1,28 +1,535 @@
-4 tasks -> <run>/tasks.md
-4 tasks x 2 authors: 24 agent calls (cap 100, reported-cost cap None). Timeout 60 s per call.
-fixture__t1 author stub-a: 0.0 s
-fixture__t1 checker stub-a on stub-a: 0.0 s pass
-fixture__t1 checker stub-b on stub-a: 0.0 s pass
-fixture__t1 author stub-b: 0.0 s
-fixture__t1 checker stub-a on stub-b: 0.0 s pass
-fixture__t1 checker stub-b on stub-b: 0.0 s pass
-fixture__t2 author stub-a: 0.0 s
-fixture__t2 checker stub-a on stub-a: 0.0 s fail
-fixture__t2 checker stub-b on stub-a: 0.0 s fail
-fixture__t2 author stub-b: 0.0 s
-fixture__t2 checker stub-a on stub-b: 0.0 s fail
-fixture__t2 checker stub-b on stub-b: 0.0 s fail
-fixture__t3 author stub-a: 0.0 s
-fixture__t3 checker stub-a on stub-a: 0.0 s fail
-fixture__t3 checker stub-b on stub-a: 0.0 s fail
-fixture__t3 author stub-b: 0.0 s
-fixture__t3 checker stub-a on stub-b: 0.0 s fail
-fixture__t3 checker stub-b on stub-b: 0.0 s fail
-fixture__t4 author stub-a: 0.0 s
-fixture__t4 checker stub-a on stub-a: 0.0 s pass
-fixture__t4 checker stub-b on stub-a: 0.0 s fail
-fixture__t4 author stub-b: 0.0 s
-fixture__t4 checker stub-a on stub-b: 0.0 s pass
-fixture__t4 checker stub-b on stub-b: 0.0 s fail
-hidden tests -> <run>/evaluation.json
--> <run>/results.json, report.md, share.md
+++ python3 bench/cross-check/bench.py init --study <tmp>/study --config bench/cross-check/configs/fixture.json
+{
+  "frozen_sha256": "e33e5a4fdddb9cb290e6159cb10aace372952ee535b81a1c499827ff3e4050e7",
+  "study": "<tmp>/study"
+}
+++ python3 bench/cross-check/bench.py select --study <tmp>/study --phase calibration
+{
+  "audit": "<tmp>/study/calibration/audit.md",
+  "reserve": [],
+  "tasks": [
+    "fixture__t1",
+    "fixture__t6",
+    "fixture__t2",
+    "fixture__t3"
+  ]
+}
+++ python3 bench/cross-check/bench.py preflight --study <tmp>/study --phase calibration
+{
+  "at": "2026-11-24T14:51:09Z",
+  "checks": {
+    "stub-a": {
+      "auth": {
+        "ok": true,
+        "route": "stub"
+      },
+      "billing_keys": [],
+      "local": {
+        "config": {},
+        "custom_bin": false,
+        "login_mode": null
+      },
+      "ok": true,
+      "version": "stub"
+    },
+    "stub-b": {
+      "auth": {
+        "ok": true,
+        "route": "stub"
+      },
+      "billing_keys": [],
+      "local": {
+        "config": {},
+        "custom_bin": false,
+        "login_mode": null
+      },
+      "ok": true,
+      "version": "stub"
+    }
+  },
+  "docker": {
+    "not_needed": true,
+    "ok": true
+  },
+  "host": {
+    "arch": "x86_64",
+    "disk_free_gb": 64.1,
+    "python": "3.13.18",
+    "system": "Linux"
+  },
+  "host_ok": true,
+  "passed": true,
+  "phase": "calibration",
+  "pinned_from_calibration": false,
+  "versions": {
+    "stub-a": "stub",
+    "stub-b": "stub"
+  }
+}
+++ python3 bench/cross-check/bench.py probe --study <tmp>/study
+{
+  "at": "2026-11-24T14:51:10Z",
+  "passed": true,
+  "results": {
+    "stub-a/author": {
+      "call": "probe--stub-a--author--a4d646",
+      "checks": {
+        "call completed": true,
+        "negative: cannot read AGENTS.md": true,
+        "negative: cannot read other sign-in": true,
+        "negative: cannot read real HOME": true,
+        "negative: cannot read run directory": true,
+        "negative: cannot read sibling workspace": true,
+        "negative: no MCP or subagent tools": true,
+        "negative: no shell network egress": true,
+        "negative: no web search tool used": true,
+        "positive: one synthetic commit": true,
+        "positive: reads its own tree": true
+      },
+      "ok": true
+    },
+    "stub-a/checker": {
+      "call": "probe--stub-a--checker--4d00c8",
+      "checks": {
+        "call completed": true,
+        "negative: cannot read AGENTS.md": true,
+        "negative: cannot read other sign-in": true,
+        "negative: cannot read real HOME": true,
+        "negative: cannot read run directory": true,
+        "negative: cannot read sibling workspace": true,
+        "negative: checker cannot write source": true,
+        "negative: no MCP or subagent tools": true,
+        "negative: no shell network egress": true,
+        "negative: no web search tool used": true,
+        "positive: one synthetic commit": true,
+        "positive: reads its own tree": true
+      },
+      "ok": true
+    },
+    "stub-b/author": {
+      "call": "probe--stub-b--author--1b9b44",
+      "checks": {
+        "call completed": true,
+        "negative: cannot read AGENTS.md": true,
+        "negative: cannot read other sign-in": true,
+        "negative: cannot read real HOME": true,
+        "negative: cannot read run directory": true,
+        "negative: cannot read sibling workspace": true,
+        "negative: no MCP or subagent tools": true,
+        "negative: no shell network egress": true,
+        "negative: no web search tool used": true,
+        "positive: one synthetic commit": true,
+        "positive: reads its own tree": true
+      },
+      "ok": true
+    },
+    "stub-b/checker": {
+      "call": "probe--stub-b--checker--02c8d2",
+      "checks": {
+        "call completed": true,
+        "negative: cannot read AGENTS.md": true,
+        "negative: cannot read other sign-in": true,
+        "negative: cannot read real HOME": true,
+        "negative: cannot read run directory": true,
+        "negative: cannot read sibling workspace": true,
+        "negative: checker cannot write source": true,
+        "negative: no MCP or subagent tools": true,
+        "negative: no shell network egress": true,
+        "negative: no web search tool used": true,
+        "positive: one synthetic commit": true,
+        "positive: reads its own tree": true
+      },
+      "ok": true
+    }
+  }
+}
+++ python3 bench/cross-check/bench.py controls --study <tmp>/study --phase calibration
+{
+  "at": "2026-11-24T14:51:12Z",
+  "evaluation": {
+    "kind": "fixture"
+  },
+  "passed": true,
+  "results": {
+    "base:fixture__t1": {
+      "expected": {
+        "a1_pass": true,
+        "resolved": false,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": true,
+        "resolved": false,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "base:fixture__t2": {
+      "expected": {
+        "a1_pass": true,
+        "resolved": false,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": true,
+        "resolved": false,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "base:fixture__t3": {
+      "expected": {
+        "a1_pass": true,
+        "resolved": false,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": true,
+        "resolved": false,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "base:fixture__t6": {
+      "expected": {
+        "a1_pass": true,
+        "resolved": false,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": true,
+        "resolved": false,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "gold:fixture__t1": {
+      "expected": {
+        "a1_pass": true,
+        "resolved": true,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": true,
+        "resolved": true,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "gold:fixture__t2": {
+      "expected": {
+        "a1_pass": true,
+        "resolved": true,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": true,
+        "resolved": true,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "gold:fixture__t3": {
+      "expected": {
+        "a1_pass": true,
+        "resolved": true,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": true,
+        "resolved": true,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "gold:fixture__t6": {
+      "expected": {
+        "a1_pass": true,
+        "resolved": true,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": true,
+        "resolved": true,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "known_bad:fixture__t1": {
+      "expected": {
+        "resolved": false,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": false,
+        "resolved": false,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "known_bad:fixture__t2": {
+      "expected": {
+        "resolved": false,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": false,
+        "resolved": false,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "known_bad:fixture__t3": {
+      "expected": {
+        "resolved": false,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": false,
+        "resolved": false,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "known_bad:fixture__t6": {
+      "expected": {
+        "resolved": false,
+        "status": "graded"
+      },
+      "got": {
+        "a1_pass": false,
+        "resolved": false,
+        "status": "graded",
+        "why": null
+      },
+      "ok": true
+    },
+    "missing_report": {
+      "expected": {
+        "status": "infra_error"
+      },
+      "got": {
+        "status": "infra_error"
+      },
+      "ok": true
+    }
+  }
+}
+++ python3 bench/cross-check/bench.py run --study <tmp>/study --phase calibration
+{
+  "plan": {
+    "author_calls": 8,
+    "checker_calls_at_most": 16,
+    "max_calls_left": 196,
+    "stability_calls_at_most": 16,
+    "tasks": 4
+  },
+  "status": "planned"
+}
+++ python3 bench/cross-check/bench.py run --study <tmp>/study --phase calibration --yes
+{
+  "at": "2026-11-24T14:51:19Z",
+  "ledger": {
+    "by": {
+      "calibration/stub-a/author": {
+        "calls": 5,
+        "known_tokens": 600,
+        "statuses": {
+          "ok": 5
+        },
+        "unknown_usage": 0
+      },
+      "calibration/stub-a/checker": {
+        "calls": 17,
+        "known_tokens": 2040,
+        "statuses": {
+          "ok": 17
+        },
+        "unknown_usage": 0
+      },
+      "calibration/stub-b/author": {
+        "calls": 5,
+        "known_tokens": 600,
+        "statuses": {
+          "ok": 5
+        },
+        "unknown_usage": 0
+      },
+      "calibration/stub-b/checker": {
+        "calls": 17,
+        "known_tokens": 2040,
+        "statuses": {
+          "ok": 17
+        },
+        "unknown_usage": 0
+      }
+    },
+    "calls_with_unknown_usage": 0,
+    "halted": null,
+    "in_flight": [],
+    "known_tokens": 5280,
+    "launched": 44,
+    "max_calls": 200
+  },
+  "plan": {
+    "author_calls": 8,
+    "checker_calls_at_most": 16,
+    "max_calls_left": 196,
+    "stability_calls_at_most": 16,
+    "tasks": 4
+  },
+  "status": "complete"
+}
+++ python3 bench/cross-check/bench.py lock --study <tmp>/study --phase calibration
+{
+  "locked": "9b1f7f96865430477810ecb7ac2cac394eab0cefa6619d2d7036c6baab3103c4",
+  "rows": 32
+}
+++ python3 bench/cross-check/bench.py adjudicate --study <tmp>/study --phase calibration --skip 'fixture dry run'
+{
+  "judgments": {},
+  "skipped": {
+    "at": "2026-11-24T14:51:19Z",
+    "reason": "fixture dry run"
+  }
+}
+++ python3 bench/cross-check/bench.py evaluate --study <tmp>/study --phase calibration
+{
+  "fixture__t1": {
+    "stub-a": "graded",
+    "stub-b": "graded"
+  },
+  "fixture__t2": {
+    "stub-a": "graded",
+    "stub-b": "graded"
+  },
+  "fixture__t3": {
+    "stub-a": "graded",
+    "stub-b": "graded"
+  },
+  "fixture__t6": {
+    "stub-a": "graded",
+    "stub-b": "graded"
+  }
+}
+++ python3 bench/cross-check/bench.py score --study <tmp>/study --phase calibration
+{
+  "designation": "calibration (never published as findings)",
+  "equal_author_weight": {
+    "bad": {
+      "B": 500,
+      "bounds": [
+        0.0,
+        0.0
+      ],
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "dropped": 27,
+      "point": 0.0,
+      "pooled_diff": 0.0
+    },
+    "good": {
+      "B": 500,
+      "bounds": [
+        0.0,
+        0.0
+      ],
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "dropped": 29,
+      "point": 0.0,
+      "pooled_diff": 0.0
+    }
+  },
+  "report": "<tmp>/study/calibration/report.md"
+}
+++ python3 bench/cross-check/bench.py size --study <tmp>/study --sims 50
+{
+  "assumptions": [
+    "true catch gain equals delta_catch; no true change in false rejection",
+    "discordance splits (p_d + gain)/2 cross-only and (p_d - gain)/2 same-only",
+    "within-task correlation rho on both yield and verdict discordance",
+    "cluster-robust normal interval stands in for the task bootstrap inside the simulation",
+    "missingness is the phase-0 share of inconclusive checks, applied per pair"
+  ],
+  "at": "2026-11-24T14:51:20Z",
+  "capacity": {
+    "calibration_days": 0.0,
+    "calibration_tasks": 4,
+    "days_left": 14.0,
+    "n_feasible": 1343,
+    "task_supply": 4,
+    "tasks_per_day": 96.0
+  },
+  "designation": "feasibility pilot",
+  "inputs": {
+    "grid": [
+      [
+        0.3,
+        0.2
+      ],
+      [
+        0.3,
+        0.3
+      ],
+      [
+        0.35,
+        0.2
+      ],
+      [
+        0.35,
+        0.3
+      ]
+    ],
+    "margins": {
+      "alpha": 0.05,
+      "delta_catch": 0.15,
+      "delta_fr": 0.05,
+      "power": 0.8
+    },
+    "missingness": 0.0,
+    "per_author": {
+      "stub-a": {
+        "attempts": 4,
+        "eligible_bad": 2,
+        "eligible_good": 2,
+        "good_lower80": 0.2302,
+        "q_lower80": 0.2302,
+        "q_point": 0.5
+      },
+      "stub-b": {
+        "attempts": 4,
+        "eligible_bad": 2,
+        "eligible_good": 2,
+        "good_lower80": 0.2302,
+        "q_lower80": 0.2302,
+        "q_point": 0.5
+      }
+    },
+    "sims": 50
+  },
+  "n_phase1": 4,
+  "n_required": null,
+  "power_at_required": {
+    "searched_to": 4000
+  },
+  "reason": "no count up to 4000 meets the rule",
+  "script_sha256": "cef08263aefddf7b4f5935e214286a9deb8cc394eec7b0f836d064be6eb249ea",
+  "sha256": "ff50fddfce5c5411512f59cfb7e527089d725ecfae56728c3564d61899d343dd",
+  "study_sha256": "e33e5a4fdddb9cb290e6159cb10aace372952ee535b81a1c499827ff3e4050e7"
+}

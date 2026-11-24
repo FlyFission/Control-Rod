@@ -1,33 +1,111 @@
-# Cross-vendor checking: fixture-dryrun
+# Cross-vendor checking benchmark: fixture, calibration
 
-## Context
+Designation: **calibration (never published as findings)**. Scored 2026-11-24T14:51:20Z. Study digest `e33e5a4fdddb`.
 
-- Run `fixture-dryrun`, Control Rod `48742b9daec7`, scored 2026-11-23T19:49:36Z.
-- Tasks: 4 from fixture (revision `n/a`), seed 20261123. Each task is solved once by each author.
-- Agents: stub-a: stub via stub, stub-b: stub via stub.
-- Ground truth is the task's hidden tests. Passing them does not mean a maintainer would merge the patch.
-- Agent calls are not seeded; a re-run can differ. One run is one sample.
+The benchmark calls the Claude Code and Codex CLIs directly, not through Control Rod's daemon.
+"Rejection" means an explicit fail verdict, not a confirmed defect. Hidden tests measure whether
+tests pass, not whether a maintainer would merge.
 
-## Results by workflow
+This run makes **no effectiveness claim**.
 
-| Workflow | Accepted | Defects caught (of unresolved) | Good patches rejected | Accepted but unresolved | Agent min | Human min | Tokens | Reported USD |
-|---|---|---|---|---|---|---|---|---|
-| A1 Author + tests | 8/8 (100%, 95% CI 68%–100%) | 0/4 (0%, 95% CI 0%–49%) | 0/4 (0%, 95% CI 0%–49%) | 4/8 (50%, 95% CI 22%–78%) | 0.0 | 0 | 0 | n/a |
-| A2 + same-model checker | 3/8 (38%, 95% CI 14%–69%) | 3/4 (75%, 95% CI 30%–95%) | 2/4 (50%, 95% CI 15%–85%) | 1/3 (33%, 95% CI 6%–79%) | 0.0 | 0 | 0 | n/a |
-| A3 + cross-vendor checker | 3/8 (38%, 95% CI 14%–69%) | 3/4 (75%, 95% CI 30%–95%) | 2/4 (50%, 95% CI 15%–85%) | 1/3 (33%, 95% CI 6%–79%) | 0.0 | 0 | 0 | n/a |
-| A4 + cross-vendor checker + human | 2/8 (25%, 95% CI 7%–59%) | 3/4 (75%, 95% CI 30%–95%) | 3/4 (75%, 95% CI 30%–95%) | 1/2 (50%, 95% CI 9%–91%) | 0.0 | 0.0 | 0 | n/a |
+## Equal-author-weight contrast (cross-vendor minus same-model explicit rejection)
 
-## Same-model versus cross-vendor, on the same patches
+| Patches | Point | 95% CI (task bootstrap) | Inconclusive bounds | Pooled |
+|---|---|---|---|---|
+| Hidden-test-failing | +0.0 pp | +0.0 pp to +0.0 pp | +0.0 pp to +0.0 pp | +0.0 pp |
+| Hidden-test-passing (false rejection) | +0.0 pp | +0.0 pp to +0.0 pp | +0.0 pp to +0.0 pp | +0.0 pp |
 
-Patches the existing tests let through that the hidden tests fail: 4. Caught only by the cross-vendor checker: 1. Caught only by the same-model checker: 1. Exact McNemar p = 1.0.
+Preregistered rule (bad-patch CI above 0 and good-patch CI below +5 pp): not met (shown only; it applies to a publication run).
+"Not significant" is not equivalence.
 
-Inconclusive checker answers (counted as not passing): 0.
-A4 patches still waiting for human review: 0.
+## By author
 
-## Limits
+### Author stub-a, bad patches (n = 2)
 
-- Small samples give wide intervals. Read the intervals, not the point values.
-- Two vendors only (the two that run work in Control Rod today). Results say nothing about others.
-- Hidden tests can be wrong; tasks a person struck before the run are listed in excluded.json.
-- Authors work without the task's test environment; the Codex author can run commands in its own sandbox, the Claude author has no shell. That affects authors, not the checker comparison.
-- Reported USD is only what a CLI reports. Subscription use is shown as tokens.
+- Same-model rejected 2 of 2 (100%, 95% CI 34 to 100%); cross-vendor rejected 2 of 2 (100%, 95% CI 34 to 100%).
+- Difference +0.0 pp, bounds +0.0 pp to +0.0 pp; complete-case +0.0 pp (n = 2); fail-closed +0.0 pp.
+- Discordant: cross only 0, same only 0; exact McNemar p = not estimable.
+
+| same \ cross | pass | fail | inconclusive |
+|---|---|---|---|
+| pass | 0 | 0 | 0 |
+| fail | 0 | 2 | 0 |
+| inconclusive | 0 | 0 | 0 |
+
+### Author stub-a, good patches (n = 2)
+
+- Same-model rejected 1 of 2 (50%, 95% CI 9 to 91%); cross-vendor rejected 1 of 2 (50%, 95% CI 9 to 91%).
+- Difference +0.0 pp, bounds +0.0 pp to +0.0 pp; complete-case +0.0 pp (n = 2); fail-closed +0.0 pp.
+- Discordant: cross only 0, same only 0; exact McNemar p = not estimable.
+
+| same \ cross | pass | fail | inconclusive |
+|---|---|---|---|
+| pass | 1 | 0 | 0 |
+| fail | 0 | 1 | 0 |
+| inconclusive | 0 | 0 | 0 |
+
+### Author stub-b, bad patches (n = 2)
+
+- Same-model rejected 2 of 2 (100%, 95% CI 34 to 100%); cross-vendor rejected 2 of 2 (100%, 95% CI 34 to 100%).
+- Difference +0.0 pp, bounds +0.0 pp to +0.0 pp; complete-case +0.0 pp (n = 2); fail-closed +0.0 pp.
+- Discordant: cross only 0, same only 0; exact McNemar p = not estimable.
+
+| same \ cross | pass | fail | inconclusive |
+|---|---|---|---|
+| pass | 0 | 0 | 0 |
+| fail | 0 | 2 | 0 |
+| inconclusive | 0 | 0 | 0 |
+
+### Author stub-b, good patches (n = 2)
+
+- Same-model rejected 1 of 2 (50%, 95% CI 9 to 91%); cross-vendor rejected 1 of 2 (50%, 95% CI 9 to 91%).
+- Difference +0.0 pp, bounds +0.0 pp to +0.0 pp; complete-case +0.0 pp (n = 2); fail-closed +0.0 pp.
+- Discordant: cross only 0, same only 0; exact McNemar p = not estimable.
+
+| same \ cross | pass | fail | inconclusive |
+|---|---|---|---|
+| pass | 1 | 0 | 0 |
+| fail | 0 | 1 | 0 |
+| inconclusive | 0 | 0 | 0 |
+
+## Checker rates (Youden's J = TPR - FPR)
+
+| Author / checker | TPR (bad rejected) | FPR (good rejected) | J |
+|---|---|---|---|
+| stub-a/same | 2 of 2 (100%, 95% CI 34 to 100%) | 1 of 2 (50%, 95% CI 9 to 91%) | 0.5 |
+| stub-a/cross | 2 of 2 (100%, 95% CI 34 to 100%) | 1 of 2 (50%, 95% CI 9 to 91%) | 0.5 |
+| stub-b/same | 2 of 2 (100%, 95% CI 34 to 100%) | 1 of 2 (50%, 95% CI 9 to 91%) | 0.5 |
+| stub-b/cross | 2 of 2 (100%, 95% CI 34 to 100%) | 1 of 2 (50%, 95% CI 9 to 91%) | 0.5 |
+
+## Inconclusive verdicts
+
+- stub-a/same: 0 of 4
+- stub-b/cross: 0 of 4
+- stub-b/same: 0 of 4
+- stub-a/cross: 0 of 4
+
+## Verdict stability (first check against a repeat)
+
+- stub-a: 0 flips of 8; Cohen's kappa 1.0
+- stub-b: 0 flips of 8; Cohen's kappa 1.0
+
+## Workflow outcomes (reference tests, not established correctness)
+
+- Author stub-a: 4 tasks; statuses {'graded': 4}.
+  - A1: accepted 4, good delivered 2 of 4 (50%, 95% CI 15 to 85%), escapes 2 of 4 (50%, 95% CI 15 to 85%), bad among accepted 2 of 4 (50%, 95% CI 15 to 85%)
+  - A2: accepted 1, good delivered 1 of 4 (25%, 95% CI 5 to 70%), escapes 0 of 4 (0%, 95% CI 0 to 49%), bad among accepted 0 of 1 (0%, 95% CI 0 to 79%)
+  - A3: accepted 1, good delivered 1 of 4 (25%, 95% CI 5 to 70%), escapes 0 of 4 (0%, 95% CI 0 to 49%), bad among accepted 0 of 1 (0%, 95% CI 0 to 79%)
+- Author stub-b: 4 tasks; statuses {'graded': 4}.
+  - A1: accepted 4, good delivered 2 of 4 (50%, 95% CI 15 to 85%), escapes 2 of 4 (50%, 95% CI 15 to 85%), bad among accepted 2 of 4 (50%, 95% CI 15 to 85%)
+  - A2: accepted 1, good delivered 1 of 4 (25%, 95% CI 5 to 70%), escapes 0 of 4 (0%, 95% CI 0 to 49%), bad among accepted 0 of 1 (0%, 95% CI 0 to 79%)
+  - A3: accepted 1, good delivered 1 of 4 (25%, 95% CI 5 to 70%), escapes 0 of 4 (0%, 95% CI 0 to 49%), bad among accepted 0 of 1 (0%, 95% CI 0 to 79%)
+
+A4 (human sign-off) is omitted from this run; it reports no human comparison and no human time saved.
+
+## Substantiated discordant-rejection contrast
+
+Not available (skipped). Without adjudication this report does not use the words "defects caught".
+
+## Spend
+
+Actual: $0 (existing subscriptions only, billing route verified in preflight). API-equivalent for disclosure only: not computed. Calls with unknown usage: 0.

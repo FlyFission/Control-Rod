@@ -1,15 +1,16 @@
 # Ship: cross-vendor checking benchmark
 
-Release decision: **pull request for owner review. This record does not authorize a merge or a paid run.**
+Release decision: **pull request for owner review. This record does not authorize a merge or any run.**
 
-- **Proposed:** merge `bench/cross-check/` and the `pnpm cr bench` subcommand. Then, with the owner's go-ahead and budget, a 5-task pilot on the owner's machine to prove the pipeline, before a 20-task run.
-- **Not claimed:** any result about cross-vendor checking. The fixture numbers in `evidence/` come from stub agents and say nothing about real ones.
-- **Not claimed:** the fetch from Hugging Face and the SWE-bench harness step have not run. They are written against the documented interfaces and untested here.
-- **Owner decisions requested:** the models in `agents.json` (Claude: `claude-sonnet-5-5`; Codex: `gpt-6.2-sol`), the budget caps in `configs/pilot.json` and `configs/v1.json` (placeholders), and the go-ahead for the pilot.
+- **Proposed:** merge `bench/cross-check/` (harness rebuilt to DESIGN.md v3.3) and the `pnpm cr bench` subcommand, after blind code review by Codex on Astra and Antigravity on Neon.
+- **Not claimed:** any result about cross-vendor checking. The fixture numbers come from stub agents.
+- **Not claimed:** the real CLI calls, isolation probes against real CLIs, the billing-route check and the SWE-bench grader have not run. Calibration exercises them and stops on any failed probe or control.
+- **Owner decisions still open:** the policy values in `configs/verified-historical.json` (calendar horizon, call and token caps, timeouts) before `init`, and the go for calibration.
 
-Rollback: revert the commit. Nothing else reads `bench/`. Run directories are self-contained.
+Rollback: revert the commit. Nothing else reads `bench/`. Study directories are self-contained.
 
-Monitoring after merge: the share text of each published run is read against its `results.json` before posting.
+Monitoring after merge: each `share.md` is read against its released `results.json` before posting.
+
 
 ## Required links
 
@@ -17,7 +18,7 @@ Monitoring after merge: the share text of each published run is read against its
 
 ## Exit criteria
 
-`pnpm cr bench` runs the four workflows on the same author patches, started by hand only, and refuses paid agent calls without `--yes` and past the configured budget. A run records its seed, task source digest, models, CLI versions and every prompt, patch and verdict. The score reports each workflow with its sample size and 95% intervals, and the share text always carries its limits. The fixture dry run passes with no network. The owner approves any paid run.
+`pnpm cr bench` implements DESIGN.md v3.3: a frozen protocol, calibration then sizing then phase 1, isolated single-commit workspaces with isolated sign-in, matched capabilities, the failure taxonomy, grading by test ID with controls, a blind adjudication queue built before evaluation, the frozen statistics, and a release gate. Every step is started by hand and refuses to run out of order. Subscription billing is verified before any call; no API key is used. The offline tests pass with no network and no model calls. Nothing runs on the owner's Mac until the owner says go for calibration.
 
 ## Source-lineage note
 

@@ -4,15 +4,24 @@
     "vendor": "anthropic",
     "bin": "claude",
     "model": "claude-sonnet-5-5",
-    "author_tools": "Read,Edit,Write,Grep,Glob",
-    "checker_tools": "Read,Grep,Glob"
+    "effort": null,
+    "max_turns": 200,
+    "login_store": {"mode": "token_file", "source": "~/.config/cr-bench/claude-oauth-token", "env": "CLAUDE_CODE_OAUTH_TOKEN"},
+    "auth_status": {"argv": ["auth", "status"], "require": "claude\\.ai|subscription|claude (pro|max|team|enterprise)", "refuse": "api[ _-]?key|anthropic console"},
+    "billing_config_files": ["~/.claude/settings.json", "~/.claude.json"],
+    "quota_patterns": ["usage limit", "limit reached", "rate.?limit", "\\b429\\b", "resets? (at|in)"]
   },
   "codex": {
     "kind": "codex",
     "vendor": "openai",
     "bin": "codex",
-    "model": "gpt-6.2-sol"
+    "model": "gpt-6.2-sol",
+    "effort": null,
+    "login_store": {"mode": "files", "source": "~/.codex", "files": ["auth.json"], "env": "CODEX_HOME"},
+    "auth_status": {"argv": ["login", "status"], "require": "chatgpt", "refuse": "api key"},
+    "billing_config_files": ["~/.codex/config.toml", "~/.codex/auth.json"],
+    "quota_patterns": ["usage limit", "limit reached", "rate.?limit", "\\b429\\b", "try again (at|in)"]
   },
-  "stub-a": {"kind": "stub", "vendor": "stub-a", "model": "stub"},
-  "stub-b": {"kind": "stub", "vendor": "stub-b", "model": "stub", "strict": true}
+  "stub-a": {"kind": "stub", "vendor": "stub-a", "model": "stub-a"},
+  "stub-b": {"kind": "stub", "vendor": "stub-b", "model": "stub-b", "strict": true}
 }

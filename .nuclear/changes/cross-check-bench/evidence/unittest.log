@@ -1,12 +1,54 @@
-test_end_to_end (bench.cross-check.test_bench.FixtureRun.test_end_to_end) ... ok
-test_paid_run_needs_yes (bench.cross-check.test_bench.FixtureRun.test_paid_run_needs_yes) ... ok
-test_excluded_never_selected (bench.cross-check.test_bench.Selection.test_excluded_never_selected) ... ok
-test_same_seed_same_tasks (bench.cross-check.test_bench.Selection.test_same_seed_same_tasks) ... ok
+test_claude_isolation_flags (bench.cross-check.test_bench.AgentArgs.test_claude_isolation_flags) ... ok
+test_codex_isolation_flags (bench.cross-check.test_bench.AgentArgs.test_codex_isolation_flags) ... ok
+test_env_drops_billing_keys (bench.cross-check.test_bench.AgentArgs.test_env_drops_billing_keys) ... ok
+test_failure_taxonomy (bench.cross-check.test_bench.AgentArgs.test_failure_taxonomy) ... ok
+test_local_file_cannot_set_model (bench.cross-check.test_bench.AgentArgs.test_local_file_cannot_set_model) ... ok
+test_timeout_kills_process_group (bench.cross-check.test_bench.AgentArgs.test_timeout_kills_process_group) ... ok
+test_usage_normalized (bench.cross-check.test_bench.AgentArgs.test_usage_normalized) ... ok
+test_cli_dry_path (bench.cross-check.test_bench.Cli.test_cli_dry_path) ... ok
+test_calibration_pipeline (bench.cross-check.test_bench.EndToEnd.test_calibration_pipeline) ... ok
+test_checker_changing_source_halts (bench.cross-check.test_bench.EndToEnd.test_checker_changing_source_halts) ... ok
+test_cli_version_change_stops (bench.cross-check.test_bench.EndToEnd.test_cli_version_change_stops) ... ok
+test_missing_grade_blocks_score (bench.cross-check.test_bench.EndToEnd.test_missing_grade_blocks_score) ... ok
+test_model_change_stops (bench.cross-check.test_bench.EndToEnd.test_model_change_stops) ... ok
+test_quota_pause_resume_and_interrupt (bench.cross-check.test_bench.EndToEnd.test_quota_pause_resume_and_interrupt) ... ok
+test_release_refuses_private_data (bench.cross-check.test_bench.EndToEnd.test_release_refuses_private_data) ... ok
+test_sizing_and_release (bench.cross-check.test_bench.EndToEnd.test_sizing_and_release) ... ok
+test_controls_pass_on_fixtures (bench.cross-check.test_bench.Grading.test_controls_pass_on_fixtures) ... ok
+test_judge (bench.cross-check.test_bench.Grading.test_judge) ... ok
+test_swebench_report_parsing (bench.cross-check.test_bench.Grading.test_swebench_report_parsing) ... ok
+test_call_cap_and_calibration_allocation (bench.cross-check.test_bench.LedgerRules.test_call_cap_and_calibration_allocation) ... ok
+test_deadline (bench.cross-check.test_bench.LedgerRules.test_deadline) ... ok
+test_interrupted_launch_still_counts (bench.cross-check.test_bench.LedgerRules.test_interrupted_launch_still_counts) ... ok
+test_quota_pause_and_grace (bench.cross-check.test_bench.LedgerRules.test_quota_pause_and_grace) ... ok
+test_sign_in_error_halts (bench.cross-check.test_bench.LedgerRules.test_sign_in_error_halts) ... ok
+test_three_infra_errors_halt (bench.cross-check.test_bench.LedgerRules.test_three_infra_errors_halt) ... ok
+test_token_gate_phase1_only (bench.cross-check.test_bench.LedgerRules.test_token_gate_phase1_only) ... ok
+test_auth_status_route (bench.cross-check.test_bench.Preflight.test_auth_status_route) ... ok
+test_billing_keys_found_in_config_and_env (bench.cross-check.test_bench.Preflight.test_billing_keys_found_in_config_and_env) ... ok
+test_run_refuses_without_gates (bench.cross-check.test_bench.Preflight.test_run_refuses_without_gates) ... ok
+test_sealed_probe_passes_and_leaky_fails (bench.cross-check.test_bench.Preflight.test_sealed_probe_passes_and_leaky_fails) ... ok
+test_config_refusals (bench.cross-check.test_bench.Protocol.test_config_refusals) ... ok
+test_exclusion (bench.cross-check.test_bench.Protocol.test_exclusion) ... ok
+test_freeze (bench.cross-check.test_bench.Protocol.test_freeze) ... ok
+test_manifest_tamper (bench.cross-check.test_bench.Protocol.test_manifest_tamper) ... ok
+test_same_vendor_refused (bench.cross-check.test_bench.Protocol.test_same_vendor_refused) ... ok
+test_select_fails_when_it_cannot_fill (bench.cross-check.test_bench.Protocol.test_select_fails_when_it_cannot_fill) ... ok
+test_selection (bench.cross-check.test_bench.Protocol.test_selection) ... ok
+test_bootstrap_is_seeded (bench.cross-check.test_bench.Stats.test_bootstrap_is_seeded) ... ok
+test_kappa (bench.cross-check.test_bench.Stats.test_kappa) ... ok
 test_mcnemar (bench.cross-check.test_bench.Stats.test_mcnemar) ... ok
-test_verdict_parsing (bench.cross-check.test_bench.Stats.test_verdict_parsing) ... ok
-test_wilson_known_value (bench.cross-check.test_bench.Stats.test_wilson_known_value) ... ok
+test_wilson (bench.cross-check.test_bench.Stats.test_wilson) ... ok
+test_author_prompt_states_the_test_rule (bench.cross-check.test_bench.Verdicts.test_author_prompt_states_the_test_rule) ... ok
+test_checker_prompt_example_is_valid (bench.cross-check.test_bench.Verdicts.test_checker_prompt_example_is_valid) ... ok
+test_strict_schema (bench.cross-check.test_bench.Verdicts.test_strict_schema) ... ok
+test_capture_statuses (bench.cross-check.test_bench.Workspaces.test_capture_statuses) ... ok
+test_checker_tree_read_only_with_patch_uncommitted (bench.cross-check.test_bench.Workspaces.test_checker_tree_read_only_with_patch_uncommitted) ... ok
+test_export_is_one_generic_commit_outside_repo (bench.cross-check.test_bench.Workspaces.test_export_is_one_generic_commit_outside_repo) ... ok
+test_root_inside_repo_or_home_refused (bench.cross-check.test_bench.Workspaces.test_root_inside_repo_or_home_refused) ... ok
 
 ----------------------------------------------------------------------
-Ran 7 tests in 3.561s
+Ran 48 tests in 48.373s
 
 OK
+exit 0

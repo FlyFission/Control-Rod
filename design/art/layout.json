@@ -34,29 +34,14 @@
     "review": 0,
     "your-office": 45,
     "interface": 90
-   },
-   "size": {
-    "w": 160,
-    "d": 130,
-    "h": 80
    }
   },
   "outer_arc": {
    "radius": 985,
    "centre_deg": -135,
-   "step_deg": 24,
-   "size": {
-    "w": 170,
-    "d": 130,
-    "h": 90
-   }
+   "step_deg": 24
   },
   "yards": {
-   "size": {
-    "w": 240,
-    "d": 140,
-    "h": 40
-   },
    "screen_centres": {
     "bench": [
      250,
@@ -78,7 +63,83 @@
    "arc_step_deg": 4
   },
   "lip_height": 22,
-  "seat_margin": 14
+  "seat_margin": 14,
+  "ring_road": {
+   "inner_radius": 815,
+   "outer_radius": 880
+  },
+  "pad": {
+   "skirt_height": 6,
+   "reference": "back corner of the floor footprint (gx = x, gy = y), the point where the two back walls meet"
+  },
+  "sizes": {
+   "S": {
+    "seats": 4,
+    "cols": 2,
+    "rows": 2,
+    "w": 160,
+    "d": 130
+   },
+   "M": {
+    "seats": 6,
+    "cols": 3,
+    "rows": 2,
+    "w": 170,
+    "d": 130
+   },
+   "L": {
+    "seats": 8,
+    "cols": 4,
+    "rows": 2,
+    "w": 240,
+    "d": 140
+   }
+  },
+  "archetypes": {
+   "control-room": {
+    "wall_height": 80,
+    "default_size": "S"
+   },
+   "work-bay": {
+    "wall_height": 90,
+    "default_size": "M"
+   },
+   "inspection": {
+    "wall_height": 80,
+    "default_size": "S"
+   },
+   "briefing": {
+    "wall_height": 80,
+    "default_size": "S"
+   },
+   "interface": {
+    "wall_height": 80,
+    "default_size": "S"
+   },
+   "lab": {
+    "wall_height": 40,
+    "default_size": "L"
+   },
+   "archive": {
+    "wall_height": 40,
+    "default_size": "L"
+   },
+   "yard": {
+    "wall_height": 40,
+    "default_size": "L"
+   }
+  },
+  "tile": {
+   "scale": 2.0,
+   "margin": 10,
+   "max_d": 160,
+   "max_h": 120
+  },
+  "ring_layout": {
+   "start_radius": 985,
+   "gap": 24,
+   "angle_offset_deg": 15
+  }
  },
  "core": {
   "id": "core",
@@ -93,6 +154,8 @@
  "rooms": [
   {
    "id": "process",
+   "archetype": "work-bay",
+   "size": "M",
    "ring": "outer",
    "angle_deg": -195.0,
    "ring_radius": 985,
@@ -148,10 +211,18 @@
      "local": 6,
      "id": "process:6"
     }
-   ]
+   ],
+   "pad": {
+    "gx": -1036.44,
+    "gy": 189.94,
+    "sx": 137.93,
+    "sy": 436.75
+   }
   },
   {
    "id": "mechanical",
+   "archetype": "work-bay",
+   "size": "M",
    "ring": "outer",
    "angle_deg": -171.0,
    "ring_radius": 985,
@@ -207,10 +278,18 @@
      "local": 6,
      "id": "mechanical:6"
     }
-   ]
+   ],
+   "pad": {
+    "gx": -1057.87,
+    "gy": -219.09,
+    "sx": 473.59,
+    "sy": 221.52
+   }
   },
   {
    "id": "electrical",
+   "archetype": "work-bay",
+   "size": "M",
    "ring": "outer",
    "angle_deg": -147.0,
    "ring_radius": 985,
@@ -266,10 +345,18 @@
      "local": 6,
      "id": "electrical:6"
     }
-   ]
+   ],
+   "pad": {
+    "gx": -911.09,
+    "gy": -601.47,
+    "sx": 931.86,
+    "sy": 103.72
+   }
   },
   {
    "id": "civil",
+   "archetype": "work-bay",
+   "size": "M",
    "ring": "outer",
    "angle_deg": -123.0,
    "ring_radius": 985,
@@ -325,10 +412,18 @@
      "local": 6,
      "id": "civil:6"
     }
-   ]
+   ],
+   "pad": {
+    "gx": -621.47,
+    "gy": -891.09,
+    "sx": 1433.5,
+    "sy": 103.72
+   }
   },
   {
    "id": "assurance",
+   "archetype": "work-bay",
+   "size": "M",
    "ring": "outer",
    "angle_deg": -99.0,
    "ring_radius": 985,
@@ -384,10 +479,18 @@
      "local": 6,
      "id": "assurance:6"
     }
-   ]
+   ],
+   "pad": {
+    "gx": -239.09,
+    "gy": -1037.87,
+    "sx": 1891.77,
+    "sy": 221.52
+   }
   },
   {
    "id": "project-controls",
+   "archetype": "work-bay",
+   "size": "M",
    "ring": "outer",
    "angle_deg": -75.0,
    "ring_radius": 985,
@@ -443,10 +546,18 @@
      "local": 6,
      "id": "project-controls:6"
     }
-   ]
+   ],
+   "pad": {
+    "gx": 169.94,
+    "gy": -1016.44,
+    "sx": 2227.43,
+    "sy": 436.75
+   }
   },
   {
    "id": "review",
+   "archetype": "briefing",
+   "size": "S",
    "ring": "inner",
    "angle_deg": 0,
    "ring_radius": 730,
@@ -488,10 +599,18 @@
      "local": 4,
      "id": "review:4"
     }
-   ]
+   ],
+   "pad": {
+    "gx": 650.0,
+    "gy": -65.0,
+    "sx": 1819.21,
+    "sy": 1152.5
+   }
   },
   {
    "id": "interface",
+   "archetype": "interface",
+   "size": "S",
    "ring": "inner",
    "angle_deg": 90,
    "ring_radius": 730,
@@ -533,10 +652,18 @@
      "local": 4,
      "id": "interface:4"
     }
-   ]
+   ],
+   "pad": {
+    "gx": -80.0,
+    "gy": 665.0,
+    "sx": 554.81,
+    "sy": 1152.5
+   }
   },
   {
    "id": "verification",
+   "archetype": "inspection",
+   "size": "S",
    "ring": "inner",
    "angle_deg": -45,
    "ring_radius": 730,
@@ -578,10 +705,18 @@
      "local": 4,
      "id": "verification:4"
     }
-   ]
+   ],
+   "pad": {
+    "gx": 436.19,
+    "gy": -581.19,
+    "sx": 2081.07,
+    "sy": 787.5
+   }
   },
   {
    "id": "your-office",
+   "archetype": "control-room",
+   "size": "S",
    "ring": "inner",
    "angle_deg": 45,
    "ring_radius": 730,
@@ -623,10 +758,18 @@
      "local": 4,
      "id": "your-office:4"
     }
-   ]
+   ],
+   "pad": {
+    "gx": 436.19,
+    "gy": 451.19,
+    "sx": 1187.01,
+    "sy": 1303.69
+   }
   },
   {
    "id": "document-control",
+   "archetype": "archive",
+   "size": "L",
    "ring": "yard",
    "angle_deg": -174.00380951543812,
    "ring_radius": 1310.2925881903884,
@@ -696,10 +839,18 @@
      "local": 8,
      "id": "document-control:8"
     }
-   ]
+   ],
+   "pad": {
+    "gx": -1423.12,
+    "gy": -206.88,
+    "sx": 146.7,
+    "sy": 45.0
+   }
   },
   {
    "id": "bench",
+   "archetype": "lab",
+   "size": "L",
    "ring": "yard",
    "angle_deg": 93.80948465745774,
    "ring_radius": 1030.760237235928,
@@ -769,10 +920,18 @@
      "local": 8,
      "id": "bench:8"
     }
-   ]
+   ],
+   "pad": {
+    "gx": -188.48,
+    "gy": 958.48,
+    "sx": 206.7,
+    "sy": 1245.0
+   }
   },
   {
    "id": "quarantine",
+   "archetype": "yard",
+   "size": "L",
    "ring": "yard",
    "angle_deg": -3.809484657457747,
    "ring_radius": 1030.760237235928,
@@ -842,7 +1001,13 @@
      "local": 8,
      "id": "quarantine:8"
     }
-   ]
+   ],
+   "pad": {
+    "gx": 908.48,
+    "gy": -138.48,
+    "sx": 2106.7,
+    "sy": 1245.0
+   }
   }
  ],
  "pipelines": [

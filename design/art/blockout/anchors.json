@@ -5,6 +5,13 @@
  ],
  "rooms": {
   "process": {
+   "archetype": "work-bay",
+   "size": "M",
+   "tile": "tiles/work-bay-M.png",
+   "pad": {
+    "x": 137.93,
+    "y": 436.75
+   },
    "bbox": [
     25,
     346,
@@ -52,6 +59,13 @@
    ]
   },
   "mechanical": {
+   "archetype": "work-bay",
+   "size": "M",
+   "tile": "tiles/work-bay-M.png",
+   "pad": {
+    "x": 473.59,
+    "y": 221.52
+   },
    "bbox": [
     361,
     131,
@@ -99,6 +113,13 @@
    ]
   },
   "electrical": {
+   "archetype": "work-bay",
+   "size": "M",
+   "tile": "tiles/work-bay-M.png",
+   "pad": {
+    "x": 931.86,
+    "y": 103.72
+   },
    "bbox": [
     819,
     13,
@@ -146,6 +167,13 @@
    ]
   },
   "civil": {
+   "archetype": "work-bay",
+   "size": "M",
+   "tile": "tiles/work-bay-M.png",
+   "pad": {
+    "x": 1433.5,
+    "y": 103.72
+   },
    "bbox": [
     1320,
     13,
@@ -193,6 +221,13 @@
    ]
   },
   "assurance": {
+   "archetype": "work-bay",
+   "size": "M",
+   "tile": "tiles/work-bay-M.png",
+   "pad": {
+    "x": 1891.77,
+    "y": 221.52
+   },
    "bbox": [
     1779,
     131,
@@ -240,6 +275,13 @@
    ]
   },
   "project-controls": {
+   "archetype": "work-bay",
+   "size": "M",
+   "tile": "tiles/work-bay-M.png",
+   "pad": {
+    "x": 2227.43,
+    "y": 436.75
+   },
    "bbox": [
     2114,
     346,
@@ -287,6 +329,13 @@
    ]
   },
   "review": {
+   "archetype": "briefing",
+   "size": "S",
+   "tile": "tiles/briefing-S.png",
+   "pad": {
+    "x": 1819.21,
+    "y": 1152.5
+   },
    "bbox": [
     1706,
     1072,
@@ -322,6 +371,13 @@
    ]
   },
   "interface": {
+   "archetype": "interface",
+   "size": "S",
+   "tile": "tiles/interface-S.png",
+   "pad": {
+    "x": 554.81,
+    "y": 1152.5
+   },
    "bbox": [
     442,
     1072,
@@ -357,6 +413,13 @@
    ]
   },
   "verification": {
+   "archetype": "inspection",
+   "size": "S",
+   "tile": "tiles/inspection-S.png",
+   "pad": {
+    "x": 2081.07,
+    "y": 787.5
+   },
    "bbox": [
     1968,
     707,
@@ -392,6 +455,13 @@
    ]
   },
   "your-office": {
+   "archetype": "control-room",
+   "size": "S",
+   "tile": "tiles/control-room-S.png",
+   "pad": {
+    "x": 1187.01,
+    "y": 1303.69
+   },
    "bbox": [
     1074,
     1223,
@@ -427,6 +497,13 @@
    ]
   },
   "document-control": {
+   "archetype": "archive",
+   "size": "L",
+   "tile": "tiles/archive-L.png",
+   "pad": {
+    "x": 146.7,
+    "y": 45.0
+   },
    "bbox": [
     25,
     5,
@@ -486,6 +563,13 @@
    ]
   },
   "bench": {
+   "archetype": "lab",
+   "size": "L",
+   "tile": "tiles/lab-L.png",
+   "pad": {
+    "x": 206.7,
+    "y": 1245.0
+   },
    "bbox": [
     85,
     1205,
@@ -545,6 +629,13 @@
    ]
   },
   "quarantine": {
+   "archetype": "yard",
+   "size": "L",
+   "tile": "tiles/yard-L.png",
+   "pad": {
+    "x": 2106.7,
+    "y": 1245.0
+   },
    "bbox": [
     1985,
     1205,
@@ -624,5 +715,23 @@
    780,
    1688
   ]
+ },
+ "site": {
+  "file": "site-2400x1500.png",
+  "phone_crop": {
+   "file": "site-390.png",
+   "canvas_box": [
+    854,
+    0,
+    1547,
+    1500
+   ],
+   "size": [
+    780,
+    1688
+   ]
+  },
+  "pad_reference": "back corner of the floor footprint (gx = x, gy = y), the point where the two back walls meet",
+  "tiles": "tiles/tiles.json"
  }
 }

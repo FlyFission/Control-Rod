@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type AgentRow, agentRows } from "./agents.js";
-import { buildCouncilFlow, CHECK_ROUNDS, councilOf, SEND_BACKS } from "./councilFlow.js";
+import { buildCouncilFlow, CHECK_ROUNDS, councilOf, PREPARED_GATE, SEND_BACKS } from "./councilFlow.js";
 import { layoutFlow, spineOf } from "./councilLayout.js";
 
 const AT = "2026-11-24T17:00:00Z";
@@ -50,7 +50,14 @@ describe("flow", () => {
     expect(f.summary).toContain(`at most ${SEND_BACKS} times`);
     expect(f.summary).toContain(`after ${CHECK_ROUNDS} checks that do not pass`);
     expect(f.summary).toContain("inconclusive");
-    expect(f.summary).toContain("merging or shipping is a separate step");
+    expect(f.summary).toContain("Merging or shipping is a separate step");
+    expect(f.summary).toContain("a prepared package also has to clear its acceptance checks");
+    // The prepared-package gate is shown in every answer, on the end block and in the matrix.
+    for (const answer of ["start", "start-and-merge", "every-step"] as const) {
+      const g = buildCouncilFlow(rows({ claude: true, codex: true }), answer);
+      expect(g.steps.find((s) => s.id === "ship")?.detail).toContain(PREPARED_GATE);
+      expect(g.matrix.find((r) => r.step === "Accept the work")?.ifItFails).toContain(PREPARED_GATE);
+    }
     expect(SEND_BACKS).toBe(2);
   });
 
@@ -128,7 +135,7 @@ describe("flow", () => {
     expect(f.steps.find((s) => s.id === "fallback")?.detail).toMatch(/until then the card waits/);
     expect(f.steps.find((s) => s.id === "check")?.seat).toBeUndefined();
     // The summary and the matrix carry the same wait as the diagram.
-    expect(f.summary).toMatch(/Codex steps in if it is signed out or missing, once it is ready itself/);
+    expect(f.summary).toMatch(/Codex steps in if Claude Code is signed out or missing, once Codex is ready itself/);
     expect(f.matrix.find((r) => r.step === "Write the work")?.ifItFails).toMatch(/once it is ready itself/);
   });
 
@@ -136,6 +143,12 @@ describe("flow", () => {
     const f = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge");
     expect(f.summary).toMatch(/Claude Code checks Codex's work once it is back/);
     expect(f.matrix.find((r) => r.step === "Check it blind")?.ifItFails).toMatch(/Claude Code checks Codex's work once it is back/);
+  });
+
+  it("tells no ready author apart from no other author seated", () => {
+    const none = buildCouncilFlow(rows({ claude: false, codex: false }), "start-and-merge").matrix.find((r) => r.step === "Write the work")!;
+    expect(none.ifItFails).toMatch(/waits until a seated author is ready/);
+    expect(none.ifItFails).not.toMatch(/no other author is seated/);
   });
 
   it("tells a failed run after it starts apart from an author who is out before it starts", () => {

@@ -7,12 +7,13 @@ const probe = (id, n, f, v) => ({ id, display_name: n, vendor_family: f, install
 (async () => {
   const b = await chromium.launch();
   let bad = 0, runs = 0;
-  for (const sc of ['two', 'one', 'claude-only'])
+  // Rosters: both ready; Codex seated but not ready; Claude only installed; Codex benched; nobody ready.
+  for (const sc of ['two', 'one', 'claude-only', 'benched', 'none-ready'])
   for (const ans of ['start', 'start-and-merge', 'every-step'])
   for (const [w, h] of [[1440, 900], [1024, 800], [390, 844]]) {
-    const runtimes = { reported_at: AT, pins: [], runtimes: sc === 'claude-only' ? [rt('claude', true, '2.1.330')] : [rt('claude', true, '2.1.330'), rt('codex', sc === 'two', '0.171.0')] };
+    const runtimes = { reported_at: AT, pins: [], runtimes: sc === 'claude-only' ? [rt('claude', true, '2.1.330')] : [rt('claude', sc !== 'none-ready', '2.1.330'), rt('codex', sc === 'two' || sc === 'benched', '0.171.0')] };
     const subs = { reported: true, reported_at: AT, platform: 'darwin', probes: sc === 'claude-only' ? [probe('claude','Claude Code','Anthropic','2.1.330')] : [probe('claude','Claude Code','Anthropic','2.1.330'), probe('codex','Codex','OpenAI','0.171.0')], checkers: [], tiers: [], local_rule: '', pins: [] };
-    const setup = { confirmed: true, confirmed_at: AT, seats: [], check_in: ans };
+    const setup = { confirmed: true, confirmed_at: AT, seats: sc === 'benched' ? [{ runtime: 'codex', seated: false }] : [], check_in: ans };
     const ctx = await b.newContext({ viewport: { width: w, height: h } });
     const page = await ctx.newPage();
     await page.addInitScript(() => { localStorage.setItem('controlrod.firstRun.done', '1'); });
@@ -60,12 +61,19 @@ const probe = (id, n, f, v) => ({ id, display_name: n, vendor_family: f, install
         }
       }
       for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) if (hit(nodes[i].box, nodes[j].box)) out.push(`${nodes[i].id} overlaps ${nodes[j].id}`);
-      return { problems: [...new Set(out)], edges: document.querySelectorAll('.react-flow__edge').length, nodes: nodes.length };
+      return { problems: [...new Set(out)], edges: document.querySelectorAll('.react-flow__edge').length, nodes: nodes.length, ids: nodes.map((n) => n.id).sort() };
     });
     runs++;
     // An empty or half-drawn canvas is a failure, not a pass: every step and every edge of the flow must be drawn.
-    const want = ans === 'every-step' ? { nodes: 15, edges: 16 } : { nodes: 13, edges: 14 };
-    if (res.nodes !== want.nodes || res.edges !== want.edges) res.problems.push(`drew ${res.nodes} blocks and ${res.edges} edges, expected ${want.nodes} and ${want.edges}`);
+    // A stand-in branch is drawn only when there is a ready author and another seated agent to stand in.
+    const standIn = sc === 'two' || sc === 'one' || sc === 'claude-only';
+    const want = ['ask', 'plan', 'approve', 'pick', 'author', 'check', 'verdict', 'dispute', 'merge', 'ship'];
+    if (standIn) want.push('fallback', 'see-fallback', 'fallback-check');
+    if (ans === 'every-step') want.push('see-work', 'see-check');
+    const missing = want.filter((id) => !res.ids.includes(id));
+    const extra = res.ids.filter((id) => !want.includes(id));
+    if (missing.length || extra.length) res.problems.push(`blocks missing: [${missing}], unexpected: [${extra}]`);
+    if (res.edges < res.nodes) res.problems.push(`only ${res.edges} edges for ${res.nodes} blocks`);
     const tag = `${sc} ${ans} ${w}px: ${res.nodes} blocks, ${res.edges} edges`;
     if (res.problems.length) { bad++; console.log(`FAIL ${tag}\n  ${res.problems.join('\n  ')}`); } else console.log(`ok   ${tag}`);
     await ctx.close();

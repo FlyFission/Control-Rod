@@ -21,6 +21,7 @@ export function Workflow() {
         <h1>Your workflow</h1>
         <p className="muted">
           Who plans, who writes, who checks, and where a card stops for you. Check-ins: {choice.label.toLowerCase()}
+          {choice.today ? "" : " (saved for later; today the live stops are your signed release and your signed acceptance)"}
           {project ? `. Project: ${project.name}` : ""}. Change seats and check-ins on <Link to="/setup">Setup</Link>.
         </p>
       </header>

@@ -25,4 +25,22 @@ ok   claude-only start-and-merge 390px: 13 blocks, 14 edges
 ok   claude-only every-step 1440px: 15 blocks, 16 edges
 ok   claude-only every-step 1024px: 15 blocks, 16 edges
 ok   claude-only every-step 390px: 15 blocks, 16 edges
-27 of 27 cases clear
+ok   benched start 1440px: 10 blocks, 10 edges
+ok   benched start 1024px: 10 blocks, 10 edges
+ok   benched start 390px: 10 blocks, 10 edges
+ok   benched start-and-merge 1440px: 10 blocks, 10 edges
+ok   benched start-and-merge 1024px: 10 blocks, 10 edges
+ok   benched start-and-merge 390px: 10 blocks, 10 edges
+ok   benched every-step 1440px: 12 blocks, 12 edges
+ok   benched every-step 1024px: 12 blocks, 12 edges
+ok   benched every-step 390px: 12 blocks, 12 edges
+ok   none-ready start 1440px: 10 blocks, 10 edges
+ok   none-ready start 1024px: 10 blocks, 10 edges
+ok   none-ready start 390px: 10 blocks, 10 edges
+ok   none-ready start-and-merge 1440px: 10 blocks, 10 edges
+ok   none-ready start-and-merge 1024px: 10 blocks, 10 edges
+ok   none-ready start-and-merge 390px: 10 blocks, 10 edges
+ok   none-ready every-step 1440px: 12 blocks, 12 edges
+ok   none-ready every-step 1024px: 12 blocks, 12 edges
+ok   none-ready every-step 390px: 12 blocks, 12 edges
+45 of 45 cases clear

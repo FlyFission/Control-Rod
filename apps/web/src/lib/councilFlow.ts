@@ -115,6 +115,10 @@ function stops(checkIn: CheckIn): { afterAuthor: StopState | null; afterCheck: S
 
 const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
 
+/** What acceptance of a prepared package also needs, said the same way everywhere. */
+export const PREPARED_GATE =
+  "A prepared package also has to clear its acceptance checks: current, confirmed preparation, every criterion's result and the required checks";
+
 export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: string): CouncilFlow {
   const council = councilOf(rows);
   const { author, checker } = council;
@@ -138,7 +142,7 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
     role: "planner",
     ...(author ? { seat: author } : {}),
     title: "Plan the work",
-    detail: author ? "Drafts the work package. A capture or project can prefer another planner" : "Waits for an agent that is ready",
+    detail: author ? "Drafts the work package; intake picks a ready agent" : "Waits for an agent that is ready",
   });
   steps.push({ id: "approve", kind: "you", stop: "on", title: "You approve the plan", detail: "Signed with your passkey, then released" });
   steps.push({
@@ -244,11 +248,11 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
     title: "You accept the work",
     detail:
       checkIn === "start"
-        ? "Stays on: skipping it needs a signed standing acceptance, not built yet"
-        : "Signed and recorded. A prepared package also needs every criterion's result in. Merging or shipping is a separate step",
+        ? "Stays on: skipping it needs a signed standing acceptance, not built yet. Prepared packages have more checks"
+        : "Signed and recorded. Prepared packages have more checks. Merging or shipping is a separate step",
   });
   edge("verdict", "merge", "yes", "yes");
-  steps.push({ id: "ship", kind: "end", title: "Accepted", detail: "Control Rod records your signed acceptance with who wrote, who checked and who signed. Merging or shipping is a separate step you take" });
+  steps.push({ id: "ship", kind: "end", title: "Accepted", detail: `Control Rod records your signed acceptance with who wrote, who checked and who signed. ${PREPARED_GATE}. Merging or shipping is a separate step you take` });
   edge("merge", "ship", "flow");
 
   const who = (seat: Seat | undefined): MatrixRow["who"] => seat ?? "nobody";
@@ -266,7 +270,9 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
             (fallback.ready ? "" : " once it is ready itself") +
             (fallbackChecker ? "" : `, and its check waits for a vendor other than ${fallback.vendor}`) +
             ". "
-          : "Before it starts: the card waits; no other author is seated. ") +
+          : author
+            ? "Before it starts: the card waits; no other author is seated. "
+            : "Before it starts: the card waits until a seated author is ready. ") +
         "Once it has started, a run that fails, stops or loses contact stops for you: requeue it, return it or reject it. Logged, flagged fall-over when a run hits its limit is coming.",
     },
     {
@@ -298,7 +304,7 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       stopsForYou: "on",
       ifItFails:
         (checkIn === "start" ? "Return it or reject it. Skipping this stop needs a signed standing acceptance, which is coming." : "Return it with a note, or reject it.") +
-        " A pass alone does not clear a prepared package: every criterion needs its result in first.",
+        ` A pass alone does not clear a prepared package. ${PREPARED_GATE}.`,
     },
     {
       step: "After a fall-back",
@@ -320,7 +326,7 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
   const summary = !author
     ? "No agent at the table is ready yet, so new cards wait after you ask."
     : `You ask, ${author.name} plans, you approve, ${author.name} writes${
-        fallback ? ` (${fallback.name} steps in if it is signed out or missing${fallback.ready ? "" : ", once it is ready itself"})` : ""
+        fallback ? ` (${fallback.name} steps in if ${author.name} is signed out or missing${fallback.ready ? "" : `, once ${fallback.name} is ready itself`})` : ""
       }, ${
         checker ? `${checker.name} checks it blind` : "the check waits for a second vendor unless you sign an override"
       }${
@@ -329,7 +335,7 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
             ? `, and ${fallbackChecker.name} checks ${fallback.name}'s work${checksOnReturn ? " once it is back" : ""}`
             : `, and ${fallback.name}'s work waits for another vendor's check`
           : ""
-      }. A fail or an inconclusive verdict starts a new round, with the author picked again, at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} checks that do not pass you settle it. You sign acceptance (a prepared package also needs every criterion's result in), and merging or shipping is a separate step.`;
+      }. A fail or an inconclusive verdict starts a new round, with the author picked again, at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} checks that do not pass you settle it. You sign acceptance; a prepared package also has to clear its acceptance checks. Merging or shipping is a separate step.`;
 
   return { council, steps, edges, matrix, summary };
 }

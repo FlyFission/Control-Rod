@@ -343,8 +343,14 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   // Restart, beside SCRAM while one holds: open the review and restart of the SCRAM the lamp shows (a real
   // trip before any drill, so a drill is never lifted in its place), and take focus there.
   const openScramReview = () => {
-    const kind = scrams?.some((x) => !x.scram.drill) ? "trip" : "drill";
-    const toggle = shellRef.current?.querySelector<HTMLButtonElement>(`.scram-banner-item[data-kind="${kind}"] button[aria-expanded]`);
+    // The widest real hold first (organization, then project), then a drill: the one the lamp describes.
+    const toggle = [
+      '.scram-banner-item[data-kind="trip"][data-scope="organization"]',
+      '.scram-banner-item[data-kind="trip"]',
+      '.scram-banner-item[data-kind="drill"]',
+    ]
+      .map((sel) => shellRef.current?.querySelector<HTMLButtonElement>(`${sel} button[aria-expanded]`))
+      .find(Boolean);
     if (!toggle) return;
     if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
     // Centred, so a sticky top bar (phone) never covers it.

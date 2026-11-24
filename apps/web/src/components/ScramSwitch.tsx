@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import type { RodState } from "../features/office/plant-instruments.js";
 import "./scram-switch.css";
@@ -30,9 +30,9 @@ const LAMP_WORDS: Record<Lamp, string> = {
 };
 
 const STEPS = [
-  { n: "1", head: "Stop", body: "Every agent halts where it stands, everywhere or in one project." },
+  { n: "1", head: "Stop", body: "Every running agent stops at its next heartbeat, everywhere or in one project. Queued work is held." },
   { n: "2", head: "Review", body: "See what each stopped run reported." },
-  { n: "3", head: "Restart", body: "Resume all of it, or one package at a time." },
+  { n: "3", head: "Restart", body: "Sign a restart for all of it, one discipline or one package. It is refused while anything is unresolved." },
 ];
 
 /**
@@ -45,10 +45,15 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
   const lamp: Lamp = failed && LAMP[rods.position] === "off" ? "unknown" : LAMP[rods.position];
   const tipId = useId();
   const [dismissed, setDismissed] = useState(false);
-  // Escape hides the card wherever focus is, as long as the card is open by hover or focus.
+  const root = useRef<HTMLSpanElement>(null);
+  const hovered = useRef(false);
+  // Escape hides the card wherever focus is, but only while the card is open (hovered or focused), so a
+  // stray Escape elsewhere never suppresses the next one.
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDismissed(true);
+      const el = root.current;
+      if (e.key !== "Escape" || !el) return;
+      if (hovered.current || el.contains(document.activeElement)) setDismissed(true);
     };
     document.addEventListener("keydown", on);
     return () => document.removeEventListener("keydown", on);
@@ -57,17 +62,26 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
   const status = failed && lamp === "unknown" ? "SCRAM status could not be read" : (rods.caption ?? (lamp === "off" ? "No SCRAM in force" : LAMP_WORDS[lamp]));
   const lede = !held
     ? lamp === "unknown"
-      ? "SCRAM status could not be read just now. SCRAM still works: it stops all agent activity at once, and work is held until you restart it."
-      : "Stops all agent activity at once. Work is held until you restart it."
-    : stopping
-      ? "SCRAM in force. Agents are stopping: each stops at its next heartbeat, and work is held until you restart it."
-      : "Agent work is stopped and held. Restart reviews what stopped and resumes it.";
+      ? "SCRAM status could not be read just now. SCRAM still works: it stops all agent activity, and work is held until you restart it."
+      : "Stops all agent activity. Work is held until you restart it."
+    : failed
+      ? "Last reading: SCRAM in force. Current status could not be read, so this may be out of date."
+      : stopping
+        ? "SCRAM in force. Agents are stopping: each stops at its next heartbeat, and work is held until you restart it."
+        : "Agent work is stopped and held. Restart opens the review, where you sign a restart to resume it."
   return (
     <span
+      ref={root}
       className="scram-switch"
       data-lamp={lamp}
       data-tip-dismissed={dismissed ? "" : undefined}
-      onMouseLeave={() => setDismissed(false)}
+      onMouseEnter={() => {
+        hovered.current = true;
+      }}
+      onMouseLeave={() => {
+        hovered.current = false;
+        setDismissed(false);
+      }}
       onBlur={() => setDismissed(false)}
     >
       <span className="scram-lamp" role="img" aria-label={rods.caption ? `${LAMP_WORDS[lamp]}. ${rods.caption}` : LAMP_WORDS[lamp]}>
@@ -97,7 +111,7 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
             </span>
           ))}
         </span>
-        <span className="sr-only">Stop, then review what each run reported, then restart when ready.</span>
+        <span className="sr-only">Stop at the next heartbeat, then review what each run reported, then sign a restart.</span>
       </span>
     </span>
   );

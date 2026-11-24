@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
-import type { UsageLimitsView, UsageProvider, UsageWindow } from "../api/types.js";
+import type { SubscriptionView, UsageLimitsView, UsageProvider, UsageWindow } from "../api/types.js";
 import {
   ago,
   lowestReserve,
@@ -18,6 +18,8 @@ import {
   type Reading,
 } from "../lib/usage-limits.js";
 import { VendorBadge } from "./VendorBadge.js";
+
+type SubscriptionProbe = SubscriptionView["probes"][number];
 
 /** A clock that ticks every `ms` while the tab is visible, and catches up when it becomes visible again. */
 function useNow(ms: number): number {
@@ -124,6 +126,37 @@ function ProviderGroup({ p, now, readAt }: { p: UsageProvider; now: number; read
   );
 }
 
+/** The harnesses Control Rod reads itself. They always get a card, so a fresh install shows them before any reading. */
+const NATIVE = ["claude", "codex"] as const;
+type NativeId = (typeof NATIVE)[number];
+
+const WAIT_WORDS: Record<NativeId, string> = {
+  claude: "Claude Code reports its limits only while it works, so this fills in during Control Rod's first Claude run.",
+  codex: "Codex records its limits in its own session log, so this fills in after your next Codex session on this machine.",
+};
+
+function waitingText(id: NativeId, probe: SubscriptionProbe | undefined): { state: string; detail: string } {
+  if (probe && !probe.installed) return { state: "Not found on this machine", detail: `Install ${providerName(id)} and sign in to see its limits here.` };
+  if (probe?.auth === "signed-out") return { state: "Not signed in", detail: `Run ${id} in a terminal and sign in. ${WAIT_WORDS[id]}` };
+  return { state: probe?.auth === "signed-in" ? "Signed in, no reading yet" : "No reading yet", detail: WAIT_WORDS[id] };
+}
+
+/** A card for a built-in harness that has no reading yet: says whether it was found and signed in, and when numbers arrive. */
+function WaitingGroup({ id, probe }: { id: NativeId; probe: SubscriptionProbe | undefined }) {
+  const name = providerName(id);
+  const { state, detail } = waitingText(id, probe);
+  return (
+    <section className="cr-provider cr-waiting" aria-label={`${name} limits`}>
+      <header className="cr-provider-head">
+        <h3>{name}</h3>
+        <VendorBadge provider={id} />
+        <span className="muted small cr-fresh">{state}</span>
+      </header>
+      <p className="muted small">{detail}</p>
+    </section>
+  );
+}
+
 const CODEXBAR_URL = "https://github.com/steipete/CodexBar";
 
 /** What the engine adds, and which harnesses still report nothing. */
@@ -149,6 +182,8 @@ function EngineLine({ engine, silent }: { engine: UsageLimitsView["engine"]; sil
 /** The usage-limits module: each agent subscription's windows as reserve gauges, with a pace marker. */
 export function UsageLimits() {
   const q = useQuery({ queryKey: ["usage-limits"], queryFn: api.usageLimits, refetchInterval: 60_000, refetchIntervalInBackground: false });
+  // Shared with the agents roster; only used to say whether a built-in harness was found and signed in.
+  const subs = useQuery<SubscriptionView>({ queryKey: ["subscriptions"], queryFn: api.subscriptions });
   const now = useNow(30_000);
   if (q.isError) {
     return (
@@ -159,36 +194,37 @@ export function UsageLimits() {
   }
   if (q.data === undefined) return <p className="muted">Loading</p>;
   const reporting = orderProviders(q.data.providers.filter((p) => p.source !== "none"), now);
-  const silent = q.data.providers.filter((p) => p.source === "none");
+  const readingIds = new Set(reporting.map((p) => p.id));
+  const waiting = NATIVE.filter((id) => !readingIds.has(id));
+  const silent = q.data.providers.filter((p) => p.source === "none" && !(NATIVE as readonly string[]).includes(p.id));
+  const probeOf = (id: string) => subs.data?.probes.find((p) => p.id === id);
   const hasReadings = q.data.reported && reporting.some((p) => p.windows.length > 0);
   const lowest = hasReadings ? lowestReserve(reporting, now) : null;
   const warm = lowest !== null && lowest.reading.tone !== "ok";
   return (
     <div className="cr-usage">
       {hasReadings ? (
-        <>
-          <p className={`cr-summary${warm ? " warm" : ""}${lowest === null ? " muted" : ""}`}>
-            {lowest === null
-              ? "No current readings: every window has reset since it was read."
-              : warm
-              ? `Lowest reserve: ${providerName(lowest.provider.id)} ${lowerFirst(windowLabel(lowest.window))}, ${readoutWords(lowest.reading)}${
-                  lowest.reading.resetsInMs === null ? "" : `, resets in ${shortDuration(lowest.reading.resetsInMs)}`
-                }`
-              : "All reserves above 20%"}
-          </p>
-          <div className="cr-providers">
-            {reporting.map((p) => (
-              <ProviderGroup key={p.id} p={p} now={now} readAt={q.data.read_at} />
-            ))}
-          </div>
-          <p className="muted small cr-key">Bar: reserve left. Line: share of the window still to come.</p>
-        </>
+        <p className={`cr-summary${warm ? " warm" : ""}${lowest === null ? " muted" : ""}`}>
+          {lowest === null
+            ? "No current readings: every window has reset since it was read."
+            : warm
+            ? `Lowest reserve: ${providerName(lowest.provider.id)} ${lowerFirst(windowLabel(lowest.window))}, ${readoutWords(lowest.reading)}${
+                lowest.reading.resetsInMs === null ? "" : `, resets in ${shortDuration(lowest.reading.resetsInMs)}`
+              }`
+            : "All reserves above 20%"}
+        </p>
       ) : (
-        <div className="cr-empty">
-          <p className="cr-summary">No readings yet.</p>
-          <p className="muted">Limits appear after Codex or Claude Code has run once on this machine.</p>
-        </div>
+        <p className="cr-summary">No readings yet.</p>
       )}
+      <div className="cr-providers">
+        {reporting.map((p) => (
+          <ProviderGroup key={p.id} p={p} now={now} readAt={q.data.read_at} />
+        ))}
+        {waiting.map((id) => (
+          <WaitingGroup key={id} id={id} probe={probeOf(id)} />
+        ))}
+      </div>
+      {hasReadings && <p className="muted small cr-key">Bar: reserve left. Line: share of the window still to come.</p>}
       <EngineLine engine={q.data.engine} silent={silent} />
     </div>
   );

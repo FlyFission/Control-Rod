@@ -42,7 +42,16 @@ function view(over: Partial<UsageLimitsView> = {}): UsageLimitsView {
   };
 }
 
-function serve(body: UsageLimitsView | { status: number }) {
+function probe(id: string, installed: boolean, auth: "signed-in" | "signed-out" | "unknown") {
+  return { id, display_name: id, installed, auth, roles: [] };
+}
+
+function serve(body: UsageLimitsView | { status: number }, probes: ReturnType<typeof probe>[] = []) {
+  server.use(
+    http.get("*/subscriptions", () =>
+      HttpResponse.json({ reported: probes.length > 0, probes, checkers: [], tiers: [], local_rule: "", pins: [] }),
+    ),
+  );
   server.use(http.get("*/usage/limits", () => ("status" in body ? HttpResponse.json({ message: "down" }, { status: body.status }) : HttpResponse.json(body))));
   server.use(http.get("*/metrics", () => HttpResponse.json({ packages_accepted: 3, first_pass_accepted: 2, findings_caught_before_review: 5, quick_answers: 4 })));
 }
@@ -170,13 +179,36 @@ describe("control room: usage limits", () => {
     expect(screen.queryByText(/Not reported yet/)).toBeNull();
   });
 
-  it("shows a calm empty state before anything has been read", async () => {
+  it("shows a calm empty state before anything has been read, with a card for Claude Code and Codex", async () => {
     serve({ reported: false, providers: [] });
     const { container } = await renderPage(<ControlRoom />);
     expect(await screen.findByText("No readings yet.")).toBeTruthy();
-    expect(screen.getByText("Limits appear after Codex or Claude Code has run once on this machine.")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Claude Code limits" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Codex limits" })).toBeTruthy();
     expect(screen.queryByRole("meter")).toBeNull();
     await expectClean(container);
+  });
+
+  it("shows Claude Code from the start: found and signed in, waiting for its first run", async () => {
+    const v = view();
+    v.providers = v.providers.map((p) => (p.id === "claude" ? { id: "claude", source: "none", windows: [] } : p));
+    serve(v, [probe("claude", true, "signed-in"), probe("codex", true, "signed-in")]);
+    await renderPage(<ControlRoom />);
+    const card = await screen.findByRole("region", { name: "Claude Code limits" });
+    await within(card).findByText("Signed in, no reading yet");
+    expect(within(card).getByText(/fills in during Control Rod's first Claude run/)).toBeTruthy();
+    expect(within(card).queryByRole("meter")).toBeNull();
+    expect(screen.getByRole("meter", { name: "Codex 5-hour window" })).toBeTruthy();
+    expect(screen.queryByText(/Not reported: .*Claude/)).toBeNull();
+  });
+
+  it("says when a built-in harness is missing or signed out", async () => {
+    serve({ reported: false, providers: [] }, [probe("claude", true, "signed-out"), probe("codex", false, "unknown")]);
+    await renderPage(<ControlRoom />);
+    const claude = await screen.findByRole("region", { name: "Claude Code limits" });
+    await within(claude).findByText("Not signed in");
+    const codex = screen.getByRole("region", { name: "Codex limits" });
+    expect(within(codex).getByText("Not found on this machine")).toBeTruthy();
   });
 
   it("says when the limits could not be loaded", async () => {
@@ -228,7 +260,7 @@ describe("control room: many harnesses and CodexBar", () => {
     await renderPage(<ControlRoom />);
     await screen.findByRole("meter", { name: "Cursor Monthly" });
     const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(heads).toEqual(["Warp", "Cursor", "Amp", "Zed", "Kiro", "Devin"]);
+    expect(heads).toEqual(["Warp", "Cursor", "Amp", "Zed", "Kiro", "Devin", "Claude Code", "Codex"]);
   });
 
   it("ignores any label sent for a window, names it from its id, and says the numbers are from CodexBar", async () => {

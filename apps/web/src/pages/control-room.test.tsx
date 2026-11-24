@@ -90,7 +90,7 @@ describe("control room: usage limits", () => {
     const { container } = await renderPage(<ControlRoom />);
     await screen.findByRole("meter", { name: "Codex 7-day window" });
     expect(container.querySelectorAll(".cr-pace").length).toBe(2);
-    expect(screen.getByText(/ahead of pace: at this rate it runs out about 4d 16h before reset/)).toBeTruthy();
+    expect(screen.getByText(/ahead of pace: runs out about 4d 16h before reset/)).toBeTruthy();
   });
 
   it("turns amber at 20% left and red at 5% left, and the words change with the colour", async () => {
@@ -155,8 +155,9 @@ describe("control room: usage limits", () => {
     await screen.findByRole("meter", { name: "Codex 5-hour window" });
     expect(screen.getAllByRole("meter")).toHaveLength(3);
     expect(
-      screen.getByText("Not reported yet: Grok CLI, opencode, Antigravity. Their CLIs don't save usage limits where Control Rod can read them without your sign-in token."),
+      screen.getByText("Not reported: Grok CLI, opencode, Antigravity."),
     ).toBeTruthy();
+    expect(screen.queryByText(/Not reported yet/)).toBeNull();
   });
 
   it("shows a calm empty state before anything has been read", async () => {
@@ -180,6 +181,81 @@ describe("control room: usage limits", () => {
     serve(view());
     const { container } = await renderPage(<ControlRoom />);
     await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    await expectClean(container);
+  });
+});
+
+describe("control room: many harnesses and CodexBar", () => {
+  const bar = (id: UsageLimitsView["providers"][number]["id"], used: number, extra: Partial<UsageLimitsView["providers"][number]["windows"][number]> = {}) => ({
+    id,
+    source: "codexbar" as const,
+    windows: [{ id: "monthly" as const, used_percent: used, resets_at: at(10 * HOUR), ...extra }],
+  });
+
+  it("names every harness in plain words", async () => {
+    const ids = ["gemini", "agy", "cursor", "copilot", "opencode", "opencode-go", "grok", "amp", "kiro", "factory", "windsurf", "kilo", "warp", "mistral", "zed", "devin"] as const;
+    serve(view({ providers: ids.map((id, i) => bar(id, 10 + i)) }));
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Gemini CLI Monthly" });
+    for (const n of ["Gemini CLI", "Antigravity", "Cursor", "GitHub Copilot", "opencode", "opencode Go", "Grok CLI", "Amp", "Kiro", "Factory Droid", "Windsurf", "Kilo Code", "Warp", "Mistral Vibe", "Zed", "Devin"]) {
+      expect(screen.getByRole("heading", { level: 3, name: n })).toBeTruthy();
+    }
+  });
+
+  it("orders amber and red first, then least reserve, then by name", async () => {
+    serve(
+      view({
+        providers: [
+          bar("zed", 40),
+          bar("amp", 40),
+          bar("kiro", 5),
+          bar("cursor", 85, { status: "allowed" }),
+          bar("warp", 99),
+          { id: "devin", source: "codexbar", windows: [] },
+        ],
+      }),
+    );
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Cursor Monthly" });
+    const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(heads).toEqual(["Warp", "Cursor", "Amp", "Zed", "Kiro", "Devin"]);
+  });
+
+  it("prefers the engine's label for a window and says the numbers are from CodexBar", async () => {
+    serve(view({ providers: [bar("grok", 91, { id: "weekly", label: "SuperGrok weekly" })] }));
+    await renderPage(<ControlRoom />);
+    expect(await screen.findByRole("meter", { name: "Grok CLI SuperGrok weekly" })).toBeTruthy();
+    expect(screen.getByText("SuperGrok weekly")).toBeTruthy();
+    expect(screen.getByText("from CodexBar")).toBeTruthy();
+  });
+
+  it("falls back to our word for the window when no label is sent", async () => {
+    serve(view({ providers: [bar("gemini", 30, { id: "daily" })] }));
+    await renderPage(<ControlRoom />);
+    expect(await screen.findByRole("meter", { name: "Gemini CLI Daily" })).toBeTruthy();
+  });
+
+  it("invites installing CodexBar when the engine is absent, with a safe link", async () => {
+    serve(view());
+    const { container } = await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    const link = screen.getByRole("link", { name: "CodexBar" }) as HTMLAnchorElement;
+    expect(link.href).toBe("https://github.com/steipete/CodexBar");
+    expect(link.target).toBe("_blank");
+    expect(link.rel).toContain("noreferrer");
+    expect(container.querySelector(".cr-engine")?.textContent).toContain(
+      "Limits for Cursor, Copilot, Gemini, Grok and 12 more come from CodexBar, a free open-source usage tracker (MIT). Install it and Control Rod reads its numbers; CodexBar signs in to each tool itself, Control Rod never sees a token.",
+    );
+    await expectClean(container);
+  });
+
+  it("says which CodexBar it is using when found, and lists what is still not reported", async () => {
+    serve(view({ engine: { id: "codexbar", found: true, version: "0.81.0" } }));
+    const { container } = await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    expect(screen.getByText("Using CodexBar 0.81.0 for the other tools.")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "CodexBar" })).toBeNull();
+    expect(screen.getByText("Not reported: Grok CLI, opencode, Antigravity.")).toBeTruthy();
     await expectClean(container);
   });
 });

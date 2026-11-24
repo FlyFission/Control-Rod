@@ -10,3 +10,20 @@
 ## full
  Test Files  65 passed (65)
       Tests  840 passed (840)
+== 2026-11-24T16:04:23Z typecheck (tsc --noEmit) ==
+exit 0
+== vitest run ==
+Not implemented: HTMLCanvasElement's getContext() method: without installing the @napi-rs/canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the @napi-rs/canvas npm package
+
+ Test Files  65 passed (65)
+      Tests  846 passed (846)
+   Start at  16:04:34
+   Duration  36.00s (tests 52%, environment 31%, setup 10%, import 5%, transform 1%)
+
+Environment  jsdom was created 65 times · 31.12s total, 31% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+ Test Files  65 passed (65)
+      Tests  846 passed (846)

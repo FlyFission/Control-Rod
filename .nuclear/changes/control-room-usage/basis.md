@@ -14,9 +14,9 @@ People who seat several agent CLIs at the table run into each subscription's lim
 
 | # | Decision | Owner's words | Given | Reading | Out of scope |
 |---|---|---|---|---|---|
-| D1 | Build a separate control room of movable widget modules with metrics, after the Plant view. | "separate control room dashboard of movable widget modules with metrics" (as recorded by the coordinator, 2026-11-23); "Oh-my-pi has this very cool table for usage. I feel like we could have a control room that does this but with more excellence and on brand." | 2026-11-23 and 2026-11-24, project chat | A new place, `/control-room`, whose modules the viewer can reorder. The first module is subscription usage limits. | Changes to the Plant view. |
+| D1 | Build a control room that shows agent usage, on brand. | "Oh-my-pi has this very cool table for usage.  I feel like we could have a control room that does this but with more excellence and on brand." | 2026-11-24, project chat | A new place, `/control-room`, whose modules the viewer can reorder. The first module is subscription usage limits. | Changes to the Plant view. |
 | D2 | Reuse open-source code where it does this well. | "You dont have to reinvent the wheel, much open source code does this well already, leverage it." | 2026-11-24, project chat | Use permissive projects' schemas and patterns, with attribution, instead of designing new formats. | Copyleft or source-available code (AGENTS.md rule 4). |
-| D3 | Where the numbers come from. | Pending: decision card posted 2026-11-24 in the thread. | 2026-11-24, thread | Built on the recommended option until the owner answers: read what the CLIs already report, with no token. | Reading any login token (ADR 0021). |
+| D3 | Cover the main harnesses, not only the ones with a token-free source. | "This needs to be useful and efficient for at least the top 10 harnesses." | 2026-11-24, project thread | The panel must cover about ten harnesses. How (a usage engine such as CodexBar, or ported fetchers) is a separate owner choice, asked on a decision card. | Which source is used; reading any login token (ADR 0021) until an ADR says so. |
 
 ## Sources reused
 

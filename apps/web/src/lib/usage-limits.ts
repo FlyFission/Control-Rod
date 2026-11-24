@@ -5,10 +5,26 @@ import type { UsageProvider, UsageWindow } from "../api/types.js";
 export const PROVIDER_NAMES: Record<UsageProvider["id"], string> = {
   claude: "Claude Code",
   codex: "Codex",
-  grok: "Grok CLI",
-  opencode: "opencode",
+  gemini: "Gemini CLI",
   agy: "Antigravity",
+  cursor: "Cursor",
+  copilot: "GitHub Copilot",
+  opencode: "opencode",
+  "opencode-go": "opencode Go",
+  grok: "Grok CLI",
+  amp: "Amp",
+  kiro: "Kiro",
+  factory: "Factory Droid",
+  windsurf: "Windsurf",
+  kilo: "Kilo Code",
+  warp: "Warp",
+  mistral: "Mistral Vibe",
+  zed: "Zed",
+  devin: "Devin",
 };
+
+/** The display name of any provider id; an id this table does not know is shown as sent. */
+export const providerName = (id: string): string => (PROVIDER_NAMES as Record<string, string>)[id] ?? id;
 
 export const WINDOW_LABELS: Record<UsageWindow["id"], string> = {
   five_hour: "5-hour window",
@@ -18,7 +34,13 @@ export const WINDOW_LABELS: Record<UsageWindow["id"], string> = {
   monthly: "Monthly",
   primary: "Primary",
   secondary: "Secondary",
+  tertiary: "Tertiary",
+  daily: "Daily",
+  weekly: "Weekly",
 };
+
+/** The row label: the engine's own label when it sent one, else our words for the window id. */
+export const windowLabel = (w: UsageWindow): string => w.label?.trim() || WINDOW_LABELS[w.id];
 
 export const LOW_AT = 20;
 export const CRITICAL_AT = 5;
@@ -89,8 +111,8 @@ export function ago(iso: string, now: number): string | null {
 }
 
 export function sourceWords(p: UsageProvider): string {
-  const name = PROVIDER_NAMES[p.id];
-  return p.source === "cli-log" ? `${name}'s session log` : p.source === "cli-stream" ? `${name}'s run output` : name;
+  const name = providerName(p.id);
+  return p.source === "codexbar" ? "CodexBar" : p.source === "cli-log" ? `${name}'s session log` : p.source === "cli-stream" ? `${name}'s run output` : name;
 }
 
 /**
@@ -127,4 +149,33 @@ export function lowestReserve(providers: UsageProvider[], now: number): Lowest |
     }
   }
   return best;
+}
+
+/** The reserve a provider is judged by: its lowest live window; a refused window counts as zero; null when nothing is live. */
+export function providerReserve(p: UsageProvider, now: number): { left: number | null; tone: Tone } {
+  let left: number | null = null;
+  let tone: Tone = "ok";
+  for (const w of p.windows) {
+    const r = readWindow(w, now);
+    if (r.stale) continue;
+    const eff = r.state === "rejected" ? 0 : r.left;
+    if (left === null || eff < left) left = eff;
+    if (r.tone === "stuck" || (r.tone === "needs" && tone === "ok")) tone = r.tone;
+  }
+  return { left, tone };
+}
+
+/** Amber or red providers first, then least reserve, then by name. Providers with no live reading sort last. */
+export function orderProviders(providers: UsageProvider[], now: number): UsageProvider[] {
+  const keyed = providers.map((p) => ({ p, ...providerReserve(p, now), name: providerName(p.id) }));
+  keyed.sort((a, b) => {
+    const wa = a.tone === "ok" ? 1 : 0;
+    const wb = b.tone === "ok" ? 1 : 0;
+    if (wa !== wb) return wa - wb;
+    const la = a.left ?? Infinity;
+    const lb = b.left ?? Infinity;
+    if (la !== lb) return la - lb;
+    return a.name.localeCompare(b.name);
+  });
+  return keyed.map((k) => k.p);
 }

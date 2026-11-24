@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
-import type { UsageProvider, UsageWindow } from "../api/types.js";
+import type { UsageLimitsView, UsageProvider, UsageWindow } from "../api/types.js";
 import {
-  PROVIDER_NAMES,
-  WINDOW_LABELS,
   ago,
   lowestReserve,
+  orderProviders,
+  providerName,
+  windowLabel,
   readWindow,
   runsOutBefore,
   shortDuration,
@@ -52,7 +53,7 @@ function resetText(r: Reading): string {
 
 function Meter({ provider, w, now }: { provider: UsageProvider; w: UsageWindow; now: number }) {
   const r = readWindow(w, now);
-  const label = WINDOW_LABELS[w.id];
+  const label = windowLabel(w);
   const early = runsOutBefore(w, r);
   const paceAhead = early !== null;
   const word = stateWord(r);
@@ -70,7 +71,7 @@ function Meter({ provider, w, now }: { provider: UsageProvider; w: UsageWindow; 
         <div
           className="cr-track"
           role="meter"
-          aria-label={`${PROVIDER_NAMES[provider.id]} ${label}`}
+          aria-label={`${providerName(provider.id)} ${label}`}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={r.left}
@@ -91,17 +92,17 @@ function Meter({ provider, w, now }: { provider: UsageProvider; w: UsageWindow; 
         <span className="cr-big mono">{readoutWords(r)}</span>
         <span className="cr-reset mono">{resetText(r)}</span>
       </div>
-      {paceAhead && (
-        <p className="cr-pace-note">ahead of pace: at this rate it runs out about {shortDuration(early)} before reset</p>
+      {paceAhead && r.tone !== "stuck" && (
+        <p className="cr-pace-note">ahead of pace: runs out about {shortDuration(early)} before reset</p>
       )}
     </div>
   );
 }
 
 function ProviderGroup({ p, now }: { p: UsageProvider; now: number }) {
-  const name = PROVIDER_NAMES[p.id];
+  const name = providerName(p.id);
   const when = p.observed_at ? ago(p.observed_at, now) : null;
-  const fresh = `${when ? `as of ${when}, ` : ""}from ${sourceWords(p)}`;
+  const fresh = p.source === "codexbar" && !when ? "from CodexBar" : `${when ? `as of ${when}, ` : ""}from ${sourceWords(p)}`;
   return (
     <section className="cr-provider" aria-label={`${name} limits`}>
       <header className="cr-provider-head">
@@ -113,9 +114,31 @@ function ProviderGroup({ p, now }: { p: UsageProvider; now: number }) {
       {p.windows.length === 0 ? (
         <p className="muted small">No windows reported.</p>
       ) : (
-        p.windows.map((w) => <Meter key={w.id} provider={p} w={w} now={now} />)
+        p.windows.map((w, i) => <Meter key={`${w.id}-${i}`} provider={p} w={w} now={now} />)
       )}
     </section>
+  );
+}
+
+const CODEXBAR_URL = "https://github.com/steipete/CodexBar";
+
+/** What the engine adds, and which harnesses still report nothing. */
+function EngineLine({ engine, silent }: { engine: UsageLimitsView["engine"]; silent: UsageProvider[] }) {
+  return (
+    <div className="cr-engine muted small">
+      {engine?.found ? (
+        <p>Using CodexBar{engine.version ? ` ${engine.version}` : ""} for the other tools.</p>
+      ) : (
+        <p>
+          Limits for Cursor, Copilot, Gemini, Grok and 12 more come from{" "}
+          <a href={CODEXBAR_URL} target="_blank" rel="noreferrer">
+            CodexBar
+          </a>
+          , a free open-source usage tracker (MIT). Install it and Control Rod reads its numbers; CodexBar signs in to each tool itself, Control Rod never sees a token.
+        </p>
+      )}
+      {silent.length > 0 && <p>Not reported: {silent.map((p) => providerName(p.id)).join(", ")}.</p>}
+    </div>
   );
 }
 
@@ -131,7 +154,7 @@ export function UsageLimits() {
     );
   }
   if (q.data === undefined) return <p className="muted">Loading</p>;
-  const reporting = q.data.providers.filter((p) => p.source !== "none");
+  const reporting = orderProviders(q.data.providers.filter((p) => p.source !== "none"), now);
   const silent = q.data.providers.filter((p) => p.source === "none");
   const hasReadings = q.data.reported && reporting.some((p) => p.windows.length > 0);
   const lowest = hasReadings ? lowestReserve(reporting, now) : null;
@@ -142,7 +165,7 @@ export function UsageLimits() {
         <>
           <p className={`cr-summary${warm ? " warm" : ""}`}>
             {lowest && warm
-              ? `Lowest reserve: ${PROVIDER_NAMES[lowest.provider.id]} ${lowerFirst(WINDOW_LABELS[lowest.window.id])}, ${readoutWords(lowest.reading)}${
+              ? `Lowest reserve: ${providerName(lowest.provider.id)} ${(lowest.window.label?.trim() ? lowest.window.label.trim() : lowerFirst(windowLabel(lowest.window)))}, ${readoutWords(lowest.reading)}${
                   lowest.reading.resetsInMs === null ? "" : `, resets in ${shortDuration(lowest.reading.resetsInMs)}`
                 }`
               : "All reserves above 20%"}
@@ -160,11 +183,7 @@ export function UsageLimits() {
           <p className="muted">Limits appear after Codex or Claude Code has run once on this machine.</p>
         </div>
       )}
-      {silent.length > 0 && (
-        <p className="muted small cr-silent">
-          Not reported yet: {silent.map((p) => PROVIDER_NAMES[p.id]).join(", ")}. Their CLIs don&apos;t save usage limits where Control Rod can read them without your sign-in token.
-        </p>
-      )}
+      <EngineLine engine={q.data.engine} silent={silent} />
     </div>
   );
 }

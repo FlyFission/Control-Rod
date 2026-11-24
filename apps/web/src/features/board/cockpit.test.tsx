@@ -135,4 +135,11 @@ describe("the card's running line", () => {
     // A running line is live, so it does not say "Waiting".
     expect(within(card).queryByText(/Waiting/)).toBeNull();
   });
+
+  it("says a running run without a start time is running, not waiting", async () => {
+    await renderPage(<Card pkg={pkg({ id: "WP-8", title: "Running" })} kinds={["code"]} column="drafting" next={{ tone: "wait", text: "Pre-check running" }} runRunning onOpen={() => {}} />);
+    const card = screen.getByRole("article");
+    expect(within(card).getByText("Pre-check running")).toBeTruthy();
+    expect(within(card).queryByText(/Waiting/)).toBeNull();
+  });
 });

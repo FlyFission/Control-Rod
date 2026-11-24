@@ -70,6 +70,8 @@ describe("Inbox", () => {
       expect(screen.queryByRole("complementary", { name: /Review / })).toBeNull();
     });
     expect(container.querySelector(".inbox-has-drawer")).toBeNull();
+    // Focus returns to the button that opened the drawer, not the page body.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole("button", { name: "Inspect and sign" })[0]));
 
     // Clicking Inspect and sign reopens the drawer for that item
     const inspectButtons = screen.getAllByRole("button", { name: "Inspect and sign" });

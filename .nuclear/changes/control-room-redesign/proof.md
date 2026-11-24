@@ -134,3 +134,12 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - Phone cockpit: `dock.ts` docks the drawer below the top bar and any banner (the lowest edge of main, `.topbar`, `.scram-banner`); the `top: 0` override at 820 px is removed, so the SCRAM button and banner stay reachable.
 - board.css: the drag trash target no longer scales or transitions under reduced motion; the Board empty state is a solid card with an accent edge (no dashed box); the full digest shows in the cockpit (wrapping, monospace); strip and output buttons are 44 px tall on a phone.
 - Tests: vitest 81 files, 880 pass; tsc clean. The new always-mounted banner alerts when `/scrams` is unmocked, so newwork.test.tsx mocks it.
+
+## Today, annunciator, phone Plant and focus fixes (Nov 24)
+
+- Today: `brief()` takes the failed reads; a failed read is unknown (dash), never its cached zero, and calm needs both reads current with 0 waiting and 0 stuck. A failed Plant read alone no longer says "Nothing needs you." or "Plant at rest"; the empty-Inbox calm panel hides while the Inbox read failed. Tests in `today.test.tsx`.
+- Annunciator: only the waiting-on-you tile acts (a link). Stuck, input changed and SCRAM do nothing, so they are plain readouts with no pointer cursor (`instruments.css`); test asserts the tags. Reduced-motion and paused rules now stop the parent `li` flash too; the 2 x 2 grid at 1023 px and below now sets `display: grid`.
+- Phone Plant (767 px and below): the annunciator renders after the scene, before the list; desktop order unchanged. Test in `office-view.test.tsx`. Plant contrast check: PASS, 164 text runs, all at least 4.5:1 (worst busy 1440 11.06, SCRAM 11.33, phone 15.97).
+- Touch: micro count plates and the seat switch get 44 px hit areas on phone or coarse pointers (`::after` hit area, `min-height: 44px`); visuals unchanged.
+- Card: a running run with no start time shows a lit dot and the running wording, not "Waiting:". Seat-on animation plays once per seat per session (not under reduced motion). Closing the Inbox review drawer returns focus to its "Inspect and sign" button.
+- vitest 81 files, 871 tests pass; tsc clean.

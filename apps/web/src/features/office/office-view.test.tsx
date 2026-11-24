@@ -281,6 +281,24 @@ describe("the Plant and the archived office themes", () => {
     expect(screen.getByRole("heading", { name: "Plant" })).toBeTruthy();
   });
 
+  it("reads core, annunciator, then list on a phone, and annunciator first on desktop", async () => {
+    const real = window.matchMedia;
+    const before = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    try {
+      window.matchMedia = ((q: string) => ({ matches: q.includes("max-width: 767px"), media: q, addEventListener() {}, removeEventListener() {} })) as never;
+      const phone = await renderPage(<OfficeView drafts={false} />);
+      await screen.findByRole("button", { name: /^WP-0001/ });
+      expect(before(document.querySelector(".plant-scene")!, document.querySelector(".plant-annunciator")!)).toBe(true);
+      phone.unmount();
+      window.matchMedia = ((q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} })) as never;
+      await renderPage(<OfficeView drafts={false} />);
+      await screen.findByRole("button", { name: /^WP-0001/ });
+      expect(before(document.querySelector(".plant-annunciator")!, document.querySelector(".plant-scene")!)).toBe(true);
+    } finally {
+      window.matchMedia = real;
+    }
+  });
+
   it("keeps the fifteen worlds and the standard office under Advanced, switches to the office layout, keeps the open card, and remembers the choice per member", async () => {
     const user = userEvent.setup();
     const { unmount } = await renderPage(<OfficeView drafts={false} />);

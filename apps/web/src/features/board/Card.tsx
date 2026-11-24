@@ -155,7 +155,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           <span className="muted">Last known: {next.text}</span>
         ) : stream === "live" ? (
           <>
-            {spin && next.since ? (
+            {spin ? (
               // A run executing now is live, not waiting: a lit dot, no "Waiting" word.
               <span className="bd-sym bd-live" aria-hidden="true">{"\u25cf "}</span>
             ) : (

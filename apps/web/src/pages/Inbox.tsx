@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { AttentionItem, InboxView } from "../api/types.js";
@@ -71,6 +71,20 @@ export function Inbox() {
   // The review drawer is the docked cockpit and covers most of the page at 1440, so it opens only when
   // the person asks to inspect an item, never by itself; the list stays readable until then.
   const activePkgId = selectedMissing || typeof selectedPkgId !== "string" ? null : selectedPkgId;
+
+  // Closing the drawer returns focus to the "Inspect and sign" button that opened it, never to the page body.
+  const openedFrom = useRef<string | null>(null);
+  useEffect(() => {
+    if (activePkgId !== null) {
+      openedFrom.current = activePkgId;
+      return;
+    }
+    const id = openedFrom.current;
+    openedFrom.current = null;
+    if (id === null) return;
+    const opener = [...document.querySelectorAll<HTMLElement>("[data-inspect-for]")].find((el) => el.dataset.inspectFor === id);
+    if (opener && (document.activeElement === null || document.activeElement === document.body)) opener.focus();
+  }, [activePkgId]);
 
   return (
     <div className={activePkgId ? "place inbox inbox-has-drawer" : "place inbox"}>
@@ -194,7 +208,7 @@ function Item({
         <div className="item-actions">
           <Target item={item} />
           {onInspect && (
-            <button type="button" className="btn small" onClick={onInspect} aria-pressed={selected}>
+            <button type="button" className="btn small" data-inspect-for={item.package_id} onClick={onInspect} aria-pressed={selected}>
               {selected ? "Inspecting" : "Inspect and sign"}
             </button>
           )}

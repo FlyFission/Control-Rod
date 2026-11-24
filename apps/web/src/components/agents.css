@@ -265,3 +265,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Phone and touch: the seat switch is a 44 px target. */
+@media (max-width: 767px), (pointer: coarse) {
+  .seat-switch {
+    min-height: 44px;
+  }
+}

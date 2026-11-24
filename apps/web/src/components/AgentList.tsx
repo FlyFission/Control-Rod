@@ -1,4 +1,4 @@
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { AgentRow } from "../lib/agents.js";
 import { agentIdForProvider } from "../lib/agents.js";
 import { useInstrumentMotion } from "../design/instruments/useInstrumentMotion.js";
@@ -83,6 +83,13 @@ function usageWords(usage: SeatUsage | "unavailable" | undefined, id: string): {
   return { text: runs === 0 ? "No runs this window" : `${runs} ${runs === 1 ? "run" : "runs"} this window`, known: true };
 }
 
+/** Seats that have already lit up this session: the animation plays once per seat, not on every return to Setup. */
+const litSeats = new Set<string>();
+/** For tests: forget which seats have lit, as a new session would. */
+export function resetLitSeats() {
+  litSeats.clear();
+}
+
 function AgentItem({
   row,
   index,
@@ -101,12 +108,19 @@ function AgentItem({
   const id = `agent-${row.info.id}`;
   const canSeat = row.info.runnable;
   const runs = usageWords(usage, row.info.id);
+  // This mount plays the seat-on animation only if the seat has not lit before; once it started it keeps its attribute.
+  const playing = useRef(false);
+  if (lightUp && !playing.current && !litSeats.has(row.info.id)) playing.current = true;
+  useEffect(() => {
+    if (playing.current) litSeats.add(row.info.id);
+  }, [row.info.id, lightUp]);
+  const light = lightUp && playing.current;
   return (
     <li
       className="agent-row seat"
       data-state={row.state}
       data-seated={canSeat ? row.seated : undefined}
-      data-light={lightUp ? "" : undefined}
+      data-light={light ? "" : undefined}
       style={{ "--seat-i": index } as CSSProperties}
     >
       <div className="seat-head">

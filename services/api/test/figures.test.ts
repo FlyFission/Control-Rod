@@ -274,6 +274,26 @@ describe("office figures", () => {
     expect(cubeFor("bespoke")).toEqual({ place: "process", defaulted: true });
   });
 
+  it("matches discipline words at word boundaries, not inside other words", () => {
+    const dflt = { place: "process", defaulted: true };
+    for (const d of ["website", "architecture", "firebase", "firewall rules", "access controls", "telemetry",
+      "powershell scripts", "cost dashboard", "project setup"]) {
+      expect(cubeFor(d), d).toEqual(dflt);
+    }
+    expect(cubeFor("Electrical")).toEqual({ place: "electrical", defaulted: false });
+    expect(cubeFor("mechanical/piping")).toEqual({ place: "mechanical", defaulted: false });
+    expect(cubeFor("HVAC")).toEqual({ place: "mechanical", defaulted: false });
+    expect(cubeFor("fire protection")).toEqual({ place: "mechanical", defaulted: false });
+    expect(cubeFor("Controls")).toEqual({ place: "electrical", defaulted: false });
+    expect(cubeFor("Power systems")).toEqual({ place: "electrical", defaulted: false });
+    expect(cubeFor("Architectural")).toEqual({ place: "civil", defaulted: false });
+    expect(cubeFor("site works")).toEqual({ place: "civil", defaulted: false });
+    expect(cubeFor("Cost estimating")).toEqual({ place: "project-controls", defaulted: false });
+    expect(cubeFor("Scheduling")).toEqual({ place: "project-controls", defaulted: false });
+    expect(cubeFor("Procurement")).toEqual({ place: "project-controls", defaulted: false });
+    expect(cubeFor("regulatory licensing")).toEqual({ place: "assurance", defaulted: false });
+  });
+
   it("groups holds only by a recorded shared identity: a lane's admission or a runtime pin, never alike messages", async () => {
     const message = "The preparation could not be read: the basis digest does not match";
     for (const id of ["A", "B"]) {

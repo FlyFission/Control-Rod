@@ -15,7 +15,7 @@ A "Get your first change done" panel at the top of the board, modelled on the se
 
 ## Also: the live suites' scripted intake honors the board's mode
 
-The walkthrough found that the scripted intake used by the live suites (\`tests/e2e/fake/intake.sh\`) always drafted Capital Projects packages, so a card added on the Software board vanished from it after intake, and the \`@functional\` lifecycle test failed on main. The script now reads the \`[mode:...]\` tag as the real intake role does (\`packs/general/roles/intake.md\`). The real intake already did; this fixes the test stand-in only.
+The walkthrough found that the scripted intake used by the live suites (`tests/e2e/fake/intake.sh`) always drafted Capital Projects packages, so a card added on the Software board vanished from it after intake, and the `@functional` lifecycle test failed on main. The script now reads the `[mode:...]` tag as the real intake role does (`packs/general/roles/intake.md`). The real intake already did; this fixes the test stand-in only.
 
 ## Out of scope
 

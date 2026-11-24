@@ -569,6 +569,11 @@ func (d *Daemon) subscriptionReport() *SubscriptionReport {
 // usageReport is the usage_limits body for a claim. It reads no token: see usage.go.
 func (d *Daemon) usageReport() *UsageLimitsReport {
 	d.usageOnce.Do(func() { d.usage = newUsageSources(d.cfg.Home) })
+	ctx := d.quit
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	d.usage.startEngine(ctx)
 	home, _ := os.UserHomeDir()
 	return d.usage.Report(time.Now(), home, os.Getenv)
 }

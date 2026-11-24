@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -22,9 +23,10 @@ import (
 // SDKRateLimitInfo. Only the schemas are used.
 
 const (
-	usageSourceLog    = "cli-log"
-	usageSourceStream = "cli-stream"
-	usageSourceNone   = "none"
+	usageSourceLog      = "cli-log"
+	usageSourceStream   = "cli-stream"
+	usageSourceCodexbar = "codexbar"
+	usageSourceNone     = "none"
 
 	usageTailBytes     = 256 << 10
 	usageMaxFiles      = 5
@@ -36,13 +38,18 @@ const (
 // usageProviderIDs is the contract's id enum. Anything else is never reported.
 var usageProviderIDs = map[string]bool{
 	RuntimeClaude: true, RuntimeCodex: true, RuntimeGrok: true, RuntimeOpenCode: true, RuntimeAgy: true,
+	"gemini": true, "cursor": true, "copilot": true, "opencode-go": true, "amp": true, "kiro": true,
+	"factory": true, "windsurf": true, "kilo": true, "warp": true, "mistral": true, "zed": true, "devin": true,
 }
+
+const usageMaxProviders = 24
 
 var usagePlanRE = regexp.MustCompile(`^[a-z0-9_-]{1,24}$`)
 
 // UsageWindow is one limit window. Fields mirror spec/api.tsp UsageWindow.
 type UsageWindow struct {
 	ID            string  `json:"id"`
+	Label         string  `json:"label,omitempty"`
 	WindowMinutes int     `json:"window_minutes,omitempty"`
 	UsedPercent   float64 `json:"used_percent"`
 	ResetsAt      string  `json:"resets_at,omitempty"`
@@ -61,7 +68,15 @@ type UsageProvider struct {
 // UsageLimitsReport is what a claim sends as usage_limits.
 type UsageLimitsReport struct {
 	ReadAt    string          `json:"read_at"`
+	Engine    *UsageEngine    `json:"engine,omitempty"`
 	Providers []UsageProvider `json:"providers"`
+}
+
+// UsageEngine says whether the CodexBar usage engine was found on this machine (usage_codexbar.go).
+type UsageEngine struct {
+	ID      string `json:"id"`
+	Found   bool   `json:"found"`
+	Version string `json:"version,omitempty"`
 }
 
 // usageLogReader is an adapter whose CLI persists rate-limit snapshots in session logs.
@@ -425,6 +440,10 @@ type usageSources struct {
 	mu       sync.Mutex
 	logAt    map[string]time.Time
 	logCache map[string]*UsageProvider
+
+	// cb is the CodexBar engine's cache, set by startEngine. Report only reads it.
+	cb         atomic.Pointer[codexbarEngine]
+	engineOnce sync.Once
 }
 
 func newUsageSources(home string) *usageSources {
@@ -479,6 +498,9 @@ func (u *usageSources) Report(now time.Time, userHome string, getenv func(string
 			p.Windows = p.Windows[:usageMaxWindows]
 		}
 		rep.Providers = append(rep.Providers, p)
+	}
+	if e := u.cb.Load(); e != nil {
+		rep.Engine, rep.Providers = mergeCodexbar(rep.Providers, e)
 	}
 	return rep
 }

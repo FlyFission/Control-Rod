@@ -41,6 +41,7 @@ const (
 	RuntimeOpenCode = "opencode"
 	RuntimeAgy      = "agy"
 	RuntimeOllama   = "ollama"
+	RuntimeOmp      = "omp"
 	RuntimeFake     = "fake"
 )
 

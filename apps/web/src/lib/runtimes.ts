@@ -8,6 +8,7 @@ export type CliEcosystemId =
   | "codex"
   | "agy"
   | "opencode"
+  | "omp"
   | "grok"
   | "cursor"
   | "copilot"
@@ -147,6 +148,24 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
       "gpt-5.4": "medium",
       "deepseek-r1": "medium",
     },
+  },
+  {
+    id: "omp",
+    label: "Oh My Pi (omp)",
+    cliCommand: "omp",
+    runnable: false,
+    models: [
+      "default",
+      "anthropic/claude-sonnet-4-6",
+      "anthropic/claude-opus-4-6",
+      "openai/gpt-5-codex",
+      "google/gemini-2.5-pro",
+      "xai/grok-4",
+      "ollama/qwen2.5-coder:32b",
+    ],
+    reasoningLevels: ["default", "off", "minimal", "low", "medium", "high", "max"],
+    defaultModel: "default",
+    defaultReasoning: "default",
   },
   {
     id: "grok",

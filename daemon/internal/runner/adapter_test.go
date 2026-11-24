@@ -26,7 +26,7 @@ var runtimeNamePattern = regexp.MustCompile(`case\s+Runtime(Claude|Codex|Fake)\b
 
 func TestRegistry(t *testing.T) {
 	regs := RegisteredAdapters()
-	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama, RuntimeFake}
+	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama, RuntimeOmp, RuntimeFake}
 	if len(regs) != len(wantOrder) {
 		t.Fatalf("registry %d", len(regs))
 	}
@@ -387,7 +387,7 @@ func TestNoRuntimeNameSwitch(t *testing.T) {
 // preflight (so they show as not ready, with the gap as the reason) and by Command itself.
 func TestAwaitingConfinementIsRefused(t *testing.T) {
 	look := func(string) (string, error) { return "/usr/bin/x", nil }
-	for _, id := range []string{RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama} {
+	for _, id := range []string{RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama, RuntimeOmp} {
 		a, ok := AdapterFor(id)
 		if !ok {
 			t.Fatalf("%s not registered", id)

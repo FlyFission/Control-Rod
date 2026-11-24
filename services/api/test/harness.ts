@@ -198,6 +198,15 @@ export async function startHarness(
   };
 }
 
+/**
+ * A second app instance over the same database and repository root, as after a control-plane
+ * restart: the process is new, and every row it relies on (claim tokens, leases, receipts,
+ * idempotency keys, sessions) is where the old one left it.
+ */
+export function restartedApp(db: Db, root: string): FastifyInstance {
+  return buildApp({ root, db, auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN) } });
+}
+
 const b64url = (b: Uint8Array | Buffer) => Buffer.from(b).toString("base64url");
 const sha256 = (b: Uint8Array | Buffer | string) => createHash("sha256").update(b).digest();
 

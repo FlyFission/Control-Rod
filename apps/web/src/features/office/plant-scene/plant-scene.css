@@ -43,7 +43,7 @@
 .plant-fade {
   transition: opacity 200ms linear;
 }
-.plant-fade[data-tile-layer="lit"][data-lit="false"],
+.plant-fade[data-room-layer="lit"][data-lit="false"],
 .plant-fade[data-core][data-shown="false"] {
   opacity: 0;
 }

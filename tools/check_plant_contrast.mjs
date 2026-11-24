@@ -100,7 +100,14 @@ const ratio = (a, b) => {
 const parse = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
 
 async function check(page, label) {
+  // The app scrolls inside its shell, so a full-page screenshot only holds the viewport: centre the reactor plate
+  // (the label nearest the viewport edge) before reading positions, so every label is on the screenshot.
+  await page.evaluate(() => document.querySelector(".plant-reactor-plate")?.scrollIntoView({ block: "center" }));
+  await page.waitForTimeout(150);
   const runs = await page.evaluate(collect);
+  // The SCRAM banner is drawn over the top of the scene in the screenshot; it is not part of the art behind a
+  // label, so it is hidden while the art is sampled (the labels were read from the scene's own elements above).
+  await page.addStyleTag({ content: '[class*="scram-banner"]{visibility:hidden!important}' });
   await page.addStyleTag({ content: ".plant-scene *{color:transparent!important;-webkit-text-fill-color:transparent!important}.plant-scene svg{visibility:hidden!important}" });
   const shot = (await page.screenshot({ fullPage: true })).toString("base64");
   const worst = await page.evaluate(async ({ shot, runs }) => {

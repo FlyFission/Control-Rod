@@ -1,5 +1,5 @@
 import type { FigureState } from "../OfficeStage.js";
-import { CANVAS, CORE_BBOX, CREW_BASELINE, CREW_FRAME, ROOMS } from "./geometry.js";
+import { CANVAS, CORE_BBOX, ROOMS, SPRITE, SPRITE_ANCHOR, SPRITE_BOX } from "./geometry.js";
 
 /**
  * Where everything the Plant writes on the picture goes, worked out from the room geometry and the
@@ -8,7 +8,7 @@ import { CANVAS, CORE_BBOX, CREW_BASELINE, CREW_FRAME, ROOMS } from "./geometry.
  * window draws bigger figures), the text does not (it stays at its token size), so what fits is a
  * question of the scale, answered here:
  *
- *  - Wide enough for a figure to read (about 42 px or more): each room's figures stand on its tile's
+ *  - Wide enough for a figure to read (about 23 px or more): each room's figures stand on its tile's
  *    seats in order of need, as many as it has seats. The room has ONE roster plate, just outside it:
  *    the room's name, up to three rows (badge, short title, state chip) and "+N more" for the rest.
  *    The plate takes the nearest clear spot (below, beside or above); if it cannot be given room at
@@ -28,6 +28,8 @@ export interface Rect {
   w: number;
   h: number;
 }
+
+const FIGURE_SCALE = 1.5;
 
 /** Label sizes in px (the fonts are the --fs-* tokens; these are the boxes they are set in). */
 export const METRICS = {
@@ -53,18 +55,32 @@ export const METRICS = {
   margin: 3,
   /** The reactor plate (name and captions), kept clear by the rosters. */
   reactor: { w: 190, h: 100 },
-  /** A crew frame in canvas units, and how much of the frame the figure fills (top of head to feet). */
-  crewFrame: 140,
-  crewFill: 0.92,
+  /**
+   * A worker sprite's frame in canvas units: the sprite cell at the render's own scale (cell / px per plate px)
+   * times a magnification that keeps a seated worker readable at a 1440 px window; and how much of the frame
+   * a seated figure fills, which sets when figures give way to counts.
+   */
+  figureScale: FIGURE_SCALE,
+  crewFrame: (SPRITE.cell / SPRITE.pxPerPlatePx) * FIGURE_SCALE,
+  crewFill: 0.5,
+  /** The least a figure's focus box may be (px): a pointer target. */
+  minTarget: 24,
   crewMax: 104,
   /** Below this a figure is too small to read: the scene switches to count plates. */
-  lodFigure: 42,
-  /** The figure's width as a share of its frame (its focus box). */
-  bodyShare: 0.5,
+  lodFigure: 23,
 } as const;
 
 /** What most needs the viewer comes first, so the figures that are listed are the urgent ones. */
 export const PRIORITY: readonly FigureState[] = ["needs", "stuck", "changed", "waiting", "working"];
+
+/** The sprite a state draws: an input that changed shows the waiting pose (its chip says Changed). */
+export const POSE: Record<FigureState, "working" | "waiting" | "stuck" | "needs-you"> = {
+  working: "working",
+  waiting: "waiting",
+  stuck: "stuck",
+  needs: "needs-you",
+  changed: "waiting",
+};
 
 export interface PlanFigure {
   id: string;
@@ -90,7 +106,7 @@ export interface Placed {
   seat: { x: number; y: number };
   /** The figure's standing body: its focus box, and what plates keep clear of. */
   body: Rect;
-  /** The crew frame (the painted image), square, standing its baseline on the seat's feet point. */
+  /** The sprite's frame (the painted image), square, placed so its anchor pixel is on the seat's feet point. */
   frame: Rect;
   /** Which side of the figure its full-name tooltip opens, away from the picture's nearest edge. */
   tip: "above" | "below";
@@ -211,7 +227,7 @@ export function planScene(input: PlanInput): ScenePlan {
     const plan: RoomPlan = { id, name: input.name(id), box, total, byState, mode: total === 0 ? "empty" : mode === "counts" ? "count" : "figures", placed: [], rows: [], more: 0, expanded: false, compact: false };
     if (plan.mode === "figures") {
       const seats = ROOMS[id as keyof typeof ROOMS].seats.map((s) => ({ x: s.x * u, y: s.y * u }));
-      plan.placed = mine.slice(0, seats.length).map((f, i) => stand(f, seats[i]!, frame, canvas));
+      plan.placed = mine.slice(0, seats.length).map((f, i) => stand(f, id, seats[i]!, frame, canvas));
     }
     return plan;
   });
@@ -296,12 +312,16 @@ export function planScene(input: PlanInput): ScenePlan {
   return { u, mode, frame, rooms };
 }
 
-function stand(f: PlanFigure, seat: { x: number; y: number }, frame: number, canvas: Rect): Placed {
-  const bw = frame * METRICS.bodyShare;
-  const bh = frame * METRICS.crewFill;
-  const body: Rect = { x: seat.x - bw / 2, y: seat.y - bh, w: bw, h: bh };
-  const top = frame * (CREW_BASELINE / CREW_FRAME);
-  const img: Rect = { x: seat.x - frame / 2, y: seat.y - top, w: frame, h: frame };
+function stand(f: PlanFigure, room: string, seat: { x: number; y: number }, frame: number, canvas: Rect): Placed {
+  const key = `${ROOMS[room as keyof typeof ROOMS].garb}-${POSE[f.state]}` as keyof typeof SPRITE_ANCHOR;
+  const k = frame / SPRITE.cell;
+  const [ax, ay] = SPRITE_ANCHOR[key];
+  const img: Rect = { x: seat.x - ax * k, y: seat.y - ay * k, w: frame, h: frame };
+  // The focus box is what the sprite paints, grown to a pointer target about its centre.
+  const [bx0, by0, bx1, by1] = SPRITE_BOX[key];
+  const w = Math.max(METRICS.minTarget, (bx1 - bx0) * k);
+  const h = Math.max(METRICS.minTarget, (by1 - by0) * k);
+  const body: Rect = { x: img.x + ((bx0 + bx1) / 2) * k - w / 2, y: img.y + ((by0 + by1) / 2) * k - h / 2, w, h };
   return { id: f.id, state: f.state, seat, body, frame: img, tip: seat.y < canvas.h / 2 ? "below" : "above", align: seat.x < 130 ? "start" : seat.x > canvas.w - 130 ? "end" : "center" };
 }
 

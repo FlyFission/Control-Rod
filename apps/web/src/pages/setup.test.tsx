@@ -1,10 +1,11 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { agentRows, readBack } from "../lib/agents.js";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
+import { resetLitSeats } from "../components/AgentList.js";
 import { AgentsRoster } from "./AgentsRoster.js";
 import { Setup } from "./Setup.js";
 
@@ -144,6 +145,7 @@ describe("first-run setup", () => {
 });
 
 describe("seats at the table", () => {
+  beforeEach(() => resetLitSeats());
   it("shows each agent as a seat with its icon, status lamp and a found count, lighting up in setup", async () => {
     api();
     const { container } = await renderPage(<Setup />);

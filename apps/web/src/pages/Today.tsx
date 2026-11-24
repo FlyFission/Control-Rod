@@ -27,7 +27,7 @@ export function Today() {
   const inboxQuery = useQuery({ queryKey: ["inbox", "today"], queryFn: () => api.inbox(), refetchInterval: REFRESH_MS });
   const packages = packagesQuery.data;
   const inbox = inboxQuery.data;
-  const b = brief(floorQuery.data, inbox);
+  const b = brief(floorQuery.data, inbox, { floor: floorQuery.isError, inbox: inboxQuery.isError });
   const items = inbox?.items ?? [];
   const inInbox = new Set(items.map((i) => i.package_id).filter((id): id is string => id !== undefined));
   // Drafts and packages in verification that no Inbox item already covers: still the person's to look at.
@@ -85,7 +85,7 @@ export function Today() {
             Needs you{b.needs ? <span className="mono today-count"> {b.needs}</span> : null}
           </h2>
           {inboxQuery.isLoading && <p className="muted">Loading</p>}
-          {inbox !== undefined && items.length === 0 && (
+          {inbox !== undefined && !inboxQuery.isError && items.length === 0 && (
             <div className="calm" role="status">
               <span className="calm-tick" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="22" height="22" focusable="false"><path d="M5 12.5 10 17.5 19 7" /></svg>

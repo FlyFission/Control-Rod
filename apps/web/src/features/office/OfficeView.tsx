@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useMedia } from "../../lib/useMedia.js";
 import { api } from "../../api/client.js";
 import type { AgentFigure } from "../../api/types.js";
 import { AgentCard } from "./AgentCard.js";
@@ -149,6 +150,9 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   // Below LIST_BELOW the Plant is not hidden: a compact scene (count plates, the core in view) shows above the list.
   const showScene = isPlant && (!fits || !(listChosen ?? false));
   const stack = width !== undefined && width < STAGE_MIN + CARD;
+  // On a phone the Plant reads core, annunciator, then the list (screens.md, Plant phone row).
+  const phone = useMedia("(max-width: 767px)");
+  const annunciatorAfterScene = phone && showScene && q.data !== undefined;
   // Why a lens cannot be chosen now: its own reason, or presenting, which shows no spend.
   const why = (l: (typeof LENSES)[number]) => l.unavailable ?? (presenting && l.id === "spend" ? "Spend is not shown while presenting." : undefined);
   const active = lensById(lens);
@@ -254,7 +258,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           <ScramControl presenting={presenting} />
         </div>
       </header>
-      {isPlant && <Annunciator windows={windows} scope={presenting ? "presenting" : "all"} />}
+      {isPlant && !annunciatorAfterScene && <Annunciator windows={windows} scope={presenting ? "presenting" : "all"} />}
       {LENSES.filter((l) => why(l)).map((l) => (
         <p key={l.id} id={`lens-why-${l.id}`} className="office-note">
           {l.label} lens: {why(l)}
@@ -355,6 +359,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
                 onOpenRoom={(room) => setOpenRoom((cur) => (cur === room ? undefined : room))}
               />
             )}
+            {isPlant && annunciatorAfterScene && <Annunciator windows={windows} scope={presenting ? "presenting" : "all"} />}
             {showScene && openRoom && (
               <RoomFigures room={openRoom} figures={floor.figures} selected={selected} onSelect={setSelected} onClose={() => setOpenRoom(undefined)} />
             )}

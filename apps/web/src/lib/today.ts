@@ -31,7 +31,17 @@ export function countFigures(figures: readonly AgentFigure[]): { working: number
   return { working, stuck };
 }
 
-export function brief(floor: OfficeFloor | undefined, inbox: { items: readonly AttentionItem[] } | undefined): Brief {
+/**
+ * `failed` names a read whose latest refresh failed: its cached data is not current, so it counts as
+ * unknown (a dash), never as the zero it last said. Calm needs both reads current and nothing in them.
+ */
+export function brief(
+  floorData: OfficeFloor | undefined,
+  inboxData: { items: readonly AttentionItem[] } | undefined,
+  failed: { floor?: boolean; inbox?: boolean } = {},
+): Brief {
+  const floor = failed.floor ? undefined : floorData;
+  const inbox = failed.inbox ? undefined : inboxData;
   const needs = inbox?.items.length;
   const counts = floor ? countFigures(floor.figures) : undefined;
   const working = counts?.working;
@@ -40,12 +50,13 @@ export function brief(floor: OfficeFloor | undefined, inbox: { items: readonly A
   if (needs !== undefined && needs > 0) parts.push(plural(needs, "decision waiting", "decisions waiting"));
   if (working !== undefined && working > 0) parts.push(plural(working, "agent working", "agents working"));
   if (stuck !== undefined && stuck > 0) parts.push(`${stuck} stuck`);
-  const calm = needs === 0 && (stuck ?? 0) === 0;
+  const calm = needs === 0 && stuck === 0;
   let headline: string;
   if (needs !== undefined && needs > 0) headline = parts.join(", ");
   else if (calm) headline = working !== undefined && working > 0 ? `Nothing needs you. ${plural(working, "agent is", "agents are")} working.` : "Nothing needs you.";
   else if (parts.length > 0) headline = parts.join(", ");
-  else headline = needs === undefined && floor === undefined ? "Reading the plant" : "Nothing is working.";
+  else if (failed.floor || failed.inbox) headline = "Couldn't read the whole plant";
+  else headline = floor === undefined || inbox === undefined ? "Reading the plant" : "Nothing is working.";
   return { needs, working, stuck, headline: headline.charAt(0).toUpperCase() + headline.slice(1), calm };
 }
 

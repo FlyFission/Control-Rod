@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw/http";
 import { describe, expect, it } from "vitest";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
+import { brief } from "../lib/today.js";
 import { Today } from "./Today.js";
 
 const figure = (id: string, state: string) => ({ id, package_id: id, package_revision: 1, title: id, role: "author", state, cause: "x", cause_key: id, since: "2026-11-24T08:00:00Z", place: "process", marks: { gate: false } });
@@ -69,6 +70,33 @@ describe("Today, the shift brief", () => {
     const brief = screen.getByRole("region", { name: "Shift brief" });
     expect([...brief.querySelectorAll(".readout dd")].map((d) => d.textContent)).toEqual(["–", "–", "–"]);
     expect(screen.getByRole("heading", { level: 1 }).textContent).not.toMatch(/^Nothing needs you/);
+  });
+
+  it("is not calm when only the plant read failed, though the Inbox is empty", async () => {
+    serve({ figuresFail: true });
+    await renderPage(<Today />);
+    await screen.findByText(/The plant could not be read/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).not.toMatch(/^Nothing needs you/);
+    expect(screen.queryByText("Plant at rest")).toBeNull();
+  });
+
+  it("is not calm when the Inbox read failed, though the plant is quiet", async () => {
+    serve({ inboxFail: true, states: ["working"] });
+    await renderPage(<Today />);
+    await screen.findByText(/The Inbox could not be read/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).not.toMatch(/^Nothing needs you/);
+    expect(screen.queryByText("Plant at rest")).toBeNull();
+    expect(screen.queryByText("Nothing needs you.", { selector: ".calm-title" })).toBeNull();
+  });
+
+  it("does not reuse a cached zero when a refresh fails", () => {
+    const f = floor(["working"]) as never;
+    const i = inbox([]) as never;
+    expect(brief(f, i).calm).toBe(true);
+    expect(brief(f, i, { inbox: true }).calm).toBe(false);
+    expect(brief(f, i, { floor: true }).calm).toBe(false);
+    expect(brief(f, i, { floor: true }).stuck).toBeUndefined();
+    expect(brief(undefined, i).calm).toBe(false);
   });
 
   it("points at the Inbox past five items", async () => {

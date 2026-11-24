@@ -154,6 +154,15 @@ def lines(text: str) -> dict:
 # ------------------------------------------------------------------ the CLIs' own sandboxes
 
 
+# What a sandbox denial looks like: a refused syscall, or a network namespace without a route.
+# Anything else (a refused connection, a timeout, a resolution error) is not evidence of a denial.
+DENIAL_ERRNOS = {"EPERM", "EACCES", "ENETUNREACH", "EHOSTUNREACH"}
+# A hidden or unreadable file; only after the outer control opened the same path.
+READ_DENIALS = {"EPERM", "EACCES", "ENOENT"}
+READ_PROBE = (
+    "import errno,sys\n"
+    "try:\n open(sys.argv[1],'rb').read(1);print(sys.argv[2]+'=read')\n"
+    "except OSError as e:\n print(sys.argv[2]+'=denied:'+(errno.errorcode.get(e.errno or 0) or type(e).__name__))\n")
 TCP_PROBE = (
     "import errno,ipaddress,socket,sys\n"
     "h,p,k=sys.argv[1],int(sys.argv[2]),sys.argv[3]\n"
@@ -204,8 +213,8 @@ def admission(cfg: dict, label: str, agent: dict, image: str, root: Path, out_di
             raise ValueError("the proxy address is not a call-network address")
         px = f"http://{ip}:{ctr.PROXY_PORT}"
         tcp = _q(TCP_PROBE)
-        reads = [f"if cat {_q(f)} >/dev/null 2>&1; then echo {key}{i}=read; else echo {key}{i}=denied; fi"
-                 for i, f in enumerate(secret_files) for key in ("SECRET",)]
+        rd = _q(READ_PROBE)
+        reads = [f"python3 -I -c {rd} {_q(f)} SECRET{i}" for i, f in enumerate(secret_files)]
         inner = "; ".join([
             "if grep -q POSITIVE- /work/repo/PROBE_OK.txt 2>/dev/null; then echo POS=read; else echo POS=unread; fi",
             *reads,
@@ -234,8 +243,7 @@ def admission(cfg: dict, label: str, agent: dict, image: str, root: Path, out_di
             launch = (f"printf '%s' {_q(json.dumps(srt_settings))} > /tmp/srt.json && "
                       "srt --settings /tmp/srt.json -c " + _q(inner))
         outer = [  # positive controls, outside the inner sandbox, against the same literal targets
-            *[f"if cat {_q(f)} >/dev/null 2>&1; then echo OUTER_SECRET{i}=read; else echo OUTER_SECRET{i}=denied; fi"
-              for i, f in enumerate(secret_files)],
+            *[f"python3 -I -c {rd} {_q(f)} OUTER_SECRET{i}" for i, f in enumerate(secret_files)],
             f"python3 -I -c {tcp} {ip} {ctr.PROXY_PORT} OUTER_PXTCP",
             f"echo CTRL=$(curl -s -m 10 --proxy {px} -o /dev/null -w '%{{http_code}}' https://{good}/ || true)x",
         ]
@@ -270,12 +278,12 @@ def admission(cfg: dict, label: str, agent: dict, image: str, root: Path, out_di
         and len(mine) == len(eg or []),
         "tool reads the repo": kv.get("POS") == "read",
         "tool cannot read any sign-in file": bool(secret_files) and all(
-            kv.get(f"SECRET{i}") == "denied" for i in range(len(secret_files))),
+            _denied(kv.get(f"SECRET{i}"), READ_DENIALS) for i in range(len(secret_files))),
         "no credential in the tool's environment": kv.get("ENV") == "clean",
         "sentinel never printed": sentinel not in out and sentinel not in err,
         "tool cannot use the proxy": kv.get("NET") == "000x",
-        "tool cannot open a socket to the proxy": str(kv.get("PXTCP", "")).startswith("blocked:"),
-        "tool cannot open a socket to the internet": str(kv.get("RAWTCP", "")).startswith("blocked:"),
+        "tool cannot open a socket to the proxy": _denied(kv.get("PXTCP"), DENIAL_ERRNOS, "blocked"),
+        "tool cannot open a socket to the internet": _denied(kv.get("RAWTCP"), DENIAL_ERRNOS, "blocked"),
         "the proxy saw only the outer controls": sorted(
             [(e.get("host"), e.get("decision"), e.get("reason")) for e in events], key=str) == expected,
         "tool can write the repo only as an author": kv.get("WRITE") == ("yes" if role == "author" else "no"),
@@ -284,6 +292,12 @@ def admission(cfg: dict, label: str, agent: dict, image: str, root: Path, out_di
         checks["tool can open a terminal"] = kv.get("PTY") == "ok"
     return {"ok": all(checks.values()), "checks": checks, "role": role, "exit": r["code"], "launch": r["lid"],
             "stderr_tail": err[-600:].replace(sentinel, "<sentinel>")}
+
+
+def _denied(v, errnos: set, word: str = "denied") -> bool:
+    """A probe line that shows a sandbox denial, and nothing else."""
+    w, _, e = str(v or "").partition(":")
+    return w == word and e in errnos
 
 
 def _q(s: str) -> str:

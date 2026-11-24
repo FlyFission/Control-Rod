@@ -84,8 +84,8 @@ def file_digest(p: Path) -> str:
 
 def inputs_digest() -> dict:
     """Digests of everything the image and its confinement are built from."""
-    names = ["Dockerfile", "package.json", "package-lock.json", "cr-bench-bwrap.apparmor", "seccomp-userns.json",
-             "moby-seccomp-default.json", "make_seccomp.py"]
+    names = ["Dockerfile", "Dockerfile.dockerignore", "package.json", "package-lock.json", "cr-bench-bwrap.apparmor",
+             "seccomp-userns.json", "moby-seccomp-default.json", "make_seccomp.py"]
     out = {n: file_digest(CONTAINER_DIR / n) for n in names}
     out["egress.py"] = file_digest(HERE / "crbench" / "egress.py")
     return out
@@ -103,10 +103,12 @@ def inputs_key() -> str:
 
 
 def image_record(ref: str) -> dict:
+    """Resolve the reference once, then inspect and run only that immutable ID, so every check
+    below is about the image that the calls will run."""
     iid = image_id(ref)
     if not iid:
         raise Refused("§4 container", f"image {ref} is not present; build it with `bench.py image`")
-    r = dk(["image", "inspect", "--format", "{{.Architecture}} {{.Os}} {{index .Config.Labels \"cr-bench.inputs\"}}", ref])
+    r = dk(["image", "inspect", "--format", "{{.Architecture}} {{.Os}} {{index .Config.Labels \"cr-bench.inputs\"}}", iid])
     parts = r.stdout.decode().split()
     arch, osn = parts[0], parts[1]
     built_from = parts[2] if len(parts) > 2 else None
@@ -118,13 +120,16 @@ def image_record(ref: str) -> dict:
               "echo CLAUDE_VERSION=$(claude --version 2>/dev/null | head -1); "
               "echo CODEX_VERSION=$(codex --version 2>/dev/null | head -1)")
     out = dk(["run", "--rm", "--network", "none", "--cap-drop", "ALL", "--read-only", "--user", "1000:1000",
-              "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--entrypoint", "/bin/sh", ref, "-c", script],
+              "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--entrypoint", "/bin/sh", iid, "-c", script],
              timeout=120).stdout.decode().splitlines()
     bins = {}
     for ln in out:
         parts = ln.split()
         if len(parts) == 3 and len(parts[2]) == 64:
             bins[parts[0]] = {"path": parts[1], "sha256": parts[2]}
+    missing = [b for b in ("claude", "codex", "srt", "bwrap", "python3", "git") if b not in bins]
+    if missing:
+        raise Refused("§9 versions", f"image {ref} lacks required binaries: {missing}")
     got = {ln.split("=", 1)[0]: ln.split("=", 1)[1].strip() for ln in out if ln.startswith(("CLAUDE_VERSION=", "CODEX_VERSION="))}
     pins = json.loads((CONTAINER_DIR / "package.json").read_text())["dependencies"]
     want = {"CLAUDE_VERSION": f"{pins['@anthropic-ai/claude-code']} (Claude Code)",
@@ -337,10 +342,17 @@ def reconcile(study_label: str) -> list[str]:
         raise Refused("§4 container", "cannot list this study's containers: the runtime did not answer")
     lids = sorted({x.decode() for x in r.stdout.split()})
     for lid in lids:
-        remove(lid)
-    nets = dk(["network", "ls", "-q", "--filter", f"label=cr-bench.study={study_label}"], check=False).stdout.split()
-    if nets:
-        dk(["network", "rm", *[x.decode() for x in nets]], check=False)
+        remove(lid)  # each removal confirms its own containers and network are gone, or raises
+    n = dk(["network", "ls", "-q", "--filter", f"label=cr-bench.study={study_label}"], check=False)
+    if n.returncode != 0:
+        raise Refused("§4 container", "cannot list this study's networks: the runtime did not answer")
+    if n.stdout.split():
+        dk(["network", "rm", *[x.decode() for x in n.stdout.split()]], check=False)
+    # observed clean, not assumed: list both again
+    c2 = dk(["ps", "-aq", "--filter", f"label=cr-bench.study={study_label}"], check=False)
+    n2 = dk(["network", "ls", "-q", "--filter", f"label=cr-bench.study={study_label}"], check=False)
+    if c2.returncode != 0 or n2.returncode != 0 or c2.stdout.split() or n2.stdout.split():
+        raise Refused("§4 container", "this study's containers or networks could not be confirmed removed")
     return lids
 
 
@@ -349,18 +361,30 @@ def study_label(study_dir: Path) -> str:
     return hashlib.sha256(str(Path(study_dir).resolve()).encode()).hexdigest()[:16]
 
 
+LOG_READ_CAP = 8 * 1024 * 1024
+
+
 def egress_log(call_dir: Path) -> list[dict]:
+    return egress_audit(call_dir)["records"]
+
+
+def egress_audit(call_dir: Path) -> dict:
+    """The proxy log and whether it is complete: present, fully read, every line valid, and never
+    saturated. An incomplete log is reported, never silently trimmed."""
     p = call_dir / "egress" / "egress.jsonl"
-    if not p.exists() or p.is_symlink():
-        return []
-    out = []
+    if not p.is_file() or p.is_symlink():
+        return {"records": [], "complete": False, "why": "no proxy log"}
+    out, bad = [], 0
     with p.open("rb") as f:
-        for ln in f.read(4 * 1024 * 1024).splitlines():
-            try:
-                out.append(json.loads(ln))
-            except json.JSONDecodeError:
-                continue
-    return out
+        data = f.read(LOG_READ_CAP + 1)
+    for ln in data[:LOG_READ_CAP].splitlines():
+        try:
+            out.append(json.loads(ln))
+        except json.JSONDecodeError:
+            bad += 1
+    why = ("log larger than the read cap" if len(data) > LOG_READ_CAP else f"{bad} unreadable lines" if bad
+           else "log line cap reached" if any(e.get("decision") == "log_cap" for e in out) else "")
+    return {"records": out, "complete": not why, "why": why}
 
 
 def write_env_file(path: Path, env: dict) -> Path:

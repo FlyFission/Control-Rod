@@ -162,46 +162,64 @@ def _valid_codex_auth(j) -> bool:
     if not isinstance(j, dict) or not isinstance(j.get("tokens"), dict):
         return False
     t = j["tokens"]
-    if not (isinstance(t.get("access_token"), str) and isinstance(t.get("refresh_token"), str)):
+    if not (isinstance(t.get("access_token"), str) and t["access_token"] and isinstance(t.get("refresh_token"), str)
+            and t["refresh_token"]):
         return False
     if j.get("OPENAI_API_KEY") or j.get("api_key") or str(j.get("auth_mode", "")).lower().startswith("api"):
         return False  # a refreshed sign-in never turns into a billed API key
     return True
 
 
-def write_back_login(agent: dict, private: Path) -> bool:
+def write_back_login(agent: dict, private: Path) -> str:
     """A CLI may refresh its sign-in during a call (Codex rotates its refresh token). For a store
     marked write_back (the benchmark's own sign-in, never the owner's everyday one), the refreshed
     copy replaces the store atomically after the container is gone, so the next call starts from
     the live token. Guards: no link anywhere on the path, a size cap, the expected shape with no
     API key, and no overwrite if the store changed since this call's copy was taken (a conflict
-    is left for the owner, never resolved by rolling back). Returns True if the store was updated."""
+    is reported, never resolved by rolling back). The compare and the replace happen under an
+    exclusive lock on the store. Returns "updated", "unchanged", "conflict", "refused" or "n/a";
+    the record keeps it, never a credential."""
     ls = agent.get("login_store") or {}
     if ls.get("mode") != "files" or not ls.get("write_back"):
-        return False
+        return "n/a"
     src = Path(os.path.expanduser(ls["source"]))
     checkout = _CHECKOUT.get(str(private))
     login = private / "login"
     if checkout is None or not _store_ok_for_write_back(src) or login.is_symlink() or not login.is_dir():
-        return False
-    changed = False
+        return "refused"
+    import fcntl
+    lock_fd = os.open(src / ".cr-bench.lock", os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        return _write_back_locked(ls, src, login, checkout)
+    finally:
+        os.close(lock_fd)
+
+
+def _write_back_locked(ls: dict, src: Path, login: Path, checkout: dict) -> str:
+    status = "unchanged"
     for f in ls["files"]:
         new, old = login / f, src / f
         if new.is_symlink() or old.is_symlink() or not new.is_file() or not old.is_file():
+            status = "refused"
             continue
         if new.stat().st_size > WRITE_BACK_MAX:
+            status = "refused"
             continue
         data = new.read_bytes()
         cur = old.read_bytes()
         if data == cur:
             continue
         if hashlib.sha256(cur).hexdigest() != checkout.get(f):
-            continue  # the store moved on since this copy was taken: never roll it back
+            status = "conflict"  # the store moved on since this copy was taken: never roll it back
+            continue
         try:
             j = json.loads(data)
         except (json.JSONDecodeError, UnicodeDecodeError):
-            continue  # a half-written or foreign file never replaces a working sign-in
+            status = "refused"  # a half-written or foreign file never replaces a working sign-in
+            continue
         if not _valid_codex_auth(j):
+            status = "refused"
             continue
         tmp = src / f".{f}.{secrets.token_hex(4)}"
         try:
@@ -214,8 +232,9 @@ def write_back_login(agent: dict, private: Path) -> bool:
         except BaseException:
             tmp.unlink(missing_ok=True)
             raise
-        changed = True
-    return changed
+        if status == "unchanged":
+            status = "updated"
+    return status
 
 
 def login_store(agent: dict, private: Path) -> dict:
@@ -618,7 +637,7 @@ def _container_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Pat
     (call_dir / "argv.json").write_text(json.dumps(args[1:], indent=1))
     so, se = call_dir / "stdout.jsonl", call_dir / "stderr.txt"
     env_file = Path(cx["root"]) / f"env-{cx['lid']}"  # read by the docker client only, never mounted
-    refreshed = False
+    refreshed = "not attempted"
     call = ctr.Call(cx["cfg"], cx["image"], cx["lid"], cx["label"], call_dir, agent.get("egress") or [],
                     cx["root"], systempaths=agent["kind"] == "claude")
     try:
@@ -631,13 +650,18 @@ def _container_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Pat
         env_file.unlink(missing_ok=True)
         if call.removed:  # only once removal is confirmed can nothing in the container still write
             refreshed = write_back_login(agent, priv)
-    log = ctr.egress_log(call_dir)
+    audit = ctr.egress_audit(call_dir)
+    log = audit["records"]
     conf = {"mechanism": "container", "image": cx["image"], "apparmor": ctr.APPARMOR,
+            "egress_complete": audit["complete"], "egress_incomplete_why": audit["why"],
             "egress": {"allowed": sorted({e["host"] for e in log if e.get("decision") == "allowed"}),
                        "denied": sorted({f"{e.get('host')}: {e.get('reason')}" for e in log
                                          if e.get("decision") in ("denied", "error", "log_cap")})}}
-    conf["sign_in_refreshed"] = refreshed
-    return finish_real(agent, role, timeout, priv / "last-message.txt", so, se, code, stop, conf)
+    conf["sign_in_write_back"] = refreshed
+    rec = finish_real(agent, role, timeout, priv / "last-message.txt", so, se, code, stop, conf)
+    if not audit["complete"] and rec.get("status") == "ok":  # a call whose traffic is not fully on record is not scored
+        rec.update({"status": "infra_error", "why": f"egress log incomplete: {audit['why']}"})
+    return rec
 
 
 def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, timeout: int) -> dict:

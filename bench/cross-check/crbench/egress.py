@@ -207,6 +207,10 @@ class Proxy:
                 return None, f"resolved to a refused address ({why})"
         return list(dict.fromkeys(addrs)), ""
 
+    def saturated(self) -> bool:
+        with self.lock:
+            return self.lines >= self.max_log_lines
+
     def charge(self, n: int) -> bool:
         """Reserve n bytes of the call's total budget; False once it would be exceeded."""
         with self.lock:
@@ -227,6 +231,12 @@ class Proxy:
     def handle(self, client: socket.socket, acquired: bool = False) -> None:
         host, port, up, down = None, None, 0, 0
         upstream = None
+        if self.saturated():  # what cannot be logged is not allowed: no connection past the log cap
+            self.record(host=None, port=None, decision="denied", reason="log cap", up=0, down=0)
+            client.close()
+            if acquired:
+                self.slots.release()
+            return
         if not acquired and not self.slots.acquire(blocking=False):
             self.record(host=None, port=None, decision="denied", reason="connection cap", up=0, down=0)
             client.close()

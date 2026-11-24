@@ -63,13 +63,28 @@ COLLECTION_ERROR = re.compile(rb"ERROR collecting|Interrupted: \d+ errors? durin
                               rb"ImportError while (importing|loading)", re.M)
 
 
-def collection_failed(log: Path) -> bool:
-    """The suite started and then died importing the candidate's code: a failure, not missing evidence."""
+# SWE-bench harness markers: a log without both test-output markers, or with any infrastructure
+# marker, never supports a collection-error verdict.
+TEST_OUTPUT = (b">>>>> Start Test Output", b">>>>> End Test Output")
+INFRA_MARKERS = (b">>>>> Test timed out", b">>>>> Tests errored", b">>>>> Error applying patch", b">>>>> Reset Failed",
+                 b">>>>> Patch Apply Failed")
+
+
+def collection_failed(log: Path, swebench: bool = True) -> bool:
+    """The suite started and then died importing the candidate's code: a failure, not missing
+    evidence. For SWE-bench the error must sit between complete test-output markers in a log with
+    no timeout, crash or patch failure marker."""
     try:
         with log.open("rb") as f:
-            return bool(COLLECTION_ERROR.search(f.read(32 * 1024 * 1024)))
+            data = f.read(32 * 1024 * 1024)
     except OSError:
         return False
+    if swebench:
+        a, b = data.find(TEST_OUTPUT[0]), data.find(TEST_OUTPUT[1])
+        if a < 0 or b < a or any(m in data for m in INFRA_MARKERS):
+            return False
+        data = data[a:b]
+    return bool(COLLECTION_ERROR.search(data))
 
 
 def judge_collection_failure(task: dict, outcomes: dict | None) -> dict:
@@ -165,8 +180,9 @@ def parse_swebench_report(path: Path | None, tid: str) -> dict | None:
 
 def executed_map(ev: dict, snapshot: Path, tid: str, log: Path) -> dict | None:
     """Per-test outcomes of tests that actually appear in the harness log. Three states: None when
-    the map is unavailable (no log, the parser failed), {} when the log was parsed and holds no
-    test result, and the outcomes otherwise. Only {} can support a collection-error verdict."""
+    the map is unavailable (no log, the parser failed, or the harness marks the log incomplete),
+    {} when a complete log holds no test result, and the outcomes otherwise. Only {} can support a
+    collection-error verdict."""
     if not log.exists():
         return None
     r = subprocess.run(["uv", "run", "--python", ev["python"], "--with", ev["harness"], "python", "-c", LOG_MAP,
@@ -177,8 +193,8 @@ def executed_map(ev: dict, snapshot: Path, tid: str, log: Path) -> dict | None:
         j = json.loads(r.stdout.strip().splitlines()[-1])
     except (json.JSONDecodeError, IndexError):
         return None
-    if not j.get("found"):
-        return {}
+    if j.get("found") is not True or not isinstance(j.get("status"), dict):
+        return None  # found=false is the harness's own "incomplete log" (timeout, crash, failed apply)
     return {k: SWE_STATUS.get(v, "error") for k, v in j["status"].items()}
 
 

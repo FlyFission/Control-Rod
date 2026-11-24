@@ -806,6 +806,25 @@ class Egress(unittest.TestCase):
         self.assertEqual(len(rows), 3)
         self.assertLessEqual(len(rows[1]["host"]), 253)
 
+    def test_a_full_log_stops_traffic_and_marks_the_call_incomplete(self):
+        import socket
+        log = io.StringIO()
+        px = egress.Proxy(["chatgpt.com"], "L", log, max_log_lines=1)
+        px.record(host=None, decision="start")
+        a, b = socket.socketpair()
+        px.handle(b)  # past the cap: refused, whatever it asks for
+        a.close()
+        rows = [json.loads(x) for x in log.getvalue().splitlines()]
+        self.assertEqual(rows[-1]["decision"], "log_cap")
+        d = self.d if hasattr(self, "d") else Path(tempfile.mkdtemp())
+        (d / "egress").mkdir(exist_ok=True)
+        (d / "egress" / "egress.jsonl").write_text(log.getvalue())
+        self.assertFalse(container.egress_audit(d)["complete"])
+        (d / "egress" / "egress.jsonl").write_text(json.dumps({"decision": "start"}) + "\nnot json\n")
+        self.assertEqual(container.egress_audit(d)["why"], "1 unreadable lines")
+        (d / "egress" / "egress.jsonl").write_text(json.dumps({"decision": "start"}) + "\n")
+        self.assertTrue(container.egress_audit(d)["complete"])
+
     def test_every_byte_is_charged_before_it_is_sent(self):
         px = egress.Proxy(["chatgpt.com"], "L", io.StringIO(), max_bytes=100)
         self.assertTrue(px.charge(60))
@@ -941,14 +960,14 @@ class Containers(Tmp):
         priv = self.d / "priv"
         priv.mkdir()
         ag.login_store(a, priv)
-        self.assertFalse(ag.write_back_login(a, priv))  # unchanged
+        self.assertEqual(ag.write_back_login(a, priv), "unchanged")  # unchanged
         (priv / "login" / "auth.json").write_text("{half")
-        self.assertFalse(ag.write_back_login(a, priv))  # never a broken file
+        self.assertEqual(ag.write_back_login(a, priv), "refused")  # never a broken file
         (priv / "login" / "auth.json").write_text(json.dumps({"tokens": {"access_token": "a", "refresh_token": "r2"}}))
-        self.assertTrue(ag.write_back_login(a, priv))
+        self.assertEqual(ag.write_back_login(a, priv), "updated")
         self.assertIn("r2", (store / "auth.json").read_text())
         self.assertEqual((store / "auth.json").stat().st_mode & 0o077, 0)
-        self.assertFalse(ag.write_back_login({**a, "login_store": {**a["login_store"], "write_back": False}}, priv))
+        self.assertEqual(ag.write_back_login({**a, "login_store": {**a["login_store"], "write_back": False}}, priv), "n/a")
 
     def test_write_back_guards(self):
         agents = read_json(HERE / "agents.json")
@@ -965,11 +984,11 @@ class Containers(Tmp):
             return priv
         priv = checkout()  # a refresh that turned into an API key is never written back
         (priv / "login" / "auth.json").write_text(json.dumps({**good, "OPENAI_API_KEY": "sk-x"}))
-        self.assertFalse(ag.write_back_login(a, priv))
+        self.assertEqual(ag.write_back_login(a, priv), "refused")
         priv = checkout()  # the store moved on during the call: no rollback
         (priv / "login" / "auth.json").write_text(json.dumps({"tokens": {"access_token": "a", "refresh_token": "r2"}}))
         (store / "auth.json").write_text(json.dumps({"tokens": {"access_token": "b", "refresh_token": "r9"}}))
-        self.assertFalse(ag.write_back_login(a, priv))
+        self.assertEqual(ag.write_back_login(a, priv), "conflict")
         self.assertIn("r9", (store / "auth.json").read_text())
         priv = checkout()  # a container that swaps the login directory for a link reaches nothing
         other = self.d / "elsewhere"
@@ -977,7 +996,7 @@ class Containers(Tmp):
         (other / "auth.json").write_text(json.dumps({"tokens": {"access_token": "x", "refresh_token": "stolen"}}))
         shutil.rmtree(priv / "login")
         (priv / "login").symlink_to(other)
-        self.assertFalse(ag.write_back_login(a, priv))
+        self.assertEqual(ag.write_back_login(a, priv), "refused")
         self.assertNotIn("stolen", (store / "auth.json").read_text())
         home_codex = self.home / ".codex"  # the owner's everyday store is never a write-back target
         home_codex.mkdir()
@@ -1012,8 +1031,8 @@ class Containers(Tmp):
                 text = script(proxy_ip)
                 seen["text"] = text
                 done = re.search(r"echo (DONE-[0-9a-f]+)", text).group(1)
-                n = text.count("OUTER_SECRET") // 2
-                out = "".join(f"OUTER_SECRET{i}=read\nSECRET{i}=denied\n" for i in range(n))
+                n = text.count("OUTER_SECRET")
+                out = "".join(f"OUTER_SECRET{i}=read\nSECRET{i}=denied:EACCES\n" for i in range(n))
                 out += ("OUTER_PXTCP=open\nCTRL=200x\nPOS=read\nENV=clean\nNET=000x\nPXTCP=blocked:EPERM\n"
                         "RAWTCP=blocked:EPERM\nWRITE=no\nPTY=ok\n" + done + "\n")
                 eg = rows if rows is not None else [
@@ -1038,6 +1057,10 @@ class Containers(Tmp):
         self.assertFalse(run_with(lambda o: o.replace("CTRL=200x", "CTRL=000x"))[0]["ok"])
         self.assertFalse(run_with(lambda o: o.replace("OUTER_PXTCP=open", "OUTER_PXTCP=blocked:ECONNREFUSED"))[0]["ok"])
         self.assertFalse(run_with(lambda o: o.replace("PXTCP=blocked:EPERM", "PXTCP=badinput"))[0]["ok"])
+        # a refused connection or a timeout is not a sandbox denial
+        self.assertFalse(run_with(lambda o: o.replace("\nPXTCP=blocked:EPERM", "\nPXTCP=blocked:ECONNREFUSED"))[0]["ok"])
+        self.assertFalse(run_with(lambda o: o.replace("\nPXTCP=blocked:EPERM", "\nPXTCP=blocked:timeout"))[0]["ok"])
+        self.assertFalse(run_with(lambda o: o.replace("SECRET0=denied:EACCES", "SECRET0=denied:EIO"))[0]["ok"])
         self.assertFalse(run_with(lambda o: o.replace("OUTER_SECRET0=read", "OUTER_SECRET0=denied"))[0]["ok"])
         extra = [{"launch": "L1", "decision": "start"},
                  {"launch": "L1", "host": "chatgpt.com", "decision": "allowed", "reason": "opened"},
@@ -1055,7 +1078,8 @@ class Containers(Tmp):
                     return subprocess.CompletedProcess(args, 0, b"sha256:abc\n", b"")
                 if args[0] == "image":
                     return subprocess.CompletedProcess(args, 0, f"arm64 linux {container.inputs_key()}".encode(), b"")
-                return subprocess.CompletedProcess(args, 0, f"CLAUDE_VERSION=2.1.331 (Claude Code)\n{codex_line}\n".encode(), b"")
+                bins = "".join(f"{b} /usr/bin/{b} {'0' * 64}\n" for b in ("claude", "codex", "srt", "bwrap", "python3", "git"))
+                return subprocess.CompletedProcess(args, 0, f"{bins}CLAUDE_VERSION=2.1.331 (Claude Code)\n{codex_line}\n".encode(), b"")
             return fake
         with mock.patch.object(container, "dk", side_effect=fake_for("CODEX_VERSION=codex-cli 0.171.0")):
             self.assertEqual(container.image_record("x")["versions"], ["2.1.331 (Claude Code)", "codex-cli 0.171.0"])
@@ -1156,6 +1180,11 @@ class Containers(Tmp):
 class Grading(Tmp):
     task = {"instance_id": "x", "FAIL_TO_PASS": ["f"], "PASS_TO_PASS": ["p"]}
 
+    def _w(self, text):
+        p = self.d / "plain.txt"
+        p.write_text(text)
+        return p
+
     def test_judge(self):
         self.assertEqual(grading.judge(self.task, {"f": "passed", "p": "passed"})["resolved"], True)
         g = grading.judge(self.task, {"f": "failed", "p": "passed"})
@@ -1181,8 +1210,14 @@ class Grading(Tmp):
 
     def test_collection_errors_are_failures(self):
         log = self.d / "test_output.txt"
-        log.write_text("==== ERRORS ====\nERROR collecting tests/test_x.py\nImportError while importing test module\n")
+        body = "==== ERRORS ====\nERROR collecting tests/test_x.py\nImportError while importing test module\n"
+        log.write_text(">>>>> Start Test Output\n" + body + ">>>>> End Test Output\n")
         self.assertTrue(grading.collection_failed(log))
+        log.write_text(body)  # no test-output markers: the harness log is incomplete
+        self.assertFalse(grading.collection_failed(log))
+        log.write_text(">>>>> Start Test Output\n" + body + ">>>>> Test timed out\n>>>>> End Test Output\n")
+        self.assertFalse(grading.collection_failed(log))  # a timeout is never a collection verdict
+        self.assertTrue(grading.collection_failed(self._w(body), swebench=False))
         log.write_text("1 passed in 0.1s\n")
         self.assertFalse(grading.collection_failed(log))
         task = {"FAIL_TO_PASS": ["f"], "PASS_TO_PASS": ["p"]}

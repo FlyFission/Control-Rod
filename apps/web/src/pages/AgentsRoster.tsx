@@ -112,7 +112,8 @@ const UNIT_SHORT: Record<string, string> = { minute: "min of run time", token: "
 /**
  * The organization's remaining budget, once. The tightest organization budget (most used) is read:
  * remaining is its limit less what is used this window, and a budget whose unit no runtime reports
- * says so instead of showing a number.
+ * says so instead of showing a number. When some runs did not report the unit, used is a lower bound, so
+ * what is left is an upper bound and says "At most".
  */
 export function OrgBudget({ view, failed }: { view: UsageView | undefined; failed: boolean }) {
   if (view === undefined) return failed ? <p className="small muted org-budget">Budget not available.</p> : null;
@@ -129,7 +130,7 @@ export function OrgBudget({ view, failed }: { view: UsageView | undefined; faile
     <InstrumentFrame label="Organization budget" tone={tone === "trip" ? "trip" : tone === "needs" ? "needs" : "normal"}>
       <div className="org-budget-readout">
         <p className="org-budget-value mono" data-tone={tone}>
-          {left === null ? "Not reported" : `${Number.isInteger(left) ? left : left.toFixed(2)} ${unit} left`}
+          {left === null ? "Not reported" : `${b.unreported_runs > 0 ? "At most " : ""}${Number.isInteger(left) ? left : left.toFixed(2)} ${unit} left`}
         </p>
         <p className="small muted">
           {left === null ? `No runtime here reports ${unit}.` : `${b.unreported_runs > 0 ? "At least " : ""}${(b.used ?? 0).toFixed(2)} of ${limit} used this ${period}.`}

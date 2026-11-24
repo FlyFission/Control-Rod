@@ -156,3 +156,4 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - Roster seats: `/usage` run counts are cumulative, so "runs this window" became "runs recorded".
 - vitest 82 files / 890 tests, tsc clean.
 - Codex review on 9f072494: the diff line cap hid a binary or rename file that came after 1,500 text lines, with no Show all. The cap now applies to text hunks only, and a test is added. Also, phones had lost the only New project opener (the rail's +); the More sheet now carries "New project", with a test. vitest 82 files / 892 tests. Then (81630abe review): files with text hunks also show their rename, mode and new/deleted lines; test added.
+- Codex review on 2f3aaa85: organization budget said an exact "tokens left" while some runs had not reported tokens. It now reads "At most N left" in that case (pages/org-budget.test.tsx).

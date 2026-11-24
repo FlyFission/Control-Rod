@@ -14,6 +14,8 @@ Three visual rounds on the Plant view ended at about the same look. The owner as
 | Decision | Owner's words | Where | When |
 |---|---|---|---|
 | Plan, grade blind, iterate, build, review against the plan | "Run your plan by claude, AGY, and codex CLI and have it graded using a set of criteria each of them come up with independently, then iterate your plan 1-2 times until you're happy. Then when you're done, have sonnet subagents execute it. then have AGY/Codex review it at the end prior to PR merge against original plan to ensure everything translated." | Project thread | 2026-11-24 |
+| Art from his existing image accounts | Chose "Your existing AI image accounts" on the art-route card | Project thread | 2026-11-24 01:58 UTC |
+| Art direction B | Chose "B Engineering cutaway" on the direction card | Project thread | 2026-11-24 02:28 UTC |
 | Use subagents with Claude orchestrating | "yes, do it with as many subagents as makes sense with you orchestrating to keep context light" | Project thread | 2026-11-24 |
 
 ## Scope

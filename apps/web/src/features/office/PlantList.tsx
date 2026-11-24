@@ -31,7 +31,7 @@ export function PlantList({ figures, layout, labels, selected, onSelect }: { fig
             <h3 id={`plant-list-${z.id}`}>{z.name}</h3>
             {places.map((p) => (
               <div key={p}>
-                <p className="small muted" style={{ margin: "6px 0 2px" }}>
+                <p className="plant-list-place">
                   {REGION[p].name}, {labels[p].label}
                 </p>
                 <ul>
@@ -42,11 +42,27 @@ export function PlantList({ figures, layout, labels, selected, onSelect }: { fig
                     .map((f) => {
                       // The same marks the drawing carries, in words: gate, changed input, round, Safety grade.
                       const marks = marksInWords({ gate: f.marks.gate, changed: Boolean(f.marks.changed_input), ...(f.marks.loop ? { loop: f.marks.loop } : {}), safety: f.marks.safety });
+                      // The cause is shown when it says something the state chip does not (not empty, not the state's own word).
+                      const bare = f.cause.trim().toLowerCase().replace(/[.\s]+$/, "");
+                      const extra = bare && bare !== STATE_INFO[f.state].label.toLowerCase() && !/^[a-z ]+ cause$/.test(bare) ? f.cause : "";
                       return (
                         <li key={f.id}>
-                          <button type="button" className="link" aria-pressed={selected === f.id} onClick={() => onSelect(f.id)}>
-                            <StateMark kind={f.state} size={10} /> {f.package_id}: {STATE_INFO[f.state].label}. {f.cause}
-                            {marks && <> <span className="plant-list-marks">Marks: {marks}.</span></>}
+                          <button
+                            type="button"
+                            className="plant-list-row"
+                            data-state={f.state}
+                            aria-pressed={selected === f.id}
+                            aria-label={`${f.package_id}: ${STATE_INFO[f.state].label}. ${f.title}. ${f.cause}${marks ? ` Marks: ${marks}.` : ""}`}
+                            onClick={() => onSelect(f.id)}
+                          >
+                            <span className="plant-list-chip">
+                              <StateMark kind={f.state} size={11} />
+                              <span>{STATE_INFO[f.state].label}</span>
+                            </span>
+                            <span className="plant-list-title">{f.title}</span>
+                            <span className="plant-list-id">{f.package_id}</span>
+                            {extra && <span className="plant-list-cause">{extra}</span>}
+                            {marks && <span className="plant-list-marks">Marks: {marks}.</span>}
                           </button>
                         </li>
                       );

@@ -135,6 +135,7 @@
 /* A plate: near-opaque ground and a 1 px linework border, so text never depends on the art behind it. */
 .plant-roster,
 .plant-count,
+.plant-tag,
 .plant-tip,
 .plant-reactor-plate {
   box-sizing: border-box;
@@ -253,6 +254,70 @@
   justify-content: center;
   color: var(--text-2, #c5d0dc);
   font-size: var(--fs-label);
+}
+.plant-roster[data-open] {
+  z-index: 6;
+  background: var(--plant-ground, #000e23);
+  box-shadow: 0 4px 14px #000a;
+}
+.plant-roster[data-collapsed] {
+  padding: 0 6px;
+  justify-content: center;
+}
+.plant-roster[data-collapsed] .plant-more {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.plant-roster-counts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.plant-roster-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.plant-roster[data-compact] .plant-chip-word {
+  display: none;
+}
+/* A leader line from a plate that stands away from its tile. */
+.plant-leaders {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.plant-leaders line {
+  stroke: var(--plant-linework, #255375);
+  stroke-width: 1;
+}
+/* A compact name+count tag on a tile whose roster has no clear spot. */
+.plant-tag {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  font-size: var(--fs-chip);
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.plant-tag-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+.plant-tag b {
+  font-variant-numeric: tabular-nums;
 }
 .plant-roster-head {
   display: flex;
@@ -402,4 +467,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* A room's tile reports hover so its collapsed roster opens; figures and plates are stacked above it. */
+.plant-room {
+  pointer-events: auto;
 }

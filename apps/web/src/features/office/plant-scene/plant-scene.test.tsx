@@ -67,7 +67,7 @@ describe("PlantScene", () => {
     expect(onSelect).toHaveBeenCalledWith("A");
   });
 
-  it("draws each state with its crew pose; an input that changed uses waiting plus a Changed chip, never a dot", () => {
+  it("draws each state with its crew pose; an input that changed uses waiting plus a Changed chip, never a dot", async () => {
     // One room each, so every roster lists its figure.
     const figs = [fig("W", "working", "process"), fig("L", "waiting", "mechanical"), fig("S", "stuck", "electrical"), fig("N", "needs", "your-office"), fig("C", "changed", "interface")];
     const { container } = scene(figs);
@@ -78,10 +78,16 @@ describe("PlantScene", () => {
     expect(pose("N")).toBe("/plant/crew/needs-you.webp");
     expect(pose("C")).toBe("/plant/crew/waiting.webp");
     expect(POSE.changed).toBe("waiting");
-    const chip = (id: string) => container.querySelector(`[data-row="${id}"] .plant-chip`)!;
-    expect([...figs].map((f) => chip(f.id).textContent)).toEqual(["Working", "Waiting", "Stuck", "Needs you", "Changed"]);
-    // Every chip carries a shape as well as its word; there are no small state dots on the figures.
-    for (const f of figs) expect(chip(f.id).querySelector("svg")).not.toBeNull();
+    // Rooms without a needs-you or stuck figure start collapsed; hovering a figure opens its room's roster.
+    const words: string[] = [];
+    for (const f of figs) {
+      await userEvent.hover(container.querySelector(`[data-figure="${f.id}"]`)!);
+      const chip = container.querySelector(`[data-row="${f.id}"] .plant-chip`)!;
+      words.push(chip.textContent!);
+      // Every chip carries a shape as well as its word; there are no small state dots on the figures.
+      expect(chip.querySelector("svg")).not.toBeNull();
+    }
+    expect(words).toEqual(["Working", "Waiting", "Stuck", "Needs you", "Changed"]);
     expect(container.querySelectorAll(".plant-figure-art .plant-lamp")).toHaveLength(0);
   });
 
@@ -129,12 +135,15 @@ describe("PlantScene", () => {
     expect(container.querySelector('[data-figure-art="N"] [data-overlay="halo"]')).not.toBeNull();
   });
 
-  it("shows the agent's icon when the figure records its runtime, and the generic glyph for an unknown provider", () => {
+  it("shows the agent's icon when the figure records its runtime, and the generic glyph for an unknown provider", async () => {
     const withRuntime = (id: string, runtime: string, place: keyof typeof ROOMS): StageFigure => ({ ...fig(id, "working", place), runtime });
     scene([withRuntime("A", "codex", "process"), withRuntime("B", "some-new-agent", "review")]);
-    const badge = (id: string) => document.querySelector(`[data-row="${id}"] .agent-badge`)!.getAttribute("data-badge");
-    expect(badge("A")).toBe("codex");
-    expect(badge("B")).toBe("generic");
+    const badge = async (id: string) => {
+      await userEvent.hover(document.querySelector(`[data-figure="${id}"]`)!);
+      return document.querySelector(`[data-row="${id}"] .agent-badge`)!.getAttribute("data-badge");
+    };
+    expect(await badge("A")).toBe("codex");
+    expect(await badge("B")).toBe("generic");
     // The agent is also in the figure's accessible name.
     expect(screen.getByRole("button", { name: /^WP-A:.* Agent: codex\.$/ })).toBeTruthy();
   });
@@ -194,7 +203,7 @@ describe("PlantScene", () => {
     }
     // Every drawn shape belongs to a Lamp, a FlowStripe, a Halo, or a roster row's, count plate's or figure's own button.
     for (const shape of container.querySelectorAll("svg, path, polyline, circle, rect, polygon")) {
-      expect(shape.closest('[data-overlay="lamp"], [data-overlay="flow"], [data-overlay="halo"], .plant-scene-flow, .plant-figure, .plant-count, .plant-roster')).not.toBeNull();
+      expect(shape.closest('[data-overlay="lamp"], [data-overlay="flow"], [data-overlay="halo"], .plant-scene-flow, .plant-figure, .plant-count, .plant-roster, .plant-leaders')).not.toBeNull();
     }
     // Painted layers are hidden from assistive technology.
     expect(container.querySelector('[data-layer="scene"]')!.getAttribute("aria-hidden")).toBe("true");

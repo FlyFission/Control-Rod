@@ -3,7 +3,7 @@ import { STATE_INFO, StateMark } from "../../../components/StateMark.js";
 import { useInstrumentMotion } from "../../../design/instruments/useInstrumentMotion.js";
 import type { FigureState, PlantInstruments, StageFigure } from "../OfficeStage.js";
 import { type OccupancyMap, flowSegments, ringPath } from "./flow.js";
-import { type Rect, type RoomPlan, planScene } from "./figure-layout.js";
+import { type Rect, type RoomPlan, leaderBetween, planScene, roomBox } from "./figure-layout.js";
 import { CANVAS, CORE_BBOX, CORE_CROP, ROOMS } from "./geometry.js";
 import { CHIP_WORD, PlantFigure } from "./PlantFigure.js";
 import { PlantRoster } from "./PlantRoster.js";
@@ -33,7 +33,7 @@ export const POSE: Record<FigureState, "working" | "waiting" | "stuck" | "needs-
 /** The width assumed before the scene is measured (and where there is no layout engine, as in tests): a 1440 px window. */
 const ASSUMED_WIDTH = 1176;
 /** How many characters of a title a nameplate has room for before it is cut with an ellipsis. */
-const TITLE_CHARS = 16;
+const TITLE_CHARS = 24;
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 const at = (x: number, y: number): CSSProperties => ({ left: pct(x, CANVAS.width), top: pct(y, CANVAS.height) });
@@ -105,17 +105,22 @@ export interface PlantSceneProps {
   openRoom?: string | undefined;
 }
 
-/** A roster row's title: the package title, or, where two would read the same when cut, its id suffix too. */
-function titles(figs: readonly StageFigure[]): Map<string, string> {
+/**
+ * A roster row's title: the package title where it fits, else its start and the work-package number's suffix
+ * ("Cable tray… 0023"), so the number is never the part that is cut. Two titles that would read the same
+ * also carry the suffix.
+ */
+export function titles(figs: readonly StageFigure[]): Map<string, string> {
   const key = (f: StageFigure) => (f.title ?? f.code).slice(0, TITLE_CHARS).toLowerCase();
   const seen = new Map<string, number>();
   for (const f of figs) seen.set(key(f), (seen.get(key(f)) ?? 0) + 1);
   return new Map(
     figs.map((f) => {
       const full = f.title ?? f.code;
-      if ((seen.get(key(f)) ?? 0) < 2) return [f.id, full];
       const tail = (f.name ?? f.code).slice(-4);
-      return [f.id, `${full.slice(0, TITLE_CHARS - 5).trimEnd()}… ${tail}`];
+      if (full.length <= TITLE_CHARS && (seen.get(key(f)) ?? 0) < 2) return [f.id, full];
+      const room = TITLE_CHARS - tail.length - 2;
+      return [f.id, `${full.slice(0, room).trimEnd()}… ${tail}`];
     }),
   );
 }
@@ -126,6 +131,8 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
   const motion = useInstrumentMotion();
   const [measure, width] = useSceneWidth();
   const [hot, setHot] = useState<string | undefined>();
+  // The room whose plate is hovered or focused (its roster, its tile), so the plate opens.
+  const [peek, setPeek] = useState<string | undefined>();
   const scram = instruments.rods.position === "inserted" || instruments.rods.position === "bank";
   const cold = instruments.core.lit !== true && !scram;
   const segments = flowSegments(occupancy, instruments.waiting, scram);
@@ -225,7 +232,7 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
             const purpose = region?.purpose ? `: ${region.purpose}` : "";
             const theme = labels?.[r.id]?.label;
             return (
-              <section key={r.id} className="office-region plant-room" style={boxOf(ROOMS[r.id as keyof typeof ROOMS].bbox)} aria-label={theme ? `${name}, ${theme}${purpose}` : `${name}${purpose}`} data-region={r.id}>
+              <section key={r.id} className="office-region plant-room" onMouseEnter={() => setPeek(r.id)} onMouseLeave={() => setPeek((p) => (p === r.id ? undefined : p))} style={boxOf(ROOMS[r.id as keyof typeof ROOMS].bbox)} aria-label={theme ? `${name}, ${theme}${purpose}` : `${name}${purpose}`} data-region={r.id}>
                 <span className="sr-only">{name}</span>
               </section>
             );
@@ -243,8 +250,15 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
               )}
             </div>
           </section>
+          <svg className="plant-leaders" width={canvasW} height={canvasH} viewBox={`0 0 ${canvasW} ${canvasH}`} aria-hidden="true" focusable="false">
+            {plan.rooms.map((r) => {
+              const rect = r.roster && (peek === r.id || (hot && byId.get(hot)?.region === r.id) ? r.open ?? r.roster : r.roster);
+              const l = rect && leaderBetween(rect, roomBox(r.id, u));
+              return l ? <line key={r.id} data-leader={r.id} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} /> : null;
+            })}
+          </svg>
           {plan.rooms.map((r) => (
-            <RoomControls key={r.id} room={r} figures={byId} titles={title} selected={selected} hot={hot} onHot={setHot} onSelect={onSelect} onOpenRoom={onOpenRoom} open={openRoom === r.id} />
+            <RoomControls key={r.id} room={r} figures={byId} titles={title} selected={selected} hot={hot} onHot={setHot} onSelect={onSelect} onOpenRoom={onOpenRoom} open={openRoom === r.id} peeked={peek === r.id || (hot !== undefined && byId.get(hot)?.region === r.id)} onPeek={setPeek} />
           ))}
         </div>
       </div>
@@ -253,7 +267,7 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
 }
 
 /** One room's focusable parts: its figures, then its roster plate, or its count plate when figures are not drawn. */
-function RoomControls({ room: r, figures, titles: names, selected, hot, onHot, onSelect, onOpenRoom, open }: { room: RoomPlan; figures: ReadonlyMap<string, StageFigure>; titles: ReadonlyMap<string, string>; selected: string | undefined; hot: string | undefined; onHot: (id: string | undefined) => void; onSelect: ((id: string) => void) | undefined; onOpenRoom: ((room: string) => void) | undefined; open: boolean }) {
+function RoomControls({ room: r, figures, titles: names, selected, hot, onHot, onSelect, onOpenRoom, open, peeked, onPeek }: { room: RoomPlan; figures: ReadonlyMap<string, StageFigure>; titles: ReadonlyMap<string, string>; selected: string | undefined; hot: string | undefined; onHot: (id: string | undefined) => void; onSelect: ((id: string) => void) | undefined; onOpenRoom: ((room: string) => void) | undefined; open: boolean; peeked: boolean; onPeek: (room: string | undefined) => void }) {
   const words = r.byState.map(([s, n]) => `${n} ${CHIP_WORD[s]}`).join(", ");
   return (
     <>
@@ -263,7 +277,13 @@ function RoomControls({ room: r, figures, titles: names, selected, hot, onHot, o
           const f = figures.get(p.id);
           return f ? <PlantFigure key={p.id} figure={f} placed={p} selected={selected === p.id} hot={hot === p.id} onSelect={onSelect} onHot={onHot} /> : null;
         })}
-      <PlantRoster room={r} figures={figures} titles={names} hot={hot} onHot={onHot} onSelect={onSelect} onOpenRoom={onOpenRoom} open={open} />
+      <PlantRoster room={r} figures={figures} titles={names} hot={hot} onHot={onHot} onSelect={onSelect} onOpenRoom={onOpenRoom} open={open} peeked={peeked} onPeek={onPeek} />
+      {r.tag && (
+        <span className="plant-tag" data-label="tag" data-room={r.id} style={rectStyle(r.tag)} aria-hidden="true">
+          <span className="plant-tag-name">{r.name}</span>
+          {r.total > 0 && <b>{r.total}</b>}
+        </span>
+      )}
       {r.count && (
         <button
           type="button"

@@ -1070,6 +1070,85 @@
   display: grid;
   gap: 4px;
 }
+.plant-list ul {
+  gap: 0;
+  border: 1px solid var(--plant-linework, #255375);
+  border-radius: 4px;
+  background: #000e23;
+  background: var(--plant-ground, #000e23);
+  overflow: hidden;
+}
+.plant-list li + li {
+  border-top: 1px solid var(--plant-linework, #255375);
+}
+.plant-list-place {
+  margin: 8px 0 4px;
+  font-size: var(--fs-label);
+  color: var(--text-2, #c5d0dc);
+}
+/* A list row: a solid plate, the state's shape and word, the title, the id in mono, then the real cause. */
+.plant-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "chip id" "title title" "cause cause" "marks marks";
+  align-items: center;
+  gap: 2px 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 0;
+  background: #000e23;
+  background: var(--plant-ground, #000e23);
+  color: var(--text, #e8f0f8);
+  font: inherit;
+  font-size: var(--fs-small);
+  text-align: left;
+  cursor: pointer;
+}
+.plant-list-row[aria-pressed="true"] {
+  outline: 2px solid var(--accent, #00f2ff);
+  outline-offset: -2px;
+}
+.plant-list-row:focus-visible {
+  outline: 2px solid var(--accent, #00f2ff);
+  outline-offset: -2px;
+}
+.plant-list-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.plant-list-chip {
+  grid-area: chip;
+}
+.plant-list-id {
+  grid-area: id;
+}
+.plant-list-title {
+  grid-area: title;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.plant-list-id {
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  color: var(--text-2, #c5d0dc);
+}
+.plant-list-cause {
+  grid-area: cause;
+}
+.plant-list-marks {
+  grid-area: marks;
+}
+.plant-list-cause,
+.plant-list-marks {
+  font-size: var(--fs-label);
+  color: var(--text-2, #c5d0dc);
+}
 .plant-advanced summary {
   cursor: pointer;
   font-size: var(--fs-label);

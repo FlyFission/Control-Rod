@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FigureState } from "../OfficeStage.js";
-import { METRICS, type PlanFigure, type Rect, frameAt, intersects, labelRects, modeAt, planScene } from "./figure-layout.js";
-import { CANVAS, ROOMS } from "./geometry.js";
+import { METRICS, type PlanFigure, type Rect, frameAt, intersects, labelRects, leaderBetween, modeAt, overCore, planScene, roomBox } from "./figure-layout.js";
+import { CANVAS, CORE_BBOX, ROOMS } from "./geometry.js";
 
 const STATES: FigureState[] = ["working", "needs", "waiting", "stuck", "changed"];
 const rooms = Object.keys(ROOMS);
@@ -28,6 +28,8 @@ const box = (u: number, id: string): Rect => {
   return { x: x0 * u, y: y0 * u, w: (x1 - x0) * u, h: (y1 - y0) * u };
 };
 
+const core = (u: number): Rect => ({ x: CORE_BBOX[0] * u, y: CORE_BBOX[1] * u, w: (CORE_BBOX[2] - CORE_BBOX[0]) * u, h: (CORE_BBOX[3] - CORE_BBOX[1]) * u });
+
 /** Every rule the plan owes: each label is whole, clear of every other, of every room's painted box (its own count plate aside) and of every figure. */
 function problems(figs: PlanFigure[], u: number): string[] {
   const plan = planScene({ figures: figs, u, name });
@@ -41,7 +43,7 @@ function problems(figs: PlanFigure[], u: number): string[] {
     });
     for (const id of rooms) {
       const r = box(u, id);
-      if (a.kind === "count") {
+      if (a.kind === "count" || a.kind === "tag") {
         if (a.room === id) {
           const inside = a.rect.x >= r.x && a.rect.y >= r.y && a.rect.x + a.rect.w <= r.x + r.w && a.rect.y + a.rect.h <= r.y + r.h;
           if (!inside) bad.push(`${key} crosses its tile's edge`);
@@ -51,6 +53,8 @@ function problems(figs: PlanFigure[], u: number): string[] {
         bad.push(`${key} touches the ${id} room`);
       }
     }
+    // No roster covers the containment silhouette (the ellipse in the core's box).
+    if (a.kind === "roster" && overCore(a.rect, core(u), 0)) bad.push(`${key} covers the containment`);
     // No label covers any standing figure.
     if (a.kind === "roster") for (const r of plan.rooms) for (const p of r.placed) if (intersects(a.rect, p.body)) bad.push(`${key} covers figure ${p.id}`);
   });
@@ -140,6 +144,72 @@ describe("plant scene layout", () => {
     for (const u of SCALES) expect(problems([], u), `u=${u}`).toEqual([]);
     expect(planScene({ figures: [], u: 1176 / CANVAS.width, name }).rooms.every((r) => r.roster)).toBe(true);
     // A roster that cannot be placed at the busiest scale leaves the room a count plate, never a plate on top of something.
-    for (const u of SCALES) for (const r of planScene({ figures: forty(), u, name }).rooms) if (r.total > 0) expect(Boolean(r.roster) || Boolean(r.count)).toBe(true);
+    for (const u of SCALES) for (const r of planScene({ figures: forty(), u, name }).rooms) if (r.total > 0) expect(Boolean(r.roster) || Boolean(r.count) || Boolean(r.tag)).toBe(true);
+  });
+
+  it("never lets a roster cover the containment or a tile, at any scale, whatever the rooms hold", () => {
+    for (const u of SCALES) {
+      for (const states of [["working"], ["needs", "stuck"], ["working", "waiting", "changed"]] as FigureState[][]) {
+        const figs: PlanFigure[] = rooms.flatMap((r) => states.map((s, i) => ({ id: `${r}-${i}`, region: r, state: s })));
+        const plan = planScene({ figures: figs, u, name });
+        for (const r of plan.rooms) {
+          for (const rect of [r.roster].filter((x): x is Rect => Boolean(x))) {
+            expect(overCore(rect, core(u), 0), `${r.id} u=${u}`).toBe(false);
+            for (const id of rooms) expect(intersects(rect, box(u, id)), `${r.id} on ${id} u=${u}`).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
+  it("starts a roster expanded only for a room with a needs-you or stuck figure, and sizes the collision pass to match", () => {
+    const u = 1176 / CANVAS.width;
+    const figs: PlanFigure[] = [
+      { id: "a", region: "process", state: "working" },
+      { id: "b", region: "process", state: "working" },
+      { id: "c", region: "review", state: "stuck" },
+      { id: "d", region: "review", state: "working" },
+      { id: "e", region: "interface", state: "needs" },
+    ];
+    const plan = planScene({ figures: figs, u, name });
+    const by = (id: string) => plan.rooms.find((r) => r.id === id)!;
+    expect(by("process").expanded).toBe(false);
+    expect(by("review").expanded).toBe(true);
+    expect(by("interface").expanded).toBe(true);
+    // Collapsed is one line; expanded is taller, and a collapsed room still knows its expanded size for hover.
+    expect(by("process").roster!.h).toBe(METRICS.collapsed.h);
+    expect(by("review").roster!.h).toBeGreaterThan(METRICS.collapsed.h * 1.5);
+    expect(by("process").open!.h).toBeGreaterThan(by("process").roster!.h);
+    expect(by("process").open!.w).toBeGreaterThan(by("process").roster!.w - 1);
+    // An expanded plate opened on hover stands clear of the containment too.
+    for (const r of plan.rooms) if (r.open) expect(overCore(r.open, core(u), 0), r.id).toBe(false);
+  });
+
+  it("puts a roster on its room's outward side where there is room, and draws a leader line only for a plate away from its tile", () => {
+    const u = 1176 / CANVAS.width;
+    const plan = planScene({ figures: [{ id: "a", region: "assurance", state: "working" }], u, name });
+    const r = plan.rooms.find((x) => x.id === "assurance")!;
+    const tile = roomBox(r.id, u);
+    const c = core(u);
+    // Assurance lies up and right of the containment: its plate is not on the side that faces the containment.
+    expect(r.roster!.x + r.roster!.w / 2).toBeGreaterThan(c.x + c.w / 2);
+    expect(leaderBetween({ x: tile.x, y: tile.y + tile.h + 3, w: 80, h: 22 }, tile)).toBeUndefined();
+    const far = leaderBetween({ x: tile.x, y: tile.y + tile.h + 90, w: 80, h: 22 }, tile)!;
+    expect(far.y2).toBeCloseTo(tile.y + tile.h);
+    expect(far.y1).toBeCloseTo(tile.y + tile.h + 90);
+  });
+
+  it("names a room that cannot fit a roster with a name+count tag on its tile, inside the tile and clear of other labels", () => {
+    // A phone-sized scene (tiles under 56 px) leaves names to the list.
+    for (const u of SCALES.filter((x) => x * 261 >= 56)) {
+      const plan = planScene({ figures: forty(), u, name });
+      for (const r of plan.rooms) {
+        expect(Boolean(r.roster) || Boolean(r.tag), `${r.id} u=${u} has a name`).toBe(true);
+        if (r.tag) {
+          const t = box(u, r.id);
+          expect(r.tag.x >= t.x && r.tag.y >= t.y && r.tag.x + r.tag.w <= t.x + t.w && r.tag.y + r.tag.h <= t.y + t.h).toBe(true);
+        }
+      }
+    }
   });
 });

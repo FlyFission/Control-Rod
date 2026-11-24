@@ -32,7 +32,15 @@ export interface Rect {
 /** Label sizes in px (the fonts are the --fs-* tokens; these are the boxes they are set in). */
 export const METRICS = {
   /** A roster plate: its width with rows, its header, a row, the "+N more" line and the padding. */
-  roster: { w: 188, compactW: 156, headW: 140, head: 22, row: 20, more: 20, pad: 6, maxRows: 3 },
+  roster: { w: 272, compactW: 204, head: 22, row: 20, more: 20, pad: 6, maxRows: 3 },
+  /** A collapsed roster: one line, the room's name and a shape+number per state. */
+  collapsed: { h: 22, perState: 30, pad: 8 },
+  /** A name+count tag on a tile, for a room that has no clear spot for a roster. */
+  tag: { h: 20, minW: 56 },
+  /** How far the containment's ellipse is grown, in px, before a plate may stand beside it. */
+  coreGap: 4,
+  /** A roster further than this from its tile gets a leader line. */
+  leaderFrom: 20,
   countW: 92,
   countRow: 16,
   countPad: 6,
@@ -107,8 +115,16 @@ export interface RoomPlan {
   rows: string[];
   /** How many the roster's "+N more" stands for: everyone not listed. Zero when the roster lists everyone. */
   more: number;
-  /** The roster plate, or the bare room name for an empty room; absent when it has nowhere clear to go. */
+  /** The roster plate as first drawn (collapsed, or expanded for a room that needs the viewer); absent when it has nowhere clear to go. */
   roster?: Rect;
+  /** True when the plate starts expanded: the room holds a needs-you or stuck figure. */
+  expanded: boolean;
+  /** Rows are drawn in the narrower plate (the chip is its shape alone). */
+  compact: boolean;
+  /** The plate while the room, a figure or the plate is hovered or focused: it may overlay (it has a solid ground). */
+  open?: Rect;
+  /** A compact name+count tag on the tile, for a room with no clear spot for a roster. */
+  tag?: Rect;
   count?: { rect: Rect; tier: "full" | "micro" };
 }
 
@@ -141,12 +157,36 @@ export function labelWidth(text: string): number {
   return Math.ceil(text.length * METRICS.labelChar + METRICS.labelPad);
 }
 
-/** A roster plate's size for this many listed rows, with a "+N more" line or not. */
-export function rosterSize(name: string, rows: number, more: boolean, compact = false): { w: number; h: number } {
+/** An expanded roster plate's size for this many listed rows, with a "+N more" line or not. */
+export function rosterSize(rows: number, more: boolean, compact = false): { w: number; h: number } {
   const m = METRICS.roster;
-  if (rows === 0 && !more) return { w: labelWidth(name), h: METRICS.micro.h };
-  const w = rows > 0 ? (compact ? m.compactW : m.w) : Math.max(labelWidth(name) + 28, m.headW);
-  return { w, h: m.head + rows * m.row + (more ? m.more : 0) + m.pad };
+  return { w: compact ? m.compactW : m.w, h: m.head + rows * m.row + (more ? m.more : 0) + m.pad };
+}
+
+/** A collapsed roster's size: the name and one shape+number per state, on one line. */
+export function collapsedSize(name: string, states: number): { w: number; h: number } {
+  const m = METRICS.collapsed;
+  return { w: labelWidth(name) + (states ? states * m.perState + m.pad : 0), h: m.h };
+}
+
+/** Does a plate cover the containment? Its nearest point to the ellipse inscribed in the core's box decides. */
+export function overCore(r: Rect, core: Rect, grow: number = METRICS.coreGap): boolean {
+  const ex = core.x + core.w / 2;
+  const ey = core.y + core.h / 2;
+  const nx = Math.min(Math.max(ex, r.x), r.x + r.w);
+  const ny = Math.min(Math.max(ey, r.y), r.y + r.h);
+  return ((nx - ex) / (core.w / 2 + grow)) ** 2 + ((ny - ey) / (core.h / 2 + grow)) ** 2 < 1;
+}
+
+/** The leader line from a plate to its tile, or none when the plate stands by the tile. Canvas px. */
+export function leaderBetween(plate: Rect, tile: Rect): { x1: number; y1: number; x2: number; y2: number } | undefined {
+  const cx = plate.x + plate.w / 2;
+  const cy = plate.y + plate.h / 2;
+  const x2 = Math.min(Math.max(cx, tile.x), tile.x + tile.w);
+  const y2 = Math.min(Math.max(cy, tile.y), tile.y + tile.h);
+  const x1 = Math.min(Math.max(x2, plate.x), plate.x + plate.w);
+  const y1 = Math.min(Math.max(y2, plate.y), plate.y + plate.h);
+  return Math.hypot(x1 - x2, y1 - y2) > METRICS.leaderFrom ? { x1, y1, x2, y2 } : undefined;
 }
 
 const urgency = (r: { byState: [FigureState, number][] }) => (r.byState.length ? PRIORITY.indexOf(r.byState[0]![0]) : PRIORITY.length);
@@ -168,7 +208,7 @@ export function planScene(input: PlanInput): ScenePlan {
     if (folded > 0) counts.set("working", (counts.get("working") ?? 0) + folded);
     const byState = PRIORITY.filter((s) => counts.has(s)).map((s) => [s, counts.get(s)!] as [FigureState, number]);
     const total = byState.reduce((n, [, c]) => n + c, 0);
-    const plan: RoomPlan = { id, name: input.name(id), box, total, byState, mode: total === 0 ? "empty" : mode === "counts" ? "count" : "figures", placed: [], rows: [], more: 0 };
+    const plan: RoomPlan = { id, name: input.name(id), box, total, byState, mode: total === 0 ? "empty" : mode === "counts" ? "count" : "figures", placed: [], rows: [], more: 0, expanded: false, compact: false };
     if (plan.mode === "figures") {
       const seats = ROOMS[id as keyof typeof ROOMS].seats.map((s) => ({ x: s.x * u, y: s.y * u }));
       plan.placed = mine.slice(0, seats.length).map((f, i) => stand(f, seats[i]!, frame, canvas));
@@ -191,43 +231,66 @@ export function planScene(input: PlanInput): ScenePlan {
     taken.push(r.count.rect);
   }
 
-  // Rosters: the rooms that most need the viewer choose first.
+  // Rosters: the rooms that most need the viewer choose first, and at their expanded size.
   const order = [...rooms].sort((a, b) => urgency(a) - urgency(b) || b.total - a.total);
+  const seatsOf = (r: RoomPlan) => ROOMS[r.id as keyof typeof ROOMS].seats.map((s) => ({ x: s.x * u, y: s.y * u }));
+  const labelFree = (r: Rect) => within(r, canvas, 1) && fixed.every((o) => !intersects(r, o, 1)) && [...bodies.values()].every((bs) => bs.every((b) => !intersects(r, b)));
   for (const r of order) {
-    if (r.mode === "empty" || r.mode === "count") {
-      // A name alone: placed if a clear spot exists, left off otherwise (the room keeps its accessible name).
-      const { w, h } = rosterSize(r.name, 0, false);
-      const spot = pickSpot(r.box, w, h, core, clear);
-      if (spot) {
-        r.roster = spot;
-        taken.push(spot);
+    const attention = r.byState.some(([s]) => s === "needs" || s === "stuck");
+    const spotFor = (w: number, h: number) => pickSpot(r.box, w, h, core, clear);
+    if (r.mode === "figures") {
+      const listed = r.placed.map((p) => p.id);
+      const top = Math.min(METRICS.roster.maxRows, listed.length);
+      r.rows = listed.slice(0, top);
+      r.more = r.total - top;
+      if (attention) {
+        for (let n = top; n >= 1 && !r.roster; n--) {
+          for (const compact of [false, true]) {
+            const sz = rosterSize(n, r.total - n > 0, compact);
+            const spot = spotFor(sz.w, sz.h);
+            if (!spot) continue;
+            r.roster = spot;
+            r.rows = listed.slice(0, n);
+            r.more = r.total - n;
+            r.compact = compact;
+            r.expanded = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!r.roster) {
+      // Collapsed: the name and its per-state counts on one line (the name alone for an empty room).
+      const sz = collapsedSize(r.name, r.mode === "empty" || r.mode === "count" ? 0 : r.byState.length);
+      const spot = spotFor(sz.w, sz.h);
+      if (spot) r.roster = spot;
+    }
+    if (r.roster) {
+      taken.push(r.roster);
+      if (r.mode === "figures") {
+        const sz = rosterSize(r.rows.length, r.more > 0, r.compact);
+        r.open = r.expanded ? r.roster : expandAt(r.roster, sz, core, canvas, labelFree);
       }
       continue;
     }
-    const listed = r.placed.map((p) => p.id);
-    for (let n = Math.min(METRICS.roster.maxRows, listed.length); n >= 0; n--) {
-      const more = r.total - n;
-      // The full width first, then a narrower plate before giving a row up.
-      let spot: Rect | undefined;
-      for (const compact of n > 0 ? [false, true] : [false]) {
-        const { w, h } = rosterSize(r.name, n, more > 0, compact);
-        spot = pickSpot(r.box, w, h, core, clear);
-        if (spot) break;
-      }
-      if (!spot) continue;
-      r.roster = spot;
-      r.rows = listed.slice(0, n);
-      r.more = more;
-      taken.push(spot);
-      break;
-    }
-    if (!r.roster) {
-      // Not even a header fits: the room falls back to a count plate on its tile, its figures not drawn.
+    // No clear spot for even the collapsed plate: a compact name+count tag on the tile, so the room is still named.
+    const mine = bodies.get(r.id) ?? [];
+    const tagW = Math.min(labelWidth(r.name) + (r.total ? 22 : 0), r.box.w - 2 * METRICS.margin);
+    let tag = tagSpot(r.box, tagW, [...mine, ...taken.filter((t) => intersects(t, r.box))]);
+    if (!tag && r.mode === "figures") {
+      // The figures leave the tile to the tag: the room becomes a count plate and a tag.
       r.mode = "count";
       r.placed = [];
+      r.rows = [];
+      r.more = 0;
       bodies.set(r.id, []);
-      r.count = countPlate(r.box, r.byState, ROOMS[r.id as keyof typeof ROOMS].seats.map((s) => ({ x: s.x * u, y: s.y * u })));
+      r.count = countPlate(r.box, r.byState, seatsOf(r));
       taken.push(r.count.rect);
+      tag = tagSpot(r.box, tagW, [r.count.rect]);
+    }
+    if (tag) {
+      r.tag = tag;
+      taken.push(tag);
     }
   }
   return { u, mode, frame, rooms };
@@ -242,42 +305,70 @@ function stand(f: PlanFigure, seat: { x: number; y: number }, frame: number, can
   return { id: f.id, state: f.state, seat, body, frame: img, tip: seat.y < canvas.h / 2 ? "below" : "above", align: seat.x < 130 ? "start" : seat.x > canvas.w - 130 ? "end" : "center" };
 }
 
-/** The cheapest clear spot for a w x h plate beside a room: close to it, below first, off the containment if it can be. */
+/** Where a plate opens to its expanded size from its collapsed spot: the first corner that keeps it clear of the containment and the tiles. It may overlay other plates. */
+function expandAt(from: Rect, sz: { w: number; h: number }, core: Rect, canvas: Rect, free: (r: Rect) => boolean): Rect {
+  const corners: [number, number][] = [
+    [from.x, from.y],
+    [from.x + from.w - sz.w, from.y],
+    [from.x, from.y + from.h - sz.h],
+    [from.x + from.w - sz.w, from.y + from.h - sz.h],
+  ];
+  const fit = (x: number, y: number): Rect => ({ x: Math.min(Math.max(x, 1), Math.max(1, canvas.w - sz.w - 1)), y: Math.min(Math.max(y, 1), Math.max(1, canvas.h - sz.h - 1)), w: sz.w, h: sz.h });
+  const rects = corners.map(([x, y]) => fit(x, y));
+  return rects.find((r) => free(r) && !overCore(r, core)) ?? rects.find((r) => !overCore(r, core)) ?? rects[0]!;
+}
+
+/** A spot for a name+count tag inside a tile's painted box, clear of what stands there. */
+function tagSpot(box: Rect, w: number, avoid: Rect[]): Rect | undefined {
+  const m = METRICS.margin;
+  const h = METRICS.tag.h;
+  if (w < METRICS.tag.minW) return undefined;
+  const xs = [box.x + (box.w - w) / 2, box.x + m, box.x + box.w - m - w];
+  const ys = [box.y + m, box.y + box.h - m - h, box.y + (box.h - h) / 2];
+  for (const y of ys) for (const x of xs) {
+    const r = { x, y, w, h };
+    if (within(r, box, 0) && avoid.every((a) => !intersects(r, a))) return r;
+  }
+  return undefined;
+}
+
+/**
+ * The cheapest clear spot for a w x h plate for a room. The containment is never covered. A plate stands on the room's
+ * OUTWARD side (away from the plant's centre) first, then the other sides, near the tile first and then further off
+ * (the caller draws a leader line when it is further than the tile's reach).
+ */
 function pickSpot(box: Rect, w: number, h: number, core: Rect, clear: (r: Rect) => boolean): Rect | undefined {
   const g = METRICS.margin;
-  const cands: { rect: Rect; cost: number }[] = [];
   const cx = box.x + box.w / 2;
   const cy = box.y + box.h / 2;
-  const over = (r: Rect) => {
-    // Does the plate cover the containment's ellipse? Its nearest point to the ellipse's centre decides.
-    const ex = core.x + core.w / 2;
-    const ey = core.y + core.h / 2;
-    const nx = Math.min(Math.max(ex, r.x), r.x + r.w);
-    const ny = Math.min(Math.max(ey, r.y), r.y + r.h);
-    return ((nx - ex) / (core.w / 2)) ** 2 + ((ny - ey) / (core.h / 2)) ** 2 < 1;
-  };
-  const add = (rect: Rect, side: number, ring: number, along: number) => {
-    cands.push({ rect, cost: ring * 40 + side + along * 0.15 });
-  };
-  for (const [ring, gap] of [g, g + 14, g + 40].entries()) {
-    for (let i = 0; i < 9; i++) {
-      const x = box.x - w * 0.75 + ((box.w + w * 0.5) * i) / 8;
+  // Outward: which way this room lies from the containment's centre.
+  const ex = (cx - (core.x + core.w / 2)) / (core.w / 2);
+  const ey = (cy - (core.y + core.h / 2)) / (core.h / 2);
+  type Side = "above" | "below" | "left" | "right";
+  const hSide: Side = ex >= 0 ? "right" : "left";
+  const vSide: Side = ey >= 0 ? "below" : "above";
+  const primary: Side = Math.abs(ex) > Math.abs(ey) ? hSide : vSide;
+  const secondary: Side = primary === hSide ? vSide : hSide;
+  const opposite: Record<Side, Side> = { above: "below", below: "above", left: "right", right: "left" };
+  const sideCost = (s: Side) => (s === primary ? 0 : s === secondary ? 15 : s === opposite[secondary] ? 30 : 50);
+  const cands: { rect: Rect; cost: number }[] = [];
+  const add = (rect: Rect, side: Side, ring: number, along: number) => cands.push({ rect, cost: ring * 35 + sideCost(side) + along * 0.15 });
+  const N = 13;
+  for (const [ring, gap] of [g, g + 14, g + 42, g + 90, g + 150].entries()) {
+    for (let i = 0; i < N; i++) {
+      const x = box.x - w * 0.9 + ((box.w + w * 0.8) * i) / (N - 1);
       const along = Math.abs(x + w / 2 - cx);
-      add({ x, y: box.y + box.h + gap, w, h }, 0, ring, along);
-      add({ x, y: box.y - gap - h, w, h }, 25, ring, along);
-    }
-    for (let i = 0; i < 7; i++) {
-      const y = box.y - h * 0.5 + ((box.h + h * 0.0) * i) / 6;
-      const along = Math.abs(y + h / 2 - cy);
-      add({ x: box.x + box.w + gap, y, w, h }, 10, ring, along);
-      add({ x: box.x - gap - w, y, w, h }, 10, ring, along);
+      add({ x, y: box.y + box.h + gap, w, h }, "below", ring, along);
+      add({ x, y: box.y - gap - h, w, h }, "above", ring, along);
+      const y = box.y - h * 0.9 + ((box.h + h * 0.8) * i) / (N - 1);
+      const alongY = Math.abs(y + h / 2 - cy);
+      add({ x: box.x + box.w + gap, y, w, h }, "right", ring, alongY);
+      add({ x: box.x - gap - w, y, w, h }, "left", ring, alongY);
     }
   }
-  const ok = cands.filter((c) => clear(c.rect));
+  const ok = cands.filter((c) => !overCore(c.rect, core) && clear(c.rect));
   if (!ok.length) return undefined;
-  const best = (list: typeof ok) => list.reduce((a, b) => (b.cost < a.cost ? b : a));
-  const off = ok.filter((c) => !over(c.rect));
-  return best(off.length ? off : ok).rect;
+  return ok.reduce((a, b) => (b.cost < a.cost ? b : a)).rect;
 }
 
 function countPlate(box: Rect, rows: readonly [FigureState, number][], seats: readonly { x: number; y: number }[]): { rect: Rect; tier: "full" | "micro" } {
@@ -298,9 +389,10 @@ function countPlate(box: Rect, rows: readonly [FigureState, number][], seats: re
 }
 
 /** Every label the plan draws, with its kind: what the no-overlap rule is checked on. */
-export function labelRects(plan: ScenePlan): { kind: "roster" | "count"; room: string; id: string; rect: Rect }[] {
+export function labelRects(plan: ScenePlan): { kind: "roster" | "count" | "tag"; room: string; id: string; rect: Rect }[] {
   return plan.rooms.flatMap((r) => [
     ...(r.roster ? [{ kind: "roster" as const, room: r.id, id: r.id, rect: r.roster }] : []),
     ...(r.count ? [{ kind: "count" as const, room: r.id, id: r.id, rect: r.count.rect }] : []),
+    ...(r.tag ? [{ kind: "tag" as const, room: r.id, id: r.id, rect: r.tag }] : []),
   ]);
 }

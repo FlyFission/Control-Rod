@@ -246,7 +246,7 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
     await userEvent.click(screen.getByRole("radio", { name: "List" }));
     expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Show everyone" })).toBeNull();
-    expect(within(screen.getByLabelText("Every agent, by place")).getByRole("button", { name: /^Working WP-W0: Working/ })).toBeTruthy();
+    expect(within(screen.getByLabelText("Every agent, by place")).getByRole("button", { name: /^WP-W0: Working/ })).toBeTruthy();
     await userEvent.click(screen.getByRole("radio", { name: /^(Plant|Floor)$/ }));
     await userEvent.click(screen.getByRole("button", { name: "Show everyone" }));
     expect(screen.getByRole("button", { name: /^WP-W0: Working/ })).toBeTruthy();
@@ -337,7 +337,7 @@ describe("the Plant and the archived office themes", () => {
     await user.click(screen.getByRole("radio", { name: "List" }));
     const site = screen.getByRole("region", { name: "Site" });
     expect(within(site).getByText("Quarantine, Hold yard")).toBeTruthy();
-    await user.click(within(site).getByRole("button", { name: /WP-Q: Stuck\. Held by SCRAM/ }));
+    await user.click(within(site).getByRole("button", { name: /WP-Q: Stuck\..*Held by SCRAM/ }));
     expect(within(screen.getByRole("complementary", { name: "Selected agent" })).getByText("Held by SCRAM")).toBeTruthy();
     expect(within(screen.getByRole("region", { name: "Auxiliary building" })).getByRole("button", { name: /WP-0001: Working/ })).toBeTruthy();
   });

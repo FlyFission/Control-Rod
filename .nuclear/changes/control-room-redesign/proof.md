@@ -16,6 +16,7 @@ At opening, the change is the plan only. Results per step are added here as each
 |---|---|
 | Plan graded blind, round 1 (Codex, Fable, Antigravity) | 54.1, 49, 42.7 |
 | Plan graded blind, round 2 | 58.7, 68.6, 58.5 |
+| Plan graded blind, round 3 (v3) | 65.4, 70.6, 69.1 |
 | `python3 tools/check_originality.py` | pass |
 | `ng.py validate --strict-custody` on this packet | pass |
 

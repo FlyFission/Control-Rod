@@ -4,10 +4,11 @@ The full plan is `docs/superpowers/specs/2026-11-24-control-room-redesign.md`. S
 
 0. Key frames and art route; owner picks a direction.
 1. Instrument components and a Plant vertical slice; owner looks.
-2. Rest of the Plant.
+2. Rest of the Plant; owner looks.
 3. Shell and Board.
-4. Today, Inbox, Sign in, Setup and roster.
-5. Verification sweep and the pre-merge reviews against the plan.
+4. Today and Inbox.
+5. Sign in, Setup and roster.
+6. Translation review by Antigravity and Codex against the plan.
 
 ## Required links
 

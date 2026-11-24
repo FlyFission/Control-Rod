@@ -1,12 +1,12 @@
 # Control room redesign
 
-Plan v3, 2026-11-24. Repo checked at `main` `0f6fd54`. Builds against the reference board in [`design/references/`](../../../design/references/README.md) and its per-screen bar in [`screens.md`](../../../design/references/screens.md). Change record: `.nuclear/changes/control-room-redesign/` (opened with this plan, before step 0).
+Plan v3.1, 2026-11-24. Repo checked at `main` `0f6fd54`. Builds against the reference board in [`design/references/`](../../../design/references/README.md) and its per-screen bar in [`screens.md`](../../../design/references/screens.md). Change record: `.nuclear/changes/control-room-redesign/` (opened with this plan, before step 0).
 
-Graded blind by three reviewers, each against criteria it wrote before reading any version: v1 scored Codex gpt-6.2-astra 54.1, Claude Fable 5.2 49, Antigravity gemini-4-neon-high 42.7 (out of 100); v2 scored 58.7, 68.6 and 58.5. Section 13 lists what each round changed. Every code claim a reviewer raised was checked against `0f6fd54` before it was used.
+Graded blind by three reviewers, each against criteria it wrote before reading any version: v1 scored Codex gpt-6.2-astra 54.1, Claude Fable 5.2 49, Antigravity gemini-4-neon-high 42.7 (out of 100); v2 scored 58.7, 68.6 and 58.5; v3 scored 65.4, 70.6 and 69.1. v3.1 corrects the factual errors round 3 found, without another round (the owner allowed one or two iterations). Section 13 lists what each round changed. Every code claim a reviewer raised was checked against `0f6fd54` before it was used.
 
 ## 1. Why this plan exists
 
-Three rounds (#153 twice, then the unmerged #165) ended at about the same look. The plant already has art: `build-plant-theme.ts` draws rooms, workstations and operators as procedural SVG (`build-plant-theme.ts:3-6`). The problem is that this art reads as a diagram, not a place, and every round restyled around it. v1 repeated the mistake by rewriting the same script. v2 changes the method:
+Three rounds (#153 twice, then the unmerged #165) ended at about the same look. The plant already has art: `build-plant-theme.ts` draws rooms, workstations and operators as procedural SVG (`build-plant-theme.ts:3-6`). The problem is that this art reads as a diagram, not a place, and every round restyled around it. v1 repeated the mistake by rewriting the same script. This plan changes the method:
 
 | Cause | Answer |
 |---|---|
@@ -29,7 +29,7 @@ One world, specific enough that two artists would produce matching work:
 - **Cool factor:** the Cherenkov glow of the core seen from above through the containment cutaway, the plant dark at night with rooms lighting up as agents start work, and a SCRAM that visibly drops the rods and kills the glow.
 - **Projection:** one projection everywhere: a 3/4 top-down isometric cutaway (30 degree), walls cut at console height. The site plan is drawn in that projection, not as a flat plan.
 - **Palette roles** (hex values fixed in `design/art/style.md` at step 0, from the approved key frame): base blue-greys (healthy); cyan only for live running things; amber only for "needs you"; red only for stuck and SCRAM. Waiting uses a shape (a pause glyph on a neutral lamp), not a hue. Input changed uses a shape (a diamond mark) on the neutral lamp.
-- **Type:** Inter for UI text and JetBrains Mono only for readouts (counts, IDs, digests, timers); both are already bundled (`apps/web/public/fonts`). The existing `--fs-*` tokens stay and keep `type-scale.test.ts` green (smallest step at least 11 px, ascending, default letter spacing); display sizes 20, 28 and 40 px are added above them. Weights 400, 500, 600.
+- **Type:** Inter for UI text and JetBrains Mono only for readouts (counts, IDs, digests, timers); both are already bundled (`apps/web/public/fonts`). The existing `--fs-*` tokens stay and keep `type-scale.test.ts` green (smallest step at least 11 px, ascending, default letter spacing); display sizes 20, 28 and 40 px are added above them as letter-only names (`--fs-title`, `--fs-headline`, `--fs-display`, matching the test's `^var\(--fs-[a-z]+\)$`), and every new CSS file is added to the test's file list (`type-scale.test.ts:50`). Weights 400, 500, 600.
 - **Signature elements**, on every screen, each a dimensioned component built in step 1:
   - `InstrumentFrame`: 1 px outer rule, 8 px machined corner notches, 12 px inner padding, an engraved label (11 px, 600, set into the top rule). Used only for instruments: the plant canvas, annunciator, Today brief and signing readout; never for ordinary cards.
   - Rod gauge: 18 x 56 px vertical gauge in the top bar (section 6.6).
@@ -53,12 +53,14 @@ Reference moves, by element: core as centre of a radial settlement (reference 7)
 - 13 rooms, each in two states (dark, lit), at its blockout size; seat anchors in a sidecar JSON.
 - Station overlays per seat style: screen lit, screen broken; 96 x 96.
 - Crew poses: seated working, standing (needs you), seated idle (waiting), slumped (stuck); 3 sizes (48, 64, 96 px tall).
-- Agent icons for all seven built-in agents in `lib/agents.ts` (Claude Code, Codex, Antigravity, Grok, OpenCode, Ollama) plus a generic one, as original SVG glyphs drawn for this project, never vendor logos.
+- Agent icons for the six built-in agents in `lib/agents.ts:25-32` (Claude Code, Codex, Antigravity, Grok, OpenCode, Ollama) plus a generic fallback glyph for user-named models, as original SVG glyphs drawn for this project, never vendor logos.
 - Instrument textures (bezel metal, smoked glass), and the sign-in night backdrop (2880 x 1800).
 
 **Acceptance test per asset** (`tools/check_art_assets.py`): exact pixel size, alpha present, seat anchors within 4 px of the blockout, mean colour within the palette roles' tolerance, and a provenance row with a matching digest.
 
-**Assembly:** a new `PlantScene` component, owned by the application like `ReactorCore` today, so no theme can ever fake a state: the application alone picks which core and room asset shows, from `plant-instruments.ts`. It layers the painted assets (decorative, `aria-hidden`) under the existing semantic layer from `OfficeStage.tsx`: the focusable figure buttons, labels, lens colouring, `AgentCard`, `CauseChips`, presenting mode, the portfolio rollup and the your-office queue overflow all stay, repositioned onto the new seats. Code draws only overlays (lamps, flow, labels, focus rings), never hero art. The focus and selection ring (`--office-ring`) stays.
+**Assembly:** a new `PlantScene` component, owned by the application like `ReactorCore` today, so no theme can ever fake a state: the application alone picks which core and room asset shows, from `plant-instruments.ts`. It layers the painted assets (decorative, `aria-hidden`) under the existing semantic layer: the focusable figure buttons and labels from `OfficeStage.tsx` move onto the new seats, and lens colouring, `AgentCard`, `CauseChips`, presenting mode, the portfolio rollup and the your-office queue overflow (`OfficeView.tsx:235-357`, `exceptions.ts`) all stay. Code draws only overlays (lamps, flow, labels, focus rings), never hero art. The focus and selection outline (`--accent`, `office.css:185-188`) stays; the always-on contrast ring (`--office-ring`) is dropped where the painted art gives figures their own edge.
+
+**Occlusion and compositing:** each room is two layers, back (walls and floor) and front (console lip and near wall), with figures between them, so seated crew sit behind their desks. Image-model outputs are opaque, so alpha comes from the blockout's room mask (exact edges from geometry), then a 2 px feathered edge. A room's lit state is generated from its dark state with the same seed and mask, then checked for alignment within 2 px. Bloom and the core glow are baked into the WebP; only lamps and flow are live CSS or SVG.
 
 **Rights and provenance:** `design/art/PROVENANCE.md` records, per asset, the route, the tool and model, the prompt or brief, the date, the licence basis and the SHA-256 of the shipped file. `tools/check_art_provenance.py` fails the build when a shipped asset has no row or a wrong digest.
 
@@ -91,7 +93,7 @@ A radial site in the section 3 projection. At 1440 x 900 with the shell visible:
 
 ### 6.2 Flow (reference 8)
 
-The API emits one figure per package (`figures.ts:127`, `distinct on (r.package_id)`), so individual handoffs between rooms cannot be seen and are not drawn. What can be seen is which stage is active, because a figure's place is its stage. Flow is drawn on the fixed stage pipeline: work bays to verification, verification to review, review and verification to the control room, any room to the hold yard. A pipe segment pulses only while the room it leads into holds a working figure (checker running in verification, reviewer working in review), and the pipe into the control room glows amber only while `needs_me` is above zero. Pipes into empty or idle rooms are dark. Nothing flows from the core.
+The API emits one figure per package (`figures.ts:127`, `distinct on (r.package_id)`), plus intake figures for unpromoted captures (`figures.ts:246-280`), which stand in the intake bay and open their capture, not a card. Individual handoffs between rooms cannot be seen and are not drawn. What can be seen is which stage is active, because a figure's place is its stage. Flow is drawn on the fixed stage pipeline: work bays to verification, verification to review, review and verification to the control room, any room to the hold yard. Because only occupancy is known, motion never suggests a traversal: a pipe segment shows a steady lit stripe, not a moving pulse, while the room it leads into holds a working figure and the room it leaves holds any figure; and the pipe into the control room glows amber only while `needs_me` is above zero. Pipes into empty or idle rooms are dark. Nothing flows from the core.
 
 ### 6.3 Crew (reference 5)
 
@@ -103,17 +105,19 @@ Four windows in an `InstrumentFrame`. Each window's source stays as today (`plan
 
 ### 6.5 Look-ahead (reference 4)
 
-One cue, from recorded data: a budget in state `near` (only where the policy sets `budget_near_percent`; otherwise absent, never faked), drawn as a small amber outline tick on that figure's station. A "check finishing, you're next" cue cannot be drawn: a package that waits on the viewer is already projected as needs you (`figures.ts:344` before `:364`), and nothing records who signs next. That part of the `screens.md` row is deferred until the API records it.
+One cue, from recorded data: a budget in state `near` (only where the policy sets `budget_near_percent`; otherwise absent, never faked), drawn as a small neutral outline triangle (a shape cue, not a warm colour) on that figure's station, so the needs-you lamp stays the only warm object. A "check finishing, you're next" cue cannot be drawn: a package that waits on the viewer is already projected as needs you (`figures.ts:344` before `:364`), and nothing records who signs next. That part of the `screens.md` row is deferred until the API records it.
 
 ### 6.6 Rod gauge and SCRAM
 
 The rod gauge in the top bar shows all five `RodPosition` values (`plant-instruments.ts:127`): withdrawn (no real SCRAM in force; this does not mean work is running), project bank inserted, all inserted, drill (striped), unknown (hatched, "SCRAM status unavailable").
 
-A real SCRAM, within 1 second of the browser learning of it. The live stream refreshes SCRAMs within about 300 ms of the event (`lib/live.ts:160-161`); if the stream is down, the 30 s poll applies (`OfficeView.tsx:79`), and the top bar says the view is not live. On every screen: rods drop on the gauge, the core switches to its tripped asset, flow stops, the shell frame turns red, non-SCRAM actions show as locked, and the existing `ScramBanner`, restyled as a hazard banner with a diagonal stripe edge (designed here, not taken from #165), shows. A drill shows a striped DRILL plate and never the trip palette.
+A real SCRAM, within 1 second of the browser learning of it. On a live `scram` message the client invalidates the `scrams` query (`lib/live.ts:159`) after a 300 ms batching timer (`:183`); the 1 s budget is measured from the injected server event to the visible change, and receipt, refresh and visible lock are logged as separate times; if the stream is down, the 30 s poll applies (`OfficeView.tsx:79`), and the top bar says the view is not live. `ScramBanner` and the `scrams` query move from `OfficeView.tsx:229` into `Shell.tsx`, so it shows on every screen. The response follows the trip's scope (`Scram.tsx:67-69`): an organization trip locks every non-SCRAM action; a project trip locks only that project's actions, and the banner names the project. Rods drop on the gauge, the core switches to its tripped asset (glow out, lit red by emergency lighting, matching the `screens.md` row), flow in the tripped scope stops, the shell frame turns red, and the existing `ScramBanner`, restyled as a hazard banner with a diagonal stripe edge (designed here, not taken from #165), shows. A drill has its own fixture and key frame: a striped DRILL plate, rods shown dropping in outline only, and never the trip palette. A stale connection is a fourth fixture: the top bar says "Not live" and lamps dim by one step.
+
+**Technique per effect:** core and room state changes are asset crossfades (200 ms, instant under reduced motion); rod drop is a CSS transform; flow stripes are SVG strokes; lamp pulses are CSS opacity; the hazard banner is static CSS. All animation pauses in a hidden tab.
 
 ### 6.7 One additive API field
 
-`AgentFigure.runtime?: string`, the latest run's runtime provider, so a figure shows its agent icon. Additive in API 0.1 and regenerated per AGENTS.md rule 3, but CODEOWNERS owns `/spec/`, so it needs Ben's recorded yes. If he says no, figures show a role glyph.
+`AgentFigure.runtime?: string`, the latest run's `RuntimeRef.provider` (`spec/records.tsp:255-259`), mapped to an `AgentId` icon by a small table in `lib/agents.ts` (unknown providers get the generic glyph), so a figure shows its agent icon. Additive in API 0.1 and regenerated per AGENTS.md rule 3, but CODEOWNERS owns `/spec/`, so it needs Ben's recorded yes. If he says no, figures show a role glyph.
 
 ### 6.8 Empty, phone, list
 
@@ -128,7 +132,7 @@ A real SCRAM, within 1 second of the browser learning of it. The live stream ref
 **Board (behaviour unchanged):**
 1. Cards: title carries hierarchy; one muted metadata line; one accent.
 2. Running cards: a status line from the run's `label` (written by the runner, `spec/work.tsp:110`) and elapsed time from `started_at`, for example "Writing tests, 12 min", falling back to "Author running, 12 min" when there is no label. This replaces the static "An agent is working on it" (`lib/next.ts:82`). `useBoardData` already loads runs (`useBoardData.ts:165`); it passes the latest run through to `Card`. No per-run event fetch. Under the line, a 2 px moving progress cue (indeterminate), static under reduced motion.
-3. Cards waiting on you are the only amber cards. The existing attention-first order (`boardOrder.ts:14`) stays.
+3. Cards waiting on you are the only amber cards. The existing attention-first order stays as it is: needs-you and blocked cards rise together, stably, within a column, while the stream is live (`boardOrder.ts:4-14`).
 4. Author and checker agent icons from the runs' runtime providers.
 5. Designed empty state with one action.
 6. **Drawer as cockpit:** replace the three tabs (`BoardReviewDrawer.tsx:110`) with one layout at 1440 x 900: a status header with the Overview facts (custody, criteria, pre-check, switches) as a compact strip; left, the run log; right, the outputs preview, with a new unified diff view for `.diff` and `.patch` outputs (line numbers, added and removed lines marked by sign and tint, not colour alone); bottom, the decision bar, always visible. Below 1024 px it falls back to stacked sections in the same order.
@@ -137,19 +141,19 @@ A real SCRAM, within 1 second of the browser learning of it. The live stream ref
 ## 8. Today, Inbox, Sign in, Setup, roster
 
 - **Today:** adds `api.officeFigures()` and `api.inbox()` to its reads (packages and `ActiveRunList` today, `Today.tsx:10-17`, `:63`). A shift brief in an `InstrumentFrame`: one headline sentence ("2 decisions waiting, 6 agents working, 1 stuck"), three readouts, then the needs-you list, all above the fold at 1440 x 900. A calm finished state when nothing needs you: the plant thumbnail at rest and "Nothing needs you." Phone: the same order, one column.
-- **Inbox:** a risk band at each item's left edge, its height and glyph by risk rank (order unchanged: riskiest first); signing, in the list and in the drawer alike, shows the bound revision and digest as an instrument readout above the decision buttons; a designed calm empty state. Phone: the readout stacks above full-width decision buttons.
-- **Sign in:** the night site backdrop from the art set, dimmed, behind a bezel-framed panel, for all three sign-in states (register, sign in, error). Phone: the backdrop crops to the core.
+- **Inbox:** a risk band at each item's left edge, its height and glyph by risk rank (order unchanged: riskiest first); each list item shows a short digest where it has one (`scram`, `permission` and `lost` items have none, `inbox.ts:111-234`); signing happens in the review drawer (`Inbox.tsx:135-140`), where the bound revision and digest sit as an instrument readout above the decision buttons; a designed calm empty state. Phone: the readout stacks above full-width decision buttons.
+- **Sign in:** the night site backdrop from the art set, dimmed, behind a bezel-framed panel, for all four sign-in states (register, sign in, accept an invitation, error; `SignIn.tsx:86-93`). Phone: the backdrop crops to the core.
 - **Setup:** detected agents appear as seats at a table that light up as found; then the existing three-way confirm.
-- **Agents roster:** seats with icon, name, status and toggle, and usage this window from `GET /usage` (per-runtime telemetry, and the agent budget's remaining amount where one is set; otherwise "No budget set").
+- **Agents roster:** seats with icon, name, status and toggle, and runs this window per runtime from `GET /usage` telemetry (`{runtime, runs, reported}`, `budgets.ts:369-373`). Agent budgets are keyed to the agent baseline, not to a runtime, so the roster does not show a per-agent budget; the organization's remaining budget shows once above the seats.
 - Phone layouts for each are designed and shipped in the same step as the desktop layout.
 
 ## 9. Steps
 
-Each step ends with screenshots, scripted checks and the critic (section 10), and its screenshots are posted to Ben. Steps 0 and 1 wait for his yes; steps 2 to 5 continue unless he says stop; merge waits for his yes. Each step is its own commit on one PR.
+Each step ends with screenshots, scripted checks and the critic (section 10), and its screenshots are posted to Ben. Steps 0, 1 and 2 wait for his yes; steps 3 to 5 continue unless he says stop; merge waits for his yes. Each step is its own commit on one PR.
 
 0. **Key frames (no code in `apps/web`).** Record the art route's terms. Render the blockout. Produce 3 directions of the Plant (healthy, needs you, SCRAM) at 1440 and 390, each with a labels-off, effects-off crop, plus one quiet Today frame in the chosen direction. Fix the hex palette in `design/art/style.md`. Ben picks one or kills the route.
 1. **Vertical slice.** `InstrumentFrame`, the rod gauge, the annunciator tile and the type tokens first, then `PlantScene` with the core, two rooms, crew poses, live state, flow, the semantic layer and the phone layout, on fixtures (cold, busy 40, SCRAM, drill). Ben looks before the rest is built.
-2. **Rest of the Plant.** All 13 rooms, annunciator links, look-ahead, hazard banner, retirement of the plant theme entry and the retired looks.
+2. **Rest of the Plant.** All 13 rooms, annunciator links, look-ahead, hazard banner moved into the shell, retirement of the plant theme entry (`themes/plant.ts`, `build-plant-theme.ts`, `public/office-themes/plant/` and the CSS they used) and the retired looks.
 3. **Shell and Board.**
 4. **Today and Inbox.**
 5. **Sign in, Setup, roster.**
@@ -162,10 +166,11 @@ Builders are Sonnet subagents, one per step or sub-step, with Claude orchestrati
 ## 10. Verification
 
 - **Fixtures and harness:** `apps/web/e2e/visual-bar.spec.ts` renders every row of section 11 from deterministic fixtures at 1440 x 900 and 390 x 844 (and Look B if kept), plus a 200 px thumbnail of empty and busy, a busy Board with a long patch output, and a risk-ranked Inbox. Motion rows are captured as short timestamped clips, measured from the injected event.
-- **Scripted checks:** core area share at least 25% and highest mean luminance of any region; warm-pixel share (hue 20 to 60 degrees, saturation above 40%) under 0.5% of the canvas in the healthy fixture; empty versus busy 200 px thumbnails at least 0.15 apart by SSIM distance; labels at least 11 px and non-overlapping; SCRAM visual change complete within 1000 ms of the injected event; no running animation under reduced motion or in a hidden tab; no horizontal scroll at 390; frame-time budget (section 4); axe (`@axe-core/playwright`) with no serious or critical issues; contrast tests extended to every token pair the new CSS uses.
-- **Critic:** after each step, a model that did not build it grades screenshots row by row, pass or fail with a reason. Before first use it grades a calibration set (the merged #153 screenshots in `.nuclear/changes/plant-view/evidence/` and the #165 screenshots saved in the project's `redesign-review` folder as known fails, the approved key frames as the target) and must fail every known fail. Claude spot-checks 10% of its passes each step.
+- **Scripted checks:** core area share at least 25% and highest mean luminance of any region; warm-pixel share (hue 330 through 0 to 60 degrees, saturation above 40%, so reds count) under 0.5% of the canvas in the healthy fixture, and in the needs-you fixture the control room lamp holds at least 60% of the warm pixels; healthy-state cyan capped by the same method at the share measured in the approved key frame; text contrast measured over the painted pixels behind each label, not only token pairs; empty versus busy 200 px thumbnails at least 0.15 apart by SSIM distance; labels at least 11 px and non-overlapping; SCRAM visual change complete within 1000 ms of the injected event; no running animation under reduced motion or in a hidden tab; no horizontal scroll at 390; frame-time budget (section 4); axe (`@axe-core/playwright`) with no serious or critical issues; contrast tests extended to every token pair the new CSS uses.
+- **Critic:** after each step, a model that did not build it grades screenshots row by row, pass or fail with a reason. Before first use it grades a calibration set (the three merged #153 screenshots in `.nuclear/changes/plant-view/evidence/screenshots/` and the #165 screenshots, committed in step 0 to `.nuclear/changes/control-room-redesign/evidence/calibration/`, as known fails; the approved key frames as known passes) and must fail every known fail and pass every known pass. Claude spot-checks 10% of its passes each step.
 - **Before and after:** each row's screenshot sits next to the main baseline and the approved key frame.
-- **Relapse check:** `plant-scene.test.tsx` fails if `PlantScene` renders a hero slot (core, room, figure body) without its raster asset, or if its SVG uses any element outside an allowlist for overlays (`path`, `line`, `circle`, `g`, `text`, `use`).
+- **Relapse check:** `plant-scene.test.tsx` fails if `PlantScene` renders a hero slot (core, room, figure body) without its raster asset, or if any hero slot's DOM contains vector shapes; overlays are limited to named components (`Lamp`, `FlowStripe`, `Label`, `FocusOutline`). The same check covers Sign in and the Today thumbnail.
+- **Thresholds:** the numbers above are starting values; step 0 measures main and the approved key frames with the same scripts, and the thresholds are set from those recorded outputs (AGENTS.md rule 5) before step 1.
 - **Code checks:** typecheck, unit tests (with `plant-instruments` tests unchanged), originality, art provenance, change record validation.
 
 ## 11. Trace to `screens.md`
@@ -242,3 +247,15 @@ Builders are Sonnet subagents, one per step or sub-step, with Claude orchestrati
 - Repository fit: change record before step 0; `spec/` field needs Ben's sign-off; `type-scale.test.ts`, contrast tests, `contract.test.ts` and floor packs handled; `ScramBanner` restyled, not replaced; `ReactorCore`'s no-fake guarantee kept by `PlantScene` (Fable, Antigravity).
 - Verification: numeric thresholds, frame-time budget scripted, clips for motion, critic spot-checks, concrete relapse check, Look B in fixtures if kept; posted screenshots at every step (Fable, Codex).
 - Instrument components built in step 1, before the Plant uses them (Antigravity).
+
+### v3 to v3.1 (round 3 corrections, no further grading)
+
+- Six built-in agents plus a generic fallback, not seven (all three reviewers).
+- Semantic layer cited where it lives: `OfficeView.tsx` and `exceptions.ts`, not `OfficeStage.tsx` (Fable, Antigravity).
+- `--office-ring` is the always-on contrast ring; focus is `--accent`, which stays (Antigravity).
+- `ScramBanner` hoisted into the shell; project and organization trips lock different scopes; drill and stale-connection fixtures; latency measured end to end (Antigravity, Codex).
+- Flow shows a steady occupancy cue, not a traversal (Codex). Look-ahead tick is a neutral shape (Antigravity, Fable).
+- Room occlusion layers, alpha from the blockout mask, lit-from-dark registration, baked bloom (Antigravity, Fable).
+- Type tokens named to pass `type-scale.test.ts`; Sign in has four states; Inbox signing lives in the drawer; roster shows per-runtime runs, not a per-agent budget join (Antigravity).
+- Warm check counts reds; label contrast over art; critic calibrated on passes too; #165 screenshots committed; thresholds set from measured baselines; Ben's yes after step 2 as well (Fable).
+- Change record plan matches section 9 (Fable, Antigravity).

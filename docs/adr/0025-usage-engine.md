@@ -1,6 +1,6 @@
 # ADR 0025: Usage limits from the CLIs, and CodexBar as an optional usage engine
 
-- Status: Proposed on 2026-11-24. Accepted only with the owner's recorded yes on the pull request that adds it (ADR 0001, `docs/collaboration.md#sole-maintainer-sign-off`).
+- Status: Accepted on 2026-11-24. The owner approved it on pull request #171; his answer is in the `Signature` table of `.nuclear/changes/control-room-usage/ship.md` (ADR 0001, `docs/collaboration.md#sole-maintainer-sign-off`).
 - Date: 2026-11-24
 - Relates to: ADR 0021 (native CLI sandboxes: Control Rod never reads, stores, copies, relays or masks a token), ADR 0024 decision 4 (one usage gauge across subscriptions; "not reported" where a CLI reports nothing).
 

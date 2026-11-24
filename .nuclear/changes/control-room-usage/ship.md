@@ -1,16 +1,17 @@
 # Ship: control room and the usage-limits module
 
-Release decision: **draft pull request for owner review; no merge is authorized by this record.**
+Release decision: **merge to `main` after green CI; the owner approved ADR 0025 and the merge (Signature below).**
 
-- **Proposed:** merge to `main` after a Codex blind check and the owner's yes on the screenshots.
+- **Codex blind check:** round 5 on head 98f9f6b3 returned VERDICT: MERGE (see verification).
 - **Not claimed:** CodexBar parsing against a real binary. Fixtures were built from CodexBar's source (0.85.1); the release download was blocked in the build environment. A provider CLI that CodexBar launches may show its own sign-in prompt (ADR 0025).
-- **Trust surface:** `docs/adr/0025-usage-engine.md` needs the owner's recorded yes (Signature table below) before merge.
+- **Trust surface:** `docs/adr/0025-usage-engine.md`; the owner's answer is recorded in the Signature table below.
 
 ## Signature
 
 | Decision | Question | Answer, word for word | When | Where | Recorded by |
 |---|---|---|---|---|---|
-| ADR 0025 (trust surface) | deferred: asked in the project thread | deferred | deferred | deferred | deferred |
+| ADR 0025 (trust surface) and merge of pull request #171 | "Approve ADR 0025 and merge PR #171 to main?" (decision card) | "Yes, approve and merge #171" (option chosen on the card) | 2026-11-24 1:38 PM America/New_York (UTC-05:00) | Claude project thread "Build the control room usage dashboard" | Recorded by the agent (Claude); not signed for the owner |
+
 - **Not claimed:** Claude Code's `utilization` scale is inferred, not documented (risk R-04).
 
 Rollback: revert the merge. The settings key `usage_limits` can stay; nothing else reads it. The daemon's `usage-limits.json` in its own home can stay. No migration.

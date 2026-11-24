@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { type ReactNode, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import { DIGEST, pkg, view } from "../test/fixtures.js";
@@ -178,5 +179,26 @@ describe("the review drawer", () => {
     await user.click(await screen.findByRole("button", { name: "Close review drawer" }));
     expect(screen.queryByRole("complementary", { name: "Review WP-1" })).toBeNull();
     expect(document.activeElement).toBe(opener);
+  });
+});
+
+describe("run controls follow the package's own project", () => {
+  /** Puts the package view in the cache, as the drawer or case page has before its runs render. */
+  function Seeded({ project, children }: { project: string; children: ReactNode }) {
+    const qc = useQueryClient();
+    useState(() => qc.setQueryData(["package", "WP-9"], view({}, { id: "WP-9", project })));
+    return <>{children}</>;
+  }
+
+  it("leaves Requeue open for a package in another project while the open project is tripped", async () => {
+    openProject();
+    await renderPage(<Locked scrams={PROJ}><Seeded project="p2"><RunActions packageId="WP-9" run={failedRun} /></Seeded></Locked>);
+    expect((screen.getByRole("button", { name: "Requeue this run" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("locks Requeue for a package in the tripped project with All projects selected", async () => {
+    hydrateServerProjects("ben", [{ id: "p1", name: "Plant A", mode: "software" } as never]);
+    await renderPage(<Locked scrams={PROJ}><Seeded project="p1"><RunActions packageId="WP-9" run={failedRun} /></Seeded></Locked>);
+    expect((screen.getByRole("button", { name: "Requeue this run" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

@@ -1651,6 +1651,14 @@
   padding: 0 6px;
   vertical-align: top;
 }
+.diff-meta {
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--muted);
+  font-size: var(--fs-chip);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .diff-hunk td {
   padding: 3px 10px;
   background: var(--panel);

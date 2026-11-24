@@ -145,8 +145,10 @@ export function parseUnifiedDiff(input: string): ParsedDiff | null {
     if (file && file.hunks.length === 0) file.meta.push(row);
   }
 
-  const real = files.filter((f) => f.hunks.length > 0);
-  if (real.length === 0) return null;
+  // A file with no text hunk (binary, pure rename, mode change) is still part of the patch: keep it, shown by its
+  // header lines, so the preview never looks complete while hiding a change. Nothing parsed as text: no preview.
+  if (!files.some((f) => f.hunks.length > 0)) return null;
+  const real = files.filter((f) => f.hunks.length > 0 || f.meta.length > 0);
   const added = real.reduce((n, f) => n + f.added, 0);
   const removed = real.reduce((n, f) => n + f.removed, 0);
   const lines = real.reduce((n, f) => n + f.hunks.reduce((k, h) => k + h.lines.length, 0), 0);

@@ -185,19 +185,19 @@ describe("agents roster", () => {
     ...over,
   });
 
-  it("reads runs this window per runtime on each seat, from /usage telemetry", async () => {
+  it("reads runs recorded so far per runtime on each seat, from /usage telemetry", async () => {
     server.use(http.get("*/usage", () => HttpResponse.json(usage())));
     api({ confirmed: true, confirmed_at: AT, seats: [], check_in: "start-and-merge" });
     await renderPage(<AgentsRoster />);
-    expect(await screen.findByText("12 runs this window")).toBeTruthy();
-    expect(screen.getByText("1 run this window")).toBeTruthy();
+    expect(await screen.findByText("12 runs recorded")).toBeTruthy();
+    expect(screen.getByText("1 run recorded")).toBeTruthy();
   });
 
   it("says no runs rather than hiding the line, and says so when usage cannot be read", async () => {
     server.use(http.get("*/usage", () => HttpResponse.json(usage({ telemetry: [] }))));
     api({ confirmed: true, confirmed_at: AT, seats: [], check_in: "start-and-merge" });
     const first = await renderPage(<AgentsRoster />);
-    expect((await screen.findAllByText("No runs this window")).length).toBeGreaterThanOrEqual(2);
+    expect((await screen.findAllByText("No runs recorded yet")).length).toBeGreaterThanOrEqual(2);
     first.unmount();
     server.use(http.get("*/usage", () => HttpResponse.json({ code: "error", message: "x" }, { status: 500 })));
     await renderPage(<AgentsRoster />);

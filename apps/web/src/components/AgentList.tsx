@@ -6,14 +6,14 @@ import { AgentBadge } from "./AgentBadge.js";
 import { StateMark } from "./StateMark.js";
 import "./agents.css";
 
-/** Runs this window for one runtime (GET /usage telemetry), joined to the seat by provider name. */
+/** Runs recorded so far for one runtime (cumulative, not reset with the budget period) (GET /usage telemetry), joined to the seat by provider name. */
 export type SeatUsage = Record<string, { runs: number; reported: number }>;
 
 /**
  * The council as seats at a table. Each agent has a seat: its icon on a lamp (lit when it is ready),
  * its name, a one-line status in plain words, and one switch for whether it sits at the table. The
  * switch is the person's choice; the status is what this computer reports. With `usage`, a seat also
- * reads the runs this window for its runtime. Agents that are not found or not supported yet sit
+ * reads the runs recorded so far for its runtime. Agents that are not found or not supported yet sit
  * under "Add an agent" so the main table stays short. In setup (`lightUp`), a seat lights up as it
  * is found, once, unless motion is off.
  */
@@ -27,7 +27,7 @@ export function AgentList({
   rows: AgentRow[];
   onToggle: (id: AgentRow["info"]["id"], seated: boolean) => void;
   busy?: boolean;
-  /** Per runtime runs this window; "unavailable" when the read failed; left out where usage is not shown. */
+  /** Per runtime runs recorded so far; "unavailable" when the read failed; left out where usage is not shown. */
   usage?: SeatUsage | "unavailable" | undefined;
   lightUp?: boolean;
 }) {
@@ -80,7 +80,7 @@ function usageWords(usage: SeatUsage | "unavailable" | undefined, id: string): {
   if (usage === "unavailable") return { text: "Runs not available", known: false };
   const mine = Object.entries(usage).filter(([provider]) => agentIdForProvider(provider) === id);
   const runs = mine.reduce((n, [, u]) => n + u.runs, 0);
-  return { text: runs === 0 ? "No runs this window" : `${runs} ${runs === 1 ? "run" : "runs"} this window`, known: true };
+  return { text: runs === 0 ? "No runs recorded yet" : `${runs} ${runs === 1 ? "run" : "runs"} recorded`, known: true };
 }
 
 /** Seats that have already lit up this session: the animation plays once per seat, not on every return to Setup. */

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { Run } from "../api/types.js";
+import type { PackageView, Run } from "../api/types.js";
 import { useActionLock } from "../lib/scramLock.js";
 import { isVisible } from "../lib/live.js";
 import { type Passkeys, browserPasskeys, signOverride, signReconcile } from "../lib/decide.js";
@@ -71,9 +71,18 @@ export function canRequeue(run: Run): boolean {
  * A lost run with an unknown outcome: its process may still be running somewhere. Restarting the
  * daemon usually settles it on its own; otherwise the owner signs why it will not report.
  */
+/**
+ * The SCRAM lock for a package's runs, keyed to the project that owns the package (read from the package view the
+ * page already holds), not the project selected in the sidebar. Until that view is cached, the open project is used.
+ */
+function usePackageLock(packageId: string) {
+  const view = useQuery<PackageView>({ queryKey: ["package", packageId], enabled: false });
+  return useActionLock(view.data?.package.project);
+}
+
 function Reconcile({ packageId, run, passkeys }: { packageId: string; run: Run; passkeys: Passkeys }) {
   const qc = useQueryClient();
-  const scramLock = useActionLock();
+  const scramLock = usePackageLock(packageId);
   const [reason, setReason] = useState("");
   const go = useMutation({
     mutationFn: () => signReconcile({ packageId, runId: run.id, reason }, passkeys),
@@ -149,7 +158,7 @@ export function RunActions({ packageId, run, showStop = true }: { packageId: str
   };
   const requeue = useMutation({ mutationFn: () => api.requeueRun(packageId, run.id), onSuccess: done });
   const stop = useMutation({ mutationFn: () => api.stopRun(packageId, run.id), onSuccess: done });
-  const scramLock = useActionLock();
+  const scramLock = usePackageLock(packageId);
   if (!canRequeue(run) && !offeredStop) return null;
   const failed = requeue.error ?? stop.error;
   return (

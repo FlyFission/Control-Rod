@@ -66,6 +66,30 @@ describe("parseUnifiedDiff", () => {
     expect(d.files[0]!.hunks[0]!.lines.map((l) => l.text)).toEqual(["x", "y"]);
   });
 
+  it("keeps binary, rename and mode-only files beside a text edit", () => {
+    const text = [
+      "diff --git a/a.txt b/a.txt",
+      "--- a/a.txt",
+      "+++ b/a.txt",
+      "@@ -1 +1 @@",
+      "-old",
+      "+new",
+      "diff --git a/logo.png b/logo.png",
+      "Binary files a/logo.png and b/logo.png differ",
+      "diff --git a/old.md b/new.md",
+      "similarity index 100%",
+      "rename from old.md",
+      "rename to new.md",
+      "diff --git a/run.sh b/run.sh",
+      "old mode 100644",
+      "new mode 100755",
+    ].join("\n");
+    const d = parseUnifiedDiff(text)!;
+    expect(d.files.map((f) => f.path)).toEqual(["a.txt", "logo.png", "new.md", "run.sh"]);
+    expect(d.files[1]!.hunks).toEqual([]);
+    expect(d.files[1]!.meta.some((m) => m.startsWith("Binary files"))).toBe(true);
+  });
+
   it("returns null for text that holds no hunk", () => {
     expect(parseUnifiedDiff("just some notes\nwith lines")).toBeNull();
     expect(parseUnifiedDiff("")).toBeNull();

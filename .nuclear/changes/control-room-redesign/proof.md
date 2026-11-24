@@ -148,3 +148,10 @@ Local engineering evidence using the repository workflow, not a compliance certi
 
 - Screenshot check after the review fixes (/mnt/project-files/control-rod/fixes/signing-scram-390.png): under an organization SCRAM the cockpit's Accept was disabled but still looked lit (cyan fill at 55% opacity), and the reason was only a hover title, which a phone can't show.
 - Fix: disabled primary and danger buttons drop their fill and glow (styles.css), and DecisionBar writes the lock reason above the buttons (`.lock-note`, role=status). Test added in components/scram-locks.test.tsx for both SCRAM scopes.
+
+## Codex PR review on 405a185d (Nov 24)
+
+- Diff preview: a mixed patch dropped binary, rename and mode-only files. Now kept and shown by their header lines (lib/diff.ts, DiffView `.diff-meta`); test in lib/diff.test.ts.
+- Run controls: Requeue and the reconcile Sign read the sidebar's project. They now lock by the package's own project from the cached package view (RunLog `usePackageLock`); two tests in components/scram-locks.test.tsx.
+- Roster seats: `/usage` run counts are cumulative, so "runs this window" became "runs recorded".
+- vitest 82 files / 890 tests, tsc clean.

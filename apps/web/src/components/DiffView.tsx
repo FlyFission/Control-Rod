@@ -35,6 +35,9 @@ export function DiffView({ text, parsed }: { text: string; parsed?: ParsedDiff |
                 <span className="diff-count-add">+{f.added}</span> <span className="diff-count-del">{"−"}{f.removed}</span>
               </span>
             </h4>
+            {f.hunks.length === 0 && (
+              <pre className="diff-meta mono">{f.meta.filter((m) => !m.startsWith("diff --git ")).join("\n") || "Changed with no text lines (binary or metadata only)"}</pre>
+            )}
             {f.hunks.map((h, hi) => {
               if (budget <= 0) return null;
               const shown = h.lines.slice(0, budget);

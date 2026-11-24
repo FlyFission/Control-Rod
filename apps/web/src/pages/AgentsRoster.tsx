@@ -19,7 +19,7 @@ import "./screens.css";
  */
 export function AgentsRoster({ passkeys }: { passkeys?: Passkeys } = {}) {
   const agents = useAgents();
-  // Runs this window per runtime. Budgets are keyed to an agent baseline, not a runtime, so a seat shows
+  // Runs recorded so far per runtime (cumulative telemetry). Budgets are keyed to an agent baseline, not a runtime, so a seat shows
   // runs only; the organization's remaining budget shows once, above the seats.
   const usage = useQuery({ queryKey: ["usage"], queryFn: api.usage });
   const seatUsage = seatUsageOf(usage.data, usage.isError);

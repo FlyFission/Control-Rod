@@ -1,0 +1,245 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw/http";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import axe from "axe-core";
+import type { UsageLimitsView } from "../api/types.js";
+import { renderPage } from "../test/render.js";
+import { server } from "../test/server.js";
+import { LAYOUT_KEY } from "../lib/control-room-layout.js";
+import { ControlRoom } from "./ControlRoom.js";
+
+const NOW = Date.parse("2026-11-24T12:00:00.000Z");
+const at = (ms: number) => new Date(NOW + ms).toISOString();
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+
+function view(over: Partial<UsageLimitsView> = {}): UsageLimitsView {
+  return {
+    reported: true,
+    read_at: at(0),
+    providers: [
+      {
+        id: "codex",
+        source: "cli-log",
+        observed_at: at(-14 * MIN),
+        plan: "plus",
+        windows: [
+          { id: "five_hour", window_minutes: 300, used_percent: 11, resets_at: at(2 * HOUR + 11 * MIN), status: "allowed" },
+          { id: "seven_day", window_minutes: 10080, used_percent: 88, resets_at: at(4 * 24 * HOUR + 23 * HOUR) },
+        ],
+      },
+      {
+        id: "claude",
+        source: "cli-stream",
+        observed_at: at(-2 * MIN),
+        windows: [{ id: "seven_day_opus", used_percent: 98, resets_at: at(3 * HOUR), status: "warning" }],
+      },
+      { id: "grok", source: "none", windows: [] },
+      { id: "opencode", source: "none", windows: [] },
+      { id: "agy", source: "none", windows: [] },
+    ],
+    ...over,
+  };
+}
+
+function serve(body: UsageLimitsView | { status: number }) {
+  server.use(http.get("*/usage/limits", () => ("status" in body ? HttpResponse.json({ message: "down" }, { status: body.status }) : HttpResponse.json(body))));
+  server.use(http.get("*/metrics", () => HttpResponse.json({ packages_accepted: 3, first_pass_accepted: 2, findings_caught_before_review: 5, quick_answers: 4 })));
+}
+
+async function expectClean(container: HTMLElement) {
+  const results = await axe.run(container, {
+    rules: { "color-contrast": { enabled: false } },
+    runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] },
+  });
+  expect(results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(" ")).join("; ")})`)).toEqual([]);
+}
+
+const meter = (name: string) => screen.getByRole("meter", { name });
+
+beforeEach(() => {
+  // Only the clock is faked; timers and promises stay real so the query client and msw behave.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+  window.localStorage.clear();
+});
+afterEach(() => {
+  vi.useRealTimers();
+  window.localStorage.clear();
+});
+
+describe("control room: usage limits", () => {
+  it("shows each window with percent left and when it resets", async () => {
+    serve(view());
+    await renderPage(<ControlRoom />);
+    const five = await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    expect(five.getAttribute("aria-valuenow")).toBe("89");
+    expect(five.getAttribute("aria-valuetext")).toBe("89 percent left, resets in 2 hours 11 minutes");
+    expect(screen.getByText("89% left")).toBeTruthy();
+    expect(screen.getByText("resets in 2h 11m")).toBeTruthy();
+    expect(screen.getByText("12% left")).toBeTruthy();
+    expect(screen.getByText("resets in 4d 23h")).toBeTruthy();
+    expect(screen.getByText("plus")).toBeTruthy();
+    expect(screen.getByText("as of 14 min ago, from Codex's session log")).toBeTruthy();
+    expect(screen.getByText("as of 2 min ago, from Claude Code's run output")).toBeTruthy();
+    expect(meter("Claude Code 7-day, Opus")).toBeTruthy();
+  });
+
+  it("draws the pace marker and says when the reserve is burning faster than time", async () => {
+    serve(view());
+    const { container } = await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 7-day window" });
+    expect(container.querySelectorAll(".cr-pace").length).toBe(2);
+    expect(screen.getByText(/ahead of pace: at this rate it runs out about 4d 16h before reset/)).toBeTruthy();
+  });
+
+  it("turns amber at 20% left and red at 5% left, and the words change with the colour", async () => {
+    serve(
+      view({
+        providers: [
+          {
+            id: "codex",
+            source: "cli-log",
+            observed_at: at(-MIN),
+            windows: [
+              { id: "five_hour", used_percent: 50, resets_at: at(HOUR) },
+              { id: "seven_day", used_percent: 80, resets_at: at(HOUR) },
+              { id: "monthly", used_percent: 96, resets_at: at(HOUR) },
+              { id: "primary", used_percent: 100, status: "rejected", resets_at: at(65 * MIN) },
+            ],
+          },
+        ],
+      }),
+    );
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    const row = (name: string) => meter(name).closest(".cr-row") as HTMLElement;
+    expect(row("Codex 5-hour window").className).toContain("tone-ok");
+    expect(within(row("Codex 5-hour window")).queryByText(/running low|almost out|limit reached/i)).toBeNull();
+    expect(row("Codex 7-day window").className).toContain("tone-needs");
+    expect(within(row("Codex 7-day window")).getByText("Running low")).toBeTruthy();
+    expect(row("Codex Monthly").className).toContain("tone-stuck");
+    expect(within(row("Codex Monthly")).getByText("Almost out")).toBeTruthy();
+    const refused = row("Codex Primary");
+    expect(refused.className).toContain("tone-stuck");
+    expect(within(refused).getByText("limit reached")).toBeTruthy();
+    expect(within(refused).getByText("resets in 1h 5m")).toBeTruthy();
+    expect(screen.getByText(/Lowest reserve: Codex primary, limit reached, resets in 1h 5m/).className).toContain("warm");
+  });
+
+  it("names the lowest reserve, and stays calm when all are above 20%", async () => {
+    serve(view());
+    const { unmount } = await renderPage(<ControlRoom />);
+    expect(await screen.findByText("Lowest reserve: Claude Code 7-day, Opus, 2% left, resets in 3h 0m")).toBeTruthy();
+    unmount();
+    serve(view({ providers: [{ id: "codex", source: "cli-log", windows: [{ id: "five_hour", used_percent: 10, resets_at: at(HOUR) }] }] }));
+    await renderPage(<ControlRoom />);
+    const calm = await screen.findByText("All reserves above 20%");
+    expect(calm.className).not.toContain("warm");
+  });
+
+  it("marks a reading whose window has already reset", async () => {
+    serve(view({ providers: [{ id: "codex", source: "cli-log", observed_at: at(-6 * HOUR), windows: [{ id: "five_hour", window_minutes: 300, used_percent: 90, resets_at: at(-HOUR) }] }] }));
+    const { container } = await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    expect(container.querySelector(".is-stale")).toBeTruthy();
+    expect(screen.getByText("window has reset since this reading")).toBeTruthy();
+    expect(screen.getByText("was 10% left")).toBeTruthy();
+    expect(container.querySelector(".cr-pace")).toBeNull();
+    expect(screen.queryByText(/Lowest reserve/)).toBeNull();
+  });
+
+  it("gives providers with no source no bars, and one quiet line", async () => {
+    serve(view());
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    expect(screen.getAllByRole("meter")).toHaveLength(3);
+    expect(
+      screen.getByText("Not reported yet: Grok CLI, opencode, Antigravity. Their CLIs don't save usage limits where Control Rod can read them without your sign-in token."),
+    ).toBeTruthy();
+  });
+
+  it("shows a calm empty state before anything has been read", async () => {
+    serve({ reported: false, providers: [] });
+    const { container } = await renderPage(<ControlRoom />);
+    expect(await screen.findByText("No readings yet.")).toBeTruthy();
+    expect(screen.getByText("Limits appear after Codex or Claude Code has run once on this machine.")).toBeTruthy();
+    expect(screen.queryByRole("meter")).toBeNull();
+    await expectClean(container);
+  });
+
+  it("says when the limits could not be loaded", async () => {
+    serve({ status: 500 });
+    const { container } = await renderPage(<ControlRoom />);
+    const alert = await screen.findByText("Usage limits could not be loaded.");
+    expect(alert.getAttribute("role")).toBe("alert");
+    await expectClean(container);
+  });
+
+  it("passes an accessibility scan with readings", async () => {
+    serve(view());
+    const { container } = await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    await expectClean(container);
+  });
+});
+
+describe("control room: arranging modules", () => {
+  const titles = () => screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+
+  it("moves a module with the arrow keys, announces it, and keeps the order", async () => {
+    serve(view());
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    expect(titles()).toEqual(["Usage limits", "Is it earning its place?"]);
+    const grip = screen.getByRole("button", { name: /^Move Usage limits/ });
+    grip.focus();
+    fireEvent.keyDown(grip, { key: "ArrowDown" });
+    expect(titles()).toEqual(["Is it earning its place?", "Usage limits"]);
+    expect(screen.getByRole("status").textContent).toBe("Usage limits moved to position 2 of 2");
+    expect(JSON.parse(window.localStorage.getItem(LAYOUT_KEY) ?? "{}").order).toEqual(["earning-its-place", "usage-limits"]);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Move Usage limits/ }));
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Move Usage limits/ }), { key: "ArrowUp", altKey: true });
+    expect(titles()).toEqual(["Usage limits", "Is it earning its place?"]);
+    expect(screen.getByRole("status").textContent).toBe("Usage limits moved to position 1 of 2");
+  });
+
+  it("restores a saved order, ignores unknown ids and appends new modules", async () => {
+    window.localStorage.setItem(LAYOUT_KEY, JSON.stringify({ order: ["gone", "earning-its-place"], collapsed: ["gone"] }));
+    serve(view());
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    expect(titles()).toEqual(["Is it earning its place?", "Usage limits"]);
+  });
+
+  it("survives unreadable storage", async () => {
+    window.localStorage.setItem(LAYOUT_KEY, "{not json");
+    serve(view());
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    expect(titles()).toEqual(["Usage limits", "Is it earning its place?"]);
+  });
+
+  it("collapses a module and remembers it", async () => {
+    serve(view());
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    const fold = screen.getByRole("button", { name: /Collapse Usage limits/ });
+    expect(fold.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(fold);
+    expect(screen.getByRole("button", { name: /Expand Usage limits/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("meter", { name: "Codex 5-hour window" })).toBeNull();
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem(LAYOUT_KEY) ?? "{}").collapsed).toEqual(["usage-limits"]));
+  });
+
+  it("keeps the clock moving: the countdown follows the 30 second tick", async () => {
+    serve(view());
+    await renderPage(<ControlRoom />);
+    await screen.findByText("resets in 2h 11m");
+    vi.setSystemTime(NOW + 12 * MIN);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(screen.getByText("resets in 1h 59m")).toBeTruthy();
+  });
+});

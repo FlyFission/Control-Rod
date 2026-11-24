@@ -1,0 +1,12 @@
+## typecheck
+> @control-rod/web@0.0.0 gen:api /home/claude/Control-Rod/apps/web
+> openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [234.7ms]
+## pages
+ Test Files  12 passed (12)
+      Tests  84 passed (84)
+## full
+ Test Files  65 passed (65)
+      Tests  840 passed (840)

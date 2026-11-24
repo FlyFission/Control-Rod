@@ -1,0 +1,48 @@
+# go vet
+# gofmt -l
+# new tests
+--- PASS: TestUsageKeepsReportedZeroAndOmitsMissing (0.00s)
+--- PASS: TestClaudeResultUsageIsCumulative (0.00s)
+--- PASS: TestReadCodexUsage (0.02s)
+    --- PASS: TestReadCodexUsage/missing_dir (0.00s)
+    --- PASS: TestReadCodexUsage/newest_snapshot_in_newest_file (0.00s)
+    --- PASS: TestReadCodexUsage/huge_non-json_line_ignored (0.00s)
+    --- PASS: TestReadCodexUsage/only_lines_without_rate_limits (0.00s)
+    --- PASS: TestReadCodexUsage/over_100_clamps (0.00s)
+--- PASS: TestCodexWindowIDs (0.00s)
+--- PASS: TestCodexSymlinkNotFollowed (0.01s)
+--- PASS: TestParseClaudeRateLimit (0.00s)
+    --- PASS: TestParseClaudeRateLimit/fraction (0.00s)
+    --- PASS: TestParseClaudeRateLimit/percent (0.00s)
+    --- PASS: TestParseClaudeRateLimit/clamped (0.00s)
+    --- PASS: TestParseClaudeRateLimit/negative (0.00s)
+    --- PASS: TestParseClaudeRateLimit/overage_ignored (0.00s)
+    --- PASS: TestParseClaudeRateLimit/no_utilization (0.00s)
+    --- PASS: TestParseClaudeRateLimit/garbage (0.00s)
+    --- PASS: TestParseClaudeRateLimit/other_type (0.00s)
+    --- PASS: TestParseClaudeRateLimit/plain_text (0.00s)
+--- PASS: TestUsageReport (0.01s)
+--- PASS: TestLogBufferCapturesUsage (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.047s
+# full package (failures are sandbox/proxy-environment tests, listed by name)
+--- FAIL: TestBubblewrapMountsDeliverablesReadOnly (0.00s)
+--- FAIL: TestCheckerMountBindsTheVerifiedDescriptor (0.00s)
+--- FAIL: TestConfirmSandboxSeesTheBubblewrapChild (0.00s)
+--- FAIL: TestCheckerMountBlocksWritesOutsideScratch (0.00s)
+--- FAIL: TestCheckerCannotReachAHostUnixSocket (0.00s)
+--- FAIL: TestCheckerCannotReachAnAbstractUnixSocket (0.00s)
+--- FAIL: TestCheckerKeepsSocketpairAndTCP (0.00s)
+--- FAIL: TestCheckerRejectsX32AndIoUring (0.00s)
+--- FAIL: TestCheckerRefusesADatagramSocketpair (0.00s)
+--- FAIL: TestCheckerProcDoesNotReachHostProcesses (0.00s)
+--- FAIL: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath (0.00s)
+--- FAIL: TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential (0.01s)
+--- FAIL: TestCheckerCannotRewriteLoginInstructions (0.00s)
+--- FAIL: TestCheckerSessionSymlinkDoesNotGrantHomeWrites (0.00s)
+--- FAIL: TestPreparedCheckerThroughTheMount (0.00s)
+--- FAIL: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun (0.03s)
+--- FAIL: TestExecuteStopsTheLauncherGroupWhenReceiptIsUnavailable (0.01s)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	21.946s
+FAIL

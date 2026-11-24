@@ -111,3 +111,8 @@ func (claudeAdapter) PreflightCLI(ctx context.Context, run CommandRunner) error 
 	}
 	return nil
 }
+
+// ParseUsageLine reads Claude Code's rate_limit_event line from the stream the daemon already reads.
+func (claudeAdapter) ParseUsageLine(line string) (UsageWindow, bool) {
+	return parseClaudeRateLimit(line)
+}

@@ -118,6 +118,10 @@ export interface OfficeFloor {
 }
 export type CrEvent = S["ControlRod.Records.Event"];
 export type Metrics = S["Metrics"];
+/** Agent subscription limit readings (control room). */
+export type UsageWindow = S["UsageWindow"];
+export type UsageProvider = S["UsageProvider"];
+export type UsageLimitsView = S["UsageLimitsView"];
 export type ApiErrorBody = S["ApiError"];
 export type RuntimeStatus = S["Runner.RuntimeStatus"];
 export type AgentUpdate = S["Runner.AgentUpdate"];

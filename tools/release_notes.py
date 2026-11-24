@@ -19,6 +19,13 @@ import sys
 from pathlib import Path
 
 
+def git(*args: str) -> str:
+    r = subprocess.run(["git", *args], capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"git {' '.join(args)} failed: {r.stderr.strip()}")
+    return r.stdout
+
+
 def record_existed(slug: str, at: str) -> bool:
     """Whether the record's directory existed at the ref. `--diff-filter=A` selects files,
     not directories, so a pre-existing record that gains a file inside the range still

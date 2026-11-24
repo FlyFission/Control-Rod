@@ -176,17 +176,18 @@ export function pathMatches(pattern: string, path: string): boolean {
   const p = normalPath(path);
   const pat = normalPath(pattern);
   if (!pat) return false;
-  if (pat.endsWith("/")) return p.startsWith(pat);
-  if (!pat.includes("*")) return p === pat || p.startsWith(`${pat}/`);
+  const dir = pat.endsWith("/");
+  if (!pat.includes("*")) return dir ? p.startsWith(pat) : p === pat || p.startsWith(`${pat}/`);
+  const body = dir ? pat.slice(0, -1) : pat;
   let re = "";
-  for (let i = 0; i < pat.length; i++) {
-    const ch = pat[i]!;
-    if (ch === "*" && pat[i + 1] === "*") {
-      if (pat[i + 2] === "/") { re += "(?:.*/)?"; i += 2; } else { re += ".*"; i += 1; }
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]!;
+    if (ch === "*" && body[i + 1] === "*") {
+      if (body[i + 2] === "/") { re += "(?:.*/)?"; i += 2; } else { re += ".*"; i += 1; }
     } else if (ch === "*") re += "[^/]*";
     else re += escape(ch);
   }
-  return new RegExp(`^${re}$`).test(p);
+  return new RegExp(`^${re}${dir ? "/.*" : ""}$`).test(p);
 }
 
 export type SortedBy = "tag" | "path" | "keyword" | "default";

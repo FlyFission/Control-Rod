@@ -120,6 +120,21 @@ describe("matching", () => {
     expect(hasWholeWords("x", "")).toBe(false);
   });
 
+  it("treats a directory pattern with a wildcard as a glob that includes everything below it", () => {
+    expect(pathMatches("apps/*/src/", "apps/web/src/main.ts")).toBe(true);
+    expect(pathMatches("apps/*/src/", "apps/web/src/deep/x.ts")).toBe(true);
+    expect(pathMatches("apps/*/src/", "apps/web/lib/main.ts")).toBe(false);
+    expect(pathMatches("apps/*/src/", "apps/web/x/src/main.ts")).toBe(false);
+    expect(pathMatches("**/migrations/", "services/api/db/migrations/001.sql")).toBe(true);
+    expect(pathMatches("**/migrations/", "migrations/001.sql")).toBe(true);
+    expect(pathMatches("**/migrations/", "services/api/db/migrationsx/001.sql")).toBe(false);
+    expect(pathMatches("docs/", "docs/a/b.md")).toBe(true);
+    expect(pathMatches("docs/", "docsx/b.md")).toBe(false);
+    expect(pathMatches("deploy/prod.yaml", "deploy/prod.yaml")).toBe(true);
+    expect(pathMatches("deploy/pr*.yaml", "deploy/prod.yaml")).toBe(true);
+    expect(pathMatches("deploy/pr*.yaml", "deploy/prod.yaml.bak")).toBe(false);
+  });
+
   it("matches a directory prefix, an exact path, and globs", () => {
     expect(pathMatches("apps/web/", "apps/web/src/a.tsx")).toBe(true);
     expect(pathMatches("apps/web/", "apps/webby/a.tsx")).toBe(false);

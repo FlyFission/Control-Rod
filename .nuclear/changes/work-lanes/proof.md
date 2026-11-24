@@ -20,6 +20,8 @@ Work lanes place work and name the Plant's six bays by project; the checks below
 | `services/api` `test/work-lanes.test.ts` (pure: presets, validation, tag > paths > keywords > default, capital-project parity with `cubeFor`, setup detection) | pass: 17 tests |
 | `test/migration-lock.test.ts` with 027 locked | pass |
 | API database tests (`figures.test.ts` lane placement, `admin.test.ts` storage, proposal and legacy default, migration preservation) | gap: written, not run here; no PostgreSQL 17 in this environment, CI runs them |
+| CI fix: `WORK_LANES_DOWN_SQL` added to the down-migration lists in `tenancy.test.ts` and `workbench.test.ts` (the two places 026 was listed that 027 was not); `pathMatches` wildcard directory patterns | pass: `work-lanes.test.ts` 18 tests (new: `apps/*/src/`, `**/migrations/`, `docs/`, exact-file glob) |
+| API database tests on a local PostgreSQL 16 via `TEST_DATABASE_URL` (tenancy, workbench, dependencies, admin) | pass: 133 tests. Full API suite: 27 failures, all in controller-grant tests that require PostgreSQL 17 ("Controller grants require PostgreSQL 17 or newer"); the same run before the fix had 41 failures. Not a substitute for CI on PG17 |
 | Screenshot, Plant with the Software preset, 1440x900 at 2x | pass: bays read Frontend, Backend, Platform, Data, Tests, Docs; `/mnt/project-files/control-rod/lanes/plant-software.png` |
 
 ## Required links

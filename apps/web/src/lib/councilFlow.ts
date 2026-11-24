@@ -113,6 +113,8 @@ function stops(checkIn: CheckIn): { afterAuthor: StopState | null; afterCheck: S
   };
 }
 
+const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
+
 export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: string): CouncilFlow {
   const council = councilOf(rows);
   const { author, checker } = council;
@@ -150,7 +152,10 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
   });
   edge("ask", "plan", "flow");
   edge("plan", "approve", "flow");
-  edge("approve", "author", "flow");
+  // Every round, the first one and each send-back, picks its author again when the work is claimed.
+  steps.push({ id: "pick", kind: "decision", title: "Author?", detail: "Who writes: the author is picked again at the start of every round" });
+  edge("approve", "pick", "flow");
+  edge("pick", "author", "flow");
 
   if (fallback) {
     steps.push({
@@ -163,13 +168,13 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
         ? `If ${author!.name} is signed out or missing when the work starts`
         : `If ${author!.name} is out, once it is ready itself; until then the card waits`,
     });
-    edge("approve", "fallback", "fallback");
+    edge("pick", "fallback", "fallback");
     steps.push({
       id: "see-fallback",
       kind: "you",
       stop: "coming",
       title: "You see the switch",
-      detail: "Who stepped in and why, before it goes on",
+      detail: s.afterAuthor ? "Who stepped in and why, and the work before any checker sees it" : "Who stepped in and why, before it goes on",
     });
     edge("fallback", "see-fallback", "flow");
   }
@@ -180,7 +185,6 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
   if (s.afterAuthor) {
     steps.push({ id: "see-work", kind: "you", stop: s.afterAuthor, title: "You see the work", detail: "Before any checker sees it, on every path" });
     edge("author", "see-work", "flow");
-    if (sameCheck) edge("see-fallback", "see-work", "flow");
     last = "see-work";
   }
   steps.push({
@@ -194,10 +198,18 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       : "Waits for a second vendor, unless you sign an override",
   });
   edge(last, "check", last === "author" ? "baton" : "flow");
-  if (sameCheck && last === "author") edge("see-fallback", "check", "baton");
+  // The stand-in's own stop already showed its work, so it goes straight to the check.
+  if (sameCheck) edge("see-fallback", "check", "baton");
 
-  steps.push({ id: "verdict", kind: "decision", title: "Pass?", detail: "The checker's verdict, with evidence" });
-  edge("check", "verdict", "flow");
+  // With every-step check-ins, every verdict is shown to you before anything follows from it.
+  let afterCheck = "verdict";
+  if (s.afterCheck) {
+    steps.push({ id: "see-check", kind: "you", stop: s.afterCheck, title: "You see the check", detail: "Every verdict and its evidence, pass or not, before what follows" });
+    edge("check", "see-check", "flow");
+    afterCheck = "see-check";
+  }
+  steps.push({ id: "verdict", kind: "decision", title: "Pass?", detail: "The checker's verdict: pass, fail or inconclusive" });
+  edge(s.afterCheck ? "see-check" : "check", "verdict", "flow");
 
   if (fallback && !sameCheck) {
     steps.push({
@@ -213,25 +225,18 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
           : `Never ${fallback.name}'s own vendor`,
     });
     edge("see-fallback", "fallback-check", "baton");
-    edge("fallback-check", "verdict", "flow");
+    edge("fallback-check", afterCheck, "flow");
   }
 
-  edge("verdict", "author", "send-back", `No: another round with the findings (at most ${SEND_BACKS} times)`);
+  edge("verdict", "pick", "send-back", `Fail or inconclusive: a new round with the findings, at most ${SEND_BACKS} times`);
   steps.push({
     id: "dispute",
     kind: "you",
     stop: "always",
     title: "You settle the dispute",
-    detail: `After ${CHECK_ROUNDS} failed checks: accept with findings, return to planning or reject`,
+    detail: `After ${CHECK_ROUNDS} checks that did not pass: accept with findings, return to planning or reject`,
   });
-  edge("verdict", "dispute", "no", `after ${CHECK_ROUNDS} fails`);
-  last = "verdict";
-
-  if (s.afterCheck) {
-    steps.push({ id: "see-check", kind: "you", stop: s.afterCheck, title: "You see the check", detail: "Every verdict and its evidence, pass or fail" });
-    edge(last, "see-check", "yes", "yes");
-    last = "see-check";
-  }
+  edge("verdict", "dispute", "no", `${ordinal(CHECK_ROUNDS)} time`);
   steps.push({
     id: "merge",
     kind: "you",
@@ -240,10 +245,10 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
     detail:
       checkIn === "start"
         ? "Stays on: skipping it needs a signed standing acceptance, not built yet"
-        : "Signed, before it merges or ships",
+        : "Signed and recorded; merging or shipping is a separate step",
   });
-  edge(last, "merge", last === "verdict" ? "yes" : "flow", last === "verdict" ? "yes" : undefined);
-  steps.push({ id: "ship", kind: "end", title: "Accepted", detail: "Your acceptance is recorded with who wrote, who checked and who signed; merging or shipping follows" });
+  edge("verdict", "merge", "yes", "yes");
+  steps.push({ id: "ship", kind: "end", title: "Accepted", detail: "Control Rod records your signed acceptance with who wrote, who checked and who signed. Merging or shipping is a separate step you take" });
   edge("merge", "ship", "flow");
 
   const who = (seat: Seat | undefined): MatrixRow["who"] => seat ?? "nobody";
@@ -267,19 +272,27 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       who: who(checker),
       does: "Passes or fails it with evidence, without seeing how it was written",
       stopsForYou: s.afterCheck ?? "no",
-      ifItFails: `Another round with its findings, at most ${SEND_BACKS} times. Each round is checked by a vendor other than that round's author, and a check is never moved to another checker to get a pass.`,
+      ifItFails:
+        `A fail or an inconclusive verdict starts a new round with the findings, at most ${SEND_BACKS} times, and the author is picked again for it. ` +
+        `By default each round is checked by a vendor other than that round's author; when none is ready, the check waits unless you sign an override. ` +
+        (fallback
+          ? fallbackChecker
+            ? `${fallbackChecker.name} checks ${fallback.name}'s work${checksOnReturn ? ` once it is back` : ""}. `
+            : `${fallback.name}'s work waits for a vendor other than ${fallback.vendor}. `
+          : "") +
+        "A check is never moved to another checker to get a pass.",
     },
     {
       step: "Settle a dispute",
       who: "you",
-      does: `Decides after ${CHECK_ROUNDS} failed checks`,
+      does: `Decides after ${CHECK_ROUNDS} checks that did not pass`,
       stopsForYou: "always",
       ifItFails: "Accept with findings, return to planning or reject",
     },
     {
       step: "Accept the work",
       who: "you",
-      does: "Signs acceptance before it merges or ships; the merge itself follows",
+      does: "Signs acceptance; Control Rod records it. Merging or shipping is a separate step you take",
       stopsForYou: "on",
       ifItFails: checkIn === "start" ? "Return it or reject it. Skipping this stop needs a signed standing acceptance, which is coming." : "Return it with a note, or reject it",
     },
@@ -303,8 +316,10 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
   const summary = !author
     ? "No agent at the table is ready yet, so new cards wait after you ask."
     : `You ask, ${author.name} plans, you approve, ${author.name} writes${fallback ? ` (${fallback.name} steps in if it is signed out or missing)` : ""}, ${
-        checker ? `${checker.name} checks it blind` : "the check waits for a second vendor"
-      }. A failed check goes round again at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} failed checks you settle it. You sign acceptance before it merges or ships.`;
+        checker ? `${checker.name} checks it blind` : "the check waits for a second vendor unless you sign an override"
+      }${
+        fallback ? (fallbackChecker ? `, and ${fallbackChecker.name} checks ${fallback.name}'s work` : `, and ${fallback.name}'s work waits for another vendor's check`) : ""
+      }. A fail or an inconclusive verdict starts a new round, with the author picked again, at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} checks that do not pass you settle it. You sign acceptance, and merging or shipping is a separate step.`;
 
   return { council, steps, edges, matrix, summary };
 }

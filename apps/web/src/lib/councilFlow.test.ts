@@ -43,10 +43,14 @@ describe("flow", () => {
     const f = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge");
     const kinds = Object.fromEntries(f.edges.map((e) => [e.id, e.kind]));
     expect(kinds["author->check"]).toBe("baton");
-    expect(kinds["approve->fallback"]).toBe("fallback");
-    expect(kinds["verdict->author"]).toBe("send-back");
+    expect(kinds["pick->fallback"]).toBe("fallback");
+    // A new round picks its author again (work.ts claims a fresh author run), so the loop goes back to the pick.
+    expect(kinds["verdict->pick"]).toBe("send-back");
+    expect(f.steps.find((s) => s.id === "pick")?.kind).toBe("decision");
     expect(f.summary).toContain(`at most ${SEND_BACKS} times`);
-    expect(f.summary).toContain(`after ${CHECK_ROUNDS} failed checks`);
+    expect(f.summary).toContain(`after ${CHECK_ROUNDS} checks that do not pass`);
+    expect(f.summary).toContain("inconclusive");
+    expect(f.summary).toContain("merging or shipping is a separate step");
     expect(SEND_BACKS).toBe(2);
   });
 
@@ -64,6 +68,34 @@ describe("flow", () => {
     expect(f.steps.find((s) => s.id === "check")?.seat?.id).toBe("codex");
     // No checker step is reached by a fallback edge: checkers never fall over.
     expect(f.edges.some((e) => e.kind === "fallback" && f.steps.find((s) => s.id === e.to)?.role === "checker")).toBe(false);
+  });
+
+  it("puts every-step stops on every path: work before any checker, every verdict before what follows", () => {
+    for (const r of [{ claude: true, codex: true }, { claude: true, codex: false }]) {
+      const f = buildCouncilFlow(rows(r), "every-step");
+      const kind = (id: string) => f.steps.find((s) => s.id === id)!;
+      // Walk forward from `from` without passing a "you" step; return every step reached.
+      const reach = (from: string, stopAt: (id: string) => boolean) => {
+        const seen = new Set<string>();
+        const go = (id: string) => {
+          for (const e of f.edges.filter((x) => x.from === id && x.kind !== "send-back")) {
+            if (seen.has(e.to)) continue;
+            seen.add(e.to);
+            if (!stopAt(e.to)) go(e.to);
+          }
+        };
+        go(from);
+        return seen;
+      };
+      const isYou = (id: string) => kind(id).kind === "you";
+      for (const author of ["author", "fallback"].filter((id) => f.steps.some((s) => s.id === id))) {
+        const checkers = [...reach(author, isYou)].filter((id) => kind(id).role === "checker");
+        expect(checkers, `${author} reaches a checker without a stop`).toEqual([]);
+      }
+      for (const checker of f.steps.filter((s) => s.role === "checker").map((s) => s.id)) {
+        expect([...reach(checker, isYou)], `${checker} reaches the verdict without a stop`).not.toContain("verdict");
+      }
+    }
   });
 
   it("marks stops the person chose but that are not built as coming, never as on", () => {

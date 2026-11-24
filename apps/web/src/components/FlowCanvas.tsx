@@ -2,7 +2,7 @@ import "@xyflow/react/dist/base.css";
 import { Background, BackgroundVariant, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { type CouncilFlow, type EdgeKind, type FlowStep, SEND_BACKS } from "../lib/councilFlow.js";
-import { type Direction, layoutFlow } from "../lib/councilLayout.js";
+import { type Direction, GAP, type Layout, layoutFlow } from "../lib/councilLayout.js";
 import { AgentMark } from "./AgentMark.js";
 import { KeyGlyph, STOP_LABEL } from "./workflowParts.js";
 
@@ -89,10 +89,35 @@ function TerminalBlock({ data }: NodeProps<StepNode>) {
 
 const NODE_TYPES = { agent: AgentBlock, you: YouBlock, decision: DecisionBlock, start: TerminalBlock, end: TerminalBlock };
 
-/** Which sides an edge leaves and enters, for the direction the diagram runs. */
-function sides(kind: string, direction: Direction): { from: string; to: string } {
-  if (kind === "send-back") return direction === "LR" ? { from: "top", to: "top" } : { from: "right", to: "right" };
-  return direction === "LR" ? { from: "right", to: "left" } : { from: "bottom", to: "top" };
+/**
+ * Which sides an edge leaves and enters. Along the main line and along the branch lane, edges run in the
+ * diagram's direction. An edge out to the branch lane leaves from the side facing the lane and comes in
+ * from behind; an edge back to the main line comes in from behind, through the clear gap the layout
+ * leaves before the block it joins. The send-back loop runs on the free side.
+ */
+function sides(kind: string, direction: Direction, fromLine: boolean, toLine: boolean): { from: string; to: string } {
+  const lr = direction === "LR";
+  if (kind === "send-back") return lr ? { from: "top", to: "top" } : { from: "right", to: "right" };
+  if (fromLine && !toLine) return lr ? { from: "bottom", to: "left" } : { from: "left", to: "top" };
+  return lr ? { from: "right", to: "left" } : { from: "bottom", to: "top" };
+}
+
+/** The send-back loop clears the widest block on the main line, not just the decision it leaves. */
+function loopOffset(layout: Layout, from: string, direction: Direction): number {
+  const lr = direction === "LR";
+  const across = (id: string) => (lr ? layout.placed.get(id)!.height : layout.placed.get(id)!.width);
+  const lane = Math.max(...layout.spine.map(across));
+  return (lr ? 40 : 64) + (lane - across(from)) / 2;
+}
+
+/** For an edge rejoining the main line, turn halfway through the gap before the block it joins. */
+function joinStep(layout: Layout, from: string, to: string, direction: Direction): number | undefined {
+  const a = layout.placed.get(from)!;
+  const b = layout.placed.get(to)!;
+  const lr = direction === "LR";
+  const span = lr ? b.x - (a.x + a.width) : b.y - (a.y + a.height);
+  if (span <= 0) return undefined;
+  return Math.min(1, Math.max(0, (span - GAP[direction] / 2) / span));
 }
 
 const EDGE_CLASS: Record<EdgeKind, string> = {
@@ -159,7 +184,10 @@ export default function FlowDiagram({ flow }: { flow: CouncilFlow }) {
     };
   });
   const edges: Edge[] = flow.edges.map((e) => {
-    const s = sides(e.kind, direction);
+    const fromLine = layout.spine.includes(e.from);
+    const toLine = layout.spine.includes(e.to);
+    const s = sides(e.kind, direction, fromLine, toLine);
+    const step = !fromLine && toLine && e.kind !== "send-back" ? joinStep(layout, e.from, e.to, direction) : undefined;
     return {
       id: e.id,
       source: e.from,
@@ -169,7 +197,7 @@ export default function FlowDiagram({ flow }: { flow: CouncilFlow }) {
       type: "smoothstep",
       className: EDGE_CLASS[e.kind],
       markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-      pathOptions: { borderRadius: 10, offset: e.kind === "send-back" ? (direction === "TB" ? 64 : 40) : 18 },
+      pathOptions: { borderRadius: 10, offset: e.kind === "send-back" ? loopOffset(layout, e.from, direction) : 18, ...(step !== undefined ? { stepPosition: step } : {}) },
       ...(e.label ? { label: direction === "TB" && e.kind === "send-back" ? `No: again, ≤${SEND_BACKS}×` : e.label, labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 4, labelShowBg: true } : {}),
       focusable: false,
       selectable: false,

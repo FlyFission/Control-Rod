@@ -1,9 +1,8 @@
  Test Files  66 passed (66)
-      Tests  862 passed (862)
+      Tests  863 passed (863)
 tsc clean
-dist/assets/FlowCanvas-CeJeskZg.css               11.14 kB │ gzip:   2.03 kB
-dist/assets/FlowCanvas-BAZdPEB1.js               187.34 kB │ gzip:  60.83 kB
-dist/assets/app-DhK68Ote.js                    1,064.12 kB │ gzip: 299.88 kB
-✓ built in 574ms
+dist/assets/FlowCanvas-ISZnyOgj.js               188.15 kB │ gzip:  61.14 kB
+dist/assets/app-DXkrsLCK.js                    1,065.00 kB │ gzip: 300.12 kB
+✓ built in 597ms
 dist/third-party-licenses.md
 License gate passed for 232 packages.

@@ -2,10 +2,12 @@
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web: all tests (862), `tsc` clean, build, license gate. | `evidence/web.log` |
+| E-01 | pass | Web: all tests (863), `tsc` clean, build, license gate. | `evidence/web.log` |
 | E-02 | pass | Screenshots from the dev server with a mocked API: Workflow at 1440 (flow, matrix, every-step with Codex not ready), Setup read-back at 1440, phone at 390. | `evidence/*.jpg` |
 | E-03 | done | Blind review by Codex (gpt-6.2-sol, read-only) on the owner's machine at 7f8fb48: NO-MERGE with 3 P1 and 7 P2. Fixed at the next commit: sign-off shown on in every answer (skipping needs a signed standing acceptance); the stand-in's work goes to its own check node that never uses the stand-in's vendor or the author it replaced, and waits when nobody qualifies; no stand-in when nobody is ready; fall-over wording limited to what the dispatcher does (signed out or missing; flagged fall-over is "coming"); Lobe Icons' full MIT license served beside the marks; preferred-agent caveat on the page; send-back count corrected to 2 (MAX_ROUNDS counts the first attempt); spend limit split from SCRAM as a hold on new work; the canvas remounts when the layout changes; a too-wide canvas is a labelled focusable region and opens scrolled to the main line on a phone; a screen-reader step list covers branches and stops; tests for every answer, no one ready, offline and benched alternatives, and layout across 24 roster/answer/direction cases. Not changed: the owner chose real marks (basis 5); React Flow and dagre notices follow the repo's dependency policy (lockfile and the release SBOM). | PR thread |
 | E-04 | done | Blind review by Codex round 2 at the round-1 fix commit: NO-MERGE with 1 P1, 8 P2, 1 P3. Fixed: the stand-in's check may be the returning author (no longer excluded); an offline stand-in waits until ready; the planner caveat (a capture or project can prefer another planner); retry wording no longer fixes author and checker; a "You see the switch" stop on the stand-in path, and every-step stops say "on every path"; the end is "Accepted" (acceptance records the decision, it does not merge); spend limit belongs to Control Rod and is "coming"; the matrix is a focusable scroll region; the built app ships `third-party-licenses.md` (Vite `build.license`); the phone send-back label is shorter. dagre was dropped for a lane layout so the main line has no gaps. | PR thread |
+| E-05 | done | Blind review by Codex round 3 at 5b7c64a: NO-MERGE with 1 P1, 4 P2, 1 P3. Fixed: branches leave toward their lane and rejoin the main line through a clear gap the layout keeps before the block they join, and the send-back loop clears the tallest block (P1, checked by E-06); every-step stops cover every path (the stand-in's stop shows its work, and "You see the check" sits before the verdict on both checks); a new round goes back to an "Author?" pick, since the dispatcher picks the author again at each claim; the matrix and summary say independence is the default with a signed override, who checks the stand-in's work, and that a fail or an inconclusive verdict both retry; acceptance copy says Control Rod records it and merging or shipping is a separate step. | PR thread |
+| E-06 | pass | Rendered check in Chromium: no edge runs through a block other than its ends, no label overlaps a block or another label, no blocks overlap; 3 rosters x 3 check-in answers x 3 widths (1440, 1024, 390), both directions. Mocked API. | `evidence/edges.log`, `evidence/edges-check.js` |
 
 ## Evidence custody and coupling
 
@@ -13,11 +15,13 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | E-01 | WD-01, WD-02, WD-03, WD-04, WD-05, WD-06 | yes | evidence/web.log | Implementing agent | vitest, tsc, vite, license gate | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
 | E-02 | WD-01, WD-02, WD-06 | no | evidence/*.jpg | Implementing agent | Playwright on the dev server | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
+| E-06 | WD-01, WD-06 | no | evidence/edges.log | Implementing agent | Playwright on the dev server | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, no browser layout  [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: real browser | separated: owner retains merge decision | coupled: local machine | self-check | mocked API, Linux Chromium  [Ship limits](ship.md) |
+| E-06 | coupled: implementing agent | coupled: implementation session | separated: real browser geometry | separated: owner retains merge decision | coupled: local machine | self-check | mocked API, Linux Chromium  [Ship limits](ship.md) |
 
 Not done here: macOS with real signed-in CLIs; the Playwright e2e suite.
 

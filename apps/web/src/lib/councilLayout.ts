@@ -51,7 +51,7 @@ export function spineOf(steps: FlowStep[], edges: FlowEdge[]): string[] {
 }
 
 /** Gap between blocks along the line. */
-const GAP = { LR: 32, TB: 40 } as const;
+export const GAP = { LR: 32, TB: 40 } as const;
 
 export function layoutFlow(steps: FlowStep[], edges: FlowEdge[], direction: Direction): Layout {
   const lr = direction === "LR";
@@ -64,30 +64,52 @@ export function layoutFlow(steps: FlowStep[], edges: FlowEdge[], direction: Dire
   const lane = Math.max(...spine.map(acrossSize));
   // Along the line: [start, end] for every block. Across: the main line is centred in its lane; branch
   // blocks share one lane beside it, aligned to its near edge.
-  const along = new Map<string, { start: number; end: number }>();
-  let at = 0;
-  for (const id of spine) {
-    along.set(id, { start: at, end: at + alongSize(id) });
-    at += alongSize(id) + gap;
-  }
   const branches = steps.filter((s) => !spine.includes(s.id)).map((s) => s.id);
-  const placedBranches: string[] = [];
-  for (const id of branches) {
-    const from = edges.find((e) => e.to === id && e.kind !== "send-back" && along.has(e.from))?.from;
-    let start = from ? along.get(from)!.end + gap : 0;
-    // Move along past any branch block already in the lane.
-    for (let moved = true; moved; ) {
-      moved = false;
-      for (const other of placedBranches) {
-        const o = along.get(other)!;
-        if (start < o.end + gap && o.start < start + alongSize(id) + gap) {
-          start = o.end + gap;
-          moved = true;
-        }
+  // A branch that rejoins the main line must end before the block it joins starts, so its edge can come in
+  // from the side through a clear gap. Place everything, push any such block along, and place again.
+  const minStart = new Map<string, number>();
+  let along = new Map<string, { start: number; end: number }>();
+  for (let pass = 0; pass < 8; pass++) {
+    along = place();
+    let moved = false;
+    for (const e of edges) {
+      if (e.kind === "send-back" || !branches.includes(e.from) || !spine.includes(e.to)) continue;
+      const need = along.get(e.from)!.end + gap;
+      if (along.get(e.to)!.start < need) {
+        minStart.set(e.to, need);
+        moved = true;
       }
     }
-    along.set(id, { start, end: start + alongSize(id) });
-    placedBranches.push(id);
+    if (!moved) break;
+  }
+
+  function place() {
+    const out = new Map<string, { start: number; end: number }>();
+    let at = 0;
+    for (const id of spine) {
+      at = Math.max(at, minStart.get(id) ?? 0);
+      out.set(id, { start: at, end: at + alongSize(id) });
+      at += alongSize(id) + gap;
+    }
+    const placedBranches: string[] = [];
+    for (const id of branches) {
+      const from = edges.find((e) => e.to === id && e.kind !== "send-back" && out.has(e.from))?.from;
+      let start = from ? out.get(from)!.end + gap : 0;
+      // Move along past any branch block already in the lane.
+      for (let moved = true; moved; ) {
+        moved = false;
+        for (const other of placedBranches) {
+          const o = out.get(other)!;
+          if (start < o.end + gap && o.start < start + alongSize(id) + gap) {
+            start = o.end + gap;
+            moved = true;
+          }
+        }
+      }
+      out.set(id, { start, end: start + alongSize(id) });
+      placedBranches.push(id);
+    }
+    return out;
   }
   const branchLane = branches.length > 0 ? Math.max(...branches.map(acrossSize)) : 0;
   const crossMax = lane + (branchLane > 0 ? BRANCH_GAP + branchLane : 0);

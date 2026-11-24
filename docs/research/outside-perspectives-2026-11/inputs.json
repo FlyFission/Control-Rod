@@ -1,0 +1,397 @@
+{
+  "study": "Control Rod Front-Door & Viral Harness Due Diligence (200 Modeled Outside Perspectives)",
+  "date": "2026-11-24",
+  "method_note": "Modeled rubric audit, not a human survey. Ten outside cohorts of 20 distinct evaluator archetypes (200 total perspectives) weight 12 observable front-door criteria against concrete repository artifacts before and after the landing-and-readme-overhaul branch.",
+  "criteria": [
+    {
+      "id": "C01",
+      "name": "5-second multi-agent value hook",
+      "before_artifact": "README opened with a low-key pre-alpha caveat and no public landing page existed.",
+      "after_artifact": "Hero leads with seating every paid CLI at one table + blind cross-vendor check, backed by interactive site/ console.",
+      "before_score": 2,
+      "after_score": 5
+    },
+    {
+      "id": "C02",
+      "name": "Dynamic council & baton-pass visibility",
+      "before_artifact": "README table listed 2 rows and omitted author stand-in failover, Workflow diagram, and seat toggles.",
+      "after_artifact": "council-loop.svg, refreshed workflow.png, and interactive Council Builder on site/ show Planner -> Author -> Stand-in -> Blind Checker -> Passkey.",
+      "before_score": 2,
+      "after_score": 5
+    },
+    {
+      "id": "C03",
+      "name": "Subscription & quota gauge clarity ($0 API markup)",
+      "before_artifact": "Mentioned CLI sign-ins in prose; omitted the shipped Control Room 5h/7d usage-limit gauges.",
+      "after_artifact": "Refreshed control-room.png, README quota callout, and live quota window simulator in site/.",
+      "before_score": 2,
+      "after_score": 5
+    },
+    {
+      "id": "C04",
+      "name": "30-second standalone wedge before full install",
+      "before_artifact": "README required Node 22 + pnpm + Go + Postgres + passkey setup before trying anything; omitted shipped controlrod check CLI & GitHub Action.",
+      "after_artifact": "Front-and-center controlrod check CLI + reusable GitHub Action wedge + docs/quickstart-check.md alongside full workspace setup.",
+      "before_score": 1,
+      "after_score": 4
+    },
+    {
+      "id": "C05",
+      "name": "Diagram & visual instrument excellence",
+      "before_artifact": "Single off-palette slate bar chart (second-checker.svg); zero architecture, receipt, or workflow SVGs.",
+      "after_artifact": "Five script-generated control-room SVGs (council-loop, evidence-board, second-checker, pr-receipt-card, workflow-modes) + interactive site/.",
+      "before_score": 2,
+      "after_score": 5
+    },
+    {
+      "id": "C06",
+      "name": "Screenshot freshness & mode consistency",
+      "before_artifact": "Stale sidebar (Office/Explore/Roster/Subscriptions) and Software topbar paired with mechanical Pump skid P-101 card in inbox.png.",
+      "after_artifact": "Six fresh release-build screenshots (board, workflow, control-room, software-consistent inbox, plant, packages).",
+      "before_score": 1,
+      "after_score": 5
+    },
+    {
+      "id": "C07",
+      "name": "Empirical evidence & published research punch",
+      "before_artifact": "Seven dense prose bullets mid-README; accurate citations but visually fatiguing to scan.",
+      "after_artifact": "Scannable evidence-board.svg + interactive study tabs on site/ + repeatable pnpm cr bench protocol.",
+      "before_score": 3,
+      "after_score": 5
+    },
+    {
+      "id": "C08",
+      "name": "Viral shareable artifact (PR receipt)",
+      "before_artifact": "Zero mention of PR receipts or pnpm cr receipt / pnpm cr verify --receipt in README.",
+      "after_artifact": "pr-receipt-card.svg, copyable Markdown receipt inspector on site/, and offline verification walkthrough.",
+      "before_score": 0,
+      "after_score": 5
+    },
+    {
+      "id": "C09",
+      "name": "Workflow pack flexibility (Superpowers / Pocock / Nuclear)",
+      "before_artifact": "Mentioned Light/Nuclear in one sentence; completely omitted shipped Superpowers, Matt Pocock, and hybrid per-card workflows.",
+      "after_artifact": "Dedicated workflow-modes.svg, interactive switcher on site/, and clear Workflow x Context matrix in README.",
+      "before_score": 1,
+      "after_score": 5
+    },
+    {
+      "id": "C10",
+      "name": "Kernel, sandbox & red-team trust architecture",
+      "before_artifact": "Two short sentences near bottom of README; standalone check security model unmentioned.",
+      "after_artifact": "Visual blind-wall + Rust/WASM kernel diagram, threat-model link, red-team catalog callout, and honest sandbox table.",
+      "before_score": 3,
+      "after_score": 5
+    },
+    {
+      "id": "C11",
+      "name": "Dual-domain power (Software + Capital Projects)",
+      "before_artifact": "Jarring accidental mix in screenshots; Capital Projects buried in a single bullet at line 88.",
+      "after_artifact": "Clean builder-first lead with a dedicated Capital Projects & High-Consequence Engineering second act and interactive mode switcher.",
+      "before_score": 2,
+      "after_score": 5
+    },
+    {
+      "id": "C12",
+      "name": "Radical honesty, Apache-2.0 license & zero lock-in",
+      "before_artifact": "Strong honesty and license posture, though honest caveats overshadowed the wish.",
+      "after_artifact": "Keeps 100% claim discipline, offline verification, zero telemetry, and Apache-2.0 clarity while leading with an aspirational builder hook.",
+      "before_score": 4,
+      "after_score": 5
+    }
+  ],
+  "cohorts": [
+    {
+      "id": "G01",
+      "name": "Solo OSS & Indie Builders",
+      "perspectives": [
+        "Full-stack TypeScript indie hacker running Claude Code + Codex daily",
+        "Rust CLI maintainer evaluating agent harnesses on GitHub trending",
+        "Solo SaaS founder burned by 5-hour Claude Max quota walls mid-feature",
+        "Open-source library author tired of hallucinated AI pull requests",
+        "Neovim + tmux minimalist skeptical of heavy Electron/browser dashboards",
+        "Weekend side-project builder wanting zero API-key billing surprises",
+        "Python ML toolmaker running multi-file refactors across worktrees",
+        "Go systems programmer who values fast local binaries and plain logs",
+        "Solo mobile/web developer switching between Codex and Claude by task",
+        "Superpowers workflow user looking for automated independent review",
+        "Matt Pocock skills user wanting structured ticket-to-PR execution",
+        "wsl2 power user running multi-agent sessions on a desktop workstation",
+        "Linux Wayland developer allergic to cloud accounts and telemetry",
+        "macOS Apple Silicon developer checking platform support in 10 seconds",
+        "Indie game tools programmer who loves FTL / Into the Breach UI craft",
+        "Polyglot contractor juggling three client repos on one laptop",
+        "Self-hosted homelab builder wanting local data ownership",
+        "Keyboard-first Linear fan evaluating card speed and shortcuts",
+        "First-time AI harness shopper comparing Vibe Kanban alternatives",
+        "Pragmatic builder who tries a CLI command before installing a full stack"
+      ],
+      "weights": {"C01": 5, "C02": 5, "C03": 5, "C04": 5, "C05": 4, "C06": 4, "C07": 2, "C08": 4, "C09": 5, "C10": 3, "C11": 1, "C12": 4}
+    },
+    {
+      "id": "G02",
+      "name": "Staff & Principal Software Engineers",
+      "perspectives": [
+        "Principal architect reviewing state-machine invariants and kernel boundaries",
+        "Staff backend engineer burned by agent tests that pass by weakening assertions",
+        "Distributed-systems tech lead checking lease, outbox, and crash recovery",
+        "Platform engineer evaluating TypeSpec contract-first code generation",
+        "Staff frontend engineer auditing accessibility, contrast, and bundle discipline",
+        "Database reliability engineer inspecting migration checksums and Postgres usage",
+        "Compiler/runtime engineer curious how WASM decision gates isolate state",
+        "Monorepo build lead checking Turbo, mise, and reproducible toolchains",
+        "Code-review hawk who rejects 40% of green-CI agent PRs for subtle drift",
+        "API design lead inspecting REST/SSE semantics and ETag concurrency",
+        "Staff developer-productivity engineer measuring review turnaround vs rework",
+        "Open-standards advocate checking WebAuthn passkey and SHA-256 proof formats",
+        "Legacy-migration lead running high-risk schema and service splits",
+        "Performance engineer checking hidden-tab and reduced-motion discipline",
+        "Documentation stickler checking whether screenshots match shipped code",
+        "Clean-room licensing reviewer checking third-party provenance registers",
+        "Testing strategist evaluating cross-vendor blind check vs self-reflection",
+        "Git workflow specialist checking worktree isolation and merge-base diffing",
+        "Incident commander who appreciates a real scoped SCRAM stop button",
+        "Skeptical senior IC who reads status.md before trusting any README"
+      ],
+      "weights": {"C01": 4, "C02": 5, "C03": 3, "C04": 4, "C05": 4, "C06": 5, "C07": 5, "C08": 4, "C09": 4, "C10": 5, "C11": 2, "C12": 5}
+    },
+    {
+      "id": "G03",
+      "name": "Engineering Managers, Directors & VPs",
+      "perspectives": [
+        "Seed-stage CTO scaling a 5-person team with heavy AI coding spend",
+        "Series B VP of Engineering worried about silent technical debt from AI PRs",
+        "Engineering Manager of an 8-person product squad drowning in PR review",
+        "Director of Platform Engineering standardizing approved AI coding CLIs",
+        "FinOps-minded engineering lead tracking subscription seat utilization",
+        "Startup co-founder wanting audit trails before first enterprise SOC 2 audit",
+        "Remote-team EM needing clear async handoff and acceptance receipts",
+        "QA & Release Manager tired of rubber-stamped AI changes breaking staging",
+        "Director of Developer Experience comparing cloud boards vs local harnesses",
+        "Bootstrap founder refusing source-available / non-OSI vendor lock-in",
+        "Agency CTO who must prove human sign-off on every client deliverable",
+        "VP Engineering presenting AI velocity and defect-catch metrics to board",
+        "Tech lead onboarding junior engineers without letting agents ship unchecked",
+        "Staffing-constrained maintainer needing automated blind first-pass checks",
+        "Product-minded EM who wants plain status words instead of raw terminal logs",
+        "Compliance-adjacent engineering director needing exportable decision history",
+        "Multi-repo team lead coordinating docs and code changes together",
+        "R&D lab director evaluating repeatable cross-vendor agent benchmarks",
+        "Turnaround engineering lead introducing discipline after a bad AI outage",
+        "Buyer comparing $0 local Apache-2.0 harness vs per-seat SaaS orchestrators"
+      ],
+      "weights": {"C01": 5, "C02": 4, "C03": 5, "C04": 4, "C05": 4, "C06": 4, "C07": 4, "C08": 5, "C09": 3, "C10": 4, "C11": 3, "C12": 5}
+    },
+    {
+      "id": "G04",
+      "name": "AppSec, Red-Team & Security Architects",
+      "perspectives": [
+        "Application security lead auditing prompt-injection paths between agents",
+        "OS sandbox researcher inspecting bubblewrap and Seatbelt preflight rules",
+        "Supply-chain security engineer checking pinned GitHub Actions and SBOMs",
+        "Cryptography reviewer checking inclusion proofs, seals, and passkey binding",
+        "Red-team operator looking at tests/redteam/catalog.yaml and bypass honesty",
+        "Cloud-egress defender verifying default-on author outbound network filtering",
+        "Secrets-management auditor checking that CLI tokens are never scraped or stored",
+        "Zero-trust architect checking why agents cannot invoke state transitions",
+        "CI/CD security engineer reviewing fork-PR safety in check-action",
+        "Threat-modeling lead reading docs/threat-model.md against README claims",
+        "Endpoint security admin checking local ~/.controlrod data footprint",
+        "Insider-risk analyst verifying originator vs verifier separation rules",
+        "Vulnerability researcher testing git hook and filter-driver pinning",
+        "Privacy engineer checking for third-party font, analytics, or telemetry leaks",
+        "Forensics responder evaluating post-SCRAM quarantine and offline verify",
+        "Security-conscious OSS maintainer requiring DCO and CODEOWNERS gates",
+        "Enterprise CISO advisor evaluating local-only AI execution models",
+        "Container security engineer checking why unsandboxed fallbacks are refused",
+        "Identity engineer evaluating WebAuthn step-up signatures per decision",
+        "Security auditor checking whether public claims match check_public_claims.py"
+      ],
+      "weights": {"C01": 2, "C02": 4, "C03": 2, "C04": 3, "C05": 3, "C06": 4, "C07": 4, "C08": 5, "C09": 2, "C10": 5, "C11": 3, "C12": 5}
+    },
+    {
+      "id": "G05",
+      "name": "AI Harness Authors, Contributors & Researchers",
+      "perspectives": [
+        "Multi-agent orchestration researcher studying correlated LLM judge errors",
+        "Contributor to an open-source coding CLI evaluating adapter integration",
+        "SWE-bench evaluation researcher scrutinizing benchmark methodology (DESIGN v3.3)",
+        "Former Vibe Kanban user looking for an active Apache-2.0 successor",
+        "Terminal multiplexer harness user comparing tmux scraping vs headless leases",
+        "Local-LLM enthusiast waiting on sandboxed Ollama / vLLM seat support",
+        "Prompt/context engineer studying Light vs Nuclear brief token budgets",
+        "MCP & tool-protocol developer inspecting structured runner event streams",
+        "AI UX designer comparing spatial agent views (Plant vs pixel offices)",
+        "Benchmark skeptic checking whether published arXiv citations arecherry-picked",
+        "Agent-safety researcher studying sycophancy when critics read chain-of-thought",
+        "OpenCode user checking when additional CLI seats become runnable",
+        "Grok CLI early adopter checking vendor-family independence rules",
+        "Antigravity power user evaluating cross-harness interoperability",
+        "Workflow pack author inspecting digest-locked upstream skill syncing",
+        "Autonomous-loop experimenter testing bounded 3-round scoped send-back",
+        "Eval-harness builder inspecting blind adjudication before test grading",
+        "OSS contributor reading AGENTS.md and CONTRIBUTING.md before first PR",
+        "Developer tools investor mapping defensible moats in the agent-board wave",
+        "Specification author studying TypeSpec -> OpenAPI + Rust + Go alignment"
+      ],
+      "weights": {"C01": 4, "C02": 5, "C03": 4, "C04": 4, "C05": 5, "C06": 4, "C07": 5, "C08": 4, "C09": 5, "C10": 4, "C11": 2, "C12": 5}
+    },
+    {
+      "id": "G06",
+      "name": "Hacker News, X/Twitter & DevRel Evaluators",
+      "perspectives": [
+        "Hacker News front-page reader giving a repo 8 seconds before clicking Back",
+        "Developer newsletter curator hunting for one striking diagram to embed",
+        "Tech YouTuber looking for a visual interactive demo to record live",
+        "X/Twitter AI builder sharing a screenshot that stops thumbs mid-scroll",
+        "GitHub Explore browser judging star-worthiness from hero + first image",
+        "Design-award critic checking if dark UI falls into generic AI purple clichés",
+        "Skeptical HN commenter Ctrl+F-ing for hype words, vaporware, or fake stats",
+        "Podcast host summarizing a repo in one memorable 12-word hook",
+        "DevRel engineer testing how fast a stranger can get an aha moment in a PR",
+        "Product Hunt maker evaluating interactive landing page polish on mobile",
+        "Technical blogger writing a roundup of top 2026 multi-agent harnesses",
+        "Visual storyteller drawn to the Nuclear Plant annunciator & SCRAM metaphor",
+        "Open-source growth advisor looking for a viral loop that travels via PRs",
+        "Reddit r/LocalLLaMA & r/ClaudeAI reader comparing subscription value",
+        "Typography & UI craft enthusiast inspecting control-room instrumentation",
+        "First-time visitor on an iPhone (390px) tapping links from a social thread",
+        "Conference speaker looking for cited empirical charts on AI self-correction",
+        "Meme-savvy engineer who loves 'Never let an agent grade its own homework'",
+        "Cynical senior dev who respects a prominent 'What it is not' section",
+        "Repo tourist who stars projects with interactive zero-signup demos"
+      ],
+      "weights": {"C01": 5, "C02": 5, "C03": 4, "C04": 5, "C05": 5, "C06": 5, "C07": 4, "C08": 5, "C09": 4, "C10": 3, "C11": 2, "C12": 4}
+    },
+    {
+      "id": "G07",
+      "name": "Regulated Software Leads (MedTech, FinTech, Aero, Defense)",
+      "perspectives": [
+        "Medical-device IEC 62304 software lead needing traceable verification records",
+        "FinTech ledger lead requiring dual-control separation on code changes",
+        "Avionics tool-qualification engineer separating deterministic vs AI outputs",
+        "Defense contractor software lead sensitive to outbound data egress",
+        "Automotive ISO 26262 software manager checking independent review gates",
+        "Critical-infrastructure ICS software architect valuing ISA-101 calm alarms",
+        "RegTech CTO wanting offline cryptographic verification without vendor cloud",
+        "Internal audit engineering partner sampling historical change packages",
+        "Pharma GxP validation engineer requiring immutable revision binding",
+        "Rail-signaling software verifier checking acceptance criteria coverage",
+        "Grid-operations software lead evaluating emergency stop and quarantine flows",
+        "GovCloud engineering lead rejecting SaaS tools that retain customer prompts",
+        "Insurance-actuarial software lead forbidding model-invented constants",
+        "Quality-systems software manager reading docs/qa-standards.md for honesty",
+        "Telecom core-network lead testing multi-vendor verification diversity",
+        "Payment-gateway security lead requiring hardware passkey sign-off",
+        "Robotics safety-controller lead separating planning from execution authority",
+        "Satellite flight-software lead checking deterministic Rust state transitions",
+        "Electronic-health-record architect auditing role and custody separation",
+        "Compliance counsel verifying that README makes zero false certification claims"
+      ],
+      "weights": {"C01": 3, "C02": 4, "C03": 2, "C04": 3, "C05": 4, "C06": 4, "C07": 5, "C08": 5, "C09": 3, "C10": 5, "C11": 5, "C12": 5}
+    },
+    {
+      "id": "G08",
+      "name": "Capital Projects & Responsible-Charge Engineers",
+      "perspectives": [
+        "Nuclear design-basis engineer working under NQA-1 / 10 CFR 50 Appendix B",
+        "Licensed PE in responsible charge signing calculation packages",
+        "Mechanical equipment lead reviewing pump and heat-exchanger datasheets",
+        "Process chemical engineer checking block flow diagrams and mass-balance discipline",
+        "Electrical raceway & load-list engineer tracking input-change invalidations",
+        "Civil/structural pipe-rack engineer requiring zero unverified model numbers",
+        "Project controls & scheduling lead tracking multi-discipline hold points",
+        "Owner's engineer reviewing EPC contractor deliverables before stage gate",
+        "Document-control specialist auditing revision chains and frozen snapshots",
+        "QA manager sampling independent verification packages offline",
+        "Instrumentation & controls engineer who judges annunciators by ISA-101",
+        "Commissioning & startup manager tracking open findings to closure",
+        "EPC engineering director exploring safe AI adoption without losing accountability",
+        "DOE / national-lab project advisor checking basis and assumption tracking",
+        "Small consulting-firm principal wanting one tool for calcs, specs, and scripts",
+        "Environmental permitting lead assembling defensible technical appendices",
+        "Water/wastewater treatment plant designer reviewing equipment submittals",
+        "Industrial hazards / PHA facilitator tracking action-item verification",
+        "Substation protection engineer checking independent calculation checks",
+        "First-order FOAK program manager aligning software and plant engineering"
+      ],
+      "weights": {"C01": 3, "C02": 4, "C03": 2, "C04": 2, "C05": 5, "C06": 5, "C07": 5, "C08": 5, "C09": 3, "C10": 5, "C11": 5, "C12": 5}
+    },
+    {
+      "id": "G09",
+      "name": "Consultants, Agencies & Client-Data Stewards",
+      "perspectives": [
+        "Boutique software consultancy partner delivering audited PRs to enterprise clients",
+        "Independent security consultant running tools on NDA-bound repositories",
+        "Fractional CTO handing a clean verifiable delivery archive to a client team",
+        "Technical due-diligence advisor using multi-agent checks on target codebases",
+        "Data-engineering contractor managing strict client data-lane boundaries",
+        "Cloud-migration consultant running repeatable playbooks across accounts",
+        "Design-engineering studio shipping client web apps with zero telemetry",
+        "Screen-sharing consultant who relies on Presenting Mode to hide spend",
+        "Smart-contract / high-stakes code reviewer wanting blind second-vendor checks",
+        "ERP integration specialist documenting every requirement and sign-off",
+        "Scientific-computing consultant delivering reproducible scripts and reports",
+        "AI transformation advisor teaching teams human-in-the-loop governance",
+        "White-glove maintenance agency attaching acceptance receipts to invoices",
+        "Government digital-services contractor needing permissive-only dependencies",
+        "Embedded-firmware contractor delivering tested patches with SHA-256 proofs",
+        "Technical writer & docs consultant reviewing Markdown specs alongside code",
+        "Cross-functional product trio (PM + Design + Eng) sharing a single board",
+        "Outsourced QA verification partner running blind checks on vendor drops",
+        "Solo specialist billing fixed-fee deliverables who tracks subscription burn",
+        "M&A clean-room reviewer valuing strict third-party provenance logs"
+      ],
+      "weights": {"C01": 4, "C02": 4, "C03": 4, "C04": 4, "C05": 4, "C06": 4, "C07": 4, "C08": 5, "C09": 4, "C10": 4, "C11": 4, "C12": 5}
+    },
+    {
+      "id": "G10",
+      "name": "First-Time Visitors, Non-Git Domain Experts & Tough Critics",
+      "perspectives": [
+        "Technical PM who wants plain English ('Needs you', 'Accepted') instead of git internals",
+        "Research scientist automating Python analyses without living in terminal panes",
+        "Hardware test engineer writing lab scripts who fears complex DevOps setup",
+        "Design technologist evaluating whether the UI teaches itself in 5 seconds",
+        "First-time visitor asking 'Wait—do I have to buy API keys for this?'",
+        "Skeptic asking 'What stops the author agent from sweet-talking the reviewer?'",
+        "Critic asking 'Why not just ask Claude to review its own diff twice?'",
+        "Pragmatist asking 'Can I try just the checker on one PR before adopting a board?'",
+        "Busy lead asking 'How do I stop everything right now if a prompt goes sideways?'",
+        "Accessibility advocate testing keyboard navigation and reduced-motion behavior",
+        "Mobile reader checking if tables, diagrams, and interactive panels work at 390px",
+        "Cynic checking if 'pre-alpha' means abandoned or actively shipping daily",
+        "Confused reader who saw 'Pump skid P-101' under Software mode and bounced",
+        "User with only one CLI installed asking what happens without a second vendor",
+        "Developer wondering how Superpowers or Matt Pocock skills fit in",
+        "Cost-watcher asking why spend says 'not reported' instead of a fake $0.00",
+        "Team lead asking where human check-in points sit today vs on the roadmap",
+        "Open-source purist checking if 'free' hides a proprietary cloud control plane",
+        "Visual learner who skips prose walls and reads only diagrams and captions",
+        "Word-of-mouth sharer looking for one crisp sentence to paste into Slack"
+      ],
+      "weights": {"C01": 5, "C02": 5, "C03": 5, "C04": 5, "C05": 5, "C06": 5, "C07": 4, "C08": 4, "C09": 4, "C10": 3, "C11": 3, "C12": 5}
+    }
+  ],
+  "remaining_product_gaps": [
+    {
+      "id": "RG-1",
+      "gap": "Prebuilt single-command binary / Homebrew installer (currently requires Node 22+, pnpm, Go, or mise)",
+      "tracked_in": "docs/patterns/onboarding.md, docs/superpowers/specs/2026-11-08-program-gap-analysis.md (G-07)"
+    },
+    {
+      "id": "RG-2",
+      "gap": "Live-login end-to-end verification on macOS and native Linux beyond scripted CI confinement",
+      "tracked_in": "docs/status.md, Issue #123"
+    },
+    {
+      "id": "RG-3",
+      "gap": "Additional sandboxed runnable CLI seats beyond Claude Code and Codex (Antigravity, Grok, OpenCode, Ollama)",
+      "tracked_in": "ADR 0024, Issue #125"
+    },
+    {
+      "id": "RG-4",
+      "gap": "Pre-passkey look-around mode inside the local apps/web client itself (complementing the new public site/ interactive preview)",
+      "tracked_in": "docs/superpowers/specs/2026-11-08-adoption-and-retention-analysis.md (I-01)"
+    }
+  ]
+}

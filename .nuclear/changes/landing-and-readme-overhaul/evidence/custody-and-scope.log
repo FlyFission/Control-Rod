@@ -1,0 +1,54 @@
+=== git diff --name-only main ===
+ A .nuclear/changes/landing-and-readme-overhaul/basis.md
+ A .nuclear/changes/landing-and-readme-overhaul/evidence/claims-and-originality.log
+ A .nuclear/changes/landing-and-readme-overhaul/evidence/site-council-1440.png
+ A .nuclear/changes/landing-and-readme-overhaul/evidence/site-hero-1440.png
+ A .nuclear/changes/landing-and-readme-overhaul/evidence/site-phone-390.png
+ A .nuclear/changes/landing-and-readme-overhaul/evidence/site-receipt-tamper-1440.png
+ A .nuclear/changes/landing-and-readme-overhaul/evidence/site-scram-1440.png
+ A .nuclear/changes/landing-and-readme-overhaul/plan.md
+ A .nuclear/changes/landing-and-readme-overhaul/risk.md
+ A .nuclear/changes/landing-and-readme-overhaul/ship.md
+ A .nuclear/changes/landing-and-readme-overhaul/trace.md
+ A .nuclear/changes/landing-and-readme-overhaul/verification.md
+ M README.md
+ M apps/web/e2e/readme-shots.spec.ts
+ M deploy/README.md
+ A deploy/github-pages.yml
+ M docs/README.md
+ M docs/assets/readme/app/board.png
+ A docs/assets/readme/app/control-room.png
+ M docs/assets/readme/app/inbox.png
+ M docs/assets/readme/app/office.png
+ M docs/assets/readme/app/packages.png
+ A docs/assets/readme/app/workflow.png
+ A docs/assets/readme/council-loop.svg
+ A docs/assets/readme/evidence-board.svg
+ A docs/assets/readme/pr-receipt-card.svg
+ M docs/assets/readme/second-checker.svg
+ A docs/assets/readme/workflow-modes.svg
+ A docs/quickstart-check.md
+ A docs/research/outside-perspectives-2026-11/README.md
+ A docs/research/outside-perspectives-2026-11/SHA256SUMS
+ A docs/research/outside-perspectives-2026-11/evaluate.py
+ A docs/research/outside-perspectives-2026-11/inputs.json
+ A docs/research/outside-perspectives-2026-11/outputs.json
+ A docs/research/outside-perspectives-2026-11/reproduce.sh
+ M docs/research/second-checker/README.md
+ M docs/research/second-checker/build.py
+ M docs/research/second-checker/outputs.json
+ A scripts/build-site.mjs
+ A scripts/serve-site.mjs
+ A scripts/test/site.test.mjs
+ A site/.gitignore
+ A site/README.md
+ A site/app.js
+ A site/index.html
+ A site/styles.css
+?? .nuclear/changes/landing-and-readme-overhaul/evidence/assets.sha256
+?? .nuclear/changes/landing-and-readme-overhaul/evidence/custody-and-scope.log
+?? .nuclear/changes/landing-and-readme-overhaul/evidence/readme-shots.log
+?? .nuclear/changes/landing-and-readme-overhaul/evidence/repo-gates.log
+?? .nuclear/changes/landing-and-readme-overhaul/evidence/site-test.log
+=== trust-surface check ===
+PASS: zero CODEOWNERS trust surfaces or AGENTS.md touched

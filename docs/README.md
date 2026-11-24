@@ -2,6 +2,7 @@
 
 ## Start here
 
+- [quickstart-check.md](quickstart-check.md): run `controlrod check` on any git branch or GitHub PR in 30 seconds, and verify PR receipts offline
 - [getting-started.md](getting-started.md): run it, test it, change it
 - [status.md](status.md): what works, what is stubbed, what is next, and the known failures
 - [collaboration.md](collaboration.md): issues, branches, reviews, merges, labels, the project board and Dependabot policy
@@ -16,7 +17,7 @@
 - [crosswalk.md](crosswalk.md): how one control spine serves Software and Capital Projects modes
 - [`sqa/`](sqa/): the software quality assurance package for Control Rod itself
 - [`patterns/`](patterns/): ideas borrowed from other projects, written under the clean-room rule
-- [`research/`](research/): scripted studies of what users need, with inputs, outputs and digests
+- [`research/`](research/): scripted studies (`second-checker/`, `user-demand-2026-11/`, `outside-perspectives-2026-11/`) with inputs, outputs and digests
 - [reading-comfort.md](reading-comfort.md): type, contrast and live-output rules for the web app, and where tests keep them
 
 ## Running and operating it

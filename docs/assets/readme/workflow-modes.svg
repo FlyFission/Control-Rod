@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 350" width="1040" height="350" role="img" aria-labelledby="wm-t wm-d">
+<title id="wm-t">Dynamic Workflows, Context Depth, and Human Check-In Controls</title>
+<desc id="wm-d">Three orthogonal controls in Control Rod: Per-Card Workflow Pack (Playbook, Superpowers, Matt Pocock, Pocock Superpowers), Context Depth (Light vs Nuclear), and Check-In Points (Start and merge live today; Start only and Every step coming soon).</desc>
+<rect width="1040" height="350" rx="12" fill="#06090f" stroke="#1a2739" stroke-width="1.5"/>
+<rect x="14" y="14" width="1012" height="322" rx="8" fill="#0b111b" stroke="#1a2739"/>
+<path d="M14,24 V14 H24" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M1016,14 H1026 V24" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M14,326 V336 H24" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M1016,336 H1026 V326" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<text x="36" y="42" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#00f2ff">DYNAMIC HARNESS CONTROLS // THREE ORTHOGONAL DIALS PER PROJECT OR CARD</text>
+<text x="36" y="66" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="19" font-weight="700" fill="#edf4fc">Run lightweight on a two-line bugfix—or full Nuclear rigor on high-consequence work</text>
+<rect x="36" y="88" width="312" height="224" rx="6" fill="#101926" stroke="#2b3f59"/>
+<text x="54" y="112" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#00f2ff">1. WORKFLOW PACK (HOW IT SEQUENCES)</text>
+<rect x="54" y="126" width="276" height="36" rx="4" fill="#0b111b" stroke="#00f2ff"/>
+<text x="66" y="148" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" font-weight="600" fill="#edf4fc">Playbook</text>
+<text x="318" y="148" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#9eb0c4">Default stage brief</text>
+<rect x="54" y="170" width="276" height="36" rx="4" fill="#0b111b" stroke="#2b3f59"/>
+<text x="66" y="192" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" font-weight="600" fill="#edf4fc">Superpowers</text>
+<text x="318" y="192" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#22f59e">Jesse Vincent · MIT</text>
+<rect x="54" y="214" width="276" height="36" rx="4" fill="#0b111b" stroke="#2b3f59"/>
+<text x="66" y="236" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" font-weight="600" fill="#edf4fc">Matt Pocock</text>
+<text x="318" y="236" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#22f59e">Pocock skills · MIT</text>
+<rect x="54" y="258" width="276" height="36" rx="4" fill="#0b111b" stroke="#2b3f59"/>
+<text x="66" y="280" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" font-weight="600" fill="#edf4fc">Pocock Superpowers</text>
+<text x="318" y="280" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#00f2ff">Hybrid · SHA-256 locked</text>
+<rect x="364" y="88" width="312" height="224" rx="6" fill="#101926" stroke="#2b3f59"/>
+<text x="382" y="112" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#00f2ff">2. CONTEXT DEPTH (HOW MUCH RIGOR)</text>
+<rect x="382" y="126" width="276" height="78" rx="4" fill="#0b111b" stroke="#00f2ff"/>
+<text x="396" y="148" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="14" font-weight="700" fill="#edf4fc">Light Context</text>
+<text x="396" y="168" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Short, fast stage brief for everyday</text>
+<text x="396" y="185" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">General-service code &amp; docs.</text>
+<rect x="382" y="214" width="276" height="80" rx="4" fill="#0b111b" stroke="#ffb020"/>
+<text x="396" y="236" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="14" font-weight="700" fill="#ffb020">Nuclear Context</text>
+<text x="396" y="256" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Adds basis, assumptions, custody &amp;</text>
+<text x="396" y="273" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">trace discipline. Mandatory on Safety.</text>
+<rect x="692" y="88" width="312" height="224" rx="6" fill="#101926" stroke="#2b3f59"/>
+<text x="710" y="112" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#ffb020">3. WHEN WE CHECK WITH YOU</text>
+<rect x="710" y="126" width="276" height="52" rx="4" fill="#261b08" stroke="#ffb020"/>
+<text x="724" y="147" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" font-weight="700" fill="#edf4fc">At start &amp; before merge</text>
+<text x="974" y="147" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10" font-weight="600" fill="#22f59e">LIVE TODAY</text>
+<text x="724" y="165" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="11.5" fill="#c8d6e5">Passkey at release + passkey at accept</text>
+<rect x="710" y="186" width="276" height="46" rx="4" fill="#0b111b" stroke="#1a2739"/>
+<text x="724" y="206" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" font-weight="600" fill="#c8d6e5">At the start only</text>
+<text x="974" y="206" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10" fill="#9eb0c4">COMING SOON</text>
+<text x="724" y="222" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="11" fill="#9eb0c4">Needs signed standing acceptance in kernel</text>
+<rect x="710" y="240" width="276" height="54" rx="4" fill="#0b111b" stroke="#1a2739"/>
+<text x="724" y="260" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" font-weight="600" fill="#c8d6e5">At every step</text>
+<text x="974" y="260" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10" fill="#9eb0c4">COMING SOON</text>
+<text x="724" y="278" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="11" fill="#9eb0c4">SCRAM &amp; disputes always stop for you</text>
+</svg>

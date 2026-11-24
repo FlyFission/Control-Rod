@@ -1,0 +1,64 @@
+# Staged GitHub Pages deployment workflow for `site/`.
+#
+# Why this file lives in `deploy/` first:
+# `.github/` is a CODEOWNERS trust surface (AGENTS.md rule 2). Under
+# `docs/collaboration.md#sole-maintainer-sign-off`, moving this file to
+# `.github/workflows/pages.yml` requires the maintainer's recorded yes on the
+# pull request naming `.github/workflows/pages.yml`.
+#
+# To enable live GitHub Pages deployment once approved:
+#   1. Copy `deploy/github-pages.yml` -> `.github/workflows/pages.yml`
+#   2. In GitHub Settings -> Pages, set Source to "GitHub Actions"
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "scripts/build-site.mjs"
+      - "docs/assets/readme/**"
+      - "apps/web/public/fonts/**"
+      - "apps/web/public/agent-marks/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - name: Build static landing site
+        run: node scripts/build-site.mjs
+      - name: Verify site claims and zero third-party URLs
+        run: node --test scripts/test/site.test.mjs
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

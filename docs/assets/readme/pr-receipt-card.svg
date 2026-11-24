@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 376" width="960" height="376" role="img" aria-labelledby="pr-t pr-d">
+<title id="pr-t">Control Rod Verifiable Pull Request Receipt</title>
+<desc id="pr-d">Example PR receipt generated from an authenticated Control Rod inclusion proof showing package ID, author agent, cross-vendor blind checker verdict, human passkey acceptance, SHA-256 diff digest, and offline verification command.</desc>
+<rect width="960" height="376" rx="12" fill="#06090f" stroke="#1a2739" stroke-width="1.5"/>
+<rect x="16" y="16" width="928" height="344" rx="8" fill="#0b111b" stroke="#2b3f59"/>
+<path d="M16,26 V16 H26" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M934,16 H944 V26" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M16,350 V360 H26" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M934,360 H944 V350" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<rect x="16" y="16" width="928" height="38" rx="8" fill="#101926"/>
+<line x1="16" x2="944" y1="54" y2="54" stroke="#2b3f59"/>
+<circle cx="38" cy="35" r="5" fill="#22f59e"/>
+<text x="52" y="39" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="600" fill="#edf4fc">CONTROL ROD PROVENANCE RECEIPT // ATTACH TO ANY PULL REQUEST OR CLIENT DROP</text>
+<text x="926" y="39" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#22f59e">SEAL AUTHENTICATED</text>
+<rect x="36" y="72" width="556" height="224" rx="6" fill="#101926" stroke="#1a2739"/>
+<text x="54" y="98" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="16" font-weight="700" fill="#edf4fc">WP-0042 · rev 1 — Fix OAuth PKCE state validation</text>
+<line x1="54" x2="574" y1="110" y2="110" stroke="#1a2739"/>
+<text x="54" y="134" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#9eb0c4">WRITER</text>
+<text x="200" y="134" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="600" fill="#edf4fc">claude (Anthropic · isolated worktree)</text>
+<text x="54" y="160" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#9eb0c4">BLIND CHECKER</text>
+<text x="200" y="160" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="600" fill="#00f2ff">codex (OpenAI · distinct vendor) -> PASS (1 minor)</text>
+<text x="54" y="186" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#9eb0c4">ACCEPTED BY</text>
+<text x="200" y="186" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="600" fill="#ffb020">Ben Huffer (WebAuthn passkey signature)</text>
+<text x="54" y="212" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#9eb0c4">DIFF SHA-256</text>
+<text x="200" y="212" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" fill="#c8d6e5">sha256:8f4c2e91b07d4a62c1e8…d307a41b7c68e502</text>
+<rect x="54" y="232" width="520" height="48" rx="4" fill="#06090f" stroke="#1a2739"/>
+<text x="66" y="252" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#9eb0c4">$ pnpm cr verify --receipt pr-receipt.md inclusion-proof.json</text>
+<text x="66" y="270" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#22f59e">✓ Verified offline: seal intact, human acceptance covers exact diff &amp; rev 1</text>
+<rect x="610" y="72" width="314" height="106" rx="6" fill="#101926" stroke="#1a2739"/>
+<text x="626" y="95" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#00f2ff">MODE A // FULL WORKSPACE RECEIPT</text>
+<text x="626" y="116" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Exported from an accepted package with</text>
+<text x="626" y="133" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">sealed event-chain inclusion proof:</text>
+<text x="626" y="158" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" fill="#edf4fc">pnpm cr receipt proof.json</text>
+<rect x="610" y="190" width="314" height="106" rx="6" fill="#101926" stroke="#1a2739"/>
+<text x="626" y="213" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#ffb020">MODE B // 30s STANDALONE CLI / CI</text>
+<text x="626" y="234" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Run blind cross-vendor check on any git</text>
+<text x="626" y="251" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">diff or GitHub PR (honestly marked unaccepted):</text>
+<text x="626" y="276" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" fill="#edf4fc">controlrod check --base main</text>
+<text x="36" y="332" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">Every governed receipt embeds a machine-checked binding comment; editing a single character of the verdict, author, or digest fails offline verification.</text>
+</svg>

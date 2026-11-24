@@ -50,4 +50,30 @@ describe("DiffView", () => {
     expect(screen.getByRole("region", { name: "logo.png" })).toBeTruthy();
     expect(screen.getByText(/Binary files a\/logo.png/)).toBeTruthy();
   });
+
+  it("shows a mode change and a rename on files that also have text edits", () => {
+    const text = [
+      "diff --git a/run.sh b/run.sh",
+      "old mode 100644",
+      "new mode 100755",
+      "index 1111111..2222222",
+      "--- a/run.sh",
+      "+++ b/run.sh",
+      "@@ -1 +1 @@",
+      "-echo a",
+      "+echo b",
+      "diff --git a/old.md b/new.md",
+      "similarity index 90%",
+      "rename from old.md",
+      "rename to new.md",
+      "--- a/old.md",
+      "+++ b/new.md",
+      "@@ -1 +1 @@",
+      "-x",
+      "+y",
+    ].join("\n");
+    render(<DiffView text={text} />);
+    expect(within(screen.getByRole("region", { name: "run.sh" })).getByText(/new mode 100755/)).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "new.md" })).getByText(/rename from old.md/)).toBeTruthy();
+  });
 });

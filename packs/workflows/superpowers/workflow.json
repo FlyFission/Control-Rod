@@ -1,0 +1,11 @@
+{
+  "id": "superpowers",
+  "name": "Superpowers",
+  "author": "Jesse Vincent",
+  "upstream": "https://github.com/obra/superpowers",
+  "stages": {
+    "intake": { "card": "stages/intake.md", "skills": ["superpowers:brainstorming", "superpowers:writing-plans"] },
+    "author": { "card": "stages/author.md", "skills": ["superpowers:subagent-driven-development", "superpowers:test-driven-development", "superpowers:systematic-debugging", "superpowers:verification-before-completion"] },
+    "pre-check": { "card": "stages/pre-check.md", "skills": ["superpowers:subagent-driven-development", "superpowers:requesting-code-review", "superpowers:verification-before-completion"] }
+  }
+}

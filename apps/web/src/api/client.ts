@@ -20,10 +20,21 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   PackageView,
   PersonVerificationEntry,
   Run,
+  ActiveRunSummary,
+  RunOutput,
+  RunOutputPreview,
   RuntimeStatus,
+  AgentUpdate,
   SubscriptionView,
+  AgentSetupView,
+  AgentSetupRequest,
   Session,
   WorkPackage,
+  WorkspaceProject,
+  WorkspaceProjectArchive,
+  WorkspaceProjectArchivePayload,
+  WorkspaceProjectCreatePayload,
+  WorkspaceProjectUpdatePayload,
   LocalRepoInfo,
   GithubRepoInfo,
   ReposResponse,
@@ -90,6 +101,12 @@ async function callTagged<T>(method: string, path: string, body?: unknown, heade
   return send<T>(method, path, body, headers);
 }
 
+let onUnauthorized: (() => void) | undefined;
+
+export function setUnauthorizedHandler(fn?: () => void): void {
+  onUnauthorized = fn;
+}
+
 async function send<T>(method: string, path: string, body?: unknown, headers: Record<string,string> = {}): Promise<{ data: T; etag: string | null }> {
   const init: RequestInit = { method, credentials: "same-origin", headers: { ...headers } };
   if (body !== undefined) {
@@ -97,9 +114,20 @@ async function send<T>(method: string, path: string, body?: unknown, headers: Re
     init.body = JSON.stringify(body);
   }
   const res = await fetch(url(path), init);
+  if (res.status === 401 && !path.startsWith("/auth/")) onUnauthorized?.();
   if (res.status === 204) return { data: undefined as T, etag: res.headers.get("etag") };
   const text = await res.text();
-  const data: unknown = text.length > 0 ? JSON.parse(text) : undefined;
+  let data: unknown;
+  if (text.length > 0) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (!res.ok) {
+        throw new ApiError(res.status, "error", `Request failed (${res.status})`);
+      }
+      throw new ApiError(res.status, "invalid_response", "Invalid JSON response from server");
+    }
+  }
   if (!res.ok) {
     const err = (data ?? {}) as { code?: string; message?: string; change?: string };
     throw new ApiError(res.status, err.code ?? "error", err.message ?? `Request failed (${res.status})`, err.change);
@@ -128,6 +156,9 @@ export const api = {
   capture: (body: NewCapture) => call<Capture>("POST", "/captures", body),
   /** Classifies a capture's data lane; until then no AI runtime sees it. */
   classifyCapture: (id: string, lane: DataLane) => call<Capture>("POST", `/captures/${enc(id)}/classify`, { lane }),
+  /** Dismisses a pending capture from the board (audited). */
+  dismissCapture: (id: string) => call<Capture>("POST", `/captures/${enc(id)}/dismiss`),
+  /** Closes a package from the board (audited, preserves audit record). */
 
   refreshPreparationBasis: (id:string,etag:string) => call<PreparationView>("POST",`/packages/${enc(id)}/preparation/basis/refresh`,undefined,{"if-match":etag}),
   preparationConfirmationOptions: (id:string,expected:Digest) => call<{requirements_digest:Digest;options:Record<string,unknown>}>("POST",`/packages/${enc(id)}/preparation/confirm/options`,{expected_requirements_digest:expected}),
@@ -163,6 +194,15 @@ export const api = {
   packageView: (id: string) => call<PackageView>("GET", `/packages/${enc(id)}`),
   /** Saves a draft the caller loaded with `etag`; a stale tag is refused so no edit is lost. */
   updatePackage: (pkg: WorkPackage, etag: string) => callTagged<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg, { "if-match": etag }),
+  activeRuns: () => call<ActiveRunSummary[]>("GET", "/runs/active"),
+  exactRun: (id: string, runId: string) => call<Run>("GET", `/packages/${enc(id)}/runs/${enc(runId)}`),
+  runOutputs: (id: string, runId: string, after = "") => call<RunOutput[]>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/outputs${after ? `?after=${enc(after)}` : ""}`),
+  runOutputPreview: (id: string, runId: string, path: string) =>
+    call<RunOutputPreview>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/outputs/preview?path=${enc(path)}`),
+  transcriptWindow: (id: string, runId: string, page: { recent: true } | { before: number } | { after: number }, limit: number) => {
+    const search = new URLSearchParams(Object.entries({ ...page, limit }).map(([name, value]) => [name, String(value)]));
+    return call<{ events: { seq: number; event: NormalizedEvent }[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/events?${search}`);
+  },
   runEvents: (id: string, runId: string, after = 0) =>
     call<{ events: { seq: number; event: NormalizedEvent }[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/events${after > 0 ? `?after=${after}` : ""}`),
   runLog: (id: string, runId: string) =>
@@ -195,9 +235,20 @@ export const api = {
   office: () => call<OfficeItem[]>("GET", "/office"),
   officeFigures: (presenting: boolean) => call<OfficeFloor>("GET", presenting ? "/office/figures?presenting=true" : "/office/figures"),
   inbox: (since?: number) => call<InboxView>("GET", since === undefined ? "/inbox" : `/inbox?since=${since}`),
-  runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[] }>("GET", "/runtimes"),
+  runtimes: () =>
+    call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[]; agent_updates?: AgentUpdate[] }>("GET", "/runtimes"),
   subscriptions: () => call<SubscriptionView>("GET", "/subscriptions"),
+  setup: () => call<AgentSetupView>("GET", "/setup"),
+  recordSetup: (body: AgentSetupRequest) => call<AgentSetupView>("PUT", "/setup", body),
+  recordSeat: (runtime: string, seated: boolean) => call<AgentSetupView>("PUT", `/setup/seats/${enc(runtime)}`, { seated }),
   admin: () => call<AdminView>("GET", "/admin"),
+  workspaceProjects: () => call<WorkspaceProject[]>("GET", "/workspace/projects"),
+  createWorkspaceProject: (payload: WorkspaceProjectCreatePayload, assertion: Record<string, unknown>) =>
+    call<WorkspaceProject>("POST", "/workspace/projects", { payload, assertion }),
+  updateWorkspaceProject: (payload: WorkspaceProjectUpdatePayload, assertion: Record<string, unknown>) =>
+    call<WorkspaceProject>("PATCH", `/workspace/projects/${enc(payload.project_id)}`, { payload, assertion }),
+  archiveWorkspaceProject: (payload: WorkspaceProjectArchivePayload, assertion: Record<string, unknown>) =>
+    call<WorkspaceProjectArchive>("POST", `/workspace/projects/${enc(payload.project_id)}/archive`, { payload, assertion }),
   roster: () => call<RosterView>("GET", "/roster"),
   usage: () => call<UsageView>("GET", "/usage"),
   adminCommandOptions: (name: string, payload: Record<string, unknown>) =>

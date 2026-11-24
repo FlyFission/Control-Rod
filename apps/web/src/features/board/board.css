@@ -1,4 +1,3 @@
-/* The board (redesign task 4). Tokens only; a later slice does the visual polish. */
 /* The board root carries the look (data-look), so it paints its own ground and text. */
 .bd {
   padding: 0;
@@ -8,9 +7,9 @@
 .bd-head {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   padding-bottom: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   border-bottom: 1px solid var(--line);
 }
 .bd-head-top {
@@ -18,6 +17,33 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 20px;
+}
+.bd-project-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+}
+.bd-project-bar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.bd-project-repo-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.bd-project-bar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .bd-filters {
   display: inline-flex;
@@ -145,15 +171,24 @@
     grid-template-columns: 1fr;
   }
   .bd-drawer {
-    position: static;
-    max-height: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(440px, 100vw);
+    max-height: 100vh;
+    z-index: 50;
+    border-radius: 0;
+    box-shadow: -8px 0 28px rgb(0 0 0 / 0.25);
   }
 }
 .bd-counts {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
   margin: 0;
-  color: var(--text-2);
+  color: var(--muted);
   font-size: var(--fs-small);
 }
 .bd-unknown {
@@ -189,60 +224,83 @@
 .bd-empty-copy p {
   margin: 0 0 10px;
 }
-.bd-empty-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: var(--fs-label);
-  color: var(--text-2);
-}
-.bd-empty-steps span {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-}
 .bd-empty-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
+.bd-stages {
+  min-width: 0;
+  container-type: inline-size;
+}
+.bd-stage-jump {
+  display: none;
+}
+@container (width < 1110px) {
+  .bd-stage-jump {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 2px 8px;
+    color: var(--text-2);
+    font-size: var(--fs-label);
+  }
+}
+.bd-board-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: var(--fs-small);
+}
 .bd-board {
   display: grid;
-  grid-template-columns: repeat(6, minmax(175px, 1fr));
+  grid-template-columns: repeat(6, minmax(176px, 1fr));
   gap: 10px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   /* Holds the cards' absolutely placed screen-reader text inside this scroller; without it those
      spans sat against the page, and on a phone the whole page scrolled sideways (live phone persona). */
   position: relative;
-  padding-bottom: 6px;
+  padding: 2px 2px 10px;
   align-items: start;
 }
 .bd-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  min-height: 360px;
+  min-height: 260px;
   padding: 8px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 12px;
 }
 .bd-col-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3px 6px 7px;
+  gap: 8px;
+  min-height: 38px;
+  padding: 2px 2px 7px;
   border-bottom: 1px solid var(--line);
   font-size: var(--fs-label);
   font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--text-2);
 }
-.bd-col-head h2 {
+.bd-col-head :is(h2, h3) {
   margin: 0;
   font-size: inherit;
   font-weight: inherit;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .bd-retry {
   align-self: flex-start;
@@ -250,25 +308,56 @@
 .bd-card {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 10px 11px;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
   background: var(--panel);
   border: 1px solid var(--line-2);
   border-left: 3px solid var(--kind-doc);
-  border-radius: 7px;
+  border-radius: 10px;
   color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  overflow-wrap: anywhere;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .bd-card:hover {
   border-color: var(--muted);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.08);
 }
 .bd-card[data-kind="code"] {
   border-left-color: var(--kind-code);
 }
 .bd-kinds {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 6px;
+  min-width: 0;
   font-size: var(--fs-chip);
   color: var(--text-2);
+}
+.bd-id {
+  margin-left: auto;
+  font-size: var(--fs-chip);
+  opacity: 0.85;
+}
+.bd-detail-toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-chip);
+  cursor: pointer;
+}
+.bd-detail-toggle:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.bd-col-more {
+  width: 100%;
+  justify-content: center;
 }
 .bd-kind[data-kind="code"] .bd-kind-icon {
   color: var(--kind-code);
@@ -284,7 +373,7 @@
   all: unset;
   cursor: pointer;
   font-size: var(--fs-small);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.38;
   color: var(--text);
   display: -webkit-box;
@@ -294,10 +383,9 @@
   /* WCAG 2.5.8: a one-line title is still a 24 px tap target (live phone persona). */
   min-height: 24px;
   overflow-wrap: anywhere;
-  text-decoration: underline transparent;
 }
 .bd-title:hover {
-  text-decoration-color: currentColor;
+  text-decoration: underline;
 }
 .bd-title:focus-visible {
   outline: 2px solid var(--accent);
@@ -382,12 +470,27 @@
 .bd-ctx-note {
   margin: 4px 0 0;
 }
-.bd-next {
-  display: flex;
-  gap: 6px;
-  margin: 2px 0 0;
-  font-size: var(--fs-label);
+.bd-wf-select {
+  padding: 2px 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
   color: var(--text);
+  font: inherit;
+  font-size: var(--fs-label);
+}
+.bd-next {
+  margin: 0;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-label);
+  line-height: 1.42;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.bd-sym {
+  white-space: nowrap;
 }
 .bd-card[data-tone="needs"] .bd-sym {
   color: var(--needs);
@@ -450,16 +553,30 @@
 }
 .bd-capture-title {
   margin: 0;
-  cursor: default;
-  white-space: pre-wrap;
+  white-space: normal;
   overflow-wrap: anywhere;
+  -webkit-line-clamp: 3;
 }
 .bd-capture-classify {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
+  min-width: 0;
   font-size: var(--fs-label);
+}
+.bd-capture-classify .btn {
+  align-self: flex-start;
+}
+.bd-capture-classify .error {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border-left: 3px solid var(--stuck);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 /* Act from the card (M3): the primary decision and the Move to menu. */
@@ -478,12 +595,11 @@
   position: relative;
 }
 .bd-menu {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 220px;
-  max-width: 300px;
+  position: fixed;
+  width: min(280px, calc(100vw - 16px));
+  z-index: 40;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 0;
   padding: 4px;
   list-style: none;
@@ -554,7 +670,7 @@
 .bd-lens-seg {
   display: inline-flex;
   border: 1px solid var(--line-2);
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 2px;
   background: var(--surface);
   gap: 2px;
@@ -563,18 +679,23 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  min-height: 26px;
+  padding: 3px 9px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 5px;
   background: transparent;
   color: var(--text-2);
   font: inherit;
   font-size: var(--fs-label);
   cursor: pointer;
 }
+.bd-lens-btn:hover,
 .bd-lens-btn[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--panel);
+  color: var(--text);
+}
+.bd-lens-btn[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px var(--line-2);
   font-weight: 600;
 }
 .bd-lens-count {
@@ -583,9 +704,50 @@
 .bd-lens-stale {
   font-size: var(--fs-label);
 }
-.bd-lens-spacer {
-  flex: 1;
-  min-width: 8px;
+.bd-view-settings {
+  margin-left: auto;
+}
+.bd-view-settings[open] {
+  flex-basis: 100%;
+}
+.bd-view-settings summary {
+  width: fit-content;
+  list-style: none;
+}
+.bd-view-settings summary::-webkit-details-marker {
+  display: none;
+}
+.bd-view-settings summary::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin: 0 2px 3px;
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+  transform: rotate(45deg);
+}
+.bd-view-settings[open] summary::after {
+  transform: rotate(225deg);
+  margin-bottom: 0;
+}
+.bd-view-custom {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: var(--fs-label);
+}
+.bd-view-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
 }
 .bd-lens-ctl {
   display: inline-flex;
@@ -662,18 +824,12 @@
   font-weight: 600;
   color: var(--text);
 }
-.bd-col-head h3 {
-  margin: 0;
-  font-size: inherit;
-  font-weight: inherit;
-}
 .bd[data-density="compact"] .bd-card {
   padding: 6px 9px;
   gap: 4px;
 }
 .bd[data-density="compact"] .bd-avatar,
-.bd[data-density="compact"] .bd-chip,
-.bd[data-density="compact"] .bd-nuclear {
+.bd[data-density="compact"] .bd-chip {
   display: none;
 }
 .bd-legend {
@@ -705,4 +861,375 @@
 .bd-legend-count {
   margin-left: auto;
   color: var(--muted);
+}
+
+/* Header search & Board | List toggle + List view + Drawer tabs (Slice 1). */
+.bd-head-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.bd-search-input {
+  width: 200px;
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-label);
+}
+.bd-search-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.bd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.bd-list-group {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.bd-list-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.bd-list-chev {
+  font-size: var(--fs-chip);
+  width: var(--fs-chip);
+}
+.bd-list-rows {
+  display: flex;
+  flex-direction: column;
+}
+.bd-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+.bd-list-row:last-child {
+  border-bottom: 0;
+}
+.bd-list-row:hover {
+  background: var(--panel);
+}
+.bd-list-row.selected {
+  background: var(--panel);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.bd-list-dot {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-size: var(--fs-label);
+  color: var(--text-2);
+}
+.bd-list-row[data-tone="needs"] .bd-list-dot {
+  color: var(--needs);
+}
+.bd-list-row[data-tone="block"] .bd-list-dot {
+  color: var(--stuck);
+}
+.bd-list-row[data-tone="ok"] .bd-list-dot {
+  color: var(--done);
+}
+.bd-list-id {
+  flex-shrink: 0;
+  width: 86px;
+  font-size: var(--fs-chip);
+}
+.bd-list-title {
+  flex: 1 1 200px;
+  min-width: 0;
+  min-height: 24px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: unset;
+}
+.bd-list-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.bd-safety-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--needs);
+  color: var(--needs);
+  font-size: var(--fs-chip);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bd-safety-badge[data-tone="block"] {
+  border-color: var(--stuck);
+  color: var(--stuck);
+}
+.bd-list-status {
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bd-list-owner {
+  flex-shrink: 0;
+  max-width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bd-drawer-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.bd-drawer-tab {
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-label);
+  cursor: pointer;
+}
+.bd-drawer-tab:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+.bd-drawer-tab.active {
+  background: var(--panel);
+  border-color: var(--line-2);
+  color: var(--text);
+  font-weight: 600;
+}
+.bd-drawer-tab-alert {
+  color: var(--needs);
+  font-weight: 600;
+}
+.bd-drawer-sign-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bd-drawer-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--stuck);
+  background: var(--panel);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bd-drawer-meta {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Per-column agent oversight toggle, Nuclear-Grade PRO skill chips & responsive board */
+.bd-col-head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.bd-col-agent-select {
+  font: inherit;
+  font-size: var(--fs-chip);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  padding: 1px 5px;
+  cursor: pointer;
+}
+.bd-col-agent-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.bd-col-skills-wrap {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.bd-col-skills-toggle {
+  cursor: pointer;
+  min-height: 24px;
+  line-height: 24px;
+  padding: 0 4px;
+  font-size: var(--fs-label);
+  color: var(--text-2);
+  border-radius: 6px;
+}
+.bd-col-skills-toggle:hover {
+  color: var(--text);
+}
+.bd-col-skills-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.bd-col-skills-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.bd-col-skill-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: var(--fs-chip);
+  line-height: 1.35;
+}
+@media (max-width: 1400px) {
+  .bd-workspace.has-drawer {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+@container (max-width: 620px) {
+  .bd-board {
+    grid-template-columns: repeat(6, min(290px, 85%));
+    scroll-snap-type: x proximity;
+  }
+  .bd-col {
+    scroll-snap-align: start;
+  }
+}
+
+.bd-actions-row .btn.small,
+.bd-capture-classify .btn.small {
+  min-height: 28px;
+  padding-inline: 8px;
+  font-size: var(--fs-label);
+}
+.bd-col-head-right > .mono {
+  min-width: 20px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--panel);
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bd-card {
+    transition: none;
+  }
+}
+
+/* Quick card dismiss / close button and drag-to-trash drop zone */
+.bd-card[draggable="true"] {
+  cursor: grab;
+}
+.bd-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+.bd-card-dismiss {
+  margin-left: 4px;
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.bd-card-dismiss:hover,
+.bd-card-dismiss:focus-visible {
+  color: var(--stuck);
+  border-color: var(--stuck);
+}
+.bd-trash-zone {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: 2px dashed var(--stuck);
+  background: var(--surface);
+  color: var(--stuck);
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.35);
+  transition: transform 0.12s ease;
+}
+.bd-trash-zone.active {
+  transform: translateX(-50%) scale(1.04);
+  border-style: solid;
+}
+
+/* The N key's note when nothing on the view is marked Needs you or Blocked (pattern AW3). */
+.bd-jump-note {
+  margin: 0 0 10px;
+}
+
+/* A run that is executing now turns this ring; queued or held runs do not (boardOrder.ts). */
+.bd-spin {
+  flex: none;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--line-2);
+  border-top-color: var(--accent);
+  margin-right: 6px;
+  vertical-align: -1px;
+  animation: bd-spin 0.9s linear infinite;
+}
+@keyframes bd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bd-spin {
+    animation: none;
+  }
 }

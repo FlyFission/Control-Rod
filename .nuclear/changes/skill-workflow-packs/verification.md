@@ -1,0 +1,53 @@
+# Verification: skill workflow packs
+
+Evidence status: **pass** for the checks below on this host (macOS), with one timeout recorded in E-02.
+
+| Evidence ID | Status | Claim and limit | Artifact |
+|---|---|---|---|
+| E-01 | pass | Packs equal upstream: the controller regenerated both from the pinned checkouts into a scratch tree (identical, licence evidence included), and a separate script compared every shipped file with its upstream source: Superpowers 57, Pocock 48 (after excluding `writing-skills` and `pr`), none missing, extra or different, and no file of an excluded skill shipped. | `evidence/verify-packs.py`, `evidence/verify-packs.txt` |
+| E-02 | pass, one flaky timeout | API typecheck exits 0. Full API suite: 73 files, 887 tests passed. An earlier full run on this branch timed out once in `preparation-grants` (migration preservation, 5 s limit under load); that file alone passed 19 of 19 and the second full run passed. The API builder saw the same once. One more migration for the preservation helper to unwind may make the timeout likelier. | `evidence/api.log`, `evidence/api-first-run.txt`, `evidence/api-tsc.log` |
+| E-03 | pass | Web typecheck exits 0; full web suite 53 files, 709 tests, jsdom only. | `evidence/web.log`, `evidence/web-tsc.log` |
+| E-04 | pass | Scripts suite: 25 tests, 21 passed, 4 skipped (the nuclear-pack tests that need an NGCE checkout, skipped before this change too). | `evidence/scripts.log` |
+| E-05 | pass with two known problems | Pack check, workflow budgets, Nuclear brief budgets, public claims, originality and offline assets pass. The register check reports only the two problems already on `main` (`apps/web/src/lib/kind.ts`, `services/api/src/seals.ts`). | `evidence/checks.log` |
+| E-07 | pass | Blind review by a different vendor (Codex) before landing: one P0 (owner sign-off, now recorded) and three P1s, each fixed with a test that fails without the fix; dispositions per finding. Container run of the three workflow test files after the fixes: 56 passed. | `evidence/blind-review-fixes.md` |
+| E-06 | pass | Record validates with the pinned `ng.py validate --strict-custody`; `check_owner_decisions.py` passes. | `evidence/record-checks.log` |
+
+## Builders and review
+
+Built by subagents under D3: Codex wrote the generator, check, sync script and their tests and generated the packs; Claude Sonnet subagents wrote the API composer and the web controls. The controller wrote the contract, workflow maps, stage cards, ode, notices, the budget script and the real-pack tests; read every builder diff; closed two gaps in `--check` (a pinned pack with no manifest, a skill list naming a file with no digest) with tests; corrected the capture-tag rule before the API builder finished; fixed the cards after the API builder found that prepared runs receive dependency outputs only through `design_inputs`; and reran every suite above on the integrated branch. After review on the pull request, the generator reads every file from the pinned commit's Git tree (`git ls-tree`, `git cat-file`) instead of the working tree, so local edits or untracked files in a checkout cannot ship under the pin's name, and a symlink in the tree stops the run; the regression test fails on the earlier generator and passes now, and regenerating both packs this way changed no byte. A second review round then led to: two upstream skills excluded from the packs because they reproduce third-party material under other licences (Superpowers `writing-skills`, Anthropic documentation; Pocock `pr`, humanlayer/humanlayer, Apache-2.0), recorded with reasons in `pins.json` and the manifests; a repository-level `packs/workflows/lock.json` with the digest of every manifest, workflow map and stage card, which the API checks before use, so an edit to a card, a map, or a manifest (including one edited to match a tampered upstream file) stops the run; `--check` requiring a complete three-stage map for every pack; a tag line with an unknown `[workflow:...]` id read as no tag; and a "Project default" choice on the card switch that clears the card's own value. A third round made intake follow the project default too: an untagged request whose tag line names a project of its own organization (by id or exact name) runs that project's workflow, and its drafts are stamped with the choice recorded in the run's `run.workflow` event at launch, never with a default re-read later, so a default changed mid-run cannot relabel tickets shaped for another workflow (the test changes the default mid-run, and fails against the earlier re-reading code). The lock and the manifests live in the repository, so their trust anchor is the reviewed commit, as for every other file; they stop accidental or on-host edits and make a deliberate change visible in review. No builder's report is evidence on its own.
+
+## Evidence custody and coupling
+
+| Evidence ID | Claim ID | Decisive? | Artifact / raw result | Change actor | Generated by | Selected by | Transformed / summarized by | Executed / captured by | Retained by | Presented by | Verified / witnessed by |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| E-01 | SWP-02 | yes | evidence/verify-packs.txt | Codex builder | evidence/verify-packs.py | Controller | Controller | Local toolchain | Packet | Controller | Controller (separate script) |
+| E-02 | SWP-01 | yes | evidence/api.log | Claude builder | vitest, tsc | Controller | Controller | Local toolchain | Packet | Controller | Controller rerun |
+| E-03 | SWP-08 | yes | evidence/web.log | Claude builder | vitest, tsc | Controller | Controller | Local toolchain | Packet | Controller | Controller rerun |
+| E-04 | SWP-07 | yes | evidence/scripts.log | Codex builder, controller | node --test | Controller | Controller | Local toolchain | Packet | Controller | Controller rerun |
+| E-05 | SWP-06 | no | evidence/checks.log | Controller | repository checks | Controller | Controller | Local toolchain | Packet | Controller | Self-check |
+| E-07 | SWP-01 | yes | evidence/blind-review-fixes.md | Claude (landing thread) | Codex CLI review, vitest | Landing thread | Landing thread | Owner's machine, cloud container | Packet | Landing thread | Codex (different vendor) |
+| E-06 | SWP-09 | no | evidence/record-checks.log | Controller | ng.py, check_owner_decisions.py | Controller | Controller | Local toolchain | Packet | Controller | Self-check |
+
+| Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
+|---|---|---|---|---|---|---|---|
+| E-01 | separated: controller checked builder output | coupled: same session | separated: independent script | separated: owner retains merge decision | coupled: local machine | self-check | not a person's read  [Ship limits](ship.md) |
+| E-02 | separated: controller reran builder tests | coupled: same session | separated: deterministic tools | separated: owner retains merge decision | coupled: local machine | self-check | one flaky timeout  [Ship limits](ship.md) |
+| E-03 | separated: controller reran builder tests | coupled: same session | separated: deterministic tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, no browser  [Ship limits](ship.md) |
+| E-04 | separated: controller reran builder tests | coupled: same session | separated: deterministic tools | separated: owner retains merge decision | coupled: local machine | self-check | NGCE tests skipped  [Ship limits](ship.md) |
+| E-05 | coupled: controller | coupled: same session | separated: deterministic checks | separated: owner retains merge decision | coupled: local machine | self-check | two known register problems  [Ship limits](ship.md) |
+| E-07 | separated: different-vendor reviewer | separated: reviewer saw only the diff | separated: deterministic tests | separated: owner retains merge decision | coupled: local machine | diverse verification | fixes not re-reviewed by a person  [Ship limits](ship.md) |
+| E-06 | coupled: controller | coupled: same session | separated: deterministic validators | separated: owner retains merge decision | coupled: local machine | self-check | format checks only  [Ship limits](ship.md) |
+
+No independent human review was done.
+
+## Required links
+
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
+
+## Exit criteria
+
+A package can run under the playbook, Superpowers, Pocock or Pocock Superpowers workflow, chosen per card with a project default and in New work, separate from its context profile. The two upstream packs are generated from pinned commits with digests and a `--check`; the composer puts the right stage card in the intake, author and pre-check briefs and ships the named upstream skills as verified inputs; a run whose pack is missing or tampered never starts; a sync script reports every upstream change for a person to read. Playbook briefs are byte for byte unchanged. The owner's recorded yes for the two `spec/` fields is in the Signature table of [ship](ship.md) before merge.
+
+## Source-lineage note
+
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

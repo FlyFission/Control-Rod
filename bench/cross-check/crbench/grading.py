@@ -1,0 +1,307 @@
+"""Hidden-test grading with per-test-ID evidence, patch statuses and control patches (DESIGN.md §6).
+
+A patch passes A1 only if every frozen PASS_TO_PASS ID ran and passed. It resolves the task only if,
+in addition, every FAIL_TO_PASS ID ran and passed. An ID that did not run, or an unreadable report,
+is missing evidence (infra_error), never a failure; a skipped test is not a pass.
+
+For SWE-bench the executed-test map comes from the pinned harness's own log parser
+(swebench.harness.grading.get_logs_eval), because its report files a test that never ran under
+"failure"."""
+
+from __future__ import annotations
+
+import json
+import re
+import secrets
+import subprocess
+import time
+from pathlib import Path
+
+from . import confine
+from .common import Refused, now, read_json, sha256_bytes, sha256_file
+from .workspace import _gitb, apply_patch, export_base, remove
+
+STATUSES = ("graded", "empty", "patch_invalid", "author_timeout", "infra_error")
+
+RUNNER = r'''
+import json, sys, unittest
+repo, out, ids = sys.argv[1], sys.argv[2], sys.argv[3:]
+sys.path.insert(0, repo)
+res = {}
+class R(unittest.TextTestResult):
+    def addSuccess(self, t): super().addSuccess(t); res[t.id()] = "passed"
+    def addFailure(self, t, e): super().addFailure(t, e); res[t.id()] = "failed"
+    def addError(self, t, e): super().addError(t, e); res[t.id()] = "error"
+    def addSkip(self, t, r): super().addSkip(t, r); res[t.id()] = "skipped"
+for i in ids:  # one suite per required ID, so an import error is charged to that ID
+    try:
+        suite = unittest.defaultTestLoader.loadTestsFromName(i)
+    except Exception:
+        res[i] = "error"
+        continue
+    r = unittest.TextTestRunner(resultclass=R, verbosity=0, stream=open("/dev/null", "w")).run(suite)
+    if i not in res and (r.errors or r.failures):
+        res[i] = "error"
+json.dump(res, open(out, "w"))
+'''
+
+LOG_MAP = r'''
+import json, sys
+from swebench.harness.grading import get_logs_eval
+from swebench.harness.test_spec.test_spec import make_test_spec
+snapshot, tid, log = sys.argv[1], sys.argv[2], sys.argv[3]
+row = next(json.loads(l) for l in open(snapshot) if l.strip() and json.loads(l)["instance_id"] == tid)
+status, found = get_logs_eval(make_test_spec(row), log)
+print(json.dumps({"found": bool(found), "status": status}))
+'''
+SWE_STATUS = {"PASSED": "passed", "XFAIL": "passed", "FAILED": "failed", "ERROR": "error", "SKIPPED": "skipped"}
+
+
+def judge(task: dict, outcomes: dict | None) -> dict:
+    """Apply the frozen criterion to per-ID outcomes ("passed", "failed", "error", "skipped")."""
+    f2p, p2p = list(task["FAIL_TO_PASS"]), list(task["PASS_TO_PASS"])
+    if not f2p or not p2p:
+        raise Refused("§6 A1", f"{task['instance_id']} has an empty expected test-ID set")
+    if outcomes is None:
+        return {"status": "infra_error", "why": "no report"}
+    missing = [t for t in f2p + p2p if t not in outcomes]
+    if missing:
+        return {"status": "infra_error", "why": f"{len(missing)} required test IDs did not run", "missing": missing[:20]}
+    a1 = all(outcomes[t] == "passed" for t in p2p)
+    f2p_ok = all(outcomes[t] == "passed" for t in f2p)
+    return {"status": "graded", "a1_pass": a1, "resolved": a1 and f2p_ok,
+            "skipped": sorted(t for t in f2p + p2p if outcomes[t] == "skipped"),
+            "p2p_failed": sorted(t for t in p2p if outcomes[t] != "passed"),
+            "f2p_failed": sorted(t for t in f2p if outcomes[t] != "passed")}
+
+
+def label_dir(label: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "_", label)
+
+
+# ------------------------------------------------------------------ fixture grader (offline)
+
+
+def grade_fixture(task: dict, patch: bytes, root: Path, cache: Path, deny: list[str], timeout: int = 120) -> dict:
+    """Candidate code runs under the outer confinement with no network and an outer deadline."""
+    repo = export_base(task, root, cache)
+    try:
+        for name, diff in (("model", patch), ("tests", task["test_patch"].encode())):
+            if diff.strip():
+                try:
+                    apply_patch(repo, diff, index=False)
+                except SystemExit as e:
+                    return {"status": "patch_invalid" if name == "model" else "infra_error", "why": str(e)[:300]}
+        runner = repo.parent / "runner.py"
+        runner.write_text(RUNNER)
+        out = repo.parent / "report.json"
+        argv, conf = confine.wrap(["python3", "-I", str(runner), str(repo), str(out), *task["FAIL_TO_PASS"],
+                                   *task["PASS_TO_PASS"]], deny_read=deny, allow_read=[repo.parent],
+                                  writable=[repo.parent], network=False, required=False)
+        try:
+            subprocess.run(argv, cwd=repo, capture_output=True, timeout=timeout,
+                           env={"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin", "PYTHONDONTWRITEBYTECODE": "1"})
+        except subprocess.TimeoutExpired:
+            return {"status": "infra_error", "why": "grader timeout"}
+        outcomes = json.loads(out.read_text()) if out.exists() else None
+        return {**judge(task, outcomes), "confinement": conf["mechanism"]}
+    finally:
+        remove(repo.parent)
+
+
+# ------------------------------------------------------------------ SWE-bench grader (Docker)
+
+
+def report_paths(eval_dir: Path, run_id: str, model: str, tid: str) -> list[Path]:
+    """The harness has written reports under both layouts across versions; phase 0 records which."""
+    return [eval_dir / "logs" / layout / run_id / model / tid / "report.json"
+            for layout in ("run_evaluation", "evaluation")]
+
+
+def parse_swebench_report(path: Path | None, tid: str) -> dict | None:
+    """The report's verdict fields, or None if it is missing or malformed."""
+    if path is None or not path.exists():
+        return None
+    try:
+        rj = read_json(path)[tid]
+        return {"applied": bool(rj["patch_successfully_applied"]), "resolved": bool(rj["resolved"]),
+                "tests_status": rj["tests_status"]}
+    except (KeyError, json.JSONDecodeError, TypeError):
+        return None
+
+
+def executed_map(ev: dict, snapshot: Path, tid: str, log: Path) -> dict | None:
+    """Per-test outcomes of tests that actually appear in the harness log."""
+    if not log.exists():
+        return None
+    r = subprocess.run(["uv", "run", "--python", ev["python"], "--with", ev["harness"], "python", "-c", LOG_MAP,
+                        str(snapshot), tid, str(log)], capture_output=True, text=True, timeout=600)
+    if r.returncode != 0:
+        return None
+    try:
+        j = json.loads(r.stdout.strip().splitlines()[-1])
+    except (json.JSONDecodeError, IndexError):
+        return None
+    if not j.get("found"):
+        return None
+    return {k: SWE_STATUS.get(v, "error") for k, v in j["status"].items()}
+
+
+def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple[str, str, bytes]], tasks: dict,
+                   eval_dir: Path) -> dict:
+    ev = cfg["evaluation"]
+    snapshot = Path(cfg["snapshot"]["path"]).expanduser()
+    if not snapshot.exists() or (frozen_snapshot_sha and sha256_file(snapshot) != frozen_snapshot_sha):
+        raise Refused("§3 snapshot", "the grading snapshot is missing or differs from the frozen digest")
+    out = {}
+    for label, tid, patch in items:
+        sub = eval_dir / label_dir(label)
+        sub.mkdir(parents=True, exist_ok=True)
+        model = "candidate"
+        (sub / "preds.jsonl").write_text(json.dumps({"instance_id": tid, "model_name_or_path": model,
+                                                     "model_patch": patch.decode("utf-8", errors="surrogateescape")}) + "\n")
+        rid = f"crb-{secrets.token_hex(6)}"
+        args = ["uv", "run", "--python", ev["python"], "--with", ev["harness"], "python", "-m",
+                "swebench.harness.run_evaluation", "--dataset_name", str(snapshot), "--split", ev.get("split", "test"),
+                "--predictions_path", str(sub / "preds.jsonl"), "--run_id", rid, "--max_workers", "1",
+                "--timeout", str(ev.get("timeout_s", 1800)), "--cache_level", ev.get("cache_level", "env"),
+                "--instance_ids", tid]
+        t0 = time.monotonic()
+        try:
+            r = subprocess.run(args, cwd=sub, text=True, capture_output=True, timeout=ev.get("timeout_s", 1800) + 900)
+        except subprocess.TimeoutExpired:
+            out[label] = {"status": "infra_error", "why": "harness exceeded its outer deadline", "evaluator_run_id": rid}
+            continue
+        (sub / "harness.log").write_text(r.stdout + r.stderr)
+        found = next((p for p in report_paths(sub, rid, model, tid) if p.exists()), None)
+        base = {"evaluator_run_id": rid, "seconds": round(time.monotonic() - t0, 1),
+                "report_layout": found.relative_to(sub).parts[1] if found else None}
+        if r.returncode != 0:
+            out[label] = {**base, "status": "infra_error", "why": f"harness exit {r.returncode}"}
+            continue
+        rep = parse_swebench_report(found, tid)
+        if rep is None:
+            out[label] = {**base, "status": "infra_error", "why": "missing or malformed report"}
+            continue
+        if not rep["applied"]:
+            out[label] = {**base, "status": "patch_invalid", "why": "the harness could not apply the patch"}
+            continue
+        g = judge(tasks[tid], executed_map(ev, snapshot, tid, found.parent / "test_output.txt"))
+        if g["status"] == "graded" and g["resolved"] != rep["resolved"]:
+            g = {"status": "infra_error", "why": "report and executed-test map disagree on resolution"}
+        out[label] = {**base, **g}
+    out["_images"] = docker_images()
+    return out
+
+
+def docker_images() -> list[dict]:
+    r = subprocess.run(["docker", "images", "--digests", "--format", "{{json .}}"], capture_output=True, text=True)
+    rows = []
+    for line in r.stdout.splitlines():
+        try:
+            j = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if "sweb" in j.get("Repository", ""):
+            rows.append({k: j.get(k) for k in ("Repository", "Tag", "Digest", "ID")})
+    return rows
+
+
+# ------------------------------------------------------------------ one entry point
+
+
+def grade(cfg: dict, items: list[tuple[str, str, bytes]], tasks: dict, root: Path, cache: Path, eval_dir: Path,
+          deny: list[str], snapshot_sha: str | None = None) -> dict:
+    if cfg["snapshot"]["kind"] == "fixture":
+        return {label: {**grade_fixture(tasks[tid], patch, root, cache, deny), "evaluator_run_id": f"fx-{secrets.token_hex(4)}"}
+                for label, tid, patch in items}
+    return grade_swebench(cfg, snapshot_sha, items, tasks, eval_dir)
+
+
+def grade_submission(sub: dict, graded: dict | None) -> dict:
+    """The status of one author submission, from its capture status and its grade."""
+    if sub["status"] in ("empty", "patch_invalid", "author_timeout", "infra_error"):
+        return {"status": sub["status"]}
+    if graded is None:
+        return {"status": "infra_error", "why": "not graded"}
+    return graded
+
+
+# ------------------------------------------------------------------ controls (§6)
+
+
+def noop_patch() -> bytes:
+    """The base with one sentinel file added: the harness skips an empty patch, so the base
+    control carries a change no test can see."""
+    return (b"diff --git a/CR_BENCH_NOOP.txt b/CR_BENCH_NOOP.txt\nnew file mode 100644\n"
+            b"--- /dev/null\n+++ b/CR_BENCH_NOOP.txt\n@@ -0,0 +1 @@\n+control patch: changes nothing\n")
+
+
+def known_bad(task: dict, root: Path, cache: Path) -> bytes:
+    """Empty the first source file the gold patch modifies (not one it creates or deletes)."""
+    if task.get("known_bad"):
+        return task["known_bad"].encode()
+    gold = task.get("patch") or ""
+    olds = {ln[6:] for ln in gold.splitlines() if ln.startswith("--- a/")}
+    target = next((ln[6:] for ln in gold.splitlines() if ln.startswith("+++ b/") and ln[6:] in olds), None)
+    if not target:
+        raise Refused("§6 controls", f"{task['instance_id']}: the gold patch modifies no existing file")
+    repo = export_base(task, root, cache)
+    try:
+        (repo / target).write_text("")
+        _gitb(["add", "-A"], repo)
+        return _gitb(["diff", "--cached", "--binary", "--full-index", "HEAD"], repo)
+    finally:
+        remove(repo.parent)
+
+
+def run_controls(cfg: dict, tasks: dict, ids: list[str], root: Path, cache: Path, eval_dir: Path, deny: list[str],
+                 snapshot_sha: str | None = None, repeats: int | None = None) -> dict:
+    """Base and gold repeated (flakiness), and a known-bad patch, for every task of the phase; plus
+    a deliberately missing report, which must read as missing evidence."""
+    repeats = repeats or cfg["evaluation"].get("control_repeats", 2)
+    items, expect = [], {}
+    for tid in ids:
+        t = tasks[tid]
+        if not t.get("patch"):
+            raise Refused("§6 controls", f"{tid} has no gold patch")
+        kinds = [("base", noop_patch()), ("gold", t["patch"].encode())] * repeats + [("known_bad", known_bad(t, root, cache))]
+        for i, (kind, patch) in enumerate(kinds):
+            label = f"{kind}-{i}-{tid}"
+            items.append((label, tid, patch))
+            expect[label] = (tid, kind)
+    got = grade(cfg, items, tasks, root, cache, eval_dir, deny, snapshot_sha)
+    results, per_task = {}, {}
+    for label, (tid, kind) in expect.items():
+        g = got[label]
+        if kind == "base":
+            ok = g.get("status") == "graded" and g.get("a1_pass") is True and g.get("resolved") is False
+        elif kind == "gold":
+            ok = g.get("status") == "graded" and g.get("resolved") is True
+        else:
+            ok = g.get("status") == "graded" and g.get("resolved") is False and bool(g.get("f2p_failed"))
+        results[label] = {"task": tid, "kind": kind, "ok": ok,
+                          "got": {k: g.get(k) for k in ("status", "a1_pass", "resolved", "why", "report_layout", "seconds")}}
+        per_task.setdefault(tid, []).append(ok)
+    miss = judge(tasks[ids[0]], None)
+    results["missing_report"] = {"kind": "missing_report", "ok": miss["status"] == "infra_error",
+                                 "got": {"status": miss["status"]}}
+    layouts = sorted({r["got"].get("report_layout") for r in results.values() if r["got"].get("report_layout")})
+    return {"at": now(), "passed": all(r["ok"] for r in results.values()), "results": results,
+            "flaky_or_failing_tasks": sorted(t for t, oks in per_task.items() if not all(oks)),
+            "report_layout": layouts, "images": got.get("_images", []), "repeats": repeats}
+
+
+def controls_md(rec: dict) -> str:
+    L = ["# Controls", "", f"Base and gold each graded {rec['repeats']} times, and one known-bad patch, per task.",
+         "A task listed here should be struck with `exclude` before any agent runs.", ""]
+    for t in rec["flaky_or_failing_tasks"]:
+        rows = [r for r in rec["results"].values() if r.get("task") == t]
+        L.append(f"- `{t}`: " + ", ".join(f"{r['kind']} {'ok' if r['ok'] else 'FAILED'}" for r in rows))
+    if not rec["flaky_or_failing_tasks"]:
+        L.append("Every task's controls behaved as expected.")
+    return "\n".join(L) + "\n"
+
+
+def patch_digest(patch: bytes) -> str:
+    return sha256_bytes(patch)

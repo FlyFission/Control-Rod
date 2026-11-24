@@ -1613,12 +1613,17 @@ async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
       extraEnv: cloneFilterEnv,
     });
   }
-  const targetFilterEnv = await filterDisableEnv(targetDir, ctx.workspaceRoot, "safecrlf-only");
-  await git(["checkout", "-b", ctx.branch, ...(ctx.baseBranch ? [ctx.baseBranch] : [])], {
-    cwd: targetDir,
-    workspaceRoot: ctx.workspaceRoot,
-    extraEnv: targetFilterEnv,
-  });
+  try {
+    const targetFilterEnv = await filterDisableEnv(targetDir, ctx.workspaceRoot, "safecrlf-only");
+    await git(["checkout", "-b", ctx.branch, ...(ctx.baseBranch ? [ctx.baseBranch] : [])], {
+      cwd: targetDir,
+      workspaceRoot: ctx.workspaceRoot,
+      extraEnv: targetFilterEnv,
+    });
+  } catch (err) {
+    rmSync(targetDir, { recursive: true, force: true });
+    throw err;
+  }
   return targetDir;
 }
 

@@ -1,0 +1,11 @@
+# 2026-11-22T20:27:34Z nuclear-grade-context-engineering @ 8122269a5b55e5694c8f998ad17955e7ce45798a
+OK: .nuclear/changes/skill-workflow-patterns
+ng exit 0
+owner decision check passed
+check_owner_decisions exit 0
+public claims check passed
+check_public_claims exit 0
+originality check passed
+check_originality exit 0
+agent map check passed
+check_agents_map exit 0

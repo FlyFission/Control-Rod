@@ -1,0 +1,89 @@
+## R6-1 daemon names unchecked agents (mutated)
+    updates_test.go:115: an incomplete check wiped the known update: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{runner.AgentUpdate{Agent:"grok", Name:"Grok CLI", Installed:"1.0.77", Latest:"1.0.92", NpmGlobal:true, Note:""}}, Unchecked:[]string(nil)}}
+--- FAIL: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
+    updates_test.go:135: fresh incomplete check: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{}, Unchecked:[]string(nil)}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.020s
+FAIL
+## R6-1 daemon names unchecked agents (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.021s
+## R6-3 an over-long installed version is unchecked (mutated)
+--- FAIL: TestAFreshDaemonsIncompleteCheckIsUnchecked (0.00s)
+    updates_test.go:135: fresh incomplete check: []runner.AgentReport{runner.AgentReport{List:[]runner.AgentUpdate{runner.AgentUpdate{Agent:"claude", Name:"Claude Code", Installed:"1.0.9999999999999999999999999999999999999999999999999999999999999999999999", Latest:"2.0.0", NpmGlobal:true, Note:""}}, Unchecked:[]string{"grok"}}}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.027s
+FAIL
+## R6-3 an over-long installed version is unchecked (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	(cached)
+## R6-2 1.2.3-- is read whole (mutated)
+--- FAIL: TestPrereleaseEdgesFollowSemVer (0.00s)
+    agentupdate_test.go:216: ParseVersion read "1.2.3"
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.004s
+FAIL
+## R6-2 1.2.3-- is read whole (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+## R6-2 numeric identifiers compare by length first (mutated)
+    agentupdate_test.go:180: Newer("1.0.0-beta.11", "1.0.0-beta.2") = false, want true
+--- FAIL: TestPrereleaseEdgesFollowSemVer (0.00s)
+    agentupdate_test.go:226: numeric below alphanumeric, and by value
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.004s
+FAIL
+## R6-2 numeric identifiers compare by length first (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	(cached)
+## R6-4 agents says none checkable (mutated)
+    agents_test.go:113: agents:
+        Every agent found is up to date.
+          Antigravity CLI  1.4.0 (not checked)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+FAIL
+## R6-4 agents says none checkable (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+## R6-4 agy is marked not checked (mutated)
+    agents_test.go:116: agy not marked:
+        No agent CLI found that Control Rod can check for updates.
+          Antigravity CLI  1.4.0
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+FAIL
+## R6-4 agy is marked not checked (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	(cached)
+## R6-4 update says none checkable (mutated)
+--- FAIL: TestNoCheckableAgentIsNotUpToDate (0.00s)
+    agents_test.go:121: agents update: code 0, ran []:
+        Every agent is up to date.
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+FAIL
+## R6-4 update says none checkable (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	(cached)
+## R6-1 API keeps rows for unchecked agents (mutated)
+     × keeps the known row for an agent a fresh daemon could not check 16ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/agent-updates.test.ts > agent updates > keeps the known row for an agent a fresh daemon could not check
+AssertionError: expected [] to deeply equal [ { agent: 'grok', …(4) } ]
+      Tests  1 failed | 3 passed (4)
+## R6-1 API keeps rows for unchecked agents (restored)
+      Tests  4 passed (4)
+## R6-1 a new report for an agent replaces its row (mutated)
+     × keeps the known row for an agent a fresh daemon could not check 30ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/agent-updates.test.ts > agent updates > keeps the known row for an agent a fresh daemon could not check
+AssertionError: expected [ { agent: 'grok', …(4) }, …(1) ] to deeply equal [ { agent: 'grok', …(4) } ]
+      Tests  1 failed | 3 passed (4)
+## R6-1 a new report for an agent replaces its row (restored)
+      Tests  4 passed (4)
+## R6-1 unknown unchecked names are ignored (mutated)
+      Tests  4 passed (4)
+## R6-1 unknown unchecked names are ignored (restored)
+      Tests  4 passed (4)
+## R6-1 surviving mutation: the AgentId check on unchecked names was dead (stored rows are schema-checked, so a bogus name matches none). Removed; the test still sends "rm -rf" and expects it ignored.
+## R6-5 copy uses only the built command (mutated)
+     × never shows or copies command text from the response, only the one it builds 24ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/components/agent-updates.test.tsx > Agent updates > never shows or copies command text from the response, only the one it builds
+      Tests  1 failed | 4 passed (5)
+## R6-5 copy uses only the built command (restored)
+      Tests  5 passed (5)

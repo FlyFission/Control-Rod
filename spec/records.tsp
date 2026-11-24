@@ -210,6 +210,14 @@ model WorkPackage {
    */
   context_profile?: "light" | "nuclear";
 
+  /**
+   * How the work is sequenced: the plain playbook, or a ported skill workflow (Superpowers, Matt
+   * Pocock's skills, or the hybrid of the two). Absent means the project default, then the playbook.
+   * Separate from context_profile: a package carries one workflow and one context profile, and
+   * workflows never stack.
+   */
+  workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
+
   status: PackageStatus;
   rigor_mode: RigorMode;
   data_lane: DataLane;
@@ -375,6 +383,43 @@ model Finding {
   severity: "info" | "minor" | "major" | "critical";
   text: string;
   resolution?: string;
+
+  /** What was expected and what was seen, for example "expected 302, got 200". */
+  @maxLength(4000) evidence?: string;
+
+  /** Where the problem is in the deliverable. */
+  location?: FindingLocation;
+
+  /**
+   * The files a fix may change. The author's next round is told to change only these, and
+   * changes outside them are reported as scope drift.
+   */
+  @maxItems(50) scope_paths?: FindingPath[];
+}
+
+/**
+ * A relative path inside the deliverable: no leading slash, no empty or `..` segment, no backslash.
+ * Written without lookaheads so Go's RE2-based schema validator in the daemon can compile it.
+ */
+@maxLength(512)
+@pattern("^(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+)(?:/(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+))*/?$")
+scalar FindingPath extends string;
+
+@extension("unevaluatedProperties", false)
+model FindingLocation {
+  path: FindingPath;
+  @minValue(1) line?: int32;
+}
+
+/**
+ * Files an author's rework round changed outside the scope the previous check's findings named.
+ * Reported, not refused.
+ */
+@extension("unevaluatedProperties", false)
+model ScopeDrift {
+  @minValue(2) round: int32;
+  scope_paths: FindingPath[];
+  outside: FindingPath[];
 }
 
 /** Evidence that a result met its criteria. Inconclusive never counts as a pass. */

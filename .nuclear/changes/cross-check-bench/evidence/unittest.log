@@ -1,0 +1,149 @@
+# python3 --version: Python 3.13.18
+test_claude_isolation_flags (bench.cross-check.test_bench.AgentArgs.test_claude_isolation_flags) ... ok
+test_codex_isolation_flags (bench.cross-check.test_bench.AgentArgs.test_codex_isolation_flags) ... ok
+test_env_drops_billing_keys (bench.cross-check.test_bench.AgentArgs.test_env_drops_billing_keys) ... ok
+test_failure_taxonomy (bench.cross-check.test_bench.AgentArgs.test_failure_taxonomy) ... ok
+test_local_file_cannot_set_model_or_free_transport (bench.cross-check.test_bench.AgentArgs.test_local_file_cannot_set_model_or_free_transport) ... ok
+test_pass_with_defects_is_malformed (bench.cross-check.test_bench.AgentArgs.test_pass_with_defects_is_malformed) ... ok
+test_timeout_kills_process_group (bench.cross-check.test_bench.AgentArgs.test_timeout_kills_process_group) ... ok
+test_usage_normalized (bench.cross-check.test_bench.AgentArgs.test_usage_normalized) ... ok
+test_cli_dry_path (bench.cross-check.test_bench.Cli.test_cli_dry_path) ... ok
+test_deny_then_allow_back (bench.cross-check.test_bench.Confinement.test_deny_then_allow_back) ... ok
+test_no_network (bench.cross-check.test_bench.Confinement.test_no_network) ... ok
+test_read_only_tree (bench.cross-check.test_bench.Confinement.test_read_only_tree) ... ok
+test_a_check_edited_after_the_lock_is_caught (bench.cross-check.test_bench.EndToEnd.test_a_check_edited_after_the_lock_is_caught) ... ok
+test_calibration_pipeline (bench.cross-check.test_bench.EndToEnd.test_calibration_pipeline) ... ok
+test_checker_changing_source_halts (bench.cross-check.test_bench.EndToEnd.test_checker_changing_source_halts) ... ok
+test_cli_or_harness_change_stops (bench.cross-check.test_bench.EndToEnd.test_cli_or_harness_change_stops) ... ok
+test_exhausted_retries_stop_the_run_incomplete (bench.cross-check.test_bench.EndToEnd.test_exhausted_retries_stop_the_run_incomplete) ... ok
+test_missing_grade_blocks_score (bench.cross-check.test_bench.EndToEnd.test_missing_grade_blocks_score) ... ok
+test_model_change_stops (bench.cross-check.test_bench.EndToEnd.test_model_change_stops) ... ok
+test_open_source_maintainer_emails_are_not_flagged (bench.cross-check.test_bench.EndToEnd.test_open_source_maintainer_emails_are_not_flagged) ... ok
+test_power_simulation_behaves (bench.cross-check.test_bench.EndToEnd.test_power_simulation_behaves) ... ok
+test_quota_pause_resume_and_interrupt (bench.cross-check.test_bench.EndToEnd.test_quota_pause_resume_and_interrupt) ... ok
+test_release (bench.cross-check.test_bench.EndToEnd.test_release) ... ok
+test_release_refuses_private_data (bench.cross-check.test_bench.EndToEnd.test_release_refuses_private_data) ... ok
+test_sizing_is_frozen_and_signed (bench.cross-check.test_bench.EndToEnd.test_sizing_is_frozen_and_signed) ... ok
+test_a_broken_patch_is_patch_invalid (bench.cross-check.test_bench.Grading.test_a_broken_patch_is_patch_invalid) ... ok
+test_controls_pass_on_fixtures (bench.cross-check.test_bench.Grading.test_controls_pass_on_fixtures) ... ok
+test_judge (bench.cross-check.test_bench.Grading.test_judge) ... ok
+test_labels_are_safe_directory_names (bench.cross-check.test_bench.Grading.test_labels_are_safe_directory_names) ... ok
+test_submission_statuses_pass_through (bench.cross-check.test_bench.Grading.test_submission_statuses_pass_through) ... ok
+test_swebench_report_parsing (bench.cross-check.test_bench.Grading.test_swebench_report_parsing) ... ok
+test_a_later_success_clears_a_pause (bench.cross-check.test_bench.LedgerRules.test_a_later_success_clears_a_pause) ... ok
+test_call_cap_and_calibration_allocation (bench.cross-check.test_bench.LedgerRules.test_call_cap_and_calibration_allocation) ... ok
+test_deadline (bench.cross-check.test_bench.LedgerRules.test_deadline) ... ok
+test_every_attempt_has_its_own_id_and_interrupted_ones_count (bench.cross-check.test_bench.LedgerRules.test_every_attempt_has_its_own_id_and_interrupted_ones_count) ... ok
+test_probes_are_left_out_of_the_p95 (bench.cross-check.test_bench.LedgerRules.test_probes_are_left_out_of_the_p95) ... ok
+test_quota_pause_order_and_grace (bench.cross-check.test_bench.LedgerRules.test_quota_pause_order_and_grace) ... ok
+test_run_lock_is_exclusive (bench.cross-check.test_bench.LedgerRules.test_run_lock_is_exclusive) ... ok
+test_sign_in_error_halts (bench.cross-check.test_bench.LedgerRules.test_sign_in_error_halts) ... ok
+test_three_infra_errors_halt (bench.cross-check.test_bench.LedgerRules.test_three_infra_errors_halt) ... ok
+test_token_gate_uses_frozen_phase0_p95 (bench.cross-check.test_bench.LedgerRules.test_token_gate_uses_frozen_phase0_p95) ... ok
+test_auth_status_route (bench.cross-check.test_bench.Preflight.test_auth_status_route) ... ok
+test_billing_keys_found_in_config_and_env (bench.cross-check.test_bench.Preflight.test_billing_keys_found_in_config_and_env) ... ok
+test_probes_need_a_matching_preflight (bench.cross-check.test_bench.Preflight.test_probes_need_a_matching_preflight) ... ok
+test_run_refuses_without_gates (bench.cross-check.test_bench.Preflight.test_run_refuses_without_gates) ... ok
+test_sealed_probe_passes_and_leaky_or_lazy_fails (bench.cross-check.test_bench.Preflight.test_sealed_probe_passes_and_leaky_or_lazy_fails) ... ok
+test_config_refusals (bench.cross-check.test_bench.Protocol.test_config_refusals) ... ok
+test_exclusion (bench.cross-check.test_bench.Protocol.test_exclusion) ... ok
+test_freeze (bench.cross-check.test_bench.Protocol.test_freeze) ... ok
+test_manifest_tamper (bench.cross-check.test_bench.Protocol.test_manifest_tamper) ... ok
+test_same_vendor_refused (bench.cross-check.test_bench.Protocol.test_same_vendor_refused) ... ok
+test_select_fails_when_it_cannot_fill (bench.cross-check.test_bench.Protocol.test_select_fails_when_it_cannot_fill) ... ok
+test_selection (bench.cross-check.test_bench.Protocol.test_selection) ... ok
+test_bootstrap_is_seeded (bench.cross-check.test_bench.Stats.test_bootstrap_is_seeded) ... ok
+test_kappa (bench.cross-check.test_bench.Stats.test_kappa) ... ok
+test_mcnemar (bench.cross-check.test_bench.Stats.test_mcnemar) ... ok
+test_wilson (bench.cross-check.test_bench.Stats.test_wilson) ... ok
+test_author_prompt_states_the_test_rule (bench.cross-check.test_bench.Verdicts.test_author_prompt_states_the_test_rule) ... ok
+test_checker_prompt_example_is_valid (bench.cross-check.test_bench.Verdicts.test_checker_prompt_example_is_valid) ... ok
+test_strict_schema (bench.cross-check.test_bench.Verdicts.test_strict_schema) ... ok
+test_base_tree_matches_and_git_ignores_hooks (bench.cross-check.test_bench.Workspaces.test_base_tree_matches_and_git_ignores_hooks) ... ok
+test_capture_never_reads_the_authors_git_dir (bench.cross-check.test_bench.Workspaces.test_capture_never_reads_the_authors_git_dir) ... ok
+test_capture_statuses (bench.cross-check.test_bench.Workspaces.test_capture_statuses) ... ok
+test_checker_tree_read_only_with_patch_staged (bench.cross-check.test_bench.Workspaces.test_checker_tree_read_only_with_patch_staged) ... ok
+test_export_is_one_generic_commit_outside_repo (bench.cross-check.test_bench.Workspaces.test_export_is_one_generic_commit_outside_repo) ... ok
+test_root_inside_repo_home_or_study_refused (bench.cross-check.test_bench.Workspaces.test_root_inside_repo_home_or_study_refused) ... ok
+test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces.test_root_through_a_symlink_is_resolved)
+macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
+
+----------------------------------------------------------------------
+Ran 67 tests in 84.072s
+
+OK
+
+# python3.9 --version: Python 3.9.25
+test_claude_isolation_flags (bench.cross-check.test_bench.AgentArgs) ... ok
+test_codex_isolation_flags (bench.cross-check.test_bench.AgentArgs) ... ok
+test_env_drops_billing_keys (bench.cross-check.test_bench.AgentArgs) ... ok
+test_failure_taxonomy (bench.cross-check.test_bench.AgentArgs) ... ok
+test_local_file_cannot_set_model_or_free_transport (bench.cross-check.test_bench.AgentArgs) ... ok
+test_pass_with_defects_is_malformed (bench.cross-check.test_bench.AgentArgs) ... ok
+test_timeout_kills_process_group (bench.cross-check.test_bench.AgentArgs) ... ok
+test_usage_normalized (bench.cross-check.test_bench.AgentArgs) ... ok
+test_cli_dry_path (bench.cross-check.test_bench.Cli) ... ok
+test_deny_then_allow_back (bench.cross-check.test_bench.Confinement) ... ok
+test_no_network (bench.cross-check.test_bench.Confinement) ... ok
+test_read_only_tree (bench.cross-check.test_bench.Confinement) ... ok
+test_a_check_edited_after_the_lock_is_caught (bench.cross-check.test_bench.EndToEnd) ... ok
+test_calibration_pipeline (bench.cross-check.test_bench.EndToEnd) ... ok
+test_checker_changing_source_halts (bench.cross-check.test_bench.EndToEnd) ... ok
+test_cli_or_harness_change_stops (bench.cross-check.test_bench.EndToEnd) ... ok
+test_exhausted_retries_stop_the_run_incomplete (bench.cross-check.test_bench.EndToEnd) ... ok
+test_missing_grade_blocks_score (bench.cross-check.test_bench.EndToEnd) ... ok
+test_model_change_stops (bench.cross-check.test_bench.EndToEnd) ... ok
+test_open_source_maintainer_emails_are_not_flagged (bench.cross-check.test_bench.EndToEnd) ... ok
+test_power_simulation_behaves (bench.cross-check.test_bench.EndToEnd) ... ok
+test_quota_pause_resume_and_interrupt (bench.cross-check.test_bench.EndToEnd) ... ok
+test_release (bench.cross-check.test_bench.EndToEnd) ... ok
+test_release_refuses_private_data (bench.cross-check.test_bench.EndToEnd) ... ok
+test_sizing_is_frozen_and_signed (bench.cross-check.test_bench.EndToEnd) ... ok
+test_a_broken_patch_is_patch_invalid (bench.cross-check.test_bench.Grading) ... ok
+test_controls_pass_on_fixtures (bench.cross-check.test_bench.Grading) ... ok
+test_judge (bench.cross-check.test_bench.Grading) ... ok
+test_labels_are_safe_directory_names (bench.cross-check.test_bench.Grading) ... ok
+test_submission_statuses_pass_through (bench.cross-check.test_bench.Grading) ... ok
+test_swebench_report_parsing (bench.cross-check.test_bench.Grading) ... ok
+test_a_later_success_clears_a_pause (bench.cross-check.test_bench.LedgerRules) ... ok
+test_call_cap_and_calibration_allocation (bench.cross-check.test_bench.LedgerRules) ... ok
+test_deadline (bench.cross-check.test_bench.LedgerRules) ... ok
+test_every_attempt_has_its_own_id_and_interrupted_ones_count (bench.cross-check.test_bench.LedgerRules) ... ok
+test_probes_are_left_out_of_the_p95 (bench.cross-check.test_bench.LedgerRules) ... ok
+test_quota_pause_order_and_grace (bench.cross-check.test_bench.LedgerRules) ... ok
+test_run_lock_is_exclusive (bench.cross-check.test_bench.LedgerRules) ... ok
+test_sign_in_error_halts (bench.cross-check.test_bench.LedgerRules) ... ok
+test_three_infra_errors_halt (bench.cross-check.test_bench.LedgerRules) ... ok
+test_token_gate_uses_frozen_phase0_p95 (bench.cross-check.test_bench.LedgerRules) ... ok
+test_auth_status_route (bench.cross-check.test_bench.Preflight) ... ok
+test_billing_keys_found_in_config_and_env (bench.cross-check.test_bench.Preflight) ... ok
+test_probes_need_a_matching_preflight (bench.cross-check.test_bench.Preflight) ... ok
+test_run_refuses_without_gates (bench.cross-check.test_bench.Preflight) ... ok
+test_sealed_probe_passes_and_leaky_or_lazy_fails (bench.cross-check.test_bench.Preflight) ... ok
+test_config_refusals (bench.cross-check.test_bench.Protocol) ... ok
+test_exclusion (bench.cross-check.test_bench.Protocol) ... ok
+test_freeze (bench.cross-check.test_bench.Protocol) ... ok
+test_manifest_tamper (bench.cross-check.test_bench.Protocol) ... ok
+test_same_vendor_refused (bench.cross-check.test_bench.Protocol) ... ok
+test_select_fails_when_it_cannot_fill (bench.cross-check.test_bench.Protocol) ... ok
+test_selection (bench.cross-check.test_bench.Protocol) ... ok
+test_bootstrap_is_seeded (bench.cross-check.test_bench.Stats) ... ok
+test_kappa (bench.cross-check.test_bench.Stats) ... ok
+test_mcnemar (bench.cross-check.test_bench.Stats) ... ok
+test_wilson (bench.cross-check.test_bench.Stats) ... ok
+test_author_prompt_states_the_test_rule (bench.cross-check.test_bench.Verdicts) ... ok
+test_checker_prompt_example_is_valid (bench.cross-check.test_bench.Verdicts) ... ok
+test_strict_schema (bench.cross-check.test_bench.Verdicts) ... ok
+test_base_tree_matches_and_git_ignores_hooks (bench.cross-check.test_bench.Workspaces) ... ok
+test_capture_never_reads_the_authors_git_dir (bench.cross-check.test_bench.Workspaces) ... ok
+test_capture_statuses (bench.cross-check.test_bench.Workspaces) ... ok
+test_checker_tree_read_only_with_patch_staged (bench.cross-check.test_bench.Workspaces) ... ok
+test_export_is_one_generic_commit_outside_repo (bench.cross-check.test_bench.Workspaces) ... ok
+test_root_inside_repo_home_or_study_refused (bench.cross-check.test_bench.Workspaces) ... ok
+test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces)
+macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
+
+----------------------------------------------------------------------
+Ran 67 tests in 95.383s
+
+OK

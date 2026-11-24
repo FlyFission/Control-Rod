@@ -1,0 +1,369 @@
+{
+ "digests": {
+  "rules.json": "a97bd3b4d2fbf559eaffd0be775bdd3f21154532de7bc16346ec98cefa07c9a4",
+  "snapshots/code-yeongyu_oh-my-openagent.json.gz": "bba285efcba5ebcd2ca706fe7548d3a40bddc951b4e50d03de490290235a62af",
+  "snapshots/herdrdev_herdr.json.gz": "d414edfcd40633937bd4f81d0bafc16a3119962ca4daa8ccd1fbd32592ab3dfb"
+ },
+ "omo.json": {
+  "issues": 5876,
+  "prs": 8753,
+  "feature_requests": 590,
+  "bugs": 1745,
+  "themes_all_issues": {
+   "Model and provider routing, fallback, quotas": {
+    "issues": 1156,
+    "open": 320,
+    "reactions": 690,
+    "comments": 3004
+   },
+   "Review, verification, tests": {
+    "issues": 1071,
+    "open": 507,
+    "reactions": 65,
+    "comments": 1690
+   },
+   "Orchestration: subagents, delegation, parallel, background": {
+    "issues": 962,
+    "open": 270,
+    "reactions": 480,
+    "comments": 2459
+   },
+   "Install, upgrade and host-version breakage": {
+    "issues": 904,
+    "open": 260,
+    "reactions": 483,
+    "comments": 2352
+   },
+   "Tools and MCP": {
+    "issues": 624,
+    "open": 211,
+    "reactions": 189,
+    "comments": 1505
+   },
+   "Memory, context, compaction": {
+    "issues": 577,
+    "open": 233,
+    "reactions": 134,
+    "comments": 1263
+   },
+   "Config and control (disable, settings)": {
+    "issues": 524,
+    "open": 165,
+    "reactions": 377,
+    "comments": 1354
+   },
+   "Runaway loops and surprise usage": {
+    "issues": 470,
+    "open": 144,
+    "reactions": 149,
+    "comments": 1230
+   },
+   "Windows": {
+    "issues": 467,
+    "open": 155,
+    "reactions": 113,
+    "comments": 1195
+   },
+   "Plans, specs, todos, workflows": {
+    "issues": 356,
+    "open": 103,
+    "reactions": 246,
+    "comments": 1012
+   },
+   "Terminal, TUI, multiplexer, rendering": {
+    "issues": 301,
+    "open": 86,
+    "reactions": 198,
+    "comments": 820
+   },
+   "Remote and SSH": {
+    "issues": 210,
+    "open": 87,
+    "reactions": 27,
+    "comments": 329
+   }
+  },
+  "themes_feature_requests": {
+   "Model and provider routing, fallback, quotas": {
+    "issues": 151,
+    "open": 55,
+    "reactions": 344,
+    "comments": 499
+   },
+   "Config and control (disable, settings)": {
+    "issues": 100,
+    "open": 45,
+    "reactions": 161,
+    "comments": 298
+   },
+   "Orchestration: subagents, delegation, parallel, background": {
+    "issues": 92,
+    "open": 42,
+    "reactions": 91,
+    "comments": 265
+   },
+   "Tools and MCP": {
+    "issues": 71,
+    "open": 34,
+    "reactions": 62,
+    "comments": 226
+   },
+   "Plans, specs, todos, workflows": {
+    "issues": 56,
+    "open": 32,
+    "reactions": 113,
+    "comments": 199
+   },
+   "Install, upgrade and host-version breakage": {
+    "issues": 43,
+    "open": 13,
+    "reactions": 53,
+    "comments": 142
+   },
+   "Review, verification, tests": {
+    "issues": 41,
+    "open": 27,
+    "reactions": 14,
+    "comments": 96
+   },
+   "Memory, context, compaction": {
+    "issues": 40,
+    "open": 16,
+    "reactions": 42,
+    "comments": 171
+   },
+   "Runaway loops and surprise usage": {
+    "issues": 38,
+    "open": 16,
+    "reactions": 28,
+    "comments": 120
+   },
+   "Terminal, TUI, multiplexer, rendering": {
+    "issues": 36,
+    "open": 19,
+    "reactions": 45,
+    "comments": 91
+   },
+   "Remote and SSH": {
+    "issues": 7,
+    "open": 4,
+    "reactions": 2,
+    "comments": 10
+   },
+   "Windows": {
+    "issues": 4,
+    "open": 3,
+    "reactions": 0,
+    "comments": 1
+   }
+  }
+ },
+ "herdr.json": {
+  "issues": 2997,
+  "prs": 1188,
+  "feature_requests": 441,
+  "bugs": 553,
+  "themes_all_issues": {
+   "Terminal, TUI, multiplexer, rendering": {
+    "issues": 1321,
+    "open": 256,
+    "reactions": 450,
+    "comments": 3298
+   },
+   "Remote and SSH": {
+    "issues": 404,
+    "open": 97,
+    "reactions": 173,
+    "comments": 1118
+   },
+   "Windows": {
+    "issues": 341,
+    "open": 65,
+    "reactions": 83,
+    "comments": 1165
+   },
+   "Model and provider routing, fallback, quotas": {
+    "issues": 281,
+    "open": 77,
+    "reactions": 84,
+    "comments": 732
+   },
+   "Install, upgrade and host-version breakage": {
+    "issues": 219,
+    "open": 24,
+    "reactions": 53,
+    "comments": 619
+   },
+   "Config and control (disable, settings)": {
+    "issues": 206,
+    "open": 26,
+    "reactions": 93,
+    "comments": 440
+   },
+   "Orchestration: subagents, delegation, parallel, background": {
+    "issues": 134,
+    "open": 27,
+    "reactions": 43,
+    "comments": 299
+   },
+   "Runaway loops and surprise usage": {
+    "issues": 134,
+    "open": 31,
+    "reactions": 46,
+    "comments": 310
+   },
+   "Review, verification, tests": {
+    "issues": 86,
+    "open": 15,
+    "reactions": 19,
+    "comments": 234
+   },
+   "Tools and MCP": {
+    "issues": 42,
+    "open": 5,
+    "reactions": 16,
+    "comments": 103
+   },
+   "Memory, context, compaction": {
+    "issues": 31,
+    "open": 4,
+    "reactions": 5,
+    "comments": 43
+   },
+   "Plans, specs, todos, workflows": {
+    "issues": 22,
+    "open": 2,
+    "reactions": 2,
+    "comments": 41
+   }
+  },
+  "themes_feature_requests": {
+   "Terminal, TUI, multiplexer, rendering": {
+    "issues": 174,
+    "open": 0,
+    "reactions": 43,
+    "comments": 242
+   },
+   "Config and control (disable, settings)": {
+    "issues": 72,
+    "open": 0,
+    "reactions": 16,
+    "comments": 99
+   },
+   "Remote and SSH": {
+    "issues": 30,
+    "open": 0,
+    "reactions": 8,
+    "comments": 34
+   },
+   "Model and provider routing, fallback, quotas": {
+    "issues": 22,
+    "open": 0,
+    "reactions": 7,
+    "comments": 44
+   },
+   "Orchestration: subagents, delegation, parallel, background": {
+    "issues": 17,
+    "open": 0,
+    "reactions": 2,
+    "comments": 23
+   },
+   "Windows": {
+    "issues": 12,
+    "open": 0,
+    "reactions": 0,
+    "comments": 18
+   },
+   "Install, upgrade and host-version breakage": {
+    "issues": 10,
+    "open": 0,
+    "reactions": 2,
+    "comments": 13
+   },
+   "Runaway loops and surprise usage": {
+    "issues": 9,
+    "open": 0,
+    "reactions": 1,
+    "comments": 11
+   },
+   "Review, verification, tests": {
+    "issues": 7,
+    "open": 0,
+    "reactions": 0,
+    "comments": 9
+   },
+   "Tools and MCP": {
+    "issues": 5,
+    "open": 0,
+    "reactions": 0,
+    "comments": 5
+   },
+   "Plans, specs, todos, workflows": {
+    "issues": 4,
+    "open": 0,
+    "reactions": 1,
+    "comments": 5
+   },
+   "Memory, context, compaction": {
+    "issues": 3,
+    "open": 0,
+    "reactions": 2,
+    "comments": 4
+   }
+  },
+  "labels": {
+   "agent-detection": {
+    "issues": 169,
+    "feature_req": 14
+   },
+   "remote": {
+    "issues": 221,
+    "feature_req": 20
+   },
+   "windows": {
+    "issues": 256,
+    "feature_req": 8
+   },
+   "macos": {
+    "issues": 337,
+    "feature_req": 6
+   },
+   "linux": {
+    "issues": 289,
+    "feature_req": 6
+   },
+   "sessions": {
+    "issues": 150,
+    "feature_req": 20
+   },
+   "rendering": {
+    "issues": 169,
+    "feature_req": 8
+   },
+   "input": {
+    "issues": 293,
+    "feature_req": 34
+   },
+   "api": {
+    "issues": 173,
+    "feature_req": 54
+   },
+   "integrations": {
+    "issues": 91,
+    "feature_req": 6
+   },
+   "plugins": {
+    "issues": 35,
+    "feature_req": 11
+   },
+   "performance": {
+    "issues": 64,
+    "feature_req": 1
+   },
+   "ui": {
+    "issues": 147,
+    "feature_req": 57
+   }
+  }
+ }
+}

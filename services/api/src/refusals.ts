@@ -85,6 +85,11 @@ export const REASONS: Record<string, Reason> = {
   "not-proposed": r("This change request is no longer open.", "Propose a new change request."),
   "proposal-mismatch": r("The proposal no longer matches the digest it was proposed with.", "Propose the change again."),
 
+  // Workspace project preferences and archive.
+  "mode-immutable": r("The project's engineering mode is fixed after creation.", "Create a project in the engineering mode you need."),
+  "o6-independence": r("The author and checker must use different CLI ecosystems.", "Choose a different CLI for one of the roles."),
+  "pending-signatures": r("Work in this project is waiting for verification or signature.", "Resolve the outstanding reviews before archiving the project."),
+
   // Markings and disclosure.
   "lowering-needs-change-request": r("Lowering a data lane is a declassification.", "Propose a declassification; a person with lane authority approves it with a passkey."),
   "not-lower": r("A declassification only lowers a lane, and this one would not.", "Choose a lane less sensitive than the current one."),
@@ -97,6 +102,7 @@ export const REASONS: Record<string, Reason> = {
   // Packages, dependencies and runs.
   "unknown-dependency": r("This package depends on a package that does not exist.", "Name an existing package, or remove the dependency."),
   "invalid-dependency": r("This dependency is not allowed: a package cannot wait on itself, and two packages cannot wait on each other.", "Remove the dependency that closes the loop."),
+  "invalid-setup": r("This setup could not be saved: it names an agent Control Rod does not know, lists one twice, or leaves out when to check with you.", "Choose each agent once and answer when we should check with you, then press Looks right."),
   "preparation-edit-required": r("This package is under preparation, so its contract and criteria are edited together there.", "Edit it from the preparation view."),
   "outcome-unknown": r("This run's outcome is unknown: its process may still be running somewhere.", "Restart the daemon so it can report from its receipt, or reconcile the run with your passkey and a reason."),
   "not-unknown": r("This run's outcome is not unknown, so there is nothing to reconcile.", "Requeue or review the run instead."),

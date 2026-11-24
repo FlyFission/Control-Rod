@@ -1,0 +1,234 @@
+/*
+ * The top bar's SCRAM: a beacon lamp in a steel bezel, the SCRAM button, and a hover card that
+ * says what SCRAM does. Colours are the plant palette; the lamp never relies on colour alone
+ * (its accessible name says the state, a drill is amber and an unknown is hatched).
+ */
+.scram-switch {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- The beacon lamp ---- */
+.scram-lamp {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  /* The bezel: machined steel ring with a dark seat. */
+  background:
+    radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.28), transparent 45%),
+    conic-gradient(from 210deg, #6d7f93, #2a3a4d, #8a9bb0, #243246, #6d7f93);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.scram-lamp-lens {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  /* Off: a dark red dome, still readable as a lamp. */
+  background: radial-gradient(circle at 38% 32%, #6a2a31 0, #3a1218 55%, #1d080b 100%);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.7);
+}
+.scram-switch[data-lamp="trip"] .scram-lamp-lens {
+  background: radial-gradient(circle at 38% 32%, #ffd9dc 0, #ff6b74 28%, var(--plant-trip) 62%, #7a1720 100%);
+  box-shadow:
+    0 0 6px 2px rgb(255 90 100 / 0.85),
+    0 0 18px 6px rgb(219 83 95 / 0.45);
+  animation: scram-lamp-flash 0.9s steps(1, end) infinite;
+}
+.scram-switch[data-lamp="drill"] .scram-lamp-lens {
+  background: radial-gradient(circle at 38% 32%, #fff1c9 0, #ffd36b 30%, var(--plant-needs-you) 62%, #7a5410 100%);
+  box-shadow:
+    0 0 6px 2px rgb(251 194 70 / 0.8),
+    0 0 16px 5px rgb(251 194 70 / 0.35);
+  animation: scram-lamp-flash 1.4s steps(1, end) infinite;
+}
+.scram-switch[data-lamp="unknown"] .scram-lamp-lens {
+  background:
+    repeating-linear-gradient(45deg, #5b6b7d 0 2px, #1c2838 2px 4px);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.7);
+}
+/* A rotating beacon's sweep, drawn as a halo behind the bezel while tripped. */
+.scram-switch[data-lamp="trip"] .scram-lamp::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 70%, rgb(255 90 100 / 0.5) 85%, transparent 100%);
+  animation: scram-lamp-sweep 1.8s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes scram-lamp-flash {
+  0% {
+    filter: none;
+    opacity: 1;
+  }
+  50% {
+    filter: saturate(0.6) brightness(0.45);
+    opacity: 0.75;
+  }
+}
+@keyframes scram-lamp-sweep {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* ---- Restart, beside SCRAM while it holds ---- */
+.shell .topbar .scram-restart {
+  border-color: var(--plant-trip);
+  color: var(--text);
+  font-weight: 600;
+}
+.scram-switch[data-lamp="drill"] .scram-restart {
+  border-color: var(--plant-needs-you);
+}
+
+/* ---- The hover card: what SCRAM does, in three steps ---- */
+.scram-tip {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  gap: 8px;
+  width: 300px;
+  padding: 12px 14px 12px;
+  border: 1px solid var(--plant-linework);
+  border-top: 2px solid var(--plant-trip);
+  background:
+    linear-gradient(rgb(37 83 117 / 0.12) 1px, transparent 1px) 0 0 / 100% 12px,
+    var(--plant-surface);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  color: var(--text);
+  font-size: var(--fs-small);
+  line-height: 1.4;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms;
+  pointer-events: none;
+}
+.scram-switch:hover .scram-tip,
+.scram-switch:focus-within .scram-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+  pointer-events: auto;
+}
+.scram-switch[data-tip-dismissed] .scram-tip {
+  opacity: 0;
+  visibility: hidden;
+}
+.scram-tip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.scram-tip-title {
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--plant-trip);
+}
+.scram-tip-status {
+  color: var(--text-2);
+  font-size: var(--fs-label);
+  text-align: right;
+}
+.scram-switch[data-lamp="trip"] .scram-tip-status {
+  color: var(--plant-trip);
+  font-weight: 600;
+}
+.scram-switch[data-lamp="drill"] .scram-tip {
+  border-top-color: var(--plant-needs-you);
+}
+.scram-tip-lede {
+  font-weight: 600;
+}
+.scram-tip-steps {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(37 83 117 / 0.6);
+}
+/* The rail joining the three steps, like a flow line on a one-line diagram. */
+.scram-tip-steps::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 18px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--plant-linework);
+}
+.scram-tip-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.scram-tip-n {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--plant-linework);
+  background: var(--plant-ground);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+.scram-tip-step[data-step="1"] .scram-tip-n {
+  border-color: var(--plant-trip);
+  color: var(--plant-trip);
+}
+.scram-tip-step[data-step="3"] .scram-tip-n {
+  border-color: var(--plant-core-glow);
+  color: var(--plant-core-glow);
+}
+.scram-tip-step-text {
+  color: var(--text-2);
+}
+.scram-tip-step-text strong {
+  color: var(--text);
+}
+
+/* No hover card on a phone: a tap goes to the Plant, which explains SCRAM in full. */
+.shell[data-phone] .scram-tip {
+  display: none;
+}
+.shell[data-phone] .scram-switch {
+  gap: 6px;
+}
+
+/* No flash and no sweep in a hidden tab or under reduced motion: the lamp stays lit, steady. */
+.shell[data-tab-hidden] .scram-lamp-lens,
+.shell[data-tab-hidden] .scram-lamp::before {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scram-switch[data-lamp] .scram-lamp-lens,
+  .scram-switch[data-lamp] .scram-lamp::before {
+    animation: none;
+  }
+  .scram-switch[data-lamp="trip"] .scram-lamp::before {
+    display: none;
+  }
+  .scram-tip {
+    transition: none;
+    transform: none;
+  }
+}

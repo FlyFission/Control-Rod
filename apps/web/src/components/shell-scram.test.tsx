@@ -60,9 +60,15 @@ describe("the SCRAM banner is app-wide", () => {
     expect(within(banner).getByText(/Bad prompt shipped/)).toBeTruthy();
     expect(document.querySelector(".shell")!.getAttribute("data-scram")).toBe("trip");
     expect(banner.querySelector('[data-kind="trip"]')).not.toBeNull();
-    // The top bar's rod gauge shows it too, in words as well as a drawing.
-    expect(screen.getByRole("img", { name: /Control rods: all inserted|all inserted/i })).toBeTruthy();
-    expect(screen.getByText("SCRAM: organization", { selector: ".shell-rods-label" })).toBeTruthy();
+    // The top bar's SCRAM lamp is lit and says so in words, and Restart sits beside SCRAM.
+    expect(screen.getByRole("img", { name: /SCRAM lamp lit: agent work stopped\. SCRAM in force: organization/ })).toBeTruthy();
+    expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("trip");
+    expect(screen.getByRole("tooltip").textContent).toMatch(/Agent work is stopped/);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Restart" }));
+    const review = within(banner).getByRole("button", { name: "Review and restart" });
+    expect(review.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(review);
   });
 
   it("names the project by its workspace name for a project SCRAM", async () => {
@@ -78,7 +84,17 @@ describe("the SCRAM banner is app-wide", () => {
     baseApi();
     scrams();
     await renderShell("/board");
-    await screen.findByText("No SCRAM", { selector: ".shell-rods-label" });
+    await waitFor(() => expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("off"));
+    // One SCRAM button, a dark lamp, no "No SCRAM" label and no Restart.
+    expect(screen.getAllByRole("link", { name: "SCRAM" })).toHaveLength(1);
+    expect(screen.queryByText("No SCRAM")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Restart" })).toBeNull();
+    expect(screen.getByRole("img", { name: /SCRAM lamp off/ })).toBeTruthy();
+    // What SCRAM does, on hover or focus: it stops all agent activity, and the way back is a restart.
+    const tip = screen.getByRole("tooltip");
+    expect(screen.getByRole("link", { name: "SCRAM" }).getAttribute("aria-describedby")).toBe(tip.id);
+    expect(tip.textContent).toMatch(/Stops all agent activity at once/);
+    expect(tip.textContent).toMatch(/Restart/);
     expect(screen.queryByRole("region", { name: "SCRAM in force" })).toBeNull();
     expect(document.querySelector(".shell")!.getAttribute("data-scram")).toBe("clear");
   });
@@ -93,6 +109,7 @@ describe("the SCRAM banner is app-wide", () => {
     expect(banner.querySelector('[data-kind="drill"]')).not.toBeNull();
     expect(banner.querySelector('[data-kind="trip"]')).toBeNull();
     expect(document.querySelector(".shell")!.getAttribute("data-scram")).toBe("drill");
+    expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("drill");
     await waitFor(() => expect((screen.getByRole("button", { name: /New change/ }) as HTMLButtonElement).disabled).toBe(true));
     expect(screen.getByRole("button", { name: /New change/ }).title).toMatch(/SCRAM drill/);
   });
@@ -105,6 +122,9 @@ describe("the SCRAM banner is app-wide", () => {
       await renderShell("/board");
       await screen.findByRole("region", { name: "SCRAM in force" });
       expect(screen.getByText("Its reason, the runs it stopped and the way back are not shown while presenting.")).toBeTruthy();
+      // Restart is not offered while presenting; SCRAM itself stays.
+      expect(screen.queryByRole("button", { name: "Restart" })).toBeNull();
+      expect(screen.getByRole("link", { name: "SCRAM" })).toBeTruthy();
     } finally {
       act(() => setPresenting(false));
     }

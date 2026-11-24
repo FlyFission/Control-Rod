@@ -5,9 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
-import { RodGauge } from "../design/instruments/RodGauge.js";
 import { ScramBanner, useScrams } from "../features/office/Scram.js";
-import { type RodPosition, rodState } from "../features/office/plant-instruments.js";
+import { rodState } from "../features/office/plant-instruments.js";
 import { lockFrom, lockedFor, ScramLockContext } from "../lib/scramLock.js";
 import { usePresenting } from "../lib/presenting.js";
 import { useLiveStatus } from "../lib/live.js";
@@ -23,6 +22,7 @@ import {
 } from "../lib/projects.js";
 import { PLACES, type PlaceGroup } from "../places/places.js";
 import { ActiveRuns } from "./ActiveRuns.js";
+import { ScramSwitch } from "./ScramSwitch.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
@@ -56,15 +56,6 @@ const MODES: { id: EngineeringMode; label: string }[] = [
   { id: "capital-projects", label: "Capital Projects" },
   { id: "nuclear-grade", label: "Nuclear-Grade" },
 ];
-
-/** The rod gauge's words, beside it, so the position is never left to a small drawing. */
-const ROD_LABEL: Record<RodPosition, string> = {
-  withdrawn: "No SCRAM",
-  bank: "SCRAM: project",
-  inserted: "SCRAM: organization",
-  drill: "SCRAM drill",
-  unknown: "SCRAM unknown",
-};
 
 const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control / Setup"];
 
@@ -305,7 +296,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     }
   }, [projectUser, serverProjects.data]);
   const needs = inbox.data?.items.length ?? 0;
-  // SCRAM is app-wide (control room redesign, section 6.6): one read feeds the banner, the rod gauge,
+  // SCRAM is app-wide (control room redesign, section 6.6): one read feeds the banner, the SCRAM lamp,
   // the frame and the locks, on every screen.
   const presenting = usePresenting();
   const scramRead = useScrams(presenting);
@@ -349,6 +340,14 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   useEffect(() => setMoreOpen(false), [path]);
   // The phone's sticky stage headers sit under the top bar: publish its height.
   const shellRef = useRef<HTMLDivElement>(null);
+  // Restart, beside SCRAM while one holds: open the first banner's review and restart, and take focus there.
+  const openScramReview = () => {
+    const toggle = shellRef.current?.querySelector<HTMLButtonElement>(".scram-banner-item button[aria-expanded]");
+    if (!toggle) return;
+    if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+    toggle.scrollIntoView?.({ block: "nearest" });
+    toggle.focus();
+  };
   useEffect(() => {
     const shell = shellRef.current;
     const bar = shell?.querySelector<HTMLElement>(".topbar");
@@ -635,12 +634,6 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
                 Not live
               </span>
             )}
-            <span className="shell-rods" data-position={rods.position}>
-              <RodGauge position={rods.position} {...(rods.caption ? { caption: rods.caption } : {})} />
-              <span className="shell-rods-label" aria-hidden="true">
-                {ROD_LABEL[rods.position]}
-              </span>
-            </span>
             {!phone && <ActiveRuns />}
             {!phone && (
               <button
@@ -657,9 +650,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
               </button>
             )}
 
-            <Link to="/office" className="btn small danger topbar-scram">
-              SCRAM
-            </Link>
+            <ScramSwitch rods={rods} presenting={presenting} onRestart={openScramReview} />
           </div>
         </header>
 

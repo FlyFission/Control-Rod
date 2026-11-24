@@ -87,6 +87,9 @@
 
 /* ---- Top bar ---- */
 .shell .topbar {
+  /* Above the SCRAM banner below it, so the SCRAM hover card is never covered. */
+  position: relative;
+  z-index: 20;
   min-height: var(--topbar-h);
   background-color: var(--plant-ground);
   background-image: none;
@@ -112,27 +115,6 @@
   align-items: center;
   gap: 10px;
   flex-wrap: nowrap;
-}
-/* The rod gauge at full size, on an engraved plate: the state of the whole plant, read at a glance. */
-.shell .shell-rods {
-  position: relative;
-  gap: 10px;
-  padding: 4px 12px 4px 8px;
-  border: 1px solid var(--plant-linework);
-  background: var(--plant-surface);
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-  font-size: var(--fs-label);
-}
-.shell .shell-rods .rod-gauge {
-  zoom: 1;
-}
-.shell .shell-rods-label {
-  font-weight: 600;
-  color: var(--text-2);
-  white-space: nowrap;
-}
-.shell[data-scram="trip"] .shell-rods-label {
-  color: var(--plant-trip);
 }
 .shell .topbar .btn.small {
   border-radius: 2px;
@@ -220,15 +202,6 @@
 }
 .shell[data-phone] .top-right {
   gap: 6px;
-}
-.shell[data-phone] .shell-rods {
-  padding: 2px 8px 2px 4px;
-}
-.shell[data-phone] .shell-rods .rod-gauge {
-  zoom: 0.7;
-}
-.shell[data-phone] .shell-rods-label {
-  display: none;
 }
 .shell[data-phone] .topbar .btn.small {
   min-height: 44px;

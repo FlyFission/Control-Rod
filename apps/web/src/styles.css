@@ -461,11 +461,9 @@ textarea {
   border-color: #ff6b6b;
   color: #ffffff;
   box-shadow: 0 0 22px rgb(255 77 77 / 0.55), inset 0 1px 0 rgb(255 200 200 / 0.35);
-  animation: scram-beacon 1.6s ease-in-out infinite;
 }
 /* No pulse runs in a hidden tab. */
-.shell[data-tab-hidden] .console-live-dot,
-.shell[data-tab-hidden] .topbar-scram {
+.shell[data-tab-hidden] .console-live-dot {
   animation-play-state: paused;
 }
 .stream-pill {
@@ -1685,8 +1683,7 @@ select {
     transition: none;
   }
   .figure .mark.pulse::after,
-  .shell[data-scram="trip"] .console-live-dot,
-  .shell[data-scram="trip"] .topbar-scram {
+  .shell[data-scram="trip"] .console-live-dot {
     animation: none;
   }
   .figure .mark.pulse::after {
@@ -2630,16 +2627,6 @@ select {
   pointer-events: none;
   z-index: 50;
 }
-.shell-rods {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text);
-  font-size: var(--fs-small);
-  font-weight: 600;
-}
-.shell-rods .rod-gauge { zoom: 0.85; }
-.shell[data-scram="trip"] .shell-rods { color: var(--plant-trip); }
 .shell-notlive {
   padding: 2px 8px;
   border: 1px dashed var(--line-2);

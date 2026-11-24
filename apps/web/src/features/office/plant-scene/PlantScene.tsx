@@ -7,6 +7,7 @@ import { POSE, type Rect, type RoomPlan, leaderBetween, planScene, roomBox } fro
 import { CANVAS, CORE_BBOX, CORE_CROP, ROOMS } from "./geometry.js";
 import { CHIP_WORD, PlantFigure } from "./PlantFigure.js";
 import { PlantRoster } from "./PlantRoster.js";
+import { bayOf, useBayNames } from "../lanes.js";
 import { SCENE_LAYOUT } from "./scene-layout.js";
 import "../office.css";
 import "./plant-scene.css";
@@ -130,7 +131,8 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
   const cold = instruments.core.lit !== true && !scram;
   const segments = flowSegments(occupancy, instruments.waiting, scram);
   const u = width / CANVAS.width;
-  const nameOf = (room: string) => SCENE_LAYOUT.region[room as keyof typeof SCENE_LAYOUT.region]?.name ?? room;
+  const bays = useBayNames();
+  const nameOf = (room: string) => (bays.names[room as keyof typeof bays.names] ? bays.name(room) : SCENE_LAYOUT.region[room as keyof typeof SCENE_LAYOUT.region]?.name ?? room);
   const plan = useMemo(() => {
     const folded = new Map<string, number>();
     for (const [room, o] of occupancy) {
@@ -144,7 +146,7 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
       u,
       name: nameOf,
     });
-  }, [figures, overflow, occupancy, u]);
+  }, [figures, overflow, occupancy, u, bays.names]);
   const byId = new Map(figures.map((f) => [f.id, f]));
   const shown = plan.rooms.flatMap((r) => r.rows.map((id) => byId.get(id)!).filter(Boolean));
   const title = titles(shown);
@@ -218,8 +220,9 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
         <div className="office-semantic" data-layer="semantic">
           {plan.rooms.map((r) => {
             const region = SCENE_LAYOUT.region[r.id as keyof typeof SCENE_LAYOUT.region];
-            const name = region?.name ?? r.name;
-            const purpose = region?.purpose ? `: ${region.purpose}` : "";
+            const lane = bays.names[r.id as keyof typeof bays.names];
+            const name = lane?.name ?? region?.name ?? r.name;
+            const purpose = (lane?.purpose ?? region?.purpose) ? `: ${lane?.purpose ?? region?.purpose}` : "";
             const theme = labels?.[r.id]?.label;
             return (
               <section key={r.id} className="office-region plant-room" onMouseEnter={() => setPeek(r.id)} onMouseLeave={() => setPeek((p) => (p === r.id ? undefined : p))} style={boxOf(ROOMS[r.id as keyof typeof ROOMS].bbox)} aria-label={theme ? `${name}, ${theme}${purpose}` : `${name}${purpose}`} data-region={r.id}>

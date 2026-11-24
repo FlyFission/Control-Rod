@@ -1,8 +1,9 @@
 import type { AgentFigure } from "../../api/types.js";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
-import { REGION, REGIONS, type RegionId } from "./layout.js";
+import { REGIONS, type RegionId } from "./layout.js";
 import type { PlantLayout, ZoneId } from "./plant-layout.js";
 import { marksInWords } from "./OfficeStage.js";
+import { useBayNames } from "./lanes.js";
 
 /**
  * The Plant as a list (plant view design, section 10): every figure, none folded, grouped by zone and
@@ -11,6 +12,7 @@ import { marksInWords } from "./OfficeStage.js";
  */
 export function PlantList({ figures, layout, labels, selected, onSelect }: { figures: readonly AgentFigure[]; layout: PlantLayout | undefined; labels: Readonly<Record<string, { label: string }>>; selected: string | undefined; onSelect: (id: string) => void }) {
   // The view says why the floor is empty, once, under the list or the drawing.
+  const bays = useBayNames();
   if (figures.length === 0) return null;
   const byPlace = new Map<RegionId, AgentFigure[]>();
   for (const f of figures) byPlace.set(f.place, [...(byPlace.get(f.place) ?? []), f]);
@@ -31,7 +33,7 @@ export function PlantList({ figures, layout, labels, selected, onSelect }: { fig
             {places.map((p) => (
               <div key={p}>
                 <p className="plant-list-place">
-                  {REGION[p].name}, {labels[p]?.label}
+                  {bays.name(p)}, {labels[p]?.label}
                 </p>
                 <ul>
                   {byPlace

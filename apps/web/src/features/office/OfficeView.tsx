@@ -8,7 +8,7 @@ import { Annunciator } from "./Annunciator.js";
 import { layoutOf } from "./contract.js";
 import { ScramControl, useScrams } from "./Scram.js";
 import { type CauseGroup, EXCEPTIONS_AT, causeGroups, exceptionsView, portfolio } from "./exceptions.js";
-import { REGION } from "./layout.js";
+import { BayNamesProvider, bayNamesFor, bayOf, plantLaneSet, useBayNames } from "./lanes.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
 import { PLANT_LAYOUT } from "./plant-layout.js";
@@ -171,8 +171,11 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const windows = annunciator(floorRead, scramRead);
   const instruments = { core: coreState(floorRead), rods: rodState(scramRead), waiting: (floor?.needs_me ?? 0) > 0 };
   const open = floor?.figures.find((f) => f.id === selected);
+  // The bays are named by the project's work lanes; the art and each figure's place do not change.
+  const bayNames = useMemo(() => bayNamesFor(plantLaneSet(floor?.figures ?? [], floor?.lane_sets)), [floor]);
 
   return (
+    <BayNamesProvider value={bayNames}>
     <section className="office-view" aria-labelledby="office-title" data-scram-active={anyRealScram(scrams.data?.scrams) ? "" : undefined}>
       <header className="office-head">
         <div className="plant-title">
@@ -272,7 +275,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
               <ul className="office-folded" aria-label="Healthy work folded">
                 {exceptions.folded.map((f) => (
                   <li key={f.place}>
-                    {REGION[f.place].name}: {f.count} working
+                    {bayOf(bayNames, f.place).name}: {f.count} working
                   </li>
                 ))}
               </ul>
@@ -404,13 +407,15 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
         </details>
       )}
     </section>
+    </BayNamesProvider>
   );
 }
 
 /** One room's figures, every one of them, opened by its "+N" stack or count plate (the same buttons as the overflow list). */
 function RoomFigures({ room, figures, selected, onSelect, onClose }: { room: string; figures: readonly AgentFigure[]; selected: string | undefined; onSelect: (id: string) => void; onClose: () => void }) {
   const here = figures.filter((f) => f.place === room);
-  const name = SCENE_LAYOUT.region[room as keyof typeof SCENE_LAYOUT.region]?.name ?? room;
+  const bays = useBayNames();
+  const name = bays.names[room as keyof typeof bays.names] ? bays.name(room) : SCENE_LAYOUT.region[room as keyof typeof SCENE_LAYOUT.region]?.name ?? room;
   const order = ["needs", "stuck", "changed", "waiting", "working"];
   return (
     <div className="office-overflow plant-list" role="region" aria-label={`${name}: every agent`} data-room-figures={room}>

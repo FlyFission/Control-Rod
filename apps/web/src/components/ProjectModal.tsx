@@ -38,6 +38,8 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
   const [repo, setRepo] = useState("");
   const [repoStrategy, setRepoStrategy] = useState<RepoOutfallStrategy>("worktree");
   const [lane, setLane] = useState<DataLane>("internal");
+  // "": the server proposes a preset from the repository's top-level names (a proposal; the project's setting changes it).
+  const [bays, setBays] = useState<"" | "software" | "capital-project">("");
   const [authorEco, setAuthorEco] = useState<CliEcosystemId>(defaultAuthorSelection().ecosystem);
   const [checkerEco, setCheckerEco] = useState<CliEcosystemId>(defaultCheckerSelection().ecosystem);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
         lane,
         author: { ecosystem: aEco.id, model: aEco.defaultModel, reasoning: aEco.defaultReasoning },
         checker: { ecosystem: cEco.id, model: cEco.defaultModel, reasoning: cEco.defaultReasoning },
+        ...(bays ? { work_lanes: { preset: bays } } : {}),
       };
       const { options } = await api.adminCommandOptions("project.workspace-create", payload);
       if (!stillCurrent(startedUnder)) return;

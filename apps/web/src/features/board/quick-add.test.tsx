@@ -14,6 +14,7 @@ import { BoardView } from "./BoardView.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { inTypingContext, splitPaste } from "./QuickAdd.js";
 import { captureLine } from "./CaptureCard.js";
+import { CaptureDrawer } from "./CaptureDrawer.js";
 import { pendingCaptures } from "./useBoardData.js";
 
 /** Quick add from the board and the capture card (redesign task 8; spec 6.2, 6.3). */
@@ -58,7 +59,8 @@ function api(s: { packages?: WorkPackage[]; captures?: CaptureView[] } = {}) {
     http.post("*/captures", async ({ request }) => {
       const body = (await request.json()) as { text: string; lane?: string };
       posted.push(body);
-      const c = capture({ id: `C-${posted.length}`, text: body.text });
+      // The server classifies at capture for a sender with lane authority, as ben has here.
+      const c = capture({ id: `C-${posted.length}`, text: body.text, ...(body.lane ? { lane: body.lane, effective_lane: body.lane } : {}) });
       state.captures = [...state.captures, c];
       return HttpResponse.json(c, { status: 201 });
     }),
@@ -116,7 +118,7 @@ describe("pendingCaptures", () => {
 });
 
 describe("QuickAdd on the board", () => {
-  it("posts one capture on Enter, with no lane, and leaves a fresh focused field", async () => {
+  it("posts one capture on Enter in the standard lane, with no second step, and leaves a fresh focused field", async () => {
     const { posted } = api();
     await renderPage(<Page />);
     const user = userEvent.setup();
@@ -124,15 +126,17 @@ describe("QuickAdd on the board", () => {
     const field = screen.getByLabelText("Card title");
     expect(document.activeElement).toBe(field);
     await user.type(field, "Fix the login redirect{Enter}");
-    await waitFor(() => expect(posted).toEqual([{ text: "[mode:capital-projects]\n\nFix the login redirect", source: "web" }]));
+    await waitFor(() => expect(posted).toEqual([{ text: "[mode:capital-projects]\n\nFix the login redirect", source: "web", lane: "internal" }]));
     await waitFor(() => expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe(""));
     expect(document.activeElement).toBe(screen.getByLabelText("Card title"));
-    // The new capture shows at the top of Ready, asking for its lane.
+    // The new capture shows at the top of Ready, already classified: nothing more to do on it.
     const card = (await screen.findByText("Fix the login redirect")).closest("article")!;
-    expect(within(card).getByText("Classify the data lane")).toBeTruthy();
+    expect(within(card).queryByText("Classify the data lane")).toBeNull();
+    expect(within(card).queryByRole("button", { name: "Classify" })).toBeNull();
+    expect(within(card).getByText("internal")).toBeTruthy();
   });
 
-  it("captures against the selected project ID when projects share a name", async () => {
+  it("captures against the selected project ID, in that project's default data lane", async () => {
     const { posted } = api();
     const principal = "project-fixture";
     const project = {
@@ -141,7 +145,7 @@ describe("QuickAdd on the board", () => {
       author: { ecosystem: "claude", model: "default", reasoning: "default" },
       checker: { ecosystem: "codex", model: "default", reasoning: "default" },
     } as const;
-    hydrateServerProjects(principal, [{ ...project, id: "prj_one" }, { ...project, id: "prj_two" }]);
+    hydrateServerProjects(principal, [{ ...project, id: "prj_one" }, { ...project, id: "prj_two", lane: "client-confidential" }]);
     selectProject(principal, "prj_two");
     try {
       await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
@@ -149,7 +153,7 @@ describe("QuickAdd on the board", () => {
       await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
       await user.type(screen.getByLabelText("Card title"), "Draft the fixture{Enter}");
       await waitFor(() => expect(posted).toEqual([
-        { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web" },
+        { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web", lane: "client-confidential" },
       ]));
     } finally {
       for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
@@ -254,7 +258,8 @@ describe("QuickAdd on the board", () => {
           return HttpResponse.json({ code: "boom", message: "Server hiccup" }, { status: 500 });
         }
         posted.push(body);
-        const c = capture({ id: `C-${posted.length}`, text: body.text });
+        // The server classifies at capture for a sender with lane authority, as ben has here.
+      const c = capture({ id: `C-${posted.length}`, text: body.text, ...(body.lane ? { lane: body.lane, effective_lane: body.lane } : {}) });
         state.captures = [...state.captures, c];
         return HttpResponse.json(c, { status: 201 });
       }),
@@ -283,6 +288,36 @@ describe("QuickAdd on the board", () => {
       ]),
     );
     await waitFor(() => expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe(""));
+  });
+});
+
+describe("CaptureDrawer data lane", () => {
+  it("says what the card's lane means and offers only raising it", async () => {
+    api();
+    let raised: unknown;
+    server.use(
+      http.post("*/captures/C-1/classify", async ({ request }) => {
+        raised = await request.json();
+        return HttpResponse.json(capture({ lane: "proprietary", effective_lane: "proprietary" }));
+      }),
+    );
+    await renderPage(<CaptureDrawer capture={capture({ lane: "internal", effective_lane: "internal" })} onClose={() => {}} />);
+    const user = userEvent.setup();
+    expect(screen.getByText(/Cloud agents \(Claude, Codex and the others\) may work on it/)).toBeTruthy();
+    const picker = screen.getByLabelText("Raise to") as HTMLSelectElement;
+    expect([...picker.options].map((o) => o.value)).toEqual(["internal", "proprietary", "client-confidential", "restricted"]);
+    const button = screen.getByRole("button", { name: "Raise lane" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    await user.selectOptions(picker, "proprietary");
+    await user.click(button);
+    await waitFor(() => expect(raised).toEqual({ lane: "proprietary" }));
+  });
+
+  it("offers no raise on a restricted card", async () => {
+    api();
+    await renderPage(<CaptureDrawer capture={capture({ lane: "restricted", effective_lane: "restricted" })} onClose={() => {}} />);
+    expect(screen.getByText(/No cloud agent sees it/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Raise lane" })).toBeNull();
   });
 });
 

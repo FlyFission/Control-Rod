@@ -88,6 +88,7 @@ describe("BoardView", () => {
   it.each([
     { action: "repository", command: "project.workspace-update", patch: { repo: "RepoA" } },
     { action: "lane agent", command: "project.workspace-update", patch: { laneAgents: { drafting: "codex", "agent-check": "claude" } } },
+    { action: "data lane", command: "project.workspace-update", patch: { lane: "proprietary" } },
     { action: "archive", command: "project.workspace-archive", patch: undefined },
   ])("applies the $action change only after a bound passkey assertion succeeds", async ({ action, command, patch }) => {
     api({ packages: [] });
@@ -130,11 +131,14 @@ describe("BoardView", () => {
       const region = screen.getByRole("region", { name: "Active project settings" });
       const repo = within(region).getByLabelText("Project default repository") as HTMLSelectElement;
       const author = screen.getByLabelText("Agent oversight for Implementing") as HTMLSelectElement;
+      const dataLane = within(region).getByLabelText("Project default data lane") as HTMLSelectElement;
       if (action === "repository") {
         await within(repo).findByRole("option", { name: "RepoA (main)" });
         await user.selectOptions(repo, "RepoA");
       } else if (action === "lane agent") {
         await user.selectOptions(author, "codex");
+      } else if (action === "data lane") {
+        await user.selectOptions(dataLane, "proprietary");
       } else {
         await user.click(within(region).getByRole("button", { name: "Archive project" }));
       }
@@ -146,12 +150,15 @@ describe("BoardView", () => {
       await waitFor(() => expect(writeBodies).toEqual([{ payload, assertion: signed }]));
       expect(repo.value).toBe("");
       expect(author.value).toBe("claude");
+      expect(dataLane.value).toBe("internal");
       expect(screen.getByRole("region", { name: "Active project settings" })).toBe(region);
       act(() => finishWrite());
       if (action === "repository") {
         await waitFor(() => expect(repo.value).toBe("RepoA"));
       } else if (action === "lane agent") {
         await waitFor(() => expect(author.value).toBe("codex"));
+      } else if (action === "data lane") {
+        await waitFor(() => expect(dataLane.value).toBe("proprietary"));
       } else {
         await waitFor(() => expect(screen.queryByRole("region", { name: "Active project settings" })).toBeNull());
       }

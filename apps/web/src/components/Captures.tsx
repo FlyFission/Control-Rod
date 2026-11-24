@@ -6,7 +6,8 @@ import { api } from "../api/client.js";
 import type { CaptureView, DataLane } from "../api/types.js";
 import { splitAttachments } from "../lib/attachments.js";
 import { time } from "../lib/format.js";
-import { LanePicker } from "./LanePicker.js";
+import { useActiveProject } from "../lib/projects.js";
+import { LanePicker, defaultLaneFor } from "./LanePicker.js";
 
 /** The newest captures, with their intake state and what each became. */
 export function RecentCaptures() {
@@ -32,7 +33,8 @@ export function RecentCaptures() {
 /** An unclassified capture: no AI runtime sees it until a person with lane authority picks its lane. */
 function Classify({ id }: { id: string }) {
   const qc = useQueryClient();
-  const [lane, setLane] = useState<DataLane>("internal");
+  const activeProject = useActiveProject();
+  const [lane, setLane] = useState<DataLane>(defaultLaneFor(activeProject));
   const save = useMutation({
     mutationFn: () => api.classifyCapture(id, lane),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["captures"] }),

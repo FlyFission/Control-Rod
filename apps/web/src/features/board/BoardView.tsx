@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, us
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
-import type { WorkspaceProjectArchivePayload, WorkspaceProjectUpdatePayload } from "../../api/types.js";
+import type { DataLane, WorkspaceProjectArchivePayload, WorkspaceProjectUpdatePayload } from "../../api/types.js";
 import { useActionLock } from "../../lib/scramLock.js";
 import { COLUMNS } from "../../lib/board.js";
 import { browserPasskeys } from "../../lib/decide.js";
@@ -47,6 +47,7 @@ import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
 import { type BoardCard, useBoardData } from "./useBoardData.js";
 import { readString, writeString } from "../../lib/storage.js";
 import { WorkLanesSetting } from "./WorkLanesSetting.js";
+import { LANES, LOCAL_ONLY, defaultLaneFor, laneEffect } from "../../components/LanePicker.js";
 import "./board.css";
 
 const VIEW_MODE_KEY = "cr.board-view";
@@ -684,6 +685,27 @@ export function BoardView() {
                     !(projectReposQuery.data?.github ?? []).some((g) => g.name_with_owner === activeProject.repo) && (
                       <option value={activeProject.repo}>{activeProject.repo}</option>
                     )}
+                </select>
+              </label>
+              <label className="bd-project-repo-ctl" title={laneEffect(defaultLaneFor(activeProject))}>
+                <span className="small muted">New cards' data lane:</span>
+                <select
+                  aria-label="Project default data lane"
+                  className="bd-lens-select"
+                  value={defaultLaneFor(activeProject)}
+                  disabled={projectPending}
+                  onChange={(e) => {
+                    void applyProjectChange({
+                      command: "project.workspace-update",
+                      payload: { project_id: activeProject.id, patch: { lane: e.target.value as DataLane } },
+                    }, "Could not update the project's data lane.");
+                  }}
+                >
+                  {LANES.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}{LOCAL_ONLY.has(l.value) ? " (stays on this computer)" : ""}
+                    </option>
+                  ))}
                 </select>
               </label>
               <WorkLanesSetting

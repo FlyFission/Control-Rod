@@ -6,6 +6,7 @@ import { api, explain } from "../../api/client.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { useMode } from "../../lib/mode.js";
 import { useActiveProject } from "../../lib/projects.js";
+import { LOCAL_ONLY, defaultLaneFor, laneLabel } from "../../components/LanePicker.js";
 
 /** The lines of a paste, one card each: trimmed, empty lines dropped. */
 export function splitPaste(text: string): string[] {
@@ -26,8 +27,10 @@ export function inTypingContext(target: EventTarget | null): boolean {
 /**
  * Quick add at the top of Ready (spec 6.3): "+ Add a card" or the `c` key opens an inline title field.
  * Enter posts one capture and leaves a fresh, focused field for the next; Escape closes; a typed draft
- * survives losing focus. Pasting several lines offers one card per line. The capture is posted with no
- * data lane, so nothing reaches an AI runtime until a person classifies it on the new card (M-0).
+ * survives losing focus. Pasting several lines offers one card per line. Each card takes the active
+ * project's default data lane (Internal when no project is active), so adding a card is one step; a
+ * card's lane can still be raised from its drawer. The disclosure gate (M-0) is unchanged: the server
+ * classifies only for a sender with lane authority, and anyone else's card waits unclassified.
  */
 export function QuickAdd() {
   const scramLock = useActionLock();
@@ -72,6 +75,7 @@ export function QuickAdd() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const lane = defaultLaneFor(activeProject);
   const capturePrefix = `[mode:${mode}]${
     activeProject
       ? ` [project-id:${activeProject.id}]${activeProject.repo ? ` [repo:${activeProject.repo}]` : ""}`
@@ -83,7 +87,7 @@ export function QuickAdd() {
       batchProgress.current = { titles, sent: 0 };
       // Cards are posted in the order typed, one request at a time, so a failure says which one stopped.
       for (const t of titles) {
-        await api.capture({ text: `${capturePrefix}${t}`, source: "web" });
+        await api.capture({ text: `${capturePrefix}${t}`, source: "web", lane });
         batchProgress.current.sent += 1;
       }
     },
@@ -235,7 +239,10 @@ export function QuickAdd() {
         <button type="button" className="btn ghost small" onClick={close} disabled={send.isPending}>
           Close
         </button>
-        <span className="muted small">Classify its data lane on the card before any agent sees it.</span>
+        <span className="muted small">
+          {laneLabel(lane)} data lane{activeProject ? " (project default)" : ""}.
+          {LOCAL_ONLY.has(lane) ? " Stays on this computer; no cloud agent sees it." : " Cloud agents may work on it."}
+        </span>
       </div>
       {error !== null && (
         <p role="alert" className="error small">

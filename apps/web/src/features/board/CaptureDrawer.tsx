@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { api, explain } from "../../api/client.js";
 import type { CaptureView, DataLane } from "../../api/types.js";
-import { LanePicker } from "../../components/LanePicker.js";
+import { LanePicker, defaultLaneFor, laneEffect, laneLabel } from "../../components/LanePicker.js";
+import { useActiveProject } from "../../lib/projects.js";
 import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
 import { captureLine, captureSummaryText } from "./CaptureCard.js";
@@ -24,7 +25,9 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
   const summary = captureSummaryText(shown.text) || shown.files.join(", ");
   const line = captureLine(capture);
   const scramLock = useActionLock();
-  const [lane, setLane] = useState<DataLane>(capture.lane ?? "internal");
+  const activeProject = useActiveProject();
+  const [lane, setLane] = useState<DataLane>(capture.lane ?? defaultLaneFor(activeProject));
+  const current = capture.effective_lane ?? capture.lane;
 
   useEffect(() => {
     asideRef.current?.focus();
@@ -145,6 +148,40 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
                 </p>
               )}
             </div>
+          </section>
+        )}
+
+        {capture.lane && current && (
+          <section className="bd-drawer-sec">
+            <h3>Data Lane</h3>
+            <p className="small" style={{ margin: "0 0 8px" }}>
+              {laneLabel(current)}. {laneEffect(current)}
+            </p>
+            {current !== "restricted" && (
+              <div className="bd-capture-classify">
+                <LanePicker
+                  id={`drawer-raise-${capture.id}`}
+                  label="Raise to"
+                  atLeast={current}
+                  value={lane}
+                  onChange={setLane}
+                />
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={lane === current || classify.isPending || scramLock.locked}
+                  title={scramLock.why}
+                  onClick={() => classify.mutate()}
+                >
+                  {classify.isPending ? "Raising…" : "Raise lane"}
+                </button>
+                {classify.isError && (
+                  <p role="alert" className="error small">
+                    {explain(classify.error, "Could not raise the lane.")}
+                  </p>
+                )}
+              </div>
+            )}
           </section>
         )}
 

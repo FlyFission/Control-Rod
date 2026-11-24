@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { CaptureView, DataLane } from "../../api/types.js";
-import { LanePicker } from "../../components/LanePicker.js";
+import { useActiveProject } from "../../lib/projects.js";
+import { LanePicker, defaultLaneFor } from "../../components/LanePicker.js";
 import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
 
@@ -60,7 +61,8 @@ export function CaptureCard({
   const displayTitle = captureSummaryText(shown.text);
   const line = captureLine(capture);
   const titleId = `bd-capture-${capture.id}`;
-  const [lane, setLane] = useState<DataLane>("internal");
+  const activeProject = useActiveProject();
+  const [lane, setLane] = useState<DataLane>(defaultLaneFor(activeProject));
   const [showErrorDetail, setShowErrorDetail] = useState(false);
   const self = useRef<HTMLElement>(null);
   const classify = useMutation({

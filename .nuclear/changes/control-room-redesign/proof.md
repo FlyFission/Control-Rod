@@ -119,3 +119,10 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - The dark plate stays behind every mark (contrast over the Plant art and light Board); tiles of 24 px or less fill 80% of the plate so marks stay legible; Board card badges are 18 px, Plant rows 16 px, seats 32 px. `AgentMark` takes an optional `label` for a text alternative; where the name is written beside the mark it stays decorative, as before.
 - Tests: vitest 80 files, 864 pass (Plant roster row asserts the shared codex logo and the generic glyph for an unknown model; Board card asserts the claude and codex logos; Setup seat asserts the claude logo). `git diff --check`, `check_originality.py` pass.
 - Screenshots (Playwright, 1440x900 at 2x, mocked data): `/mnt/project-files/control-rod/logos/` (`plant-1440.png`, `plant-roster-0.png`, `plant-roster-1.png`, `board-1440.png`).
+
+## Plant label contrast under sticky chrome (Nov 24)
+
+- Finding: `tools/check_plant_contrast.mjs` failed SCRAM 1440x900 at 2.95:1 on five top-row roster labels. At scroll 0 every label is on screen (checked by screenshot). The failure came from the check scrolling the reactor plate to centre, which moved the top row under the sticky top bar and SCRAM banner, and then sampling that chrome as if it were the art.
+- Fix (tool only, no layout change): the check reads the scene at the top of its scroll and again with the reactor centred. A label counts only where it is on screen and not covered by chrome outside the scene, and each label keeps its worst reading. Run counts match the earlier single pass (42, 44, 44, 17).
+- Result: PASS, 147 text runs, all at least 4.5:1 (busy 1440 worst 11.06, tooltip 10.32, SCRAM 11.33, phone 7.36).
+- Dead CSS: `.today-grid` removed from styles.css. The other `.signin*` and `.today-*` rules are still referenced. vitest 80 files / 864 tests, tsc clean.

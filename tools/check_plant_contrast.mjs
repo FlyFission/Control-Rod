@@ -82,6 +82,11 @@ const collect = () => {
         const x0 = Math.max(r.left, clip.left), x1 = Math.min(r.right, clip.right);
         const y0 = Math.max(r.top, clip.top), y1 = Math.min(r.bottom, clip.bottom);
         if (x1 - x0 < 1 || y1 - y0 < 1) continue;
+        // A label scrolled under the sticky top bar or SCRAM banner is not on screen; it is read from another scroll position.
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        if (cx < 0 || cy < 0 || cx >= innerWidth || cy >= innerHeight) continue;
+        const top = document.elementFromPoint(cx, cy);
+        if (!top || !top.closest(".plant-scene")) continue;
         out.push({ text: n.textContent.trim().slice(0, 40), color: cs.color, x: x0 + scrollX, y: y0 + scrollY, w: x1 - x0, h: y1 - y0, kind: root.className.split(" ")[0] });
       }
     }
@@ -100,16 +105,47 @@ const ratio = (a, b) => {
 const parse = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
 
 async function check(page, label) {
-  // The app scrolls inside its shell, so a full-page screenshot only holds the viewport: centre the reactor plate
-  // (the label nearest the viewport edge) before reading positions, so every label is on the screenshot.
-  await page.evaluate(() => document.querySelector(".plant-reactor-plate")?.scrollIntoView({ block: "center" }));
-  await page.waitForTimeout(150);
+  // The app scrolls inside its shell, so a screenshot only holds the viewport, and sticky chrome (the top bar, the
+  // SCRAM banner) covers whatever scrolls under it. Read the scene at the top of its scroll and again with the reactor
+  // plate centred; a label is read wherever it is on screen, and every label is on screen in at least one of them.
+  const seen = new Map();
+  for (const at of ["top", "reactor"]) {
+    await page.evaluate((at) => {
+      if (at === "reactor") document.querySelector(".plant-reactor-plate")?.scrollIntoView({ block: "center" });
+      else document.querySelector(".plant-scene")?.closest(".content")?.scrollTo(0, 0);
+    }, at);
+    await page.waitForTimeout(150);
+    for (const r of await sample(page)) {
+      const key = `${r.kind}|${r.text}|${Math.round(r.x)}|${Math.round(r.y + r.scroll)}`;
+      if (!seen.has(key) || r.m < seen.get(key).m) seen.set(key, r);
+    }
+  }
+  const all = [...seen.values()];
+  if (all.length === 0) throw new Error(`${label}: no labels on screen`);
+  let fails = 0, min = Infinity;
+  for (const r of all) {
+    min = Math.min(min, r.m);
+    if (r.m < MIN) {
+      fails++;
+      console.log(`  FAIL ${r.m.toFixed(2)}:1  ${r.kind} "${r.text}" at ${Math.round(r.x)},${Math.round(r.y)}`);
+    }
+  }
+  console.log(`${label}: ${all.length} text runs, worst ${min.toFixed(2)}:1, ${fails} under ${MIN}:1`);
+  return { runs: all.length, fails, min };
+}
+
+/** Reads the labels on screen now, samples the art behind them, and gives each its worst contrast. */
+async function sample(page) {
+  const scroll = await page.evaluate(() => document.querySelector(".plant-scene")?.closest(".content")?.scrollTop ?? 0);
   const runs = await page.evaluate(collect);
   // The SCRAM banner is drawn over the top of the scene in the screenshot; it is not part of the art behind a
   // label, so it is hidden while the art is sampled (the labels were read from the scene's own elements above).
-  await page.addStyleTag({ content: '[class*="scram-banner"]{visibility:hidden!important}' });
-  await page.addStyleTag({ content: ".plant-scene *{color:transparent!important;-webkit-text-fill-color:transparent!important}.plant-scene svg{visibility:hidden!important}" });
+  const hide = [
+    await page.addStyleTag({ content: '[class*="scram-banner"]{visibility:hidden!important}' }),
+    await page.addStyleTag({ content: ".plant-scene *{color:transparent!important;-webkit-text-fill-color:transparent!important}.plant-scene svg{visibility:hidden!important}" }),
+  ];
   const shot = (await page.screenshot({ fullPage: true })).toString("base64");
+  for (const h of hide) await h.evaluate((e) => e.remove());
   const worst = await page.evaluate(async ({ shot, runs }) => {
     const img = new Image();
     img.src = `data:image/png;base64,${shot}`;
@@ -127,19 +163,12 @@ async function check(page, label) {
       return px;
     });
   }, { shot, runs });
-  let fails = 0, min = Infinity;
-  runs.forEach((r, i) => {
+  return runs.map((r, i) => {
     const fg = parse(r.color);
     let m = Infinity;
     for (const p of worst[i]) m = Math.min(m, ratio(fg, p));
-    min = Math.min(min, m);
-    if (m < MIN) {
-      fails++;
-      console.log(`  FAIL ${m.toFixed(2)}:1  ${r.kind} "${r.text}" at ${Math.round(r.x)},${Math.round(r.y)}`);
-    }
+    return { ...r, m, scroll };
   });
-  console.log(`${label}: ${runs.length} text runs, worst ${min.toFixed(2)}:1, ${fails} under ${MIN}:1`);
-  return { runs: runs.length, fails, min };
 }
 
 const browser = await chromium.launch();

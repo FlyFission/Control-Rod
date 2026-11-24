@@ -1,0 +1,475 @@
+/*
+ * The painted Plant. One canvas (2400 x 1500) scaled to its container: --u is one canvas unit in
+ * screen pixels. Painted layers are raster images under the semantic layer, which holds the
+ * focusable figures and room names at fixed pixel sizes, so text never shrinks with the picture.
+ */
+.plant-scene {
+  --office-plate: var(--plant-ground, #000e23);
+  --office-ring: transparent; /* the painted art gives figures their own edge */
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  background: var(--plant-ground, #000e23);
+  border: 1px solid var(--plant-linework, #255375);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.plant-scene[data-scram] {
+  border-color: var(--plant-trip, #db535f);
+}
+.plant-scene-canvas {
+  --u: calc(100cqw / 2400);
+  position: relative;
+  width: 100%;
+  isolation: isolate;
+}
+.plant-scene-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+.plant-scene-art * {
+  pointer-events: none;
+}
+.plant-art,
+.plant-crew {
+  position: absolute;
+  display: block;
+  max-width: none;
+}
+/* Room and core state changes are 200 ms opacity crossfades; instant under reduced motion. */
+.plant-fade {
+  transition: opacity 200ms linear;
+}
+.plant-fade[data-room-layer="lit"][data-lit="false"],
+.plant-fade[data-core][data-shown="false"] {
+  opacity: 0;
+}
+.plant-fade[data-core][data-cold] {
+  filter: brightness(0.55) saturate(0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .plant-fade {
+    transition: none;
+  }
+}
+.plant-scene[data-motion="still"] .plant-fade {
+  transition: none;
+}
+.plant-scene-flow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.plant-flow-stripe {
+  fill: none;
+  stroke: var(--plant-screen, #3b95b7);
+  stroke-width: 9;
+  stroke-dasharray: 26 14;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+.plant-flow-stripe[data-tone="needs-you"] {
+  stroke: var(--plant-needs-you, #fbc246);
+}
+.plant-lamp {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--plant-core-glow, #6bd8f0);
+  box-shadow: 0 0 6px 1px currentColor;
+  color: var(--plant-core-glow, #6bd8f0);
+}
+.plant-lamp[data-tone="needs-you"] {
+  background: var(--plant-needs-you, #fbc246);
+  color: var(--plant-needs-you, #fbc246);
+}
+.plant-lamp[data-tone="trip"] {
+  background: var(--plant-trip, #db535f);
+  color: var(--plant-trip, #db535f);
+}
+.plant-lamp[data-tone="neutral"] {
+  width: 12px;
+  height: 12px;
+  background: var(--plant-surface, #091930);
+  color: var(--plant-screen, #3b95b7);
+  box-shadow: 0 0 0 1px var(--plant-screen, #3b95b7);
+}
+.plant-lamp svg {
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: var(--plant-screen, #3b95b7);
+  stroke-width: 1.4;
+}
+.plant-lamp[data-pulse] {
+  width: 14px;
+  height: 14px;
+  animation: plant-lamp-pulse 4s ease-in-out infinite;
+}
+@keyframes plant-lamp-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+.plant-scene[data-motion="still"] .plant-lamp[data-pulse] {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .plant-lamp[data-pulse] {
+    animation: none;
+  }
+}
+
+/* Semantic layer. Everything here is in px from the canvas's top left, set by figure-layout.ts. */
+.plant-scene .office-semantic {
+  z-index: 1;
+}
+/* A plate: near-opaque ground and a 1 px linework border, so text never depends on the art behind it. */
+.plant-roster,
+.plant-count,
+.plant-tag,
+.plant-tip,
+.plant-reactor-plate {
+  box-sizing: border-box;
+  background: #000e23f2;
+  background: color-mix(in srgb, var(--plant-ground, #000e23) 95%, transparent);
+  border: 1px solid var(--plant-linework, #255375);
+  border-radius: 4px;
+  color: var(--text, #e8f0f8);
+  font-family: var(--sans);
+}
+.plant-reactor {
+  pointer-events: none;
+}
+.plant-reactor-plate {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px 10px;
+  font-size: var(--fs-label);
+  line-height: 1.25;
+  text-align: center;
+  max-width: 90%;
+}
+.plant-reactor-name {
+  font-weight: 700;
+  color: var(--plant-core-glow, #6bd8f0);
+}
+.plant-reactor-caption {
+  color: var(--text, #e8f0f8);
+}
+.plant-reactor-caption[data-trip] {
+  box-shadow: inset 3px 0 0 var(--plant-trip, #db535f);
+  padding-left: 6px;
+}
+/* A small scene keeps the core in view: the plate shrinks to its count line. */
+.plant-scene[data-mode="counts"] .plant-reactor-plate {
+  padding: 2px 6px;
+  bottom: 3%;
+}
+.plant-scene[data-mode="counts"] .plant-reactor-name {
+  display: none;
+}
+
+/* A figure: a button over its painted crew. Its name, title and state are on the room's roster plate. */
+.plant-figure,
+.plant-count,
+.plant-more {
+  margin: 0;
+  cursor: pointer;
+}
+.plant-figure,
+.plant-count {
+  position: absolute;
+}
+.plant-figure {
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.plant-figure:focus-visible,
+.plant-more:focus-visible,
+.plant-count:focus-visible {
+  outline: 2px solid var(--accent, #00f2ff);
+  outline-offset: 1px;
+}
+.plant-figure[aria-pressed="true"],
+.plant-figure[data-hot] {
+  outline: 2px solid var(--accent, #00f2ff);
+  outline-offset: 1px;
+}
+/* A needs-you ring at the figure's feet: a shape in the needs-you colour that reads at a glance, painted under the crew. */
+.plant-halo {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 3px solid var(--plant-needs-you, #fbc246);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--plant-needs-you, #fbc246) 38%, transparent), transparent);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--plant-needs-you, #fbc246) 70%, transparent);
+  box-sizing: border-box;
+}
+.plant-figure-art[data-hot] .plant-crew {
+  filter: drop-shadow(0 0 4px var(--accent, #00f2ff));
+}
+/* The state's colour is an accent on a row's left edge and on the chip's shape; never the only signal. */
+.plant-row[data-state="working"],
+.plant-count-row[data-state="working"] { --accent-state: var(--accent, #00f2ff); }
+.plant-row[data-state="needs"],
+.plant-count-row[data-state="needs"] { --accent-state: var(--needs, #ffaa00); }
+.plant-row[data-state="waiting"],
+.plant-count-row[data-state="waiting"] { --accent-state: var(--waiting, #b89cff); }
+.plant-row[data-state="stuck"],
+.plant-count-row[data-state="stuck"] { --accent-state: var(--stuck, #ff7a59); }
+.plant-row[data-state="changed"],
+.plant-count-row[data-state="changed"] { --accent-state: var(--changed, #ffb347); }
+
+/* A room's roster plate: its name, up to three rows, and "+N more". */
+.plant-roster {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 4px;
+  font-size: var(--fs-chip);
+  line-height: 15px;
+  overflow: hidden;
+}
+.plant-roster[data-empty] {
+  padding: 0 6px;
+  justify-content: center;
+  color: var(--text-2, #c5d0dc);
+  font-size: var(--fs-label);
+}
+.plant-roster[data-open] {
+  z-index: 6;
+  background: var(--plant-ground, #000e23);
+  box-shadow: 0 4px 14px #000a;
+}
+.plant-roster[data-collapsed] {
+  padding: 0 6px;
+  justify-content: center;
+}
+.plant-roster[data-collapsed] .plant-more {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.plant-roster-counts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.plant-roster-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.plant-roster[data-compact] .plant-chip-word {
+  display: none;
+}
+/* A leader line from a plate that stands away from its tile. */
+.plant-leaders {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.plant-leaders line {
+  stroke: var(--plant-linework, #255375);
+  stroke-width: 1;
+}
+/* A compact name+count tag on a tile whose roster has no clear spot. */
+.plant-tag {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  font-size: var(--fs-chip);
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.plant-tag-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+.plant-tag b {
+  font-variant-numeric: tabular-nums;
+}
+.plant-roster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 18px;
+  font-size: var(--fs-label);
+  white-space: nowrap;
+}
+.plant-roster-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+.plant-roster-total {
+  color: var(--text-2, #c5d0dc);
+  font-variant-numeric: tabular-nums;
+}
+.plant-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 3px 0 5px;
+  border-left: 3px solid var(--accent-state, var(--plant-linework, #255375));
+  border-radius: 2px;
+  cursor: pointer;
+}
+.plant-row[data-hot] {
+  background: color-mix(in srgb, var(--accent, #00f2ff) 22%, transparent);
+  outline: 1px solid var(--accent, #00f2ff);
+}
+.plant-row[data-safety] {
+  border-bottom: 2px double var(--text, #e8f0f8);
+}
+.plant-row .agent-badge {
+  flex: none;
+  color: var(--text-2, #c5d0dc);
+}
+.plant-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.plant-np-marks {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.plant-chip,
+.plant-count-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.plant-row .plant-chip {
+  flex: none;
+}
+.plant-chip .state-mark,
+.plant-count-row .state-mark {
+  flex: none;
+}
+/* "+N more": the one real button on a roster; it opens the room's panel. */
+.plant-more {
+  display: block;
+  height: 20px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--text, #e8f0f8);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+.plant-more:hover {
+  background: color-mix(in srgb, var(--accent, #00f2ff) 18%, transparent);
+}
+.plant-tip {
+  display: none;
+  position: absolute;
+  z-index: 5;
+  padding: 3px 7px;
+  font-size: var(--fs-label);
+  line-height: 1.3;
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.plant-tip[data-side="below"] {
+  top: 100%;
+  margin-top: 4px;
+}
+.plant-tip[data-side="above"] {
+  bottom: 100%;
+  margin-bottom: 4px;
+}
+.plant-tip[data-align="center"] {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.plant-tip[data-align="start"] {
+  left: 0;
+}
+.plant-tip[data-align="end"] {
+  right: 0;
+}
+.plant-figure:hover .plant-tip,
+.plant-figure:focus-visible .plant-tip {
+  display: block;
+}
+/* The count plate: a button that opens the room's figures. */
+.plant-count {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 5px;
+  font-size: var(--fs-chip);
+  line-height: 15px;
+}
+.plant-count[data-tier="micro"] {
+  align-items: center;
+  padding: 0 3px;
+}
+.plant-count-row b {
+  font-variant-numeric: tabular-nums;
+}
+.plant-more[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--accent, #00f2ff) 28%, transparent);
+}
+.plant-count[aria-expanded="true"] {
+  border-color: var(--accent, #00f2ff);
+}
+
+/* The rod gauge sits beside the Plant title. */
+.plant-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* A room's tile reports hover so its collapsed roster opens; figures and plates are stacked above it. */
+.plant-room {
+  pointer-events: auto;
+}

@@ -599,6 +599,10 @@
   color: #e6b8bc;
 }
 .office-scram-detail {
+  /* The banner sits outside the scrolling content, so the expanded panel scrolls on its own. */
+  max-height: min(60vh, 32rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid #4e1820;
@@ -1308,8 +1312,29 @@
 a.plant-window-body:hover {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
 }
+@media (max-width: 1023px) {
+  /* Phone and tablet: a 2 x 2 grid. */
+  .plant-annunciator { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.plant-window { min-width: 0; }
+.plant-window-body.annunciator-tile {
+  width: 100%;
+  min-width: 160px;
+  height: auto;
+  min-height: 56px;
+  padding: 8px 12px;
+  color: var(--plant-screen);
+  text-decoration: none;
+  transition: background-color 300ms ease, border-color 300ms ease;
+}
+@media (max-width: 400px) {
+  .plant-window-body.annunciator-tile { min-width: 0; }
+}
+.plant-window-body.annunciator-tile .annunciator-tile-text { flex: 1 1 auto; }
+.plant-window-label { font-size: var(--fs-small); font-weight: 700; }
+.plant-window-note { font-size: var(--fs-label); font-weight: 400; }
 .plant-window-count {
-  grid-row: span 2;
+  margin-left: auto;
   min-width: 2ch;
   font-family: var(--mono);
   font-size: 22px;
@@ -1366,6 +1391,12 @@ a.plant-window-body:hover {
 .plant-window[data-state="loading"] {
   border-style: dashed;
 }
+/* Lit: the lamp colour on the border, the tint and the glyph; the words and the count stay in the plain text colour so they read. */
+.plant-window[data-state="lit"] .plant-window-body { color: var(--text); }
+.plant-window[data-state="lit"] .plant-window-count { color: var(--text); }
+.plant-window[data-state="lit"][data-flash] .plant-window-body { animation: plant-flash 0.8s ease-in-out 3; }
+.plant-window[data-state="unavailable"] .plant-window-body,
+.plant-window[data-state="loading"] .plant-window-body { border-style: dashed; }
 /* Flow in the pipe rack along the inner walkway: moves while the core is lit. */
 .plant-flow {
   position: absolute;
@@ -1399,14 +1430,14 @@ a.plant-window-body:hover {
   }
 }
 /* No flash and no fade with reduced motion or while the tab is hidden. */
-.plant-annunciator[data-motion="paused"] .plant-window,
-.plant-annunciator[data-motion="paused"] .plant-window[data-state="lit"][data-flash] {
+.plant-annunciator[data-motion="paused"] .plant-window-body,
+.plant-annunciator[data-motion="paused"] .plant-window[data-state="lit"][data-flash] .plant-window-body {
   transition: none;
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .plant-window,
-  .plant-window[data-state="lit"][data-flash] {
+  .plant-window-body,
+  .plant-window[data-state="lit"][data-flash] .plant-window-body {
     transition: none;
     animation: none;
   }
@@ -1475,6 +1506,85 @@ a.plant-window-body:hover {
   border-color: var(--accent-dim);
   border-left-color: var(--accent);
   color: var(--accent);
+}
+.plant-list ul {
+  gap: 0;
+  border: 1px solid var(--plant-linework, #255375);
+  border-radius: 4px;
+  background: #000e23;
+  background: var(--plant-ground, #000e23);
+  overflow: hidden;
+}
+.plant-list li + li {
+  border-top: 1px solid var(--plant-linework, #255375);
+}
+.plant-list-place {
+  margin: 8px 0 4px;
+  font-size: var(--fs-label);
+  color: var(--text-2, #c5d0dc);
+}
+/* A list row: a solid plate, the state's shape and word, the title, the id in mono, then the real cause. */
+.plant-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "chip id" "title title" "cause cause" "marks marks";
+  align-items: center;
+  gap: 2px 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 0;
+  background: #000e23;
+  background: var(--plant-ground, #000e23);
+  color: var(--text, #e8f0f8);
+  font: inherit;
+  font-size: var(--fs-small);
+  text-align: left;
+  cursor: pointer;
+}
+.plant-list-row[aria-pressed="true"] {
+  outline: 2px solid var(--accent, #00f2ff);
+  outline-offset: -2px;
+}
+.plant-list-row:focus-visible {
+  outline: 2px solid var(--accent, #00f2ff);
+  outline-offset: -2px;
+}
+.plant-list-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.plant-list-chip {
+  grid-area: chip;
+}
+.plant-list-id {
+  grid-area: id;
+}
+.plant-list-title {
+  grid-area: title;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.plant-list-id {
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  color: var(--text-2, #c5d0dc);
+}
+.plant-list-cause {
+  grid-area: cause;
+}
+.plant-list-marks {
+  grid-area: marks;
+}
+.plant-list-cause,
+.plant-list-marks {
+  font-size: var(--fs-label);
+  color: var(--text-2, #c5d0dc);
 }
 .plant-advanced summary {
   cursor: pointer;

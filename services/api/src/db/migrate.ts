@@ -27,6 +27,7 @@ import { RUN_ATTESTATION_SQL } from "./migrations/023-run-attestation.js";
 import { CONTEXT_PROFILE_SQL } from "./migrations/024-context-profile.js";
 import { DEPENDENCY_PROVENANCE_SQL } from "./migrations/025-dependency-provenance.js";
 import { DEFAULT_WORKFLOW_SQL } from "./migrations/026-default-workflow.js";
+import { WORK_LANES_SQL } from "./migrations/027-work-lanes.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -55,6 +56,7 @@ export const MIGRATIONS = [
   { version: "024-context-profile", sql: CONTEXT_PROFILE_SQL },
   { version: "025-dependency-provenance", sql: DEPENDENCY_PROVENANCE_SQL },
   { version: "026-default-workflow", sql: DEFAULT_WORKFLOW_SQL },
+  { version: "027-work-lanes", sql: WORK_LANES_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

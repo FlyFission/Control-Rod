@@ -6,7 +6,8 @@ const GROUND = ["#101012"];
 
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
 const tokensCss = read("./tokens.css");
-const tokens = tokenColors(tokensCss);
+// The control room palette (--plant-*, generated from design/art/palette.json) is measured like any token.
+const tokens = { ...tokenColors(tokensCss), ...tokenColors(read("./plant-palette.css")) };
 const GROUNDS = ["ground", "surface", "panel"] as const;
 const files = {
   "styles.css": read("../styles.css"),

@@ -1,9 +1,12 @@
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import "./scram-banner.css";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client.js";
 import type { ScramDetail, ScramEvent, ScramSummary } from "../../api/types.js";
 import { type Passkeys, browserPasskeys, signAdmin } from "../../lib/decide.js";
 import { time } from "../../lib/format.js";
+import { projectDisplayName, useProjects } from "../../lib/projects.js";
+import { markScram } from "../../lib/scramTiming.js";
 
 /**
  * SCRAM from the office (specification 22a; plan task 4.10; OV-12). The scope, and what it will stop,
@@ -234,19 +237,50 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
 }
 
 /**
- * Every SCRAM in force, above the floor, with its stop as it happens and the way back. Presenting, the
- * control plane sends only that each holds and over what scope, and the review and restart are not offered.
+ * The SCRAMs in force. One read shared by the shell (banner, rod gauge, locks) and the Plant (rods),
+ * so they never disagree. It polls every 2 s while a stop is still landing and every 30 s otherwise;
+ * a live `scram` event invalidates it sooner (lib/live.ts).
  */
-export function ScramBanner({ passkeys = browserPasskeys, presenting = false }: { passkeys?: Passkeys; presenting?: boolean }) {
+export function useScrams(presenting = false) {
   const q = useQuery({
     queryKey: ["scrams", presenting],
     queryFn: () => api.scrams(presenting),
     refetchInterval: (query) => (query.state.data?.scrams.some((s) => !s.stopped) ? 2000 : 30_000),
   });
+  // Dev only: the second of the three moments in the 1 s budget (lib/scramTiming.ts).
+  useEffect(() => {
+    if (q.dataUpdatedAt > 0) markScram("refreshed");
+  }, [q.dataUpdatedAt]);
+  return q;
+}
+
+const SCOPE_GLYPH = <path d="M3 3 L13 13 M13 3 L3 13" />;
+
+/** The scope in words: "organization" or "project <name>". */
+export function scopeWords(scram: ScramSummary["scram"], projects: readonly { id: string; name: string }[]): string {
+  return scram.scope === "organization" ? "organization" : `project ${projectDisplayName(scram.project_id ?? "unknown", projects as never)}`;
+}
+
+/**
+ * Every SCRAM in force, as a hazard banner: a diagonal stripe edge, a solid dark body, a shape glyph
+ * and words, with the scope named ("SCRAM: organization", "SCRAM: project <name>"). It sits in the
+ * shell, so it shows on every screen. A drill is a striped DRILL plate and never the trip palette.
+ * It shows the stop as it happens and its recorded latency, and the way back. Presenting, the control
+ * plane sends only that each holds and over what scope, and the review and restart are not offered.
+ */
+export function ScramBanner({ passkeys = browserPasskeys, presenting = false }: { passkeys?: Passkeys; presenting?: boolean }) {
+  const q = useScrams(presenting);
+  const shown = q.data?.scrams.length ?? 0;
+  // Dev only: the third moment, once the banner has been drawn.
+  useEffect(() => {
+    if (shown === 0) return;
+    const id = requestAnimationFrame(() => markScram("visible"));
+    return () => cancelAnimationFrame(id);
+  }, [shown]);
   if (q.isError) return <p className="office-error" role="alert">Whether a SCRAM is in force could not be loaded.</p>;
   if (!q.data?.scrams.length) return null;
   return (
-    <section className="office-scram" aria-label="SCRAM in force">
+    <section className="scram-banner" aria-label="SCRAM in force">
       {q.data.scrams.map((s) => (
         <ScramStatus key={s.scram.id} summary={s} passkeys={passkeys} presenting={presenting} />
       ))}
@@ -256,16 +290,24 @@ export function ScramBanner({ passkeys = browserPasskeys, presenting = false }: 
 
 function ScramStatus({ summary: s, passkeys, presenting }: { summary: ScramSummary; passkeys: Passkeys; presenting: boolean }) {
   const [open, setOpen] = useState(false);
+  const projects = useProjects();
+  const drill = Boolean(s.scram.drill);
   const scope = s.scram.scope === "organization" ? "the whole organization" : `project ${s.scram.project_id}`;
   const reason = "reason" in s.scram ? s.scram.reason : undefined;
   return (
-    <div className="office-scram-item">
-      <p className="office-scram-eyebrow" aria-hidden="true">
-        {s.scram.drill ? "Reactor trip — SCRAM drill hold" : "Reactor trip — SCRAM hold"}
-      </p>
+    <div className="scram-banner-item" data-kind={drill ? "drill" : "trip"} data-scope={s.scram.scope}>
+      <div className="scram-banner-head">
+        <svg className="scram-banner-glyph" viewBox="0 0 16 16" width="22" height="22" aria-hidden="true" focusable="false">
+          {SCOPE_GLYPH}
+        </svg>
+        {drill && <span className="scram-banner-plate">DRILL</span>}
+        <p className="scram-banner-scope">
+          {drill ? "SCRAM drill" : "SCRAM"}: {scopeWords(s.scram, projects)}
+        </p>
+      </div>
       {/* Pulled is not stopped: the stop is claimed only once the control plane records it. */}
       <p>
-        <strong>SCRAM {s.scram.id}</strong> {s.scram.drill ? "(drill) " : ""}pulled on {scope}
+        <strong>SCRAM {s.scram.id}</strong> {drill ? "(drill) " : ""}pulled on {scope}
         {s.pulled_at ? ` at ${time(s.pulled_at)}` : ""}
         {reason ? `: ${reason}` : ""}
       </p>
@@ -294,7 +336,7 @@ function ScramDetailPanel({ id, passkeys }: { id: string; passkeys: Passkeys }) 
   if (q.isError) return <p className="error" role="alert">This SCRAM could not be loaded.</p>;
   if (!q.data) return <p className="office-note">Loading…</p>;
   return (
-    <div className="office-scram-detail">
+    <div className="office-scram-detail" role="region" aria-label="Review and restart" tabIndex={0}>
       <h3>What it stopped</h3>
       {q.data.runs.length === 0 ? (
         <p className="small">No run was running when it was pulled; nothing is quarantined.</p>

@@ -1519,6 +1519,10 @@ export interface components {
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];
             /** @description The project that owns the work, for the portfolio rollup; absent for organization level work. */
             project_id?: string;
+            /** @description The id of the project work lane that placed this figure's bay, absent outside a work bay. */
+            lane?: string;
+            /** @description That lane's name, so a card reads right even when the Plant's bays follow another project's lanes. */
+            lane_name?: string;
             /** @description The run's own status, so the card offers stop exactly when the command layer would take it. */
             run_status: components["schemas"]["ControlRod.Records.RunStatus"];
             /** @description A stop was asked for and the daemon has not yet confirmed it. */
@@ -2612,6 +2616,8 @@ export interface components {
              * @enum {string}
              */
             default_workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
+            /** @description The work lanes the Plant's bays follow. Absent means the capital-project preset. */
+            work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneSet"];
             lanes: components["schemas"]["ControlRod.Records.DataLane"][];
             qa_overlays: string[];
             /**
@@ -3021,6 +3027,48 @@ export interface components {
              */
             attestation_verified?: boolean;
         };
+        /**
+         * @description One work lane: one work bay on the Plant. Its position in its set is its bay (the first lane is the
+         *     first slot of WorkBaySlot, and so on). Not a data lane (DataLane), which classifies information.
+         */
+        "ControlRod.Records.WorkLane": {
+            /** @description Stable, lowercase, used by a card's lane tag. */
+            id: string;
+            /** @description The name on the bay's plate. Short enough for a plate at minimum zoom. */
+            name: string;
+            /** @description What happens in this lane, for screen readers and the legend. */
+            purpose: string;
+            /** @description Whole words (or word runs) in a card's discipline that place it here. Matched on word boundaries, never inside a word. */
+            keywords?: string[];
+            /** @description Repository paths that place work here: a directory prefix ("apps/web/"), an exact path, or a glob (`*` within a segment, `**` across segments). */
+            paths?: string[];
+        };
+        /**
+         * @description A request to set a project's work lanes. `lanes` is required (one to six) for the custom preset and
+         *     ignored for the others, whose lanes the control plane supplies.
+         */
+        "ControlRod.Records.WorkLaneChoice": {
+            preset: components["schemas"]["ControlRod.Records.WorkLanePreset"];
+            lanes?: components["schemas"]["ControlRod.Records.WorkLane"][];
+            /** @description The id of the lane that takes work no tag, path or keyword places. Absent means the preset's own default (the first lane for custom). */
+            default_lane?: string;
+        };
+        /**
+         * @description Which set of work lanes a project uses.
+         * @enum {string}
+         */
+        "ControlRod.Records.WorkLanePreset": "capital-project" | "software" | "custom";
+        /**
+         * @description A project's work lanes as stored and returned: the preset, its one to six lanes, and the lane that
+         *     takes work nothing else places. Work is placed by, in order: the card's lane tag (its discipline
+         *     equal to a lane id or name), the repository paths its recorded outputs touch, whole-word keywords,
+         *     then the default lane. A project without one reads as the capital-project preset.
+         */
+        "ControlRod.Records.WorkLaneSet": {
+            preset: components["schemas"]["ControlRod.Records.WorkLanePreset"];
+            lanes: components["schemas"]["ControlRod.Records.WorkLane"][];
+            default_lane: string;
+        };
         /** @description The only unit of work an agent may start. */
         "ControlRod.Records.WorkPackage": {
             /** @enum {string} */
@@ -3083,7 +3131,9 @@ export interface components {
             count: number;
         };
         /**
-         * @description Where a figure stands in the office (specification 13): a discipline's cube set, or a room.
+         * @description Where a figure stands in the office (specification 13): a work bay or a room. The six bay ids are
+         *     positions (WorkBaySlot); a project's work lanes say what each is called. Under the capital-project
+         *     preset they are the six disciplines, as before.
          * @enum {string}
          */
         FigurePlace: "process" | "mechanical" | "electrical" | "civil" | "assurance" | "project-controls" | "review" | "interface" | "verification" | "your-office" | "document-control" | "bench" | "quarantine";
@@ -3692,6 +3742,8 @@ export interface components {
             lane?: components["schemas"]["ControlRod.Records.DataLane"];
             author?: components["schemas"]["WorkspaceProjects.RuntimeSelection"];
             checker?: components["schemas"]["WorkspaceProjects.RuntimeSelection"];
+            /** @description Sets the project's work lanes. On create, absent means the preset proposed from the repository. */
+            work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneChoice"];
             laneAgents?: {
                 [key: string]: string;
             };
@@ -3727,6 +3779,8 @@ export interface components {
             laneAgents?: {
                 [key: string]: string;
             } | null;
+            /** @description Sets the project's work lanes. On create, absent means the preset proposed from the repository. */
+            work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneChoice"];
         };
         "WorkspaceProjects.UpdateProjectPayload": {
             project_id: string;
@@ -3748,6 +3802,8 @@ export interface components {
             laneAgents?: {
                 [key: string]: string;
             };
+            /** @description The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset). */
+            work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneSet"];
             /** Format: date-time */
             createdAt: string;
         };
@@ -4782,6 +4838,11 @@ export interface operations {
                          * @description Figures left out because presenting mode hides lanes above internal.
                          */
                         hidden: number;
+                        /** @description The work lanes of each project that has a figure, so bay names follow the project. */
+                        lane_sets?: {
+                            project_id: string;
+                            work_lanes: components["schemas"]["ControlRod.Records.WorkLaneSet"];
+                        }[];
                         /** Format: date-time */
                         generated_at: string;
                     } | components["schemas"]["ApiError"];

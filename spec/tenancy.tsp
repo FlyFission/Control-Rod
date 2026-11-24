@@ -238,6 +238,89 @@ model DelegationRevocation {
   revoked_at: string;
 }
 
+/**
+ * The six work-bay positions of the Plant, in drawing order. A slot names a place on the floor, not a
+ * discipline: the project's work lanes say what each position is called. Under the capital-project
+ * preset the six ids are the six disciplines they have always been, so stored figures and older
+ * clients keep their meaning.
+ */
+union WorkBaySlot {
+  "process", "mechanical", "electrical", "civil", "assurance", "project-controls",
+}
+
+/** Which set of work lanes a project uses. */
+union WorkLanePreset {
+  /** Process, Mechanical, Electrical, Civil, Assurance, Project controls: the six bays as drawn before lanes existed. */
+  "capital-project",
+
+  /** Frontend, Backend, Platform, Data, Tests, Docs. */
+  "software",
+
+  /** Up to six lanes the project names itself. */
+  "custom",
+}
+
+/**
+ * One work lane: one work bay on the Plant. Its position in its set is its bay (the first lane is the
+ * first slot of WorkBaySlot, and so on). Not a data lane (DataLane), which classifies information.
+ */
+@extension("unevaluatedProperties", false)
+model WorkLane {
+  /** Stable, lowercase, used by a card's lane tag. */
+  @pattern("^[a-z][a-z0-9-]{0,31}$")
+  id: string;
+
+  /** The name on the bay's plate. Short enough for a plate at minimum zoom. */
+  @minLength(1)
+  @maxLength(24)
+  name: string;
+
+  /** What happens in this lane, for screen readers and the legend. */
+  @maxLength(120)
+  purpose: string;
+
+  /** Whole words (or word runs) in a card's discipline that place it here. Matched on word boundaries, never inside a word. */
+  @maxItems(20)
+  keywords?: string[];
+
+  /** Repository paths that place work here: a directory prefix ("apps/web/"), an exact path, or a glob (`*` within a segment, `**` across segments). */
+  @maxItems(20)
+  paths?: string[];
+}
+
+/**
+ * A request to set a project's work lanes. `lanes` is required (one to six) for the custom preset and
+ * ignored for the others, whose lanes the control plane supplies.
+ */
+@extension("unevaluatedProperties", false)
+model WorkLaneChoice {
+  preset: WorkLanePreset;
+
+  @minItems(1)
+  @maxItems(6)
+  lanes?: WorkLane[];
+
+  /** The id of the lane that takes work no tag, path or keyword places. Absent means the preset's own default (the first lane for custom). */
+  default_lane?: string;
+}
+
+/**
+ * A project's work lanes as stored and returned: the preset, its one to six lanes, and the lane that
+ * takes work nothing else places. Work is placed by, in order: the card's lane tag (its discipline
+ * equal to a lane id or name), the repository paths its recorded outputs touch, whole-word keywords,
+ * then the default lane. A project without one reads as the capital-project preset.
+ */
+@extension("unevaluatedProperties", false)
+model WorkLaneSet {
+  preset: WorkLanePreset;
+
+  @minItems(1)
+  @maxItems(6)
+  lanes: WorkLane[];
+
+  default_lane: string;
+}
+
 /** A project: its mode, default rigor, admitted lanes, QA overlays and autonomy level. */
 @extension("unevaluatedProperties", false)
 model Project {
@@ -252,6 +335,9 @@ model Project {
 
   /** The workflow packages carry when they name none. Absent means the playbook. */
   default_workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
+
+  /** The work lanes the Plant's bays follow. Absent means the capital-project preset. */
+  work_lanes?: WorkLaneSet;
 
   @minItems(1)
   lanes: DataLane[];

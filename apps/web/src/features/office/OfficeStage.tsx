@@ -35,6 +35,12 @@ export interface StageFigure {
   tint?: string;
   /** The full name read aloud and in the tooltip, when the code is shortened. */
   name?: string;
+  /** The package's title, shown shortened on the Plant's nameplate. */
+  title?: string;
+  /** The run's role (author, pre-check, ...), for the nameplate's glyph when no runtime is recorded. */
+  role?: string;
+  /** The run's provider, for the agent's icon (lib/agents.ts); absent until the API records it. */
+  runtime?: string;
   /** The active lens's value in words, read with the figure. */
   lensNote?: string;
   /** The marks besides the state shape (OV-08): at most four, so a figure never carries more than five. */
@@ -440,7 +446,7 @@ function PlantConsole({
   );
 }
 
-function FigureMark({
+export function FigureMark({
   canvas,
   figure: f,
   selected,

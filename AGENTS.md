@@ -15,5 +15,6 @@ This file is the short brief for any agent or person working here. Details live 
 
 - Decisions: `docs/adr/`
 - Threat model: `docs/threat-model.md`
+- Visual references and the per-screen visual bar: `design/references/` (read before any visual change)
 - Software quality assurance: `docs/sqa/`
 - The plan and architecture: the Control Rod Platform Plan (linked from `docs/README.md`)

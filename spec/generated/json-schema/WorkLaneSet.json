@@ -1,0 +1,28 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WorkLaneSet.json",
+    "type": "object",
+    "properties": {
+        "preset": {
+            "$ref": "WorkLanePreset.json"
+        },
+        "lanes": {
+            "type": "array",
+            "items": {
+                "$ref": "WorkLane.json"
+            },
+            "minItems": 1,
+            "maxItems": 6
+        },
+        "default_lane": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "preset",
+        "lanes",
+        "default_lane"
+    ],
+    "description": "A project's work lanes as stored and returned: the preset, its one to six lanes, and the lane that\ntakes work nothing else places. Work is placed by, in order: the card's lane tag (its discipline\nequal to a lane id or name), the repository paths its recorded outputs touch, whole-word keywords,\nthen the default lane. A project without one reads as the capital-project preset.",
+    "unevaluatedProperties": false
+}

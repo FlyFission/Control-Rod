@@ -21,6 +21,7 @@ describe("reading comfort: type scale", () => {
     expect(px("fs-label")).toBeGreaterThan(px("fs-chip"));
     expect(px("fs-small")).toBeGreaterThan(px("fs-label"));
     expect(px("fs-ui")).toBeGreaterThan(px("fs-small"));
+    expect([px("fs-title"), px("fs-headline"), px("fs-display")]).toEqual([20, 28, 40]);
   });
 
   it("leaves letter spacing at each font's default for body text, and line height out of the cramped range", () => {
@@ -47,7 +48,7 @@ describe("reading comfort: type scale", () => {
 
   it("sets no readable text below 14px outside scene art except through a --fs-* token", () => {
     const offenders: string[] = [];
-    for (const file of ["../styles.css", "../features/floor/floor.css", "../features/office/office.css", "../features/board/board.css"]) {
+    for (const file of ["../styles.css", "../features/floor/floor.css", "../features/office/office.css", "../features/board/board.css", "./instruments/instruments.css"]) {
       for (const block of read(file).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
         const selector = block[1]!.trim().replace(/\s+/g, " ");
         if (selector.startsWith("@") || isScene(selector)) continue;

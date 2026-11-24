@@ -1,0 +1,46 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WorkLane.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$",
+            "description": "Stable, lowercase, used by a card's lane tag."
+        },
+        "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24,
+            "description": "The name on the bay's plate. Short enough for a plate at minimum zoom."
+        },
+        "purpose": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "What happens in this lane, for screen readers and the legend."
+        },
+        "keywords": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "maxItems": 20,
+            "description": "Whole words (or word runs) in a card's discipline that place it here. Matched on word boundaries, never inside a word."
+        },
+        "paths": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "maxItems": 20,
+            "description": "Repository paths that place work here: a directory prefix (\"apps/web/\"), an exact path, or a glob (`*` within a segment, `**` across segments)."
+        }
+    },
+    "required": [
+        "id",
+        "name",
+        "purpose"
+    ],
+    "description": "One work lane: one work bay on the Plant. Its position in its set is its bay (the first lane is the\nfirst slot of WorkBaySlot, and so on). Not a data lane (DataLane), which classifies information.",
+    "unevaluatedProperties": false
+}

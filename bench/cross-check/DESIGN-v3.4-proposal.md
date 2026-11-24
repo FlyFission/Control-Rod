@@ -1,8 +1,8 @@
 # DESIGN.md v3.4 proposal, revision 2: §4 confinement by per-call container
 
 Revision 2 folds in the reviewers' design check of revision 1. Codex on Astra and Antigravity on Neon both answered
-AGREE WITH CHANGES. Where the two differed, on tool access to the token, the stricter rule (Astra's) is used here,
-pending the owner's choice.
+AGREE WITH CHANGES. Where the two differed, on tool access to the token, the stricter rule (Astra's) is used here:
+the owner chose it on 2026-11-24.
 
 Why it changed: in the confirmation review, both of you flagged that the harness's outer macOS Seatbelt layer and
 the CLIs' own sandboxes cannot both work. That was verified on the owner's Mac: a nested `sandbox-exec` under the

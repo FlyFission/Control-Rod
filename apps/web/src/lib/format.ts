@@ -17,10 +17,11 @@ export function baseName(path: string): string {
   return i >= 0 ? path.slice(i + 1) : path;
 }
 
-export type PreviewKind = "markdown" | "image" | "pdf" | "geojson" | "json" | "text";
+export type PreviewKind = "diff" | "markdown" | "image" | "pdf" | "geojson" | "json" | "text";
 
 export function previewKind(name: string): PreviewKind {
   const ext = name.toLowerCase().split(".").pop() ?? "";
+  if (ext === "diff" || ext === "patch") return "diff";
   if (ext === "md" || ext === "markdown") return "markdown";
   if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) return "image";
   if (ext === "pdf") return "pdf";
@@ -68,4 +69,14 @@ export function independenceText(record: VerificationRecord): string | null {
   return ind.owner_override === undefined
     ? base
     : `${base} Owner override by ${ind.owner_override.by}: ${ind.owner_override.reason}`;
+}
+
+/** Elapsed time as a card says it: "under 1 min", "12 min", "2 h 5 min". Never negative. */
+export function elapsedText(ms: number): string {
+  const minutes = Math.floor(Math.max(0, ms) / 60000);
+  if (minutes < 1) return "under 1 min";
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }

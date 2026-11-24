@@ -143,7 +143,8 @@ def overlays(state="healthy", site_only=False):
     return o.result()
 
 
-BLOOM = {"healthy": dict(k=(0.45, 0.38, 0.34), radii=(3, 14, 56), gain=1.1), "scram": dict(k=(0.55, 0.35, 0.15), radii=(3, 9, 28), gain=1.0)}
+BLOOM = {"healthy": dict(k=(0.45, 0.38, 0.34), radii=(3, 14, 56), gain=1.1),   # v5 tried 1.2 and 1.3: both clip the grid tops to white, so unchanged
+          "scram": dict(k=(0.55, 0.35, 0.15), radii=(3, 9, 28), gain=1.0)}
 
 
 def finish(raw, name, state="healthy", with_overlay=True, glow_gain=1.0, site_only=False):

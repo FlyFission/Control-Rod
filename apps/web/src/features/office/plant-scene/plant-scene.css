@@ -473,3 +473,16 @@
 .plant-room {
   pointer-events: auto;
 }
+
+/* Phone and touch: a micro count stays small to the eye but has a 44 x 44 px hit area. */
+@media (max-width: 767px), (pointer: coarse) {
+  .plant-count[data-tier="micro"]::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}

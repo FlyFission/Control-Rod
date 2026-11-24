@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { CaptureView, DataLane } from "../../api/types.js";
 import { LanePicker } from "../../components/LanePicker.js";
+import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
 
 /** Intake states a person can recover from with a retry (as on the Packages page). */
@@ -54,6 +55,7 @@ export function CaptureCard({
   onDragEndCard?: () => void;
 }) {
   const qc = useQueryClient();
+  const scramLock = useActionLock();
   const shown = splitAttachments(capture.text);
   const displayTitle = captureSummaryText(shown.text);
   const line = captureLine(capture);
@@ -143,7 +145,7 @@ export function CaptureCard({
       {!capture.lane && (
         <div className="bd-capture-classify">
           <LanePicker id={`bd-lane-${capture.id}`} value={lane} onChange={setLane} />
-          <button type="button" className="btn primary small" onClick={() => classify.mutate()} disabled={classify.isPending}>
+          <button type="button" className="btn primary small" onClick={() => classify.mutate()} disabled={classify.isPending || scramLock.locked} title={scramLock.why}>
             Classify
           </button>
           {classify.isError && (
@@ -155,7 +157,7 @@ export function CaptureCard({
       )}
       {line.tone === "block" && capture.intake !== undefined && (
         <div className="bd-capture-classify">
-          <button type="button" className="btn small" onClick={() => requeue.mutate()} disabled={requeue.isPending}>
+          <button type="button" className="btn small" onClick={() => requeue.mutate()} disabled={requeue.isPending || scramLock.locked} title={scramLock.why}>
             Retry intake
           </button>
           {requeue.isError && (

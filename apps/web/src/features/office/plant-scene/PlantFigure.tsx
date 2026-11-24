@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import { AgentBadge } from "../../../components/AgentBadge.js";
 import { STATE_INFO, StateMark } from "../../../components/StateMark.js";
 import { type FigureState, type StageFigure, marksInWords } from "../OfficeStage.js";
 import type { Placed } from "./figure-layout.js";

@@ -122,3 +122,18 @@ describe("the annunciator under reduced motion", () => {
     expect(tile.getAttribute("data-motion")).toBe("paused");
   });
 });
+
+describe("the annunciator's tiles that do nothing", () => {
+  it("are plain readouts, not links; only the waiting-on-you tile is a link", async () => {
+    const windows: AnnunciatorWindow[] = [
+      { id: "waiting-on-you", label: "Waiting on you", state: "lit", count: 3 },
+      { id: "stuck", label: "Stuck", state: "lit", count: 1 },
+      { id: "changed", label: "Input changed", state: "lit", count: 1 },
+      { id: "scram", label: "SCRAM", state: "lit", count: 1 },
+    ];
+    await renderPage(<Annunciator windows={windows} />);
+    const body = (id: string) => document.querySelector(`.plant-window[data-window="${id}"] .plant-window-body`)!;
+    expect(body("waiting-on-you").tagName).toBe("A");
+    for (const id of ["stuck", "changed", "scram"]) expect(body(id).tagName).toBe("SPAN");
+  });
+});

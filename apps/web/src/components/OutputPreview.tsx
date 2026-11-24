@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { api } from "../api/client.js";
 import type { Artifact } from "../api/types.js";
+import { DiffView } from "./DiffView.js";
 import { baseName, isGeoJson, previewKind, shortDigest } from "../lib/format.js";
 
 const GeoMap = lazy(() => import("./GeoMap.js"));
@@ -28,7 +29,8 @@ export function OutputItem({ packageId, artifact }: { packageId: string; artifac
   );
 }
 
-function Preview({ href, name }: { href: string; name: string }) {
+/** The body of one output preview, without the Preview/Hide control: the drawer lays it out itself. */
+export function Preview({ href, name }: { href: string; name: string }) {
   const kind = previewKind(name);
   if (kind === "image") return <img className="preview-img" src={href} alt={name} />;
   if (kind === "pdf") return <iframe className="preview-pdf" src={href} title={name} />;
@@ -47,6 +49,7 @@ function TextPreview({ href, kind }: { href: string; kind: ReturnType<typeof pre
   if (q.isLoading) return <p className="muted">Loading</p>;
   if (q.isError || q.data === undefined) return <p className="error">Could not load this output.</p>;
   const text = q.data;
+  if (kind === "diff") return <DiffView text={text} />;
   if (kind === "markdown") {
     return (
       <div className="markdown preview">

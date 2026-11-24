@@ -50,7 +50,7 @@ def seat_offsets(arch):
 
 def chair(m, yaw=0.0):
     """Swivel chair, local frame: origin on the floor under the seat, seat top z=14, backrest behind (-y)."""
-    m.push(Matrix.Rotation(yaw, 4, "Z"))
+    m.push(Matrix.Rotation(yaw, 4, "Z") @ Matrix.Scale(W.WORKER_SCALE, 4))     # v4: the chair grows with the worker (about its seat axis)
     for i in range(5):
         a = 2 * math.pi * i / 5 + 0.3
         m.box((math.cos(a) * 4.4, math.sin(a) * 4.4, 2.0), (8.8, 1.3, 0.9), "desk_dk", rot=(0, 0, a))

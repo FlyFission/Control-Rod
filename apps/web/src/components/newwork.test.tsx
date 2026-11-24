@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -33,6 +33,8 @@ async function openCaptureSettings(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("engineering mode toggle and NewWorkModal", () => {
+  // The shell always reads which SCRAMs are in force and alerts when it cannot; these tests are about the modal.
+  beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
   afterEach(() => {
     localStorage.removeItem("cr.projects.v1");
     localStorage.removeItem("cr.active-project");

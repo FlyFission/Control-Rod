@@ -1,21 +1,20 @@
-import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { AttentionItem, InboxView } from "../api/types.js";
-import { StateMark, type StateKind } from "../components/StateMark.js";
+import { StateMark } from "../components/StateMark.js";
 import { BoardReviewDrawer } from "../features/board/BoardReviewDrawer.js";
 import { useMode } from "../lib/mode.js";
 import { age } from "../lib/office.js";
 import { lastSeenKey, readNumber, writeNumber } from "../lib/storage.js";
 import { ATTENTION_LABEL, attentionKey } from "../lib/attention.js";
 import { NotifyToggle } from "../components/NotifyToggle.js";
+import { AttentionTarget } from "../components/AttentionTarget.js";
+import { RiskBand } from "../components/RiskBand.js";
+import { shortDigest } from "../lib/format.js";
+import "./screens.css";
 
 const KIND_LABEL = ATTENTION_LABEL;
-
-/** A mark by gate risk, shape as well as colour: a security hold or held agent is stuck, a decision needs you. */
-const markFor = (item: AttentionItem): StateKind =>
-  item.kind === "scram" || item.kind === "lost" ? "stuck" : item.kind === "permission" || item.kind === "dispute" ? "changed" : "needs";
 
 const DECISION_WORDS: Record<string, string> = {
   confirm: "confirm the requirements",
@@ -69,12 +68,23 @@ export function Inbox() {
     }
   }, [selectedMissing]);
 
-  const activePkgId =
-    selectedMissing
-      ? null
-      : selectedPkgId === undefined
-        ? (view?.items.find((i) => i.package_id !== undefined)?.package_id ?? null)
-        : selectedPkgId;
+  // The review drawer is the docked cockpit and covers most of the page at 1440, so it opens only when
+  // the person asks to inspect an item, never by itself; the list stays readable until then.
+  const activePkgId = selectedMissing || typeof selectedPkgId !== "string" ? null : selectedPkgId;
+
+  // Closing the drawer returns focus to the "Inspect and sign" button that opened it, never to the page body.
+  const openedFrom = useRef<string | null>(null);
+  useEffect(() => {
+    if (activePkgId !== null) {
+      openedFrom.current = activePkgId;
+      return;
+    }
+    const id = openedFrom.current;
+    openedFrom.current = null;
+    if (id === null) return;
+    const opener = [...document.querySelectorAll<HTMLElement>("[data-inspect-for]")].find((el) => el.dataset.inspectFor === id);
+    if (opener && (document.activeElement === null || document.activeElement === document.body)) opener.focus();
+  }, [activePkgId]);
 
   return (
     <div className={activePkgId ? "place inbox inbox-has-drawer" : "place inbox"}>
@@ -103,9 +113,19 @@ export function Inbox() {
               </button>
             </div>
           )}
-          {q.isSuccess && view !== undefined && view.items.length === 0 && <p className="muted">Nothing waits on you. Decisions and held work arrive here as they need you.</p>}
+          {q.isSuccess && view !== undefined && view.items.length === 0 && (
+            <div className="calm calm-large" role="status">
+              <span className="calm-tick" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" focusable="false"><path d="M5 12.5 10 17.5 19 7" /></svg>
+              </span>
+              <div>
+                <p className="calm-title">Nothing waits on you.</p>
+                <p className="muted">Decisions and held work arrive here as they need you, riskiest first.</p>
+              </div>
+            </div>
+          )}
           {view !== undefined && view.items.length > 0 && (
-            <ol className="office-list" aria-label={`${view.items.length} waiting on you`}>
+            <ol className="office-list inbox-list" aria-label={`${view.items.length} waiting on you`}>
               {view.items.map((item) => (
                 <Item
                   key={itemKey(item)}
@@ -135,7 +155,7 @@ export function Inbox() {
         <BoardReviewDrawer
           packageId={activePkgId}
           mode={mode}
-          autoFocus={selectedPkgId !== undefined}
+          autoFocus
           onClose={() => setSelectedPkgId(null)}
         />
       )}
@@ -158,9 +178,11 @@ function Item({
 }) {
   const decisions = (item.decisions ?? []).map((d) => DECISION_WORDS[d] ?? d);
   return (
-    <li className={`office-item${theirs ? " theirs" : ""}${selected ? " inbox-selected" : ""}`}>
+    <li className={`office-item inbox-item${theirs ? " theirs" : ""}${selected ? " inbox-selected" : ""}`}>
+      {!theirs && <RiskBand item={item} />}
+      <div className="inbox-item-body">
       <div className="office-meta">
-        <StateMark kind={theirs ? "waiting" : markFor(item)} title={item.risk.label} />
+        {theirs && <StateMark kind="waiting" title={item.risk.label} />}
         <span className="tag">{item.risk.label}</span>
         <span className="muted small">{KIND_LABEL[item.kind]}</span>
         {item.package_id !== undefined && (
@@ -169,6 +191,11 @@ function Item({
           </span>
         )}
         <span className="muted small">waiting {age(item.since)}</span>
+        {item.subject_digest !== undefined && (
+          <span className="mono small inbox-digest" title="The digest a signature would bind">
+            {shortDigest(item.subject_digest)}
+          </span>
+        )}
       </div>
       <p className="office-title">{item.title}</p>
       <p className="muted">{item.detail}</p>
@@ -181,35 +208,20 @@ function Item({
         <div className="item-actions">
           <Target item={item} />
           {onInspect && (
-            <button type="button" className="btn small" onClick={onInspect} aria-pressed={selected}>
-              {selected ? "Inspecting" : "Inspect inline"}
+            <button type="button" className="btn small" data-inspect-for={item.package_id} onClick={onInspect} aria-pressed={selected}>
+              {selected ? "Inspecting" : "Inspect and sign"}
             </button>
           )}
           {decisions.length > 0 && <span className="muted small">You may {decisions.join(", ")}.</span>}
         </div>
       )}
+      </div>
     </li>
   );
 }
 
 function Target({ item }: { item: AttentionItem }) {
-  const label =
-    item.kind === "scram" ? "Open SCRAM commands"
-    : item.kind === "confirm" ? "Open and confirm"
-    : item.capture_id !== undefined ? (item.href.to === "/roster" ? "Open the roster" : "Open Packages")
-    : item.binds !== undefined ? "Open and decide"
-    : "Open the runs";
-  if (item.href.to === "/packages/$id" && item.href.id !== undefined)
-    return (
-      <Link to="/packages/$id" params={{ id: item.href.id }} {...(item.href.hash ? { hash: item.href.hash } : {})} className="btn primary small">
-        {label}
-      </Link>
-    );
-  return (
-    <Link to={item.href.to} {...(item.href.hash ? { hash: item.href.hash } : {})} className="btn primary small">
-      {label}
-    </Link>
-  );
+  return <AttentionTarget item={item} className="btn small" />;
 }
 
 /** The six line digest, in words (OV-09). */

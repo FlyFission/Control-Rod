@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
 import type { WorkspaceProjectArchivePayload, WorkspaceProjectUpdatePayload } from "../../api/types.js";
+import { useActionLock } from "../../lib/scramLock.js";
 import { COLUMNS } from "../../lib/board.js";
 import { browserPasskeys } from "../../lib/decide.js";
 import { type Kind, useLook } from "../../lib/kind.js";
@@ -106,6 +107,7 @@ export function BoardView() {
   const mode = useMode();
   const projectUser = useContext(WorkspaceProjectUser);
   const activeProject = useActiveProject();
+  const scramLock = useActionLock();
   const copy = MODE_COPY[mode];
   const otherModes: EngineeringMode[] = (["software", "capital-projects", "nuclear-grade"] as const).filter(
     (m) => m !== mode,
@@ -544,6 +546,8 @@ export function BoardView() {
               column={x.column}
               stream={data.status}
               runRunning={x.runRunning === true}
+              {...(x.author ? { author: x.author } : {})}
+              {...(x.checker ? { checker: x.checker } : {})}
               lastKnown={x.lastKnown}
               nuclear={x.nuclear}
               selected={selectedId === x.pkg.id}
@@ -833,7 +837,12 @@ export function BoardView() {
             <button
               type="button"
               className="btn primary"
-              onClick={() => document.querySelector<HTMLButtonElement>(".places-cta")?.click()}
+              disabled={scramLock.locked}
+              title={scramLock.why}
+              onClick={() => {
+                const cta = document.querySelector<HTMLButtonElement>(".places-cta");
+                if (cta && !cta.disabled) cta.click();
+              }}
             >
               + {copy.newCta} <kbd>C</kbd>
             </button>

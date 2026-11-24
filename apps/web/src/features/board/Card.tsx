@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { WorkPackage } from "../../api/types.js";
 import type { ColumnId } from "../../lib/board.js";
 import { needsIndependentCheck } from "../../lib/board.js";
 import type { Kind } from "../../lib/kind.js";
 import type { NextLine } from "../../lib/next.js";
+import { AgentBadge } from "../../components/AgentBadge.js";
+import { elapsedText } from "../../lib/format.js";
 import { showsRunSpinner } from "./boardOrder.js";
 
 const KIND_WORD: Record<Kind, string> = { code: "Code", doc: "Document" };
@@ -29,6 +31,19 @@ function initials(name: string): string {
   const parts = name.split(/[\s._-]+/).filter(Boolean);
   const letters = parts.length > 1 ? parts.slice(0, 2).map((s) => s[0]) : [name.slice(0, 2)];
   return letters.join("").toUpperCase();
+}
+
+/** "12 min" since a run started, redrawn each 30 s while mounted; nothing ticks in a hidden tab. */
+export function Elapsed({ since }: { since: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (document.visibilityState !== "hidden") setNow(Date.now());
+    }, 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const start = Date.parse(since);
+  return Number.isNaN(start) ? null : <span className="mono bd-elapsed">{elapsedText(now - start)}</span>;
 }
 
 export type CardProps = {
@@ -61,10 +76,13 @@ export type CardProps = {
   compact?: boolean;
   /** An agent run on this card is running now, as last read; queued alone does not count. */
   runRunning?: boolean;
+  /** Runtime providers of the author and checker runs, for their icons. */
+  author?: string;
+  checker?: string;
 };
 
 /** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false, author, checker }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
@@ -79,61 +97,80 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
       data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}
       style={edgeColor ? { borderLeftColor: edgeColor } : undefined}
     >
-      <div className="bd-kinds">
+      <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
+        {pkg.title}
+      </button>
+      <div className="bd-meta">
         {kinds.map((k) => (
           <span key={k} className="bd-kind" data-kind={k}>
             <span aria-hidden="true" className="bd-kind-icon">
               {KIND_ICON[k]}
             </span>
-            {KIND_WORD[k]}
+            <span className="bd-kind-word">{KIND_WORD[k]}</span>
           </span>
         ))}
-        <span className="bd-id mono small muted">
+        <span className="bd-id mono">
           {pkg.id} r{pkg.revision}
         </span>
-      </div>
-      <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
-        {pkg.title}
-      </button>
-      {(!compact || check || nuclear) && (
-        <div className="bd-meta">
+        {!compact && pkg.grade && pkg.grade !== "general-service" && <span className="bd-grade">{pkg.grade}</span>}
+        {nuclear && <span className="bd-nuclear">Nuclear</span>}
+        {check && (
+          <span className="bd-check">
+            <span aria-hidden="true">{"\u25c6"} </span>
+            Independent check
+          </span>
+        )}
+        <span className="bd-meta-end">
           {!compact && owner && (
             <span className="bd-avatar" title={`Owner: ${owner}`}>
               <span aria-hidden="true">{initials(owner)}</span>
               <span className="sr-only">Owner {owner}</span>
             </span>
           )}
-          {!compact && agent && (
-            <span className="bd-avatar bd-agent" title={`Agent: ${agent}`}>
-              <span aria-hidden="true">{initials(agent)}</span>
-              <span className="sr-only">Agent {agent}</span>
+          {author ? (
+            <span className="bd-agent-icon" title={`Author: ${author}`}>
+              <AgentBadge runtime={author} size={18} />
+              <span className="sr-only">Author agent {author}</span>
+            </span>
+          ) : (
+            !compact &&
+            agent &&
+            !checker && (
+              <span className="bd-avatar bd-agent" title={`Agent: ${agent}`}>
+                <span aria-hidden="true">{initials(agent)}</span>
+                <span className="sr-only">Agent {agent}</span>
+              </span>
+            )
+          )}
+          {checker && (
+            <span className="bd-agent-icon bd-agent-checker" title={`Checker: ${checker}`}>
+              <AgentBadge runtime={checker} size={18} />
+              <span className="sr-only">Checker agent {checker}</span>
             </span>
           )}
-          {!compact && pkg.grade && pkg.grade !== "general-service" && <span className="bd-chip">{pkg.grade}</span>}
-          {nuclear && <span className="bd-nuclear">Nuclear</span>}
-          {check && (
-            <span className="bd-check">
-              <span aria-hidden="true">{"◆"} </span>
-              Independent check
-            </span>
-          )}
-        </div>
-      )}
+        </span>
+      </div>
       <p className="bd-next">
         {stream === "live" && lastKnown ? (
           <span className="muted">Last known: {next.text}</span>
         ) : stream === "live" ? (
           <>
-            {spin && (
-              <span className="bd-spin" role="img" aria-label="Agent running">
-                <span aria-hidden="true" />
+            {spin ? (
+              // A run executing now is live, not waiting: a lit dot, no "Waiting" word.
+              <span className="bd-sym bd-live" aria-hidden="true">{"\u25cf "}</span>
+            ) : (
+              <span className="bd-sym">
+                <span aria-hidden="true">{tone.symbol} </span>
+                {tone.word ? <span className="bd-word">{tone.word}: </span> : null}
               </span>
             )}
-            <span className="bd-sym">
-              <span aria-hidden="true">{tone.symbol} </span>
-              {tone.word ? <span className="bd-word">{tone.word}: </span> : null}
-            </span>
             <span>{next.text}</span>
+            {next.since && spin && (
+              <>
+                <span aria-hidden="true">, </span>
+                <Elapsed since={next.since} />
+              </>
+            )}
           </>
         ) : stream === "unknown" ? (
           <span className="muted">Status unknown since {sinceText(unknownSince)}</span>
@@ -141,6 +178,11 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           <span className="muted">{next.text}</span>
         )}
       </p>
+      {spin && (
+        <span className="bd-progress" role="img" aria-label="Agent running">
+          <span aria-hidden="true" />
+        </span>
+      )}
       {actions}
       {onRetry && stream !== "unknown" && (
         <button type="button" className="btn small bd-retry" onClick={onRetry}>

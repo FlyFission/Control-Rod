@@ -1314,7 +1314,8 @@ a.plant-window-body:hover {
 }
 @media (max-width: 1023px) {
   /* Phone and tablet: a 2 x 2 grid. */
-  .plant-annunciator { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .plant-annunciator { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .plant-window { max-width: none; }
 }
 .plant-window { min-width: 0; }
 .plant-window-body.annunciator-tile {
@@ -1431,12 +1432,14 @@ a.plant-window-body:hover {
 }
 /* No flash and no fade with reduced motion or while the tab is hidden. */
 .plant-annunciator[data-motion="paused"] .plant-window-body,
+.plant-annunciator[data-motion="paused"] .plant-window[data-state="lit"][data-flash],
 .plant-annunciator[data-motion="paused"] .plant-window[data-state="lit"][data-flash] .plant-window-body {
   transition: none;
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .plant-window-body,
+  .plant-window[data-state="lit"][data-flash],
   .plant-window[data-state="lit"][data-flash] .plant-window-body {
     transition: none;
     animation: none;

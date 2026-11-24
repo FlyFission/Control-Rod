@@ -10,6 +10,7 @@ import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import { SignIn } from "./SignIn.js";
 import { adoptSession } from "../lib/session.js";
+import { forgetInvitation } from "../lib/invitation.js";
 
 /**
  * A sign-in page drawn from an out-of-date session (a second tab, or a page restored with Back)
@@ -146,5 +147,52 @@ describe("a sign-in page drawn from an out-of-date session", () => {
     release();
     await waitFor(() => expect(screen.getByRole("button", { name: "Register passkey" }).hasAttribute("disabled")).toBe(false));
     expect(qc.getQueryData(["session"])).toMatchObject({ user: "dora" });
+  });
+});
+
+describe("the four sign-in states", () => {
+  const stateOf = (c: HTMLElement) => c.querySelector(".signin-card")!;
+
+  it("draws the night plant behind every state as dimmed raster art, hidden from assistive tech", async () => {
+    const { container } = await renderPage(<SignIn session={firstRun} passkeys={passkeys} />);
+    const art = container.querySelector(".signin-backdrop")!;
+    expect(art.tagName).toBe("IMG");
+    expect(art.getAttribute("src")).toBe("/plant/base-1440.webp");
+    expect(art.getAttribute("aria-hidden")).toBe("true");
+    expect(art.getAttribute("alt")).toBe("");
+    expect(container.querySelector(".signin-veil")).not.toBeNull();
+    expect(container.querySelector(".signin-backdrop svg, .signin-backdrop path")).toBeNull();
+  });
+
+  it("tells register, sign in, accept an invitation and error apart", async () => {
+    const register = await renderPage(<SignIn session={firstRun} passkeys={passkeys} />);
+    expect(stateOf(register.container).getAttribute("data-mode")).toBe("register");
+    expect(stateOf(register.container).getAttribute("data-state")).toBe("ready");
+    register.unmount();
+
+    const signIn = await renderPage(<SignIn session={{ registered: true, signed_in: false } as never} passkeys={passkeys} />);
+    expect(stateOf(signIn.container).getAttribute("data-mode")).toBe("sign-in");
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
+    signIn.unmount();
+
+    window.location.hash = "#invitation=inv-token";
+    try {
+      const invited = await renderPage(<SignIn session={firstRun} passkeys={passkeys} />);
+      expect(stateOf(invited.container).getAttribute("data-mode")).toBe("invitation");
+      expect(screen.getByRole("heading", { name: "Accept your invitation" })).toBeTruthy();
+      invited.unmount();
+    } finally {
+      forgetInvitation();
+    }
+  });
+
+  it("turns the panel to the error state with the message, keeping the alert's text exact", async () => {
+    server.use(http.post("*/auth/login/options", () => HttpResponse.json({ code: "x", message: "No passkey on this device" }, { status: 400 })));
+    const user = userEvent.setup();
+    const { container } = await renderPage(<SignIn session={{ registered: true, signed_in: false } as never} passkeys={passkeys} />);
+    await user.click(screen.getByRole("button", { name: "Sign in with passkey" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("No passkey on this device"));
+    expect(stateOf(container).getAttribute("data-state")).toBe("error");
+    expect(stateOf(container).getAttribute("data-mode")).toBe("sign-in");
   });
 });

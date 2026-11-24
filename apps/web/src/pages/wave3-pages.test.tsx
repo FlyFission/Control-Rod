@@ -106,6 +106,8 @@ describe("Wave 3/4 workbench pages", () => {
     const user = userEvent.setup();
     let fail = true;
     server.use(
+      http.get("*/office/figures", () => HttpResponse.json({ figures: [], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: "2026-11-24T09:00:00Z" })),
+      http.get("*/inbox", () => HttpResponse.json({ items: [], waiting_on_others: [], digest: { head: 0, lines: [] } })),
       http.get("*/runs/active", () => HttpResponse.json([{
         id: "run-example",
         package_id: "PKG-W3-1",
@@ -127,7 +129,7 @@ describe("Wave 3/4 workbench pages", () => {
     fail = false;
     await user.click(screen.getByRole("button", { name: /Try again/i }));
 
-    expect(await screen.findByText(/Needs Your Decision \(1\)/i)).toBeTruthy();
+    expect(await screen.findByText(/In review \(1\)/i)).toBeTruthy();
     expect(await screen.findByRole("link", { name: /Bridge Load Calculation.*run-example/ })).toHaveProperty("hash", "#run-run-example");
     expect(screen.queryByText("API Hardening")).toBeNull();
     expect(screen.queryByText("Settled Calculation")).toBeNull();

@@ -17,6 +17,7 @@ Three visual rounds on the Plant view ended at about the same look. The owner as
 | Art from his existing image accounts | Chose "Your existing AI image accounts" on the art-route card | Project thread | 2026-11-24 01:58 UTC |
 | Art direction B | Chose "B Engineering cutaway" on the direction card | Project thread | 2026-11-24 02:28 UTC |
 | Use subagents with Claude orchestrating | "yes, do it with as many subagents as makes sense with you orchestrating to keep context light" | Project thread | 2026-11-24 |
+| Fix the polar crane before freezing the concept | "It's a little distracting, so let's just fix that before we freeze a concept. And it's much too low to the reactor. It's right there on it." | Project thread | 2026-11-24 17:45 UTC |
 
 ## Scope
 

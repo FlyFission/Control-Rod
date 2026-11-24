@@ -6,20 +6,43 @@
   position: relative;
   box-sizing: border-box;
   padding: 12px;
-  background: var(--plant-surface);
-  border: 1px solid var(--frame-rule);
-  /* Machined corners: four 8 px notches cut from the box. */
+  color: var(--plant-core-glow);
+}
+/* Machined corners: four 8 px notches cut from a rule-coloured plate, with the surface plate 1 px inside it,
+   so the 1 px rule follows the notches and the engraved label can sit on the top rule without being clipped. */
+.instrument-frame::before,
+.instrument-frame::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+.instrument-frame::before {
+  inset: 0;
+  background: var(--frame-rule);
   clip-path: polygon(
     var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% calc(100% - var(--notch)),
     calc(100% - var(--notch)) 100%, var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
   );
-  color: var(--plant-core-glow);
+}
+.instrument-frame::after {
+  inset: 1px;
+  background: var(--plant-surface);
+  clip-path: polygon(
+    calc(var(--notch) - 1px) 0, calc(100% - var(--notch) + 1px) 0, 100% calc(var(--notch) - 1px), 100% calc(100% - var(--notch) + 1px),
+    calc(100% - var(--notch) + 1px) 100%, calc(var(--notch) - 1px) 100%, 0 calc(100% - var(--notch) + 1px), 0 calc(var(--notch) - 1px)
+  );
+}
+.instrument-frame > :not(.instrument-frame-label) {
+  position: relative;
+  z-index: 1;
 }
 .instrument-frame[data-tone="needs"] { --frame-rule: var(--plant-needs-you); }
 .instrument-frame[data-tone="trip"] { --frame-rule: var(--plant-trip); }
 /* The engraved label sits on the top rule: a ground-coloured plate that breaks the line. */
 .instrument-frame-label {
   position: absolute;
+  z-index: 1;
   top: -1px;
   left: calc(var(--notch) + 4px);
   transform: translateY(-50%);
@@ -78,8 +101,9 @@
   font-weight: 600;
   line-height: 1.2;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
+a.annunciator-tile, button.annunciator-tile { cursor: pointer; }
 .annunciator-tile:focus-visible { outline: 2px solid var(--plant-core-glow); outline-offset: 2px; }
 .annunciator-tile[data-lamp="needs-you"] { --lamp: var(--plant-needs-you); }
 .annunciator-tile[data-lamp="trip"] { --lamp: var(--plant-trip); }

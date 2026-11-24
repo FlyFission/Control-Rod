@@ -14,6 +14,9 @@ const files = {
   "floor.css": read("../features/floor/floor.css"),
   "office.css": read("../features/office/office.css"),
   "board.css": read("../features/board/board.css"),
+  "screens.css": read("../pages/screens.css"),
+  "agents.css": read("../components/agents.css"),
+  "shell.css": read("../components/shell.css"),
 };
 
 /**

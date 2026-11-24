@@ -92,7 +92,7 @@ Share only the workspace root into the VM (`--mount`, in both its `/var/tmp/...`
 - `configs/fixture.json`: eight offline fixture tasks and two stub agents. The tests run this.
 - `configs/verified-historical.json`: SWE-bench Verified, the `15 min - 1 hour` and `1-4 hours` tiers, labelled historical. Its calendar horizon, call and token caps and timeouts are the owner's to set before `init`. The calibration allocation of 120 calls covers 12 tasks × 6 calls, stability repeats of up to 24, 4 probes and retry headroom.
 
-Download the dataset once to a local JSONL file, pin its SHA-256, row count and split in the config (`init` refuses while they are null), and point `snapshot.path` at it. A pre-sampling exclusion list, if you use one, is pinned the same way under `selection.pre_exclusions`.
+Download the dataset once to a local JSONL file, pin its SHA-256, row count and split in the config (`init` refuses while they are null), and point `snapshot.path` at it. A pre-sampling exclusion list, if you use one, is pinned the same way under `selection.pre_exclusions`. Rows with an empty `FAIL_TO_PASS` or `PASS_TO_PASS` (SWE-bench Verified has 11 with no regression tests) are left out of the pool before drawing, because a regression could never be seen on them; the manifest and `audit.md` name each one with its reason.
 
 ## Tests
 

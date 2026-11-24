@@ -327,6 +327,22 @@ class Protocol(Tmp):
         main = manifest.select(s, "main")
         self.assertFalse(set(main["tasks"]) & (set(m["tasks"]) | set(m["reserve"])))
 
+    def test_rows_without_regression_tests_are_ineligible(self):
+        s = self.study()
+        rows, _ = manifest.load_snapshot(s.protocol()["frozen"]["config"])
+        bare = dict(rows[0], instance_id="fixture__bare-1", PASS_TO_PASS="[]")
+        none = dict(rows[0], instance_id="fixture__none-1", FAIL_TO_PASS=[], PASS_TO_PASS=[])
+        allrows = rows + [bare, none]
+        manifest.validate_rows(allrows, None)  # empty lists load; only a non-list is a broken snapshot
+        self.assertEqual(manifest.ineligible(allrows), {
+            "fixture__bare-1": "no PASS_TO_PASS tests: A1 undefined",
+            "fixture__none-1": "no FAIL_TO_PASS and no PASS_TO_PASS tests: A1 undefined"})
+        pool = {r["instance_id"] for r in manifest.pool_for(s, "calibration", allrows)}
+        self.assertFalse(pool & {"fixture__bare-1", "fixture__none-1"})
+        self.assertEqual(pool, {r["instance_id"] for r in rows})
+        with self.assertRaises(Refused):
+            manifest.validate_rows([dict(rows[0], PASS_TO_PASS={"a": 1})], None)
+
     def test_select_fails_when_it_cannot_fill(self):
         s = self.study(**{"selection.calibration_n": 9})
         with self.assertRaises(Refused):

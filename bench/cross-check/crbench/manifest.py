@@ -145,8 +145,8 @@ def validate_rows(rows: list[dict], expected: int | None) -> None:
         for f in ("FAIL_TO_PASS", "PASS_TO_PASS"):
             if isinstance(r[f], str):  # SWE-bench stores these lists as JSON text
                 r[f] = json.loads(r[f])
-            if not isinstance(r[f], list) or not r[f]:
-                raise Refused("§6 A1", f"{r['instance_id']} has an empty {f}")
+            if not isinstance(r[f], list):
+                raise Refused("§3 snapshot", f"{r['instance_id']} has a {f} that is not a list")
         if not r.get("patch"):
             raise Refused("§6 controls", f"{r['instance_id']} has no gold patch")
 
@@ -157,6 +157,18 @@ def validate_rows(rows: list[dict], expected: int | None) -> None:
 def exclusions(study: Study) -> dict[str, str]:
     p = study.dir / "exclusions.json"
     return read_json(p) if p.exists() else {}
+
+
+def ineligible(rows: list[dict]) -> dict[str, str]:
+    """Rows the graded pool can never hold, with why. A1 needs both hidden test sets: with no
+    FAIL_TO_PASS there is nothing to fix, and with no PASS_TO_PASS a regression cannot be seen.
+    SWE-bench Verified has a few such rows; they are left out and named, never silently dropped."""
+    out = {}
+    for r in rows:
+        empty = [f for f in ("FAIL_TO_PASS", "PASS_TO_PASS") if not r[f]]
+        if empty:
+            out[r["instance_id"]] = f"no {' and no '.join(empty)} tests: A1 undefined"
+    return dict(sorted(out.items()))
 
 
 def pool_for(study: Study, phase: str, rows: list[dict]) -> list[dict]:
@@ -176,7 +188,9 @@ def pool_for(study: Study, phase: str, rows: list[dict]) -> list[dict]:
             raise Refused("§3", f"pre-exclusion list {pre['path']} is missing or differs from its pinned sha256")
         for tid in json.loads(pp.read_text()):
             excl.setdefault(tid, "pre-sampling exclusion list")
-    pool = [r for r in rows if r["instance_id"] not in used and r["instance_id"] not in excl]
+    bad = ineligible(rows)
+    pool = [r for r in rows if r["instance_id"] not in used and r["instance_id"] not in excl
+            and r["instance_id"] not in bad]
     if sel.get("difficulty"):
         pool = [r for r in pool if r.get("difficulty") in sel["difficulty"]]
     if sel.get("repos"):
@@ -221,7 +235,7 @@ def select(study: Study, phase: str, n: int | None = None) -> dict:
     manifest = {
         "phase": phase, "created": now(), "source": prov, "seed": sel["seed"],
         "tasks": [r["instance_id"] for r in tasks], "reserve": [r["instance_id"] for r in reserve],
-        "block_order": order, "replaced": {}, "rows": {r["instance_id"]: r for r in tasks + reserve},
+        "block_order": order, "replaced": {}, "ineligible": ineligible(rows), "rows": {r["instance_id"]: r for r in tasks + reserve},
         "study_sha256": proto["frozen_sha256"],
         "sizing_sha256": sz["sha256"] if phase == "main" else None,
     }
@@ -238,6 +252,9 @@ def write_audit(pdir: Path, manifest: dict) -> None:
          "than its issue does, or whose base or gold behavior is flaky, with",
          "`bench.py exclude --study DIR --phase PHASE --task ID --reason TEXT`. It is replaced from the",
          "frozen reserve, in order. Exclusions are refused once any agent call has run.", ""]
+    if manifest.get("ineligible"):
+        L += [f"Left out of the pool before drawing ({len(manifest['ineligible'])}):", "",
+              *[f"- `{t}`: {why}" for t, why in manifest["ineligible"].items()], ""]
     for tid in manifest["tasks"]:
         r = manifest["rows"][tid]
         L += [f"## {tid}", "", f"Repo `{r['repo']}` at `{r['base_commit']}`, difficulty `{r.get('difficulty', 'n/a')}`.",

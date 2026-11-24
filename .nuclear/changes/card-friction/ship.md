@@ -7,6 +7,7 @@ Release decision: **pending the owner's yes.**
 Owner (sole maintainer): pending.
 
 - Rollback: revert the merge. No data, route or migration.
+- Monitoring after merge: on a real install, a card added with quick add shows its lane chip and goes straight to intake; a card that still asks to classify means the sender lacks lane authority or the project has no lane.
 
 ## Required links
 
@@ -18,4 +19,4 @@ Adding a card is one step: it takes the project's default data lane with no Clas
 
 ## Source-lineage note
 
-Local engineering evidence using the repository workflow, not a compliance certification.
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

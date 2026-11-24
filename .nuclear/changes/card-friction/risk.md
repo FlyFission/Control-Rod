@@ -4,6 +4,11 @@
 - A project left on Internal sends new cards to cloud agents. That was already the default in New work and project create.
 - No trust surface is touched.
 
+## Selected mode
+
+- **Mode:** Standard
+- Basis: web-only change, reversible by revert, no trust surface.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
@@ -14,4 +19,4 @@ Adding a card is one step: it takes the project's default data lane with no Clas
 
 ## Source-lineage note
 
-Local engineering evidence using the repository workflow, not a compliance certification.
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

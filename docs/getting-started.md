@@ -24,9 +24,24 @@ If `pnpm cr doctor` reports that the database cannot start, it means the bundled
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm cr doctor   # lists anything missing
-pnpm cr start    # control plane, embedded Postgres and daemon; Ctrl+C stops all
+pnpm cr link     # installs the controlrod command in ~/.local/bin (once)
+controlrod doctor   # lists anything missing
+controlrod start    # control plane, embedded Postgres and daemon; Ctrl+C stops all
 ```
+
+`pnpm cr link` writes a small script to `~/.local/bin/controlrod` that runs this checkout's `scripts/cr.mjs`. If that folder is not on your `PATH`, it adds one line to your shell's startup file (`~/.zshrc`, `~/.bashrc` or `~/.bash_profile`) and says so; open a new terminal afterwards. It never replaces a `controlrod` it did not write; `CONTROLROD_BIN_DIR` picks another folder, and `pnpm cr unlink` removes it. Every `controlrod <command>` is also `pnpm cr <command>` inside the checkout.
+
+### Updating
+
+`controlrod update` checks GitHub, and if `main` has moved on it stops a running Control Rod (running work finishes first), sets any edits you made to Control Rod's own files aside with `git stash`, moves to the new version, installs and builds it, and starts it again the way it was running. If the install or the build fails, it goes back to the version you had and rebuilds that. Your records in `~/.controlrod` are never touched. `controlrod update --check` only lists what is new. It updates the `main` branch only; on another branch it says so and stops.
+
+### Running it in the background
+
+`controlrod start --background` builds in front of you, then runs Control Rod detached and returns. Its output goes to `~/.controlrod/logs/controlrod.log` (`controlrod logs -f`). `controlrod stop` stops it from any terminal, the same way as `Ctrl+C`: running work finishes and is saved first, and `controlrod stop --now` skips that wait. `controlrod status` says whether it runs, where, and which version.
+
+### When the database will not start
+
+The control plane prints what PostgreSQL said and the likely fix. On macOS, the most common cause is shared memory: macOS has only 32 System V shared memory segments in all, and a PostgreSQL that is killed outright leaves its segment behind. When they run out, PostgreSQL fails with `could not create shared memory segment: No space left on device`, which has nothing to do with disk space. `controlrod start` frees segments left by PostgreSQL processes that no longer exist (only your own, only PostgreSQL's 56-byte size, only with nothing attached); `controlrod doctor` reports them and `controlrod doctor --fix` frees them. Restarting the Mac also clears them.
 
 Open <http://localhost:7300>, choose **Set up this machine**, and register a passkey. Your data lives in `~/.controlrod` unless you set `CONTROLROD_HOME`; use a separate home for experiments so you never touch real records:
 

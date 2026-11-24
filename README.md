@@ -95,11 +95,24 @@ Control Rod runs on your own machine, with your own agents and sign-ins. You nee
 git clone https://github.com/FlyFission/Control-Rod.git
 cd Control-Rod
 pnpm install
-pnpm cr doctor   # checks your setup and tells you what to fix
-pnpm cr start    # builds on first run, then opens http://localhost:7300
+pnpm cr link          # installs the controlrod command, so the rest works from any folder
+controlrod doctor     # checks your setup and tells you what to fix
+controlrod start      # builds on first run, then serves http://localhost:7300
 ```
 
 Choose **Set up this machine** and register a passkey. That's the whole account: one machine, one person, no cloud sign-up. The first start takes a few minutes; after that it's quick. `Ctrl+C` stops everything, and your data lives in `~/.controlrod`.
+
+After that:
+
+| Command | Does |
+| --- | --- |
+| `controlrod start --background` | runs it without keeping a terminal open; `controlrod open` brings up the app |
+| `controlrod stop` / `restart` / `status` / `logs -f` | what they say; `stop` lets running work finish first |
+| `controlrod update` | gets the latest version, rebuilds, and restarts it; goes back to your version if anything fails |
+| `controlrod agents update` | updates Claude Code, Codex and the other agent CLIs, asking before each |
+| `controlrod help` | everything else |
+
+`pnpm cr <command>` inside the folder does the same if you'd rather not install the command.
 
 | | Windows (WSL2) | Linux | macOS |
 | --- | --- | --- | --- |

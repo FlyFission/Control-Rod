@@ -1,0 +1,117 @@
+// Puts the `controlrod` command on PATH: a small shell script in ~/.local/bin that runs this
+// checkout's scripts/cr.mjs. `pnpm cr link` writes it once; later builds keep it current.
+//
+// Pattern taken, no code copied: uv's installer (MIT/Apache-2.0) and Claude Code's native installer
+// put their command in ~/.local/bin and, when that folder is not on PATH, add one line for it to the
+// shell's startup file, once.
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync, appendFileSync } from "node:fs";
+import { homedir, platform } from "node:os";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
+
+export const MARK = "# controlrod command, written by `pnpm cr link`";
+
+export function binDir(env = process.env) {
+  return resolve(env.CONTROLROD_BIN_DIR ?? join(env.HOME ?? homedir(), ".local", "bin"));
+}
+
+export const commandPath = (env = process.env) => join(binDir(env), "controlrod");
+
+const sq = (s) => `'${String(s).replaceAll("'", `'\\''`)}'`;
+
+export function shim(root, nodePath = process.execPath) {
+  return `#!/bin/sh
+${MARK} from the checkout below.
+# Run \`pnpm cr link\` in a checkout to point it there instead; \`pnpm cr unlink\` removes it.
+root=${sq(root)}
+if [ ! -f "$root/scripts/cr.mjs" ]; then
+  echo "controlrod: Control Rod is no longer at $root. In your copy of Control Rod, run: pnpm cr link" >&2
+  exit 1
+fi
+export CONTROLROD_CLI=1
+if command -v node >/dev/null 2>&1; then
+  exec node "$root/scripts/cr.mjs" "$@"
+fi
+node=${sq(nodePath)}
+if [ -x "$node" ]; then
+  PATH="$(dirname "$node"):$PATH" exec "$node" "$root/scripts/cr.mjs" "$@"
+fi
+echo "controlrod: Node.js was not found. Install Node 22.12 or later: https://nodejs.org" >&2
+exit 1
+`;
+}
+
+/** Who wrote the file at path: "ours" (a controlrod shim), "foreign", or "none". */
+export function ownerOf(path) {
+  if (!existsSync(path)) return "none";
+  try {
+    return readFileSync(path, "utf8").includes(MARK) ? "ours" : "foreign";
+  } catch {
+    return "foreign";
+  }
+}
+
+export const onPath = (dir, env = process.env) =>
+  (env.PATH ?? "").split(delimiter).some((p) => p && resolve(p) === resolve(dir));
+
+/** The startup file a new terminal reads for this user's shell, and the line that adds dir to PATH. */
+export function shellProfile(dir, env = process.env, os = platform()) {
+  const home = env.HOME ?? homedir();
+  const shell = basename(env.SHELL ?? "");
+  const shown = dir.startsWith(`${home}/`) ? `$HOME/${dir.slice(home.length + 1)}` : dir;
+  if (shell === "fish") {
+    return { file: join(home, ".config", "fish", "conf.d", "controlrod.fish"), line: `fish_add_path ${sq(dir)}` };
+  }
+  const line = `export PATH="${shown}:$PATH"`;
+  if (shell === "zsh") return { file: join(env.ZDOTDIR ?? home, ".zshrc"), line };
+  if (shell === "bash") return { file: join(home, os === "darwin" ? ".bash_profile" : ".bashrc"), line };
+  return { file: join(home, ".profile"), line };
+}
+
+/**
+ * Writes or refreshes the command. Never replaces a `controlrod` this did not write. With
+ * editProfile, adds the folder to PATH in the shell's startup file when it is missing there.
+ * Returns { path, status: "written" | "unchanged" | "foreign" | "unsupported", profile? }.
+ */
+export function link(root, { env = process.env, editProfile = true, os = platform() } = {}) {
+  if (os === "win32") return { status: "unsupported" };
+  const path = commandPath(env);
+  const owner = ownerOf(path);
+  if (owner === "foreign") return { path, status: "foreign" };
+  const text = shim(root);
+  let status = "unchanged";
+  if (owner === "none" || readFileSync(path, "utf8") !== text) {
+    mkdirSync(dirname(path), { recursive: true });
+    const tmp = `${path}.tmp.${process.pid}`;
+    writeFileSync(tmp, text, { mode: 0o755 });
+    chmodSync(tmp, 0o755);
+    renameSync(tmp, path);
+    status = "written";
+  }
+  const dir = binDir(env);
+  if (onPath(dir, env)) return { path, status, profile: null };
+  const profile = shellProfile(dir, env, os);
+  const current = existsSync(profile.file) ? readFileSync(profile.file, "utf8") : "";
+  profile.added = false;
+  if (editProfile && !current.includes(profile.line)) {
+    mkdirSync(dirname(profile.file), { recursive: true });
+    appendFileSync(profile.file, `${current && !current.endsWith("\n") ? "\n" : ""}\n# Added by Control Rod (pnpm cr link): the controlrod command\n${profile.line}\n`);
+    profile.added = true;
+  }
+  return { path, status, profile };
+}
+
+/** Refreshes an installed command that points at this checkout; leaves anything else alone. */
+export function refresh(root, env = process.env) {
+  const path = commandPath(env);
+  if (ownerOf(path) !== "ours") return false;
+  const text = readFileSync(path, "utf8");
+  if (!text.includes(`root=${sq(root)}`)) return false;
+  return link(root, { env, editProfile: false }).status === "written";
+}
+
+export function unlink(env = process.env) {
+  const path = commandPath(env);
+  const owner = ownerOf(path);
+  if (owner === "ours") rmSync(path, { force: true });
+  return { path, status: owner === "ours" ? "removed" : owner };
+}

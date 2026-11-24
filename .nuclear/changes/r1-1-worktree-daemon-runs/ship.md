@@ -1,6 +1,6 @@
 # Ship: worktree daemon binding
 
-**Decision:** Draft only. [Verification](verification.md) records the author checks, the overseer's macOS suite results and the [fix round](verification.md#fix-round), in which the Go and API suites and the typecheck were rerun. The independent checker verdict, Ben's acceptance, and merge are pending.
+Release decision: **draft only.** [Verification](verification.md) records the author checks, the overseer's macOS suite results and the [fix round](verification.md#fix-round), in which the Go and API suites and the typecheck were rerun. The independent checker verdict, Ben's acceptance, and merge are pending.
 
 ## Behaviour change for Ben to confirm
 

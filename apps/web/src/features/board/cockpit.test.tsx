@@ -129,6 +129,9 @@ describe("the card's running line", () => {
     expect(within(card).getByRole("img", { name: "Agent running" })).toBeTruthy();
     expect(within(card).getByText("Author agent claude")).toBeTruthy();
     expect(within(card).getByText("Checker agent codex")).toBeTruthy();
+    // The same shared logo set as the workflow diagram and the seats, not a generic glyph.
+    expect(card.querySelector("[data-badge='claude'] img[src='/agent-marks/claude.svg']")).not.toBeNull();
+    expect(card.querySelector("[data-badge='codex'] img[src='/agent-marks/codex.svg']")).not.toBeNull();
     // A running line is live, so it does not say "Waiting".
     expect(within(card).queryByText(/Waiting/)).toBeNull();
   });

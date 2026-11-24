@@ -48,6 +48,7 @@
   gap: 0;
 }
 .seat-lamp {
+  overflow: hidden;
   flex: none;
   display: inline-grid;
   place-items: center;

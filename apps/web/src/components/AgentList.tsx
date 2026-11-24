@@ -111,7 +111,7 @@ function AgentItem({
     >
       <div className="seat-head">
         <span className="seat-lamp" aria-hidden="true">
-          <AgentBadge runtime={row.info.id} size={24} />
+          <AgentBadge runtime={row.info.id} size={32} />
         </span>
         <div className="agent-name seat-name">
           <strong id={`${id}-name`}>{row.info.name}</strong>

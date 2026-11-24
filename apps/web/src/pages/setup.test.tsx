@@ -151,7 +151,7 @@ describe("seats at the table", () => {
     const seats = container.querySelectorAll("li.seat");
     expect(seats.length).toBeGreaterThanOrEqual(2);
     const claude = container.querySelector('li.seat[data-state="ready"]')!;
-    expect(claude.querySelector(".seat-lamp svg[data-badge='claude']")).not.toBeNull();
+    expect(claude.querySelector(".seat-lamp [data-badge='claude'] img[src='/agent-marks/claude.svg']")).not.toBeNull();
     expect(claude.hasAttribute("data-light")).toBe(true);
     expect(screen.getByText("2 found, 1 ready")).toBeTruthy();
     // The three-way confirm still follows the table.

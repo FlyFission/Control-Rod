@@ -156,12 +156,18 @@ describe("PlantScene", () => {
   it("shows the agent's icon when the figure records its runtime, and the generic glyph for an unknown provider", async () => {
     const withRuntime = (id: string, runtime: string, place: keyof typeof ROOMS): StageFigure => ({ ...fig(id, "working", place), runtime });
     scene([withRuntime("A", "codex", "process"), withRuntime("B", "some-new-agent", "review")]);
+    const seen: Record<string, { img: string | null; glyph: boolean }> = {};
     const badge = async (id: string) => {
       await userEvent.hover(document.querySelector(`[data-figure="${id}"]`)!);
-      return document.querySelector(`[data-row="${id}"] .agent-badge`)!.getAttribute("data-badge");
+      const el = document.querySelector(`[data-row="${id}"] .agent-badge`)!;
+      seen[id] = { img: el.querySelector("img")?.getAttribute("src") ?? null, glyph: el.querySelector("svg.agent-mark-glyph") !== null };
+      return el.getAttribute("data-badge");
     };
     expect(await badge("A")).toBe("codex");
+    expect(seen["A"]!.img).toBe("/agent-marks/codex.svg");
     expect(await badge("B")).toBe("generic");
+    // Plant rows use the shared logo set (lib/agentMarks.ts); an unknown model keeps the generic glyph, never a vendor logo.
+    expect(seen["B"]).toEqual({ img: null, glyph: true });
     // The agent is also in the figure's accessible name.
     expect(screen.getByRole("button", { name: /^WP-A:.* Agent: codex\.$/ })).toBeTruthy();
   });

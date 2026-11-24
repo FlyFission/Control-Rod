@@ -89,3 +89,10 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - Drill lock (Nov 24): lockFrom now locks under drills too (server holds work under a drill per spec/workbench.tsp); words say 'SCRAM drill'. vitest shell-scram 10/10.
 - CaptureBox (Nov 24): unscoped captures use the organization-only lock (useActionLock(null)), per Codex review.
 - Plant annunciator honours reduced motion via useInstrumentMotion (Codex review on 7e88032); annunciator test.
+
+## Agent logos on every screen (Nov 24)
+
+- One source: `AgentMark` and the map in `lib/agentMarks.ts` from PR #173 (Lobe Icons, MIT; `public/agent-marks/README.md` and `LICENSE` unchanged). `AgentBadge` now renders `AgentMark` for every listed agent, so the Plant roster rows, Board cards, the review drawer's custody rows and the Setup/roster seats match the workflow diagram. A provider the app does not list, or a user-named model, keeps the generic chip glyph on the same plate; no runtime keeps the role glyph. No asset was copied.
+- The dark plate stays behind every mark (contrast over the Plant art and light Board); tiles of 24 px or less fill 80% of the plate so marks stay legible; Board card badges are 18 px, Plant rows 16 px, seats 32 px. `AgentMark` takes an optional `label` for a text alternative; where the name is written beside the mark it stays decorative, as before.
+- Tests: vitest 80 files, 864 pass (Plant roster row asserts the shared codex logo and the generic glyph for an unknown model; Board card asserts the claude and codex logos; Setup seat asserts the claude logo). `git diff --check`, `check_originality.py` pass.
+- Screenshots (Playwright, 1440x900 at 2x, mocked data): `/mnt/project-files/control-rod/logos/` (`plant-1440.png`, `plant-roster-0.png`, `plant-roster-1.png`, `board-1440.png`).

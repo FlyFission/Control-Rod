@@ -1249,6 +1249,7 @@
   border-radius: 4px;
   background: var(--surface);
   color: var(--text-2);
+  overflow: hidden;
 }
 /* The checker's icon is set apart by a notch in its frame, not by hue. */
 .bd-agent-checker {

@@ -129,7 +129,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           )}
           {author ? (
             <span className="bd-agent-icon" title={`Author: ${author}`}>
-              <AgentBadge runtime={author} />
+              <AgentBadge runtime={author} size={18} />
               <span className="sr-only">Author agent {author}</span>
             </span>
           ) : (
@@ -144,7 +144,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           )}
           {checker && (
             <span className="bd-agent-icon bd-agent-checker" title={`Checker: ${checker}`}>
-              <AgentBadge runtime={checker} />
+              <AgentBadge runtime={checker} size={18} />
               <span className="sr-only">Checker agent {checker}</span>
             </span>
           )}

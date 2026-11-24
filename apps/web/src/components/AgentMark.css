@@ -1,0 +1,49 @@
+/* Agent marks: the vendor's own mark on a dark square plate, so it reads over the Plant art and the light Board alike. */
+.agent-mark {
+  --mark-size: 40px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--mark-size);
+  height: var(--mark-size);
+  border-radius: calc(var(--mark-size) * 0.24);
+  background: #141c28;
+  box-shadow: inset 0 0 0 1px rgb(180 220 255 / 0.12), 0 1px 0 rgb(0 0 0 / 0.5);
+}
+.agent-mark img,
+.agent-mark-mono,
+.agent-mark-glyph {
+  width: 66%;
+  height: 66%;
+  display: block;
+}
+/* Small tiles (Plant rows, Board cards): the mark fills more of the plate so it stays legible. */
+.agent-mark[data-small] img,
+.agent-mark[data-small] .agent-mark-mono,
+.agent-mark[data-small] .agent-mark-glyph {
+  width: 80%;
+  height: 80%;
+}
+.agent-mark-glyph {
+  fill: none;
+  stroke: var(--text-2, #c5d0dc);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.agent-mark-mono {
+  background-color: var(--text);
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+}
+.agent-mark-initial {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: calc(var(--mark-size) * 0.42);
+  color: var(--text-2);
+}
+

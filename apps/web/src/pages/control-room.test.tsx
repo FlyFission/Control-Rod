@@ -227,6 +227,29 @@ describe("control room: usage limits", () => {
     expect(asked).toBe(0);
   });
 
+  it("stops asking for machine details once the usage read fails", async () => {
+    let asked = 0;
+    serve({ reported: false, providers: [] });
+    server.use(
+      http.get("*/subscriptions", () => {
+        asked += 1;
+        return HttpResponse.json({ reported: false, probes: [], checkers: [], tiers: [], local_rule: "", pins: [] });
+      }),
+    );
+    const { qc } = await renderPage(<ControlRoom />);
+    await screen.findByRole("region", { name: "Claude Code limits" });
+    await waitFor(() => expect(asked).toBe(1));
+    server.use(http.get("*/usage/limits", () => HttpResponse.json({ message: "down" }, { status: 503 })));
+    await act(async () => {
+      await qc.refetchQueries({ queryKey: ["usage-limits"] });
+    });
+    await screen.findByText("Usage limits could not be loaded.");
+    await act(async () => {
+      await qc.refetchQueries({ queryKey: ["subscriptions"], type: "active" });
+    });
+    expect(asked).toBe(1);
+  });
+
   it("says when a built-in harness is missing or signed out", async () => {
     serve({ reported: false, providers: [] }, [probe("claude", true, "signed-out"), probe("codex", false, "unknown")]);
     await renderPage(<ControlRoom />);

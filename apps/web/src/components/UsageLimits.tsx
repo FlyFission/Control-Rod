@@ -184,7 +184,7 @@ export function UsageLimits() {
   const q = useQuery({ queryKey: ["usage-limits"], queryFn: api.usageLimits, refetchInterval: 60_000, refetchIntervalInBackground: false });
   // Shared with the agents roster. Fetched only while a built-in harness has no reading, to say whether it was found and signed in.
   const needsProbe =
-    q.data !== undefined &&
+    q.isSuccess &&
     NATIVE.some((id) => !q.data.providers.some((p) => p.id === id && p.source !== "none" && p.windows.length > 0));
   const subs = useQuery<SubscriptionView>({ queryKey: ["subscriptions"], queryFn: api.subscriptions, enabled: needsProbe });
   const now = useNow(30_000);

@@ -5,6 +5,7 @@ import type { Run } from "../api/types.js";
 import { isVisible } from "../lib/live.js";
 import { type Passkeys, browserPasskeys, signOverride, signReconcile } from "../lib/decide.js";
 import { time } from "../lib/format.js";
+import { modelRouting } from "../lib/modelRouting.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 import { VendorBadge } from "./VendorBadge.js";
 
@@ -25,8 +26,15 @@ export function runState(run: Run): StateKind {
 
 const ROLE_LABEL: Record<Run["role"], string> = { intake: "Intake", author: "Author", "pre-check": "Pre-check", "requirements-preparer": "Requirements preparation", "technical-preparer": "Technical preparation" };
 
+/** True only when a queued pre-check is specifically held for want of an independent runtime. */
+function isIndependenceHold(run: Run): boolean {
+  if (run.role !== "pre-check" || run.status !== "queued") return false;
+  if (run.waiting_cause !== undefined) return run.waiting_cause === "independent-runtime";
+  return run.waiting_reason !== undefined && /independent runtime/i.test(run.waiting_reason);
+}
+
 /** What the run card says about where a run stands, in plain words. */
-export function runStatusText(run: Run): string {
+export function runStatusText(run: Pick<Run, "status" | "waiting_reason" | "waiting_cause" | "label" | "stop_requested_at">): string {
   switch (run.status) {
     case "lost":
       return "Lost: the daemon stopped answering";
@@ -35,7 +43,11 @@ export function runStatusText(run: Run): string {
     case "stopped":
       return "Stopped";
     case "queued":
-      return run.waiting_reason !== undefined ? "Held: waiting for an independent runtime" : (run.label ?? run.status);
+      return run.waiting_reason !== undefined
+        ? `Held: ${run.waiting_reason}`
+        : run.waiting_cause !== undefined
+          ? `Held: ${run.waiting_cause}`
+          : (run.label ?? run.status);
     case "running":
       return run.stop_requested_at !== undefined ? "Stopping: waiting for the daemon to confirm" : (run.label ?? run.status);
     default:
@@ -100,7 +112,7 @@ function IndependenceOverride({ packageId, run, passkeys }: { packageId: string;
     mutationFn: () => signOverride({ packageId, runId: run.id, reason }, passkeys),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["package", packageId] }),
   });
-  if (run.role !== "pre-check" || run.status !== "queued" || run.waiting_reason === undefined) return null;
+  if (!isIndependenceHold(run) || run.waiting_reason === undefined) return null;
   return (
     <div className="run-hold">
       <p className="error">{run.waiting_reason}</p>
@@ -125,16 +137,21 @@ export function canStop(run: Run): boolean {
   return run.status === "queued" || (run.status === "running" && run.stop_requested_at === undefined);
 }
 
-export function RunActions({ packageId, run }: { packageId: string; run: Run }) {
+export function RunActions({ packageId, run, showStop = true }: { packageId: string; run: Run; showStop?: boolean }) {
+  const offeredStop = showStop && canStop(run);
   const qc = useQueryClient();
-  const done = () => void qc.invalidateQueries({ queryKey: ["package", packageId] });
+  const done = () => {
+    void qc.invalidateQueries({ queryKey: ["package", packageId] });
+    void qc.invalidateQueries({ queryKey: ["run", packageId, run.id] });
+    void qc.invalidateQueries({ queryKey: ["active-runs"] });
+  };
   const requeue = useMutation({ mutationFn: () => api.requeueRun(packageId, run.id), onSuccess: done });
   const stop = useMutation({ mutationFn: () => api.stopRun(packageId, run.id), onSuccess: done });
-  if (!canRequeue(run) && !canStop(run)) return null;
+  if (!canRequeue(run) && !offeredStop) return null;
   const failed = requeue.error ?? stop.error;
   return (
     <div className="run-actions">
-      {canStop(run) && (
+      {offeredStop && (
         <button type="button" className="btn small" disabled={stop.isPending} onClick={() => stop.mutate()}>
           Stop this run
         </button>
@@ -153,11 +170,14 @@ export function RunActions({ packageId, run }: { packageId: string; run: Run }) 
   );
 }
 
-export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packageId: string; run: Run; passkeys?: Passkeys }) {
+export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly = false, focused = false }: { packageId: string; run: Run; passkeys?: Passkeys; readOnly?: boolean; focused?: boolean }) {
   const live = run.status === "running" || run.status === "queued";
+  const needsAttention = canRequeue(run) || outcomeUnknown(run) || isIndependenceHold(run);
+  const [detailsOpen, setDetailsOpen] = useState(needsAttention);
   const log = useQuery({
     queryKey: ["runlog", packageId, run.id],
     queryFn: () => api.runLog(packageId, run.id),
+    enabled: !focused || detailsOpen,
     refetchInterval: () => (live && isVisible() ? 2000 : false),
   });
   const latest = log.data?.lines ?? [];
@@ -166,22 +186,38 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
   const [frozen, setFrozen] = useState<string[] | null>(null);
   const lines = frozen ?? latest;
   const waiting = frozen === null ? 0 : Math.max(0, latest.length - frozen.length);
+  const routing = modelRouting(run.trace, run.finished_at !== undefined);
   return (
     // A run that needs the person (requeue it, or reconcile it first) is shown open, so its buttons are seen.
-    <details className="run" open={live || canRequeue(run) || outcomeUnknown(run)}>
+    <details
+      className="run"
+      open={focused ? detailsOpen : live || canRequeue(run) || outcomeUnknown(run)}
+      onToggle={focused ? (event) => setDetailsOpen(event.currentTarget.open) : undefined}
+    >
       <summary>
-        <StateMark kind={runState(run)} />
-        <span className="tag">{ROLE_LABEL[run.role]}</span>
-        <span>round {run.round}</span>
-        <span className="muted small">{runStatusText(run)}</span>
-        <span className="muted small mono">{run.runtime.provider}</span>
-        <VendorBadge provider={run.runtime.provider} />
+        {focused ? "Run details and raw log" : (
+          <>
+            <StateMark kind={runState(run)} />
+            <span className="tag">{ROLE_LABEL[run.role]}</span>
+            <span>round {run.round}</span>
+            <span className="muted small">{runStatusText(run)}</span>
+            <span className="muted small mono">{run.runtime.provider}</span>
+            <VendorBadge provider={run.runtime.provider} />
+          </>
+        )}
       </summary>
       <div className="run-body">
         <p className="muted small">
           {run.agent_baseline} · queued {time(run.queued_at)}
           {run.finished_at !== undefined && ` · finished ${time(run.finished_at)}`}
         </p>
+        {routing.kind === "rerouted" ? (
+          <p className="run-rerouted small" role="note">
+            <strong>Fallback:</strong> {routing.text}
+          </p>
+        ) : routing.kind !== "none" ? (
+          <p className="muted small">{routing.text}</p>
+        ) : null}
         {run.error !== undefined && (
           <p className="error" role="alert">
             {run.error}
@@ -189,14 +225,19 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
         )}
         {run.requeued_as !== undefined && <p className="muted small">Requeued as {run.requeued_as}</p>}
         {run.reconciliation !== undefined && <p className="muted small">Reconciled ({run.reconciliation.disposition}): {run.reconciliation.evidence}</p>}
-        <Reconcile packageId={packageId} run={run} passkeys={passkeys} />
+        {!readOnly && <Reconcile packageId={packageId} run={run} passkeys={passkeys} />}
         {run.independence_override !== undefined && (
           <p className="muted small">
             Owner override by {run.independence_override.by}: {run.independence_override.reason}
           </p>
         )}
-        <IndependenceOverride packageId={packageId} run={run} passkeys={passkeys} />
-        <RunActions packageId={packageId} run={run} />
+        {!readOnly && <IndependenceOverride packageId={packageId} run={run} passkeys={passkeys} />}
+        {run.status === "queued" && (run.waiting_reason !== undefined || run.waiting_cause !== undefined) && !isIndependenceHold(run) && (
+          <div className="run-hold">
+            <p className="error">{run.waiting_reason ?? `Held: ${run.waiting_cause}`}</p>
+          </div>
+        )}
+        {!readOnly && <RunActions packageId={packageId} run={run} showStop={!focused} />}
         {(live || frozen !== null) && (
           <div className="log-bar">
             <button type="button" className="btn ghost small" onClick={() => {

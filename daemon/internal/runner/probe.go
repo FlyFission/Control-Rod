@@ -3,10 +3,12 @@ package runner
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -21,6 +23,12 @@ type RuntimeStatus struct {
 	LoginChecked bool `json:"login_checked"`
 	// Artifact is the executable the probe checked: runs launch exactly this file.
 	Artifact *RuntimeArtifact `json:"artifact,omitempty"`
+	// Models are the model names or aliases discovered for this CLI on this host.
+	Models []string `json:"models,omitempty"`
+	// timedOut is set when the probe stopped because one of its commands ran past probeTimeout, not
+	// because the CLI answered. It is never reported: it only lets the daemon tell a slow host from
+	// a runtime that is gone (see Daemon.probe).
+	timedOut bool
 }
 
 // CommandRunner runs a short command and returns its combined output and exit code. err is set
@@ -28,17 +36,57 @@ type RuntimeStatus struct {
 type CommandRunner func(ctx context.Context, name string, args ...string) (out string, code int, err error)
 
 // ExecRunner runs a CLI the way a run would find and start it: from the agent PATH, with the
-// agent environment (AgentEnv).
+// agent environment (AgentEnv). It runs the runtime artifact rather than the PATH entry: the
+// executable a launch resolves, with the artifact's own environment. Codex installed through npm is
+// a Node wrapper on the PATH; a launch skips the wrapper and runs the platform binary, so a probe
+// through the wrapper could fail for want of `node` on a daemon's minimal PATH (launchd, systemd)
+// while every launch would have worked, or the other way round.
+//
+// A probe passes the artifact it already identified (withProbeArtifact), and the probe's commands
+// run that artifact: never a second resolution,
+// which could find a different binary after an upgrade, rehash it inside the command's deadline, or
+// fall back to a launcher the resolver refused. Without one, it runs the PATH entry, as before.
+//
+// What runs is the file at the artifact's path when the command starts. If an upgrade replaces it
+// between the hash and the start, the status keeps the digest that was hashed; a launch checks the
+// digest again before it runs and refuses a mismatch (artifact.go), so a replaced binary never runs
+// as work on the strength of this probe.
 func ExecRunner(ctx context.Context, name string, args ...string) (string, int, error) {
 	// The same PATH and allowlisted environment as a launch, so a login the run could not see (an
 	// API key in the daemon's environment) never makes a runtime look ready.
-	path, err := LookPathAgent(name)
-	if err != nil {
-		return "", -1, err
+	env := AgentEnv(os.Environ())
+	var path string
+	if art, ok := ctx.Value(probeArtifactKey{}).(RuntimeArtifact); ok {
+		if art.Path == "" {
+			return "", -1, fmt.Errorf("%s: the probed artifact has no path", name)
+		}
+		path = art.Path
+		env = append(env, art.Env...)
+	} else if art, ok, err := preflightArtifact(ctx, name); ok {
+		// A sandbox preflight after a ready probe: run the executable resolved and hashed now, and
+		// only if it is the one the probe found (same path and digest).
+		if err != nil {
+			return "", -1, err
+		}
+		path = art.Path
+		env = append(env, art.Env...)
+	} else {
+		p, err := LookPathAgent(name)
+		if err != nil {
+			return "", -1, err
+		}
+		path = p
 	}
 	cmd := exec.CommandContext(ctx, path, args...)
-	cmd.Env = AgentEnv(os.Environ())
+	cmd.Env = env
+	// A helper the CLI started can keep its output pipe open after the CLI is killed; stop waiting
+	// for it shortly after the deadline, so a probe never hangs past its timeout.
+	cmd.WaitDelay = probeWaitDelay
 	out, err := cmd.CombinedOutput()
+	// The CLI itself exited and only a helper held the pipe: its own exit code is the answer.
+	if errors.Is(err, exec.ErrWaitDelay) && cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+		return string(out), cmd.ProcessState.ExitCode(), nil
+	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
 		return string(out), exit.ExitCode(), nil
@@ -49,7 +97,12 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 	return string(out), 0, nil
 }
 
-const probeTimeout = 10 * time.Second
+// probeTimeout bounds each probe command. A var so tests can shorten it.
+var probeTimeout = 10 * time.Second
+
+// probeWaitDelay is how long a killed probe command's output pipes may stay open before they are
+// closed and the command returns (exec.Cmd.WaitDelay).
+var probeWaitDelay = 2 * time.Second
 
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
@@ -89,8 +142,14 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 // Claude and Codex they are the same string, so the sentences stay the ones the probes used
 // before the registry. login, when set, runs after a version answer and reports whether the probe
 // should stop before the runtime is marked ready.
-func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) RuntimeStatus {
-	st := RuntimeStatus{Runtime: id}
+func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) (st RuntimeStatus) {
+	st = RuntimeStatus{Runtime: id}
+	timedOut := false
+	defer func() {
+		if !st.Ready && timedOut {
+			st.timedOut = true
+		}
+	}()
 	// Identify the executable before running anything: a launcher Control Rod cannot pin is never
 	// executed, not even for its version.
 	if art, aerr := resolveArtifact(binary); aerr == nil {
@@ -102,10 +161,22 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 		st.Reason = fmt.Sprintf("%s cannot be found or its executable read to record which version it is: %v", binary, aerr)
 		return st
 	}
+	probed := withProbeArtifact(ctx, *st.Artifact)
 	call := func(args ...string) (string, int, error) {
-		c, cancel := context.WithTimeout(ctx, probeTimeout)
+		c, cancel := context.WithTimeout(probed, probeTimeout)
 		defer cancel()
-		return run(c, binary, args...)
+		out, code, err := run(c, binary, args...)
+		// Only this command's own deadline counts: a daemon shutting down cancels ctx, which is not
+		// a slow host.
+		// A command that exited on its own (a code of 0 or more) answered, even if the deadline passed
+		// at the same moment: a sign-out at the deadline is a sign-out, not a slow host.
+		// A definite error (the executable is gone) is an answer too: only a command the deadline
+		// stopped, or one that could not start because the deadline had passed, is a timeout.
+		stopped := (err == nil && code < 0) || errors.Is(err, context.DeadlineExceeded)
+		if errors.Is(c.Err(), context.DeadlineExceeded) && ctx.Err() == nil && stopped {
+			timedOut = true
+		}
+		return out, code, err
 	}
 	out, code, err := call("--version")
 	if err != nil || code != 0 || firstLine(out) == "" {
@@ -117,7 +188,15 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 		return st
 	}
 	st.Version = firstLine(out)
-	if login != nil && login(call, &st) {
+	stop := login != nil && login(call, &st)
+	// A login check that ran out of time (its help or its status command) said nothing about the
+	// login: never ready on it, and never reported as signed out either.
+	if timedOut {
+		st.LoginChecked = false
+		st.Reason = fmt.Sprintf("%s is installed but its login check did not answer in time", binary)
+		return st
+	}
+	if stop {
 		return st
 	}
 	st.Ready = true
@@ -133,4 +212,107 @@ func ReadyRuntimes(sts []RuntimeStatus) []string {
 		}
 	}
 	return out
+}
+
+func isSafeModelName(s string) bool {
+	if len(s) == 0 || len(s) > 100 {
+		return false
+	}
+	for _, r := range s {
+		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == '.' || r == '_' || r == '-' || r == ':' || r == '/' || r == '@'
+		if !ok {
+			return false
+		}
+	}
+	return publicText(s) != ""
+}
+
+func sanitizeModelList(models []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(models))
+	for _, m := range models {
+		m = strings.TrimSpace(m)
+		if !isSafeModelName(m) || seen[m] {
+			continue
+		}
+		seen[m] = true
+		out = append(out, m)
+		if len(out) >= 32 {
+			break
+		}
+	}
+	return out
+}
+
+// discoverCodexModels reads Codex CLI's non-secret models_cache.json (when present) and
+// returns "default" followed by the discovered model slugs.
+func discoverCodexModels(home string, getenv func(string) string) []string {
+	out := []string{"default"}
+	dir := ""
+	if getenv != nil {
+		dir = getenv("CODEX_HOME")
+	}
+	if dir == "" && home != "" {
+		dir = filepath.Join(home, ".codex")
+	}
+	if dir == "" {
+		return out
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "models_cache.json"))
+	if err != nil {
+		return out
+	}
+	var parsed struct {
+		Models []struct {
+			Slug string `json:"slug"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return out
+	}
+	for _, m := range parsed.Models {
+		if m.Slug != "" {
+			out = append(out, m.Slug)
+		}
+	}
+	return sanitizeModelList(out)
+}
+
+// probeArtifactKey carries the artifact a probe identified to the CommandRunner, so the probe's
+// commands run that artifact and the digest on the status is the one that answered.
+type probeArtifactKey struct{}
+
+func withProbeArtifact(ctx context.Context, art RuntimeArtifact) context.Context {
+	return context.WithValue(ctx, probeArtifactKey{}, art)
+}
+
+// preflightArtifactKey carries a probed status's artifact into its preflight as a reference: every
+// preflight command (ExecRunner's and the Codex feature check) resolves and hashes again and runs
+// the resolved executable only if it is that same file and digest, never the PATH wrapper.
+type preflightArtifactKey struct{}
+
+// preflightArtifact resolves binary again when ctx carries a preflight reference, and returns the
+// resolved artifact only if it is the referenced one. ok is false when there is no reference.
+func preflightArtifact(ctx context.Context, binary string) (art RuntimeArtifact, ok bool, err error) {
+	probed, ok := ctx.Value(preflightArtifactKey{}).(RuntimeArtifact)
+	if !ok {
+		return RuntimeArtifact{}, false, nil
+	}
+	a, err := resolveArtifact(binary)
+	if err != nil {
+		return RuntimeArtifact{}, true, err
+	}
+	if probed.Digest.Value != a.Digest.Value || probed.Path != a.Path {
+		return RuntimeArtifact{}, true, fmt.Errorf("%s changed after it was probed (%s at %s, now %s at %s); it is probed again before it is offered", binary, short(probed.Digest.Value), probed.Path, short(a.Digest.Value), a.Path)
+	}
+	return a, true, nil
+}
+
+// preflightContext carries a probed status's artifact into its preflight (preflightArtifactKey).
+func preflightContext(ctx context.Context, st RuntimeStatus) context.Context {
+	if st.Artifact == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, preflightArtifactKey{}, *st.Artifact)
 }

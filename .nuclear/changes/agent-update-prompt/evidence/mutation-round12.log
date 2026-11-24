@@ -1,0 +1,7 @@
+## R12-1 focusedAt starts at mount (mutated: starts at 0)
+     × a remount with a cached list shows no command until a fresh response arrives 27ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+Received: "1 agent updateNewer versions bring bug fixes, new models and features. Update between runs.×Grok CLI×v1.0.77 → v1.0.92Copy commandRun in a terminal: npm install --global @xai-official/grok@1.0.92Or run controlrod agents update to review and install each one."
+## R12-1 focusedAt starts at mount (restored)
+      Tests  11 passed (11)
+## R12-1 refetchOnMount "always" is not mutation-checked: the test query client has no staleTime, so a mount refetches anyway; in the app (staleTime 5 s) it makes a cached list refetch on mount instead of waiting for "Check again".

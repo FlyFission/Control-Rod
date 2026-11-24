@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { DataLane } from "../api/types.js";
+import type { DataLane, WorkspaceProject } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
+import { WORKFLOWS, WORKFLOW_DESCRIPTION, WORKFLOW_LABEL, type Workflow } from "../lib/workflow.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
+import { projectCaptureTag, useActiveProject } from "../lib/projects.js";
 import {
   CLI_ECOSYSTEMS,
+  defaultAuthorSelection,
+  defaultCheckerSelection,
   ecosystemById,
+  formatModelLabel,
   isIndependentCustody,
+  laneRuntimeSelection,
+  modelsForEcosystem,
   reasoningLevelsFor,
   resolveReasoningForModel,
   type AgentRuntimeSelection,
@@ -20,7 +27,7 @@ import {
   loadWorkDefaults,
   resetWorkDefaults,
   saveWorkDefaults,
-  type ModalDetailLevel,
+  sanitizeRuntimeSelection,
   type RepoOutfallStrategy,
   type WorkDefaults,
 } from "../lib/workDefaults.js";
@@ -33,15 +40,6 @@ function suggestBranchName(text: string): string {
     .slice(0, 36);
   return slug ? `cr/${slug}` : "cr/work-package";
 }
-
-const STRATEGY_NOTE: Record<RepoOutfallStrategy, string> = {
-  worktree:
-    "Selected strategy (worktree) prepares the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
-  "fresh-clone":
-    "Selected strategy (fresh-clone) prepares a fresh local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
-  branch:
-    "Selected strategy (branch in base clone) prepares the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
-};
 
 interface PrepareSnapshot {
   seq: number;
@@ -66,16 +64,17 @@ interface NewWorkModalProps {
 
 /**
  * Mode-aware creation modal ("New change" in Software Mode, "New deliverable" in Capital Projects Mode).
- * Supports Simple vs. Advanced detail levels, saveable per-mode defaults, scope-based auto-inference,
- * and Author/Checker CLI+model+reasoning selection.
+ * Capture uses resolved defaults, with repository and runtime overrides in one disclosure.
  */
 export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const copy = MODE_COPY[mode];
+  const activeProject = useActiveProject();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const objectiveRef = useRef<HTMLTextAreaElement>(null);
   const qc = useQueryClient();
 
   const [initialDefaults] = useState(() => loadWorkDefaults(mode));
-  const [detailLevel, setDetailLevel] = useState<ModalDetailLevel>(initialDefaults.detailLevel);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [project, setProject] = useState(initialDefaults.project);
   const [stage, setStage] = useState(initialDefaults.stage);
   const [purpose, setPurpose] = useState(initialDefaults.purpose);
@@ -92,6 +91,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [preparedBranch, setPreparedBranch] = useState<string | null>(null);
   const [pendingPrepareSeq, setPendingPrepareSeq] = useState<number | null>(null);
   const [pendingCaptureSession, setPendingCaptureSession] = useState<number | null>(null);
+  const [workflow, setWorkflow] = useState<Workflow | "">("");
   const [pinnedFields, setPinnedFields] = useState(false);
 
   const [objective, setObjective] = useState("");
@@ -100,6 +100,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const prepareSeqRef = useRef(0);
   const modalSessionRef = useRef(0);
   const prevModeRef = useRef(mode);
+  const prevOpenRef = useRef(false);
+  const appliedProjectIdRef = useRef<string | null>(null);
 
   function invalidatePrepared() {
     prepareSeqRef.current += 1;
@@ -108,10 +110,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setPreparedBranch(null);
   }
 
-  function applyDefaults(defaults: WorkDefaults, includeDetailLevel = false) {
-    if (includeDetailLevel) {
-      setDetailLevel(defaults.detailLevel);
-    }
+  function applyDefaults(defaults: WorkDefaults) {
     setProject(defaults.project);
     setStage(defaults.stage);
     setPurpose(defaults.purpose);
@@ -128,24 +127,76 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setPinnedFields(false);
   }
 
+  function applyProjectPreferences(preferences: WorkspaceProject, defaultRoot: string) {
+    setProject(preferences.name);
+    setRepo(preferences.repo);
+    setRepoStrategy(preferences.repoStrategy);
+    setWorkspaceRoot(preferences.workspaceRoot || defaultRoot);
+    setLane(preferences.lane);
+    setAuthor(laneRuntimeSelection(
+      sanitizeRuntimeSelection(preferences.author, defaultAuthorSelection()), preferences.laneAgents?.drafting,
+    ));
+    setChecker(laneRuntimeSelection(
+      sanitizeRuntimeSelection(preferences.checker, defaultCheckerSelection()), preferences.laneAgents?.["agent-check"],
+    ));
+  }
+
   // Load saved defaults whenever Engineering Mode toggles (skip redundant mount run).
   useEffect(() => {
     if (prevModeRef.current === mode) return;
     prevModeRef.current = mode;
-    applyDefaults(loadWorkDefaults(mode), true);
+    appliedProjectIdRef.current = null;
+    applyDefaults(loadWorkDefaults(mode));
+    setSettingsOpen(false);
     setError(null);
     setDefaultsNotice(null);
   }, [mode]);
+
+  // Apply active project defaults (name, bound repo, outfall strategy, lane, author/checker) on open or active project switch,
+  // and reset back to global defaults when leaving a project for "All Software".
+  useEffect(() => {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (!open) return;
+    const activeProjectId = activeProject?.id ?? null;
+    if (wasOpen && activeProjectId === appliedProjectIdRef.current) return;
+    const defaults = loadWorkDefaults(mode);
+    if (activeProject && activeProject.mode === mode) {
+      applyProjectPreferences(activeProject, defaults.workspaceRoot);
+      invalidatePrepared();
+      appliedProjectIdRef.current = activeProject.id;
+    } else if (!activeProject && appliedProjectIdRef.current !== null) {
+      applyDefaults(defaults);
+      appliedProjectIdRef.current = null;
+    }
+  }, [open, activeProject, mode]);
 
   const trimmedWorkspaceRoot = workspaceRoot.trim();
   const reposQuery = useQuery({
     queryKey: ["repos", trimmedWorkspaceRoot],
     queryFn: () => api.repos(trimmedWorkspaceRoot || undefined),
-    enabled: open,
+    enabled: open && (settingsOpen || Boolean(repo)),
   });
+  const runtimesQuery = useQuery({
+    queryKey: ["runtimes"],
+    queryFn: api.runtimes,
+    enabled: open && settingsOpen,
+  });
+  const liveModelsByEco = useMemo(() => {
+    const map: Partial<Record<CliEcosystemId, string[]>> = {};
+    for (const r of runtimesQuery.data?.runtimes ?? []) {
+      if (Array.isArray(r.models) && r.models.length > 0) {
+        map[r.runtime as CliEcosystemId] = r.models;
+      }
+    }
+    return map;
+  }, [runtimesQuery.data]);
 
   const activeWorkspaceRoot = trimmedWorkspaceRoot || reposQuery.data?.workspace_root || "";
   const effectiveBranch = branch.trim() || suggestBranchName(objective);
+  const captureBranch = preparedBranch ?? effectiveBranch;
+  const repoIsListed = reposQuery.data?.local.some((r) => r.name === repo) ||
+    reposQuery.data?.github.some((r) => r.name_with_owner === repo);
   const latestPrepareInputsRef = useRef({
     repo,
     repoStrategy,
@@ -176,7 +227,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         repo: snapshot.repo,
         branch: snapshot.branch,
         strategy: snapshot.repoStrategy,
-        mode: snapshot.mode,
+        mode: snapshot.mode === "capital-projects" ? "capital-projects" : "software",
         ...(snapshot.targetWorkspaceRoot ? { workspace_root: snapshot.targetWorkspaceRoot } : {}),
       });
       return { res, snapshot };
@@ -214,6 +265,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     if (dlg) {
       if (open && !dlg.open) {
         dlg.showModal();
+        objectiveRef.current?.focus();
       } else if (!open && dlg.open) {
         dlg.close();
       }
@@ -224,6 +276,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       invalidatePrepared();
       setError(null);
       setDefaultsNotice(null);
+      setSettingsOpen(false);
     }
   }, [open]);
 
@@ -234,6 +287,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       void qc.invalidateQueries({ queryKey: ["captures"] });
       if (vars.session !== modalSessionRef.current) return;
       setObjective("");
+      setWorkflow("");
       setBranch("");
       invalidatePrepared();
       setPinnedFields(false);
@@ -285,7 +339,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       grade,
       author,
       checker,
-      detailLevel,
+      detailLevel: "simple",
       workspaceRoot: activeWorkspaceRoot,
       repo,
       repoStrategy,
@@ -294,7 +348,9 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   }
 
   function handleResetDefaults() {
-    applyDefaults(resetWorkDefaults(mode));
+    const defaults = resetWorkDefaults(mode);
+    applyDefaults(defaults);
+    if (activeProject?.mode === mode) applyProjectPreferences(activeProject, defaults.workspaceRoot);
     setDefaultsNotice(`Reset ${copy.label} defaults.`);
   }
 
@@ -304,16 +360,34 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     const trimmed = objective.trim();
     if (!trimmed) {
       setError("Enter an objective or scope before capturing.");
+      objectiveRef.current?.focus();
       return;
     }
-    const submittedBranch = preparedBranch ?? effectiveBranch;
+    // Header values sit inside [key:value] tags, so a bracket in any value would end its tag early
+    // and could smuggle in another (the API reads only top-level tags). Every free value is checked:
+    // what the person typed, the clone's folder name, the branch and the prepared path.
+    const bracketed = (v: string | null | undefined) => !!v && /[[\]]/.test(v);
+    const refused = bracketed(project)
+      ? "A project name can't contain [ or ]."
+      : repo && bracketed(repo)
+        ? "This repository's name contains [ or ], which a request can't carry. Rename the folder or pick another."
+        : repo && bracketed(captureBranch)
+          ? "A branch name can't contain [ or ]."
+          : bracketed(preparedPath)
+            ? "This workspace's path contains [ or ], which a request can't carry. Prepare it in a folder without brackets."
+            : null;
+    if (refused) {
+      setError(refused);
+      return;
+    }
     const header = [
       `[mode:${mode}]`,
-      project.trim() ? `[project:${project.trim()}]` : null,
+      projectCaptureTag(project, activeProject),
       repo ? `[repo:${repo}]` : null,
-      repo ? `[branch:${submittedBranch}]` : null,
+      repo ? `[branch:${captureBranch}]` : null,
       repo ? `[outfall:${repoStrategy}]` : null,
       preparedPath ? `[workspace:${preparedPath}]` : null,
+      workflow ? `[workflow:${workflow}]` : null,
       `[stage:${stage}]`,
       `[purpose:${purpose}]`,
       discipline && discipline !== "Unspecified" ? `[discipline:${discipline}]` : null,
@@ -353,318 +427,318 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     >
       <div className="cr-modal-head">
         <div>
-          <h2 id="new-work-title" className="cr-modal-title">
-            {copy.modalTitle}
-          </h2>
-          <p className="small muted" style={{ margin: 0 }}>
-            {copy.label} mode · Start brief and expand with saved defaults or Advanced options.
-          </p>
+          <h2 id="new-work-title" className="cr-modal-title">{copy.modalTitle}</h2>
+          <p className="small muted" style={{ margin: 0 }}>Capture work for intake.</p>
         </div>
-        <div className="cr-modal-head-actions">
-          <div className="seg" role="group" aria-label="Form detail level">
-            <button
-              type="button"
-              className={detailLevel === "simple" ? "active" : ""}
-              aria-pressed={detailLevel === "simple"}
-              onClick={() => setDetailLevel("simple")}
-            >
-              Simple
-            </button>
-            <button
-              type="button"
-              className={detailLevel === "advanced" ? "active" : ""}
-              aria-pressed={detailLevel === "advanced"}
-              onClick={() => setDetailLevel("advanced")}
-            >
-              Advanced
-            </button>
-          </div>
-          <button type="button" className="btn small" onClick={onClose}>
-            Esc
-          </button>
-        </div>
+        <button type="button" className="btn small" onClick={onClose}>Esc</button>
       </div>
 
       <form className="cr-modal-body" onSubmit={submit}>
         <label className="field">
           <span>{copy.objectiveLabel}</span>
           <textarea
-            rows={detailLevel === "simple" ? 3 : 4}
+            ref={objectiveRef}
+            rows={3}
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
             placeholder={copy.objectivePlaceholder}
           />
         </label>
 
-        <div className="cr-defaults-bar">
-          <div className="cr-defaults-summary">
-            {discipline !== "Unspecified" && <span className="tag">{discipline}</span>}
-            <span className="tag">{stage}</span>
-            <span className="tag">{purpose}</span>
-            <span className="tag">Lane: {lane}</span>
-            <span className="tag">{grade === "safety" ? copy.specialGrade.label : "General service"}</span>
-            {repo && <span className="tag">{repo} ({repoStrategy})</span>}
-            <span className="mono small muted">
-              {author.ecosystem}/{author.model}@{author.reasoning} → {checker.ecosystem}/{checker.model}@{checker.reasoning}
-            </span>
+        <LanePicker id="new-work-lane" value={lane} onChange={setLane} />
+        <section aria-label="Capture defaults" className="cr-defaults-bar small">
+          <div style={{ overflowWrap: "anywhere" }}>
+            <strong>{project.trim() || "No project"}</strong>
+            {repo ? <>{" · "}{repo} · <span className="mono">{captureBranch}</span></> : " · No repository"}
           </div>
+          <div className="cr-defaults-summary muted">
+            <span>Author · {ecosystemById(author.ecosystem).label} · {author.model === "default" ? "CLI default" : author.model}</span>
+            <span>Checker · {ecosystemById(checker.ecosystem).label} · {checker.model === "default" ? "CLI default" : checker.model}</span>
+          </div>
+          {grade === "safety" && <span className="cr-warn-text">{copy.specialGrade.label}</span>}
           {inferred.reason && !pinnedFields && (
-            <span className="small ok">Auto-matched: {inferred.reason}</span>
+            <span className="ok">Auto-matched: {inferred.reason}</span>
           )}
-        </div>
+          {preparedPath && (
+            <span className="mono ok" role="status" style={{ overflowWrap: "anywhere" }}>
+              Local checkout prepared: {preparedPath}
+            </span>
+          )}
+          {isPreparing && !settingsOpen && <span role="status">Preparing local workspace…</span>}
+          {!independent && (
+            <p className="cr-warn-text" role="status" style={{ margin: 0 }}>
+              O6 Notice: Author and Checker share the {ecosystemById(author.ecosystem).cliCommand} CLI.
+              Independent runtime or owner override required before acceptance.
+            </p>
+          )}
+        </section>
 
-        <fieldset className="cr-custody-fieldset">
-          <legend className="small">Repository &amp; Local Workspace</legend>
-          <div className="cr-form-grid">
-            <label className="field">
-              <span>Repository (GitHub or Local)</span>
-              <select
-                aria-label="Repository"
-                value={repo}
-                onChange={(e) => {
-                  setRepo(e.target.value);
-                  invalidatePrepared();
-                }}
-              >
-                <option value="">No repository (general capture)</option>
-                {(reposQuery.data?.local ?? []).length > 0 && (
-                  <optgroup label={`Local clones (${activeWorkspaceRoot || "projects"})`}>
-                    {reposQuery.data!.local.map((r) => (
-                      <option key={`local-${r.name}`} value={r.name}>
-                        {r.name} ({r.branch}{r.dirty ? " · dirty" : ""})
-                      </option>
-                    ))}
-                  </optgroup>
+        <div>
+          <button
+            type="button"
+            className="btn small"
+            aria-expanded={settingsOpen}
+            aria-controls="new-work-settings"
+            onClick={() => setSettingsOpen((previous) => !previous)}
+          >
+            Capture settings
+          </button>
+        </div>
+        <div id="new-work-settings" hidden={!settingsOpen}>
+          {settingsOpen && (
+            <div style={{ display: "grid", gap: 12 }}>
+              <fieldset className="cr-custody-fieldset">
+                <legend className="small">Repository &amp; Local Workspace</legend>
+                <div className="cr-form-grid">
+                  <label className="field">
+                    <span>Repository (GitHub or Local)</span>
+                    <select
+                      aria-label="Repository"
+                      value={repo}
+                      onChange={(e) => {
+                        setRepo(e.target.value);
+                        invalidatePrepared();
+                      }}
+                    >
+                      <option value="">No repository (general capture)</option>
+                      {repo && !repoIsListed && <option value={repo}>{repo} (saved preference)</option>}
+                      {(reposQuery.data?.local ?? []).length > 0 && (
+                        <optgroup label={`Local clones (${activeWorkspaceRoot || "projects"})`}>
+                          {reposQuery.data!.local.map((r) => (
+                            <option key={`local-${r.name}`} value={r.name}>
+                              {r.name} ({r.branch}{r.dirty ? " · dirty" : ""})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {(reposQuery.data?.github ?? []).length > 0 && (
+                        <optgroup label="GitHub repositories">
+                          {reposQuery.data!.github.map((g) => (
+                            <option key={`gh-${g.name_with_owner}`} value={g.name_with_owner}>
+                              {g.name_with_owner} ({g.default_branch}{g.is_private ? " · private" : ""})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </label>
+                  {repo && (
+                    <label className="field">
+                      <span>Outfall strategy</span>
+                      <select
+                        aria-label="Outfall strategy"
+                        value={repoStrategy}
+                        onChange={(e) => {
+                          setRepoStrategy(e.target.value as RepoOutfallStrategy);
+                          invalidatePrepared();
+                        }}
+                      >
+                        <option value="worktree">New git worktree (Recommended)</option>
+                        <option value="fresh-clone">Fresh local clone</option>
+                        <option value="branch">New branch in local clone</option>
+                      </select>
+                    </label>
+                  )}
+                </div>
+                <div className="cr-form-grid" style={{ marginTop: 8 }}>
+                  <label className="field">
+                    <span>Default working location</span>
+                    <input
+                      type="text"
+                      value={workspaceRoot}
+                      onChange={(e) => {
+                        setWorkspaceRoot(e.target.value);
+                        invalidatePrepared();
+                      }}
+                      placeholder={reposQuery.data?.workspace_root || "~/projects"}
+                    />
+                  </label>
+                  {repo && (
+                    <label className="field">
+                      <span>Branch name</span>
+                      <input
+                        type="text"
+                        value={branch}
+                        onChange={(e) => {
+                          setBranch(e.target.value);
+                          invalidatePrepared();
+                        }}
+                        placeholder={suggestBranchName(objective)}
+                      />
+                    </label>
+                  )}
+                </div>
+                {repo && (
+                  <div className="cr-clarify-bar" style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="btn small"
+                      disabled={isPreparing}
+                      onClick={() => {
+                        const seq = ++prepareSeqRef.current;
+                        setPendingPrepareSeq(seq);
+                        setPreparedPath(null);
+                        setPreparedBranch(null);
+                        setError(null);
+                        materialize.mutate({
+                          seq,
+                          repo,
+                          repoStrategy,
+                          mode,
+                          workspaceRoot: trimmedWorkspaceRoot,
+                          targetWorkspaceRoot: activeWorkspaceRoot,
+                          branch: effectiveBranch,
+                        });
+                      }}
+                    >
+                      {isPreparing ? "Preparing workspace…" : "Prepare local workspace"}
+                    </button>
+                  </div>
                 )}
-                {(reposQuery.data?.github ?? []).length > 0 && (
-                  <optgroup label="GitHub repositories">
-                    {reposQuery.data!.github.map((g) => (
-                      <option key={`gh-${g.name_with_owner}`} value={g.name_with_owner}>
-                        {g.name_with_owner} ({g.default_branch}{g.is_private ? " · private" : ""})
-                      </option>
-                    ))}
-                  </optgroup>
+                {repo && (
+                  <p className="small muted" style={{ margin: "8px 0 0" }}>
+                    Prepare a local checkout for manual use; agent runs still use an isolated package workspace until Cycle 2 repo binding lands.
+                  </p>
                 )}
-              </select>
-            </label>
-            {repo && (
-              <label className="field">
-                <span>Outfall strategy</span>
-                <select
-                  aria-label="Outfall strategy"
-                  value={repoStrategy}
-                  onChange={(e) => {
-                    setRepoStrategy(e.target.value as RepoOutfallStrategy);
-                    invalidatePrepared();
-                  }}
-                >
-                  <option value="worktree">New git worktree (Recommended)</option>
-                  <option value="fresh-clone">Fresh local clone</option>
-                  <option value="branch">New branch in local clone</option>
-                </select>
-              </label>
-            )}
-          </div>
-          {reposQuery.isError && (
-            <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
-              {explain(reposQuery.error, "Could not load repositories.")}
-            </p>
-          )}
-          {reposQuery.data?.github_error && (
-            <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
-              GitHub repositories unavailable: {reposQuery.data.github_error}
-            </p>
-          )}
-          {detailLevel === "advanced" && (
-            <div className="cr-form-grid" style={{ marginTop: 8 }}>
-              <label className="field">
-                <span>Default working location</span>
-                <input
-                  type="text"
-                  value={workspaceRoot}
-                  onChange={(e) => {
-                    setWorkspaceRoot(e.target.value);
-                    invalidatePrepared();
-                  }}
-                  placeholder={reposQuery.data?.workspace_root || "~/projects"}
-                />
-              </label>
-              {repo && (
+              </fieldset>
+
+              <div className="cr-form-grid">
                 <label className="field">
-                  <span>Branch name</span>
+                  <span>Discipline / Area</span>
+                  <select
+                    value={discipline}
+                    onChange={(e) => {
+                      setPinnedFields(true);
+                      setDiscipline(e.target.value);
+                    }}
+                  >
+                    {copy.disciplines.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>{mode === "capital-projects" ? "Project Stage / Gate" : mode === "nuclear-grade" ? "PRO Stage" : "Change Type"}</span>
+                  <select
+                    value={stage}
+                    onChange={(e) => {
+                      setPinnedFields(true);
+                      setStage(e.target.value);
+                    }}
+                  >
+                    {copy.projectStages.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field" style={{ marginBottom: 0 }}>
+                  <span>Grade</span>
+                  <select
+                    value={grade}
+                    onChange={(e) => {
+                      setPinnedFields(true);
+                      setGrade(e.target.value as "general-service" | "safety");
+                    }}
+                  >
+                    <option value="general-service">General service</option>
+                    <option value={copy.specialGrade.value}>{copy.specialGrade.label}</option>
+                  </select>
+                </label>
+                <div className="field">
+                  <label htmlFor="new-work-workflow"><span>Workflow</span></label>
+                  <select id="new-work-workflow" value={workflow} onChange={(e) => setWorkflow(e.target.value as Workflow | "")} aria-describedby="new-work-workflow-help">
+                    <option value="">Project default</option>
+                    {WORKFLOWS.map((w) => (
+                      <option key={w} value={w}>
+                        {WORKFLOW_LABEL[w]}
+                      </option>
+                    ))}
+                  </select>
+                  <span id="new-work-workflow-help" className="small muted">
+                    {workflow ? WORKFLOW_DESCRIPTION[workflow] : "The project's workflow, else Playbook."}
+                  </span>
+                </div>
+                <label className="field">
+                  <span>Project / Workstream</span>
                   <input
                     type="text"
-                    value={branch}
-                    onChange={(e) => {
-                      setBranch(e.target.value);
-                      invalidatePrepared();
-                    }}
-                    placeholder={suggestBranchName(objective)}
+                    value={project}
+                    onChange={(e) => setProject(e.target.value)}
+                    placeholder={copy.projectPlaceholder}
                   />
                 </label>
-              )}
+                <label className="field">
+                  <span>{mode === "capital-projects" ? "Issue Purpose" : mode === "nuclear-grade" ? "Packet Type" : "Review Target"}</span>
+                  <select
+                    value={purpose}
+                    onChange={(e) => {
+                      setPinnedFields(true);
+                      setPurpose(e.target.value);
+                    }}
+                  >
+                    {copy.issuePurposes.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+              </div>
+
+              <fieldset className="cr-custody-fieldset">
+                <legend className="small">Agent custody</legend>
+                <div className="cr-runtime-grid">
+                  <RuntimePickerCard
+                    title={copy.custodyRoles[0]}
+                    idPrefix="author"
+                    value={author}
+                    liveModels={liveModelsByEco[author.ecosystem]}
+                    onChange={(patch) => updateRuntimeSelection("author", patch)}
+                  />
+                  <RuntimePickerCard
+                    title={copy.custodyRoles[1]}
+                    idPrefix="checker"
+                    value={checker}
+                    liveModels={liveModelsByEco[checker.ecosystem]}
+                    onChange={(patch) => updateRuntimeSelection("checker", patch)}
+                  />
+                </div>
+                {independent && (
+                  <p className="small muted" style={{ margin: "8px 0 0" }}>
+                    Distinct ecosystems (baselines checked at run time).
+                  </p>
+                )}
+              </fieldset>
+
+              <div className="cr-clarify-bar">
+                <span className="small muted">Defaults are saved per mode in this browser.</span>
+                <div className="cr-defaults-actions">
+                  <button type="button" className="btn small" onClick={handleSaveDefaults}>
+                    Save as my defaults
+                  </button>
+                  <button type="button" className="btn small" onClick={handleResetDefaults}>
+                    Reset
+                  </button>
+                </div>
+              </div>
             </div>
           )}
-          {repo && (
-            <div className="cr-clarify-bar" style={{ marginTop: 8 }}>
-              <button
-                type="button"
-                className="btn small"
-                disabled={isPreparing}
-                onClick={() => {
-                  const seq = ++prepareSeqRef.current;
-                  setPendingPrepareSeq(seq);
-                  setPreparedPath(null);
-                  setPreparedBranch(null);
-                  setError(null);
-                  materialize.mutate({
-                    seq,
-                    repo,
-                    repoStrategy,
-                    mode,
-                    workspaceRoot: trimmedWorkspaceRoot,
-                    targetWorkspaceRoot: activeWorkspaceRoot,
-                    branch: effectiveBranch,
-                  });
-                }}
-              >
-                {isPreparing ? "Preparing workspace…" : "Prepare local workspace"}
-              </button>
-              {preparedPath && (
-                <span className="mono small ok" role="status">
-                  Ready: {preparedPath}
-                </span>
-              )}
-            </div>
-          )}
-          <p className="small muted" style={{ margin: "8px 0 0" }}>
-            {repo
-              ? STRATEGY_NOTE[repoStrategy]
-              : "Preparing a repository creates the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2."}
+        </div>
+
+        {reposQuery.isError && (
+          <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
+            {explain(reposQuery.error, "Could not load repositories.")}
           </p>
-        </fieldset>
-
-        <div className="cr-form-grid">
-          <label className="field">
-            <span>Discipline / Area</span>
-            <select
-              value={discipline}
-              onChange={(e) => {
-                setPinnedFields(true);
-                setDiscipline(e.target.value);
-              }}
-            >
-              {copy.disciplines.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>{mode === "capital-projects" ? "Project Stage / Gate" : "Change Type"}</span>
-            <select
-              value={stage}
-              onChange={(e) => {
-                setPinnedFields(true);
-                setStage(e.target.value);
-              }}
-            >
-              {copy.projectStages.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="cr-form-row-inline">
-          <LanePicker id="new-work-lane" value={lane} onChange={setLane} />
-          <label className="field" style={{ marginBottom: 0 }}>
-            <span>Grade</span>
-            <select
-              value={grade}
-              onChange={(e) => {
-                setPinnedFields(true);
-                setGrade(e.target.value as "general-service" | "safety");
-              }}
-            >
-              <option value="general-service">General service</option>
-              <option value={copy.specialGrade.value}>{copy.specialGrade.label}</option>
-            </select>
-          </label>
-        </div>
-
-        {detailLevel === "advanced" && (
-          <>
-            <div className="cr-form-grid">
-              <label className="field">
-                <span>Project / Workstream</span>
-                <input
-                  type="text"
-                  value={project}
-                  onChange={(e) => setProject(e.target.value)}
-                  placeholder={copy.projectPlaceholder}
-                />
-              </label>
-              <label className="field">
-                <span>{mode === "capital-projects" ? "Issue Purpose" : "Review Target"}</span>
-                <select
-                  value={purpose}
-                  onChange={(e) => {
-                    setPinnedFields(true);
-                    setPurpose(e.target.value);
-                  }}
-                >
-                  {copy.issuePurposes.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <fieldset className="cr-custody-fieldset">
-              <legend className="small">Agent Custody &amp; CLI Ecosystem</legend>
-              <div className="cr-runtime-grid">
-                <RuntimePickerCard
-                  title={copy.custodyRoles[0]}
-                  idPrefix="author"
-                  value={author}
-                  onChange={(patch) => updateRuntimeSelection("author", patch)}
-                />
-                <RuntimePickerCard
-                  title={copy.custodyRoles[1]}
-                  idPrefix="checker"
-                  value={checker}
-                  onChange={(patch) => updateRuntimeSelection("checker", patch)}
-                />
-              </div>
-              <p
-                className={independent ? "small ok" : "small cr-warn-text"}
-                role="status"
-                style={{ margin: "8px 0 0" }}
-              >
-                {independent
-                  ? `Distinct ecosystems (baselines checked at run time): ${ecosystemById(author.ecosystem).cliCommand} prepares, ${ecosystemById(checker.ecosystem).cliCommand} verifies.`
-                  : `O6 Notice: Author and Checker share the ${ecosystemById(author.ecosystem).cliCommand} CLI — independent runtime or owner override required before acceptance.`}
-              </p>
-            </fieldset>
-
-            <div className="cr-clarify-bar">
-              <span className="small muted">Defaults are saved per mode in this browser.</span>
-              <div className="cr-defaults-actions">
-                <button type="button" className="btn small" onClick={handleSaveDefaults}>
-                  Save as my defaults
-                </button>
-                <button type="button" className="btn small" onClick={handleResetDefaults}>
-                  Reset
-                </button>
-              </div>
-            </div>
-          </>
+        )}
+        {reposQuery.data?.github_error && (
+          <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
+            GitHub repositories unavailable: {reposQuery.data.github_error}
+          </p>
         )}
 
         {defaultsNotice && (
@@ -684,7 +758,13 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
             Cancel
           </button>
           <button type="submit" className="btn primary" disabled={isCapturing}>
-            {isCapturing ? "Capturing…" : `Capture ${copy.shortLabel === "Software" ? "change" : "deliverable"}`}
+            {isCapturing
+              ? "Capturing…"
+              : mode === "nuclear-grade"
+                ? "Capture packet"
+                : mode === "software"
+                  ? "Capture change"
+                  : "Capture deliverable"}
           </button>
         </div>
       </form>
@@ -692,18 +772,27 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   );
 }
 
+const CUSTOM_MODEL_OPTION = "__custom__";
+
 function RuntimePickerCard({
   title,
   idPrefix,
   value,
+  liveModels,
   onChange,
 }: {
   title: string;
   idPrefix: string;
   value: AgentRuntimeSelection;
+  liveModels?: readonly string[] | undefined;
   onChange: (patch: RuntimeSelectionPatch) => void;
 }) {
-  const eco = ecosystemById(value.ecosystem);
+  const models = modelsForEcosystem(value.ecosystem, liveModels);
+  const isCustomModel = !models.includes(value.model);
+  const [editingCustom, setEditingCustom] = useState(isCustomModel);
+  useEffect(() => {
+    if (!models.includes(value.model)) setEditingCustom(true);
+  }, [value.ecosystem, value.model, models]);
   const reasoningLevels = reasoningLevelsFor(value.ecosystem, value.model);
   return (
     <div className="cr-runtime-card">
@@ -713,7 +802,10 @@ function RuntimePickerCard({
         <select
           id={`${idPrefix}-cli`}
           value={value.ecosystem}
-          onChange={(e) => onChange({ ecosystem: e.target.value as CliEcosystemId })}
+          onChange={(e) => {
+            setEditingCustom(false);
+            onChange({ ecosystem: e.target.value as CliEcosystemId });
+          }}
         >
           {CLI_ECOSYSTEMS.map((c) => (
             <option key={c.id} value={c.id} disabled={!c.runnable}>
@@ -726,16 +818,36 @@ function RuntimePickerCard({
         <span>Model</span>
         <select
           id={`${idPrefix}-model`}
-          value={value.model}
-          onChange={(e) => onChange({ model: e.target.value })}
+          value={editingCustom || isCustomModel ? CUSTOM_MODEL_OPTION : value.model}
+          onChange={(e) => {
+            if (e.target.value === CUSTOM_MODEL_OPTION) {
+              setEditingCustom(true);
+            } else {
+              setEditingCustom(false);
+              onChange({ model: e.target.value });
+            }
+          }}
         >
-          {eco.models.map((m) => (
+          {models.map((m) => (
             <option key={m} value={m}>
-              {m}
+              {formatModelLabel(m)}
             </option>
           ))}
+          <option value={CUSTOM_MODEL_OPTION}>Custom model ID…</option>
         </select>
       </label>
+      {(editingCustom || isCustomModel) && (
+        <label className="field">
+          <span>Custom model ID</span>
+          <input
+            type="text"
+            id={`${idPrefix}-custom-model`}
+            value={value.model === "default" ? "" : value.model}
+            placeholder="e.g. claude-opus-4-6 or gpt-6.2-sol"
+            onChange={(e) => onChange({ model: e.target.value.trim() || "default" })}
+          />
+        </label>
+      )}
       <div className="field" style={{ marginBottom: 0 }}>
         <span>Reasoning effort</span>
         <div className="cr-reason-group" role="group" aria-label={`${title} reasoning level`}>

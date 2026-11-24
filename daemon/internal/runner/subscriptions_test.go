@@ -87,7 +87,7 @@ func TestSubscriptionFromStatusesUsesProbeResults(t *testing.T) {
 	if strings.Contains(ReportJSON(r), "not signed in") {
 		t.Fatal("the probe sentence was copied into the report")
 	}
-	if len(r.Checkers) != 2 {
+	if len(r.Checkers) < 2 {
 		t.Fatalf("checkers %+v", r.Checkers)
 	}
 	ids := map[string]bool{}

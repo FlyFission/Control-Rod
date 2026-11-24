@@ -124,15 +124,24 @@ type ClaimRequest struct {
 	RuntimeStatus      []RuntimeStatus     `json:"runtime_status,omitempty"`
 	RunCeilingSeconds  int                 `json:"run_ceiling_seconds,omitempty"`
 	SubscriptionReport *SubscriptionReport `json:"subscription_report,omitempty"`
+	// AgentUpdates is nil until the startup update check finishes; then always sent, even empty.
+	AgentUpdates *[]AgentUpdate `json:"agent_updates,omitempty"`
+	// AgentUpdatesUnchecked names, with AgentUpdates, the agents whose check could not finish.
+	AgentUpdatesUnchecked []UncheckedAgent `json:"agent_updates_unchecked,omitempty"`
 }
 
 // Claim asks for one job, offering only ready runtimes. It returns ErrNoWork on HTTP 204. The
 // ceiling is rounded up to a whole second, so a reservation sized from it is never short.
-func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeStatus, runCeiling time.Duration, report *SubscriptionReport) (*Job, error) {
+func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeStatus, runCeiling time.Duration, report *SubscriptionReport, updates ...AgentReport) (*Job, error) {
 	if runtimes == nil {
 		runtimes = []string{}
 	}
 	req := ClaimRequest{Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report}
+	if len(updates) > 0 {
+		list := append([]AgentUpdate{}, updates[0].List...)
+		req.AgentUpdates = &list
+		req.AgentUpdatesUnchecked = updates[0].Unchecked
+	}
 	resp, err := c.post(ctx, "/runner/claim", req, 30*time.Second)
 	if err != nil {
 		return nil, err
@@ -212,7 +221,7 @@ func (c *Client) Evidence(ctx context.Context, r SpawnReceipt) (EvidenceReply, e
 			return EvidenceReply{}, fmt.Errorf("decode evidence reply: %w", err)
 		}
 		return e, nil
-	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
+	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
 		return EvidenceReply{}, statusError(path, resp)
 	default:
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
@@ -240,7 +249,7 @@ func (c *Client) Complete(ctx context.Context, runID string, comp Completion) (*
 			return nil, fmt.Errorf("completion receipt subject mismatch")
 		}
 		return &r, nil
-	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
+	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
 		return nil, statusError(path, resp)
 	default:
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))

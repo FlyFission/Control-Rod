@@ -22,11 +22,13 @@ const isKind = (c: string): c is DecisionKind => (ORDER as readonly string[]).in
 
 /**
  * The card's menu, from the actions the viewer is offered (the server's list with ruling 16 already
- * applied). Every decision the server names is listed: allowed ones enabled, refused ones disabled with
- * the server's reason and change. Stop is listed only while a run is queued or running.
+ * applied). Every decision the server names is listed: Stop at the top while a run is queued or
+ * running, then decisions in frequency order (allowed ones enabled, refused ones disabled with the
+ * server's reason and change).
  */
 export function menuItems(actions: ActionDescriptor[], runActive: boolean): MenuItem[] {
   const items: MenuItem[] = [];
+  if (runActive) items.push({ id: "stop", label: "Stop run", enabled: true });
   for (const kind of ORDER) {
     const a = actions.find((x) => x.command === kind && isKind(x.command));
     if (!a) continue;
@@ -38,7 +40,6 @@ export function menuItems(actions: ActionDescriptor[], runActive: boolean): Menu
       ...(!a.allowed && a.change ? { change: a.change } : {}),
     });
   }
-  if (runActive) items.push({ id: "stop", label: "Stop run", enabled: true });
   return items;
 }
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import type { AgentFigure } from "../../api/types.js";
@@ -124,9 +124,15 @@ describe("office view", () => {
       ),
     );
     await renderPage(<OfficeView />);
-    // Agents waiting on the viewer, and the rest of the Inbox with no agent yet: never fewer than the Inbox holds.
-    expect(await screen.findByText(/1 agent waits on you; 2 more in the Inbox with no agent yet · 2 agents on the floor/)).toBeTruthy();
-    const office = screen.getByRole("region", { name: /^Your office:/ });
+    // The annunciator: agents waiting on the viewer, and the rest of the Inbox with no agent yet.
+    const strip = await screen.findByRole("list", { name: "Annunciator" });
+    expect(await within(strip).findByText("Waiting on you: 1, 2 more in the Inbox")).toBeTruthy();
+    expect(within(strip).getByText("Stuck: 0")).toBeTruthy();
+    expect(within(strip).getByRole("link", { name: /Waiting on you/ }).getAttribute("href")).toBe("/inbox");
+    expect(screen.getByText("2 agents in the plant")).toBeTruthy();
+    // The core says how many work, in words, on the reactor building's plate.
+    expect(within(screen.getByRole("region", { name: "Reactor building" })).getByText("1 agent working")).toBeTruthy();
+    const office = screen.getByRole("region", { name: /^Your office, Main control room:/ });
     expect(office).toBeTruthy();
     const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept. Marks: a gate decision waits, Safety grade. Status lens: Needs you." });
     await userEvent.click(needs);
@@ -175,6 +181,30 @@ describe("office view", () => {
   });
 });
 
+describe("a failed refresh", () => {
+  beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
+  it("keeps the last reading on screen, marked as of when it was read, and offers to try again", async () => {
+    let calls = 0;
+    server.use(
+      http.get("*/office/figures", () =>
+        calls++ === 0
+          ? HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })
+          : HttpResponse.json({ code: "boom", message: "down" }, { status: 500 }),
+      ),
+    );
+    const { qc } = await renderPage(<OfficeView />);
+    expect(await screen.findByText("1 agent in the plant")).toBeTruthy();
+    await qc.refetchQueries({ queryKey: ["office-figures"] });
+    const note = await screen.findByText(/^The last refresh failed\. Showing the reading as of /);
+    expect(note).toBeTruthy();
+    // The floor stays drawn, its figure still there, and the core says the reading is not current.
+    expect(screen.getByRole("button", { name: /^WP-0001: / })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Reactor building" })).getByText(/^1 agent working, as of /)).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+});
+
 describe("exceptions overlay and portfolio (OV-26)", () => {
   beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
   const many = () => [
@@ -212,13 +242,19 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
     expect(screen.getByRole("button", { name: /^WP-N: Needs you/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^WP-W0: Working/ })).toBeNull();
     expect(screen.getByRole("table", { name: "Portfolio" })).toBeTruthy();
+    // The list never folds anyone, so neither the folded counts nor Show everyone are offered there.
+    await userEvent.click(screen.getByRole("radio", { name: "List" }));
+    expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show everyone" })).toBeNull();
+    expect(within(screen.getByLabelText("Every agent, by place")).getByRole("button", { name: /^Working WP-W0: Working/ })).toBeTruthy();
+    await userEvent.click(screen.getByRole("radio", { name: /^(Plant|Floor)$/ }));
     await userEvent.click(screen.getByRole("button", { name: "Show everyone" }));
     expect(screen.getByRole("button", { name: /^WP-W0: Working/ })).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();
   });
 });
 
-describe("themes (plan task 4.9)", () => {
+describe("the Plant and the archived office themes", () => {
   let member = "ben";
   beforeEach(() => {
     localStorage.clear();
@@ -230,48 +266,139 @@ describe("themes (plan task 4.9)", () => {
     );
   });
   const art = () => [...document.querySelectorAll<HTMLImageElement>(".office-scene-art")].map((i) => i.getAttribute("src") ?? "");
+  const archived = () => screen.getByRole("combobox", { name: "Archived office themes" }) as HTMLSelectElement;
 
-  it("opens on the standard office in an ordinary build", async () => {
+  it("opens on the Plant, with its site drawing and no theme picker in the header", async () => {
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().every((src) => src.startsWith("/office-themes/standard-office/"))).toBe(true);
+    expect(art().length).toBe(14);
+    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(document.querySelector('[data-site]')).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Plant" })).toBeTruthy();
   });
 
-  it("in an ordinary build offers the fifteen released worlds, switches the scene only, keeps the open card, and remembers the choice", async () => {
+  it("keeps the fifteen worlds and the standard office under Advanced, switches to the office layout, keeps the open card, and remembers the choice per member", async () => {
     const user = userEvent.setup();
     const { unmount } = await renderPage(<OfficeView drafts={false} />);
     await user.click(await screen.findByRole("button", { name: /^WP-0001/ }));
-    const picker = screen.getByRole("combobox", { name: "Theme" });
-    const options = within(picker).getAllByRole("option").map((o) => o.textContent);
-    expect(options).toHaveLength(16);
-    expect(options[0]).toBe("Standard Office");
+    await user.click(screen.getByText("Advanced"));
+    const options = within(archived()).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toHaveLength(17);
+    expect(options[0]).toBe("None: show the Plant");
+    expect(options[1]).toBe("Standard Office");
     expect(options.some((o) => o?.endsWith(" (draft)"))).toBe(false);
     expect(options).not.toContain("Harness Bright");
-    expect(options).not.toContain("Harness Bright (draft)");
-    await user.selectOptions(picker, "orbital-shipyard");
+    await user.selectOptions(archived(), "orbital-shipyard");
     expect(art().length).toBe(13);
     expect(art().every((src) => src.startsWith("/office-themes/orbital-shipyard/"))).toBe(true);
+    expect(screen.getByText(/Archived theme: /)).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Annunciator" })).toBeNull();
     // The figure, its selection and its card are the application's, untouched by the theme.
     expect(screen.getByRole("button", { name: /^WP-0001/ }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("heading", { name: "Line sizing" })).toBeTruthy();
     unmount();
     const again = await renderPage(<OfficeView drafts />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    await waitFor(() => expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).value).toBe("orbital-shipyard"));
+    await waitFor(() => expect(art().every((src) => src.startsWith("/office-themes/orbital-shipyard/"))).toBe(true));
+    await userEvent.click(screen.getByRole("button", { name: "Back to the Plant" }));
+    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
     again.unmount();
     // Another member signing in on this browser gets their own choice, not the last member's.
     member = "dora";
     await renderPage(<OfficeView drafts />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    await waitFor(() => expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).disabled).toBe(false));
-    expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).value).toBe("standard-office");
+    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
   });
 
-  it("falls back to the released theme when the remembered one is not offered in this build", async () => {
-    localStorage.setItem("controlrod.office.theme.ben", "harness-bright");
+  it("lands everyone on the Plant once: the old office theme choice is not read, and a choice this build does not offer falls back", async () => {
+    localStorage.setItem("controlrod.office.theme.ben", "orbital-shipyard");
+    const first = await renderPage(<OfficeView drafts={false} />);
+    await screen.findByRole("button", { name: /^WP-0001/ });
+    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    first.unmount();
+    localStorage.setItem("controlrod.plant.view.ben", "harness-bright");
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().every((src) => src.startsWith("/office-themes/standard-office/"))).toBe(true);
+    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+  });
+
+  it("lists every agent by zone and place, and opens the same card from the list", async () => {
+    server.use(
+      http.get("*/office/figures", () =>
+        HttpResponse.json({ figures: [figure(), figure({ id: "R-q", package_id: "WP-Q", state: "stuck", place: "quarantine", cause: "Held by SCRAM" })], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() }),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderPage(<OfficeView drafts={false} />);
+    await screen.findByRole("button", { name: /^WP-0001/ });
+    await user.click(screen.getByRole("radio", { name: "List" }));
+    const site = screen.getByRole("region", { name: "Site" });
+    expect(within(site).getByText("Quarantine, Hold yard")).toBeTruthy();
+    await user.click(within(site).getByRole("button", { name: /WP-Q: Stuck\. Held by SCRAM/ }));
+    expect(within(screen.getByRole("complementary", { name: "Selected agent" })).getByText("Held by SCRAM")).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Auxiliary building" })).getByRole("button", { name: /WP-0001: Working/ })).toBeTruthy();
+  });
+
+  it("lists the same marks the drawing carries", async () => {
+    server.use(
+      http.get("*/office/figures", () =>
+        HttpResponse.json({ figures: [figure({ marks: { gate: true, safety: true, changed_input: "WP-9" } as AgentFigure["marks"] })], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() }),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderPage(<OfficeView drafts={false} />);
+    await screen.findByRole("button", { name: /^WP-0001/ });
+    await user.click(screen.getByRole("radio", { name: "List" }));
+    expect(within(screen.getByRole("region", { name: "Auxiliary building" })).getByRole("button", { name: /WP-0001: Working\. .* Marks: a gate decision waits, an input changed, Safety grade\./ })).toBeTruthy();
+  });
+
+  it("shows the list wherever the drawing does not fit, whatever was picked, and keeps the pick for when it fits again", async () => {
+    // A ResizeObserver the test drives: the view measures its own width with it.
+    const observers: ((width: number) => void)[] = [];
+    const real = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe() {
+        observers.push((width) => this.cb([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver));
+      }
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+    try {
+      server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })));
+      const user = userEvent.setup();
+      await renderPage(<OfficeView drafts={false} />);
+      await screen.findByRole("button", { name: /^WP-0001/ });
+      const resize = (w: number) => act(() => observers.forEach((o) => o(w)));
+      const plant = () => screen.getByRole("radio", { name: "Plant" }) as HTMLButtonElement;
+      resize(1440);
+      await user.click(plant());
+      expect(plant().getAttribute("aria-checked")).toBe("true");
+      // Narrowed below 1024 px: the list, though the drawing was picked, and the drawing cannot be picked.
+      resize(1000);
+      expect(screen.getByRole("radio", { name: "List" }).getAttribute("aria-checked")).toBe("true");
+      expect(plant().disabled).toBe(true);
+      expect(screen.getByLabelText("Every agent, by place")).toBeTruthy();
+      // Wide again: the pick returns.
+      resize(1024);
+      expect(plant().getAttribute("aria-checked")).toBe("true");
+      expect(screen.queryByLabelText("Every agent, by place")).toBeNull();
+    } finally {
+      globalThis.ResizeObserver = real;
+    }
+  });
+
+  it("never draws the core as dark, or the rods as withdrawn, when it could not read them", async () => {
+    server.use(
+      http.get("*/scrams", () => HttpResponse.json({ code: "boom", message: "down" }, { status: 500 })),
+      http.get("*/office/figures", () => HttpResponse.json({ code: "boom", message: "down" }, { status: 500 })),
+    );
+    await renderPage(<OfficeView drafts={false} />);
+    const strip = await screen.findByRole("list", { name: "Annunciator" });
+    await waitFor(() => expect(within(strip).getByText("SCRAM: unavailable")).toBeTruthy());
+    expect(within(strip).getByText("Waiting on you: unavailable")).toBeTruthy();
+    expect(within(strip).queryByText(/: 0/)).toBeNull();
   });
 });
 

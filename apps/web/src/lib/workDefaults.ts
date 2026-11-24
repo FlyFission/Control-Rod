@@ -3,6 +3,7 @@ import {
   CLI_ECOSYSTEMS,
   defaultAuthorSelection,
   defaultCheckerSelection,
+  isValidModelName,
   resolveReasoningForModel,
   type AgentRuntimeSelection,
   type ReasoningLevel,
@@ -60,7 +61,7 @@ export function factoryDefaults(mode: EngineeringMode): WorkDefaults {
 }
 
 /** Validates a persisted runtime selection against currently runnable ecosystems, models, and reasoning levels. */
-function sanitizeSelection(
+export function sanitizeRuntimeSelection(
   sel: unknown,
   fallback: AgentRuntimeSelection,
 ): AgentRuntimeSelection {
@@ -70,7 +71,7 @@ function sanitizeSelection(
   const eco = CLI_ECOSYSTEMS.find((c) => c.id === candidate.ecosystem);
   if (!eco || !eco.runnable) return fallback;
   const model =
-    typeof candidate.model === "string" && eco.models.includes(candidate.model)
+    typeof candidate.model === "string" && isValidModelName(candidate.model)
       ? candidate.model
       : eco.defaultModel;
   const preferredReasoning =
@@ -110,8 +111,8 @@ export function loadWorkDefaults(mode: EngineeringMode): WorkDefaults {
       discipline: pickString(obj.discipline, base.discipline),
       lane: pickEnum(obj.lane, VALID_LANES, base.lane),
       grade: pickEnum(obj.grade, VALID_GRADES, base.grade),
-      author: sanitizeSelection(obj.author, base.author),
-      checker: sanitizeSelection(obj.checker, base.checker),
+      author: sanitizeRuntimeSelection(obj.author, base.author),
+      checker: sanitizeRuntimeSelection(obj.checker, base.checker),
       detailLevel: pickEnum(obj.detailLevel, VALID_DETAIL_LEVELS, base.detailLevel),
       workspaceRoot: pickString(obj.workspaceRoot, base.workspaceRoot),
       repo: pickString(obj.repo, base.repo),
@@ -183,6 +184,73 @@ export function inferScopeHints(mode: EngineeringMode, text: string): InferredHi
         purpose: "PR / Diff Review",
         grade: "general-service",
         reason: "Bugfix/regression detected",
+      };
+    }
+    return {};
+  }
+
+  if (mode === "nuclear-grade") {
+    if (/\b(red[\s-]?team|probe|adversar|security|cve|bypass|exfil|injection|secret|auth)\b/.test(s)) {
+      return {
+        discipline: "Security & Red Team",
+        stage: "Verify & Review",
+        purpose: "Standard Change Packet",
+        grade: "safety",
+        reason: "Security & red-team boundary detected",
+      };
+    }
+    if (/\b(authority|tool|grant|permission|agent|mcp|delegat|skill|harness)\b/.test(s)) {
+      return {
+        discipline: "Agent Authority & Tooling",
+        stage: "Specify & Plan",
+        purpose: "Agent Authority Change",
+        grade: "safety",
+        reason: "Agent authority & tooling scope detected",
+      };
+    }
+    if (/\b(dependenc|model|vendor|saas|api|package|lockfile|supply[\s-]?chain|upgrade)\b/.test(s)) {
+      return {
+        discipline: "Dependency & Model Trust",
+        stage: "Verify & Review",
+        purpose: "Standard Change Packet",
+        grade: "safety",
+        reason: "Dependency or model trust scope detected",
+      };
+    }
+    if (/\b(source|lineage|licen[cs]e|citation|assurance|claim|public[\s-]?word|compliance)\b/.test(s)) {
+      return {
+        discipline: "Source & Assurance Boundary",
+        stage: "Verify & Review",
+        purpose: "Standard Change Packet",
+        grade: "general-service",
+        reason: "Source & assurance boundary detected",
+      };
+    }
+    if (/\b(opex|incident|near[\s-]?miss|retro|postmortem|lesson|drift)\b/.test(s)) {
+      return {
+        discipline: "Configuration & Baseline",
+        stage: "OPEX Learning",
+        purpose: "OPEX Learning Action",
+        grade: "general-service",
+        reason: "OPEX learning action detected",
+      };
+    }
+    if (/\b(baseline|config|controlled[\s-]?item|release|ship|gate|rollout)\b/.test(s)) {
+      return {
+        discipline: "Configuration & Baseline",
+        stage: "Release Decision",
+        purpose: "Release Readiness Decision",
+        grade: "safety",
+        reason: "Configuration baseline / release decision detected",
+      };
+    }
+    if (/\b(verify|verification|test|eval|trace|execution|runtime|evidence|packet)\b/.test(s)) {
+      return {
+        discipline: "Runtime & Verification",
+        stage: "Verify & Review",
+        purpose: "Quick Change Packet",
+        grade: "general-service",
+        reason: "Runtime verification scope detected",
       };
     }
     return {};

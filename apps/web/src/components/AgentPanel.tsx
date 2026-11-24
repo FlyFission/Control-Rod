@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { Run } from "../api/types.js";
+import type { NormalizedEvent, Run } from "../api/types.js";
 import { isVisible } from "../lib/live.js";
+import { sessionGeneration, stillCurrent } from "../lib/session.js";
 import { story } from "../features/case/story.js";
 import { StoryLine, allRunEvents } from "../features/case/StoryLine.js";
 import { canStop, runState, runStatusText } from "./RunLog.js";
@@ -61,17 +62,39 @@ export function AgentPanel({ packageId, runId, showStop = true }: { packageId: s
         <p className="muted small">No agent has run on this card yet.</p>
       </section>
     );
-  return <Transcript key={run.id} packageId={packageId} run={run} showStop={showStop} />;
+  return <RunTranscript key={run.id} packageId={packageId} run={run} showStop={showStop} />;
 }
 
-function Transcript({ packageId, run, showStop }: { packageId: string; run: Run; showStop: boolean }) {
+type TranscriptEvent = { seq: number; event: NormalizedEvent };
+type TranscriptPage = { events: TranscriptEvent[]; conflict: boolean };
+
+function mergeTranscript(first: TranscriptPage | undefined, incoming: TranscriptEvent[]): TranscriptPage {
+  const bySeq = new Map(first?.events.map((event) => [event.seq, event]));
+  let conflict = first?.conflict ?? false;
+  for (const next of incoming) {
+    const previous = bySeq.get(next.seq);
+    if (!previous) bySeq.set(next.seq, next);
+    else if (JSON.stringify(previous.event) !== JSON.stringify(next.event)) conflict = true;
+  }
+  return { events: [...bySeq.values()].sort((a, b) => a.seq - b.seq), conflict };
+}
+
+export function RunTranscript({ packageId, run, showStop, bounded = false, initialScroll = 0, initialAnchor, onScroll }: {
+  packageId: string;
+  run: Run;
+  showStop: boolean;
+  bounded?: boolean;
+  initialScroll?: number;
+  initialAnchor?: number | undefined;
+  onScroll?: (offset: number, anchorSeq?: number) => void;
+}) {
   const qc = useQueryClient();
   const live = isLive(run);
   const key = ["run-events", packageId, run.id, run.status] as const;
-  const events = useQuery({
-    // Same key as the case page, so both read one cache; the status in the key reads a finished run once more in full.
-    // A refresh asks only for events after the last one held, so polling grows with what arrived, not the whole history.
+  const windowKey = ["run-transcript", packageId, run.id] as const;
+  const legacy = useQuery({
     queryKey: key,
+    enabled: !bounded,
     queryFn: async () => {
       const held = qc.getQueryData<Awaited<ReturnType<typeof allRunEvents>>>(key);
       const last = held?.at(-1)?.seq;
@@ -81,19 +104,109 @@ function Transcript({ packageId, run, showStop }: { packageId: string; run: Run;
     },
     refetchInterval: () => (live && isVisible() ? 2000 : false),
   });
+  const window = useQuery({
+    queryKey: windowKey,
+    enabled: bounded,
+    queryFn: async ({ signal }) => {
+      const held = qc.getQueryData<TranscriptPage>(windowKey);
+      let cursor = held?.events.at(-1)?.seq;
+      if (cursor === undefined) {
+        const recent = await api.transcriptWindow(packageId, run.id, { recent: true }, PANEL_STEPS);
+        return mergeTranscript(held, recent.events);
+      }
+      const incoming: TranscriptEvent[] = [];
+      for (;;) {
+        signal.throwIfAborted();
+        const page = await api.transcriptWindow(packageId, run.id, { after: cursor }, PANEL_STEPS);
+        incoming.push(...page.events);
+        const next = page.events.at(-1)?.seq;
+        if (page.events.length < PANEL_STEPS) break;
+        if (next === undefined || next <= cursor) {
+          return { ...mergeTranscript(held, incoming), conflict: true };
+        }
+        cursor = next;
+      }
+      return mergeTranscript(held, incoming);
+    },
+    refetchInterval: () => (live && isVisible() ? 2000 : false),
+  });
+  const priorStatus = useRef(run.status);
+  useEffect(() => {
+    if (priorStatus.current !== run.status && bounded) {
+      void qc.invalidateQueries({ queryKey: ["run-transcript", packageId, run.id] });
+    }
+    priorStatus.current = run.status;
+  }, [bounded, packageId, qc, run.id, run.status]);
+  const [earlier, setEarlier] = useState<TranscriptPage>();
+  const [earlierExhausted, setEarlierExhausted] = useState(false);
+  const recorded = bounded ? mergeTranscript(window.data, earlier?.events ?? []) : undefined;
+  const earliest = recorded?.events[0]?.seq;
+  const gap = recorded?.conflict || earlier?.conflict || (earlierExhausted && (earliest ?? 0) > 1) ||
+    recorded?.events.some((item, i, all) => i > 0 && item.seq !== all[i - 1]!.seq + 1);
+  const loadEarlier = useMutation({
+    mutationFn: async (before: number) => {
+      const generation = sessionGeneration();
+      const page = await api.transcriptWindow(packageId, run.id, { before }, PANEL_STEPS);
+      return { page, before, generation };
+    },
+    onSuccess: ({ page, before, generation }) => {
+      if (!stillCurrent(generation)) return;
+      setEarlier((held) => mergeTranscript(held, page.events));
+      // The server treats before as exclusive. An empty or nonadvancing response cannot be paged again.
+      if (!page.events.some((item) => item.seq < before)) setEarlierExhausted(true);
+    },
+  });
+  const events = bounded ? window : legacy;
   const stop = useMutation({
     mutationFn: () => api.stopRun(packageId, run.id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["package", packageId] });
       void qc.invalidateQueries({ queryKey: ["office-figures"] });
+      if (bounded) {
+        void qc.invalidateQueries({ queryKey: ["run", packageId, run.id] });
+        void qc.invalidateQueries({ queryKey: ["active-runs"] });
+      }
     },
   });
-  const steps = events.data ? story(events.data) : [];
+  const inputs = bounded ? recorded?.events : legacy.data;
+  const steps = inputs ? story(inputs) : [];
   // Freezing holds a snapshot of what is shown, so a step that changes (a tool finishing) stays as
   // it was too; polling carries on and the count of new steps stays true.
   const [frozen, setFrozen] = useState<typeof steps | null>(null);
   const shownAll = frozen ?? steps;
-  const shown = shownAll.slice(-PANEL_STEPS);
+  const shown = bounded ? shownAll : shownAll.slice(-PANEL_STEPS);
+  const terminal = useRef<HTMLDivElement>(null);
+  const restored = useRef(false);
+  const initialPosition = useRef({
+    anchor: Number.isSafeInteger(initialAnchor) ? initialAnchor : undefined,
+    offset: Number.isFinite(initialScroll) ? initialScroll : 0,
+  });
+  const anchor = initialPosition.current.anchor;
+  const fetchBeforeAnchor = anchor !== undefined && earliest !== undefined && earliest > anchor &&
+    !earlierExhausted && !loadEarlier.isError;
+  const loadingEarlier = loadEarlier.isPending;
+  const requestEarlier = loadEarlier.mutate;
+  useEffect(() => {
+    if (!restored.current && fetchBeforeAnchor && !loadingEarlier && earliest !== undefined) requestEarlier(earliest);
+  }, [fetchBeforeAnchor, loadingEarlier, earliest, requestEarlier]);
+  useLayoutEffect(() => {
+    const el = terminal.current;
+    if (!el || restored.current || fetchBeforeAnchor) return;
+    const item = anchor === undefined ? null : el.querySelector(`[data-story-seq="${anchor}"]`);
+    const offset = initialPosition.current.offset;
+    el.scrollTop = item ? el.scrollTop + item.getBoundingClientRect().top - el.getBoundingClientRect().top + offset : offset;
+    restored.current = true;
+  }, [anchor, fetchBeforeAnchor, shown.length]);
+
+  function rememberScroll(el: HTMLDivElement) {
+    if (!onScroll || !restored.current) return;
+    const top = el.getBoundingClientRect().top;
+    const item = Array.from(el.querySelectorAll<HTMLElement>("[data-story-seq]")).find(
+      (row) => row.getBoundingClientRect().bottom > top,
+    );
+    if (item) onScroll(top - item.getBoundingClientRect().top, Number(item.dataset["storySeq"]));
+    else onScroll(el.scrollTop);
+  }
   const waiting = frozen === null ? 0 : Math.max(0, steps.length - frozen.length);
   const role = ROLE_WORDS[run.role] ?? run.role;
   return (
@@ -125,6 +238,18 @@ function Transcript({ packageId, run, showStop }: { packageId: string; run: Run;
             {waiting === 0 ? "Paused: nothing new since you paused." : `Paused: ${waiting} new ${waiting === 1 ? "step" : "steps"} since you paused.`}
           </span>
         )}
+        {bounded && earliest !== undefined && earliest > 1 && !earlierExhausted && (
+          <button
+            type="button"
+            className="btn ghost small"
+            disabled={loadEarlier.isPending || frozen !== null}
+            onClick={() => loadEarlier.mutate(earliest)}
+          >
+            {loadEarlier.isPending ? "Loading earlier events…" : "Load earlier events"}
+          </button>
+        )}
+        {loadEarlier.isError && <span className="error small" role="status">Earlier events could not be loaded.</span>}
+        {gap && <span className="error small" role="status">Transcript continuity could not be verified.</span>}
         {shownAll.length > shown.length && (
           <Link to="/packages/$id/case" params={{ id: packageId }} className="small">
             Showing the latest {PANEL_STEPS} of {shownAll.length} steps; read all on the case
@@ -146,7 +271,7 @@ function Transcript({ packageId, run, showStop }: { packageId: string; run: Run;
               The transcript could not be refreshed; it may be missing the latest steps.
             </p>
           )}
-          <div className="agent-term" role="log" aria-live={live && frozen === null ? "polite" : "off"} aria-label={`${role} transcript`}>
+          <div ref={terminal} onScroll={(event) => rememberScroll(event.currentTarget)} className="agent-term" role="log" aria-live={live && frozen === null ? "polite" : "off"} aria-label={`${role} transcript`}>
             <ol className="story">
               {shown.map((s) => (
                 <StoryLine key={s.seq} step={s} />
@@ -166,10 +291,12 @@ function Transcript({ packageId, run, showStop }: { packageId: string; run: Run;
             {stop.error.message}
           </p>
         )}
-        <p className="muted small">
-          This run took one prompt and cannot be steered. To change what the next run does, return the work with a direction; the next run
-          receives it.
-        </p>
+        {!bounded && (
+          <p className="muted small">
+            This run took one prompt and cannot be steered. To change what the next run does, return the work with a direction; the next run
+            receives it.
+          </p>
+        )}
       </footer>
     </section>
   );

@@ -1,0 +1,43 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AgentUpdate.json",
+    "type": "object",
+    "properties": {
+        "agent": {
+            "$ref": "AgentId.json"
+        },
+        "name": {
+            "type": "string",
+            "maxLength": 60
+        },
+        "installed": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$",
+            "description": "The installed version: strict SemVer 2.0 without build metadata; `latest` is newer."
+        },
+        "latest": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$",
+            "description": "The latest published version: strict SemVer 2.0 without build metadata."
+        },
+        "npm_global": {
+            "type": "boolean",
+            "description": "True when the installed executable is npm's global copy of the agent's package, so\n`npm install --global <package>@<latest>` updates it. The app builds that command itself from\na fixed package per agent and `latest`; no command text is reported or shown from the daemon."
+        },
+        "note": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why no command is offered, in a sentence."
+        }
+    },
+    "required": [
+        "agent",
+        "name",
+        "installed",
+        "latest"
+    ],
+    "unevaluatedProperties": false,
+    "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The app shows the npm command for the person to run\nin a terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it."
+}

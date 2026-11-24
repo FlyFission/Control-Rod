@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { qualificationIdFor } from "../src/admin.js";
 import { currentFloor } from "../src/authority.js";
-import { memberIdFor } from "../src/tenancy.js";
+import { tx } from "../src/db/index.js";
+import { createOrganization, createProject, LOCAL_ORG, memberIdFor } from "../src/tenancy.js";
+import { projectRuntimePrefs } from "../src/workspace-projects.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, logIn, registerWithInvitation, signIn, startHarness } from "./harness.js";
 
 /** Administrative commands (workbench plan task 1.5; specification 10.2). */
@@ -18,10 +20,13 @@ const post = (cookie: string, url: string, payload: unknown) =>
   h.app.inject({ method: "POST", url, headers: { cookie, origin: ORIGIN }, payload: payload as object });
 
 /** Signs and runs a Direct command: options over the exact payload, a passkey assertion, then the command. */
-async function signed(cookie: string, key: VirtualAuthenticator, name: string, payload: Json) {
+async function signedPayload(cookie: string, key: VirtualAuthenticator, name: string, payload: Json) {
   const o = await post(cookie, `/admin/commands/${name}/options`, { payload });
   expect(o.statusCode, o.body).toBe(200);
-  return post(cookie, `/admin/commands/${name}`, { payload, assertion: key.assert(o.json().options) });
+  return { payload, assertion: key.assert(o.json().options) };
+}
+async function signed(cookie: string, key: VirtualAuthenticator, name: string, payload: Json) {
+  return post(cookie, `/admin/commands/${name}`, await signedPayload(cookie, key, name, payload));
 }
 const unsigned = (cookie: string, name: string, payload: Json) => post(cookie, `/admin/commands/${name}`, { payload });
 
@@ -121,6 +126,72 @@ describe("authority", () => {
 });
 
 describe("commands", () => {
+  it("creates and archives a workspace project with signed administrator commands", async () => {
+    const payload = {
+      name: "Signed workspace",
+      mode: "nuclear-grade",
+      lane: "internal",
+      repo: "workspace-repo",
+      author: { ecosystem: "codex", model: "default", reasoning: "default" },
+      checker: { ecosystem: "claude", model: "default", reasoning: "default" },
+    };
+    const options = await post(ben, "/admin/commands/project.workspace-create/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const created = await post(ben, "/workspace/projects", { payload, assertion: benKey.assert(options.json().options) });
+    expect(created.statusCode, created.body).toBe(201);
+    const { id } = created.json();
+    expect(created.json()).toMatchObject({ ...payload, status: "active" });
+    const audit = await h.db.query("select body->'data' as data from events where body->>'type' = 'admin.command' and body->>'subject' = 'project.workspace-create'");
+    expect(audit.rows[0]?.data).toMatchObject({ signature: "direct", subject_digest: options.json().subject_digest.value });
+
+    const otherOrg = "org_workspace-fixture";
+    const actor = { kind: "human" as const, id: BEN };
+    await tx(h.admin, async (c) => {
+      await createOrganization(c, { id: otherOrg, name: "Workspace fixture", status: "suspended" }, actor);
+      await createProject(c, {
+        id: "prj_workspace-fixture", org_id: otherOrg, name: payload.name, mode: "software",
+        default_rigor: "standard", lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active",
+      }, actor);
+    });
+    expect(await projectRuntimePrefs(h.db, LOCAL_ORG, payload.name.toLowerCase())).toMatchObject({ author: "codex", checker: "claude" });
+    expect(await projectRuntimePrefs(h.db, otherOrg, payload.name)).toMatchObject({ author: "claude", checker: "codex" });
+
+    const archive = await signedPayload(ben, benKey, "project.workspace-archive", { project_id: id });
+    const archived = await post(ben, `/workspace/projects/${id}/archive`, archive);
+    expect(archived.statusCode, archived.body).toBe(200);
+    expect(archived.json()).toEqual({ id, status: "archived" });
+    const stored = await h.db.query("select body->>'status' as status from projects where id = $1", [id]);
+    expect(stored.rows[0]?.status).toBe("retired");
+    expect(await projectRuntimePrefs(h.db, LOCAL_ORG, payload.name)).toBeNull();
+    expect(await projectRuntimePrefs(h.db, otherOrg, payload.name)).toMatchObject({ author: "claude", checker: "codex" });
+  });
+
+  it("preserves concurrent signed edits to distinct workspace projects", async () => {
+    const spare = new VirtualAuthenticator();
+    expect((await addOwnPasskey(h.app, ben, benKey, spare)).statusCode).toBe(200);
+    const first = await signed(ben, benKey, "project.workspace-create", { name: "First workspace edit" });
+    const second = await signed(ben, spare, "project.workspace-create", { name: "Second workspace edit" });
+    expect(first.statusCode, first.body).toBe(200);
+    expect(second.statusCode, second.body).toBe(200);
+    const { id: firstId } = first.json();
+    const { id: secondId } = second.json();
+    const update = async (id: string, key: VirtualAuthenticator, repo: string) => {
+      const payload = await signedPayload(ben, key, "project.workspace-update", { project_id: id, patch: { repo } });
+      const response = await h.app.inject({
+        method: "PATCH", url: `/workspace/projects/${id}`, headers: { cookie: ben, origin: ORIGIN }, payload,
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.json()).toMatchObject({ id, repo });
+    };
+    await Promise.all([update(firstId, benKey, "first-repo"), update(secondId, spare, "second-repo")]);
+    const projects = await h.app.inject({ method: "GET", url: "/workspace/projects", headers: { cookie: ben } });
+    expect(projects.statusCode, projects.body).toBe(200);
+    expect(projects.json()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: firstId, repo: "first-repo" }),
+      expect.objectContaining({ id: secondId, repo: "second-repo" }),
+    ]));
+  });
+
   let project: string;
   it("creates and updates a project and refuses unsafe autonomy", async () => {
     const created = await signed(ben, benKey, "project.create", { name: "Plant", mode: "capital-projects", default_rigor: "standard", lanes: ["internal", "proprietary"], qa_overlays: ["nqa-1"] });
@@ -134,6 +205,11 @@ describe("commands", () => {
     expect(nuclear.statusCode, nuclear.body).toBe(200);
     expect(nuclear.json()).toMatchObject({ default_context_profile: "nuclear", default_rigor: "high-consequence" });
     expect((await signed(ben, benKey, "project.update", { project_id: project, default_context_profile: "heavy" })).statusCode).toBe(400);
+    expect(nuclear.json().default_workflow).toBeUndefined();
+    const flow = await signed(ben, benKey, "project.update", { project_id: project, default_workflow: "pocock-superpowers" });
+    expect(flow.statusCode, flow.body).toBe(200);
+    expect(flow.json()).toMatchObject({ default_workflow: "pocock-superpowers", default_context_profile: "nuclear" });
+    expect((await signed(ben, benKey, "project.update", { project_id: project, default_workflow: "waterfall" })).statusCode).toBe(400);
     expect((await signed(ben, benKey, "project.update", { project_id: project, autonomy_level: 3 })).json().autonomy_level).toBe(0);
     expect((await signed(ben, benKey, "project.set-autonomy", { project_id: project, level: 2 })).json()).toEqual({ project_id: project, autonomy_level: 2 });
     const four = await signed(ben, benKey, "project.set-autonomy", { project_id: project, level: 4 });

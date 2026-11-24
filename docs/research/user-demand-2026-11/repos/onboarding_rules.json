@@ -1,0 +1,10 @@
+{"note":"Onboarding themes, title substring match (case-insensitive), issues only. 2026-11-23.",
+"themes":{
+"Install fails or install method":["install","installer","brew","npm i","npx","bunx","curl","scoop","winget","msi","dmg","appimage","homebrew","package"],
+"Prerequisites and dependencies":["node","bun ","python","docker","postgres","dependency","dependencies","requires","prerequisite","rust","go version","java"],
+"Sign-in, login, auth, API keys":["login","log in","sign in","signin","auth","oauth","api key","token","credential","account"],
+"First run, setup wizard, onboarding":["onboarding","first run","first-run","setup","wizard","getting started","quickstart","quick start","welcome","tutorial","empty state"],
+"Agent or CLI not detected":["not detected","not found","detect","command not found","path","can't find","cannot find","no agents"],
+"Permissions and OS security prompts":["permission","keychain","gatekeeper","notarized","unsigned","smartscreen","defender","tcc","sandbox","sudo","admin"],
+"Windows and WSL":["windows","wsl","powershell","win32"],
+"Docs unclear":["docs","documentation","readme","unclear","confusing","how to","how do i"]}}

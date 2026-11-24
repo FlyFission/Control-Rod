@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "../api/client.js";
+import { api, ApiError, explain } from "../api/client.js";
 import { adoptSession, sessionGeneration } from "../lib/session.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
@@ -46,7 +46,7 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
           return;
         }
       }
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(explain(e, "Something went wrong."));
     } finally {
       setBusy(false);
     }
@@ -79,6 +79,14 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
   return (
     <main className="signin">
       <div className="signin-card">
+        <span className="signin-corner signin-corner-tl" aria-hidden="true" />
+        <span className="signin-corner signin-corner-tr" aria-hidden="true" />
+        <span className="signin-corner signin-corner-bl" aria-hidden="true" />
+        <span className="signin-corner signin-corner-br" aria-hidden="true" />
+        <div className="signin-kicker mono" aria-hidden="true">
+          <span className="signin-kicker-dot" />
+          <span>CONTROL ROOM ACCESS // PASSKEY AUTH</span>
+        </div>
         <div className="brand">
           <BrandMark />
           <span>Control Rod</span>
@@ -100,7 +108,12 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
             </button>
           </>
         ) : (
-          <>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!busy && name.trim().length > 0) void register();
+            }}
+          >
             <h1>Set up this machine</h1>
             <p className="muted">
               Control Rod runs here for one person. Register a passkey; it signs every decision you make.
@@ -110,14 +123,13 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
               <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
             </label>
             <button
-              type="button"
+              type="submit"
               className="btn primary"
-              onClick={register}
               disabled={busy || name.trim().length === 0}
             >
               {busy ? "Waiting for your passkey" : "Register passkey"}
             </button>
-          </>
+          </form>
         )}
         {error !== null && (
           <p role="alert" className="error">

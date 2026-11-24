@@ -1,0 +1,198 @@
+//go:build unix
+
+package runner
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// The probe runs what a launch runs: the resolved artifact with its own environment, for every
+// command (version, login help, login status), not the wrapper script found on the PATH (Codex
+// installed through npm is a Node wrapper), and it resolves only once.
+func TestEveryCodexProbeCommandRunsTheResolvedArtifactWithItsEnvironment(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin")
+	if err := os.Mkdir(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// The wrapper would need a program this PATH does not have, like `node` under launchd.
+	writeFile(t, filepath.Join(bin, "codex"), []byte("#!/usr/bin/env no-such-node\n"), 0o755)
+	native := filepath.Join(dir, "native-codex")
+	// Each command answers only when it sees the artifact's environment.
+	writeFile(t, native, []byte(`#!/bin/sh
+[ "$CODEX_MANAGED_BY_NPM" = 1 ] || exit 3
+case "$1 $2" in
+  "--version ") echo "codex-cli native" ;;
+  "login --help") printf 'Commands:\n  status  Show login status\n' ;;
+  "login status") touch "$0.status"; echo "Logged in" ;;
+  *) exit 2 ;;
+esac
+`), 0o755)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+"/usr/bin:/bin")
+	t.Setenv("HOME", t.TempDir())
+	calls := 0
+	old := resolveArtifact
+	resolveArtifact = func(name string) (RuntimeArtifact, error) {
+		calls++
+		if name != "codex" || calls > 1 {
+			return RuntimeArtifact{}, os.ErrNotExist
+		}
+		return RuntimeArtifact{Path: native, Env: []string{"CODEX_MANAGED_BY_NPM=1"}}, nil
+	}
+	t.Cleanup(func() { resolveArtifact = old })
+
+	st := Probe(context.Background(), RuntimeCodex, "", ExecRunner)
+	if !st.Ready || !st.LoginChecked || st.Version != "codex-cli native" {
+		t.Fatalf("every probe command must run the artifact with its environment: %+v", st)
+	}
+	if calls != 1 {
+		t.Fatalf("resolveArtifact ran %d times; a probe resolves once", calls)
+	}
+	if _, err := os.Stat(native + ".status"); err != nil {
+		t.Fatal("`codex login status` must have run through the artifact")
+	}
+}
+
+// The Codex feature check in the sandbox preflight runs with the daemon's own permissions. It
+// resolves again and runs only the executable the probe found: a replacement since the probe is
+// refused before anything runs.
+func TestTheCodexFeatureCheckRefusesAnExecutableThatChangedSinceTheProbe(t *testing.T) {
+	dir := t.TempDir()
+	ran := filepath.Join(dir, "ran")
+	native := filepath.Join(dir, "codex")
+	writeFile(t, native, []byte("#!/bin/sh\ntouch "+ran+"\necho 'feature stable true'\n"), 0o755)
+	digest := func(v string) Digest { return Digest{Algorithm: "sha256", Value: strings.Repeat(v, 64)} }
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) { return RuntimeArtifact{Path: native, Digest: digest("b")}, nil }
+	t.Cleanup(func() { resolveArtifact = old })
+
+	probed := RuntimeStatus{Runtime: RuntimeCodex, Ready: true, Artifact: &RuntimeArtifact{Path: native, Digest: digest("a")}}
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err == nil || !strings.Contains(err.Error(), "changed after it was probed") {
+		t.Fatalf("a changed executable must be refused: %v", err)
+	}
+	if _, err := os.Stat(ran); err == nil {
+		t.Fatal("the changed executable ran")
+	}
+	// Same digest at another path (another installation): also refused.
+	probed.Artifact.Digest = digest("b")
+	probed.Artifact.Path = filepath.Join(dir, "elsewhere", "codex")
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err == nil {
+		t.Fatal("the same bytes at another path are another installation and must be refused")
+	}
+	if _, err := os.Stat(ran); err == nil {
+		t.Fatal("an executable at another path ran")
+	}
+	probed.Artifact.Path = native
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err != nil {
+		t.Fatalf("the probed executable, unchanged, must be listed: %v", err)
+	}
+	if _, err := os.Stat(ran); err != nil {
+		t.Fatal("the probed executable, unchanged, must run")
+	}
+}
+
+// Outside a probe, a command runs from the agent PATH, as before, and a launcher the resolver
+// refused is never chosen by a fallback here.
+func TestExecRunnerFallsBackToThePATHEntry(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "tool"), []byte("#!/bin/sh\necho path-entry\n"), 0o755)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+"/usr/bin:/bin")
+	old := resolveArtifact
+	resolved := 0
+	resolveArtifact = func(string) (RuntimeArtifact, error) { resolved++; return RuntimeArtifact{}, ErrUnsupportedLauncher }
+	t.Cleanup(func() { resolveArtifact = old })
+	out, code, err := ExecRunner(context.Background(), "tool")
+	if err != nil || code != 0 || strings.TrimSpace(out) != "path-entry" {
+		t.Fatalf("ExecRunner ran %q (exit %d, %v); want the PATH entry", out, code, err)
+	}
+	if resolved != 0 {
+		t.Fatalf("outside a probe or preflight, ExecRunner must not resolve (it resolved %d times)", resolved)
+	}
+}
+
+// A probe runs the artifact it identified, once: no second resolution that could find another
+// binary after an upgrade, rehash inside the deadline, or fall back to the PATH entry.
+func TestAProbeRunsTheArtifactItIdentifiedWithoutResolvingAgain(t *testing.T) {
+	dir := t.TempDir()
+	native := filepath.Join(dir, "mycli-1.0")
+	writeFile(t, native, []byte("#!/bin/sh\necho \"mycli 1.0\"\n"), 0o755)
+	t.Setenv("PATH", "/usr/bin:/bin")
+	calls := 0
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) {
+		calls++
+		if calls == 1 {
+			return RuntimeArtifact{Path: native}, nil
+		}
+		// An upgrade in between: a second resolution would find nothing, or something else.
+		return RuntimeArtifact{}, os.ErrNotExist
+	}
+	t.Cleanup(func() { resolveArtifact = old })
+	st := Probe(context.Background(), "mycli", "", ExecRunner)
+	if !st.Ready || st.Version != "mycli 1.0" || st.Artifact == nil || st.Artifact.Path != native {
+		t.Fatalf("the probe must run the artifact it identified: %+v", st)
+	}
+	if calls != 1 {
+		t.Fatalf("resolveArtifact ran %d times; a probe resolves once", calls)
+	}
+}
+
+// The readiness path after a ready probe: Codex's preflight runs `codex login status` and lists its
+// features. On a daemon PATH without node, the npm wrapper cannot run, so both must use the native
+// artifact the probe found, checked again; a replacement since the probe is refused unrun.
+func TestTheCodexPreflightRunsTheProbedNativeArtifactNotTheWrapper(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin")
+	if err := os.Mkdir(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(bin, "codex"), []byte("#!/usr/bin/env no-such-node\n"), 0o755)
+	native := filepath.Join(dir, "native-codex")
+	writeFile(t, native, []byte(`#!/bin/sh
+[ "$CODEX_MANAGED_BY_NPM" = 1 ] || exit 3
+touch "$0.ran"
+case "$1 $2" in
+  "--version ") echo "codex-cli native" ;;
+  "login --help") printf 'Commands:\n  status  Show login status\n' ;;
+  "login status") echo "Logged in" ;;
+  "features list") cat "$0.features" ;;
+  *) exit 2 ;;
+esac
+`), 0o755)
+	features, err := os.ReadFile("testdata/codex-0.171.0-features.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, native+".features", features, 0o644)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+"/usr/bin:/bin")
+	t.Setenv("HOME", t.TempDir())
+	digest := func(v string) Digest { return Digest{Algorithm: "sha256", Value: strings.Repeat(v, 64)} }
+	now := RuntimeArtifact{Path: native, Digest: digest("a"), Env: []string{"CODEX_MANAGED_BY_NPM=1"}}
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) { return now, nil }
+	t.Cleanup(func() { resolveArtifact = old })
+
+	st := Probe(context.Background(), RuntimeCodex, "", ExecRunner)
+	if !st.Ready {
+		t.Fatalf("setup: the native Codex must probe ready: %+v", st)
+	}
+	pre := codexAdapter{}.withFeatures(CodexEffectiveFeatures)
+	if err := pre.PreflightCLI(preflightContext(context.Background(), st), ExecRunner); err != nil {
+		t.Fatalf("the preflight must run the probed native artifact, not the node wrapper: %v", err)
+	}
+	// An upgrade since the probe: the preflight refuses, and the replacement never runs.
+	if err := os.Remove(native + ".ran"); err != nil {
+		t.Fatal(err)
+	}
+	now.Digest = digest("b")
+	if err := pre.PreflightCLI(preflightContext(context.Background(), st), ExecRunner); err == nil {
+		t.Fatal("a Codex replaced since the probe must be refused")
+	}
+	if _, err := os.Stat(native + ".ran"); err == nil {
+		t.Fatal("the replaced executable ran during preflight")
+	}
+}

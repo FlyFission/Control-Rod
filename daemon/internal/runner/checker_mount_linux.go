@@ -21,8 +21,8 @@ func checkerLinksDeliverables() bool { return false }
 //   - a tmpfs on /tmp, so a write never reaches the host temporary directory;
 //     the child TMPDIR is /tmp inside that tmpfs
 //   - the active CLI's credential file, when it is a regular file inside the
-//     login directory, and empty per-run directories mounted over the real
-//     session directories (planCheckerLogin)
+//     login directory, its disposable login state, and empty per-run
+//     directories mounted over the real session directories (planCheckerLogin)
 //   - /dev via --dev, so /dev/null and the tty devices work
 //
 // After the tmpfs, the staged Codex tree (StageRoot) is read-only again, and so
@@ -71,6 +71,12 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if ws.Scratch != "" && isolatedLoginHomeEnv(ws.CheckerRuntime) != "" {
+		// Shadow scratch with an ephemeral tmpfs so nested sandboxes (e.g. Codex's linux-sandbox)
+		// can create synthetic mount-points under scratch while only the three explicit checker
+		// targets below ever reach the host filesystem.
+		out = append(out, "--tmpfs", ws.Scratch)
+	}
 	for _, p := range files {
 		out = append(out, "--bind", p, p)
 	}
@@ -80,6 +86,13 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 		return nil, err
 	}
 	out = append(out, loginMounts(login)...)
+	if envName := isolatedLoginHomeEnv(ws.CheckerRuntime); envName != "" && login.Root != "" {
+		isoMounts, err := mountIsolatedLoginHome(cmd, ws, login, envName)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, isoMounts...)
+	}
 	out = append(out, "--ro-bind", ws.Deliverables, ws.Deliverables)
 	if fd, ok := procSelfFD(argv[0]); ok {
 		if ws.VerifiedPath == "" {
@@ -276,9 +289,11 @@ func gpgHomes(cmd *exec.Cmd) []string {
 
 // loginMounts keeps the real login directory read-only, including when it lives
 // under /tmp and the tmpfs would otherwise hide it or expose a writable copy.
-// The credential file is then bound writable. Each session directory that is a
-// real directory is covered by an empty per-run directory. Missing session
-// directories are not created on the host. A symlink is not a mount point.
+// The credential file is then bound writable, as on main: an OAuth refresh during
+// a check must be saved, and with token rotation only the host file can keep the
+// replacement. Each real session directory is covered by an empty per-run
+// directory. Missing session directories are not created on the host. A symlink
+// is not a mount point.
 func loginMounts(plan loginPlan) []string {
 	if plan.Root == "" {
 		return nil
@@ -295,6 +310,47 @@ func loginMounts(plan loginPlan) []string {
 		out = append(out, "--bind", o.Host, o.Dest)
 	}
 	return out
+}
+
+// mountIsolatedLoginHome creates a per-run writable directory under the checker's disposable
+// login parent, binds the verified credential file inside it writable (as loginMounts does), and
+// points envName (e.g. CODEX_HOME) at it so the CLI's ephemeral app-server/SQLite state works and a
+// refreshed sign-in reaches the host, while the rest of the host login directory stays read-only.
+func mountIsolatedLoginHome(cmd *exec.Cmd, ws *Workspace, plan loginPlan, envName string) ([]string, error) {
+	base := ws.LoginDisposable
+	if base == "" {
+		var err error
+		base, err = os.MkdirTemp(filepath.Dir(ws.Dir), "login-overlay-")
+		if err != nil {
+			return nil, err
+		}
+		ws.LoginDisposable = base
+	}
+	homeDir := filepath.Join(base, "isolated-home")
+	if err := os.MkdirAll(homeDir, 0o700); err != nil {
+		return nil, err
+	}
+	out := []string{"--bind", homeDir, homeDir}
+	if plan.Credential != "" {
+		// The host credential itself, writable, as loginMounts binds it: a CLI must save a sign-in
+		// it refreshes mid-check (Codex aborts the check otherwise), and with token rotation only
+		// the host file can keep the replacement. This is main's custody, unchanged; narrowing it
+		// is a separate decision (see evidence/landing-review.md, L3).
+		dest := filepath.Join(homeDir, filepath.Base(plan.Credential))
+		if err := os.WriteFile(dest, nil, 0o600); err != nil {
+			return nil, err
+		}
+		out = append(out, "--bind", plan.Credential, dest)
+	}
+	prefix := envName + "="
+	filtered := make([]string, 0, len(cmd.Env)+1)
+	for _, kv := range cmd.Env {
+		if !strings.HasPrefix(kv, prefix) {
+			filtered = append(filtered, kv)
+		}
+	}
+	cmd.Env = append(filtered, prefix+homeDir)
+	return out, nil
 }
 
 // restoreUnderTmpfs lists directories that must stay visible and read-only after

@@ -88,12 +88,14 @@ test.beforeEach(async ({ page }) => {
     if (p === "/captures") return r.fulfill(json([]));
     if (p.startsWith("/events")) return r.fulfill(json([]));
     if (p === "/runtimes") return r.fulfill(json({ runtimes: [{ runtime: "claude", ready: true, version: "2.1.316 (Claude Code)", login_checked: false, artifact: { path: "/home/ben/.npm-global/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe", digest: { algorithm: "sha256", value: "fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824" } } }, { runtime: "codex", ready: false, login_checked: true, reason: "codex is installed but not signed in" }], pins: [] }));
+    if (p === "/setup") return r.fulfill(json({ confirmed: true, confirmed_at: new Date().toISOString(), seats: [], check_in: "start-and-merge" }));
+    if (p === "/subscriptions") return r.fulfill(json({ reported: true, platform: "darwin", probes: [], checkers: [], tiers: [], local_rule: "", pins: [] }));
     if (p === "/metrics") return r.fulfill(json({ packages_accepted: 3, first_pass_accepted: 2, findings_caught_before_review: 5, quick_answers: 4 }));
     return r.fulfill(json([]));
   });
 });
 
-const PLACES = ["inbox", "office", "packages", "registers", "explore", "roster", "usage", "records", "policies", "packages/WP-0007/case"];
+const PLACES = ["inbox", "office", "packages", "registers", "snapshots", "roster", "usage", "records", "policies", "packages/WP-0007/case"];
 test("accessibility: no WCAG 2.2 AA violations on any place, the case view or the open palette", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium");
   await page.addInitScript(() => window.localStorage.setItem("cr.lastSeenSeq:ben", "100"));
@@ -118,23 +120,32 @@ test("keyboard: skip link, every place, palette open, choose and return", async 
   test.skip(browserName !== "chromium");
   await page.goto("/inbox");
   await page.waitForTimeout(500);
+  // Expand any collapsed nav groups so all places participate in sequential Tab traversal.
+  // The live locator shrinks after each click, so open the first collapsed group until none is left.
+  const collapsedGroups = page.locator('.places-group-toggle[aria-expanded="false"]');
+  while ((await collapsedGroups.count()) > 0) await collapsedGroups.first().click();
+  // The clicks moved focus. The open groups are remembered, so loading the page again starts Tab from the top.
+  await page.goto("about:blank");
+  await page.goto("/inbox");
+  await page.waitForTimeout(500);
   await page.keyboard.press("Tab");
   const first = await page.evaluate(() => document.activeElement?.textContent?.trim());
   const stops: string[] = [first ?? ""];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 35; i++) {
     await page.keyboard.press("Tab");
     stops.push(await page.evaluate(() => (document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent || "").trim().slice(0, 30)));
   }
   console.log("TAB " + stops.join(" > "));
   expect(stops[0]).toBe("Skip to content");
-  for (const place of ["Inbox", "Office", "Packages", "Registers", "Explore", "Roster", "Usage", "Records", "Policies"])
+  for (const place of ["Inbox", "Office", "Packages", "Snapshots", "Registers", "Usage", "Records", "Setup", "Agents roster", "Policies"])
     expect(stops.some((s) => s.startsWith(place))).toBe(true);
   await page.keyboard.press("Control+k");
   await page.keyboard.type("roster");
   await page.keyboard.press("Enter");
-  await page.waitForURL("**/roster");
+  await page.waitForURL("**/agents");
   console.log("PALETTE navigated to " + new URL(page.url()).pathname);
-  expect(new URL(page.url()).pathname).toBe("/roster");
+  expect(new URL(page.url()).pathname).toBe("/agents");
+  await expect(page.getByRole("heading", { level: 1, name: "Agents roster" })).toBeVisible();
 });
 
 test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page, browserName }) => {
@@ -149,6 +160,25 @@ test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page
   }
   console.log("REFLOW " + (bad.length ? bad.join(" ") : "all fit"));
   expect(bad).toEqual([]);
+});
+
+test("phone: project switching and New project stay in view at 320 CSS px, even with a long project name", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium");
+  const long = { id: "p-long", name: "Northfield substation relay coordination and protection study, phase two", mode: "software", status: "active",
+    repo: "org/northfield-substation-relay-coordination-study", repoStrategy: "worktree", workspaceRoot: "/tmp/x", lane: "internal",
+    author: { runtime: "claude", model: "default" }, checker: { runtime: "codex", model: "default" }, createdAt: new Date().toISOString() };
+  await page.route("**/workspace/projects", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([long]) }));
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto("/inbox");
+  await page.waitForTimeout(500);
+  const controls = [page.getByRole("button", { name: /^All / }), page.getByRole("button", { name: /Northfield/ }), page.getByRole("button", { name: "New project" })];
+  for (const c of controls) {
+    await expect(c).toBeVisible();
+    const box = (await c.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 });
 
 test("case view interactive with 1,000 events", async ({ page, browserName }) => {

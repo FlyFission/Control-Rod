@@ -1,0 +1,2 @@
+--- FAIL: TestCodex0171FeaturesAreQualified (0.00s)
+    sandbox_test.go:648: Codex 0.171.0 would be refused for [code_mode_host_grpc code_mode_host_output_truncation guardian_include_additional_context incremental_tools_legacy incremental_tools_legacy_gcp retain_client_tool_outputs tui_workspace unified_image_budget untrusted_as_tool_output]

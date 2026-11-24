@@ -61,14 +61,75 @@ describe("the SCRAM banner is app-wide", () => {
     expect(document.querySelector(".shell")!.getAttribute("data-scram")).toBe("trip");
     expect(banner.querySelector('[data-kind="trip"]')).not.toBeNull();
     // The top bar's SCRAM lamp is lit and says so in words, and Restart sits beside SCRAM.
-    expect(screen.getByRole("img", { name: /SCRAM lamp lit: agent work stopped\. SCRAM in force: organization/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /SCRAM lamp lit: SCRAM in force\. SCRAM in force: organization, stop not yet recorded/ })).toBeTruthy();
     expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("trip");
-    expect(screen.getByRole("tooltip").textContent).toMatch(/Agent work is stopped/);
+    // No stop recorded yet: the card says agents are stopping, never that they have stopped.
+    expect(screen.getByRole("tooltip").textContent).toMatch(/Agents are stopping/);
+    expect(screen.getByRole("tooltip").textContent).not.toMatch(/stopped and held/);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Restart" }));
     const review = within(banner).getByRole("button", { name: "Review and restart" });
     expect(review.getAttribute("aria-expanded")).toBe("true");
     expect(document.activeElement).toBe(review);
+  });
+
+  it("says stopped only once the control plane recorded the stop", async () => {
+    baseApi();
+    server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [{ ...summary(org), stopped: { at: new Date().toISOString(), ms_to_stop: 1200, runs: 2 } }] })));
+    await renderShell("/board");
+    await screen.findByRole("region", { name: "SCRAM in force" });
+    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toMatch(/Agent work is stopped and held/));
+  });
+
+  it("opens the real SCRAM's review from Restart when a drill is also in force", async () => {
+    baseApi();
+    // The drill is listed first; Restart must still open the real SCRAM.
+    scrams({ ...proj, id: "scr_d", drill: true }, org);
+    await renderShell("/board");
+    const banner = await screen.findByRole("region", { name: "SCRAM in force" });
+    await waitFor(() => expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("trip"));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Restart" }));
+    const trip = banner.querySelector('[data-kind="trip"]') as HTMLElement;
+    const drill = banner.querySelector('[data-kind="drill"]') as HTMLElement;
+    expect(within(trip).getByRole("button", { name: "Review and restart" }).getAttribute("aria-expanded")).toBe("true");
+    expect(within(drill).getByRole("button", { name: "Review and restart" }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("never shows a failed read as clear, and offers no Restart that leads nowhere", async () => {
+    baseApi();
+    let fail = false;
+    server.use(http.get("*/scrams", () => (fail ? HttpResponse.json({}, { status: 500 }) : HttpResponse.json({ scrams: [summary(org)] }))));
+    const { qc } = await renderShell("/board");
+    await screen.findByRole("button", { name: "Restart" });
+    fail = true;
+    await act(() => qc.refetchQueries({ queryKey: ["scrams"] }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Restart" })).toBeNull());
+    // The lamp stays lit: the last reading said a SCRAM holds.
+    expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("trip");
+  });
+
+  it("shows an unknown lamp, not an off one, when a clear reading can no longer be refreshed", async () => {
+    baseApi();
+    let fail = false;
+    server.use(http.get("*/scrams", () => (fail ? HttpResponse.json({}, { status: 500 }) : HttpResponse.json({ scrams: [] }))));
+    const { qc } = await renderShell("/board");
+    await waitFor(() => expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("off"));
+    fail = true;
+    await act(() => qc.refetchQueries({ queryKey: ["scrams"] }));
+    await waitFor(() => expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("unknown"));
+    expect(screen.getByRole("tooltip").textContent).toMatch(/could not be read/);
+  });
+
+  it("hides the card on Escape even when focus is elsewhere", async () => {
+    baseApi();
+    scrams();
+    await renderShell("/board");
+    const user = userEvent.setup();
+    await user.hover(await screen.findByRole("link", { name: "SCRAM" }));
+    await user.keyboard("{Escape}");
+    expect(document.querySelector(".scram-switch")!.hasAttribute("data-tip-dismissed")).toBe(true);
+    await user.unhover(screen.getByRole("link", { name: "SCRAM" }));
+    expect(document.querySelector(".scram-switch")!.hasAttribute("data-tip-dismissed")).toBe(false);
   });
 
   it("names the project by its workspace name for a project SCRAM", async () => {

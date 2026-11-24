@@ -340,12 +340,15 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   useEffect(() => setMoreOpen(false), [path]);
   // The phone's sticky stage headers sit under the top bar: publish its height.
   const shellRef = useRef<HTMLDivElement>(null);
-  // Restart, beside SCRAM while one holds: open the first banner's review and restart, and take focus there.
+  // Restart, beside SCRAM while one holds: open the review and restart of the SCRAM the lamp shows (a real
+  // trip before any drill, so a drill is never lifted in its place), and take focus there.
   const openScramReview = () => {
-    const toggle = shellRef.current?.querySelector<HTMLButtonElement>(".scram-banner-item button[aria-expanded]");
+    const kind = scrams?.some((x) => !x.scram.drill) ? "trip" : "drill";
+    const toggle = shellRef.current?.querySelector<HTMLButtonElement>(`.scram-banner-item[data-kind="${kind}"] button[aria-expanded]`);
     if (!toggle) return;
     if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
-    toggle.scrollIntoView?.({ block: "nearest" });
+    // Centred, so a sticky top bar (phone) never covers it.
+    toggle.scrollIntoView?.({ block: "center" });
     toggle.focus();
   };
   useEffect(() => {
@@ -650,7 +653,13 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
               </button>
             )}
 
-            <ScramSwitch rods={rods} presenting={presenting} onRestart={openScramReview} />
+            <ScramSwitch
+              rods={rods}
+              stopping={(scrams ?? []).some((x) => !x.stopped)}
+              failed={scramRead.isError}
+              presenting={presenting}
+              onRestart={openScramReview}
+            />
           </div>
         </header>
 

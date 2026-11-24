@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import type { RodState } from "../features/office/plant-instruments.js";
 import "./scram-switch.css";
@@ -23,9 +23,9 @@ const LAMP: Record<RodState["position"], Lamp> = {
 };
 
 const LAMP_WORDS: Record<Lamp, string> = {
-  off: "SCRAM lamp off: agents running normally",
-  trip: "SCRAM lamp lit: agent work stopped",
-  drill: "SCRAM drill lamp lit: agent work stopped for a drill",
+  off: "SCRAM lamp off: no SCRAM in force",
+  trip: "SCRAM lamp lit: SCRAM in force",
+  drill: "SCRAM drill lamp lit: drill SCRAM in force",
   unknown: "SCRAM lamp unknown: status could not be read",
 };
 
@@ -35,12 +35,33 @@ const STEPS = [
   { n: "3", head: "Restart", body: "Resume all of it, or one package at a time." },
 ];
 
-export function ScramSwitch({ rods, presenting, onRestart }: { rods: RodState; presenting: boolean; onRestart: () => void }) {
-  const lamp = LAMP[rods.position];
+/**
+ * rods: the rod state from the shell's SCRAM read. stopping: a SCRAM in force whose stop the control
+ * plane has not yet recorded. failed: the latest SCRAM read failed, so cached data is not current and
+ * the banner (where Restart leads) shows an error instead of the review.
+ */
+export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: { rods: RodState; stopping: boolean; failed: boolean; presenting: boolean; onRestart: () => void }) {
+  // A failed read never shows as clear: an off lamp turns to unknown; a lit lamp stays lit with its "as of" caption.
+  const lamp: Lamp = failed && LAMP[rods.position] === "off" ? "unknown" : LAMP[rods.position];
   const tipId = useId();
   const [dismissed, setDismissed] = useState(false);
-  const stopped = lamp === "trip" || lamp === "drill";
-  const status = rods.caption ?? (lamp === "off" ? "No SCRAM in force" : LAMP_WORDS[lamp]);
+  // Escape hides the card wherever focus is, as long as the card is open by hover or focus.
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDismissed(true);
+    };
+    document.addEventListener("keydown", on);
+    return () => document.removeEventListener("keydown", on);
+  }, []);
+  const held = lamp === "trip" || lamp === "drill";
+  const status = failed && lamp === "unknown" ? "SCRAM status could not be read" : (rods.caption ?? (lamp === "off" ? "No SCRAM in force" : LAMP_WORDS[lamp]));
+  const lede = !held
+    ? lamp === "unknown"
+      ? "SCRAM status could not be read just now. SCRAM still works: it stops all agent activity at once, and work is held until you restart it."
+      : "Stops all agent activity at once. Work is held until you restart it."
+    : stopping
+      ? "SCRAM in force. Agents are stopping: each stops at its next heartbeat, and work is held until you restart it."
+      : "Agent work is stopped and held. Restart reviews what stopped and resumes it.";
   return (
     <span
       className="scram-switch"
@@ -48,9 +69,6 @@ export function ScramSwitch({ rods, presenting, onRestart }: { rods: RodState; p
       data-tip-dismissed={dismissed ? "" : undefined}
       onMouseLeave={() => setDismissed(false)}
       onBlur={() => setDismissed(false)}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") setDismissed(true);
-      }}
     >
       <span className="scram-lamp" role="img" aria-label={rods.caption ? `${LAMP_WORDS[lamp]}. ${rods.caption}` : LAMP_WORDS[lamp]}>
         <span className="scram-lamp-lens" />
@@ -58,7 +76,7 @@ export function ScramSwitch({ rods, presenting, onRestart }: { rods: RodState; p
       <Link to="/office" className="btn small danger topbar-scram" aria-describedby={tipId}>
         SCRAM
       </Link>
-      {stopped && !presenting && (
+      {held && !presenting && !failed && (
         <button type="button" className="btn small scram-restart" onClick={onRestart} aria-describedby={tipId}>
           Restart
         </button>
@@ -68,9 +86,7 @@ export function ScramSwitch({ rods, presenting, onRestart }: { rods: RodState; p
           <span className="scram-tip-title">SCRAM</span>
           <span className="scram-tip-status">{status}</span>
         </span>
-        <span className="scram-tip-lede">
-          {stopped ? "Agent work is stopped and held. Restart reviews what stopped and resumes it." : "Stops all agent activity at once. Work is held until you restart it."}
-        </span>
+        <span className="scram-tip-lede">{lede}</span>
         <span className="scram-tip-steps" aria-hidden="true">
           {STEPS.map((s) => (
             <span key={s.n} className="scram-tip-step" data-step={s.n}>

@@ -117,6 +117,18 @@
   transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms;
   pointer-events: none;
 }
+/* A bridge over the gap between the button and the card, so the pointer can cross it without closing the card. */
+.scram-switch:hover::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 300px;
+  height: 12px;
+}
+.shell[data-phone] .scram-switch::after {
+  display: none;
+}
 .scram-switch:hover .scram-tip,
 .scram-switch:focus-within .scram-tip {
   opacity: 1;

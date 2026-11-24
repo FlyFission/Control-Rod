@@ -1,0 +1,8 @@
+ Test Files  66 passed (66)
+      Tests  867 passed (867)
+tsc clean
+dist/assets/FlowCanvas-C7Na_kTI.js               188.15 kB │ gzip:  61.14 kB
+dist/assets/app-RwEiWkXz.js                    1,066.11 kB │ gzip: 300.42 kB
+✓ built in 605ms
+dist/third-party-licenses.md
+License gate passed for 232 packages.

@@ -104,13 +104,13 @@ function list(names: string[]): string {
 
 export const CHECK_IN_CHOICES: readonly { id: CheckIn; label: string; detail: string; today: boolean }[] = [
   { id: "start", label: "Just at the start", detail: "You approve the plan, and the agents carry it through.", today: false },
-  { id: "start-and-merge", label: "At the start and before merge", detail: "You approve the plan, and you sign off before anything ships.", today: true },
+  { id: "start-and-merge", label: "At the start and before merge", detail: "You sign the plan's release, and you sign acceptance before anything merges or ships.", today: true },
   { id: "every-step", label: "At every step", detail: "You see the plan, the work, the check and the merge.", today: false },
 ];
 
 /** Said under a choice that is saved now but changes nothing yet. */
 export const CHECK_IN_LATER =
-  "Saved for when check-in points arrive. Until then every card stops at the start and before merge, as it does today.";
+  "Saved for when check-in points arrive. Until then every card stops for your signed release at the start and your signed acceptance at the end, as it does today.";
 
 /**
  * Which known agent a run's provider names (RuntimeRef.provider), so a figure can show its agent's

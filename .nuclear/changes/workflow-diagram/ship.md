@@ -1,0 +1,23 @@
+# Ship: Show each workflow as a flow diagram
+
+Release decision: **merge.** The owner chose "Merge it now" in the project thread on 2026-11-24 at 18:39 UTC, after five Codex blind-review rounds whose findings are fixed (verification E-03 to E-08). Codex's last verdict was NO-MERGE on wording; any later wording findings go to small follow-up PRs. No trust surface is touched.
+
+## Signature
+
+Owner (sole maintainer): yes to merge, recorded in the project thread on 2026-11-24.
+
+- Rollback: revert the merge. No data, route or migration.
+- Monitoring after merge: on a real install, the Workflow page and the Setup read-back name the same author and checker as the setup sentence above them, and the first card run uses the drawn author; any mismatch is a bug in `councilFlow.ts`.
+- Overlaps: draft PR #171 adds `/control-room` near the same router and places lines (trivial rebase); draft PR #170 adds `omp` to `AgentId`, which then needs a mark entry (initial shown until then).
+
+## Required links
+
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
+
+## Exit criteria
+
+Setup and a new Workflow place draw the person's current workflow as a block flow diagram and as a decision matrix, from the same seats, readiness and check-in answer the dispatcher and Setup read; each agent shows its own mark; nothing unbuilt is drawn as in force; web tests, typecheck, build and the license gate pass.
+
+## Source-lineage note
+
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

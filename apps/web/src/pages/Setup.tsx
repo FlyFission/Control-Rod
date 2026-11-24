@@ -3,7 +3,9 @@ import { useRef, useState } from "react";
 import { explain } from "../api/client.js";
 import type { CheckIn } from "../api/types.js";
 import { AgentList } from "../components/AgentList.js";
+import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
 import { CHECK_IN_CHOICES, CHECK_IN_LATER, readBack } from "../lib/agents.js";
+import { buildCouncilFlow } from "../lib/councilFlow.js";
 import { SETUP_SKIPPED_KEY } from "../lib/firstRun.js";
 import { writeSession } from "../lib/storage.js";
 import { setupRequest, useAgents } from "../lib/useAgents.js";
@@ -79,8 +81,9 @@ export function Setup() {
         <p>{readBack(rows)}</p>
         <p>
           Check-in preference: {choice.label.toLowerCase()}.
-          {!choice.today && " Today every card still stops at the start and before merge."}
+          {!choice.today && " Today every card still stops for your signed release at the start and your signed acceptance at the end."}
         </p>
+        {!agents.loading && <WorkflowDiagram flow={buildCouncilFlow(rows, chosenCheckIn)} />}
         {agents.save.error && (
           <p role="alert" className="error">
             {explain(agents.save.error, "Could not save setup.")}

@@ -184,6 +184,8 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "dist",
       copyPublicDir: false,
+      // Ship the copyright and permission notice of every bundled dependency beside the bundle.
+      license: { fileName: "third-party-licenses.md" },
       sourcemap: false,
       rollupOptions: {
         input: draftBuild

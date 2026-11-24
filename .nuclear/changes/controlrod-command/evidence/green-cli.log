@@ -2,177 +2,207 @@ TAP version 13
 # Subtest: link writes an executable controlrod that runs this checkout, and adds PATH once
 ok 1 - link writes an executable controlrod that runs this checkout, and adds PATH once
   ---
-  duration_ms: 73.708234
+  duration_ms: 113.284967
   type: 'test'
   ...
 # Subtest: link on PATH leaves startup files alone; bash on Linux uses .bashrc
 ok 2 - link on PATH leaves startup files alone; bash on Linux uses .bashrc
   ---
-  duration_ms: 0.832576
+  duration_ms: 0.989533
   type: 'test'
   ...
 # Subtest: link never replaces a controlrod it did not write; unlink removes only its own
 ok 3 - link never replaces a controlrod it did not write; unlink removes only its own
   ---
-  duration_ms: 2.085879
+  duration_ms: 2.693182
   type: 'test'
   ...
 # Subtest: the command explains a moved checkout instead of failing obscurely
 ok 4 - the command explains a moved checkout instead of failing obscurely
   ---
-  duration_ms: 3.623413
+  duration_ms: 3.436789
   type: 'test'
   ...
 # Subtest: link treats a symlink, even a dangling one, as someone else's
 ok 5 - link treats a symlink, even a dangling one, as someone else's
   ---
-  duration_ms: 0.358985
+  duration_ms: 0.482291
   type: 'test'
   ...
 # Subtest: the PATH line never lets the shell run text from a folder name
 ok 6 - the PATH line never lets the shell run text from a folder name
   ---
-  duration_ms: 2.704841
+  duration_ms: 2.704191
+  type: 'test'
+  ...
+# Subtest: a login bash on macOS gets the startup file it already reads
+ok 7 - a login bash on macOS gets the startup file it already reads
+  ---
+  duration_ms: 0.707668
+  type: 'test'
+  ...
+# Subtest: the command skips a Node on PATH that is too old
+ok 8 - the command skips a Node on PATH that is too old
+  ---
+  duration_ms: 128.934354
   type: 'test'
   ...
 # Subtest: link refuses native Windows
-ok 7 - link refuses native Windows
+ok 9 - link refuses native Windows
   ---
-  duration_ms: 0.255135
+  duration_ms: 0.474384
   type: 'test'
   ...
 # Subtest: up to date: says so and touches nothing
-ok 8 - up to date: says so and touches nothing
+ok 10 - up to date: says so and touches nothing
   ---
-  duration_ms: 61.3112
+  duration_ms: 57.972146
   type: 'test'
   ...
 # Subtest: an update stops, fast-forwards, installs and builds the new code, records the old version, restarts
-ok 9 - an update stops, fast-forwards, installs and builds the new code, records the old version, restarts
+ok 11 - an update stops, fast-forwards, installs and builds the new code, records the old version, restarts
   ---
-  duration_ms: 105.0243
+  duration_ms: 95.384762
   type: 'test'
   ...
 # Subtest: a failed build goes back to the old version, rebuilds it and restarts it
-ok 10 - a failed build goes back to the old version, rebuilds it and restarts it
+ok 12 - a failed build goes back to the old version, rebuilds it and restarts it
   ---
-  duration_ms: 108.44266
+  duration_ms: 110.456351
   type: 'test'
   ...
 # Subtest: a failed install also rolls back
-ok 11 - a failed install also rolls back
+ok 13 - a failed install also rolls back
   ---
-  duration_ms: 100.276606
+  duration_ms: 109.987052
   type: 'test'
   ...
 # Subtest: if even the old version cannot be rebuilt, the next update finishes the job
-ok 12 - if even the old version cannot be rebuilt, the next update finishes the job
+ok 14 - if even the old version cannot be rebuilt, the next update finishes the job
   ---
-  duration_ms: 161.207971
+  duration_ms: 167.447095
   type: 'test'
   ...
 # Subtest: a checkout already at the latest commit but never built (interrupted update) is built
-ok 13 - a checkout already at the latest commit but never built (interrupted update) is built
+ok 15 - a checkout already at the latest commit but never built (interrupted update) is built
   ---
-  duration_ms: 71.258333
+  duration_ms: 68.186362
   type: 'test'
   ...
 # Subtest: local edits are set aside (no git identity needed), and the person is told how to get them back
-ok 14 - local edits are set aside (no git identity needed), and the person is told how to get them back
+ok 16 - local edits are set aside (no git identity needed), and the person is told how to get them back
   ---
-  duration_ms: 124.477114
+  duration_ms: 127.653134
   type: 'test'
   ...
 # Subtest: refuses, before stopping anything: another branch, own commits, no git clone
-ok 15 - refuses, before stopping anything: another branch, own commits, no git clone
+ok 17 - refuses, before stopping anything: another branch, own commits, no git clone
   ---
-  duration_ms: 115.428173
+  duration_ms: 124.030344
   type: 'test'
   ...
 # Subtest: when the running copy will not stop yet, nothing changes
-ok 16 - when the running copy will not stop yet, nothing changes
+ok 18 - when the running copy will not stop yet, nothing changes
   ---
-  duration_ms: 82.827742
+  duration_ms: 91.671922
   type: 'test'
   ...
 # Subtest: --check lists what is new and changes nothing
-ok 17 - --check lists what is new and changes nothing
+ok 19 - --check lists what is new and changes nothing
   ---
-  duration_ms: 87.811109
+  duration_ms: 100.304592
   type: 'test'
   ...
 # Subtest: not running: updates without restarting and says how to start
-ok 18 - not running: updates without restarting and says how to start
+ok 20 - not running: updates without restarting and says how to start
   ---
-  duration_ms: 111.040277
+  duration_ms: 98.80753
   type: 'test'
   ...
 # Subtest: git variables pointing elsewhere never redirect the update
-ok 19 - git variables pointing elsewhere never redirect the update
+ok 21 - git variables pointing elsewhere never redirect the update
   ---
-  duration_ms: 120.65398
+  duration_ms: 133.667494
   type: 'test'
   ...
 # Subtest: a file the person keeps that git ignores is never overwritten; the update rolls back instead
-ok 20 - a file the person keeps that git ignores is never overwritten; the update rolls back instead
+ok 22 - a file the person keeps that git ignores is never overwritten; the update rolls back instead
   ---
-  duration_ms: 161.273037
+  duration_ms: 181.317402
   type: 'test'
   ...
 # Subtest: only one update runs per checkout at a time
-ok 21 - only one update runs per checkout at a time
+ok 23 - only one update runs per checkout at a time
   ---
-  duration_ms: 312.369956
+  duration_ms: 312.780959
   type: 'test'
   ...
 # Subtest: after an unfinished update, a failing next update goes back to the last version that built
-ok 22 - after an unfinished update, a failing next update goes back to the last version that built
+ok 24 - after an unfinished update, a failing next update goes back to the last version that built
   ---
-  duration_ms: 146.049403
+  duration_ms: 153.248126
   type: 'test'
   ...
 # Subtest: a restart that fails after a good update says so and keeps the new version
-ok 23 - a restart that fails after a good update says so and keeps the new version
+ok 25 - a restart that fails after a good update says so and keeps the new version
   ---
-  duration_ms: 96.674185
+  duration_ms: 115.688775
+  type: 'test'
+  ...
+# Subtest: going back never writes over an ignored file the person keeps; it stops and says so
+ok 26 - going back never writes over an ignored file the person keeps; it stops and says so
+  ---
+  duration_ms: 201.611799
+  type: 'test'
+  ...
+# Subtest: a restart in this terminal happens after the update lock is released
+ok 27 - a restart in this terminal happens after the update lock is released
+  ---
+  duration_ms: 109.859642
+  type: 'test'
+  ...
+# Subtest: update --check never moves the ref a running update installs
+ok 28 - update --check never moves the ref a running update installs
+  ---
+  duration_ms: 91.579465
   type: 'test'
   ...
 # Subtest: finds the running launcher from its record and stops it with a signal
-ok 24 - finds the running launcher from its record and stops it with a signal
+ok 29 - finds the running launcher from its record and stops it with a signal
   ---
-  duration_ms: 841.690634
+  duration_ms: 854.335235
   type: 'test'
   ...
 # Subtest: a stale record is dropped and never signalled: not a launcher, a look-alike name, or a reused pid
-ok 25 - a stale record is dropped and never signalled: not a launcher, a look-alike name, or a reused pid
+ok 30 - a stale record is dropped and never signalled: not a launcher, a look-alike name, or a reused pid
   ---
-  duration_ms: 745.113487
+  duration_ms: 741.382868
   type: 'test'
   ...
 # Subtest: only one launcher can claim the record; a dead claim is taken over
-ok 26 - only one launcher can claim the record; a dead claim is taken over
+ok 31 - only one launcher can claim the record; a dead claim is taken over
   ---
-  duration_ms: 8.539868
+  duration_ms: 7.477893
   type: 'test'
   ...
 # Subtest: dead PostgreSQL shared memory is found by header, with the live and the foreign left alone
-ok 27 - dead PostgreSQL shared memory is found by header, with the live and the foreign left alone
+ok 32 - dead PostgreSQL shared memory is found by header, with the live and the foreign left alone
   ---
-  duration_ms: 0.74087
+  duration_ms: 0.691978
   type: 'test'
   ...
 # Subtest: the controlrod help lists the everyday commands and typos get a suggestion
-ok 28 - the controlrod help lists the everyday commands and typos get a suggestion
+ok 33 - the controlrod help lists the everyday commands and typos get a suggestion
   ---
-  duration_ms: 114.893149
+  duration_ms: 122.217666
   type: 'test'
   ...
-1..28
-# tests 28
+1..33
+# tests 33
 # suites 0
-# pass 28
+# pass 33
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 3824.956254
+# duration_ms 4513.821574

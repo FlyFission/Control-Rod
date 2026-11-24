@@ -27,3 +27,11 @@ not ok 19 - git variables pointing elsewhere never redirect the update
 not ok 21 - only one update runs per checkout at a time
 # pass 27
 # fail 1
+## Mutation 8: rollback without the ignored-file check
+not ok 26 - going back never writes over an ignored file the person keeps; it stops and says so
+# pass 32
+# fail 1
+## Mutation 9: any marked file counts as ours
+not ok 3 - link never replaces a controlrod it did not write; unlink removes only its own
+# pass 32
+# fail 1

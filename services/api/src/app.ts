@@ -36,6 +36,7 @@ import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
 import { recordUsageLimits, usageLimitsView } from "./usage-limits.js";
 import { recordSeat, recordSetup, setupView } from "./setup.js";
 import { listWorkspaceProjects } from "./workspace-projects.js";
+import { workflowRoutes } from "./workflow-routes.js";
 import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
@@ -352,6 +353,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   preparationRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { id: string }).id), auth);
   repoRoutes(app, person);
   grantRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { packageId: string }).packageId));
+  workflowRoutes(app, db, cfg.root, async (req) => callerFor(db, await person(req)));
 
   /* ---- workspace projects (audited project defaults & soft-archive) ---- */
   app.get("/workspace/projects", async (req) => {

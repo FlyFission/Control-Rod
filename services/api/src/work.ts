@@ -19,15 +19,17 @@ import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, tool
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
 import { RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "./brief.js";
-import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
+import { type NuclearPack, loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
+import { type LaneDiff, type SkillBlockSpec, type WorkflowSpecV1, buildCatalog, diffLaneFromUpstream, mergeLaneUpdate, syncStageSkillsFromLaneUpdate, validateWorkflowSpec } from "./workflow-spec.js";
+import { loadSavedWorkflowSpec } from "./workflow-routes.js";
 import { Refusal } from "./refusal.js";
 import { bindCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
-import { benchedRuntimes } from "./setup.js";
+import { benchedRuntimes, setupView } from "./setup.js";
 import { projectRuntimePrefs } from "./workspace-projects.js";
 import { ownerOf } from "./tenancy.js";
 import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
@@ -1126,7 +1128,17 @@ async function resolveNuclear(c: Tx, cfg: WorkConfig, run: Json, body: Json): Pr
   const project = typeof body.project === "string"
     ? (await c.query<{ body: Json }>("select body from projects where id = $1", [body.project])).rows[0]?.body ?? null
     : null;
-  const resolved = resolveContextProfile(body, project);
+  let resolved = resolveContextProfile(body, project);
+  if (resolved.profile !== "nuclear") {
+    const spec = await resolveSavedWorkflowSpec(c, run, body);
+    if (spec?.contextDepth === "nuclear") {
+      resolved = {
+        profile: "nuclear",
+        locked: false,
+        reason: `Workflow spec "${spec.name}" sets Nuclear context depth`,
+      };
+    }
+  }
   if (resolved.profile !== "nuclear") return { resolved, clusters: [], pack: null };
   const asked = readRoleTools(roleToolText(cfg, run, body));
   const clusters = selectClusters({
@@ -1182,18 +1194,81 @@ async function nuclearContext(c: Tx, cfg: WorkConfig, run: Json, body: Json): Pr
   return { ...nuclearBriefSections(n.pack, n.clusters, run.role, body.rigor_mode, n.resolved.reason), profile: "nuclear" };
 }
 
+type SkillVersionRecord = {
+  lane: string;
+  skill: string;
+  commit: string;
+  digest: string;
+  forked: boolean;
+  agent: string | null;
+};
+
 type WorkflowResolution = {
   resolved: ReturnType<typeof resolveWorkflow>;
   packs: WorkflowPacks;
   problem?: string;
+  spec?: WorkflowSpecV1;
+  nuclearPack?: NuclearPack | null;
+  stageSkills?: SkillBlockSpec[];
+  skillVersions?: SkillVersionRecord[];
+  nuclearLaneModified?: { modified: boolean; diff?: LaneDiff };
+  autoUpdatedLanes?: { laneId: string; summary: string }[];
 };
 
-/**
- * The workflow a run resolves to and, for a pack workflow, the loaded and verified packs, or why
- * they could not be loaded. A package run reads its card and project; an intake run reads only the
- * tag line in its capture (`body` is undefined), because no agent has drafted anything yet. The
- * playbook reads no pack.
- */
+function specStagesForRole(spec: WorkflowSpecV1, role: string) {
+  if (role === "intake") return spec.stages.filter((s) => s.role === "intake");
+  if (role === "author") return spec.stages.filter((s) => s.role === "author");
+  if (role === "pre-check" || role === "checker") {
+    return spec.stages.filter((s) => s.role === "pre-check" || s.isBlindChecker === true);
+  }
+  return [];
+}
+
+function specStageAgent(spec: WorkflowSpecV1 | null, role: string): string | undefined {
+  if (!spec) return undefined;
+  for (const st of specStagesForRole(spec, role)) {
+    for (const block of st.skills) {
+      if (typeof block.agent === "string" && block.agent.trim()) {
+        return block.agent.trim();
+      }
+    }
+  }
+  return undefined;
+}
+
+async function resolveSavedWorkflowSpec(c: Tx, run: Json, body: Json | undefined): Promise<WorkflowSpecV1 | null> {
+  if (run.role === "intake") {
+    const capOwner = await ownerOf(c, "capture", String(run.package_id));
+    const cap = (await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id])).rows[0]?.body;
+    const named = captureProject(cap?.text);
+    if (named) {
+      const all = (await c.query<{ id: string; org_id: string }>(
+        `select p.id, p.org_id from projects p
+           join object_owners o on o.object_kind = 'capture' and o.object_id = $1 and o.org_id = p.org_id
+          where p.id = $2 or p.body->>'name' = $2`, [run.package_id, named])).rows;
+      const byId = all.filter((r) => r.id === named);
+      const rows = byId.length ? byId : all;
+      if (rows.length === 1) {
+        const projSpec = await loadSavedWorkflowSpec(c, rows[0]!.org_id, "project", rows[0]!.id);
+        if (projSpec) return projSpec;
+      }
+    }
+    if (capOwner) {
+      return loadSavedWorkflowSpec(c, capOwner.org_id, "default", "default");
+    }
+    return null;
+  }
+  const owner = await ownerOf(c, "package", String(run.package_id));
+  if (!owner) return null;
+  const pkgSpec = await loadSavedWorkflowSpec(c, owner.org_id, "package", String(run.package_id));
+  if (pkgSpec) return pkgSpec;
+  if (typeof body?.project === "string" && body.project) {
+    const projSpec = await loadSavedWorkflowSpec(c, owner.org_id, "project", body.project);
+    if (projSpec) return projSpec;
+  }
+  return loadSavedWorkflowSpec(c, owner.org_id, "default", "default");
+}
+
 /**
  * The workflow an intake run follows: the request's own `[workflow:...]` tag; else the default of the
  * project its tag line names, found in the capture's own organization by id or exact name; else the
@@ -1219,6 +1294,137 @@ async function intakeWorkflow(c: Tx, captureId: string, text: unknown): Promise<
 }
 
 async function resolveRunWorkflow(c: Tx, cfg: WorkConfig, run: Json, body: Json | undefined): Promise<WorkflowResolution> {
+  // Check for a saved declarative WorkflowSpecV1 first (package -> project -> default scope).
+  const rawSpec = await resolveSavedWorkflowSpec(c, run, body);
+  if (rawSpec) {
+    let spec = rawSpec;
+    const resolved: ReturnType<typeof resolveWorkflow> = {
+      workflow: spec.preset === "custom" ? "playbook" : spec.preset,
+      reason: `Workflow spec "${spec.name}" (v${spec.schema_version})`,
+    };
+
+    // On-start check for lanes with auto-update policy (never background timers/cron).
+    const autoUpdatedLanes: { laneId: string; summary: string }[] = [];
+    const autoBuiltinLanes = spec.lanes.filter((l) => l.enabled && l.updatePolicy === "auto" && l.source.type === "builtin");
+    if (autoBuiltinLanes.length > 0) {
+      const diskCatalog = buildCatalog(cfg.root);
+      const byId = new Map([...diskCatalog.workflowLanes, ...diskCatalog.contextLanes].map((l) => [l.id, l]));
+      const nextLanes = [...spec.lanes];
+      let nextStages = spec.stages;
+      for (let i = 0; i < nextLanes.length; i++) {
+        const lane = nextLanes[i]!;
+        if (!lane.enabled || lane.updatePolicy !== "auto" || lane.source.type !== "builtin") continue;
+        const cat = byId.get(lane.id);
+        if (!cat || cat.packError) continue;
+        if (cat.source.commit === lane.source.commit && cat.source.digest === lane.source.digest) continue;
+        const merged = mergeLaneUpdate(lane, {
+          commit: cat.source.commit,
+          digest: cat.source.digest,
+          skills: cat.nativeSkills,
+        });
+        if (merged.status === "conflict_paused") {
+          return {
+            resolved,
+            packs: {},
+            spec,
+            problem: `auto-update paused for review on forked lane "${lane.name}": ${merged.summary}`,
+          };
+        }
+        if (merged.status === "updated") {
+          nextLanes[i] = merged.lane;
+          nextStages = syncStageSkillsFromLaneUpdate(nextStages, merged.lane);
+          autoUpdatedLanes.push({ laneId: lane.id, summary: merged.summary });
+        }
+      }
+      if (autoUpdatedLanes.length > 0) {
+        spec = { ...spec, lanes: nextLanes, stages: nextStages };
+      }
+    }
+
+    const setup = await setupView(c);
+    const seated = setup.seats.filter((s) => s.seated).map((s) => s.runtime);
+    const councilAuthor = seated[0] ?? null;
+    const councilChecker = councilAuthor ? (seated.find((r) => r !== councilAuthor) ?? null) : null;
+    const specCheck = validateWorkflowSpec(spec, { author: councilAuthor, checker: councilChecker, intake: councilAuthor });
+    if (!specCheck.valid) {
+      return {
+        resolved,
+        packs: {},
+        spec,
+        problem: specCheck.errors.map((e) => e.message).join("; "),
+      };
+    }
+
+    const laneById = new Map(spec.lanes.map((l) => [l.id, l]));
+    const stageSkills = specStagesForRole(spec, String(run.role)).flatMap((s) => s.skills);
+    const skillVersions: SkillVersionRecord[] = stageSkills.map((block) => {
+      const lane = laneById.get(block.packId);
+      const bare = block.skill.includes(":") ? block.skill.slice(block.skill.indexOf(":") + 1) : block.skill;
+      const entry = lane?.skills.find((e) => e.skill === block.skill || e.skill === bare);
+      return {
+        lane: block.packId,
+        skill: block.skill,
+        commit: lane?.source.commit ?? "unknown",
+        digest: entry?.digest ?? lane?.source.digest ?? "unknown",
+        forked: lane?.forked ?? false,
+        agent: block.agent ?? null,
+      };
+    });
+
+    // Check Nuclear lane modification status (both lane edits and stage-canvas edits)
+    const nuclearLane = spec.lanes.find((l) => l.id === "nuclear-grade" || l.nuclearRequired === true);
+    const stageNuclearModified = specCheck.warnings.some((w) => w.code === "nuclear_lane_modified");
+    let nuclearLaneModified: { modified: boolean; diff?: LaneDiff } = { modified: false };
+    if (nuclearLane && (spec.contextDepth === "nuclear" || nuclearLane.enabled)) {
+      const diff = diffLaneFromUpstream(nuclearLane);
+      nuclearLaneModified = {
+        modified: nuclearLane.forked || diff.modified || stageNuclearModified,
+        ...(diff.modified ? { diff } : {}),
+      };
+    } else if (stageNuclearModified) {
+      nuclearLaneModified = { modified: true };
+    }
+
+    // Validate Nuclear pack integrity when spec.contextDepth === "nuclear"
+    let nuclearPack: NuclearPack | null = null;
+    const needsNuclear = spec.contextDepth === "nuclear" || stageSkills.some((b) => b.packId === "nuclear-grade");
+    if (needsNuclear) {
+      if (nuclearLane?.packError) {
+        return { resolved, packs: {}, spec, stageSkills, skillVersions, nuclearLaneModified, autoUpdatedLanes, problem: `required Nuclear pack failed verification: ${nuclearLane.packError}` };
+      }
+      try {
+        nuclearPack = loadNuclearPack(join(cfg.root, "packs", "nuclear-grade"));
+        if (!nuclearPack) {
+          return { resolved, packs: {}, spec, stageSkills, skillVersions, nuclearLaneModified, autoUpdatedLanes, problem: "the nuclear-grade pack is not installed on this control plane" };
+        }
+      } catch (e) {
+        return { resolved, packs: {}, spec, stageSkills, skillVersions, nuclearLaneModified, autoUpdatedLanes, problem: (e as Error).message };
+      }
+    }
+
+    // Load any built-in workflow packs referenced by this stage's ordered skills
+    const packs: WorkflowPacks = {};
+    const neededBasePacks = new Set<PackWorkflow>();
+    for (const block of stageSkills) {
+      if (block.packId === "superpowers" || block.packId === "pocock") {
+        neededBasePacks.add(block.packId);
+      }
+    }
+    for (const packId of neededBasePacks) {
+      try {
+        const loaded = loadWorkflowPacks(join(cfg.root, "packs", "workflows"), packId);
+        if (!loaded[packId]) {
+          return { resolved, packs, spec, nuclearPack, stageSkills, skillVersions, nuclearLaneModified, autoUpdatedLanes, problem: `the ${packId} workflow pack is not installed on this control plane` };
+        }
+        packs[packId] = loaded[packId];
+      } catch (e) {
+        return { resolved, packs, spec, nuclearPack, stageSkills, skillVersions, nuclearLaneModified, autoUpdatedLanes, problem: (e as Error).message };
+      }
+    }
+
+    return { resolved, packs, spec, nuclearPack, stageSkills, skillVersions, nuclearLaneModified, autoUpdatedLanes };
+  }
+
   let resolved: ReturnType<typeof resolveWorkflow>;
   if (run.role === "intake") {
     const cap = (await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id])).rows[0]?.body;
@@ -1247,6 +1453,12 @@ async function workflowEvent(c: Tx, run: Json, n: WorkflowResolution) {
     package: run.package_id, role: run.role, workflow: n.resolved.workflow,
     ...(n.resolved.reason ? { reason: n.resolved.reason } : {}),
     pack_commits: workflowPackCommits(n.packs, n.resolved.workflow),
+    ...(n.spec ? {
+      spec_version: n.spec.schema_version,
+      skill_versions: n.skillVersions ?? [],
+      nuclear_lane_modified: n.nuclearLaneModified ?? { modified: false },
+      ...(n.autoUpdatedLanes?.length ? { auto_updated_lanes: n.autoUpdatedLanes } : {}),
+    } : {}),
     ...(n.problem ? { problem: n.problem } : {}),
   });
 }
@@ -1259,22 +1471,88 @@ async function workflowEvent(c: Tx, run: Json, n: WorkflowResolution) {
 async function blockedByWorkflowPack(c: Tx, cfg: WorkConfig, row: RunLike, body: Json | undefined): Promise<boolean> {
   const run = { ...row.body, id: row.id, package_id: row.package_id, role: row.role };
   const n = await resolveRunWorkflow(c, cfg, run, body);
-  if (n.resolved.workflow === "playbook" || !n.problem) return false;
+  if ((!n.spec && n.resolved.workflow === "playbook") || !n.problem) return false;
   await workflowEvent(c, run, n);
   await failQueuedRun(c, cfg, row,
-    `Not started: this ${row.role === "intake" ? "request" : "package"} runs the ${n.resolved.workflow} workflow${n.resolved.reason ? ` (${n.resolved.reason})` : ""}, but its pack could not be loaded: ${n.problem}`.slice(0, 2000));
+    `Not started: this ${row.role === "intake" ? "request" : "package"} runs the ${n.spec ? `workflow spec "${n.spec.name}"` : `${n.resolved.workflow} workflow`}${n.resolved.reason ? ` (${n.resolved.reason})` : ""}, but its pack could not be loaded: ${n.problem}`.slice(0, 2000));
   return true;
 }
 
 /**
+ * Composes brief sections and skill input files from a declarative WorkflowSpecV1's exact ordered
+ * stage skills (supporting built-in workflow packs, Nuclear pack skills, and custom/git-url lanes).
+ */
+function specWorkflowBriefSections(n: WorkflowResolution, role: string): { sections: string[]; inputs: Input[] } {
+  const spec = n.spec!;
+  const ordered = n.stageSkills ?? [];
+  const laneById = new Map(spec.lanes.map((l) => [l.id, l]));
+  const lines = [
+    `## Workflow Spec: ${spec.name} (v${spec.schema_version})`,
+    `Preset: ${spec.preset} | Context depth: ${spec.contextDepth} | Stage role: ${role}`,
+    "",
+  ];
+  if (ordered.length > 0) {
+    lines.push("Ordered stage skills (read from `inputs/workflow/<pack>/<skill>/`):");
+    ordered.forEach((b, i) => {
+      const lane = laneById.get(b.packId);
+      const commit = lane?.source.commit ? ` (${lane.source.commit.slice(0, 12)})` : "";
+      lines.push(`${i + 1}. \`${b.packId}:${b.skill}\`${b.label ? ` — ${b.label}` : ""}${commit}${b.agent ? ` [agent: ${b.agent}]` : ""}`);
+    });
+    lines.push("");
+  }
+  if (n.nuclearLaneModified?.modified) {
+    lines.push("> Note: The Nuclear-Grade lane in this workflow spec was modified from upstream; this run records the diff.");
+    lines.push("");
+  }
+
+  const inputs: Input[] = [];
+  const addedPaths = new Set<string>();
+  const pushInput = (name: string, bytes: Buffer) => {
+    if (addedPaths.has(name)) return;
+    addedPaths.add(name);
+    inputs.push({ name, content_base64: bytes.toString("base64") });
+  };
+
+  for (const block of ordered) {
+    const bareSkill = block.skill.includes(":") ? block.skill.slice(block.skill.indexOf(":") + 1) : block.skill;
+    if (block.packId === "superpowers" || block.packId === "pocock") {
+      const files = n.packs[block.packId]?.skills[block.skill] ?? n.packs[block.packId]?.skills[bareSkill];
+      if (files) {
+        for (const f of files) pushInput(`workflow/${block.packId}/${bareSkill}/${f.name}`, f.bytes);
+      }
+    } else if (block.packId === "nuclear-grade") {
+      const bytes = n.nuclearPack?.skills[block.skill] ?? n.nuclearPack?.skills[bareSkill];
+      if (bytes) pushInput(`workflow/nuclear-grade/${bareSkill}/SKILL.md`, bytes);
+    } else {
+      const lane = laneById.get(block.packId);
+      const entry = lane?.skills.find((e) => e.skill === block.skill || e.skill === bareSkill);
+      const descriptor = [
+        `# ${block.label ?? block.skill}`,
+        `Pack: ${lane?.name ?? block.packId} (${block.packId})`,
+        `Commit: ${lane?.source.commit ?? "custom"}`,
+        `Digest: ${entry?.digest ?? lane?.source.digest ?? "unknown"}`,
+        ...(lane?.source.url ? [`Source: ${lane.source.url}`] : []),
+      ].join("\n") + "\n";
+      pushInput(`workflow/${block.packId}/${bareSkill}/SKILL.md`, Buffer.from(descriptor, "utf8"));
+    }
+  }
+
+  return { sections: [lines.join("\n")], inputs };
+}
+
+/**
  * The workflow context a run's brief carries: nothing at all under the playbook, so a playbook brief
- * is byte for byte what it was before workflows existed. For a pack workflow, the stage card goes in
- * the brief, the skills it names go in as inputs, and the choice is recorded on the run as a
- * run.workflow event. The claim already refused a run without a good pack; one that fails here (the
- * pack changed in between) throws, so the claim rolls back rather than launch without its card.
+ * is byte for byte what it was before workflows existed. For a pack workflow or saved WorkflowSpecV1,
+ * the stage card/ordered skills go in the brief, the skills go in as inputs, and the choice is
+ * recorded on the run as a run.workflow event.
  */
 async function workflowContext(c: Tx, cfg: WorkConfig, run: Json, body: Json | undefined): Promise<{ sections: string[]; inputs: Input[] }> {
   const n = await resolveRunWorkflow(c, cfg, run, body);
+  if (n.spec) {
+    if (n.problem) throw new Error(`workflow pack unavailable at launch: ${n.problem}`);
+    await workflowEvent(c, run, n);
+    return specWorkflowBriefSections(n, String(run.role));
+  }
   if (n.resolved.workflow === "playbook") return { sections: [], inputs: [] };
   if (n.problem) throw new Error(`workflow pack unavailable at launch: ${n.problem}`);
   await workflowEvent(c, run, n);
@@ -1521,6 +1799,7 @@ export async function claim(
             ? ((await c.query<{ text: string | null }>("select body->>'text' as text from captures where id = $1", [pkg.capture_id])).rows[0]?.text ?? null)
             : null;
           const capPrefs = parseCaptureRuntimeTags(capText);
+          const pkgSpec = await resolveSavedWorkflowSpec(c, { package_id: row.package_id, role: row.role }, pkg.body);
           let runtime: string | null;
           let model: string | undefined;
           if (row.role === "pre-check") {
@@ -1528,7 +1807,10 @@ export async function claim(
             const a = await latestAuthorRun(c, pkg.id, pkg.revision);
             const authorRuntime = runtimeName(a?.body.runtime?.provider);
             const preferredChecker =
-              capPrefs.checker?.ecosystem ?? projPrefs?.laneAgents?.["agent-check"] ?? projPrefs?.checker;
+              capPrefs.checker?.ecosystem ??
+              specStageAgent(pkgSpec, "pre-check") ??
+              projPrefs?.laneAgents?.["agent-check"] ??
+              projPrefs?.checker;
             runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body), preferredChecker);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.checker, projPrefs?.checker, projPrefs?.checkerModel);
@@ -1539,7 +1821,10 @@ export async function claim(
             }
           } else {
             const preferredAuthor =
-              capPrefs.author?.ecosystem ?? projPrefs?.laneAgents?.drafting ?? projPrefs?.author;
+              capPrefs.author?.ecosystem ??
+              specStageAgent(pkgSpec, "author") ??
+              projPrefs?.laneAgents?.drafting ??
+              projPrefs?.author;
             runtime = pickRuntime(offer, preferredAuthor);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
@@ -1628,7 +1913,8 @@ export async function claim(
           await holdRun(c, cfg, row, row.package_id, netIntake.held.slice(0, 300), "sandbox", `sandbox:intake:${capLane}`);
           continue;
         }
-        const runtime = pickRuntime(netIntake.offer);
+        const intakeSpec = await resolveSavedWorkflowSpec(c, { package_id: row.package_id, role: "intake" }, undefined);
+        const runtime = pickRuntime(netIntake.offer, specStageAgent(intakeSpec, "intake"));
         if (!runtime) continue;
         // An intake run whose capture is tagged for a workflow needs that pack, or it fails here.
         if (await blockedByWorkflowPack(c, cfg, row, undefined)) continue;

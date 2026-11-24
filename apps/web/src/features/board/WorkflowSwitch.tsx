@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
 import type { PackageView, WorkPackage } from "../../api/types.js";
 import { sessionGeneration } from "../../lib/session.js";
@@ -68,6 +69,9 @@ export function WorkflowSwitch({ pkg, view, projectDefault }: WorkflowSwitchProp
             </option>
           ))}
         </select>
+        <Link to="/workflow" search={{ package: pkg.id } as never} className="small bd-wf-customize">
+          Customize flow
+        </Link>
       </div>
       <p id={descId} className="small muted bd-ctx-note">
         {WORKFLOW_DESCRIPTION[wf.workflow]}

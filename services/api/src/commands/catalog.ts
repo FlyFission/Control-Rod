@@ -104,6 +104,10 @@ export const COMMANDS = {
   "grant.begin-use": entry("agent-via-daemon", "none", "Grant begin use"),
   "grant.finish-use": entry("agent-via-daemon", "none", "Grant finalize use"),
   "grant.revoke": entry("member-or-system", "none", "Grant revoke"),
+
+  // Declarative workflow specs & custom packs.
+  "workflow.spec-save": entry("member", "none", "Save declarative workflow spec"),
+  "workflow.pack-save": entry("member", "none", "Save custom workflow pack"),
 } as const satisfies Record<string, Entry>;
 
 export type CommandName = keyof typeof COMMANDS;

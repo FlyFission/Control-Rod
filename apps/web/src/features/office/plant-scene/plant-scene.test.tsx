@@ -34,11 +34,29 @@ const scene = (figures: StageFigure[], instruments = lit, onSelect?: (id: string
 describe("PlantScene", () => {
   it("lights a room exactly when it holds a figure", () => {
     const { container } = scene([fig("A", "working", "process"), fig("B", "waiting", "review")]);
-    const lits = [...container.querySelectorAll<HTMLElement>('[data-tile-layer="lit"]')];
+    const lits = [...container.querySelectorAll<HTMLElement>('[data-room-layer="lit"]')];
     expect(lits.filter((r) => r.dataset.lit === "true").map((r) => r.dataset.room).sort()).toEqual(["process", "review"]);
-    // Every room has its dark tile, its lit tile and its front layer, from the geometry alone.
+    // Every room has its lit layer and its front layer (the dark plate is one base image), from the geometry alone.
     expect(lits).toHaveLength(PLACE_IDS.length);
-    for (const layer of ["dark", "front"]) expect(container.querySelectorAll(`[data-tile-layer="${layer}"]`)).toHaveLength(PLACE_IDS.length);
+    expect(container.querySelectorAll('[data-room-layer="front"]')).toHaveLength(PLACE_IDS.length);
+    expect(container.querySelectorAll('[data-hero="base"]')).toHaveLength(1);
+  });
+
+  it("stacks each room as lit layer, then its figures, then its front layer, so workers stand behind desks and walls", () => {
+    const { container } = scene([fig("A", "working", "process"), fig("B", "needs", "process", 1)]);
+    const order = [...container.querySelectorAll('[data-layer="scene"] > *')];
+    const at = (sel: string) => order.findIndex((n) => n.matches(sel));
+    const lit = at('[data-room-layer="lit"][data-room="process"]');
+    const fa = at('[data-figure-art="A"]');
+    const fb = at('[data-figure-art="B"]');
+    const front = at('[data-room-layer="front"][data-room="process"]');
+    expect(lit).toBeGreaterThan(at('[data-hero="base"]'));
+    expect(fa).toBeGreaterThan(lit);
+    expect(fb).toBeGreaterThan(lit);
+    expect(front).toBeGreaterThan(Math.max(fa, fb));
+    // A room's sprites follow its garb: coveralls at a station, an anti-contamination suit in the bench.
+    const b = scene([fig("Q", "working", "bench")]);
+    expect(b.container.querySelector('[data-figure-art="Q"] img')!.getAttribute("src")).toBe("/plant/sprites/antic-working.webp");
   });
 
   it("shows the tripped core on a SCRAM and the healthy core otherwise; a drill is not a trip", () => {
@@ -72,11 +90,11 @@ describe("PlantScene", () => {
     const figs = [fig("W", "working", "process"), fig("L", "waiting", "mechanical"), fig("S", "stuck", "electrical"), fig("N", "needs", "your-office"), fig("C", "changed", "interface")];
     const { container } = scene(figs);
     const pose = (id: string) => container.querySelector(`[data-figure-art="${id}"] img`)!.getAttribute("src");
-    expect(pose("W")).toBe("/plant/crew/working.webp");
-    expect(pose("L")).toBe("/plant/crew/waiting.webp");
-    expect(pose("S")).toBe("/plant/crew/stuck.webp");
-    expect(pose("N")).toBe("/plant/crew/needs-you.webp");
-    expect(pose("C")).toBe("/plant/crew/waiting.webp");
+    expect(pose("W")).toEqual(expect.stringMatching(/\/plant\/sprites\/[a-z]+-working\.webp$/));
+    expect(pose("L")).toEqual(expect.stringMatching(/\/plant\/sprites\/[a-z]+-waiting\.webp$/));
+    expect(pose("S")).toEqual(expect.stringMatching(/\/plant\/sprites\/[a-z]+-stuck\.webp$/));
+    expect(pose("N")).toEqual(expect.stringMatching(/\/plant\/sprites\/[a-z]+-needs-you\.webp$/));
+    expect(pose("C")).toEqual(expect.stringMatching(/\/plant\/sprites\/[a-z]+-waiting\.webp$/));
     expect(POSE.changed).toBe("waiting");
     // Rooms without a needs-you or stuck figure start collapsed; hovering a figure opens its room's roster.
     const words: string[] = [];
@@ -172,8 +190,9 @@ describe("PlantScene", () => {
       const { container } = render(<PlantScene figures={figs} instruments={lit} occupancy={occ(figs)} onOpenRoom={onOpenRoom} />);
       expect(container.querySelector(".plant-scene")!.getAttribute("data-mode")).toBe("counts");
       expect(container.querySelectorAll("[data-hero='figure']")).toHaveLength(0);
-      // The tiles are still drawn: the count is on them.
-      expect(container.querySelectorAll("[data-tile-layer='dark']")).toHaveLength(PLACE_IDS.length);
+      // The plate and the room layers are still drawn: the count is on them.
+      expect(container.querySelectorAll("[data-hero='base']")).toHaveLength(1);
+      expect(container.querySelectorAll("[data-room-layer='lit']")).toHaveLength(PLACE_IDS.length);
       expect(screen.queryAllByRole("button", { name: /^WP-/ })).toHaveLength(0);
       const process = screen.getByRole("button", { name: "Process: 3 agents, 1 Needs you, 2 Working. Show them." });
       expect(screen.getByRole("button", { name: "Review: 1 agent, 1 Stuck. Show them." })).toBeTruthy();
@@ -194,7 +213,7 @@ describe("PlantScene", () => {
     const figs = [fig("W", "working", "process"), fig("N", "needs", "your-office"), fig("C", "changed", "interface")];
     const { container } = render(<PlantScene figures={figs} instruments={{ ...lit, waiting: true }} occupancy={occ(figs)} />);
     const heroes = [...container.querySelectorAll("[data-hero]")];
-    expect(heroes.length).toBe(1 + PLACE_IDS.length * 3 + 2 + figs.length);
+    expect(heroes.length).toBe(1 + PLACE_IDS.length * 2 + 2 + figs.length);
     for (const h of heroes) {
       expect(h.tagName).toBe("IMG");
       expect(h.getAttribute("src")).toMatch(/^\/plant\/.+\.webp$/);

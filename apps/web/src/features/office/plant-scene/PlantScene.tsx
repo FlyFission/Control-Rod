@@ -3,7 +3,7 @@ import { STATE_INFO, StateMark } from "../../../components/StateMark.js";
 import { useInstrumentMotion } from "../../../design/instruments/useInstrumentMotion.js";
 import type { FigureState, PlantInstruments, StageFigure } from "../OfficeStage.js";
 import { type OccupancyMap, flowSegments, ringPath } from "./flow.js";
-import { type Rect, type RoomPlan, leaderBetween, planScene, roomBox } from "./figure-layout.js";
+import { POSE, type Rect, type RoomPlan, leaderBetween, planScene, roomBox } from "./figure-layout.js";
 import { CANVAS, CORE_BBOX, CORE_CROP, ROOMS } from "./geometry.js";
 import { CHIP_WORD, PlantFigure } from "./PlantFigure.js";
 import { PlantRoster } from "./PlantRoster.js";
@@ -13,7 +13,7 @@ import "./plant-scene.css";
 
 /**
  * The Plant as a painted scene (control room redesign, sections 4 and 6). Application owned, like
- * ReactorCore: no theme can fake a state. Hero art is raster only (site plate, room tiles, core and crew images,
+ * ReactorCore: no theme can fake a state. Hero art is raster only (the dark plate, per-room lit and front layers, core layers and worker sprites cut from the hybrid frames,
  * all aria-hidden); code draws only the named overlays below (Lamp, FlowStripe, the needs-you Halo, the room rosters
  * and count plates). The focusable figure buttons and the room rosters are the semantic layer on top,
  * as in OfficeStage. Where each figure, roster plate and count plate goes is worked out in
@@ -22,14 +22,7 @@ import "./plant-scene.css";
  */
 
 const ART = "/plant";
-/** The crew image for a state; an input that changed shows the waiting pose (its chip says Changed). */
-export const POSE: Record<FigureState, "working" | "waiting" | "stuck" | "needs-you"> = {
-  working: "working",
-  waiting: "waiting",
-  stuck: "stuck",
-  needs: "needs-you",
-  changed: "waiting",
-};
+export { POSE };
 /** The width assumed before the scene is measured (and where there is no layout engine, as in tests): a 1440 px window. */
 const ASSUMED_WIDTH = 1176;
 /** How many characters of a title a nameplate has room for before it is cut with an ellipsis. */
@@ -158,8 +151,6 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
   const canvasW = CANVAS.width * u;
   const canvasH = CANVAS.height * u;
   const office = ROOMS["your-office" as keyof typeof ROOMS];
-  // Tiles are cut at the plate's size and at the 1440 path's: the smaller is plenty below a 1500 px scene.
-  const tileSuffix = width > 1500 ? "" : "-1440";
   // Back to front, so a room in front covers the one behind it, as the picture's depth says.
   const depth = [...plan.rooms].sort((a, b) => a.box.y + a.box.h - (b.box.y + b.box.h));
   return (
@@ -198,11 +189,10 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
           {depth.map((r) => {
             const room = ROOMS[r.id as keyof typeof ROOMS];
             const lit = (occupancy.get(r.id)?.count ?? 0) > 0;
-            const file = (layer: string) => `${ART}/tiles/${room.tile}-${layer}${tileSuffix}.webp`;
+            const file = (layer: "lit" | "front") => `${ART}/rooms/${r.id}-${layer}.webp`;
             return (
               <Fragment key={r.id}>
-                <img className="plant-art" data-hero="tile" data-tile-layer="dark" data-room={r.id} src={file("dark")} alt="" draggable={false} style={boxOf(room.box)} />
-                <img className="plant-art plant-fade" data-hero="tile" data-tile-layer="lit" data-room={r.id} data-lit={lit} src={file("lit")} alt="" draggable={false} loading="lazy" style={boxOf(room.box)} />
+                <img className="plant-art plant-fade" data-hero="room" data-room-layer="lit" data-room={r.id} data-lit={lit} src={file("lit")} alt="" draggable={false} loading="lazy" style={boxOf(room.lit)} />
                 {[...r.placed]
                   .sort((a, b) => a.seat.y - b.seat.y)
                   .map((p) => (
@@ -212,14 +202,14 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
                         className="plant-crew"
                         data-hero="figure"
                         data-pose={POSE[p.state]}
-                        src={`${ART}/crew/${POSE[p.state]}.webp`}
+                        src={`${ART}/sprites/${room.garb}-${POSE[p.state]}.webp`}
                         alt=""
                         draggable={false}
                         style={{ left: pct(p.frame.x, canvasW), top: pct(p.frame.y, canvasH), width: pct(p.frame.w, canvasW), height: pct(p.frame.h, canvasH) }}
                       />
                     </div>
                   ))}
-                <img className="plant-art" data-hero="tile" data-tile-layer="front" data-room={r.id} src={file("front")} alt="" draggable={false} style={boxOf(room.box)} />
+                {room.front && <img className="plant-art" data-hero="room" data-room-layer="front" data-room={r.id} src={file("front")} alt="" draggable={false} style={boxOf(room.front)} />}
               </Fragment>
             );
           })}

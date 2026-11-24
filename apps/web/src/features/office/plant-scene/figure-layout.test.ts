@@ -110,10 +110,10 @@ describe("plant scene layout", () => {
     expect(room.more).toBeGreaterThanOrEqual(3);
   });
 
-  it("sizes the crew from the scale: about 64 px at a 1440 window, bigger above, and count plates once figures would be under 42 px", () => {
+  it("sizes the crew from the scale: a seated worker about 31 px tall at a 1440 window, bigger above, and count plates once figures would be under the readable least", () => {
     const at1440 = frameAt(1176 / CANVAS.width) * METRICS.crewFill;
-    expect(at1440).toBeGreaterThan(58);
-    expect(at1440).toBeLessThan(70);
+    expect(at1440).toBeGreaterThan(METRICS.lodFigure);
+    expect(at1440).toBeLessThan(40);
     expect(frameAt(1800 / CANVAS.width)).toBeGreaterThan(frameAt(1176 / CANVAS.width));
     expect(modeAt(1176 / CANVAS.width)).toBe("figures");
     expect(modeAt(760 / CANVAS.width)).toBe("counts");

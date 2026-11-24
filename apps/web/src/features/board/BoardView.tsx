@@ -683,7 +683,7 @@ export function BoardView() {
                 </select>
               </label>
               <WorkLanesSetting
-                key={JSON.stringify(activeProject.work_lanes ?? null)}
+                key={`${activeProject.id}:${JSON.stringify(activeProject.work_lanes ?? null)}`}
                 current={activeProject.work_lanes}
                 pending={projectPending}
                 onSave={(work_lanes) =>

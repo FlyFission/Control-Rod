@@ -1,0 +1,22 @@
+ok   default width 248 px (got 248)
+ok   long project name has a full-name tooltip
+ok   drag right widens the rail (got 448)
+ok   no project name cut after widening (1 -> 0)
+ok   max width 480 px (got 480)
+ok   ArrowLeft on the focused handle narrows the rail (got 408)
+ok   width kept after reload (408 -> 408)
+ok   width kept in pixels when the window narrows (got 408)
+ok   button hides the rail (width 0)
+ok   hidden rail is inert
+ok   Tab does not land inside the hidden rail
+ok   stays hidden after reload
+ok   [ shows it again at the saved width (got 408)
+ok   dragging past the minimum tucks it away (width 0)
+ok   shows again at least at the minimum (got 200)
+ok   double-click resets to 248 (got 248)
+ok   a click 24 px right of the edge does not grab the handle
+ok   workspace buttons still take clicks (the palette opened)
+ok   phone: no drag handle
+ok   phone: no rail toggle
+ok   phone: no horizontal scroll
+all passed

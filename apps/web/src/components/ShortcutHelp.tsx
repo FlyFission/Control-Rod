@@ -8,6 +8,7 @@ export function shortcuts(mac: boolean): Shortcut[] {
   return [
     { keys: [mac ? "⌘" : "Ctrl", "K"], what: "Search places, packages and commands", where: "Anywhere" },
     { keys: ["C"], what: "New work; on the board, add a card in Ready", where: "Anywhere" },
+    { keys: ["["], what: "Hide or show the navigation (drag its edge to resize)", where: "Anywhere on a wide screen" },
     { keys: ["J"], what: "Next card", where: "Board" },
     { keys: ["K"], what: "Previous card", where: "Board" },
     { keys: ["N"], what: "Next card marked Needs you or Blocked", where: "Board" },

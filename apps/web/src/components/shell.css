@@ -380,3 +380,98 @@
 .shell .more-foot .user-chip > span:not(.rail-avatar) {
   display: inline;
 }
+
+/* ---- Resizable, collapsible rail (desktop) ---- */
+.shell .shell-panes {
+  height: 100vh;
+  min-width: 0;
+}
+.shell .rail-panel {
+  height: 100%;
+  overflow: hidden;
+}
+.shell .rail-panel > .rail {
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  border-right: 0;
+}
+.shell .main-panel {
+  height: 100%;
+  min-width: 0;
+}
+/* The rail's edge is the drag handle: a machined rule that lights up when it can be moved. The hit
+   area is wider than the line (the library's resizeTargetMinimumSize). */
+.shell .rail-sep {
+  width: 1px;
+  background: var(--plant-linework);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+  outline: none;
+}
+.shell .rail-sep[data-separator="hover"],
+.shell .rail-sep[data-separator="active"],
+.shell .rail-sep:focus-visible {
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.shell .rail-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--plant-linework);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.shell .rail-toggle:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.shell .rail-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.shell .user-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell .rail-sep {
+    transition: none;
+  }
+}
+
+/* Project names win over the repository chip: the chip shows only when the rail is wide enough to
+   spare it (the repository stays in the tooltip), and a long name takes a second line before it is
+   cut. */
+.shell .rail-projects {
+  container-type: inline-size;
+}
+.shell .rail-proj-btn {
+  align-items: flex-start;
+}
+.shell .rail-proj-name {
+  flex: 0 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.3;
+}
+.shell .rail-proj-repo {
+  flex: 0 0 auto;
+  max-width: 40%;
+  margin-left: auto;
+}
+@container (max-width: 340px) {
+  .shell .rail-proj-repo {
+    display: none;
+  }
+}

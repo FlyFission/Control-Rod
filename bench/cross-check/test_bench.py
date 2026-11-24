@@ -981,6 +981,22 @@ class Containers(Tmp):
         self.assertFalse(run_with(good.replace("PXTCP=refused", "PXTCP=open"), log)["ok"])
         self.assertFalse(run_with(good, log, code=1)["ok"])
 
+    def test_image_must_report_exactly_the_pinned_versions(self):
+        def fake_for(codex_line):
+            def fake(args, **kw):
+                if args[:3] == ["image", "inspect", "--format"] and "{{.Id}}" in args[3]:
+                    return subprocess.CompletedProcess(args, 0, b"sha256:abc\n", b"")
+                if args[0] == "image":
+                    return subprocess.CompletedProcess(args, 0, f"arm64 linux {container.inputs_key()}".encode(), b"")
+                return subprocess.CompletedProcess(args, 0, f"CLAUDE_VERSION=2.1.331 (Claude Code)\n{codex_line}\n".encode(), b"")
+            return fake
+        with mock.patch.object(container, "dk", side_effect=fake_for("CODEX_VERSION=codex-cli 0.171.0")):
+            self.assertEqual(container.image_record("x")["versions"], ["2.1.331 (Claude Code)", "codex-cli 0.171.0"])
+        for bad in ("CODEX_VERSION=WARNING: codex_home under /tmp", "CODEX_VERSION=codex-cli 0.170.0", ""):
+            with mock.patch.object(container, "dk", side_effect=fake_for(bad)):
+                with self.assertRaises(Refused):
+                    container.image_record("x")
+
     def test_removal_never_reads_an_unanswered_runtime_as_gone(self):
         def fake(args, **kw):
             rc = 1 if args[0] == "ps" else 0

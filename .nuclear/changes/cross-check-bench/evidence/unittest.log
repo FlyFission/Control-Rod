@@ -23,6 +23,7 @@ test_claude_token_goes_to_a_credentials_file_never_the_environment (bench.cross-
 test_egress_hosts_must_be_plain_names (bench.cross-check.test_bench.Containers.test_egress_hosts_must_be_plain_names) ... ok
 test_env_file_holds_no_host_environment (bench.cross-check.test_bench.Containers.test_env_file_holds_no_host_environment) ... ok
 test_hardening_is_complete (bench.cross-check.test_bench.Containers.test_hardening_is_complete) ... ok
+test_image_must_report_exactly_the_pinned_versions (bench.cross-check.test_bench.Containers.test_image_must_report_exactly_the_pinned_versions) ... ok
 test_in_container_cli_args_use_fixed_paths_and_deny_the_sign_in_dir (bench.cross-check.test_bench.Containers.test_in_container_cli_args_use_fixed_paths_and_deny_the_sign_in_dir) ... ok
 test_live_boundary_in_the_real_image (bench.cross-check.test_bench.Containers.test_live_boundary_in_the_real_image) ... skipped 'needs a running container runtime and the built cr-bench-agent:1 image'
 test_local_file_may_move_the_sign_in_only (bench.cross-check.test_bench.Containers.test_local_file_may_move_the_sign_in_only) ... ok
@@ -105,10 +106,10 @@ test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 103 tests in 98.816s
+Ran 104 tests in 91.374s
 
 OK (skipped=1)
 # python3.9 --version: Python 3.9.25
-Ran 103 tests in 116.635s
+Ran 104 tests in 104.610s
 
 OK (skipped=1)

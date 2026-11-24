@@ -1,0 +1,95 @@
+{
+ "note": "Hand coding of the 60 most-reacted issues across 15 repositories (selected by top60.py). Each issue is named <snapshot>#<number>. Judgment, recorded so it can be challenged.",
+ "codes": {
+  "Bring any model or agent to the table (adapters, providers, fallback)": [
+   "paperclipai_paperclip#187",
+   "code-yeongyu_oh-my-openagent#1637",
+   "paperclipai_paperclip#2092",
+   "paperclipai_paperclip#6559",
+   "paperclipai_paperclip#1068",
+   "code-yeongyu_oh-my-openagent#1114",
+   "code-yeongyu_oh-my-openagent#3649",
+   "code-yeongyu_oh-my-openagent#703",
+   "multica-ai_multica#3989"
+  ],
+  "Reach the same agents from anywhere (phone, SSH, other windows, chat apps)": [
+   "herdrdev_herdr-app#306",
+   "herdrdev_herdr-app#63",
+   "ParadevAI_Paradev#1513",
+   "herdrdev_herdr-app#475",
+   "paperclipai_paperclip#2004",
+   "herdrdev_herdr#1170"
+  ],
+  "Simpler, out of the way, an off switch": [
+   "code-yeongyu_oh-my-openagent#673",
+   "BloopAI_vibe-kanban#2687",
+   "code-yeongyu_oh-my-openagent#2191",
+   "ParadevAI_Paradev#2685",
+   "multica-ai_multica#815",
+   "code-yeongyu_oh-my-openagent#1189"
+  ],
+  "Enterprise plumbing (SSO, self-hosted Git, Jira, issue sync)": [
+   "multica-ai_multica#1014",
+   "BloopAI_vibe-kanban#1697",
+   "multica-ai_multica#1634",
+   "paperclipai_paperclip#3028",
+   "BloopAI_vibe-kanban#3396",
+   "multica-ai_multica#1120"
+  ],
+  "Terminal polish and performance": [
+   "herdrdev_herdr#1134",
+   "herdrdev_herdr#1307",
+   "ParadevAI_Paradev#2861",
+   "code-yeongyu_oh-my-openagent#1153",
+   "herdrdev_herdr-app#117",
+   "herdrdev_herdr#1282"
+  ],
+  "Workflows, specs, loops, shared knowledge": [
+   "code-yeongyu_oh-my-openagent#854",
+   "paperclipai_paperclip#1858",
+   "multica-ai_multica#1943",
+   "BloopAI_vibe-kanban#1946",
+   "code-yeongyu_oh-my-openagent#359"
+  ],
+  "Linux and Windows parity": [
+   "herdrdev_herdr-app#172",
+   "mistralai_mistral-vibe#150",
+   "ParadevAI_Paradev#405",
+   "mistralai_mistral-vibe#1303"
+  ],
+  "Upstream API breakage": [
+   "code-yeongyu_oh-my-openagent#8485",
+   "code-yeongyu_oh-my-openagent#6169",
+   "code-yeongyu_oh-my-openagent#493"
+  ],
+  "Worktrees and multi-repo": [
+   "herdrdev_herdr#261",
+   "ParadevAI_Paradev#2364",
+   "BloopAI_vibe-kanban#765"
+  ],
+  "Resume sessions after reboot": [
+   "herdrdev_herdr-app#406",
+   "herdrdev_herdr-app#429"
+  ],
+  "Chat with agents": [
+   "paperclipai_paperclip#49"
+  ],
+  "Notifications when an agent needs you": [
+   "herdrdev_herdr-app#120"
+  ],
+  "Clear usage limits": [
+   "mistralai_mistral-vibe#275"
+  ],
+  "Safety hook before tool runs": [
+   "mistralai_mistral-vibe#531"
+  ],
+  "Other (roadmap posts, licence, jokes, plugin system, stuck)": [
+   "mistralai_mistral-vibe#1366",
+   "herdrdev_herdr#1340",
+   "mistralai_mistral-vibe#233",
+   "mistralai_mistral-vibe#415",
+   "multica-ai_multica#4490",
+   "mistralai_mistral-vibe#1301"
+  ]
+ }
+}

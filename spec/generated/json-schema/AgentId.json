@@ -1,0 +1,27 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AgentId.json",
+    "anyOf": [
+        {
+            "type": "string",
+            "const": "claude"
+        },
+        {
+            "type": "string",
+            "const": "codex"
+        },
+        {
+            "type": "string",
+            "const": "agy"
+        },
+        {
+            "type": "string",
+            "const": "opencode"
+        },
+        {
+            "type": "string",
+            "const": "grok"
+        }
+    ],
+    "description": "A built-in agent CLI the daemon can check for a newer version."
+}

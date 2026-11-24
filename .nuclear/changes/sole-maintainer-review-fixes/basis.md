@@ -18,11 +18,11 @@
 
 ## What changes
 
-- New ADR 0024 records the decision; ADR 0001 gains an "Amended by" line.
+- New ADR 0025 records the decision; ADR 0001 gains an "Amended by" line.
 - `AGENTS.md`, `CONTRIBUTING.md` and both templates list all of `.github/` and `docs/adr/` as trust surfaces.
 - Condition 1 now asks for a question that names each trust surface the pull request changes, by path or in plain words.
 - The screenshot record's `Signature` table holds both owner approvals, and its stale "unsigned" wording is gone.
-- The sign-off record's E-04 cites the real CI runs, and its `ship.md` notes the limit of the #97 question.
+- Renumbered from ADR 0024 to ADR 0025 on 2026-11-24: `main` accepted `docs/adr/0024-council-first.md` (#150 via #161) while this pull request was open, so the number was taken. `evidence/fixes-diff.patch` still shows the original 0024 paths; it is the captured pre-renumber diff and stays unedited.
 
 ## Required links
 
@@ -30,7 +30,7 @@
 
 ## Exit criteria
 
-RS-01 to RS-04 are met: ADR 0024 records the decision and ADR 0001 points to it, the trust-surface lists match CODEOWNERS, condition 1 names each trust surface, and the screenshot and sign-off records carry their signatures and real CI evidence; CI is green on this change.
+RS-01 to RS-04 are met: ADR 0025 records the decision and ADR 0001 points to it, the trust-surface lists match CODEOWNERS, condition 1 names each trust surface, and the screenshot and sign-off records carry their signatures and real CI evidence; CI is green on this change.
 
 ## Source-lineage note
 

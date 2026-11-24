@@ -2,11 +2,12 @@ import type { Db } from "./db/index.js";
 import { adminActions, callerFor } from "./admin.js";
 import { ACTION_ROLES, highConsequence, holdsHardwareKey, needsOf, signingGaps } from "./authority.js";
 import { bindingSentence, plural } from "./binding.js";
+import { eventPosition, eventsForDigest } from "./events.js";
 import { pendingConfirmation } from "./preparation/subjects.js";
 import { currentQualification } from "./tenancy.js";
 import { runSubject, scramAttention, scramHolding, scramOfHold } from "./scram.js";
 import { budgetOfHold } from "./budgets.js";
-import { type WorkConfig, currentPackage, office, packageActions, subjectOf } from "./work.js";
+import { type PackageRow, type WorkConfig, currentPackage, office, packageActions, subjectOf } from "./work.js";
 
 /**
  * The Inbox (specification 12, AttentionItem in 5.11; plan task 3.3): what waits on the viewing
@@ -171,8 +172,11 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
   }
   // Held intake runs belong to captures, not packages, so the office does not list them.
   const intake = await db.query<{ id: string; package_id: string; body: Json; text: string | null }>(
-    `select r.id, r.package_id, r.body, c.body->>'text' as text from runs r left join captures c on c.id = r.package_id
-      where r.role = 'intake' and r.status = 'queued' and r.body ? 'waiting_reason' order by r.created_at`);
+    `select r.id, r.package_id, r.body, c.body->>'text' as text from runs r
+       join captures c on c.id = r.package_id
+       join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $1
+       join object_owners ro on ro.object_kind = 'run' and ro.object_id = r.id and ro.org_id = $1
+      where r.role = 'intake' and r.status = 'queued' and r.body ? 'waiting_reason' order by r.created_at`, [caller.orgId]);
   for (const r of intake.rows) {
     const first = (r.text ?? "").split("\n")[0]!.trim();
     const item = {
@@ -243,6 +247,7 @@ const CHANGE_TYPES: Record<string, string> = {
   "package.revising": "sent back for revision",
   "package.output": "with new output",
   "package.pre-checked": "pre-checked",
+  "package.scope-drift": "with files changed outside the fix scope",
   "preparation.edited": "with requirements edited",
 };
 /** Signed acts by people, in words: one, and many. */
@@ -288,12 +293,10 @@ async function spendLine(db: Db, rows: { type: string; subject: string }[], orgI
 }
 
 export async function digestSince(db: Db, since: number | undefined, mine: Json[], openDisputes: number, orgId: string) {
-  const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
+  const { head } = await eventPosition(db, orgId);
   if (since === undefined || !Number.isInteger(since) || since < 0 || since > head) return { head, lines: [] };
   // Bounded by the head this answer reports, so marking seen never skips or double counts an event.
-  const rows = (await db.query<{ type: string; subject: string; actor: string; signature: string | null }>(
-    "select body->>'type' as type, body->>'subject' as subject, body->'actor'->>'kind' as actor, body->'data'->>'signature' as signature from events where seq > $1 and seq <= $2 order by seq",
-    [since, head])).rows;
+  const rows = await eventsForDigest(db, orgId, since, head);
 
   const changed = new Map<string, Set<string>>();
   // Counted by kind; decisions carry their verb, other acts a noun with its plural.
@@ -334,7 +337,7 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
   const disputeLine = disputes === 0 && breaker === 0
     ? "No disputes are open."
     : `${plural(disputes, "dispute")} open${breaker > 0 ? `; the breaker stopped ${plural(breaker, "run")}` : ""}.`;
-  const gates = await openCriteria(db);
+  const gates = await openCriteria(db, orgId);
   const gateLine = gates.criteria === 0
     ? "No gate criteria are open."
     : `${plural(gates.criteria, "gate criterion", "gate criteria")} not yet met across ${plural(gates.packages, "package")} in verification.`;
@@ -356,13 +359,16 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
  * criterion is open until an admitted result passes it, and for a package without per criterion
  * results, until its pre-check passes. Absence of a result is never counted as met.
  */
-async function openCriteria(db: Db): Promise<{ criteria: number; packages: number }> {
-  const pk = await db.query<{ id: string }>("select distinct on (id) id from packages where status = 'in-verification' order by id, revision desc");
+async function openCriteria(db: Db, orgId: string): Promise<{ criteria: number; packages: number }> {
+  const pk = await db.query<PackageRow>(
+    `select * from (
+       select distinct on (p.id) p.* from packages p
+         join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $1
+         order by p.id, p.revision desc
+       ) latest where latest.status = 'in-verification'`, [orgId]);
   let criteria = 0;
   let packages = 0;
-  for (const p of pk.rows) {
-    const pkg = await currentPackage(db, p.id);
-    if (!pkg || pkg.status !== "in-verification") continue;
+  for (const pkg of pk.rows) {
     const s = await subjectOf(db, pkg);
     let open: number;
     if (s.preparation) {

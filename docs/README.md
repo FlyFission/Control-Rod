@@ -11,9 +11,12 @@
 - [`adr/`](adr/): architecture decision records, one per decision
 - [threat-model.md](threat-model.md): what Control Rod defends against, and what it cannot
 - [boundary.md](boundary.md): what Control Rod is not, and how it fits inside a QA program
+- [auditing.md](auditing.md): how an auditor samples Control Rod's records and checks a proof offline with `pnpm cr verify`
+- [qa-standards.md](qa-standards.md): how Control Rod's controls line up with 10 CFR 50 Appendix B, NQA-1, ISO 9001 and other quality standards, with the gaps marked (no compliance claim)
 - [crosswalk.md](crosswalk.md): how one control spine serves Software and Capital Projects modes
 - [`sqa/`](sqa/): the software quality assurance package for Control Rod itself
 - [`patterns/`](patterns/): ideas borrowed from other projects, written under the clean-room rule
+- [`research/`](research/): scripted studies of what users need, with inputs, outputs and digests
 - [reading-comfort.md](reading-comfort.md): type, contrast and live-output rules for the web app, and where tests keep them
 
 ## Running and operating it
@@ -34,6 +37,7 @@ Design specifications and implementation plans live in [`superpowers/specs/`](su
 - [Platform buildout specification](superpowers/specs/2026-10-23-platform-buildout-design.md)
 - [Workbench ontology specification](superpowers/specs/2026-10-29-workbench-ontology-design.md), which maps each of its sections to the Platform Plan in its [alignment table](superpowers/specs/2026-10-29-workbench-ontology-design.md#2-platform-plan-alignment)
 - [Guided preparation](superpowers/specs/2026-10-22-guided-preparation-design.md)
+- [Plan approval in runs](superpowers/specs/2026-11-18-plan-approval-design.md): a planning run, a signed plan, then a work run bound to it (proposed)
 - [Multi-provider agents design plan](plan/multi-provider-design-plan.md) and the [handoff](plan/HANDOFF.md) for the work that follows it
 - [Role casting](superpowers/specs/2026-11-16-role-casting-design.md): domain agents per role in both modes, the signed casting sheet that picks each role's model, and the trials that earn a cast (draft; [ADR 0023](adr/0023-role-casting.md) proposed)
 - [Board redesign](superpowers/specs/2026-11-06-board-redesign-design.md), implemented slice by slice from its [plan](superpowers/plans/2026-11-06-board-redesign.md)

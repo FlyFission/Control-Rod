@@ -7,12 +7,13 @@ import {
 } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "./api/client.js";
+import { api, setUnauthorizedHandler } from "./api/client.js";
 import { Shell } from "./components/Shell.js";
 import { useLiveEvents } from "./lib/live.js";
 import { sessionIdentity, watchSessionIdentity } from "./lib/session.js";
 import { CasePage } from "./features/case/CasePage.js";
 import { Board } from "./pages/Board.js";
+import { Compare } from "./pages/Compare.js";
 import { Explore } from "./pages/Explore.js";
 import { Inbox } from "./pages/Inbox.js";
 import { OfficePlace } from "./pages/OfficePlace.js";
@@ -21,10 +22,11 @@ import { Packages } from "./pages/Packages.js";
 import { Policies } from "./pages/Policies.js";
 import { Records } from "./pages/Records.js";
 import { Registers } from "./pages/Registers.js";
-import { Roster } from "./pages/Roster.js";
+import { AgentsRoster } from "./pages/AgentsRoster.js";
 import { SignIn } from "./pages/SignIn.js";
+import { Today } from "./pages/Today.js";
 import { Usage } from "./pages/Usage.js";
-import { Subscriptions } from "./pages/Subscriptions.js";
+import { Setup } from "./pages/Setup.js";
 
 /**
  * Decides between the sign-in page and the app from the session query. Exported so tests can drive
@@ -38,16 +40,25 @@ import { Subscriptions } from "./pages/Subscriptions.js";
 export function SessionGate({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   useEffect(() => watchSessionIdentity(qc), [qc]);
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      void qc.invalidateQueries({ queryKey: ["session"] });
+    });
+    return () => setUnauthorizedHandler(undefined);
+  }, [qc]);
   const session = useQuery({ queryKey: ["session"], queryFn: api.session });
   const signedIn = session.data?.signed_in === true;
   useLiveEvents(signedIn);
-  if (session.isLoading) return <p className="muted center">Loading</p>;
-  if (session.isError || session.data === undefined) {
+  if (session.isLoading && session.data === undefined) return <p className="muted center">Loading</p>;
+  if (session.data === undefined) {
     return (
       <main className="signin">
         <p role="alert" className="error">
           The control plane is not reachable. Start it with pnpm cr start, then reload.
         </p>
+        <button type="button" className="btn" onClick={() => void session.refetch()}>
+          Retry
+        </button>
       </main>
     );
   }
@@ -70,21 +81,29 @@ function Root() {
 
 const rootRoute = createRootRoute({ component: Root });
 
-/** The places (specification 12). "/" is the board; "/board" is its old address. The Inbox stays at /inbox. */
+/** The places (specification 12). "/" is the board; "/board" is its old address. The Inbox stays at /inbox. "/office" is the Plant's old address. */
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: Board }),
   createRoute({ getParentRoute: () => rootRoute, path: "/inbox", component: Inbox }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/office", component: () => <OfficePlace view="office" /> }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/plant", component: () => <OfficePlace view="office" /> }),
+  // The office became the Plant; its old address (the shell's SCRAM banner and the floor link to it) still arrives.
+  createRoute({ getParentRoute: () => rootRoute, path: "/office", beforeLoad: () => { throw redirect({ to: "/plant" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/floor", component: () => <OfficePlace view="floor" /> }),
   createRoute({ getParentRoute: () => rootRoute, path: "/board", beforeLoad: () => { throw redirect({ to: "/" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/packages", component: Packages }),
   createRoute({ getParentRoute: () => rootRoute, path: "/registers", component: Registers }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/explore", component: Explore }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/roster", component: Roster }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/snapshots", component: Explore }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/explore", beforeLoad: () => { throw redirect({ to: "/snapshots" }); } }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/compare", component: Compare }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/today", component: Today }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/setup", component: Setup }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/agents", component: AgentsRoster }),
+  // The Roster and Provider CLIs became one Agents roster; their details sit under its Advanced section.
+  createRoute({ getParentRoute: () => rootRoute, path: "/roster", beforeLoad: () => { throw redirect({ to: "/agents" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/usage", component: Usage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/records", component: Records }),
   createRoute({ getParentRoute: () => rootRoute, path: "/policies", component: Policies }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/settings/subscriptions", component: Subscriptions }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/settings/subscriptions", beforeLoad: () => { throw redirect({ to: "/agents" }); } }),
 ];
 
 const packageRoute = createRoute({
@@ -122,7 +141,20 @@ export function PlaceError({ error, reset }: { error: unknown; reset: () => void
   );
 }
 
-export const router = createRouter({ routeTree, defaultErrorComponent: PlaceError });
+function PlaceNotFound() {
+  return (
+    <div className="place">
+      <h1>Page not found</h1>
+      <p className="muted">That route does not exist in Control Rod.</p>
+    </div>
+  );
+}
+
+export const router = createRouter({
+  routeTree,
+  defaultErrorComponent: PlaceError,
+  defaultNotFoundComponent: PlaceNotFound,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

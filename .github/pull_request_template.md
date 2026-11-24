@@ -12,3 +12,5 @@
 ## Evidence
 
 Tests, red-team cases and requirement IDs this change adds or relies on.
+
+Not tested: what this change could affect that no test, run or review above covered.

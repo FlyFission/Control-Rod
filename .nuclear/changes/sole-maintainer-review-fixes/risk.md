@@ -2,8 +2,8 @@
 
 - **Mode:** Standard
 - Execution owner: Claude Code, as follow-up review work on #97 under the owner's standing instruction to do reversible work without asking.
-- Decision owner: Ben Huffer. Touches trust surfaces: `docs/adr/` (new ADR 0024, a header line in ADR 0001) and `.github/` (the two templates). No workflow, policy, kernel, spec or setting change.
-- Scope: `AGENTS.md`, `CONTRIBUTING.md`, `docs/collaboration.md`, `docs/adr/0001-record-decisions.md`, `docs/adr/0024-sole-maintainer-sign-off.md`, `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/change.yml`, the `readme-shots-lockdown` and `sole-maintainer-signoff` records, and this record.
+- Decision owner: Ben Huffer. Touches trust surfaces: `docs/adr/` (new ADR 0025, a header line in ADR 0001) and `.github/` (the two templates). No workflow, policy, kernel, spec or setting change.
+- Scope: `AGENTS.md`, `CONTRIBUTING.md`, `docs/collaboration.md`, `docs/adr/0001-record-decisions.md`, `docs/adr/0025-sole-maintainer-sign-off.md`, `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/change.yml`, the `readme-shots-lockdown` and `sole-maintainer-signoff` records, and this record.
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|
@@ -23,7 +23,7 @@
 
 ## Exit criteria
 
-RS-01 to RS-04 are met: ADR 0024 records the decision and ADR 0001 points to it, the trust-surface lists match CODEOWNERS, condition 1 names each trust surface, and the screenshot and sign-off records carry their signatures and real CI evidence; CI is green on this change.
+RS-01 to RS-04 are met: ADR 0025 records the decision and ADR 0001 points to it, the trust-surface lists match CODEOWNERS, condition 1 names each trust surface, and the screenshot and sign-off records carry their signatures and real CI evidence; CI is green on this change.
 
 ## Source-lineage note
 

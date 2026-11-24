@@ -1,0 +1,4 @@
+
+> @control-rod/api@0.0.0 typecheck /home/flyfission/worktrees/control-rod-live-fix/services/api
+> tsc -p tsconfig.json --noEmit
+

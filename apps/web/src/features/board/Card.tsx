@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import type { WorkPackage } from "../../api/types.js";
 import type { ColumnId } from "../../lib/board.js";
 import { needsIndependentCheck } from "../../lib/board.js";
 import type { Kind } from "../../lib/kind.js";
 import type { NextLine } from "../../lib/next.js";
+import { showsRunSpinner } from "./boardOrder.js";
 
 const KIND_WORD: Record<Kind, string> = { code: "Code", doc: "Document" };
 const KIND_ICON: Record<Kind, string> = { code: "</>", doc: "☰" };
@@ -49,15 +51,34 @@ export type CardProps = {
   lastKnown?: boolean;
   /** Whether this card is currently open in the Board Review Drawer. */
   selected?: boolean;
+  /** The brief carries the Nuclear context: the card shows one small badge. */
+  nuclear?: boolean;
+  /** The card's actions (primary decision and Move to), shown under the next line. */
+  actions?: ReactNode;
+  /** Left-edge color from the active `colorBy` lens (never a meaning token). */
+  edgeColor?: string;
+  /** Compact density hides avatars and grade/context chips, never the next line. */
+  compact?: boolean;
+  /** An agent run on this card is running now, as last read; queued alone does not count. */
+  runRunning?: boolean;
 };
 
-/** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false }: CardProps) {
+/** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
+  const check = needsIndependentCheck(pkg);
+  const spin = showsRunSpinner({ runRunning, lastKnown }, stream);
   return (
-    <article aria-labelledby={titleId} className={selected ? "bd-card selected" : "bd-card"} data-kind={kinds[0]} data-column={column} data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}>
+    <article
+      aria-labelledby={titleId}
+      className={selected ? "bd-card selected" : "bd-card"}
+      data-kind={kinds[0]}
+      data-column={column}
+      data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}
+      style={edgeColor ? { borderLeftColor: edgeColor } : undefined}
+    >
       <div className="bd-kinds">
         {kinds.map((k) => (
           <span key={k} className="bd-kind" data-kind={k}>
@@ -67,39 +88,47 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
             {KIND_WORD[k]}
           </span>
         ))}
+        <span className="bd-id mono small muted">
+          {pkg.id} r{pkg.revision}
+        </span>
       </div>
       <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
         {pkg.title}
       </button>
-      <span className="bd-id mono small muted">
-        {pkg.id} rev {pkg.revision}
-      </span>
-      <div className="bd-meta">
-        {owner && (
-          <span className="bd-avatar" title={`Owner: ${owner}`}>
-            <span aria-hidden="true">{initials(owner)}</span>
-            <span className="sr-only">Owner {owner}</span>
-          </span>
-        )}
-        {agent && (
-          <span className="bd-avatar bd-agent" title={`Agent: ${agent}`}>
-            <span aria-hidden="true">{initials(agent)}</span>
-            <span className="sr-only">Agent {agent}</span>
-          </span>
-        )}
-        <span className="bd-chip">{pkg.grade ?? "general-service"}</span>
-        {needsIndependentCheck(pkg) && (
-          <span className="bd-check">
-            <span aria-hidden="true">{"◆"} </span>
-            Independent check
-          </span>
-        )}
-      </div>
+      {(!compact || check || nuclear) && (
+        <div className="bd-meta">
+          {!compact && owner && (
+            <span className="bd-avatar" title={`Owner: ${owner}`}>
+              <span aria-hidden="true">{initials(owner)}</span>
+              <span className="sr-only">Owner {owner}</span>
+            </span>
+          )}
+          {!compact && agent && (
+            <span className="bd-avatar bd-agent" title={`Agent: ${agent}`}>
+              <span aria-hidden="true">{initials(agent)}</span>
+              <span className="sr-only">Agent {agent}</span>
+            </span>
+          )}
+          {!compact && pkg.grade && pkg.grade !== "general-service" && <span className="bd-chip">{pkg.grade}</span>}
+          {nuclear && <span className="bd-nuclear">Nuclear</span>}
+          {check && (
+            <span className="bd-check">
+              <span aria-hidden="true">{"◆"} </span>
+              Independent check
+            </span>
+          )}
+        </div>
+      )}
       <p className="bd-next">
         {stream === "live" && lastKnown ? (
           <span className="muted">Last known: {next.text}</span>
         ) : stream === "live" ? (
           <>
+            {spin && (
+              <span className="bd-spin" role="img" aria-label="Agent running">
+                <span aria-hidden="true" />
+              </span>
+            )}
             <span className="bd-sym">
               <span aria-hidden="true">{tone.symbol} </span>
               {tone.word ? <span className="bd-word">{tone.word}: </span> : null}
@@ -112,6 +141,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           <span className="muted">{next.text}</span>
         )}
       </p>
+      {actions}
       {onRetry && stream !== "unknown" && (
         <button type="button" className="btn small bd-retry" onClick={onRetry}>
           Retry

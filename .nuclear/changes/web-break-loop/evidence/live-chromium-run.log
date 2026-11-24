@@ -1,0 +1,28 @@
+
+Running 23 tests using 2 workers
+
+  ✓   2 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes html text literally (791ms)
+  ✓   3 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes script text literally (657ms)
+  ✓   4 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes markdown-js-link text literally (613ms)
+  ✓   5 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes rtl-and-emoji text literally (578ms)
+  ✓   6 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes control-chars text literally (538ms)
+  ✓   7 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes long-word text literally (625ms)
+  ✓   8 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes sql-ish text literally (626ms)
+  ✓   9 [chromium] › e2e/live/break.spec.ts:52:3 › @break inputs › an empty or blank line adds nothing (1.6s)
+  ✓  10 [chromium] › e2e/live/break.spec.ts:65:3 › @break inputs › a pasted list of 40 lines offers one card per line and adds exactly 40 (2.4s)
+  ✓   1 [chromium] › e2e/live/lifecycle.spec.ts:13:3 › @functional card lifecycle › a request goes from a typed line to an accepted package (11.4s)
+  ✓  11 [chromium] › e2e/live/break.spec.ts:89:3 › @break double actions › double clicking Classify starts one intake (4.2s)
+  ✓  13 [chromium] › e2e/live/break.spec.ts:101:3 › @break double actions › double clicking Release signs once and records one release (6.0s)
+  ✓  14 [chromium] › e2e/live/break.spec.ts:120:3 › @break two tabs › a stale tab cannot release twice and learns what happened (5.4s)
+  ✓  15 [chromium] › e2e/live/break.spec.ts:146:3 › @break outages › the network drops while adding a card: the line is kept and nothing is lost or doubled (3.5s)
+  ✓  12 [chromium] › e2e/live/personas.spec.ts:39:3 › @persona › new user with no agents set up tries to get one thing done (22.6s)
+  ✓  16 [chromium] › e2e/live/break.spec.ts:164:3 › @break outages › the control plane restarts: the board says so, recovers without a reload, and work still runs (9.9s)
+  ✓  17 [chromium] › e2e/live/personas.spec.ts:68:3 › @persona › someone juggling eight runs keeps track of what needs them (42.7s)
+  ✓  19 [chromium] › e2e/live/personas.spec.ts:104:3 › @persona › a keyboard-only person adds and classifies a card (865ms)
+  ✓  20 [chromium] › e2e/live/personas.spec.ts:143:3 › @persona › a person on a phone reads the board and adds a card (632ms)
+  ✓  18 [chromium] › e2e/live/break.spec.ts:184:3 › @break outages › the daemon dies mid-run: the run is shown lost, and can be retried to success (1.6m)
+  ✓  21 [chromium] › e2e/live/break.spec.ts:223:3 › @break hostile agent output › an author that writes markup, escapes and a symlink cannot run script or leak files (15.9s)
+  ✓  22 [chromium] › e2e/live/break.spec.ts:256:3 › @break sessions and links › a lost session sends the person to sign in instead of failing silently (903ms)
+  ✓  23 [chromium] › e2e/live/break.spec.ts:270:3 › @break sessions and links › a link to a package that does not exist says so (2.3s)
+
+  23 passed (2.7m)

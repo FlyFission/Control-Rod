@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "FindingLocation.json",
+    "type": "object",
+    "properties": {
+        "path": {
+            "$ref": "FindingPath.json"
+        },
+        "line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "path"
+    ],
+    "unevaluatedProperties": false
+}

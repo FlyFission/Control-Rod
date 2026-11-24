@@ -26,10 +26,10 @@ var runtimeNamePattern = regexp.MustCompile(`case\s+Runtime(Claude|Codex|Fake)\b
 
 func TestRegistry(t *testing.T) {
 	regs := RegisteredAdapters()
-	if len(regs) != 3 {
+	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama, RuntimeFake}
+	if len(regs) != len(wantOrder) {
 		t.Fatalf("registry %d", len(regs))
 	}
-	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeFake}
 	seen := map[string]bool{}
 	var ids []string
 	for _, a := range regs {
@@ -54,7 +54,7 @@ func TestRegistry(t *testing.T) {
 	if !slices.Equal(ids, wantOrder) {
 		t.Fatalf("order %v", ids)
 	}
-	if _, ok := AdapterFor("grok"); ok {
+	if _, ok := AdapterFor("nonexistent-cli"); ok {
 		t.Fatal("unregistered id resolved")
 	}
 
@@ -313,6 +313,9 @@ func TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv(t *testing.T) {
 		if _, err := Command(a.ID(), run, ws, nil, testPaths(ws)); !errors.Is(err, ErrNoPolicy) {
 			t.Fatalf("%s nil policy: %v", a.ID(), err)
 		}
+		if _, waiting := a.(AwaitingConfinement); waiting {
+			continue // refused even with a policy; TestAwaitingConfinementIsRefused covers it
+		}
 		cmd, err := Command(a.ID(), run, ws, testPolicy(), testPaths(ws))
 		if err != nil || cmd == nil {
 			t.Fatalf("%s command: %v", a.ID(), err)
@@ -377,5 +380,40 @@ func TestNoRuntimeNameSwitch(t *testing.T) {
 	}
 	if len(hits) > 0 {
 		t.Fatalf("runtime-name dispatch:\n%s", strings.Join(hits, "\n"))
+	}
+}
+
+// The CLIs Control Rod cannot yet confine are listed but refused before any launch: by the host
+// preflight (so they show as not ready, with the gap as the reason) and by Command itself.
+func TestAwaitingConfinementIsRefused(t *testing.T) {
+	look := func(string) (string, error) { return "/usr/bin/x", nil }
+	for _, id := range []string{RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama} {
+		a, ok := AdapterFor(id)
+		if !ok {
+			t.Fatalf("%s not registered", id)
+		}
+		if _, ok := a.(AwaitingConfinement); !ok {
+			t.Fatalf("%s is not marked as awaiting confinement", id)
+		}
+		if a.Capabilities().NativeSandbox != "none" {
+			t.Fatalf("%s claims a sandbox it does not have: %q", id, a.Capabilities().NativeSandbox)
+		}
+		err := PreflightHost(id, look, nil)
+		var pe *PreflightError
+		if !errors.As(err, &pe) || !strings.Contains(pe.Reason, "cannot run work yet") {
+			t.Fatalf("%s preflight: %v", id, err)
+		}
+		// A verified policy is not enough: Command refuses the runtime for its confinement gap.
+		ws := workspaceWithTools(t, "")
+		cmd, err := Command(id, Run{Role: "author"}, ws, testPolicy(), testPaths(ws))
+		if !errors.As(err, &pe) || !strings.Contains(pe.Reason, "cannot run work yet") || cmd != nil {
+			t.Fatalf("%s Command started without confinement: %v", id, err)
+		}
+	}
+	for _, id := range []string{RuntimeClaude, RuntimeCodex, RuntimeFake} {
+		a, _ := AdapterFor(id)
+		if _, ok := a.(AwaitingConfinement); ok {
+			t.Fatalf("%s is wrongly marked as awaiting confinement", id)
+		}
 	}
 }

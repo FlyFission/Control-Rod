@@ -138,10 +138,52 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 	// A named credential store that is a link, or that holds links, is denied at the real paths
 	// too: hiding the home folder hides the link, not what it points to. The walk follows linked
 	// folders (each real folder once), so a link inside a linked folder is found too.
+	// A target already inside a denied path that does not contain the workspace (for example an
+	// internal symlink inside ~/.codex/packages/node_modules) is already covered by that denial
+	// and does not need to be repeated in the policy argument list.
+	alreadyCovered := func(target string) bool {
+		for _, existing := range out {
+			if at.Workspace != "" && within(at.Workspace, existing) {
+				continue
+			}
+			if within(target, existing) {
+				return true
+			}
+		}
+		return false
+	}
 	visited := map[string]bool{}
 	entries := 0
 	deadline := time.Now().Add(maxStoreWalk)
 	var walk func(dir string) error
+	var walkCanonical func(real string) error
+	walkCanonical = func(real string) error {
+		if visited[real] {
+			return nil
+		}
+		visited[real] = true
+		list, err := os.ReadDir(real)
+		if err != nil {
+			return err
+		}
+		for _, e := range list {
+			entries++
+			if entries > maxStoreEntries || (entries&4095 == 0 && time.Now().After(deadline)) {
+				return fmt.Errorf("more entries than can be checked for links (%d after %s)", entries, maxStoreWalk)
+			}
+			child := filepath.Join(real, e.Name())
+			if e.Type()&os.ModeSymlink != 0 {
+				if err := walk(child); err != nil {
+					return err
+				}
+			} else if e.IsDir() {
+				if err := walkCanonical(child); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	walk = func(dir string) error {
 		real, err := filepath.EvalSymlinks(dir)
 		if err != nil {
@@ -150,36 +192,21 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 			}
 			return err
 		}
+		if real != dir && !alreadyCovered(real) {
+			add(real)
+		}
 		if visited[real] {
 			return nil
-		}
-		visited[real] = true
-		if real != dir {
-			add(real)
 		}
 		fi, err := os.Stat(real)
 		if err != nil {
 			return err
 		}
 		if !fi.IsDir() {
+			visited[real] = true
 			return nil
 		}
-		list, err := os.ReadDir(real)
-		if err != nil {
-			return err
-		}
-		for _, e := range list {
-			if entries++; entries > maxStoreEntries || time.Now().After(deadline) {
-				return fmt.Errorf("more entries than can be checked for links (%d after %s)", entries, maxStoreWalk)
-			}
-			child := filepath.Join(real, e.Name())
-			if e.Type()&os.ModeSymlink != 0 || e.IsDir() {
-				if err := walk(child); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
+		return walkCanonical(real)
 	}
 	for _, d := range slices.Clone(out) {
 		// Named stores in the home folder, and login folders wherever they are. Never the daemon's
@@ -203,7 +230,7 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 // in tens of milliseconds); the bounds stop a link into a huge tree, and the launch then refuses.
 var (
 	maxStoreEntries = 1_000_000
-	maxStoreWalk    = 5 * time.Second
+	maxStoreWalk    = 15 * time.Second
 )
 
 // LoginLocations are where the CLIs keep their logins, wherever they really are: the folders the
@@ -374,14 +401,21 @@ var CodexDisabledFeatures = []string{
 
 // CodexSafeFeatures may stay enabled: they change how Codex talks to its own provider or renders
 // output, not what an agent action can reach.
+// The nine features Codex 0.171.0 added (code_mode_host_grpc, code_mode_host_output_truncation,
+// guardian_include_additional_context, incremental_tools_legacy, incremental_tools_legacy_gcp,
+// retain_client_tool_outputs, tui_workspace, unified_image_budget, untrusted_as_tool_output) were
+// read in codex-rs/features/src/lib.rs at rust-v0.171.0: transport, context rendering, image
+// budgets, Bedrock/GCP tool publishing and TUI-only behavior; none adds a tool or reach (change
+// record codex-0171-mac-install, evidence/codex-0.171.0-features.md).
 var CodexSafeFeatures = []string{
 	"api_key_cyber_access_programs", "api_key_model_discovery", "auth_elicitation", "bedrock_setup_wizard",
-	"browser_annotation_api", "cli_daybreak", "code_mode_host", "code_mode_interrupt", "compaction_image_budget",
-	"content_item_kinds", "enable_request_compression", "fast_mode", "guardian_reuse_parent_compaction",
+	"browser_annotation_api", "cli_daybreak", "code_mode_host", "code_mode_host_grpc", "code_mode_host_output_truncation", "code_mode_interrupt", "compaction_image_budget",
+	"content_item_kinds", "enable_request_compression", "fast_mode", "guardian_include_additional_context", "guardian_reuse_parent_compaction",
 	"in_app_chat", "in_app_dictation", "in_app_updates", "in_app_voice", "incremental_tools",
+	"incremental_tools_legacy", "incremental_tools_legacy_gcp",
 	"instant_interrupt", "mcp_oauth_refresh_coordination", "mentions_v2", "prediction_preserve_parent_tools",
-	"reasoning_effort_override", "shell_tool", "sleep_tool", "system_proxy_fallback", "ultrafast_mode",
-	"unbounded_connection_retries", "unified_exec", "unified_exec_tty", "write_stdin_approval",
+	"reasoning_effort_override", "retain_client_tool_outputs", "shell_tool", "sleep_tool", "system_proxy_fallback", "tui_workspace", "ultrafast_mode",
+	"unbounded_connection_retries", "unified_exec", "unified_exec_tty", "unified_image_budget", "untrusted_as_tool_output", "write_stdin_approval",
 }
 
 // CodexPolicyArgs is Codex's permission profile for a run, passed as overrides so the user's
@@ -391,6 +425,10 @@ var CodexSafeFeatures = []string{
 // environment, and never ask to run unsandboxed. sandbox_mode is never set, because Codex ignores
 // a permission profile whenever it is.
 func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
+	return codexPolicyArgsFor(nil, p, at)
+}
+
+func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 	if len(p.AllowedHosts) > 0 {
 		return nil, errors.New("Codex cannot limit an agent's network to named hosts, so it cannot run under this policy")
 	}
@@ -401,7 +439,21 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 			return nil, fmt.Errorf("Codex cannot run without its %s tool, so it cannot run under this policy", t)
 		}
 	}
+	checker := ws != nil && ws.Checker
 	fs := map[string]string{":slash_tmp": "read", ":tmpdir": "read"}
+	if checker {
+		// A checker workspace is mounted read-only by Control Rod's outer bwrap, with only scratch
+		// writable. Explicitly declaring :root=read + ws.Dir=read + scratch=write (instead of
+		// extends=":workspace") avoids Codex's nested bwrap attempting to mkdir protected dotdirs
+		// on a read-only workspace while keeping every denied host path blocked.
+		fs[":root"] = "read"
+		if ws.Dir != "" {
+			fs[ws.Dir] = "read"
+		}
+		if ws.Scratch != "" {
+			fs[ws.Scratch] = "write"
+		}
+	}
 	for _, d := range outermost(p.Denied(at)) {
 		fs[d] = "deny"
 	}
@@ -417,8 +469,12 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 	args := []string{
 		"--ignore-user-config", "--ignore-rules", "--ephemeral",
 		"-c", `default_permissions="control-rod"`,
-		"-c", `permissions.control-rod.extends=":workspace"`,
-		"-c", "permissions.control-rod.filesystem={" + strings.Join(inline, ",") + "}",
+	}
+	if !checker {
+		args = append(args, "-c", `permissions.control-rod.extends=":workspace"`)
+	}
+	args = append(args,
+		"-c", "permissions.control-rod.filesystem={"+strings.Join(inline, ",")+"}",
 		"-c", "permissions.control-rod.network.enabled=false",
 		"-c", `approval_policy="never"`,
 		// Hosted web search is a provider-side tool outside the command sandbox (ADR 0021: off).
@@ -426,7 +482,7 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 		// Notification commands run outside the sandbox when a turn ends: none.
 		"-c", "notify=[]",
 		"-c", `shell_environment_policy.inherit="core"`,
-	}
+	)
 	for _, f := range CodexDisabledFeatures {
 		args = append(args, "--disable", f)
 	}
@@ -477,15 +533,14 @@ func withoutWindowsDrives(path string) string {
 }
 
 // QualifiedPlatform says whether the native sandbox launch has been qualified on this host's
-// platform. Only WSL2 has been (evidence/phase6); ADR 0021 claims macOS and native Linux only once
-// the qualification passes there, so a runtime is not offered on them until then.
+// platform (ADR 0021, per platform). WSL2 was first (evidence/phase6); native Linux and macOS passed
+// the same launch qualification with the same pinned CLIs (.nuclear/changes/mac-linux-agents/). Any
+// other platform is refused until the qualification passes there.
 func QualifiedPlatform() error {
-	if runtime.GOOS == "linux" {
-		if b, err := os.ReadFile("/proc/sys/kernel/osrelease"); err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft") {
-			return nil
-		}
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		return nil
 	}
-	return fmt.Errorf("the agent sandbox is qualified only on WSL2 so far, not on %s; run the qualification here (spikes/runtime-confinement) before it is offered", platformName())
+	return fmt.Errorf("the agent sandbox is qualified on WSL2, native Linux and macOS, not on %s; run the qualification here (spikes/runtime-confinement) before it is offered", platformName())
 }
 
 func platformName() string {
@@ -526,6 +581,37 @@ func hostLabel(rt string) string {
 // platformCheck is QualifiedPlatform; tests replace it to exercise the rest of the preflight anywhere.
 var platformCheck = QualifiedPlatform
 
+// sandboxCheck runs bubblewrap once, on Linux and WSL2, the way both CLIs' sandboxes use it (a new
+// user and network namespace over a read-only root), so a host where it is installed but cannot
+// create a sandbox is refused with the fix before any run, not when the CLI starts. Ubuntu 24.04
+// and later block it by default. Tests replace it.
+var sandboxCheck = bubblewrapWorks
+
+func bubblewrapWorks(lookPath func(string) (string, error)) error {
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+	bwrap, err := lookPath("bwrap")
+	if err != nil {
+		return nil // HostNeeds names the missing program and its fix
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, bwrap, "--unshare-user", "--unshare-net", "--ro-bind", "/", "/", "--dev", "/dev", "true").CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	why := strings.TrimSpace(string(out))
+	if why == "" {
+		why = err.Error()
+	}
+	return refuse("bubblewrap is installed but cannot create a sandbox here (%s). This usually means unprivileged user namespaces are turned off, which Ubuntu 24.04 and later do by default. %s.", why, bubblewrapFix)
+}
+
+// bubblewrapFix is the narrow fix: an AppArmor profile that lets bubblewrap alone create user
+// namespaces (docs/daemon.md, "Linux setup").
+const bubblewrapFix = "Allow it for bubblewrap only: see \"Linux setup\" in docs/daemon.md"
+
 // HostNeed is one program a sandbox needs, with the fix when it is missing.
 type HostNeed struct {
 	Program string
@@ -550,6 +636,11 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 	if err := PreflightHost(rt, lookPath, managedCodexConfig); err != nil {
 		return err
 	}
+	if a, ok := AdapterFor(rt); ok && a.SandboxRequired() {
+		if err := sandboxCheck(lookPath); err != nil {
+			return err
+		}
+	}
 	// Bounded like the probe's own commands, so a hung CLI makes its runtime unavailable rather than
 	// holding the daemon's start.
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
@@ -572,6 +663,11 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 func PreflightHost(rt string, lookPath func(string) (string, error), managedCodexConfig []string) error {
 	if a, ok := AdapterFor(rt); ok && !a.SandboxRequired() {
 		return nil
+	}
+	if a, ok := AdapterFor(rt); ok {
+		if err := confinementRefusal(a); err != nil {
+			return err
+		}
 	}
 	if err := platformCheck(); err != nil {
 		return refuse("%s", err.Error())
@@ -636,27 +732,33 @@ func managedWidening(path string) (string, error) {
 	if _, err := toml.Decode(string(b), &doc); err != nil {
 		return "", err
 	}
-	var find func(m map[string]any, at string) string
-	find = func(m map[string]any, at string) string {
-		keys := make([]string, 0, len(m))
-		for k := range m {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			if widening[k] {
-				return at + k
+	var find func(value any, at string) string
+	find = func(value any, at string) string {
+		switch v := value.(type) {
+		case map[string]any:
+			keys := make([]string, 0, len(v))
+			for k := range v {
+				keys = append(keys, k)
 			}
-			switch v := m[k].(type) {
-			case map[string]any:
-				if f := find(v, at+k+"."); f != "" {
+			sort.Strings(keys)
+			for _, k := range keys {
+				if widening[k] {
+					return at + k
+				}
+				if f := find(v[k], at+k+"."); f != "" {
 					return f
 				}
-			case []map[string]any:
-				for _, t := range v {
-					if f := find(t, at+k+"."); f != "" {
-						return f
-					}
+			}
+		case []map[string]any:
+			for _, t := range v {
+				if f := find(t, at); f != "" {
+					return f
+				}
+			}
+		case []any:
+			for _, t := range v {
+				if f := find(t, at); f != "" {
+					return f
 				}
 			}
 		}
@@ -713,14 +815,19 @@ func CodexEffectiveFeatures(ctx context.Context) (string, error) {
 		args = append(args, "--disable", f)
 	}
 	// Binary() is the PATH name. For Codex it is the same string as the runtime id.
-	a, err := resolveArtifact(codexAdapter{}.Binary())
+	// Resolve and hash again here, as before: this runs with the daemon's own permissions, so it
+	// runs only an executable the resolver accepts now, and only if it is the one the probe found.
+	a, ok, err := preflightArtifact(ctx, codexAdapter{}.Binary())
+	if !ok {
+		a, err = resolveArtifact(codexAdapter{}.Binary())
+	}
 	if err != nil {
 		return "", err
 	}
 	c, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(c, a.Path, args...)
-	cmd.Env = append(append(AgentEnv(os.Environ()), a.Env...), "CODEX_HOME="+tmp)
+	cmd.Env = withEnv(append(AgentEnv(os.Environ()), a.Env...), "CODEX_HOME="+tmp)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

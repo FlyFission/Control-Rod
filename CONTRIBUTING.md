@@ -4,7 +4,7 @@ Thank you for your interest in Control Rod. The project is pre-alpha, and the fo
 
 ## Current status
 
-Outside code contributions open after Phase 1, once the kernel and its tests exist. Before then we will publish a contributor license agreement, so the project can keep its open-core licensing options. Issues and discussion are welcome now, especially reports of ways an agent could get around a control.
+Outside code contributions are governed by [docs/collaboration.md](docs/collaboration.md) and Apache License 2.0 with DCO sign-off. The kernel, control plane, daemon, and test suites exist in `main`; issues and discussion are welcome, especially reports of ways an agent could bypass a control.
 
 ## If you have been invited to build
 

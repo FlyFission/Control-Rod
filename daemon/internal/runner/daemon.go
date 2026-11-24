@@ -11,20 +11,26 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
 )
 
 // Config is everything the daemon needs. The token is held here and in the client only.
 type Config struct {
-	API          string
-	Token        string
+	API   string
+	Token string
+	// TokenFile is set when Token was read from a file; the client re-reads it after a 401.
+	TokenFile    string
 	Home         string
 	Parallel     int
 	Timeout      time.Duration
@@ -71,6 +77,16 @@ type Config struct {
 	Container *Container
 	// Breaker sets the runaway breaker's thresholds; nil means DefaultBreakerPolicy.
 	Breaker *BreakerPolicy
+	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts, never
+	// on a timer; nil turns the check off. The daemon only reports what it finds: it never installs.
+	UpdateCheck func(ctx context.Context) []agentupdate.Status
+	// UpdateCheckOff says the person turned the check off. The daemon then reports an empty list on
+	// its claims, so an update an earlier daemon reported is cleared rather than shown forever.
+	UpdateCheckOff bool
+	// UpdateStamp says what an agent's binary on PATH is now (agentupdate.Stamp). Before each claim
+	// the cached report drops any agent whose binary changed since the check read its version, so an
+	// update installed while the daemon runs is never offered again. nil skips that.
+	UpdateStamp func(binary string) string
 }
 
 // RunCeiling is the longest a run lasts in this daemon: its timeout, then the graceful stop ladder
@@ -89,6 +105,14 @@ func Home(getenv func(string) string) (string, error) {
 		return "", fmt.Errorf("find home directory: %w", err)
 	}
 	return filepath.Join(dir, ".controlrod"), nil
+}
+
+// TokenFile is the file Token read, or "" when the token came from CONTROLROD_DAEMON_TOKEN.
+func TokenFile(getenv func(string) string, home string) string {
+	if strings.TrimSpace(getenv("CONTROLROD_DAEMON_TOKEN")) != "" {
+		return ""
+	}
+	return filepath.Join(home, "daemon.token")
 }
 
 // Token returns CONTROLROD_DAEMON_TOKEN, or the contents of <home>/daemon.token.
@@ -118,8 +142,11 @@ type Daemon struct {
 	// quit ends when Run is asked to stop; completion retries stop waiting then.
 	quit context.Context
 
-	probeMu       sync.Mutex
-	status        []RuntimeStatus
+	probeMu sync.Mutex
+	status  []RuntimeStatus
+	// probeTimeouts counts, per runtime, the probe passes in a row it was held ready through a
+	// timeout (holdThroughTimeout).
+	probeTimeouts map[string]int
 	subscriptions *SubscriptionReport
 
 	activeMu    sync.Mutex
@@ -130,6 +157,8 @@ type Daemon struct {
 	ns string
 	// retry spaces out outbox deliveries and evidence reports that keep failing.
 	retry *retryGate
+	// updates is what the startup agent-update check found.
+	updates agentUpdates
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -195,7 +224,11 @@ func New(cfg Config) *Daemon {
 	ns := Namespace(cfg.Home)
 	k := *cfg.Container
 	k.NS = ns
-	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home),
+	client := NewClient(cfg.API, cfg.Token)
+	if cfg.TokenFile != "" {
+		client.WithTokenFile(cfg.TokenFile)
+	}
+	return &Daemon{cfg: cfg, client: client, log: cfg.Logger, outbox: NewOutbox(cfg.Home),
 		receipts: NewReceipts(cfg.Home), container: k, ns: ns, quit: context.Background(),
 		retry: newRetryGate(cfg.OutboxInterval, max(cfg.RetryLimit, cfg.OutboxInterval))}
 }
@@ -234,7 +267,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel, "containment", d.container.Mode)
 	if d.container.Mode != ContainCgroup {
-		d.log.Warn("runs are contained by process group only: a process that leaves its group is not tracked. Cgroup containment needs Linux with a systemd user manager.")
+		if runtime.GOOS == "linux" {
+			d.log.Warn("runs are contained by process group only: a process that leaves its group is not tracked. Cgroup containment needs Linux with a systemd user manager.")
+		} else {
+			// Cgroups are Linux only: on macOS the process group is the containment, as qualified.
+			d.log.Info("runs are tracked by process group on this platform (cgroup containment is Linux only)")
+		}
 	}
 	d.quit = ctx
 	// One daemon per home: two would each treat the other's runs as orphans.
@@ -246,6 +284,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.sweepOrphans(ctx)
 	d.probe(ctx)
 	go d.probeLoop(ctx)
+	if d.cfg.UpdateCheck != nil {
+		go d.checkAgentUpdates(ctx)
+	} else if d.cfg.UpdateCheckOff {
+		d.updates.set(nil)
+	}
 	outboxDone := make(chan struct{})
 	go func() { d.outboxLoop(ctx); close(outboxDone) }()
 	jobsCtx, cancelJobs := context.WithCancelCause(context.Background())
@@ -262,7 +305,7 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport())
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport(), d.updates.report(d.cfg.UpdateStamp)...)
 		if job != nil {
 			job.claimSent = claimSent
 		}
@@ -299,7 +342,9 @@ claim:
 		<-done
 	}
 	<-outboxDone
-	d.drainOutbox(context.Background())
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	d.drainOutbox(drainCtx)
+	drainCancel()
 	d.log.Info("daemon stopped")
 	return nil
 }
@@ -337,35 +382,113 @@ func (d *Daemon) preflight(ctx context.Context, rt string) error {
 // probe checks every runtime found on PATH and logs, in one plain sentence each, any that is
 // not ready or has become ready again. Only ready runtimes are offered for work.
 func (d *Daemon) probe(ctx context.Context) {
+	d.probeMu.Lock()
+	last := map[string]RuntimeStatus{}
+	for _, s := range d.status {
+		last[s.Runtime] = s
+	}
+	d.probeMu.Unlock()
 	next := make([]RuntimeStatus, 0, len(d.cfg.Runtimes))
+	held := map[string]bool{}
 	for _, rt := range d.cfg.Runtimes {
 		st := Probe(ctx, rt, d.cfg.Version, d.cfg.Probe)
+		if h, ok := d.holdThroughTimeout(rt, st, last[rt]); ok {
+			next = append(next, h)
+			held[rt] = true
+			continue
+		}
 		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
 		if st.Ready {
-			if err := d.preflight(ctx, rt); err != nil {
+			if err := d.preflight(preflightContext(ctx, st), rt); err != nil {
 				st.Ready, st.Reason = false, err.Error()
 			}
 		}
 		next = append(next, st)
 	}
-	report := SubscriptionFromStatuses(next, CurrentPlatform(), os.Getenv)
 	d.probeMu.Lock()
 	prev := map[string]bool{}
 	for _, s := range d.status {
 		prev[s.Runtime] = s.Ready
+		// A held status is the one read before this pass. If a launch withdrew the runtime since
+		// (markNotReady), the withdrawal stands until a probe answers.
+		if held[s.Runtime] && !s.Ready {
+			for i := range next {
+				if next[i].Runtime == s.Runtime {
+					next[i] = s
+				}
+			}
+		}
 	}
 	d.status = next
+	for _, s := range next {
+		// Logged only after a withdrawal during the pass has been kept, so the line is true.
+		if held[s.Runtime] && s.Ready {
+			d.log.Info(displayName(s.Runtime)+" did not answer its probe in time; it stays offered until the next probe, which must answer.", "runtime", s.Runtime)
+		}
+	}
+	report := SubscriptionFromStatuses(next, CurrentPlatform())
 	d.subscriptions = &report
 	d.probeMu.Unlock()
+	var notYet []string
 	for _, s := range next {
 		was, seen := prev[s.Runtime]
 		switch {
+		case !s.Ready && !seen && awaitingConfinement(s.Runtime):
+			// Expected: detected, never started until its sandbox exists. One line for all of them.
+			notYet = append(notYet, displayName(s.Runtime))
 		case !s.Ready && (!seen || was):
-			d.log.Warn(s.Reason+". It is not offered for work.", "runtime", s.Runtime)
+			d.log.Warn(strings.TrimRight(s.Reason, ".")+". It is not offered for work.", "runtime", s.Runtime)
 		case s.Ready && seen && !was:
 			d.log.Info(s.Runtime+" is ready again and offered for work.", "runtime", s.Runtime, "version", s.Version)
 		}
 	}
+	if len(notYet) > 0 {
+		d.log.Info("found " + strings.Join(notYet, ", ") + ": not supported yet, so never started until Control Rod can sandbox them")
+	}
+}
+
+// probeTimeoutGrace is how many probe passes in a row a ready runtime may time out and still be
+// offered for work. One slow pass (a host under load, a CLI updating itself) does not take a
+// runtime away; a second one does. Any answer that says the runtime is not ready, a sign-out
+// included, takes it away at once.
+const probeTimeoutGrace = 1
+
+// holdThroughTimeout returns the runtime's last ready status when this pass only timed out and the
+// grace is not used up. It reports false, and resets the count, in every other case.
+func (d *Daemon) holdThroughTimeout(rt string, st, last RuntimeStatus) (RuntimeStatus, bool) {
+	d.probeMu.Lock()
+	defer d.probeMu.Unlock()
+	if d.probeTimeouts == nil {
+		d.probeTimeouts = map[string]int{}
+	}
+	// A new executable (a different digest from the one that was ready) is not the runtime that was
+	// offered; it must answer before it is offered.
+	changed := st.Artifact != nil && last.Artifact != nil && st.Artifact.Digest.Value != last.Artifact.Digest.Value
+	if st.Ready || !st.timedOut || !last.Ready || changed || d.probeTimeouts[rt] >= probeTimeoutGrace {
+		if st.Ready || !st.timedOut {
+			delete(d.probeTimeouts, rt)
+		}
+		return RuntimeStatus{}, false
+	}
+	d.probeTimeouts[rt]++
+	return last, true
+}
+
+// awaitingConfinement reports whether a runtime is detected but never started (AwaitingConfinement).
+func awaitingConfinement(rt string) bool {
+	a, ok := AdapterFor(rt)
+	if !ok {
+		return false
+	}
+	_, waiting := a.(AwaitingConfinement)
+	return waiting
+}
+
+func displayName(rt string) string {
+	if a, ok := AdapterFor(rt); ok {
+		return a.DisplayName()
+	}
+	return rt
 }
 
 // markNotReady withdraws a runtime from offers without running anything, until the next probe.
@@ -471,7 +594,7 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 		if !d.retry.due(key, time.Now()) {
 			continue
 		}
-		done, err := d.deliver(e)
+		done, err := d.deliver(e, true)
 		switch {
 		case done:
 			d.retry.forget(key)
@@ -484,12 +607,24 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 
 // deliver sends one completion. It returns true when the control plane recorded it or refused
 // it for good; either way the entry leaves the outbox. A transient failure returns its error; an
-// entry another goroutine is sending returns false with no error.
-func (d *Daemon) deliver(e OutboxEntry) (bool, error) {
+// entry another goroutine is sending returns false with no error. A persisted entry may
+// already have been settled since the caller read it.
+func (d *Daemon) deliver(e OutboxEntry, persisted bool) (bool, error) {
 	if !d.outbox.take(e.RunID) {
 		return false, nil
 	}
 	defer d.outbox.release(e.RunID)
+	if persisted {
+		path, err := d.outbox.path(e.RunID)
+		if err != nil {
+			return false, err
+		}
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			return true, nil
+		} else if err != nil {
+			return false, err
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	receipt, err := d.client.Complete(ctx, e.RunID, e.Completion)
@@ -684,6 +819,120 @@ func copyRunOutputs(a Adapter, ws *Workspace, buf *logBuffer) error {
 	return copier.CopyOutputs(ws)
 }
 
+var startEgressFilter = StartEgressFilter
+
+// runtimeProviderHosts returns the model-provider endpoint hosts for runtime
+// from the embedded model registry (models.json), without mutating any policy.
+func runtimeProviderHosts(runtime string) []string {
+	if runtime == "" {
+		return nil
+	}
+	reg, err := DefaultModels()
+	if err != nil {
+		return nil
+	}
+	var hosts []string
+	for _, m := range reg.Models {
+		if m.Harness == runtime {
+			hosts = append(hosts, m.Hosts...)
+		}
+	}
+	return hosts
+}
+
+// authorEgressHosts returns the host:port allowlist for an author egress filter.
+// When a sandbox policy is present, its AllowedHosts are combined with the
+// runtime's own model-provider endpoint hosts (without mutating the policy).
+// When sandbox is nil, local Ollama defaults are included alongside any provider hosts.
+func authorEgressHosts(runtime string, sandbox *SandboxPolicy) []string {
+	seen := map[string]bool{}
+	var hosts []string
+	add := func(raw string) {
+		h := strings.TrimSpace(raw)
+		if h == "" {
+			return
+		}
+		if _, _, err := net.SplitHostPort(h); err != nil {
+			h = net.JoinHostPort(strings.Trim(h, "[]"), "443")
+		}
+		key := strings.ToLower(h)
+		if !seen[key] {
+			seen[key] = true
+			hosts = append(hosts, h)
+		}
+	}
+	if sandbox != nil {
+		for _, h := range sandbox.AllowedHosts {
+			add(h)
+		}
+	} else {
+		for _, h := range []string{"127.0.0.1:11434", "localhost:11434"} {
+			add(h)
+		}
+	}
+	for _, h := range runtimeProviderHosts(runtime) {
+		add(h)
+	}
+	for _, h := range harnessSignInHosts[runtime] {
+		add(h)
+	}
+	return hosts
+}
+
+// harnessSignInHosts are the hosts a harness reaches when it runs on the person's
+// subscription sign-in instead of an API key. Codex signed in with ChatGPT sends model
+// traffic to chatgpt.com (backend-api/codex) and refreshes its token at auth.openai.com,
+// neither of which is a model endpoint in models.json. Without them the default-on egress
+// filter blocks a ChatGPT-signed-in Codex on its first run.
+var harnessSignInHosts = map[string][]string{
+	"codex": {"chatgpt.com", "auth.openai.com"},
+}
+
+// setProxyEnv removes any case-insensitive HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, and NO_PROXY
+// entries so parent environment variables cannot bypass the egress filter, then
+// injects both uppercase and lowercase HTTP_PROXY/HTTPS_PROXY.
+func setProxyEnv(env []string, proxyURL string) []string {
+	out := make([]string, 0, len(env)+4)
+	for _, kv := range env {
+		k, _, ok := strings.Cut(kv, "=")
+		if ok && (strings.EqualFold(k, "HTTP_PROXY") || strings.EqualFold(k, "HTTPS_PROXY") || strings.EqualFold(k, "ALL_PROXY") || strings.EqualFold(k, "NO_PROXY")) {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return append(out,
+		"HTTP_PROXY="+proxyURL,
+		"http_proxy="+proxyURL,
+		"HTTPS_PROXY="+proxyURL,
+		"https_proxy="+proxyURL,
+	)
+}
+
+func egressFilterEnabled(runtime string) bool {
+	v := strings.TrimSpace(os.Getenv("CONTROLROD_EGRESS_FILTER"))
+	a, ok := AdapterFor(runtime)
+	if !ok || !a.SandboxRequired() {
+		return v == "1" || strings.EqualFold(v, "true")
+	}
+	return v != "0" && !strings.EqualFold(v, "false")
+}
+
+// wireAuthorEgressFilter starts the local HTTP/CONNECT egress proxy and injects
+// proxy env vars into cmd.Env for author runs. Real runtimes enable it by default
+// (unless CONTROLROD_EGRESS_FILTER=0/false); fake runtime stays opt-in (=1).
+// Checker runs and nil commands are skipped.
+func wireAuthorEgressFilter(runtime string, cmd *exec.Cmd, ws *Workspace, sandbox *SandboxPolicy) (*EgressFilter, error) {
+	if cmd == nil || ws == nil || ws.Checker || !egressFilterEnabled(runtime) {
+		return nil, nil
+	}
+	ef, err := startEgressFilter(authorEgressHosts(runtime, sandbox))
+	if err != nil {
+		return nil, fmt.Errorf("start author egress filter: %w", err)
+	}
+	cmd.Env = setProxyEnv(cmd.Env, "http://"+ef.Addr())
+	return ef, nil
+}
+
 func (b *logBuffer) normalize(line string, now time.Time) []Event {
 	if b.adapt != nil {
 		return b.adapt.Normalize(line, now)
@@ -760,17 +1009,27 @@ func (b *logBuffer) addEvents(events []Event) {
 	if b.breaker != nil {
 		verdict = b.breaker.Observe(events, now)
 	}
+	at := now.UTC().Format(time.RFC3339Nano)
+	// Admission and indexing use the same order across both output streams.
+	b.mu.Lock()
 	if b.admit != nil {
 		events = b.admit.Admit(events, now)
 	}
-	at := now.UTC().Format(time.RFC3339Nano)
 	for _, w := range verdict.Warnings {
 		events = append(events, Event{Kind: EvNotice, At: at, Text: "Breaker warning: " + w})
 	}
 	if verdict.Trip != "" {
 		events = append(events, Event{Kind: EvNotice, At: at, Text: "Breaker tripped: " + verdict.Trip + ". The run is being stopped."})
 	}
-	b.mu.Lock()
+	b.appendEventsLocked(events)
+	b.mu.Unlock()
+	if verdict.Trip != "" && b.onTrip != nil {
+		b.onTrip(verdict.Trip)
+	}
+}
+
+// appendEventsLocked assigns indexes to events already admitted, including final verdicts.
+func (b *logBuffer) appendEventsLocked(events []Event) {
 	for i := range events {
 		events[i].idx = b.nextIdx
 		b.nextIdx++
@@ -782,10 +1041,6 @@ func (b *logBuffer) addEvents(events []Event) {
 		b.events = b.events[over:]
 	}
 	b.dirty = true
-	b.mu.Unlock()
-	if verdict.Trip != "" && b.onTrip != nil {
-		b.onTrip(verdict.Trip)
-	}
 }
 
 func (b *logBuffer) reportedModel() string {
@@ -862,15 +1117,18 @@ func (b *logBuffer) sent(batch LogBatch) {
 }
 
 // leftEvents takes the events no post delivered, for the completion: the newest consecutive run
-// of at most MaxEventBatch (the exit event is last), placed by the index of its first. Older ones
-// left out show as a gap, which the control plane records as dropped.
-func (b *logBuffer) leftEvents() ([]Event, int) {
+// of at most MaxEventBatch, including any checker notices and verdicts appended at completion.
+// Older events left out show as a gap, which the control plane records as dropped.
+func (b *logBuffer) leftEvents(final ...Event) ([]Event, int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if len(final) > 0 {
+		b.appendEventsLocked(final)
+	}
 	events := b.events
 	b.events = nil
 	if len(events) == 0 {
-		return nil, 0
+		return nil, b.nextIdx
 	}
 	start := len(events) - 1
 	for start > 0 && len(events)-start < MaxEventBatch && events[start-1].idx == events[start].idx-1 {
@@ -879,14 +1137,18 @@ func (b *logBuffer) leftEvents() ([]Event, int) {
 	return events[start:], events[start].idx
 }
 
-// putBackEvents returns a failed batch's events to the front of the buffer.
+// putBackEvents returns a failed batch's events to the front of the buffer, capped at maxHeldEvents.
 func (b *logBuffer) putBackEvents(events []Event) {
 	if len(events) == 0 {
 		return
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.events = append(append(make([]Event, 0, len(events)+len(b.events)), events...), b.events...)
+	merged := append(append(make([]Event, 0, len(events)+len(b.events)), events...), b.events...)
+	if len(merged) > maxHeldEvents {
+		merged = merged[len(merged)-maxHeldEvents:]
+	}
+	b.events = merged
 	b.dirty = true
 }
 
@@ -936,7 +1198,7 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 				buf.putBack(batch.Lines)
 				buf.putBackEvents(batch.Events)
 				stop(errOutOfContact)
-				continue
+				return
 			}
 			postCtx, cancelPost := context.WithDeadline(ctx, end)
 			reply, err := d.client.Log(postCtx, job.Run.ID, batch)
@@ -1013,14 +1275,15 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	if errors.Is(err, ErrUncontained) {
 		// Not over: keep the receipt and send nothing. The lease lapses, the control plane holds the
 		// outcome as unknown, and the orphan sweep keeps trying until the unit is confirmed empty.
-		d.log.Error("processes of the run could not be confirmed stopped; keeping its receipt and sending no completion", "run", job.Run.ID)
+		d.log.Error("run completion withheld because its processes could not be confirmed stopped", "run", job.Run.ID, "err", err)
 		return
 	}
 	comp.ClaimToken = job.Claim.Token
 	comp.IdempotencyKey = newKey()
 	e := OutboxEntry{RunID: job.Run.ID, Completion: comp}
-	if err := d.outbox.Put(e); err != nil {
-		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", err)
+	putErr := d.outbox.Put(e)
+	if putErr != nil {
+		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", putErr)
 	} else {
 		// The completion is now in durable custody; the spawn receipt has done its job. If the outbox
 		// write failed the receipt stays, so a restart can still report the exit.
@@ -1028,7 +1291,7 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	}
 	wait := d.cfg.RetryBase
 	for attempt := 1; ; attempt++ {
-		done, err := d.deliver(e)
+		done, err := d.deliver(e, putErr == nil)
 		if done {
 			return
 		}
@@ -1067,6 +1330,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	a, ok := AdapterFor(runtime)
 	if !ok {
 		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
+	}
+	if job.Run.Role == "pre-check" && a.SandboxRequired() && resolvedModel(job.Run, job.RuntimePin) == "" {
+		return fail("the control plane did not bind a concrete checker model, so the check cannot start"), nil
 	}
 	// The sandbox (ADR 0021; plan tasks 6.1 and 6.3): an agent CLI starts only under the run's
 	// verified policy, on a host that can hold it, checked again now without running the CLI (its
@@ -1204,10 +1470,18 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			launched = &verified.Digest
 		}
 	}
+	if err == nil {
+		var ef *EgressFilter
+		ef, err = wireAuthorEgressFilter(runtime, cmd, ws, sandbox)
+		if ef != nil {
+			defer ef.Close()
+		}
+	}
 	var (
 		deliverableBefore string
 		cwdBefore         map[string]string
 		checkerReady      bool
+		admittedArgs      []string
 	)
 	if err == nil && ws.Checker {
 		var herr error
@@ -1237,6 +1511,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		if err == nil && cmd != nil {
 			if aerr := CheckerAdmissionJob(job, cmd, launched); aerr != nil {
 				err = aerr
+			} else {
+				admittedArgs = slices.Clone(cmd.Args)
 			}
 		}
 		if err == nil && cmd != nil {
@@ -1285,7 +1561,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					}
 					r, rerr := NewReceipt(job.Run.ID, job.Claim.Token, pid, max(job.Run.Generation, 1), u)
 					if errors.Is(rerr, ErrNoIdentity) {
-						d.log.Warn("no process identity on this platform; the run can only be stopped by this daemon", "run", job.Run.ID)
+						d.log.Warn("no process identity on this platform; ending the launch", "run", job.Run.ID)
+						if u.Mode == ContainCgroup {
+							return &SpawnReceipt{Containment: u.Mode, Unit: u.Name, Cgroup: u.Cgroup, PGID: pid}, rerr
+						}
 						return nil, nil
 					}
 					if rerr != nil {
@@ -1353,15 +1632,12 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		}
 		buf.sent(batch)
 	}
-	leftover, leftFrom := buf.leftEvents()
 	if errors.Is(err, ErrUncontained) {
-		return Completion{}, ErrUncontained
+		return Completion{}, err
 	}
 
-	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}, Events: leftover}
-	if len(leftover) > 0 {
-		comp.EventsFrom = leftFrom
-	}
+	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
+	var finalEvents []Event
 	switch {
 	case cmd == nil:
 		comp.Containment = "none"
@@ -1417,7 +1693,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		comp.Verification = attach("verification.json")
 	}
 	if ws.Checker && !checkerReady {
-		comp.Events = append(comp.Events, checkerBlockedNotice(err, time.Now()))
+		finalEvents = append(finalEvents, checkerBlockedNotice(err, time.Now()))
 	}
 	if checkerReady {
 		result := settleChecker(ws, deliverableBefore, cwdBefore, time.Now())
@@ -1433,7 +1709,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				result.Counts = false
 				result.Error = "the check has no executable digest, so it cannot count"
 				result.Verification = nil
-			} else if att, aerr := BuildCheckerAttestation(job, cmd, *launched, ws.Deliverables, deliverableBefore, result.After, buf.observedModels(), result.Verification, result.Criterion, result.EvidenceArts); aerr != nil {
+			} else if att, aerr := BuildCheckerAttestation(job, admittedArgs, *launched, ws.Deliverables, deliverableBefore, result.After, buf.observedModels(), result.Verification, result.Criterion, result.EvidenceArts); aerr != nil {
 				result.Counts = false
 				result.Error = aerr.Error()
 				result.Verification = nil
@@ -1441,7 +1717,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				comp.Attestation = &att
 			}
 		}
-		comp.Events = append(comp.Events, result.Events...)
+		finalEvents = append(finalEvents, result.Events...)
 		if !result.Counts || comp.Status != "succeeded" {
 			comp.Verification = nil
 			if comp.Status == "succeeded" {
@@ -1502,6 +1778,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		AllowedTools:    launch.AllowedTools,
 		Sandbox:         launch.Sandbox,
 	}
+	comp.Events, comp.EventsFrom = buf.leftEvents(finalEvents...)
 	return comp, nil
 }
 

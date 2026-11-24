@@ -1,0 +1,18 @@
+{
+  "typical": "software bugfix",
+  "role": "software-author",
+  "fields": [
+    "symptom",
+    "reproducer",
+    "root_cause",
+    "changed_files",
+    "regression_test",
+    "observed_checks"
+  ],
+  "required_evidence": [
+    "failing reproducer or root cause trace",
+    "regression test covering the defect",
+    "post-edit typecheck and test output"
+  ],
+  "values": "from verified run"
+}

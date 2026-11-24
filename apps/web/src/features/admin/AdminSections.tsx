@@ -1,6 +1,7 @@
 import type { ActionDescriptor, AdminView } from "../../api/types.js";
 import { type Passkeys, browserPasskeys } from "../../lib/decide.js";
 import { time } from "../../lib/format.js";
+import { WORKFLOWS, WORKFLOW_LABEL, type Workflow } from "../../lib/workflow.js";
 import { type CommandSpec, CommandForm, type Values } from "./CommandForm.js";
 
 /**
@@ -24,6 +25,8 @@ const GRADES = ["safety", "material", "general-service"] as const;
 const LANES = ["public", "internal", "proprietary", "client-confidential", "restricted"] as const;
 const MODES = ["general", "software", "capital-projects"] as const;
 const RIGOR = ["administrative", "quick", "standard", "high-consequence"] as const;
+const CONTEXT = ["light", "nuclear"] as const;
+const WORKFLOW_OPTIONS = WORKFLOWS.map((w) => ({ value: w, label: WORKFLOW_LABEL[w] }));
 const PERIODS = [{ value: "P1D", label: "A day" }, { value: "P1W", label: "A week" }, { value: "P1M", label: "A month" }, { value: "P1Y", label: "A year" }];
 const PERIOD_WORDS: Record<string, string> = { P1D: "day", P1W: "week", P1M: "month", P1Y: "year" };
 /** A positive decimal limit, as the control plane accepts it. */
@@ -333,6 +336,8 @@ export function ProjectsSection({ view, passkeys = browserPasskeys }: Props) {
         { key: "project_id", label: "Project", kind: "select", options: projects, required: true },
         { key: "name", label: "New name (leave empty to keep)", kind: "text" },
         { key: "default_rigor", label: "New default rigor (leave empty to keep)", kind: "select", options: opts(RIGOR) },
+        { key: "default_context_profile", label: "New default context (leave empty to keep)", kind: "select", options: opts(CONTEXT) },
+        { key: "default_workflow", label: "New default workflow (leave empty to keep)", kind: "select", options: WORKFLOW_OPTIONS },
         { key: "lanes", label: "Lanes (leave all clear to keep)", kind: "checks", options: opts(LANES) },
         { key: "qa_overlays", label: "Quality assurance overlays (leave empty to keep)", kind: "lines", placeholder: "One per line; replaces the current list" },
         { key: "clear_overlays", label: "Overlays", kind: "checks", options: [{ value: "clear", label: "Remove every overlay" }] },
@@ -343,6 +348,8 @@ export function ProjectsSection({ view, passkeys = browserPasskeys }: Props) {
         const changes = [
           str(v, "name") && `name to ${str(v, "name")}`,
           str(v, "default_rigor") && `default rigor to ${str(v, "default_rigor")}`,
+          str(v, "default_context_profile") && `default context to ${str(v, "default_context_profile")}`,
+          str(v, "default_workflow") && `default workflow to ${WORKFLOW_LABEL[str(v, "default_workflow") as Workflow] ?? str(v, "default_workflow")}`,
           list(v, "lanes").length > 0 && `lanes to ${and(list(v, "lanes"))}`,
           list(v, "qa_overlays").length > 0 && `quality assurance overlays to ${and(list(v, "qa_overlays"))}`,
           list(v, "clear_overlays").length > 0 && "quality assurance overlays to none",
@@ -351,6 +358,8 @@ export function ProjectsSection({ view, passkeys = browserPasskeys }: Props) {
       },
       payload: (v) => ({
         project_id: str(v, "project_id"), ...(str(v, "name") ? { name: str(v, "name") } : {}), ...(str(v, "default_rigor") ? { default_rigor: str(v, "default_rigor") } : {}),
+        ...(str(v, "default_context_profile") ? { default_context_profile: str(v, "default_context_profile") } : {}),
+        ...(str(v, "default_workflow") ? { default_workflow: str(v, "default_workflow") } : {}),
         ...(list(v, "lanes").length ? { lanes: list(v, "lanes") } : {}),
         ...(list(v, "qa_overlays").length ? { qa_overlays: list(v, "qa_overlays") } : list(v, "clear_overlays").length ? { qa_overlays: [] } : {}),
       }),

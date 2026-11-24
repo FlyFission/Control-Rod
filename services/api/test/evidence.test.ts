@@ -58,6 +58,7 @@ describe("criterion answers (E-1, E-2)", () => {
     ["approved N/A basis without the independence the grade requires", { mandatory: false, completeness: "missing", outcome: "none", disposition: "approved-na-basis", independence: { separated: false, unseparated: ["actor is shared"] } }, "NO"],
     ["approved N/A basis cannot set aside a mandatory check", { completeness: "missing", outcome: "none", disposition: "approved-na-basis" }, "NO"],
     ["fail with disposition, but a mandatory check behind it was inconclusive", { outcome: "fail", disposition: "approved-disposition", mandatory_inconclusive: true }, "NO"],
+    ["an approved N/A basis cannot clear a mandatory inconclusive check", { mandatory: false, mandatory_inconclusive: true, disposition: "approved-na-basis" }, "NO"],
     ["executed with no outcome", { outcome: "none" }, "NO"],
   ])("%s", (_name, e, expected) => {
     expect(ans(e)).toBe(expected);
@@ -120,6 +121,8 @@ describe("independence from custody (E-5)", () => {
 describe("accept with findings (E-3)", () => {
   it("covers completed adverse results only, never incompleteness or a mandatory inconclusive check", () => {
     expect(acceptWithFindingsBlockers([{ ...base, outcome: "fail" }])).toEqual([]);
+    expect(acceptWithFindingsBlockers([{ ...base, outcome: "fail", mandatory_inconclusive: true }]))
+      .toEqual(["AC-1: a mandatory check was inconclusive"]);
     expect(acceptWithFindingsBlockers([{ ...base, completeness: "missing" }, { ...base, criterion_id: "AC-2", outcome: "inconclusive" },
       { ...base, criterion_id: "AC-3", evidence_retained: false }])).toEqual([
       "AC-1: a result is missing", "AC-2: a mandatory check was inconclusive", "AC-3: its evidence is not retained",

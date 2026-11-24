@@ -153,46 +153,26 @@ func CurrentPlatform() string {
 	return HostPlatform(runtime.GOOS, rel)
 }
 
-// seatbeltQualified is the macOS record the milestone names. Only the exact
-// value 1 counts. It does not change QualifiedPlatform, which still refuses
-// a launch on macOS and native Linux.
-func seatbeltQualified(getenv func(string) string) bool {
-	if getenv == nil {
-		return false
-	}
-	return getenv("CONTROLROD_SEATBELT_QUALIFIED") == "1"
-}
-
-// qualify is the milestone matrix. Author launches of Claude Code and Codex
-// are the only qualified cells, and only on WSL2, or on macOS when
-// CONTROLROD_SEATBELT_QUALIFIED is 1. Checker launches are not qualified.
-func qualify(id, role, platform string, seatbelt bool) (bool, string) {
+// qualify is the milestone matrix. Author launches of Claude Code and Codex are qualified on WSL2,
+// native Linux and macOS: the launch qualification (spikes/runtime-confinement/launch_qualification.py)
+// passed on each, with its evidence under .nuclear/changes/workbench-ontology/evidence/phase6/ and
+// .nuclear/changes/mac-linux-agents/evidence/. Checker launches are not qualified.
+func qualify(id, role, platform string) (bool, string) {
 	authorCLI := role == "author" && authorQualified(id)
-	switch platform {
-	case "wsl2":
-		if authorCLI {
-			return true, "WSL2 is qualified for this CLI's author launches."
-		}
-		return false, "WSL2 is qualified for Claude Code and Codex author launches only."
-	case "darwin":
-		if !seatbelt {
-			return false, "macOS is not qualified until CONTROLROD_SEATBELT_QUALIFIED is set."
-		}
-		if authorCLI {
-			return true, "macOS author launches are qualified because CONTROLROD_SEATBELT_QUALIFIED is set."
-		}
-		return false, "macOS is not qualified for this role."
-	case "linux":
-		return false, "Native Linux is not qualified."
-	default:
+	name := map[string]string{"wsl2": "WSL2", "linux": "Native Linux", "darwin": "macOS"}[platform]
+	if name == "" {
 		return false, "This platform is not qualified."
 	}
+	if authorCLI {
+		return true, name + " is qualified for this CLI's author launches."
+	}
+	return false, name + " is qualified for Claude Code and Codex author launches only."
 }
 
-func roleQualifications(id, platform string, seatbelt bool) []RoleQualification {
+func roleQualifications(id, platform string) []RoleQualification {
 	out := make([]RoleQualification, 0, 2)
 	for _, role := range []string{"author", "checker"} {
-		ok, reason := qualify(id, role, platform, seatbelt)
+		ok, reason := qualify(id, role, platform)
 		out = append(out, RoleQualification{Role: role, Qualified: ok, Reason: reason})
 	}
 	return out
@@ -210,13 +190,13 @@ func publicText(line string) string {
 	return line
 }
 
-func probeFromStatus(a Adapter, st RuntimeStatus, platform string, seatbelt bool) SubscriptionProbe {
+func probeFromStatus(a Adapter, st RuntimeStatus, platform string) SubscriptionProbe {
 	p := SubscriptionProbe{
 		ID:           a.ID(),
 		DisplayName:  a.DisplayName(),
 		VendorFamily: familyOf(a),
 		Auth:         authUnknown,
-		Roles:        roleQualifications(a.ID(), platform, seatbelt),
+		Roles:        roleQualifications(a.ID(), platform),
 	}
 	executed := st.Artifact != nil || st.Version != ""
 	p.Installed = executed || strings.Contains(st.Reason, "is installed")
@@ -301,8 +281,7 @@ func checkerModels() []SubscriptionChecker {
 // already ran. A registered provider CLI with no status was not probed. The
 // row is omitted. The report does not call that CLI not installed. The fake
 // runtime and an API-key-only CLI are left out.
-func SubscriptionFromStatuses(statuses []RuntimeStatus, platform string, getenv func(string) string) SubscriptionReport {
-	seatbelt := seatbeltQualified(getenv)
+func SubscriptionFromStatuses(statuses []RuntimeStatus, platform string) SubscriptionReport {
 	byID := map[string]RuntimeStatus{}
 	for _, st := range statuses {
 		byID[st.Runtime] = st
@@ -316,7 +295,7 @@ func SubscriptionFromStatuses(statuses []RuntimeStatus, platform string, getenv 
 		if !ok {
 			continue
 		}
-		probes = append(probes, probeFromStatus(a, st, platform, seatbelt))
+		probes = append(probes, probeFromStatus(a, st, platform))
 	}
 	return SubscriptionReport{
 		Platform:  platform,

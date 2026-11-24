@@ -1,15 +1,48 @@
-import { type ReactNode, useEffect, useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { type ReactNode, useContext, useEffect, useState } from "react";
+import { AgentUpdates } from "./AgentUpdates.js";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
 import { type Look, saveLook, useLook } from "../lib/kind.js";
 import { MODE_COPY, saveMode, useMode, type EngineeringMode } from "../lib/mode.js";
+import {
+  hydrateServerProjects,
+  selectProject,
+  switchModeAndSyncProject,
+  useActiveProject,
+  useProjects,
+  WorkspaceProjectUser,
+} from "../lib/projects.js";
 import { PLACES, type PlaceGroup } from "../places/places.js";
+import { ActiveRuns } from "./ActiveRuns.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
+import { ProjectModal } from "./ProjectModal.js";
+import { ShortcutHelp } from "./ShortcutHelp.js";
+import { OPEN_MODAL, singleKeysOn } from "../lib/singleKeys.js";
+import { anyRealScram } from "../features/office/plant-instruments.js";
+import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
+import { useFirstRunSetup } from "../lib/firstRun.js";
+import { readString, writeString } from "../lib/storage.js";
+
+const COLLAPSED_GROUPS_KEY = "cr.nav-collapsed";
+const COLLAPSIBLE_GROUPS = new Set<PlaceGroup>(["Audit", "Control / Setup"]);
+
+function loadCollapsedGroups(): Record<string, boolean> {
+  const raw = readString(COLLAPSED_GROUPS_KEY);
+  if (!raw) return { Audit: true };
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, boolean>)
+      : { Audit: true };
+  } catch {
+    return { Audit: true };
+  }
+}
 
 const LOOKS: { id: Look; name: string }[] = [
   { id: "a", name: "A Control room" },
@@ -20,9 +53,10 @@ const LOOKS: { id: Look; name: string }[] = [
 const MODES: { id: EngineeringMode; label: string }[] = [
   { id: "software", label: "Software" },
   { id: "capital-projects", label: "Capital Projects" },
+  { id: "nuclear-grade", label: "Nuclear-Grade" },
 ];
 
-const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control"];
+const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control / Setup"];
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -36,18 +70,75 @@ function userInitial(name: string | undefined): string {
  * scrollable workspace, Inbox count, mode/look switchers, and command palette (Ctrl+K / Cmd+K).
  */
 export function Shell({ session, children }: { session: Session; children: ReactNode }) {
+  return (
+    <WorkspaceProjectUser value={session.signed_in ? session.user : undefined}>
+      <WorkspaceShell session={session}>{children}</WorkspaceShell>
+    </WorkspaceProjectUser>
+  );
+}
+
+function WorkspaceShell({ session, children }: { session: Session; children: ReactNode }) {
   const qc = useQueryClient();
+  const projectUser = useContext(WorkspaceProjectUser);
   // Only what waits on this person counts (OV-01); work waiting on someone else never does.
   const inbox = useQuery({ queryKey: ["inbox", session.user ?? "", "badge"], queryFn: () => api.inbox() });
+  const serverProjects = useQuery({
+    queryKey: ["workspace-projects", projectUser],
+    queryFn: () => api.workspaceProjects(),
+    enabled: Boolean(projectUser),
+    retry: false,
+  });
+  // The trip styling needs only whether a real SCRAM is active, so the shell makes the redacted
+  // (presenting) read, which keeps scope and the drill flag and leaves out every reason.
+  const scramsQuery = useQuery({
+    queryKey: ["scrams", true],
+    queryFn: () => api.scrams(true),
+    retry: false,
+    staleTime: 10_000,
+  });
+  const scramActive = anyRealScram(scramsQuery.data?.scrams);
+  // The trip pulses stop while the tab is hidden, as the plant's own motion does (OfficeStage useVisible).
+  const [tabHidden, setTabHidden] = useState(() => document.visibilityState === "hidden");
+  useEffect(() => {
+    const on = () => setTabHidden(document.visibilityState === "hidden");
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
+  useEffect(() => {
+    if (serverProjects.data) {
+      hydrateServerProjects(projectUser, serverProjects.data);
+    }
+  }, [projectUser, serverProjects.data]);
   const needs = inbox.data?.items.length ?? 0;
   const [palette, setPalette] = useState(false);
   const [newWorkOpen, setNewWorkOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
+  function toggleGroup(group: PlaceGroup) {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [group]: !prev[group] };
+      writeString(COLLAPSED_GROUPS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+  const [helpOpen, setHelpOpen] = useState(false);
+  const navigate = useNavigate();
+  // The tab title count and opt-in notifications read the same Inbox as the rail badge (pattern AW1, AW2).
+  useAttentionSignals(session.user, inbox, () => void navigate({ to: "/inbox" }));
   const shortcut = isMac() ? "⌘K" : "Ctrl K";
   const look = useLook();
   const mode = useMode();
+  const projects = useProjects();
+  const activeProject = useActiveProject();
+  const activeProjectMode = activeProject?.mode;
+  useEffect(() => {
+    if (activeProjectMode) saveMode(activeProjectMode);
+  }, [activeProjectMode]);
+  const modeProjects = projects.filter((p) => p.mode === mode);
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
   const activePlace = PLACES.find((p) => (p.to === "/" ? path === "/" : path.startsWith(p.to)));
+  useFirstRunSetup(path);
 
   // On a phone the places are one scrolling row: keep the current one in view.
   useEffect(() => {
@@ -68,8 +159,21 @@ export function Shell({ session, children }: { session: Session; children: React
           target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT" ||
           target.isContentEditable);
-      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
-      if (!inField && !hasBoardQuickAdd && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      // The board's quick add claims `c` first (its listener prevents the default). Its state update can
+      // re-render before this listener runs and remove the .bd-add opener, so look at the event too.
+      if (e.defaultPrevented) return;
+      // Every key below is a single character: none fires when the person turned them off.
+      if (!singleKeysOn()) return;
+      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-add-form") !== null;
+      const hasOpenOverlay = document.querySelector(OPEN_MODAL) !== null;
+      // `?` opens the shortcut list only when nothing modal is open: inside New Work or the palette
+      // the list would open behind it. The list closes itself on `?` and Escape from its own handler.
+      if (!inField && !hasOpenOverlay && e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
+      if (!inField && !hasBoardQuickAdd && !hasOpenOverlay && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         setNewWorkOpen(true);
       }
@@ -97,7 +201,7 @@ export function Shell({ session, children }: { session: Session; children: React
   }
 
   return (
-    <div className="shell" data-look={look} data-mode={mode}>
+    <div className="shell" data-look={look} data-mode={mode} data-scram={scramActive ? "active" : undefined} data-tab-hidden={tabHidden ? "" : undefined}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -120,31 +224,93 @@ export function Shell({ session, children }: { session: Session; children: React
           <kbd>C</kbd>
         </button>
 
+        <div className="rail-projects" aria-label="Projects">
+          <div className="rail-projects-head">
+            <span className="places-group-label" style={{ padding: 0 }}>
+              Projects
+            </span>
+            <button
+              type="button"
+              className="rail-proj-add"
+              title="New project"
+              aria-label="New project"
+              onClick={() => setNewProjectOpen(true)}
+            >
+              +
+            </button>
+          </div>
+          <ul className="rail-projects-list">
+            <li>
+              <button
+                type="button"
+                className={activeProject === null ? "rail-proj-btn active" : "rail-proj-btn"}
+                aria-pressed={activeProject === null}
+                onClick={() => selectProject(projectUser, null)}
+              >
+                <span className="rail-proj-name">All {modeCopy.label}</span>
+              </button>
+            </li>
+            {modeProjects.map((proj) => (
+              <li key={proj.id}>
+                <button
+                  type="button"
+                  className={activeProject?.id === proj.id ? "rail-proj-btn active" : "rail-proj-btn"}
+                  aria-pressed={activeProject?.id === proj.id}
+                  onClick={() => selectProject(projectUser, proj.id)}
+                >
+                  <span className="rail-proj-name">{proj.name}</span>
+                  {proj.repo && <span className="rail-proj-repo mono">{proj.repo.split("/").pop()}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <nav aria-label="Places" className="places nav-scroll">
-          {PLACE_GROUPS.map((group) => (
-            <div key={group} className="places-group">
-              <div className="places-group-label">{group}</div>
-              <ul>
-                {PLACES.filter((p) => p.group === group).map((p) => (
-                  <li key={p.to}>
-                    <Link
-                      to={p.to}
-                      className="place-link"
-                      activeOptions={{ exact: p.to === "/" }}
-                      activeProps={{ className: "place-link active", "aria-current": "page" }}
-                    >
-                      <span>{p.label}</span>
-                      {p.to === "/inbox" && needs > 0 && (
-                        <span className="badge" aria-label={`${needs} waiting on you`}>
-                          {needs}
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {PLACE_GROUPS.map((group) => {
+            const collapsible = COLLAPSIBLE_GROUPS.has(group);
+            const isCollapsed = collapsible && Boolean(collapsedGroups[group]);
+            return (
+              <div key={group} className="places-group">
+                {collapsible ? (
+                  <button
+                    type="button"
+                    className="places-group-toggle"
+                    aria-expanded={!isCollapsed}
+                    onClick={() => toggleGroup(group)}
+                  >
+                    <span>{group}</span>
+                    <span aria-hidden="true" className="places-group-chev">
+                      {isCollapsed ? "▸" : "▾"}
+                    </span>
+                  </button>
+                ) : (
+                  <div className="places-group-label">{group}</div>
+                )}
+                {!isCollapsed && (
+                  <ul>
+                    {PLACES.filter((p) => p.group === group).map((p) => (
+                      <li key={p.to}>
+                        <Link
+                          to={p.to}
+                          className="place-link"
+                          activeOptions={{ exact: p.to === "/" }}
+                          activeProps={{ className: "place-link active", "aria-current": "page" }}
+                        >
+                          <span>{p.label}</span>
+                          {p.to === "/inbox" && needs > 0 && (
+                            <span className="badge" aria-label={`${needs} waiting on you`}>
+                              {needs}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="rail-foot">
@@ -154,6 +320,9 @@ export function Shell({ session, children }: { session: Session; children: React
             </span>
             <span>{session.user ?? "Signed in"}</span>
           </div>
+          <button type="button" className="btn small rail-shortcuts" aria-keyshortcuts="?" onClick={() => setHelpOpen(true)}>
+            Shortcuts <kbd>?</kbd>
+          </button>
           <button type="button" className="btn small" disabled={pendingSignOut} onClick={() => void logout()}>
             Sign out
           </button>
@@ -161,46 +330,65 @@ export function Shell({ session, children }: { session: Session; children: React
       </aside>
 
       <div className="main">
+        <AgentUpdates />
         <header className="topbar">
           <div className="top-left">
+            <span className="console-live-dot" aria-hidden="true" />
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>
-            <span className="stream-pill">
-              <span className="stream-dot" aria-hidden="true" />
-              <span>{modeCopy.label}</span>
-            </span>
+            <details
+              className="workspace-options"
+              onBlur={(event) => {
+                if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+                  event.currentTarget.open = false;
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape" || !event.currentTarget.open) return;
+                event.preventDefault();
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }}
+            >
+              <summary className="stream-pill" aria-label={`${modeCopy.label} workspace options`}>
+                {modeCopy.label}
+              </summary>
+              <div className="workspace-options-panel">
+                <span className="workspace-option-label">Engineering mode</span>
+                <div className="seg" role="group" aria-label="Engineering mode">
+                  {MODES.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={mode === m.id ? "active" : ""}
+                      aria-pressed={mode === m.id}
+                      onClick={() => switchModeAndSyncProject(projectUser, m.id)}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                <span className="workspace-option-label">Board look</span>
+                <div className="seg" role="group" aria-label="Board look">
+                  {LOOKS.map((l) => (
+                    <button
+                      key={l.id}
+                      type="button"
+                      className={look === l.id ? "active" : ""}
+                      aria-pressed={look === l.id}
+                      title={l.name}
+                      onClick={() => saveLook(l.id)}
+                    >
+                      <span>{l.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
           </div>
 
           <div className="top-right">
-            <div className="seg" role="group" aria-label="Engineering mode">
-              {MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={mode === m.id ? "active" : ""}
-                  aria-pressed={mode === m.id}
-                  onClick={() => saveMode(m.id)}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="seg" role="group" aria-label="Board look">
-              {LOOKS.map((l) => (
-                <button
-                  key={l.id}
-                  type="button"
-                  className={look === l.id ? "active" : ""}
-                  aria-pressed={look === l.id}
-                  title={l.name}
-                  onClick={() => saveLook(l.id)}
-                >
-                  <span aria-hidden="true">Look {l.id.toUpperCase()}</span>
-                  <span className="sr-only">Look {l.name}</span>
-                </button>
-              ))}
-            </div>
-
+            <ActiveRuns />
             <button
               type="button"
               className="btn small palette-trigger"
@@ -214,7 +402,7 @@ export function Shell({ session, children }: { session: Session; children: React
               <kbd>{shortcut}</kbd>
             </button>
 
-            <Link to="/office" className="btn small danger">
+            <Link to="/office" className="btn small danger topbar-scram">
               SCRAM
             </Link>
           </div>
@@ -227,6 +415,8 @@ export function Shell({ session, children }: { session: Session; children: React
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
       <NewWorkModal open={newWorkOpen} mode={mode} onClose={() => setNewWorkOpen(false)} />
+      {newProjectOpen && <ProjectModal open={newProjectOpen} defaultMode={mode} onClose={() => setNewProjectOpen(false)} />}
+      <ShortcutHelp open={helpOpen} mac={isMac()} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

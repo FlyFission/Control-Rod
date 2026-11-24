@@ -1,27 +1,110 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { api, explain } from "../api/client.js";
 
 /**
- * Explore (specification 12 and 15). Live exploration runs in its own worktree and is promoted into
- * a package. It needs the run sandbox (plan Phase 6) before it can start, so until then this place
- * says what it will do and where work starts today.
+ * Snapshots (formerly Explore): private-ref checkpoints and a non-destructive Merkle freeze over a
+ * worktree, so Compare can line revisions up. Multi-CLI fan-out is not built, so it is not shown.
  */
 export function Explore() {
+  const [repoPath, setRepoPath] = useState("");
+  const [label, setLabel] = useState("explore");
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const runCheckpoint = async () => {
+    if (!repoPath.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.checkpointRepo({
+        repo_path: repoPath.trim(),
+        ...(label.trim() ? { label: label.trim() } : {}),
+      });
+      setStatus(`Checkpoint saved at ${res.ref} (${res.commit_sha.slice(0, 12)})`);
+    } catch (err) {
+      setError(explain(err, "Checkpoint failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runFreeze = async () => {
+    if (!repoPath.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.freezeRepo({
+        repo_path: repoPath.trim(),
+        ...(label.trim() ? { label: label.trim() } : {}),
+      });
+      setStatus(
+        `Frozen: ${res.manifest_digest.slice(0, 16)} (${res.file_count} files, ref ${res.checkpoint_ref})`,
+      );
+    } catch (err) {
+      setError(explain(err, "Freeze failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="place">
       <header className="place-head">
-        <h1>Explore</h1>
-        <p className="muted">Try an idea with an agent before it becomes a package, then promote what is worth keeping.</p>
-      </header>
-      <section className="panel empty-state" aria-labelledby="explore-empty">
-        <h2 id="explore-empty">Not available yet</h2>
-        <p>
-          Exploration starts agents that can change files, so it waits for the run sandbox and its attestation. Nothing here starts an agent
-          today.
-        </p>
+        <h1>Snapshots</h1>
         <p className="muted">
-          To get work done now, capture it on <Link to="/packages">Packages</Link>: intake answers quick questions and drafts a package for
-          anything bigger.
+          Save a private checkpoint of a worktree, or freeze it so its exact files can be compared later. Nothing in the worktree is changed.
         </p>
+      </header>
+
+      <section className="panel" style={{ marginBottom: "1rem" }}>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+          <label>
+            Worktree or repository path{" "}
+            <input
+              type="text"
+              value={repoPath}
+              onChange={(e) => setRepoPath(e.target.value)}
+              placeholder="~/projects/Control-Rod"
+            />
+          </label>
+          <label>
+            Label{" "}
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="explore"
+            />
+          </label>
+        </div>
+
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" className="btn primary" onClick={runCheckpoint} disabled={busy || !repoPath.trim()}>
+            Save checkpoint
+          </button>
+          <button type="button" className="btn" onClick={runFreeze} disabled={busy || !repoPath.trim()}>
+            Freeze
+          </button>
+          <Link to="/packages" className="btn">
+            Open Packages
+          </Link>
+          <Link to="/compare" className="btn">
+            Compare
+          </Link>
+        </div>
+
+        {status && (
+          <p className="mono" role="status" style={{ marginTop: "0.75rem" }}>
+            {status}
+          </p>
+        )}
+        {error && (
+          <p className="error" role="alert" style={{ marginTop: "0.75rem" }}>
+            {error}
+          </p>
+        )}
       </section>
     </div>
   );

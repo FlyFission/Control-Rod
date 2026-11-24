@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { canStop } from "../../components/RunLog.js";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client.js";
-import type { ActionDescriptor, CaptureView, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
+import type { ActionDescriptor, CaptureView, Digest, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
 import { type ColumnId, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
 import { useLiveStatus } from "../../lib/live.js";
+import { projectContextDefault, resolveContextProfile } from "../../lib/context-profile.js";
 import { type NextLine, hasOtherQualified, nextLine } from "../../lib/next.js";
 
 export type BoardCard = {
@@ -16,10 +18,24 @@ export type BoardCard = {
   owner?: string;
   /** An agent run on this revision is queued or running. */
   runActive: boolean;
+  /** An agent run on this revision is running now (not only queued). */
+  runRunning?: boolean;
   /** Set when a read behind the next line failed: reads it again. */
   retry?: () => void;
   /** A read behind this card has not succeeded since the latest stream drop: what it shows is last known. */
   lastKnown: boolean;
+  /**
+   * What the viewer may do on this card now: the server's actions with ruling 16 applied. Set only when
+   * the actions, the package view and any verification read are current, so a card never offers a
+   * decision from a stale or failed read.
+   */
+  offered?: ActionDescriptor[];
+  /** The subject digest a decision on this card signs, from the package view. */
+  digest?: Digest;
+  /** The run that Stop would end, when one is queued or running. */
+  activeRunId?: string;
+  /** The brief carries the Nuclear context (card value, else project default; Safety and Material always). */
+  nuclear: boolean;
 };
 
 /** How far a count can be trusted: from current reads, from reads not refreshed since a drop or failed to refresh, or not at all. */
@@ -29,6 +45,8 @@ export type BoardData = {
   cards: BoardCard[];
   /** Captures not yet drafted into a package, newest first; they sit at the top of Ready (spec 6.2). */
   captures: CaptureView[];
+  /** The captures read succeeded since the latest stream drop: their tones are current, not last known. */
+  capturesFresh: boolean;
   loading: boolean;
   /** The reads the whole board rests on that failed, in plain words; empty when none did. */
   problems: string[];
@@ -49,6 +67,10 @@ export type BoardData = {
   /** Confidence of each header count, from every read that count needs. */
   needsYouCounts: Confidence;
   agentsRunningCounts: Confidence;
+  /** Signed-in user name, or empty string if unknown. */
+  me: string;
+  /** Map of project id to project name from admin view. */
+  projects: Record<string, string>;
 };
 
 /**
@@ -140,10 +162,13 @@ export function useBoardData(): BoardData {
     // package is not this viewer's to see, so it gets no card even if a list once named it.
     if (viewQ?.error instanceof ApiError && viewQ.error.status === 404) return;
     const owner = view?.originators?.[0];
-    const runActive = (view?.runs ?? []).some((r) => r.status === "running" || r.status === "queued");
+    const activeRun = (view?.runs ?? []).find((r) => r.status === "running" || r.status === "queued");
+    const runActive = activeRun !== undefined;
+    const runRunning = (view?.runs ?? []).some((r) => r.status === "running");
     const waitingOnVerifs = verifQ?.isPending === true && verifQ.fetchStatus !== "idle";
     let next: NextLine;
     let retry: (() => void) | undefined;
+    let offered: ActionDescriptor[] | undefined;
     if (viewQ?.data === undefined || viewQ.isError) runsUnread = true;
     // A view or actions read being refetched with cached data is not current either: its next step may
     // already have changed, so the card shows it as last known until the read lands.
@@ -169,22 +194,43 @@ export function useBoardData(): BoardData {
       };
     } else if (column === "person-verifies" && (session.isPending || admin.isPending)) next = CHECKING;
     else {
+      const offeredNow = blockUnverifiedAccept(p, acts, acceptVerified(p, verifQ ?? { isError: false, isFetching: false }));
       const originators = view.originators ?? [];
       const excluded = new Set(originators.flatMap((u) => memberIdOf.get(u) ?? []));
       next = nextLine({
         pkg: p,
         // Ruling 16 with a refresh in flight counted as unknown: a cached pass does not offer Accept.
-        actions: blockUnverifiedAccept(p, acts, acceptVerified(p, verifQ ?? { isError: false, isFetching: false })),
+        actions: offeredNow,
         office: officeItems,
         verifications: verifications ?? [],
         verified,
         originators,
         otherQualifiedVerifier: admin.data !== undefined && hasOtherQualified(admin.data, { grade: p.grade ?? "general-service", ...(p.discipline ? { discipline: p.discipline } : {}) }, excluded),
         runActive,
+        heldPreCheck: (view?.runs ?? []).some((r) => r.role === "pre-check" && r.status === "queued" && r.waiting_reason !== undefined),
+        runs: view?.runs ?? [],
       });
+      offered = offeredNow;
     }
     if (next === CHECKING || next === NO_NEXT || retry !== undefined) undetermined = true;
-    cards.push({ pkg: p, kinds: kindsOf(p), column, next, ...(owner ? { owner } : {}), runActive, ...(retry ? { retry } : {}), lastKnown: !cardFresh });
+    const nuclear = resolveContextProfile(p, projectContextDefault(admin.data?.projects, p.project)).profile === "nuclear";
+    // Actions are offered only from current reads: a last-known card shows its line but offers nothing.
+    const actionable = cardFresh && live.status === "live" ? { offered, view } : undefined;
+    cards.push({
+      pkg: p,
+      kinds: kindsOf(p),
+      column,
+      next,
+      ...(owner ? { owner } : {}),
+      runActive,
+      ...(runRunning ? { runRunning: true } : {}),
+      ...(retry ? { retry } : {}),
+      lastKnown: !cardFresh,
+      nuclear,
+      ...(actionable?.offered && actionable.view ? { offered: actionable.offered, digest: actionable.view.subject_digest } : {}),
+      // Stop only while the run can still be stopped: not after a stop was requested (the run log's rule).
+      ...(actionable?.offered && actionable.view && activeRun && canStop(activeRun) ? { activeRunId: activeRun.id } : {}),
+    });
   });
 
   // Redraw when the earliest grace ends, so a refetch still in flight then turns its card last known.
@@ -202,6 +248,7 @@ export function useBoardData(): BoardData {
   return {
     cards,
     captures: pendingCaptures(capturesQ.data ?? []),
+    capturesFresh: fresh(capturesQ),
     loading: packages.isPending || capturesQ.isPending,
     problems,
     retry: () => {
@@ -217,6 +264,8 @@ export function useBoardData(): BoardData {
     agentsRunningCounts: packages.data === undefined || runsUnread ? "unknown" : live.status === "unknown" || viewStale || !fresh(packages) ? "last-known" : "current",
     needsYou: cards.filter((c) => c.next.tone === "needs" || c.next.tone === "block").length,
     agentsRunning: cards.filter((c) => c.runActive).length,
+    me: session.data?.user ?? "",
+    projects: Object.fromEntries((admin.data?.projects ?? []).map((p) => [p.id, p.name])),
   };
 }
 

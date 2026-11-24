@@ -247,6 +247,12 @@ model Project {
   mode: Mode;
   default_rigor: RigorMode;
 
+  /** The context profile packages carry when they name none. Absent means light. */
+  default_context_profile?: "light" | "nuclear";
+
+  /** The workflow packages carry when they name none. Absent means the playbook. */
+  default_workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
+
   @minItems(1)
   lanes: DataLane[];
 

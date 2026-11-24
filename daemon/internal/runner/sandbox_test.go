@@ -19,7 +19,10 @@ import (
 
 // Tests run on hosts that are not the qualified platform (CI runs native Linux): the platform gate
 // is exercised by its own test, and is otherwise out of the way.
-func init() { platformCheck = func() error { return nil } }
+func init() {
+	platformCheck = func() error { return nil }
+	sandboxCheck = func(func(string) (string, error)) error { return nil }
+}
 
 // testPolicy is the control plane's no-network policy shape (services/api/src/sandbox.ts).
 func testPolicy() *SandboxPolicy {
@@ -137,14 +140,14 @@ func TestClaudeSettingsConfineReadsAndKeepTheWorkspaceOpen(t *testing.T) {
 }
 
 func TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures(t *testing.T) {
-	home := t.TempDir()
+	home := realTempDir(t)
 	for _, d := range []string{".claude", ".ssh", ".controlrod/work/WP-1/r0/author-1-r1"} {
 		if err := os.MkdirAll(filepath.Join(home, d), 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
 	ws := &Workspace{Dir: filepath.Join(home, ".controlrod/work/WP-1/r0/author-1-r1")}
-	other := t.TempDir() // a daemon home outside the home folder is denied on its own
+	other := realTempDir(t) // a daemon home outside the home folder is denied on its own
 	args, err := CodexPolicyArgs(testPolicy(), SandboxPaths{Home: home, DaemonHome: other, Workspace: ws.Dir})
 	if err != nil {
 		t.Fatal(err)
@@ -243,6 +246,7 @@ func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 		`[features]` + "\n" + `apps = true`: "features", `[mcp_servers.x]` + "\n" + `command = "y"`: "mcp_servers",
 		`approval_policy = "on-request"`: "approval_policy", `[x.y]` + "\n" + `sandbox_mode = "z"`: "x.y.sandbox_mode",
 		`notify = ["python3", "out/notify.py"]`: "notify",
+		`x = [{features = {}}]`:                 "x.features", `x = [[{features = {}}]]`: "x.features",
 	} {
 		managed := filepath.Join(t.TempDir(), "managed_config.toml")
 		if err := os.WriteFile(managed, []byte("# sandbox_mode in a comment is fine\nmodel = \"x\"\n"+line+"\n"), 0o600); err != nil {
@@ -593,5 +597,79 @@ func TestRunWorkspacesNeverFeedLinkDiscovery(t *testing.T) {
 	}
 	if slices.Contains(d, "/usr/bin") {
 		t.Fatalf("a link an agent made in a workspace became a denial: %q", d)
+	}
+}
+
+func TestBubblewrapThatCannotSandboxIsRefusedWithTheFix(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		if err := bubblewrapWorks(found); err != nil {
+			t.Fatalf("bubblewrap is only checked on Linux: %v", err)
+		}
+		return
+	}
+	dir := t.TempDir()
+	fake := filepath.Join(dir, "bwrap")
+	if err := os.WriteFile(fake, []byte("#!/bin/sh\necho 'bwrap: setting up uid map: Permission denied' >&2\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := bubblewrapWorks(func(string) (string, error) { return fake, nil })
+	var pe *PreflightError
+	if !errors.As(err, &pe) || !strings.Contains(err.Error(), "uid map") || !strings.Contains(err.Error(), "Linux setup") {
+		t.Fatalf("refusal: %v", err)
+	}
+	ok := filepath.Join(dir, "bwrap-ok")
+	if err := os.WriteFile(ok, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := bubblewrapWorks(func(string) (string, error) { return ok, nil }); err != nil {
+		t.Fatalf("a working bubblewrap: %v", err)
+	}
+	if err := bubblewrapWorks(func(string) (string, error) { return "", errors.New("not found") }); err != nil {
+		t.Fatalf("a missing bubblewrap is HostNeeds' to report: %v", err)
+	}
+}
+
+func TestQualifiedPlatformCoversLinuxAndMacOS(t *testing.T) {
+	err := QualifiedPlatform()
+	qualified := runtime.GOOS == "linux" || runtime.GOOS == "darwin"
+	if qualified != (err == nil) {
+		t.Fatalf("%s: qualified=%v, got %v", runtime.GOOS, qualified, err)
+	}
+}
+
+// Codex 0.171.0's real `features list` (Control Rod's switches applied, no user config), captured
+// from the published npm package. Every feature it leaves on is qualified.
+func TestCodex0171FeaturesAreQualified(t *testing.T) {
+	b, err := os.ReadFile("testdata/codex-0.171.0-features.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if extra := unqualifiedCodexFeatures(string(b)); len(extra) != 0 {
+		t.Fatalf("Codex 0.171.0 would be refused for %v", extra)
+	}
+	// The fixture must still be the real capture: each of the nine features that 0.171.0 turns on
+	// is listed as enabled there, and each is on the allowlist.
+	enabled := map[string]bool{}
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 2 && f[len(f)-1] == "true" {
+			enabled[f[0]] = true
+		}
+	}
+	safe := map[string]bool{}
+	for _, f := range CodexSafeFeatures {
+		safe[f] = true
+	}
+	for _, f := range []string{
+		"code_mode_host_grpc", "code_mode_host_output_truncation", "guardian_include_additional_context",
+		"incremental_tools_legacy", "incremental_tools_legacy_gcp", "retain_client_tool_outputs",
+		"tui_workspace", "unified_image_budget", "untrusted_as_tool_output",
+	} {
+		if !enabled[f] {
+			t.Errorf("the captured 0.171.0 list does not show %s enabled", f)
+		}
+		if !safe[f] {
+			t.Errorf("%s is not in CodexSafeFeatures", f)
+		}
 	}
 }

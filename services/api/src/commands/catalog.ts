@@ -35,6 +35,7 @@ export const COMMANDS = {
   // Work.
   "capture.create": entry("member", "none", "Capture", "write"),
   "capture.classify": entry("member", "none", "Classify lane", "write"),
+  "capture.dismiss": entry("member", "none", "Dismiss capture", "write"),
   "draft.edit": entry("member", "none", "Edit draft", "write"),
   "output.record-mismatch": entry("system", "none", "Submit output (integrity record)"),
   "run.claim": entry("agent-via-daemon", "none", "Claim", "read"),
@@ -44,12 +45,14 @@ export const COMMANDS = {
   "run.sweep-lost": entry("system", "none", "Sweep lost"),
   "run.reconcile-evidence": entry("agent-via-daemon", "none", "Reconcile (daemon restart evidence)"),
   "run.reconcile": entry("member", "direct", "Reconcile"),
-  "run.requeue": entry("member", "none", "Requeue"),
+  "run.requeue": entry("member", "none", "Requeue", "read"),
   "run.stop": entry("member", "none", "Stop run"),
   "run.override-independence": entry("member", "direct", "Override independence"),
   "check.request": entry("member", "none", "Request checker attempt"),
   "check.recheck-override": entry("member", "direct", "Override a sticky checker fail"),
   "runtime.report-status": entry("agent-via-daemon", "none", "Probe runtime"),
+  "runtime.report-agent-updates": entry("agent-via-daemon", "none", "Probe runtime (agent updates)"),
+  "setup.record": entry("member", "none", "Record agent setup (seats and check-in)"),
   "decision.apply": entry("member", "direct", "Release; Verdict", "write"),
   "verification.record-person": entry("member", "direct", "Record person verification"),
 

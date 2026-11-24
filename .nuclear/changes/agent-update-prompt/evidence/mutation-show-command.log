@@ -1,0 +1,42 @@
+## P1: the app builds the command from a fixed package and strict SemVer (mutated)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/components/agent-updates.test.tsx > Agent updates > never shows or copies command text from the response, only the one it builds
+      Tests  1 failed | 4 passed (5)
+## P1: the app builds the command from a fixed package and strict SemVer (restored)
+      Tests  5 passed (5)
+## P1: an entry whose version is not SemVer is not shown (mutated)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/components/agent-updates.test.tsx > Agent updates > never shows or copies command text from the response, only the one it builds
+      Tests  1 failed | 4 passed (5)
+## P1: an entry whose version is not SemVer is not shown (restored)
+      Tests  5 passed (5)
+## P1: the contract refuses reported command text (mutated)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/agent-updates.test.ts > agent updates > shows what the daemon reported, dropping malformed entries
+      Tests  1 failed | 2 passed (3)
+## P1: the contract refuses reported command text (restored)
+      Tests  3 passed (3)
+## P2: SemVer prerelease precedence (mutated)
+--- FAIL: TestNewerFollowsSemVerPrereleasePrecedence (0.00s)
+    agentupdate_test.go:180: Newer("1.0.0-alpha.1", "1.0.0-alpha") = false, want true
+    agentupdate_test.go:180: Newer("1.0.0-alpha.beta", "1.0.0-alpha") = false, want true
+    agentupdate_test.go:180: Newer("1.0.0-beta.2", "1.0.0-beta") = false, want true
+    agentupdate_test.go:180: Newer("1.0.0-beta.11", "1.0.0-beta") = false, want true
+## P2: SemVer prerelease precedence (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.005s
+## P2: an incomplete check keeps a known update (mutated)
+--- FAIL: TestAnIncompleteCheckKeepsAKnownUpdate (0.00s)
+    updates_test.go:114: an incomplete check wiped the known update: []runner.AgentUpdate{}
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.044s
+FAIL
+## P2: an incomplete check keeps a known update (restored)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.044s
+## P2: could not check is not up to date (mutated)
+--- FAIL: TestCouldNotCheckIsNotUpToDate (0.00s)
+    agents_test.go:95: agents:
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.007s
+FAIL
+## P2: could not check is not up to date (restored)
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s

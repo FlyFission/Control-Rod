@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -111,6 +111,11 @@ describe("shell and palette", () => {
     apiFor();
     await renderShell("/registers");
     const nav = screen.getByRole("navigation", { name: "Places" });
+    const user = userEvent.setup();
+    for (const group of ["Audit", "Control / Setup"]) {
+      const toggle = within(nav).getByRole("button", { name: group });
+      if (toggle.getAttribute("aria-expanded") === "false") await user.click(toggle);
+    }
     for (const p of PLACES) expect(nav.textContent).toContain(p.label);
     expect(screen.getByRole("link", { name: "Registers" }).getAttribute("aria-current")).toBe("page");
   });
@@ -120,12 +125,13 @@ describe("shell and palette", () => {
     delete document.documentElement.dataset["look"];
     await renderShell();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /Look B Drafting table/ }));
-    expect(screen.getByRole("button", { name: /Look B Drafting table/ }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(screen.getByLabelText(/workspace options/i));
+    await user.click(screen.getByRole("button", { name: /B Drafting table/ }));
+    expect(screen.getByRole("button", { name: /B Drafting table/ }).getAttribute("aria-pressed")).toBe("true");
     expect(window.localStorage.getItem("cr.look")).toBe("b");
     // Only the board container carries the look (M1 ruling 10); other pages still use look A colours.
     expect(document.documentElement.dataset["look"]).toBeUndefined();
-    await user.click(screen.getByRole("button", { name: /Look A Control room/ }));
+    await user.click(screen.getByRole("button", { name: /A Control room/ }));
     expect(window.localStorage.getItem("cr.look")).toBe("a");
   });
 
@@ -223,6 +229,8 @@ describe("shell and palette", () => {
     apiFor();
     await renderShell();
     const user = userEvent.setup();
+    const control = screen.getByRole("button", { name: "Control / Setup" });
+    if (control.getAttribute("aria-expanded") === "false") await user.click(control);
     await user.keyboard("{Control>}k{/Control}");
     const input = await screen.findByRole("combobox");
     await user.type(input, "pin a runtime");
@@ -230,7 +238,7 @@ describe("shell and palette", () => {
     expect(document.activeElement).toBe(input);
     expect(screen.getByRole("dialog")).toBeTruthy();
     // Focus that escapes to the page behind comes straight back.
-    screen.getByRole("link", { name: "Roster" }).focus();
+    screen.getByRole("link", { name: "Agents roster" }).focus();
     expect(document.activeElement).toBe(input);
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -322,5 +330,20 @@ describe("places", () => {
     expect(screen.getByRole("alert").textContent).toContain("bad data");
     await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
     expect(reset).toBe(1);
+  });
+});
+
+describe("the Plant's old address", () => {
+  it("sends /office to /plant, so the shell's SCRAM banner and older links still arrive", async () => {
+    const { router } = await import("../router.js");
+    const office = (router.routesByPath as unknown as Record<string, { options: { beforeLoad?: () => unknown } }>)["/office"];
+    let thrown: unknown;
+    try {
+      office!.options.beforeLoad?.();
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({ options: { to: "/plant" } });
+    expect((router.routesByPath as Record<string, unknown>)["/plant"]).toBeTruthy();
   });
 });

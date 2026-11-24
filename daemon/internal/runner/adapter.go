@@ -43,6 +43,23 @@ type Adapter interface {
 	SandboxRequired() bool
 }
 
+// AwaitingConfinement is a runtime Control Rod can detect and probe but cannot yet confine. Its
+// CLI has no sandbox Control Rod configures from the run's policy, and no outer sandbox wraps it,
+// so a run on it would reach the whole machine. PreflightHost and Command refuse it with the gap
+// as the reason: it is listed as not ready and never started. An adapter leaves this interface
+// when its confinement is built and qualified (ADR 0021), under its own change record.
+type AwaitingConfinement interface {
+	ConfinementGap() string
+}
+
+// confinementRefusal is the refusal for a runtime that is awaiting confinement, or nil.
+func confinementRefusal(a Adapter) error {
+	if w, ok := a.(AwaitingConfinement); ok {
+		return refuse("%s cannot run work yet: %s", a.DisplayName(), w.ConfinementGap())
+	}
+	return nil
+}
+
 // HookProvider records a permission-hook file for the run. The caller removes it.
 type HookProvider interface {
 	PrepareHook(ws *Workspace, daemonHome, runID string) (remove bool)
@@ -127,7 +144,15 @@ func (sandboxedBase) SandboxRequired() bool { return true }
 
 // registry is the runtime list, in the order Detect offers them. It is not exported: callers
 // use RegisteredAdapters, which returns a copy.
-var registry = []Adapter{claudeAdapter{}, codexAdapter{}, fakeAdapter{}}
+var registry = []Adapter{
+	claudeAdapter{},
+	codexAdapter{},
+	grokAdapter{},
+	opencodeAdapter{},
+	agyAdapter{},
+	ollamaAdapter{},
+	fakeAdapter{},
+}
 
 // RegisteredAdapters returns a copy of the registry. Mutating the slice does not change it.
 func RegisteredAdapters() []Adapter {

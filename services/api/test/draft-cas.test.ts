@@ -85,6 +85,34 @@ describe("draft compare and swap", () => {
     expect(after.draft_etag).toBe(v.draft_etag);
   });
 
+  it("stores a draft's context profile, refuses an unknown one, and clears it when omitted", async () => {
+    const v = await view(DRAFT.id);
+    const nuclear = await put(DRAFT.id, { ...v.package, context_profile: "nuclear" }, v.draft_etag);
+    expect(nuclear.statusCode, nuclear.body).toBe(200);
+    expect(nuclear.json().context_profile).toBe("nuclear");
+    const saved = await view(DRAFT.id);
+    expect(saved.package.context_profile).toBe("nuclear");
+    const bad = await put(DRAFT.id, { ...saved.package, context_profile: "heavy" }, saved.draft_etag);
+    expect(bad.statusCode).toBe(400);
+    expect((await view(DRAFT.id)).package.context_profile).toBe("nuclear");
+    const { context_profile: _drop, ...rest } = saved.package;
+    const cleared = await put(DRAFT.id, rest, saved.draft_etag);
+    expect(cleared.statusCode, cleared.body).toBe(200);
+    expect((await view(DRAFT.id)).package.context_profile).toBeUndefined();
+  });
+
+  it("stores a draft's workflow, refuses an unknown one, and clears it when omitted", async () => {
+    const v = await view(DRAFT.id);
+    const set = await put(DRAFT.id, { ...v.package, workflow: "pocock" }, v.draft_etag);
+    expect(set.statusCode, set.body).toBe(200);
+    const saved = await view(DRAFT.id);
+    expect(saved.package.workflow).toBe("pocock");
+    expect((await put(DRAFT.id, { ...saved.package, workflow: "waterfall" }, saved.draft_etag)).statusCode).toBe(400);
+    const { workflow: _drop, ...rest } = saved.package;
+    expect((await put(DRAFT.id, rest, saved.draft_etag)).statusCode).toBe(200);
+    expect((await view(DRAFT.id)).package.workflow).toBeUndefined();
+  });
+
   it("offers no tag for a released package and refuses edits to it", async () => {
     const v = await view(RELEASED.id);
     expect(v.draft_etag).toBeUndefined();

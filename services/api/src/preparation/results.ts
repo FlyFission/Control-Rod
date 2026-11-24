@@ -400,6 +400,12 @@ export async function preparedAcceptanceGuard(
       "manifest-mismatch",
       "Results name another release manifest",
     );
+  if (results && !results.evidence_valid)
+    throw new Refusal(
+      409,
+      "criterion-evidence-changed",
+      "Retained checker evidence changed; acceptance is blocked",
+    );
   return {
     ...guard,
     ...criterionResultFlags(p.snapshot, results?.body ?? null),

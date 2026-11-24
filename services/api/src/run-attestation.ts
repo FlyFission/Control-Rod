@@ -46,12 +46,37 @@ export function harnessName(provider: string): string {
   const p = provider.toLowerCase();
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
+  if (p === "xai" || p === "grok" || p === "grok-cli") return "grok";
+  if (p === "opencode") return "opencode";
+  if (p === "agy" || p === "antigravity" || p === "gemini-cli") return "agy";
+  if (p === "ollama" || p === "local-ollama") return "ollama";
   return p;
 }
 
 export function countedProvider(provider: unknown): boolean {
   const n = harnessName(String(provider ?? ""));
+  // Grok CLI, OpenCode, Antigravity and Ollama are named above but not counted: they have no
+  // registered models and the daemon does not start them yet, so a pre-check on one cannot count.
   return n === "claude" || n === "codex";
+}
+
+/** A probe can order eligible checker models. The registry remains the admission authority. */
+/** The registered checker models a provider may run for a grade: hosted, and for Safety or Material, deciding and not local. */
+function admittedCheckerModels(provider: string, grade: string | undefined) {
+  const high = grade === "safety" || grade === "material";
+  return loadModelRegistry().models.filter(
+    (model) => model.harness === harnessName(provider) && model.hosts.length > 0 && (!high || (model.deciding && !model.local)),
+  );
+}
+
+/** Whether an explicitly chosen checker model passes the same registry and grade filter as the default. */
+export function checkerModelAdmitted(provider: string, grade: string | undefined, model: string): boolean {
+  return admittedCheckerModels(provider, grade).some((m) => m.id === model);
+}
+
+export function defaultCheckerModel(provider: string, grade: string | undefined, reported: readonly string[] = []): string | undefined {
+  const admitted = admittedCheckerModels(provider, grade);
+  return reported.find((id) => admitted.some((model) => model.id === id)) ?? admitted[0]?.id;
 }
 
 export interface AttestationVerdict {

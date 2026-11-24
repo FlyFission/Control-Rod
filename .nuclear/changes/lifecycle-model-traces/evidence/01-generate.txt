@@ -1,0 +1,33 @@
+# Model check and trace generation, 2026-11-18T14:12:34Z, base 2b9c839
+
+$ sha256sum models/traces/package-lifecycle/v1/index.json   # before
+c1b14f8d228bba15ed08d2db177bdc7dc01b96e65e3637f64b6f51555c0fdee4  models/traces/package-lifecycle/v1/index.json
+
+$ bash models/generate.sh
+quint 0.33.1, model sha256 8b55cc2e745c2390b04329945cc62701b053a96143430f3a1d69fc378f4d18c7
+
+  package_lifecycle
+    ok sameProviderPreCheckNeedsOverrideTest passed 1 test(s)
+    ok acceptNeedsPreCheckTest passed 1 test(s)
+    ok failedPreCheckRevisesTest passed 1 test(s)
+
+  3 passing (25ms)
+[ok] No violation found (30937ms at 162 traces/second).
+Witnesses:
+ReachedAccepted was witnessed in 1667 trace(s) out of 5000 explored (33.34%)
+ReachedClosed was witnessed in 1603 trace(s) out of 5000 explored (32.06%)
+RefusedNotIndependent was witnessed in 2015 trace(s) out of 5000 explored (40.30%)
+PreCheckAllowedAfterOverride was witnessed in 2026 trace(s) out of 5000 explored (40.52%)
+RevisedAfterFail was witnessed in 1149 trace(s) out of 5000 explored (22.98%)
+Use --seed=0x1 --backend=typescript to reproduce.
+wrote 32 traces to models/traces/package-lifecycle/v1
+exit 0
+
+$ sha256sum models/traces/package-lifecycle/v1/index.json   # after: identical means byte-identical traces
+c1b14f8d228bba15ed08d2db177bdc7dc01b96e65e3637f64b6f51555c0fdee4  models/traces/package-lifecycle/v1/index.json
+
+$ coverage of the traces (python over the trace files)
+steps 960
+requests by action {'accept': 121, 'accept-with-findings': 76, 'claim': 79, 'override-independence': 94, 'reject': 77, 'release': 91, 'return': 90, 'revise': 111, 'submit-output': 90, 'submit-pre-check': 131}
+allowed by action {'accept': 4, 'accept-with-findings': 9, 'claim': 36, 'override-independence': 29, 'reject': 11, 'release': 40, 'return': 10, 'revise': 9, 'submit-output': 44, 'submit-pre-check': 36}
+answers by reason {'allowed': 228, 'forbidden': 137, 'missing-pre-check': 108, 'not-human': 63, 'not-independent': 27, 'reason-required': 48, 'unsigned': 22, 'wrong-state': 327}

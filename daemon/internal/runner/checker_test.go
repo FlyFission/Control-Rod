@@ -376,31 +376,16 @@ func TestSeatbeltProfileDeniesWritesExceptScratch(t *testing.T) {
 	}
 }
 
-func TestSeatbeltIsUnqualifiedUntilTheFlagIsSet(t *testing.T) {
-	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "")
-	if err := requireSeatbeltQualified(); err == nil || err.Error() != "macOS checker sandbox not yet qualified" {
-		t.Fatalf("default: %v", err)
-	}
-	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "true")
-	if err := requireSeatbeltQualified(); err == nil {
-		t.Fatal("a value other than 1 qualified the sandbox")
-	}
-	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "1")
-	if err := requireSeatbeltQualified(); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestSessionReadDeniesCanonicalizesTheRootOnly(t *testing.T) {
-	real := t.TempDir()
+	real := realTempDir(t)
 	if err := os.MkdirAll(filepath.Join(real, "log"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	home := t.TempDir()
+	home := realTempDir(t)
 	if err := os.Symlink(home, filepath.Join(real, "sessions")); err != nil {
 		t.Fatal(err)
 	}
-	linkParent := t.TempDir()
+	linkParent := realTempDir(t)
 	link := filepath.Join(linkParent, "login")
 	if err := os.Symlink(real, link); err != nil {
 		t.Fatal(err)
@@ -419,7 +404,7 @@ func TestSessionReadDeniesCanonicalizesTheRootOnly(t *testing.T) {
 }
 
 func TestMacProfileHidesRealSessionDirs(t *testing.T) {
-	home := t.TempDir()
+	home := realTempDir(t)
 	login := filepath.Join(home, ".codex")
 	if err := os.MkdirAll(login, 0o700); err != nil {
 		t.Fatal(err)
@@ -557,7 +542,7 @@ func TestCheckerRunTmpIsRemovedAlone(t *testing.T) {
 }
 
 func TestCanonicalPathResolvesTheAncestorSymlink(t *testing.T) {
-	root := t.TempDir()
+	root := realTempDir(t)
 	real := filepath.Join(root, "private", "tmp")
 	if err := os.MkdirAll(real, 0o700); err != nil {
 		t.Fatal(err)
@@ -727,6 +712,59 @@ func TestAbsentLoginDirectoryIsPartOfTheHash(t *testing.T) {
 	f.Close()
 	if _, err := hashProtected(dir); err == nil {
 		t.Fatal("a settings file over the output cap was hashed")
+	}
+}
+
+func TestProtectedLoginHashRejectsOverBudgetTrees(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		want string
+	}{
+		{"file", "byte limit"},
+		{"total", "total limit"},
+		{"entries", "entries"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			for _, name := range []string{"plugins", "skills"} {
+				if err := os.Mkdir(filepath.Join(root, name), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			createFile := func(dir, name string, size int64) {
+				t.Helper()
+				f, err := os.Create(filepath.Join(root, dir, name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				err = f.Truncate(size)
+				if closeErr := f.Close(); err == nil {
+					err = closeErr
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			switch tc.name {
+			case "file":
+				createFile("plugins", "pack", MaxOutputFile+1)
+			case "total":
+				for i := range MaxOutputTotal / MaxOutputFile {
+					createFile("plugins", fmt.Sprint(i), MaxOutputFile)
+				}
+				createFile("skills", "one-more-byte", 1)
+			case "entries":
+				for i := range checkerMaxEntries()/2 + 1 {
+					name := fmt.Sprint(i)
+					createFile("plugins", name, 0)
+					createFile("skills", name, 0)
+				}
+			}
+			digest, err := hashProtected(root)
+			if err == nil || !strings.Contains(err.Error(), tc.want) || digest != "" {
+				t.Fatalf("hashProtected returned %q, %v; want no digest and an error mentioning %q", digest, err, tc.want)
+			}
+		})
 	}
 }
 

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, closeSync, lstatSync, openSync, readFileSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, lstatSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
 import pg from "pg";
 import { survivesIdleDrops } from "./writer.js";
 
@@ -31,7 +31,14 @@ const SECRET = /^[0-9a-f]{48}$/;
 export function privateFile(path: string, create: () => string): string {
   try {
     const fd = openSync(path, "wx", 0o600);
-    try { writeSync(fd, create()); } finally { closeSync(fd); }
+    let wrote = false;
+    try {
+      writeSync(fd, create());
+      wrote = true;
+    } finally {
+      closeSync(fd);
+      if (!wrote) rmSync(path, { force: true });
+    }
   } catch (e) {
     if ((e as { code?: string }).code !== "EEXIST") throw e;
   }

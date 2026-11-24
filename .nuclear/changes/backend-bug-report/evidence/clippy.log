@@ -1,0 +1,32 @@
+   Compiling proc-macro2 v1.0.107
+    Checking typenum v1.20.1
+    Checking itoa v1.0.18
+    Checking memchr v2.8.3
+    Checking const-oid v0.10.2
+    Checking cfg-if v1.0.5
+    Checking serde_core v1.0.229
+    Checking zmij v1.0.23
+   Compiling wasm-bindgen-shared v0.2.104
+    Checking cpufeatures v0.3.1
+    Checking ryu-js v1.0.3
+    Checking unicode-ident v1.0.27
+    Checking once_cell v1.21.4
+   Compiling quote v1.0.47
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+    Checking hybrid-array v0.4.15
+    Checking block-buffer v0.12.1
+    Checking crypto-common v0.2.2
+    Checking serde_json v1.0.154
+    Checking digest v0.11.3
+    Checking sha2 v0.11.1
+   Compiling serde_derive v1.0.229
+   Compiling wasm-bindgen-backend v0.2.104
+   Compiling wasm-bindgen-macro-support v0.2.104
+   Compiling wasm-bindgen-macro v0.2.104
+    Checking serde v1.0.229
+    Checking wasm-bindgen v0.2.104
+    Checking serde_json_canonicalizer v0.4.1
+    Checking controlrod-kernel v0.0.0 (/home/flyfission/worktrees/control-rod-backend-bugs/kernel)
+    Checking controlrod-kernel-wasm v0.0.0 (/home/flyfission/worktrees/control-rod-backend-bugs/kernel/bindings/wasm)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.51s

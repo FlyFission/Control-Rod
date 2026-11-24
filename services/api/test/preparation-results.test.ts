@@ -168,6 +168,11 @@ describe("typed criterion verification admission", () => {
   it("refuses acceptance when retained evidence is altered, even if its mutable row hash is changed too", async () => {
     const p = await author();
     expect((await check(p, submission(p))).json().status).toBe("succeeded");
+    const options = await f.owner("POST", `/packages/${p.id}/decisions/options`, {
+      kind: "accept",
+      package_revision: 0,
+    });
+    expect(options.statusCode, options.body).toBe(200);
     await f.adminQuery(
       "update outputs set bytes=$2,sha256=$3 where run_id=$1 and name='checks.md'",
       [
@@ -176,7 +181,25 @@ describe("typed criterion verification admission", () => {
         createHash("sha256").update("Tampered").digest("hex"),
       ],
     );
-    expect((await decide(p.id, "accept")).statusCode).toBe(409);
+    const actions = await f.owner("GET", `/packages/${p.id}/actions`);
+    expect(actions.json()).toContainEqual(expect.objectContaining({
+      command: "accept",
+      allowed: false,
+      reason_code: "criterion-evidence-changed",
+    }));
+    const refused = await f.owner("POST", `/packages/${p.id}/decisions/options`, {
+      kind: "accept",
+      package_revision: 0,
+    });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().code).toBe("criterion-evidence-changed");
+    const signed = await f.owner("POST", `/packages/${p.id}/decisions`, {
+      kind: "accept",
+      package_revision: 0,
+      assertion: f.passkey.assert(options.json().options),
+    });
+    expect(signed.statusCode).toBe(409);
+    expect(signed.json().code).toBe("criterion-evidence-changed");
     const v = (await f.owner("GET", `/packages/${p.id}`)).json();
     expect(v.criterion_results_integrity).toBe("changed");
     expect(

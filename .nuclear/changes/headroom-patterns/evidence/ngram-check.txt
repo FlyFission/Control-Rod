@@ -1,0 +1,21 @@
+Comparison of new text with the 17 Headroom files read (commit 53a2521637ec6d71a5b53e11f5698ebef96d97b1), whole files, lower-cased word 6-grams, 2026-11-19, after review corrections:
+docs/patterns/headroom.md: 4 shared 6-grams ['0005 release overrides and fail closed', 'adr 0005 release overrides and fail', 'https github com headroomlabs ai headroom', 'release overrides and fail closed policy']
+docs/threat-model.md: 0 shared 6-grams []
+docs/patterns/README.md: 0 shared 6-grams []
+.github/pull_request_template.md: 0 shared 6-grams []
+The shared runs in headroom.md are the source URL and the ADR 0005 file name in the provenance header.
+
+Script ngram.py, sha256 166ecec52d3624414384a26fb5d6113867d03e297351338b77b15f56eabffe74:
+"""Shared lower-cased word n-grams between new files and source files. Usage: ngram.py N --src F... --new F..."""
+import re, sys
+args = sys.argv[1:]
+n = int(args[0]); i = args.index("--src"); j = args.index("--new")
+src, new = args[i+1:j], args[j+1:]
+W = re.compile(r"[a-z0-9]+")
+def grams(path):
+    w = W.findall(open(path, encoding="utf-8").read().lower())
+    return {" ".join(w[k:k+n]) for k in range(len(w)-n+1)}
+pool = set().union(*(grams(p) for p in src))
+for p in new:
+    shared = sorted(grams(p) & pool)
+    print(f"{p}: {len(shared)} shared {n}-grams {shared}")

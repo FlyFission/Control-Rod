@@ -8,6 +8,9 @@ import { CHECKER_ATTEMPTS_DOWN_SQL } from "../src/db/migrations/020-checker-atte
 import { CHECKER_QUEUED_DIGESTS_DOWN_SQL } from "../src/db/migrations/021-checker-queued-digests.js";
 import { CHECKER_NO_TRUNCATE_DOWN_SQL } from "../src/db/migrations/022-checker-no-truncate.js";
 import { RUN_ATTESTATION_DOWN_SQL } from "../src/db/migrations/023-run-attestation.js";
+import { CONTEXT_PROFILE_DOWN_SQL } from "../src/db/migrations/024-context-profile.js";
+import { DEPENDENCY_PROVENANCE_DOWN_SQL } from "../src/db/migrations/025-dependency-provenance.js";
+import { DEFAULT_WORKFLOW_DOWN_SQL } from "../src/db/migrations/026-default-workflow.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import { loadValidator } from "../src/schemas.js";
@@ -284,6 +287,9 @@ describe("classes", () => {
 // Last in the file: it takes 019 off and puts it back over the rows the tests above stored.
 describe("migration 019", () => {
   it("refuses startup naming rows 010 allowed to cross links, changes nothing, and runs once they are removed", async () => {
+    await h.admin.query(DEFAULT_WORKFLOW_DOWN_SQL);
+    await h.admin.query(DEPENDENCY_PROVENANCE_DOWN_SQL);
+    await h.admin.query(CONTEXT_PROFILE_DOWN_SQL);
     await h.admin.query(RUN_ATTESTATION_DOWN_SQL);
     await h.admin.query(CHECKER_NO_TRUNCATE_DOWN_SQL);
     await h.admin.query(CHECKER_QUEUED_DIGESTS_DOWN_SQL);

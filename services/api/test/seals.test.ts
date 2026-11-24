@@ -156,6 +156,12 @@ describe("inclusion proofs", () => {
     const own = (await h.db.query<{ seq: number }>("select seq from events where body->>'subject' = 'WP-PROOF-1' order by seq")).rows.map((r) => r.seq);
     expect(p.check.events).toEqual(own);
     expect(await verifyInclusion(b)).toEqual({ ok: true, authenticated: true, events: own });
+    // The downloaded file checks offline with `pnpm cr verify`, which names what it cannot settle.
+    const { verifyBundleText } = await import("../src/verify-bundle.js");
+    const offline = await verifyBundleText(JSON.stringify(b, null, 2));
+    expect(offline.code).toBe(0);
+    expect(offline.lines.join("\n")).toContain(`passkey signature checks against the key in the bundle`);
+    expect(offline.lines.join("\n")).toContain(`that the key belongs to signer ${b.seal.payload.signer_id}`);
   });
 
   it("catches anything changed in a bundle: an event, a missing event, another package's name, a head, a purpose, a signature", async () => {
@@ -196,6 +202,12 @@ describe("inclusion proofs", () => {
     expect((await edit((x) => delete x.seal_evidence)).problem).toBe("the bundle does not carry what checking the seal's signature needs");
     // Another key, with a signature made by it, would still have to be the key recorded with the seal.
     expect((await edit((x) => (x.seal_evidence.public_key = Buffer.from("not the key").toString("base64url")))).problem).toBe("the key the bundle carries is not the one recorded with the seal");
+    // Entries appended after the seal's recording event, however well linked, are not under the seal.
+    expect((await edit((x) => {
+      const last = x.segment.at(-1);
+      const rest = { seq: last.seq + 1, at: last.at, type: "package.noted", subject: "WP-APPENDED", actor: { kind: "system" as const, id: "t" }, prev: { algorithm: "sha256" as const, value: last.digest.value } };
+      x.segment.push({ ...rest, digest: { algorithm: "sha256", value: eventDigest(rest) } });
+    })).problem).toBe("the segment runs past the event that records its seal");
     // Cut back to the seal's head: its recording event is gone.
     expect((await edit((x) => (x.segment = x.segment.slice(0, x.seal.payload.head_seq)))).problem).toBe("the segment does not record this seal as it stands");
   });
@@ -223,6 +235,47 @@ describe("inclusion proofs", () => {
     cut.segment.pop();
     expect((await verifyInclusion(cut)).problem).toBe("the segment does not end at the head the bundle states");
     expect((await get("/packages/WP-NO-SUCH/proof")).statusCode).toBe(404);
+  });
+});
+
+describe("audit export for a time window", () => {
+  const exportOf = async (from: string, to: string) => get(`/records/export?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+
+  it("exports every event recorded in a window under the seal covering them, checkable offline", async () => {
+    const from = new Date(Date.now() - 1000).toISOString();
+    await pkg("WP-WINDOW-1");
+    await pkg("WP-WINDOW-2");
+    // The window closes before the seal, so the seal's own events fall after it and the seal covers it.
+    await new Promise((r) => setTimeout(r, 5));
+    const to = new Date().toISOString();
+    await new Promise((r) => setTimeout(r, 5));
+    expect((await seal("Covers the export window")).statusCode).toBe(200);
+    const r = await exportOf(from, to);
+    expect(r.statusCode, r.body).toBe(200);
+    const p = r.json();
+    expect(p).toMatchObject({ ok: true, chain: { ok: true }, check: { ok: true, authenticated: true }, bundle: { window: { from, to }, witnessed: false } });
+    // The window's events are derived from their recorded times, never taken from a list.
+    const inside = (await h.db.query<{ seq: number }>("select seq from events where (body->>'at')::timestamptz >= $1 and (body->>'at')::timestamptz < $2 order by seq", [from, to])).rows.map((x) => x.seq);
+    expect(p.check.events).toEqual(inside);
+    expect(p.bundle.segment[0].seq).toBe(1);
+    const { verifyBundleText } = await import("../src/verify-bundle.js");
+    const offline = await verifyBundleText(JSON.stringify(p.bundle));
+    expect(offline.code).toBe(0);
+    expect(offline.lines[0]).toContain(`window ${from} to ${to}`);
+    // Moving an event's time into or out of the window changes its digest, so the export no longer holds.
+    const moved = structuredClone(p.bundle);
+    moved.segment[inside[0]! - 1].at = "2000-01-01T00:00:00.000Z";
+    expect((await verifyBundleText(JSON.stringify(moved))).code).toBe(1);
+  });
+
+  it("refuses a window that is not two ordered date-times, and says when nothing was recorded in it", async () => {
+    expect((await get("/records/export?from=yesterday&to=today")).statusCode).toBe(400);
+    expect((await exportOf("2026-11-02T00:00:00Z", "2026-11-01T00:00:00Z")).statusCode).toBe(400);
+    expect((await exportOf("2026-11-21T00:00:00.0005Z", "2026-11-21T00:00:00.0015Z")).statusCode).toBe(400);
+    // A date the calendar does not have is refused, not rolled into the next month.
+    expect((await exportOf("2026-02-31T00:00:00Z", "2026-03-05T00:00:00Z")).statusCode).toBe(400);
+    expect((await exportOf("2026-11-01T24:00:00Z", "2026-11-05T00:00:00Z")).statusCode).toBe(400);
+    expect((await exportOf("2001-01-01T00:00:00Z", "2001-02-01T00:00:00Z")).statusCode).toBe(404);
   });
 });
 

@@ -13,6 +13,9 @@ export type PackageView = S["PackageView"];
 /** A recorded person verification with the package revision it verified. */
 export type PersonVerificationEntry = S["PersonVerificationEntry"];
 export type Run = S["ControlRod.Records.Run"];
+export type ActiveRunSummary = S["ActiveRunSummary"];
+export type RunOutput = S["RunOutput"];
+export type RunOutputPreview = S["RunOutputPreview"];
 export type Artifact = S["ControlRod.Records.Artifact"];
 export type Digest = S["ControlRod.Records.Digest"];
 export type DataLane = S["ControlRod.Records.DataLane"];
@@ -21,6 +24,7 @@ export type DecisionKind = S["ControlRod.Records.DecisionKind"];
 export type DecisionRequest = S["Packages.DecisionRequest"];
 export type VerificationRecord = S["ControlRod.Records.VerificationRecord"];
 export type Finding = S["ControlRod.Records.Finding"];
+export type ScopeDrift = S["ControlRod.Records.ScopeDrift"];
 export type OfficeItem = S["OfficeItem"];
 export type AgentFigure = S["AgentFigure"];
 export type ScramEvent = S["ControlRod.Records.ScramEvent"];
@@ -58,6 +62,13 @@ export interface PackageProof {
   chain: { ok: boolean; count: number; broken_at?: number };
   check: { ok: boolean; authenticated: boolean; events: number[]; problem?: string };
   bundle: { package_id: string; segment: unknown[]; seal: { id: string; payload: { head_seq: number; purpose: string } } | null; seal_evidence?: unknown; statement: string };
+}
+/** An audit export of a time window, with the control plane's checks of the bundle and of the whole chain. */
+export interface WindowExport {
+  ok: boolean;
+  chain: { ok: boolean; count: number; broken_at?: number };
+  check: { ok: boolean; authenticated: boolean; events: number[]; problem?: string };
+  bundle: { window: { from: string; to: string }; segment: unknown[]; seal: { id: string; payload: { head_seq: number; purpose: string } } | null; seal_evidence?: unknown; statement: string };
 }
 /** When a SCRAM was pulled and, once every run it reached has stopped, how long that took. */
 export interface ScramTiming {
@@ -109,7 +120,16 @@ export type CrEvent = S["ControlRod.Records.Event"];
 export type Metrics = S["Metrics"];
 export type ApiErrorBody = S["ApiError"];
 export type RuntimeStatus = S["Runner.RuntimeStatus"];
+export type AgentUpdate = S["Runner.AgentUpdate"];
+export type WorkspaceProject = S["WorkspaceProjects.WorkspaceProject"];
+export type WorkspaceProjectCreatePayload = S["WorkspaceProjects.CreateProjectPayload"];
+export type WorkspaceProjectUpdatePayload = S["WorkspaceProjects.UpdateProjectPayload"];
+export type WorkspaceProjectArchivePayload = S["WorkspaceProjects.ArchiveProjectPayload"];
+export type WorkspaceProjectArchive = S["WorkspaceProjects.ArchivedProject"];
 export type SubscriptionView = S["SubscriptionView"];
+export type AgentSetupView = S["AgentSetupView"];
+export type AgentSetupRequest = S["AgentSetupRequest"];
+export type CheckIn = S["CheckIn"];
 export type PreparationView = S["ControlRod.Preparation.PreparationView"];
 export type PreparationContent = S["ControlRod.Preparation.PreparationContent"];
 export type ResolutionRequest = S["ControlRod.Preparation.ResolutionRequest"];
@@ -163,6 +183,19 @@ export type MaterializeRepoRequest = S["Repos.MaterializeRepoRequest"];
 export type MaterializeRepoResult = S["Repos.MaterializeRepoResult"];
 export type CheckpointRequest = S["Repos.CheckpointRequest"];
 export type CheckpointResult = S["Repos.CheckpointResult"];
+export interface FreezeRequest {
+  repo_path: string;
+  label?: string;
+  workspace_root?: string;
+}
+export interface FreezeResult {
+  ok: boolean;
+  checkpoint_ref: string;
+  commit_sha: string;
+  tree_sha: string;
+  manifest_digest: string;
+  file_count: number;
+}
 export type RemoveWorktreeRequest = S["Repos.RemoveWorktreeRequest"];
 export type RemoveWorktreeResult = S["Repos.RemoveWorktreeResult"];
 

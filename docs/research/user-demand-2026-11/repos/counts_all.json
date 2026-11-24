@@ -1,0 +1,1627 @@
+{
+ "digests": {
+  "rules_all.json": "14defeb378a9c92e9c6b295381016abbf2d2ed2ced7fded1d75852d4a041aef5",
+  "snapshots/BloopAI_vibe-kanban.json.gz": "6c0b590bf39eec541483986d12dd4fb3561593723673f17c820fe8d342c0c487",
+  "snapshots/OrchestratorInc_agent-orchestrator.json.gz": "becd5f62440441655a2ed0ece1b467ff278d6b2538acc046596bf79c7eddbb9c",
+  "snapshots/ParadevAI_Paradev.json.gz": "93e5101934524da886821094cf555fd10c0bd9449dc6be794fcbdd8ca73153a6",
+  "snapshots/agent-of-empires_agent-of-empires.json.gz": "8d71d90a870752db19a2ea1ce990e4b1f89749d6c615f510fb740a2beb63d3bf",
+  "snapshots/code-yeongyu_oh-my-openagent.json.gz": "bba285efcba5ebcd2ca706fe7548d3a40bddc951b4e50d03de490290235a62af",
+  "snapshots/generalaction_emdash.json.gz": "cffa753e243dc0702b2c0fcf1a15d83c664cfb04bda240ec4f5ce125d4ac1f84",
+  "snapshots/herdrdev_herdr-app.json.gz": "266841d14706041aa641d3bbc5a148f6134290dd23d160454350abe89fe234fe",
+  "snapshots/herdrdev_herdr.json.gz": "d414edfcd40633937bd4f81d0bafc16a3119962ca4daa8ccd1fbd32592ab3dfb",
+  "snapshots/kdlbs_kandev.json.gz": "77502e697161c3814b23e7f5383c95704d26f5cfca3cdb3061dd7f5bc8689f23",
+  "snapshots/mistralai_mistral-vibe.json.gz": "60570786496b3f5650b66d58598bdf6c9568dde5843aaa2ceb1328bc7ae856f9",
+  "snapshots/multica-ai_multica.json.gz": "77f9a25143b3c2763d773783ec3b7134a2e62fe493913344f698847f21adc864",
+  "snapshots/nimbalyst_nimbalyst.json.gz": "c6e1de967faeec317f13a4b7ca3a7951d16ba53eb09a9525575aaf0455015e07",
+  "snapshots/paperclipai_paperclip.json.gz": "11b873b6007df6efa40b1650f3f50d6fbdad06731130e7a15a0ad01358e61e8c",
+  "snapshots/smtg-ai_claude-squad.json.gz": "b288d7868f0f720f4cc6d63a6f0453ac41745b0e3a5571e897b52cc468640548",
+  "snapshots/stravu_crystal.json.gz": "1fc70f96b97d844e6c89d539080fcb62ffa8f622c4226b57b9b249d5052ae81b"
+ },
+ "repos": {
+  "BloopAI/vibe-kanban": {
+   "issues": 888,
+   "prs": 2504,
+   "feature_requests": 200,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 106,
+     "fr": 18,
+     "fr_reactions": 4
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 57,
+     "fr": 2,
+     "fr_reactions": 8
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 11,
+     "fr": 4,
+     "fr_reactions": 5
+    },
+    "Memory, context, compaction": {
+     "issues": 23,
+     "fr": 2,
+     "fr_reactions": 1
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 49,
+     "fr": 10,
+     "fr_reactions": 6
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 35,
+     "fr": 16,
+     "fr_reactions": 24
+    },
+    "Tools and MCP": {
+     "issues": 50,
+     "fr": 13,
+     "fr_reactions": 20
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 30,
+     "fr": 5,
+     "fr_reactions": 7
+    },
+    "Config and control (disable, settings)": {
+     "issues": 76,
+     "fr": 26,
+     "fr_reactions": 55
+    },
+    "Review, verification, tests": {
+     "issues": 45,
+     "fr": 12,
+     "fr_reactions": 18
+    },
+    "Windows": {
+     "issues": 17,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 60,
+     "fr": 13,
+     "fr_reactions": 25
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 134,
+     "fr": 38,
+     "fr_reactions": 79
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 20,
+     "fr": 4,
+     "fr_reactions": 1
+    },
+    "Status, notifications, needs attention": {
+     "issues": 25,
+     "fr": 10,
+     "fr_reactions": 20
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 126,
+     "fr": 36,
+     "fr_reactions": 106
+    },
+    "Mobile and phone": {
+     "issues": 10,
+     "fr": 1,
+     "fr_reactions": 3
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 51,
+     "fr": 28,
+     "fr_reactions": 53
+    }
+   },
+   "fr_top3": [
+    "Git, worktrees, branches, PRs",
+    "Board, kanban, issues, projects",
+    "Config and control (disable, settings)"
+   ]
+  },
+  "OrchestratorInc/agent-orchestrator": {
+   "issues": 2681,
+   "prs": 6193,
+   "feature_requests": 684,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 307,
+     "fr": 72,
+     "fr_reactions": 8
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 296,
+     "fr": 47,
+     "fr_reactions": 0
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 386,
+     "fr": 90,
+     "fr_reactions": 3
+    },
+    "Memory, context, compaction": {
+     "issues": 50,
+     "fr": 19,
+     "fr_reactions": 1
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 178,
+     "fr": 39,
+     "fr_reactions": 1
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 80,
+     "fr": 15,
+     "fr_reactions": 0
+    },
+    "Tools and MCP": {
+     "issues": 136,
+     "fr": 27,
+     "fr_reactions": 4
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 401,
+     "fr": 66,
+     "fr_reactions": 3
+    },
+    "Config and control (disable, settings)": {
+     "issues": 237,
+     "fr": 58,
+     "fr_reactions": 4
+    },
+    "Review, verification, tests": {
+     "issues": 389,
+     "fr": 95,
+     "fr_reactions": 3
+    },
+    "Windows": {
+     "issues": 122,
+     "fr": 15,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 86,
+     "fr": 18,
+     "fr_reactions": 3
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 380,
+     "fr": 100,
+     "fr_reactions": 4
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 25,
+     "fr": 5,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 192,
+     "fr": 35,
+     "fr_reactions": 0
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 325,
+     "fr": 79,
+     "fr_reactions": 8
+    },
+    "Mobile and phone": {
+     "issues": 82,
+     "fr": 25,
+     "fr_reactions": 0
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 60,
+     "fr": 17,
+     "fr_reactions": 0
+    }
+   },
+   "fr_top3": [
+    "Board, kanban, issues, projects",
+    "Review, verification, tests",
+    "Orchestration: subagents, delegation, parallel, background"
+   ]
+  },
+  "ParadevAI/Paradev": {
+   "issues": 1685,
+   "prs": 8486,
+   "feature_requests": 413,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 131,
+     "fr": 29,
+     "fr_reactions": 11
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 107,
+     "fr": 9,
+     "fr_reactions": 11
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 46,
+     "fr": 9,
+     "fr_reactions": 2
+    },
+    "Memory, context, compaction": {
+     "issues": 23,
+     "fr": 7,
+     "fr_reactions": 1
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 113,
+     "fr": 17,
+     "fr_reactions": 10
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 36,
+     "fr": 17,
+     "fr_reactions": 20
+    },
+    "Tools and MCP": {
+     "issues": 88,
+     "fr": 20,
+     "fr_reactions": 5
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 366,
+     "fr": 73,
+     "fr_reactions": 31
+    },
+    "Config and control (disable, settings)": {
+     "issues": 121,
+     "fr": 48,
+     "fr_reactions": 40
+    },
+    "Review, verification, tests": {
+     "issues": 54,
+     "fr": 12,
+     "fr_reactions": 15
+    },
+    "Windows": {
+     "issues": 10,
+     "fr": 7,
+     "fr_reactions": 27
+    },
+    "Remote and SSH": {
+     "issues": 57,
+     "fr": 11,
+     "fr_reactions": 60
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 157,
+     "fr": 51,
+     "fr_reactions": 53
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 49,
+     "fr": 19,
+     "fr_reactions": 29
+    },
+    "Status, notifications, needs attention": {
+     "issues": 92,
+     "fr": 29,
+     "fr_reactions": 22
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 258,
+     "fr": 59,
+     "fr_reactions": 85
+    },
+    "Mobile and phone": {
+     "issues": 11,
+     "fr": 3,
+     "fr_reactions": 8
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 41,
+     "fr": 24,
+     "fr_reactions": 36
+    }
+   },
+   "fr_top3": [
+    "Git, worktrees, branches, PRs",
+    "Terminal, TUI, multiplexer, rendering",
+    "Board, kanban, issues, projects"
+   ]
+  },
+  "agent-of-empires/agent-of-empires": {
+   "issues": 2351,
+   "prs": 3574,
+   "feature_requests": 435,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 198,
+     "fr": 37,
+     "fr_reactions": 10
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 179,
+     "fr": 29,
+     "fr_reactions": 10
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 120,
+     "fr": 18,
+     "fr_reactions": 9
+    },
+    "Memory, context, compaction": {
+     "issues": 55,
+     "fr": 4,
+     "fr_reactions": 2
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 119,
+     "fr": 10,
+     "fr_reactions": 5
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 56,
+     "fr": 4,
+     "fr_reactions": 2
+    },
+    "Tools and MCP": {
+     "issues": 151,
+     "fr": 41,
+     "fr_reactions": 7
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 544,
+     "fr": 93,
+     "fr_reactions": 30
+    },
+    "Config and control (disable, settings)": {
+     "issues": 266,
+     "fr": 54,
+     "fr_reactions": 17
+    },
+    "Review, verification, tests": {
+     "issues": 220,
+     "fr": 25,
+     "fr_reactions": 6
+    },
+    "Windows": {
+     "issues": 8,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 97,
+     "fr": 20,
+     "fr_reactions": 2
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 246,
+     "fr": 42,
+     "fr_reactions": 16
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 59,
+     "fr": 7,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 198,
+     "fr": 26,
+     "fr_reactions": 10
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 163,
+     "fr": 28,
+     "fr_reactions": 2
+    },
+    "Mobile and phone": {
+     "issues": 54,
+     "fr": 6,
+     "fr_reactions": 2
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 199,
+     "fr": 43,
+     "fr_reactions": 22
+    }
+   },
+   "fr_top3": [
+    "Terminal, TUI, multiplexer, rendering",
+    "Config and control (disable, settings)",
+    "Agent support (add a CLI or agent)"
+   ]
+  },
+  "code-yeongyu/oh-my-openagent": {
+   "issues": 5876,
+   "prs": 8753,
+   "feature_requests": 595,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 1156,
+     "fr": 152,
+     "fr_reactions": 344
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 904,
+     "fr": 43,
+     "fr_reactions": 53
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 962,
+     "fr": 93,
+     "fr_reactions": 91
+    },
+    "Memory, context, compaction": {
+     "issues": 577,
+     "fr": 41,
+     "fr_reactions": 42
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 470,
+     "fr": 38,
+     "fr_reactions": 28
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 356,
+     "fr": 57,
+     "fr_reactions": 113
+    },
+    "Tools and MCP": {
+     "issues": 624,
+     "fr": 72,
+     "fr_reactions": 62
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 301,
+     "fr": 36,
+     "fr_reactions": 45
+    },
+    "Config and control (disable, settings)": {
+     "issues": 524,
+     "fr": 100,
+     "fr_reactions": 161
+    },
+    "Review, verification, tests": {
+     "issues": 1071,
+     "fr": 42,
+     "fr_reactions": 14
+    },
+    "Windows": {
+     "issues": 467,
+     "fr": 4,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 210,
+     "fr": 7,
+     "fr_reactions": 2
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 111,
+     "fr": 10,
+     "fr_reactions": 7
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 62,
+     "fr": 2,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 217,
+     "fr": 17,
+     "fr_reactions": 11
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 284,
+     "fr": 26,
+     "fr_reactions": 17
+    },
+    "Mobile and phone": {
+     "issues": 18,
+     "fr": 3,
+     "fr_reactions": 0
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 61,
+     "fr": 33,
+     "fr_reactions": 51
+    }
+   },
+   "fr_top3": [
+    "Model and provider routing, fallback, quotas",
+    "Config and control (disable, settings)",
+    "Orchestration: subagents, delegation, parallel, background"
+   ]
+  },
+  "generalaction/emdash": {
+   "issues": 774,
+   "prs": 2636,
+   "feature_requests": 298,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 70,
+     "fr": 25,
+     "fr_reactions": 9
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 56,
+     "fr": 7,
+     "fr_reactions": 0
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 19,
+     "fr": 4,
+     "fr_reactions": 0
+    },
+    "Memory, context, compaction": {
+     "issues": 10,
+     "fr": 7,
+     "fr_reactions": 2
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 43,
+     "fr": 16,
+     "fr_reactions": 5
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 15,
+     "fr": 12,
+     "fr_reactions": 2
+    },
+    "Tools and MCP": {
+     "issues": 35,
+     "fr": 21,
+     "fr_reactions": 10
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 104,
+     "fr": 26,
+     "fr_reactions": 22
+    },
+    "Config and control (disable, settings)": {
+     "issues": 58,
+     "fr": 24,
+     "fr_reactions": 18
+    },
+    "Review, verification, tests": {
+     "issues": 39,
+     "fr": 19,
+     "fr_reactions": 1
+    },
+    "Windows": {
+     "issues": 29,
+     "fr": 3,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 80,
+     "fr": 19,
+     "fr_reactions": 12
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 82,
+     "fr": 37,
+     "fr_reactions": 9
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 27,
+     "fr": 9,
+     "fr_reactions": 4
+    },
+    "Status, notifications, needs attention": {
+     "issues": 20,
+     "fr": 10,
+     "fr_reactions": 4
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 131,
+     "fr": 52,
+     "fr_reactions": 18
+    },
+    "Mobile and phone": {
+     "issues": 4,
+     "fr": 4,
+     "fr_reactions": 4
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 36,
+     "fr": 22,
+     "fr_reactions": 16
+    }
+   },
+   "fr_top3": [
+    "Git, worktrees, branches, PRs",
+    "Terminal, TUI, multiplexer, rendering",
+    "Board, kanban, issues, projects"
+   ]
+  },
+  "herdrdev/herdr-app": {
+   "issues": 779,
+   "prs": 588,
+   "feature_requests": 16,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 28,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 53,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 27,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Memory, context, compaction": {
+     "issues": 14,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 38,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 2,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Tools and MCP": {
+     "issues": 13,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 288,
+     "fr": 7,
+     "fr_reactions": 1
+    },
+    "Config and control (disable, settings)": {
+     "issues": 75,
+     "fr": 2,
+     "fr_reactions": 0
+    },
+    "Review, verification, tests": {
+     "issues": 36,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Windows": {
+     "issues": 68,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 41,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 29,
+     "fr": 3,
+     "fr_reactions": 0
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 11,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 32,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 25,
+     "fr": 2,
+     "fr_reactions": 0
+    },
+    "Mobile and phone": {
+     "issues": 29,
+     "fr": 3,
+     "fr_reactions": 0
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 9,
+     "fr": 0,
+     "fr_reactions": 0
+    }
+   },
+   "fr_top3": [
+    "Terminal, TUI, multiplexer, rendering",
+    "Board, kanban, issues, projects",
+    "Mobile and phone"
+   ]
+  },
+  "herdrdev/herdr": {
+   "issues": 2997,
+   "prs": 1188,
+   "feature_requests": 443,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 281,
+     "fr": 22,
+     "fr_reactions": 7
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 219,
+     "fr": 10,
+     "fr_reactions": 2
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 134,
+     "fr": 17,
+     "fr_reactions": 2
+    },
+    "Memory, context, compaction": {
+     "issues": 31,
+     "fr": 3,
+     "fr_reactions": 2
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 134,
+     "fr": 9,
+     "fr_reactions": 1
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 22,
+     "fr": 4,
+     "fr_reactions": 1
+    },
+    "Tools and MCP": {
+     "issues": 42,
+     "fr": 5,
+     "fr_reactions": 0
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 1321,
+     "fr": 175,
+     "fr_reactions": 45
+    },
+    "Config and control (disable, settings)": {
+     "issues": 206,
+     "fr": 72,
+     "fr_reactions": 16
+    },
+    "Review, verification, tests": {
+     "issues": 86,
+     "fr": 7,
+     "fr_reactions": 0
+    },
+    "Windows": {
+     "issues": 341,
+     "fr": 12,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 404,
+     "fr": 30,
+     "fr_reactions": 8
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 142,
+     "fr": 20,
+     "fr_reactions": 2
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 16,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 370,
+     "fr": 36,
+     "fr_reactions": 18
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 113,
+     "fr": 21,
+     "fr_reactions": 7
+    },
+    "Mobile and phone": {
+     "issues": 23,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 147,
+     "fr": 32,
+     "fr_reactions": 13
+    }
+   },
+   "fr_top3": [
+    "Terminal, TUI, multiplexer, rendering",
+    "Config and control (disable, settings)",
+    "Status, notifications, needs attention"
+   ]
+  },
+  "kdlbs/kandev": {
+   "issues": 673,
+   "prs": 4729,
+   "feature_requests": 197,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 55,
+     "fr": 21,
+     "fr_reactions": 9
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 52,
+     "fr": 12,
+     "fr_reactions": 3
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 28,
+     "fr": 7,
+     "fr_reactions": 0
+    },
+    "Memory, context, compaction": {
+     "issues": 23,
+     "fr": 4,
+     "fr_reactions": 1
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 52,
+     "fr": 9,
+     "fr_reactions": 2
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 64,
+     "fr": 20,
+     "fr_reactions": 3
+    },
+    "Tools and MCP": {
+     "issues": 55,
+     "fr": 16,
+     "fr_reactions": 2
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 42,
+     "fr": 10,
+     "fr_reactions": 3
+    },
+    "Config and control (disable, settings)": {
+     "issues": 58,
+     "fr": 23,
+     "fr_reactions": 3
+    },
+    "Review, verification, tests": {
+     "issues": 51,
+     "fr": 17,
+     "fr_reactions": 3
+    },
+    "Windows": {
+     "issues": 15,
+     "fr": 1,
+     "fr_reactions": 1
+    },
+    "Remote and SSH": {
+     "issues": 48,
+     "fr": 15,
+     "fr_reactions": 6
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 39,
+     "fr": 13,
+     "fr_reactions": 2
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 13,
+     "fr": 3,
+     "fr_reactions": 1
+    },
+    "Status, notifications, needs attention": {
+     "issues": 32,
+     "fr": 3,
+     "fr_reactions": 2
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 88,
+     "fr": 25,
+     "fr_reactions": 10
+    },
+    "Mobile and phone": {
+     "issues": 11,
+     "fr": 5,
+     "fr_reactions": 0
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 40,
+     "fr": 9,
+     "fr_reactions": 2
+    }
+   },
+   "fr_top3": [
+    "Git, worktrees, branches, PRs",
+    "Model and provider routing, fallback, quotas",
+    "Config and control (disable, settings)"
+   ]
+  },
+  "mistralai/mistral-vibe": {
+   "issues": 869,
+   "prs": 498,
+   "feature_requests": 143,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 99,
+     "fr": 17,
+     "fr_reactions": 27
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 92,
+     "fr": 4,
+     "fr_reactions": 2
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 35,
+     "fr": 12,
+     "fr_reactions": 19
+    },
+    "Memory, context, compaction": {
+     "issues": 34,
+     "fr": 8,
+     "fr_reactions": 3
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 53,
+     "fr": 4,
+     "fr_reactions": 5
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 48,
+     "fr": 6,
+     "fr_reactions": 1
+    },
+    "Tools and MCP": {
+     "issues": 134,
+     "fr": 15,
+     "fr_reactions": 50
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 58,
+     "fr": 12,
+     "fr_reactions": 9
+    },
+    "Config and control (disable, settings)": {
+     "issues": 84,
+     "fr": 26,
+     "fr_reactions": 25
+    },
+    "Review, verification, tests": {
+     "issues": 26,
+     "fr": 2,
+     "fr_reactions": 0
+    },
+    "Windows": {
+     "issues": 40,
+     "fr": 4,
+     "fr_reactions": 2
+    },
+    "Remote and SSH": {
+     "issues": 37,
+     "fr": 6,
+     "fr_reactions": 4
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 22,
+     "fr": 6,
+     "fr_reactions": 2
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 13,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 27,
+     "fr": 5,
+     "fr_reactions": 1
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 33,
+     "fr": 4,
+     "fr_reactions": 1
+    },
+    "Mobile and phone": {
+     "issues": 6,
+     "fr": 2,
+     "fr_reactions": 3
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 43,
+     "fr": 9,
+     "fr_reactions": 4
+    }
+   },
+   "fr_top3": [
+    "Tools and MCP",
+    "Config and control (disable, settings)",
+    "Model and provider routing, fallback, quotas"
+   ]
+  },
+  "multica-ai/multica": {
+   "issues": 3260,
+   "prs": 7895,
+   "feature_requests": 1278,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 310,
+     "fr": 95,
+     "fr_reactions": 66
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 199,
+     "fr": 53,
+     "fr_reactions": 24
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 122,
+     "fr": 48,
+     "fr_reactions": 86
+    },
+    "Memory, context, compaction": {
+     "issues": 92,
+     "fr": 37,
+     "fr_reactions": 22
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 175,
+     "fr": 38,
+     "fr_reactions": 3
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 92,
+     "fr": 50,
+     "fr_reactions": 48
+    },
+    "Tools and MCP": {
+     "issues": 116,
+     "fr": 47,
+     "fr_reactions": 54
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 97,
+     "fr": 31,
+     "fr_reactions": 16
+    },
+    "Config and control (disable, settings)": {
+     "issues": 236,
+     "fr": 120,
+     "fr_reactions": 62
+    },
+    "Review, verification, tests": {
+     "issues": 160,
+     "fr": 39,
+     "fr_reactions": 4
+    },
+    "Windows": {
+     "issues": 113,
+     "fr": 12,
+     "fr_reactions": 6
+    },
+    "Remote and SSH": {
+     "issues": 94,
+     "fr": 39,
+     "fr_reactions": 47
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 192,
+     "fr": 111,
+     "fr_reactions": 88
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 27,
+     "fr": 14,
+     "fr_reactions": 9
+    },
+    "Status, notifications, needs attention": {
+     "issues": 172,
+     "fr": 68,
+     "fr_reactions": 21
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 154,
+     "fr": 69,
+     "fr_reactions": 57
+    },
+    "Mobile and phone": {
+     "issues": 47,
+     "fr": 14,
+     "fr_reactions": 11
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 106,
+     "fr": 65,
+     "fr_reactions": 90
+    }
+   },
+   "fr_top3": [
+    "Board, kanban, issues, projects",
+    "Config and control (disable, settings)",
+    "Model and provider routing, fallback, quotas"
+   ]
+  },
+  "nimbalyst/nimbalyst": {
+   "issues": 1482,
+   "prs": 488,
+   "feature_requests": 127,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 239,
+     "fr": 21,
+     "fr_reactions": 16
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 134,
+     "fr": 7,
+     "fr_reactions": 1
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 101,
+     "fr": 7,
+     "fr_reactions": 0
+    },
+    "Memory, context, compaction": {
+     "issues": 50,
+     "fr": 4,
+     "fr_reactions": 1
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 115,
+     "fr": 5,
+     "fr_reactions": 1
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 37,
+     "fr": 2,
+     "fr_reactions": 2
+    },
+    "Tools and MCP": {
+     "issues": 148,
+     "fr": 6,
+     "fr_reactions": 5
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 152,
+     "fr": 10,
+     "fr_reactions": 1
+    },
+    "Config and control (disable, settings)": {
+     "issues": 161,
+     "fr": 13,
+     "fr_reactions": 5
+    },
+    "Review, verification, tests": {
+     "issues": 63,
+     "fr": 6,
+     "fr_reactions": 1
+    },
+    "Windows": {
+     "issues": 80,
+     "fr": 4,
+     "fr_reactions": 10
+    },
+    "Remote and SSH": {
+     "issues": 39,
+     "fr": 5,
+     "fr_reactions": 11
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 113,
+     "fr": 13,
+     "fr_reactions": 3
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 27,
+     "fr": 2,
+     "fr_reactions": 1
+    },
+    "Status, notifications, needs attention": {
+     "issues": 81,
+     "fr": 2,
+     "fr_reactions": 0
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 133,
+     "fr": 17,
+     "fr_reactions": 2
+    },
+    "Mobile and phone": {
+     "issues": 56,
+     "fr": 7,
+     "fr_reactions": 0
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 24,
+     "fr": 6,
+     "fr_reactions": 10
+    }
+   },
+   "fr_top3": [
+    "Model and provider routing, fallback, quotas",
+    "Git, worktrees, branches, PRs",
+    "Config and control (disable, settings)"
+   ]
+  },
+  "paperclipai/paperclip": {
+   "issues": 5351,
+   "prs": 16941,
+   "feature_requests": 423,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 782,
+     "fr": 61,
+     "fr_reactions": 276
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 478,
+     "fr": 14,
+     "fr_reactions": 8
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 188,
+     "fr": 15,
+     "fr_reactions": 12
+    },
+    "Memory, context, compaction": {
+     "issues": 144,
+     "fr": 12,
+     "fr_reactions": 36
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 468,
+     "fr": 26,
+     "fr_reactions": 36
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 133,
+     "fr": 16,
+     "fr_reactions": 28
+    },
+    "Tools and MCP": {
+     "issues": 313,
+     "fr": 13,
+     "fr_reactions": 8
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 158,
+     "fr": 5,
+     "fr_reactions": 3
+    },
+    "Config and control (disable, settings)": {
+     "issues": 415,
+     "fr": 52,
+     "fr_reactions": 47
+    },
+    "Review, verification, tests": {
+     "issues": 545,
+     "fr": 24,
+     "fr_reactions": 1
+    },
+    "Windows": {
+     "issues": 128,
+     "fr": 2,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 360,
+     "fr": 11,
+     "fr_reactions": 11
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 426,
+     "fr": 47,
+     "fr_reactions": 56
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 36,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 386,
+     "fr": 27,
+     "fr_reactions": 8
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 323,
+     "fr": 21,
+     "fr_reactions": 62
+    },
+    "Mobile and phone": {
+     "issues": 19,
+     "fr": 1,
+     "fr_reactions": 7
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 174,
+     "fr": 19,
+     "fr_reactions": 113
+    }
+   },
+   "fr_top3": [
+    "Model and provider routing, fallback, quotas",
+    "Agent support (add a CLI or agent)",
+    "Board, kanban, issues, projects"
+   ]
+  },
+  "smtg-ai/claude-squad": {
+   "issues": 134,
+   "prs": 189,
+   "feature_requests": 34,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 14,
+     "fr": 4,
+     "fr_reactions": 5
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 14,
+     "fr": 2,
+     "fr_reactions": 0
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 1,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Memory, context, compaction": {
+     "issues": 4,
+     "fr": 3,
+     "fr_reactions": 0
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 4,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 1,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Tools and MCP": {
+     "issues": 2,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 25,
+     "fr": 6,
+     "fr_reactions": 8
+    },
+    "Config and control (disable, settings)": {
+     "issues": 9,
+     "fr": 3,
+     "fr_reactions": 2
+    },
+    "Review, verification, tests": {
+     "issues": 8,
+     "fr": 3,
+     "fr_reactions": 7
+    },
+    "Windows": {
+     "issues": 3,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 5,
+     "fr": 1,
+     "fr_reactions": 4
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 3,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 5,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 5,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 28,
+     "fr": 4,
+     "fr_reactions": 15
+    },
+    "Mobile and phone": {
+     "issues": 1,
+     "fr": 1,
+     "fr_reactions": 2
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 1,
+     "fr": 0,
+     "fr_reactions": 0
+    }
+   },
+   "fr_top3": [
+    "Git, worktrees, branches, PRs",
+    "Terminal, TUI, multiplexer, rendering",
+    "Review, verification, tests"
+   ]
+  },
+  "stravu/crystal": {
+   "issues": 138,
+   "prs": 88,
+   "feature_requests": 43,
+   "themes": {
+    "Model and provider routing, fallback, quotas": {
+     "issues": 26,
+     "fr": 11,
+     "fr_reactions": 14
+    },
+    "Install, upgrade and host-version breakage": {
+     "issues": 7,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Orchestration: subagents, delegation, parallel, background": {
+     "issues": 1,
+     "fr": 1,
+     "fr_reactions": 1
+    },
+    "Memory, context, compaction": {
+     "issues": 6,
+     "fr": 2,
+     "fr_reactions": 1
+    },
+    "Runaway loops and surprise usage": {
+     "issues": 6,
+     "fr": 3,
+     "fr_reactions": 1
+    },
+    "Plans, specs, todos, workflows": {
+     "issues": 3,
+     "fr": 1,
+     "fr_reactions": 1
+    },
+    "Tools and MCP": {
+     "issues": 3,
+     "fr": 2,
+     "fr_reactions": 0
+    },
+    "Terminal, TUI, multiplexer, rendering": {
+     "issues": 9,
+     "fr": 2,
+     "fr_reactions": 1
+    },
+    "Config and control (disable, settings)": {
+     "issues": 15,
+     "fr": 6,
+     "fr_reactions": 6
+    },
+    "Review, verification, tests": {
+     "issues": 5,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Windows": {
+     "issues": 1,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Remote and SSH": {
+     "issues": 3,
+     "fr": 2,
+     "fr_reactions": 14
+    },
+    "Board, kanban, issues, projects": {
+     "issues": 11,
+     "fr": 4,
+     "fr_reactions": 2
+    },
+    "Diff, review UI, comments to agent": {
+     "issues": 4,
+     "fr": 1,
+     "fr_reactions": 0
+    },
+    "Status, notifications, needs attention": {
+     "issues": 8,
+     "fr": 0,
+     "fr_reactions": 0
+    },
+    "Git, worktrees, branches, PRs": {
+     "issues": 20,
+     "fr": 8,
+     "fr_reactions": 2
+    },
+    "Mobile and phone": {
+     "issues": 1,
+     "fr": 1,
+     "fr_reactions": 6
+    },
+    "Agent support (add a CLI or agent)": {
+     "issues": 10,
+     "fr": 4,
+     "fr_reactions": 10
+    }
+   },
+   "fr_top3": [
+    "Model and provider routing, fallback, quotas",
+    "Remote and SSH",
+    "Agent support (add a CLI or agent)"
+   ]
+  }
+ },
+ "cross": {
+  "Model and provider routing, fallback, quotas": {
+   "mean_share_pct": 12.2,
+   "repos_with_theme_in_fr_top3": 7
+  },
+  "Terminal, TUI, multiplexer, rendering": {
+   "mean_share_pct": 11.4,
+   "repos_with_theme_in_fr_top3": 6
+  },
+  "Config and control (disable, settings)": {
+   "mean_share_pct": 10.7,
+   "repos_with_theme_in_fr_top3": 8
+  },
+  "Git, worktrees, branches, PRs": {
+   "mean_share_pct": 10.5,
+   "repos_with_theme_in_fr_top3": 6
+  },
+  "Board, kanban, issues, projects": {
+   "mean_share_pct": 8.2,
+   "repos_with_theme_in_fr_top3": 7
+  },
+  "Agent support (add a CLI or agent)": {
+   "mean_share_pct": 6.8,
+   "repos_with_theme_in_fr_top3": 3
+  },
+  "Remote and SSH": {
+   "mean_share_pct": 5.7,
+   "repos_with_theme_in_fr_top3": 1
+  },
+  "Tools and MCP": {
+   "mean_share_pct": 5.2,
+   "repos_with_theme_in_fr_top3": 1
+  },
+  "Review, verification, tests": {
+   "mean_share_pct": 4.2,
+   "repos_with_theme_in_fr_top3": 2
+  },
+  "Orchestration: subagents, delegation, parallel, background": {
+   "mean_share_pct": 4.0,
+   "repos_with_theme_in_fr_top3": 2
+  },
+  "Status, notifications, needs attention": {
+   "mean_share_pct": 3.5,
+   "repos_with_theme_in_fr_top3": 1
+  },
+  "Plans, specs, todos, workflows": {
+   "mean_share_pct": 3.5,
+   "repos_with_theme_in_fr_top3": 0
+  },
+  "Install, upgrade and host-version breakage": {
+   "mean_share_pct": 3.1,
+   "repos_with_theme_in_fr_top3": 0
+  },
+  "Runaway loops and surprise usage": {
+   "mean_share_pct": 3.0,
+   "repos_with_theme_in_fr_top3": 0
+  },
+  "Mobile and phone": {
+   "mean_share_pct": 2.8,
+   "repos_with_theme_in_fr_top3": 1
+  },
+  "Memory, context, compaction": {
+   "mean_share_pct": 2.6,
+   "repos_with_theme_in_fr_top3": 0
+  },
+  "Windows": {
+   "mean_share_pct": 1.6,
+   "repos_with_theme_in_fr_top3": 0
+  },
+  "Diff, review UI, comments to agent": {
+   "mean_share_pct": 1.1,
+   "repos_with_theme_in_fr_top3": 0
+  }
+ },
+ "repo_count": 15
+}

@@ -8,7 +8,7 @@ Release decision: **both revisions merged on the owner's recorded yes (see Signa
 
 ## Signature
 
-Signed under the sole-maintainer rule ([docs/collaboration.md](../../../docs/collaboration.md#sole-maintainer-sign-off), [ADR 0024](../../../docs/adr/0024-sole-maintainer-sign-off.md)). Ben Huffer is the only maintainer in CODEOWNERS and prompted this change, so these are his own recorded approvals, not an independent review. Both were given in the Claude chat before the rule existed; each question named the pull request and the trust surface it changes (the live workflows on `main`), and no trust-surface file changed after either yes.
+Signed under the sole-maintainer rule ([docs/collaboration.md](../../../docs/collaboration.md#sole-maintainer-sign-off), [ADR 0025](../../../docs/adr/0025-sole-maintainer-sign-off.md)). Ben Huffer is the only maintainer in CODEOWNERS and prompted this change, so these are his own recorded approvals, not an independent review. Both were given in the Claude chat before the rule existed; each question named the pull request and the trust surface it changes (the live workflows on `main`), and no trust-surface file changed after either yes.
 
 | Field | Revision 1 | Revision 2 |
 |---|---|---|

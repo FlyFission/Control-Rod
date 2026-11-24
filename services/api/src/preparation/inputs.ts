@@ -8,7 +8,7 @@ import {
   type WorkConfig,
 } from "../work.js";
 import { requireAuthorOutputs } from "./artifacts.js";
-import { rawSha256, captureInput, readBasisFile } from "./basis.js";
+import { rawSha256, captureInput, readBasisFile, readRepositoryBasis, resolveBasis } from "./basis.js";
 import type { PreparationContent } from "./types.js";
 type Basis = PreparationContent["basis"][number];
 export function matchingInputSources(doc: string, basis: Basis[]) {
@@ -209,11 +209,29 @@ export async function refreshInputPins(
       continue;
     }
     const matches = matchingInputSources(input.doc, content.basis);
-    if (
-      matches.length === 1 &&
-      ["repository", "capture", "attachment"].includes(matches[0]!.kind)
-    )
+    const pin = matches.length === 1 ? matches[0] : undefined;
+    if (pin?.kind === "repository") {
+      if (pin.revision !== input.revision) {
+        const next = { ...pin, revision: input.revision, commit: input.revision };
+        let sourceDigest: string;
+        try {
+          ({ sourceDigest } = await readRepositoryBasis(cfg, next));
+        } catch (error) {
+          if (error instanceof Refusal) throw error;
+          throw new Refusal(409, "design-input-unavailable", `${input.doc}: configured repository source is unavailable`);
+        }
+        put({ ...next, digest: { algorithm: "sha256", value: sourceDigest } });
+      }
       continue;
+    }
+    if (pin?.kind === "capture" || pin?.kind === "attachment") {
+      if (pin.revision !== input.revision) {
+        const next = { ...pin, revision: input.revision };
+        await resolveBasis(c, cfg, [next], true);
+        put(next);
+      }
+      continue;
+    }
     const entry = Object.entries(cfg.preparationSources ?? {}).find(
       ([ref, s]) =>
         (ref === input.doc || ref === `${s.kind}:${input.doc}`) &&

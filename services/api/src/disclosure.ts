@@ -13,6 +13,8 @@ export type DataLane = "public" | "internal" | "proprietary" | "client-confident
 export const LANE_ORDER: readonly DataLane[] = ["public", "internal", "proprietary", "client-confidential", "restricted"];
 
 /** Runtimes that keep everything on this machine: the test runtime, and local model runtimes when they arrive. */
+// Ollama is not here: a model name can route `ollama run` to a hosted model, so it is not local by
+// runtime alone. Local models join through a harness that pins the endpoint.
 const LOCAL_RUNTIMES = ["fake"];
 
 /**
@@ -21,12 +23,37 @@ const LOCAL_RUNTIMES = ["fake"];
  * section 34, question Q-C); restricted lanes are local only by the plan's floor.
  */
 export const LANE_RUNTIMES: Record<DataLane, readonly string[]> = {
-  public: ["claude", "codex", ...LOCAL_RUNTIMES],
-  internal: ["claude", "codex", ...LOCAL_RUNTIMES],
+  public: ["claude", "codex", "grok", "opencode", "agy", ...LOCAL_RUNTIMES],
+  internal: ["claude", "codex", "grok", "opencode", "agy", ...LOCAL_RUNTIMES],
   proprietary: LOCAL_RUNTIMES,
   "client-confidential": LOCAL_RUNTIMES,
   restricted: LOCAL_RUNTIMES,
 };
+
+/**
+ * Local Ollama admission gate: requires locality === "local", pinned loopback endpoint
+ * (`127.0.0.1:11434`), and signed Capability Tier 2+.
+ */
+export function admitsLocalOllama(opts: {
+  locality: string;
+  endpoint: string;
+  capabilityTier: number;
+}): boolean {
+  const ep = opts.endpoint.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  return opts.locality === "local" && ep === "127.0.0.1:11434" && opts.capabilityTier >= 2;
+}
+
+/**
+ * M0 deciding-checker floor: forbids local Ollama as a deciding checker on Safety or Material grades.
+ */
+export function admitsDecidingChecker(lane: unknown, runtime: string, grade: string): boolean {
+  if (!admits(lane, runtime)) return false;
+  const g = grade.trim().toLowerCase();
+  if (runtime === "ollama" && (g === "safety" || g === "material")) {
+    return false;
+  }
+  return true;
+}
 
 export function isLane(v: unknown): v is DataLane {
   return typeof v === "string" && (LANE_ORDER as readonly string[]).includes(v);

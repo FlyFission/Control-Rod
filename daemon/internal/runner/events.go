@@ -277,10 +277,12 @@ func NewAdmission(rate, burst float64) *Admission {
 func (a *Admission) Admit(events []Event, now time.Time) []Event {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !a.last.IsZero() {
+	if a.last.IsZero() {
+		a.last = now
+	} else if now.After(a.last) {
 		a.tokens = min(a.Burst, a.tokens+now.Sub(a.last).Seconds()*a.Rate)
+		a.last = now
 	}
-	a.last = now
 	var out []Event
 	for _, e := range events {
 		// The exit event always gets through, after the count of anything refused before it, so a
@@ -293,17 +295,21 @@ func (a *Admission) Admit(events []Event, now time.Time) []Event {
 			out = append(out, e)
 			continue
 		}
-		if a.tokens < 1 {
+		cost := 1.0
+		if a.dropped > 0 && a.Burst >= 2 {
+			cost++
+		}
+		if a.tokens < cost {
 			a.dropped++
 			continue
 		}
-		if a.dropped > 0 && a.tokens >= 2 {
+		// A bucket that cannot hold two tokens reports the gap alongside its next event.
+		if a.dropped > 0 {
 			out = append(out, Event{Kind: EvDropped, At: e.At, Dropped: a.dropped})
-			a.tokens--
 			a.dropped = 0
 		}
 		out = append(out, e)
-		a.tokens--
+		a.tokens -= cost
 	}
 	return out
 }

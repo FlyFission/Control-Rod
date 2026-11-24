@@ -1,0 +1,22 @@
+
+> @control-rod/web@0.0.0 test /home/flyfission/worktrees/control-rod-backend-bugs/apps/web
+> pnpm gen:api && vitest run
+
+
+> @control-rod/web@0.0.0 gen:api /home/flyfission/worktrees/control-rod-backend-bugs/apps/web
+> openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [257.3ms]
+
+ RUN  v5.1.0 /home/flyfission/worktrees/control-rod-backend-bugs/apps/web
+
+
+ Test Files  52 passed (52)
+      Tests  699 passed (699)
+   Start at  20:16:33
+   Duration  18.32s (tests 45%, environment 31%, setup 11%, transform 6%, import 6%)
+
+Environment  jsdom was created 52 times · 52.36s total, 31% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments

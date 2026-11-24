@@ -1,7 +1,7 @@
 # Plan: answer the review of the sole-maintainer rule
 
 1. Verify each of the five review points against `main` at 608c189 ([basis](basis.md)).
-2. Add ADR 0024 and the "Amended by" line in ADR 0001.
+2. Add ADR 0025 and the "Amended by" line in ADR 0001.
 3. Align the trust-surface lists in `AGENTS.md`, `CONTRIBUTING.md` and both templates; reword condition 1.
 4. Fill the screenshot record's `Signature` table and clear its stale wording; cite the CI runs in the sign-off record.
 5. Validate every touched record under `--strict-custody`; open a draft pull request; get CI green.
@@ -13,7 +13,7 @@
 
 ## Exit criteria
 
-RS-01 to RS-04 are met: ADR 0024 records the decision and ADR 0001 points to it, the trust-surface lists match CODEOWNERS, condition 1 names each trust surface, and the screenshot and sign-off records carry their signatures and real CI evidence; CI is green on this change.
+RS-01 to RS-04 are met: ADR 0025 records the decision and ADR 0001 points to it, the trust-surface lists match CODEOWNERS, condition 1 names each trust surface, and the screenshot and sign-off records carry their signatures and real CI evidence; CI is green on this change.
 
 ## Source-lineage note
 

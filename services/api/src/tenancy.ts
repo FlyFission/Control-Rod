@@ -36,6 +36,10 @@ export interface Delegation {
 export interface Project {
   id: string; org_id: string; name: string; mode: "general" | "software" | "capital-projects";
   default_rigor: "administrative" | "quick" | "standard" | "high-consequence";
+  /** The context profile a package carries when it names none. Absent means light. */
+  default_context_profile?: "light" | "nuclear";
+  /** The workflow a package carries when it names none. Absent means the playbook. */
+  default_workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
   lanes: DataLane[]; qa_overlays: string[]; autonomy_level: number; status: LifecycleStatus;
 }
 export interface RepoBinding { id: string; org_id: string; project_id: string; url: string; default_branch: string; status: LifecycleStatus }

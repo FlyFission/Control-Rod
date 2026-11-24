@@ -1,0 +1,9 @@
+
+ RUN  v5.1.0 /home/claude/Control-Rod/.claude/worktrees/agent-a03f498dc0d756197/services/api
+
+
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+   Start at  15:28:46
+   Duration  1.85s (tests 68%, import 21%, transform 10%, worker 1%)
+

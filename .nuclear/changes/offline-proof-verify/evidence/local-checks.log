@@ -1,0 +1,15 @@
+$ pnpm exec vitest run test/verify-bundle.test.ts
+      Tests  4 passed (4)
+   Start at  16:47:32
+   Duration  391ms (import 75%, transform 20%, tests 3%, worker 1%)
+
+$ pnpm --filter @control-rod/api typecheck
+ok
+$ pnpm cr verify bundle.json (unsealed, generated)
+OK    WP-1: 1 entry (1) recomputes and links through the chain from entry 1 to entry 2.
+      No seal covers these entries, so nothing in the bundle authenticates them: the chain head it ends at is only stated.
+      Local chain, not witnessed: nothing outside this installation shows that later entries were not cut.
+exit 0
+$ pnpm cr verify bundle.json (entry 2 edited)
+FAIL  WP-1: event 2 does not match its digest.
+exit 1

@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AnchorFailure.json",
+    "type": "string",
+    "enum": [
+        "bad-path",
+        "bad-range",
+        "missing-quote",
+        "not-a-diff",
+        "path-missing",
+        "out-of-range",
+        "quote-not-found",
+        "not-in-change",
+        "not-deleted",
+        "section-missing",
+        "section-ambiguous"
+    ],
+    "description": "Why an anchor could not be confirmed."
+}

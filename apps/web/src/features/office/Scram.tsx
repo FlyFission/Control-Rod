@@ -36,7 +36,7 @@ export function ScramControl({ passkeys = browserPasskeys, presenting = false, p
   };
   return (
     <>
-      <button ref={trigger} type="button" className="btn small danger" onClick={() => setOpen(true)} aria-haspopup="dialog">
+      <button ref={trigger} type="button" className="btn small danger scram-trigger" onClick={() => setOpen(true)} aria-haspopup="dialog">
         SCRAM
       </button>
       {open && <ScramDialog passkeys={passkeys} presenting={presenting} patienceMs={patienceMs} onClose={close} />}
@@ -140,6 +140,9 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
         dismiss();
       }}
     >
+      <p className="office-dialog-eyebrow" aria-hidden="true">
+        Emergency reactor trip
+      </p>
       <h2 id={titleId}>Pull SCRAM</h2>
       <fieldset disabled={frozen}>
         <legend>Scope</legend>
@@ -219,7 +222,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
         </p>
       )}
       <div className="office-dialog-actions">
-        <button type="button" className="btn small danger" disabled={!ready || pull.isPending} onClick={() => pull.mutate()}>
+        <button type="button" className="btn small danger scram-confirm" disabled={!ready || pull.isPending} onClick={() => pull.mutate()}>
           {pull.isPending ? "Signing and stopping…" : "Sign with your passkey and stop"}
         </button>
         <button type="button" className="btn small" disabled={pull.isPending} onClick={dismiss}>
@@ -257,6 +260,9 @@ function ScramStatus({ summary: s, passkeys, presenting }: { summary: ScramSumma
   const reason = "reason" in s.scram ? s.scram.reason : undefined;
   return (
     <div className="office-scram-item">
+      <p className="office-scram-eyebrow" aria-hidden="true">
+        {s.scram.drill ? "Reactor trip — SCRAM drill hold" : "Reactor trip — SCRAM hold"}
+      </p>
       {/* Pulled is not stopped: the stop is claimed only once the control plane records it. */}
       <p>
         <strong>SCRAM {s.scram.id}</strong> {s.scram.drill ? "(drill) " : ""}pulled on {scope}

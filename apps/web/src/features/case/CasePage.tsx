@@ -8,11 +8,15 @@ import { CheckerHistory } from "../../components/CheckerHistory.js";
 import { DecisionBar } from "../../components/DecisionBar.js";
 import { useOfferedActions } from "../../lib/offered.js";
 import { StateMark } from "../../components/StateMark.js";
-import { runState, runStatusText } from "../../components/RunLog.js";
+import { RunActions, outcomeUnknown, runState, runStatusText } from "../../components/RunLog.js";
 import { isVisible } from "../../lib/live.js";
 import { shortDigest } from "../../lib/format.js";
 import { type Presentation, TIER_LABEL, presentation } from "./scaling.js";
-import { type StoryStep, story, traceFacts } from "./story.js";
+import { story, traceFacts } from "./story.js";
+import { StoryLine, allRunEvents } from "./StoryLine.js";
+import { PackageLoadError } from "../../components/PackageLoadError.js";
+import { DaemonNotice } from "../../components/DaemonNotice.js";
+import { FindingDetail } from "../../components/FindingDetail";
 
 const ROLE_WORDS: Record<string, string> = { intake: "Intake", author: "Author", "pre-check": "Pre-check" };
 
@@ -27,11 +31,7 @@ export function CasePage({ id }: { id: string }) {
   const [everything, setEverything] = useState(false);
   if (q.isLoading) return <p className="muted">Loading</p>;
   if (q.isError || q.data === undefined)
-    return (
-      <p role="alert" className="error">
-        Could not load package {id}.
-      </p>
-    );
+    return <PackageLoadError id={id} error={q.error} retry={() => void q.refetch()} />;
   const view = q.data;
   const pkg = view.package;
   const base = presentation(pkg);
@@ -65,6 +65,7 @@ export function CasePage({ id }: { id: string }) {
           <Asked pkg={pkg} view={view} p={p} />
         </Step>
         <Step n={2} title="Ran" id="ran">
+          <DaemonNotice running={view.runs.filter((r) => r.status === "running").length} />
           <Ran packageId={pkg.id} runs={view.runs} p={p} />
         </Step>
         <Step n={3} title="Checked" id="checked">
@@ -252,6 +253,14 @@ function RunStory({ packageId, run, p, open }: { packageId: string; run: Run; p:
             {run.error}
           </p>
         )}
+        {/* A lost or failed run can be run again from its case, not only from the package page. */}
+        <RunActions packageId={packageId} run={run} />
+        {outcomeUnknown(run) && (
+          <p className="muted small">
+            Its process may still be running, so it cannot be run again until it is reconciled.{" "}
+            <Link to="/packages/$id" params={{ id: packageId }} hash="runs">Reconcile it on the package page</Link>
+          </p>
+        )}
         {p.ran === "summary" && !all ? (
           <p className="muted small">
             {events.data ? `${steps.length} steps.` : ""}{" "}
@@ -292,34 +301,6 @@ function RunStory({ packageId, run, p, open }: { packageId: string; run: Run; p:
   );
 }
 
-function StoryLine({ step }: { step: StoryStep }) {
-  const mark = step.kind === "tool" ? (step.ok === false ? "✕" : step.ok === true ? "✓" : "…") : "";
-  return (
-    <li className={`story-step ${step.kind}${step.ok === false ? " failed" : ""}`}>
-      {mark && (
-        <span className="story-mark" aria-label={step.ok === false ? "failed" : step.ok === true ? "succeeded" : "no result reported"}>
-          {mark}
-        </span>
-      )}
-      <span className="story-text">{step.text}</span>
-      {step.detail && <span className="muted small"> {step.detail}</span>}
-    </li>
-  );
-}
-
-/** Every event of a run, page by page (2,000 per page, up to the run's limit). */
-async function allRunEvents(packageId: string, runId: string) {
-  const out: Awaited<ReturnType<typeof api.runEvents>>["events"] = [];
-  let after = 0;
-  for (let page = 0; page < 12; page++) {
-    const { events } = await api.runEvents(packageId, runId, after);
-    out.push(...events);
-    if (events.length < 2000) break;
-    after = events.at(-1)!.seq;
-  }
-  return out;
-}
-
 function Checked({ pkg, view, p }: { pkg: WorkPackage; view: PackageView; p: Presentation }) {
   const record = view.pre_check;
   const prep = useQuery({ queryKey: ["preparation", pkg.id], queryFn: () => api.preparation(pkg.id), enabled: view.preparation_enrolled === true && p.checked === "criteria" });
@@ -337,6 +318,7 @@ function Checked({ pkg, view, p }: { pkg: WorkPackage; view: PackageView; p: Pre
               {record.findings.map((f) => (
                 <li key={f.id}>
                   <span className={`tag sev-${f.severity}`}>{f.severity}</span> <span className="mono small">{f.id}</span> {f.text}
+                  <FindingDetail finding={f} />
                   {f.resolution !== undefined && <p className="muted small">Resolution: {f.resolution}</p>}
                 </li>
               ))}

@@ -26,7 +26,8 @@ const CheckerPrompt = "Read inputs/BRIEF.md and do what it says. Files under inp
 
 // checkerMaxTurns is the --max-turns bound for a Claude checker. It is the value
 // spikes/runtime-confinement/launch_qualification.py already passes on a headless Claude
-// print session ("--max-turns", "8"). It is not a new measurement.
+// print session ("--max-turns", "8"). It is not a new measurement. Raising it needs a
+// recorded measurement of real checker runs (AGENTS.md rule 5), not a typed number.
 const checkerMaxTurns = "8"
 
 // DefaultClaudeTools is the tool allowlist when a job has no inputs/TOOLS.txt.
@@ -34,9 +35,13 @@ const DefaultClaudeTools = "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"
 
 // Runtime names.
 const (
-	RuntimeClaude = "claude"
-	RuntimeCodex  = "codex"
-	RuntimeFake   = "fake"
+	RuntimeClaude   = "claude"
+	RuntimeCodex    = "codex"
+	RuntimeGrok     = "grok"
+	RuntimeOpenCode = "opencode"
+	RuntimeAgy      = "agy"
+	RuntimeOllama   = "ollama"
+	RuntimeFake     = "fake"
 )
 
 // RuntimeFor maps a run's provider to a runtime name.
@@ -169,7 +174,7 @@ func NeedsNetwork(ws *Workspace) bool {
 // permission profile and isolation (CodexPolicyArgs), rooted at the run workspace, outside any Git
 // repository check. There is no network and no sandbox_mode.
 func CodexArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) ([]string, error) {
-	policy, err := CodexPolicyArgs(p, at)
+	policy, err := codexPolicyArgsFor(ws, p, at)
 	if err != nil {
 		return nil, err
 	}
@@ -325,6 +330,10 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 			return nil, err
 		}
 	}
+	// A runtime awaiting confinement is refused here too, so no path starts it unconfined.
+	if err := confinementRefusal(a); err != nil {
+		return nil, err
+	}
 	// A sandboxed pre-check is a checker: clean cwd, read-only deliverables, scratch only.
 	// The fake runtime is not sandboxed, so its pre-check launch stays as it was.
 	if run.Role == "pre-check" && a.SandboxRequired() && ws != nil {
@@ -409,7 +418,7 @@ type ExecHooks struct {
 	// Started is called once the process exists, before it can be reaped, with its id. It records
 	// the spawn receipt. An error means the run cannot be owned, so it is stopped at once (fail
 	// closed); a receipt returned with the error names the unit to stop. A nil receipt with no
-	// error means this platform cannot identify processes.
+	// error means this platform cannot identify processes and the run cannot report a completion.
 	Started func(pid int) (*SpawnReceipt, error)
 	// BeforeStart is called immediately before the process is started; an error refuses the start.
 	BeforeStart func() error
@@ -504,26 +513,30 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	haveReceipt := false
 	if h.Started != nil {
 		r, rerr := h.Started(cmd.Process.Pid)
+		if r == nil && rerr == nil {
+			rerr = ErrNoIdentity
+		}
 		if rerr != nil {
-			gone := true
+			// The launcher's group is still safe to signal, but with no unit we cannot
+			// confirm that a detached process has stopped, even when the pipes close.
+			gone := false
 			if r != nil {
 				gone = StopGracefully(r.Pinned(), fast, nil)
 			}
 			// The launcher itself is still this daemon's unreaped child (it may never have reached its
 			// scope): kill its group directly, then wait for it within a bound.
 			killProcessGroup(cmd)
+			_ = cmd.Process.Kill()
 			gone = reapWithin(10*time.Second) && gone
-			if !gone || !drained(time.Second) {
+			if !drained(time.Second) || !gone {
 				return fmt.Errorf("%w; the run could not be owned: %v", ErrUncontained, rerr)
 			}
 			return fmt.Errorf("the run could not be owned, so it was stopped: %w", rerr)
 		}
-		if r != nil {
-			// Held unreaped only where the leader's exit can be observed without reaping it.
-			receipt, haveReceipt = *r, true
-			if canWaitNoReap {
-				receipt = receipt.Pinned()
-			}
+		// Held unreaped only where the leader's exit can be observed without reaping it.
+		receipt, haveReceipt = *r, true
+		if canWaitNoReap {
+			receipt = receipt.Pinned()
 		}
 	}
 

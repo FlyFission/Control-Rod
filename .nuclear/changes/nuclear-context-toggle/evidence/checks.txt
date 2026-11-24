@@ -1,0 +1,31 @@
+$ node scripts/generate-nuclear-pack.mjs --check
+nuclear-grade pack check passed: packs/nuclear-grade
+exit 0
+$ node scripts/measure-briefs.mjs --check
+brief budget check passed: 4 fixtures
+exit 0
+$ python3 tools/check_register.py
+apps/web/src/lib/kind.ts: carries a provenance marker but has no register row
+services/api/src/seals.ts: carries a provenance marker but has no register row
+2 register problem(s)
+exit 1
+$ python3 tools/check_originality.py
+originality check passed
+exit 0
+$ python3 tools/check_public_claims.py
+public claims check passed
+exit 0
+$ python3 tools/check_agents_map.py
+agent map check passed
+exit 0
+$ node tools/license-gate.mjs
+License gate passed for 212 packages.
+exit 0
+$ python3 tools/check_workflow_timeouts.py
+workflow timeouts check passed (4 file(s))
+exit 0
+$ uv run --with pyyaml python tools/check_redteam.py
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Installed 1 package in 6ms
+26 red-team cases (2 active, 24 pending)
+exit 0

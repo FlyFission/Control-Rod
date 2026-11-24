@@ -1,0 +1,13 @@
+
+ RUN  v5.1.0 /home/claude/Control-Rod/apps/web
+
+
+ Test Files  53 passed (53)
+      Tests  707 passed (707)
+   Start at  17:34:48
+   Duration  30.16s (tests 48%, environment 33%, setup 11%, import 6%, transform 1%)
+
+Environment  jsdom was created 53 times · 27.78s total, 33% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

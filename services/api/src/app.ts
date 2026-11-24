@@ -16,13 +16,14 @@ import {
   startSession,
 } from "./auth.js";
 import type { Db } from "./db/index.js";
-import { bus, type EventRecord, listEvents, verifyChain } from "./events.js";
+import { bus, eventPosition, listEvents, verifyOrganizationEvents } from "./events.js";
 import { verificationEvidence } from "./preparation/results.js";
 import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
 import { repoRoutes } from "./repos.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
+import { agentUpdateView, recordAgentUpdates } from "./agent-updates.js";
 import { REASONS, teach } from "./refusals.js";
 import { listPersonVerifications, originatorsInOrder, personVerificationSubject, recordPersonVerification, requireOwnPackage } from "./person-verification.js";
 import { inbox } from "./inbox.js";
@@ -32,7 +33,9 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
-import { chainHead, inclusionProof, verifyRecords } from "./seals.js";
+import { recordSeat, recordSetup, setupView } from "./setup.js";
+import { listWorkspaceProjects } from "./workspace-projects.js";
+import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
 import {
@@ -43,10 +46,10 @@ import {
   complete,
   classifyCapture,
   createCapture,
+  dismissCapture,
   decisionChallenge,
   decisionSubject,
   listCaptures,
-  activeRuns,
   listPackages,
   metrics,
   office,
@@ -66,16 +69,16 @@ import {
   recordRuntimeStatus,
   requeueRun,
   runLog,
-  runLogLines,
   runtimeStatus,
   stopRun,
   sweepLost,
   runEvidence,
-  runEvents,
   reconcileSubject,
   reconcileRun,
   updateDraft,
 } from "./work.js";
+import { activeRuns, activeRunSummaries, requireOwnedRun, runDetail, runEvents, runLogLines, type RunEventQuery } from "./run-reads.js";
+import { runOutputPreview, runOutputs } from "./run-outputs.js";
 
 export const VERSION = "0.1.0";
 
@@ -153,6 +156,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     }
     const status = (err as { statusCode?: number }).statusCode;
     if (status && status < 500) return reply.code(status).send({ code: "invalid", message: (err as Error).message });
+    // PostgreSQL stores no U+0000 in text or jsonb. Text that carries one (a paste from a terminal or a
+    // binary file) is the sender's to fix, not a server failure.
+    const pgCode = (err as { code?: unknown }).code;
+    if (pgCode === "22P05" || pgCode === "22021") {
+      return reply.code(400).send({ code: "invalid", message: "The text contains a null character (U+0000), which cannot be stored. Remove it and try again." });
+    }
     (opts.onError ?? ((e) => console.error("[control-rod] unhandled error:", e)))(err);
     return reply.code(500).send({ code: "error", message: "Something went wrong; it is in the server log." });
   });
@@ -161,6 +170,19 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   // (same-site), so every state-changing request must show it came from this app. Runner routes
   // use the daemon's bearer token, which a browser never sends on its own, and skip the check.
   const allowedOrigins = new Set(auth.origins);
+  const secureSessionCookie = auth.origins.some((o) => {
+    try {
+      const u = new URL(o);
+      return u.protocol === "https:" && u.hostname !== "localhost" && u.hostname !== "127.0.0.1";
+    } catch {
+      return false;
+    }
+  });
+  app.addHook("onSend", async (_req, reply) => {
+    if (!reply.hasHeader("x-content-type-options")) reply.header("x-content-type-options", "nosniff");
+    if (!reply.hasHeader("x-frame-options")) reply.header("x-frame-options", "DENY");
+    if (!reply.hasHeader("referrer-policy")) reply.header("referrer-policy", "no-referrer");
+  });
   app.addHook("onRequest", async (req) => {
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
     if (req.url.startsWith("/runner/")) return;
@@ -178,6 +200,17 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (isDaemon(auth, req)) throw new Refusal(403, "forbidden", "The daemon cannot act for a person");
     const user = await sessionUser(db, req);
     if (!user) throw new Refusal(401, "signed-out", "Sign in with your passkey");
+    return user;
+  };
+  const packageUser = async (req: FastifyRequest, id: string) => {
+    const user = await person(req);
+    await requireOwnPackage(db, (await callerFor(db, user)).orgId, id);
+    return user;
+  };
+  const runUser = async (req: FastifyRequest, id: string, runId: string) => {
+    const user = await person(req);
+    const { orgId } = await callerFor(db, user);
+    await requireOwnedRun(db, orgId, id, runId);
     return user;
   };
   const daemon = (req: FastifyRequest) => {
@@ -246,7 +279,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     }
     if (!registered) throw new Refusal(400, "invalid", "Passkey registration failed");
     const { user, credentialId } = registered;
-    await startSession(db, reply, user, credentialId).catch(() => { throw new Refusal(403, "member-inactive", "This membership is not active"); });
+    await startSession(db, reply, user, credentialId, secureSessionCookie).catch(() => { throw new Refusal(403, "member-inactive", "This membership is not active"); });
     return { registered: true, signed_in: true, user };
   });
   app.post("/auth/login/options", async () => {
@@ -256,7 +289,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post("/auth/login/verify", async (req, reply) => {
     const ok = await assertionVerify(db, auth, "login", req.body as never);
     if (!ok) throw new Refusal(401, "invalid", "Passkey sign-in failed");
-    await startSession(db, reply, ok.user, ok.credentialId).catch(() => { throw new Refusal(401, "invalid", "Passkey sign-in failed"); });
+    await startSession(db, reply, ok.user, ok.credentialId, secureSessionCookie).catch(() => { throw new Refusal(401, "invalid", "Passkey sign-in failed"); });
     return { registered: true, signed_in: true, user: ok.user };
   });
   app.post("/auth/logout", async (req, reply) => {
@@ -296,26 +329,47 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const options = await assertionOptions(db, auth, "admin", { command: req.params.name, member: caller.memberId, subject_digest: subject, nonce }, challenge, caller.userName);
     return { subject_digest: { algorithm: "sha256", value: subject }, options };
   });
-  app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
+  type AdminCommandBody = { payload?: Record<string, unknown>; assertion?: Record<string, unknown> };
+  async function executeAdminCommand(req: FastifyRequest<{ Body: AdminCommandBody }>, name: string, projectId?: string) {
     const user = await person(req);
     const caller = await callerFor(db, user);
+    const payload = req.body?.payload ?? {};
+    if (projectId !== undefined && payload.project_id !== projectId) {
+      throw new Refusal(400, "invalid", "The project ID in the request must match the path");
+    }
     let signed: { subject: string; credentialId: string; nonce: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
-      if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
+      if (ok && ok.user === user && ok.data.command === name && ok.data.member === caller.memberId)
         signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
     }
-    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
-  });
+    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed);
+  }
+  app.post<{ Params: { name: string }; Body: AdminCommandBody }>("/admin/commands/:name", async (req) =>
+    executeAdminCommand(req, req.params.name));
 
-  preparationRoutes(app, db, cfg, person, auth);
+  preparationRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { id: string }).id), auth);
   repoRoutes(app, person);
-  grantRoutes(app,db,cfg,person);
+  grantRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { packageId: string }).packageId));
+
+  /* ---- workspace projects (audited project defaults & soft-archive) ---- */
+  app.get("/workspace/projects", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return listWorkspaceProjects(db, caller.orgId);
+  });
+  app.post<{ Body: AdminCommandBody }>("/workspace/projects", async (req, reply) => {
+    const proj = await executeAdminCommand(req, "project.workspace-create");
+    return reply.code(201).send(proj);
+  });
+  app.patch<{ Params: { id: string }; Body: AdminCommandBody }>("/workspace/projects/:id", async (req) =>
+    executeAdminCommand(req, "project.workspace-update", req.params.id));
+  app.post<{ Params: { id: string }; Body: AdminCommandBody }>("/workspace/projects/:id/archive", async (req) =>
+    executeAdminCommand(req, "project.workspace-archive", req.params.id));
 
   /* ---- captures ---- */
   app.get("/captures", async (req) => {
-    await person(req);
-    return listCaptures(db);
+    const caller = await callerFor(db, await person(req));
+    return listCaptures(db, caller.orgId);
   });
   app.post<{ Body: { text?: string; source?: string; lane?: string } }>("/captures", async (req, reply) => {
     const user = await person(req);
@@ -324,8 +378,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.code(201).send(capture);
   });
   app.post<{ Params: { id: string }; Body: { lane?: string } }>("/captures/:id/classify", async (req) => {
-    const user = await person(req);
-    return classifyCapture(db, cfg, user, req.params.id, req.body?.lane);
+    const caller = await callerFor(db, await person(req));
+    return classifyCapture(db, cfg, caller, req.params.id, req.body?.lane);
+  });
+  app.post<{ Params: { id: string } }>("/captures/:id/dismiss", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return dismissCapture(db, cfg, caller, req.params.id);
   });
 
   /* ---- packages ---- */
@@ -345,20 +403,21 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { ...view, originators: who, preparation_enabled: cfg.guidedPreparation };
   });
   app.put<{ Params: { id: string } }>("/packages/:id", async (req, reply) => {
-    const user = await person(req);
+    const user = await packageUser(req, req.params.id);
     const ifMatch = typeof req.headers["if-match"] === "string" ? req.headers["if-match"] : undefined;
     const saved = await updateDraft(db, cfg, user, req.params.id, req.body, ifMatch);
     return reply.header("ETag", saved.etag).header("Cache-Control", "no-store").send(saved.body);
   });
   app.get<{ Params: { id: string } }>("/packages/:id/actions", async (req) => {
-    const user = await person(req);
+    const user = await packageUser(req, req.params.id);
     return packageActions(db, cfg, user, req.params.id);
   });
   app.get<{ Params: { id: string; "*": string } }>("/packages/:id/outputs/*", async (req, reply: FastifyReply) => {
-    await person(req);
+    await packageUser(req, req.params.id);
     const name = req.params["*"];
     const bytes = await packageOutput(db, req.params.id, name);
-    const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+    const dot = name.lastIndexOf(".");
+    const ext = dot > 0 ? name.slice(dot).toLowerCase() : "";
     const type = MIME[ext];
     reply.header("content-type", type ?? "application/octet-stream").header("x-content-type-options", "nosniff");
     const lane = await packageLane(db, req.params.id, cfg);
@@ -371,18 +430,33 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.send(bytes);
   });
   app.get<{Params:{id:string;runId:string;"*":string}}>("/packages/:id/verification-evidence/:runId/*",async(req,reply)=>{
-    await person(req);const name=req.params["*"],bytes=await verificationEvidence(db,req.params.id,req.params.runId,name);
-    const ext=name.slice(name.lastIndexOf(".")).toLowerCase(),type=MIME[ext];
+    await runUser(req, req.params.id, req.params.runId);
+    const name=req.params["*"],bytes=await verificationEvidence(db,req.params.id,req.params.runId,name);
+    const dot=name.lastIndexOf("."),ext=dot>0?name.slice(dot).toLowerCase():"",type=MIME[ext];
     reply.header("content-type",type??"application/octet-stream").header("x-content-type-options","nosniff").header("content-security-policy",OUTPUT_CSP);
     if(!type)reply.header("content-disposition","attachment");return reply.send(bytes);
   });
-  app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/events", async (req) => {
-    await person(req);
-    return runEvents(db, req.params.id, req.params.runId, Number(req.query.after ?? 0) || 0);
+  app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return runDetail(db, caller.orgId, req.params.id, req.params.runId);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: RunEventQuery }>("/packages/:id/runs/:runId/events", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return runEvents(db, caller.orgId, req.params.id, req.params.runId, req.query);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/outputs", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    reply.header("cache-control", "private, no-store");
+    return runOutputs(db, caller.orgId, req.params.id, req.params.runId, req.query.after);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: { path?: string } }>("/packages/:id/runs/:runId/outputs/preview", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    reply.header("cache-control", "private, no-store");
+    return runOutputPreview(db, caller.orgId, req.params.id, req.params.runId, req.query.path);
   });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
-    await person(req);
-    return { lines: await runLogLines(db, req.params.id, req.params.runId) };
+    const caller = await callerFor(db, await person(req));
+    return { lines: await runLogLines(db, caller.orgId, req.params.id, req.params.runId) };
   });
 
   interface DecisionBody {
@@ -393,7 +467,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     expected_subject_digest?: { algorithm: string; value: string };
   }
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions/options", async (req) => {
-    const issuedTo = await person(req);
+    const issuedTo = await packageUser(req, req.params.id);
     const { kind, package_revision: revision } = req.body ?? ({} as DecisionBody);
     const s = await decisionSubject(db, req.params.id, String(kind), Number(revision), cfg, issuedTo);
     const shown = req.body?.expected_subject_digest?.value;
@@ -412,7 +486,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
   });
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions", async (req, reply) => {
-    const user = await person(req);
+    const user = await packageUser(req, req.params.id);
     const body = req.body ?? ({} as DecisionBody);
     let signed: { subject_digest: string; assertion: Record<string, unknown>; nonce?: string } | null = null;
     if (body.assertion) {
@@ -440,7 +514,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
   /* ---- person verification (specification 11.5) ---- */
   app.post<{ Params: { id: string }; Body: Record<string, unknown> }>("/packages/:id/person-verifications/options", async (req) => {
-    const issuedTo = await person(req);
+    const issuedTo = await packageUser(req, req.params.id);
     const s = await personVerificationSubject(db, issuedTo, req.params.id, req.body);
     const nonce = randomBytes(16).toString("hex");
     const options = await assertionOptions(db, auth, "person-verification",
@@ -449,7 +523,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
   });
   app.post<{ Params: { id: string }; Body: Record<string, unknown> & { assertion?: Record<string, unknown> } }>("/packages/:id/person-verifications", async (req, reply) => {
-    const user = await person(req);
+    const user = await packageUser(req, req.params.id);
     const { assertion, ...body } = req.body ?? {};
     let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
     if (assertion) {
@@ -461,13 +535,13 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/stop", async (req) => {
-    const user = await person(req);
+    const user = await runUser(req, req.params.id, req.params.runId);
     return stopRun(db, cfg, user, req.params.id, req.params.runId);
   });
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>(
     "/packages/:id/runs/:runId/override-independence/options",
     async (req) => {
-      const issuedTo = await person(req);
+      const issuedTo = await runUser(req, req.params.id, req.params.runId);
       const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason, issuedTo);
       const nonce = randomBytes(16).toString("hex");
       const options = await assertionOptions(
@@ -484,7 +558,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>(
     "/packages/:id/runs/:runId/override-independence",
     async (req) => {
-      const user = await person(req);
+      const user = await runUser(req, req.params.id, req.params.runId);
       const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
       let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
       if (req.body?.assertion) {
@@ -541,7 +615,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   /* ---- reconcile an unknown outcome (specification 22) ---- */
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>("/packages/:id/runs/:runId/reconcile/options", async (req) => {
-    const issuedTo = await person(req);
+    const issuedTo = await runUser(req, req.params.id, req.params.runId);
     const s = await reconcileSubject(db, issuedTo, req.params.id, req.params.runId, req.body?.reason);
     const nonce = randomBytes(16).toString("hex");
     const options = await assertionOptions(db, auth, "reconcile", { package_id: req.params.id, run_id: req.params.runId, subject_digest: s.digest, nonce },
@@ -549,7 +623,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
   });
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>("/packages/:id/runs/:runId/reconcile", async (req) => {
-    const user = await person(req);
+    const user = await runUser(req, req.params.id, req.params.runId);
     let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "reconcile", req.body.assertion as never);
@@ -560,7 +634,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/requeue", async (req, reply) => {
-    const user = await person(req);
+    const user = await runUser(req, req.params.id, req.params.runId);
     return reply.code(201).send(await requeueRun(db, cfg, user, req.params.id, req.params.runId));
   });
 
@@ -609,7 +683,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   /** The head a seal made now would cover, for the screen to show and the signature to name. */
   app.get("/records/head", async (req) => {
-    await person(req);
+    await callerFor(db, await person(req));
     return { head: await chainHead(db) };
   });
   /** A package's inclusion proof: the chain segment holding its events, up to the seal that covers them. */
@@ -617,6 +691,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const caller = await callerFor(db, await person(req));
     // The bundle is self contained; the control plane's own checks of it and of the whole chain travel beside it.
     return inclusionProof(db, auth, caller.orgId, req.params.id);
+  });
+  /** An audit export: every event recorded in a time window, up to the seal that covers them. */
+  app.get<{ Querystring: { from?: string; to?: string } }>("/records/export", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return windowExport(db, auth, caller.orgId, req.query.from, req.query.to);
   });
   /** A package's recorded person verifications, every revision, oldest first. */
   app.get<{ Params: { id: string } }>("/packages/:id/person-verifications", async (req) => {
@@ -630,29 +709,48 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return usageView(db, caller.orgId);
   });
   app.get("/runtimes", async (req) => {
-    return runtimeStatus(db, (await callerFor(db, await person(req))).orgId);
+    return { ...(await runtimeStatus(db, (await callerFor(db, await person(req))).orgId)), ...(await agentUpdateView(db)) };
+  });
+  /** First-run setup: which agents are seated and when to check with the person. */
+  app.get("/setup", async (req) => {
+    await callerFor(db, await person(req));
+    return setupView(db);
+  });
+  app.put("/setup", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return recordSetup(db, caller, req.body);
+  });
+  /** One Agents roster switch: that seat only. */
+  app.put<{ Params: { runtime: string } }>("/setup/seats/:runtime", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return recordSeat(db, caller, req.params.runtime, req.body);
   });
   /** Provider CLIs the daemon probed. Read-only. No token is accepted or returned. */
   app.get("/subscriptions", async (req) => {
     return subscriptionView(db, (await callerFor(db, await person(req))).orgId);
   });
   app.get("/runs", async (req) => {
-    await person(req);
-    return activeRuns(db);
+    const caller = await callerFor(db, await person(req));
+    return activeRuns(db, caller.orgId);
+  });
+  app.get("/runs/active", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return activeRunSummaries(db, caller.orgId);
   });
   app.get("/metrics", async (req) => {
-    await person(req);
-    return metrics(db);
+    const caller = await callerFor(db, await person(req));
+    return metrics(db, caller.orgId);
   });
 
   /* ---- events ---- */
   app.get<{ Querystring: { after?: string } }>("/events", async (req) => {
-    await person(req);
-    return listEvents(db, Number(req.query.after ?? 0) || 0);
+    const caller = await callerFor(db, await person(req));
+    const after = Number(req.query.after ?? 0) || 0;
+    return listEvents(db, caller.orgId, Number.isSafeInteger(after) && after >= 0 ? after : 0);
   });
   app.get("/events/verify", async (req) => {
-    await person(req);
-    return verifyChain(db);
+    const caller = await callerFor(db, await person(req));
+    return verifyOrganizationEvents(db, caller.orgId);
   });
   /**
    * The event stream (specification 27). Durable frames are chain events, each with its sequence as
@@ -668,7 +766,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
    */
   const replayMax = opts.streamReplayMax ?? STREAM_REPLAY_MAX;
   app.get<{ Querystring: { after?: string } }>("/events/stream", async (req, reply) => {
-    await person(req);
+    const caller = await callerFor(db, await person(req));
     const raw = req.headers["last-event-id"] ?? req.query.after;
     const after = raw === undefined || raw === "" ? undefined : Number(raw);
     reply.hijack();
@@ -680,7 +778,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     let closed = false;
     let draining = false;
     let again = false;
-    // Sends every committed event after lastSent, in order. One drain runs at a time; a wakeup
+    // Sends every visible committed event after lastSent, in order. One drain runs at a time; a wakeup
     // during a drain makes it look again before it stops.
     const drain = async () => {
       if (!ready || closed) return;
@@ -693,17 +791,19 @@ export function buildApp(opts: AppOptions): FastifyInstance {
         do {
           again = false;
           for (;;) {
-            const rows = (await db.query<{ body: EventRecord }>("select body from events where seq > $1 order by seq limit 500", [lastSent])).rows;
-            if (closed) return;
-            for (const r of rows) {
-              lastSent = r.body.seq;
-              res.write(`id: ${r.body.seq}\nevent: event\ndata: ${JSON.stringify(r.body)}\n\n`);
+            const events = await listEvents(db, caller.orgId, lastSent);
+            if (closed || res.destroyed) return;
+            for (const event of events) {
+              lastSent = event.seq;
+              if (closed || res.destroyed) return;
+              res.write(`id: ${event.seq}\nevent: event\ndata: ${JSON.stringify(event)}\n\n`);
             }
-            if (rows.length < 500) break;
+            if (events.length < 500) break;
           }
         } while (again && !closed);
       } catch (e) {
         app.log.warn({ err: e }, "event stream read failed; closing the stream");
+        closed = true;
         res.end();
       } finally {
         draining = false;
@@ -713,32 +813,44 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     // arrives before the head is known is honoured by the first drain.
     const onEvent = () => void drain();
     bus.on("event", onEvent);
-    const ping = setInterval(() => res.write(`event: heartbeat\ndata: ${JSON.stringify({ at: new Date().toISOString() })}\n\n`), 15000);
-    req.raw.on("close", () => {
+    const ping = setInterval(() => {
+      if (closed || res.destroyed) return;
+      res.write(`event: heartbeat\ndata: ${JSON.stringify({ at: new Date().toISOString() })}\n\n`);
+    }, 15000);
+    const cleanup = () => {
       closed = true;
       clearInterval(ping);
       bus.off("event", onEvent);
-    });
-    const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
-    if (after !== undefined) {
-      const valid = Number.isInteger(after) && after >= 0 && after <= head;
-      if (!valid || head - after > replayMax) {
-        res.write(`id: ${head}\nevent: loss\ndata: ${JSON.stringify({ after: raw, resume_from: head, reason: valid ? "too far behind to replay" : "no such position in this event log" })}\n\n`);
-        lastSent = head;
+    };
+    req.raw.on("close", cleanup);
+    try {
+      const { head, pending } = await eventPosition(db, caller.orgId, after, replayMax + 1);
+      if (closed || res.destroyed) return;
+      if (after !== undefined) {
+        const valid = Number.isInteger(after) && after >= 0 && after <= head;
+        if (!valid || pending > replayMax) {
+          res.write(`id: ${head}\nevent: loss\ndata: ${JSON.stringify({ after: raw, resume_from: head, reason: valid ? "too far behind to replay" : "no such position in this event log" })}\n\n`);
+          lastSent = head;
+        } else {
+          lastSent = after;
+        }
       } else {
-        lastSent = after;
+        res.write(`id: ${head}\nevent: checkpoint\ndata: ${JSON.stringify({ head })}\n\n`);
+        lastSent = head;
       }
-    } else {
-      res.write(`id: ${head}\nevent: checkpoint\ndata: ${JSON.stringify({ head })}\n\n`);
-      lastSent = head;
+      ready = true;
+      await drain();
+    } catch (e) {
+      cleanup();
+      app.log.warn({ err: e }, "event stream initialization failed; closing the stream");
+      if (!res.destroyed) res.end();
     }
-    ready = true;
-    await drain();
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
+    if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);
@@ -751,7 +863,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await sweep();
     // The daemon's run ceiling sizes budget reservations; one it did not report is never guessed.
     const ceiling = req.body?.run_ceiling_seconds;
-    const job = await claim(db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined);
+    const reportedModels = new Map(status.filter((s) => s.ready && s.models).map((s) => [s.runtime, s.models!]));
+    const job = await claim(
+      db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined, reportedModels,
+    );
     if (!job) return reply.code(204).send();
     return job;
   });

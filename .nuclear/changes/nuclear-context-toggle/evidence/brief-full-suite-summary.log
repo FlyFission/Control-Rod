@@ -1,0 +1,5 @@
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/command-boundary.test.ts > database logins > SEC-01: the reader cannot switch to the writer or the owner, by any spelling
+ FAIL  test/command-boundary.test.ts > database logins > SEC-03: a command's client is unusable after the command and cannot control its transaction
+ Test Files  1 failed | 61 passed | 1 skipped (63)
+      Tests  2 failed | 774 passed | 2 skipped (778)

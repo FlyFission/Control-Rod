@@ -1,0 +1,134 @@
+[
+  {
+    "scenario": "baseline",
+    "width": 1440,
+    "trial": 1,
+    "openMs": 89,
+    "selectToTranscriptMs": 87,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 200,
+    "exactReads": 0
+  },
+  {
+    "scenario": "baseline",
+    "width": 1440,
+    "trial": 2,
+    "openMs": 80,
+    "selectToTranscriptMs": 98,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 200,
+    "exactReads": 0
+  },
+  {
+    "scenario": "baseline",
+    "width": 1440,
+    "trial": 3,
+    "openMs": 85,
+    "selectToTranscriptMs": 92,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 200,
+    "exactReads": 0
+  },
+  {
+    "scenario": "baseline",
+    "width": 1180,
+    "trial": 1,
+    "openMs": 91,
+    "selectToTranscriptMs": 89,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 200,
+    "exactReads": 0
+  },
+  {
+    "scenario": "baseline",
+    "width": 1180,
+    "trial": 2,
+    "openMs": 89,
+    "selectToTranscriptMs": 90,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 200,
+    "exactReads": 0
+  },
+  {
+    "scenario": "baseline",
+    "width": 1180,
+    "trial": 3,
+    "openMs": 83,
+    "selectToTranscriptMs": 93,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 200,
+    "exactReads": 0
+  },
+  {
+    "scenario": "implementation",
+    "width": 1440,
+    "trial": 1,
+    "openMs": 81,
+    "selectToTranscriptMs": 137,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 232,
+    "exactReads": 0
+  },
+  {
+    "scenario": "implementation",
+    "width": 1440,
+    "trial": 2,
+    "openMs": 70,
+    "selectToTranscriptMs": 90,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 232,
+    "exactReads": 0
+  },
+  {
+    "scenario": "implementation",
+    "width": 1440,
+    "trial": 3,
+    "openMs": 89,
+    "selectToTranscriptMs": 100,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 232,
+    "exactReads": 0
+  },
+  {
+    "scenario": "implementation",
+    "width": 1180,
+    "trial": 1,
+    "openMs": 82,
+    "selectToTranscriptMs": 100,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 232,
+    "exactReads": 0
+  },
+  {
+    "scenario": "implementation",
+    "width": 1180,
+    "trial": 2,
+    "openMs": 70,
+    "selectToTranscriptMs": 84,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 232,
+    "exactReads": 0
+  },
+  {
+    "scenario": "implementation",
+    "width": 1180,
+    "trial": 3,
+    "openMs": 81,
+    "selectToTranscriptMs": 85,
+    "feedReads": 1,
+    "packageReads": 0,
+    "bytes": 232,
+    "exactReads": 0
+  }
+]

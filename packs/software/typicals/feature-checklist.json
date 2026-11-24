@@ -1,0 +1,18 @@
+{
+  "typical": "software feature",
+  "role": "software-author",
+  "fields": [
+    "objective",
+    "interfaces",
+    "implementation_files",
+    "test_files",
+    "documentation_updates",
+    "observed_checks"
+  ],
+  "required_evidence": [
+    "interface or contract alignment",
+    "automated unit or integration tests",
+    "post-edit typecheck, test, and build output"
+  ],
+  "values": "from verified run"
+}

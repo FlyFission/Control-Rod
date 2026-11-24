@@ -6,6 +6,8 @@ import { decisionLabel, NEEDS_REASON, browserPasskeys, decide, type Passkeys } f
 import { shortDigest } from "../lib/format.js";
 import { useOfferedActions } from "../lib/offered.js";
 import { needsIndependentCheck } from "../lib/board.js";
+import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
+import "../pages/screens.css";
 
 const KINDS: DecisionKind[] = ["release", "accept", "accept-with-findings", "return", "reject"];
 const isKind = (c: string): c is DecisionKind => (KINDS as string[]).includes(c);
@@ -73,16 +75,32 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   return (
     <section id="decide" className="panel decide" aria-labelledby="decide-title">
       <h2 id="decide-title">Your decision</h2>
+      <InstrumentFrame label="Signing readout">
+        <dl className="sign-readout">
+          <div className="sign-readout-cell">
+            <dt>Package</dt>
+            <dd className="mono">{pkg.id}</dd>
+          </div>
+          <div className="sign-readout-cell">
+            <dt>Bound revision</dt>
+            <dd className="mono">rev {pkg.revision}</dd>
+          </div>
+          <div className="sign-readout-cell sign-readout-digest">
+            <dt>Digest</dt>
+            <dd className="mono">{shortDigest(view.subject_digest)}</dd>
+          </div>
+        </dl>
+        <p className="small muted sign-readout-full">
+          Full digest <span className="mono wrap">{view.subject_digest.algorithm}:{view.subject_digest.value}</span>
+        </p>
+      </InstrumentFrame>
       {view.binds !== undefined ? (
         <p className="binds small">{view.binds}</p>
       ) : (
         <p className="muted small">
-          A decision here signs <span className="mono">{shortDigest(view.subject_digest)}</span>, the digest of this revision, its output and its pre-check.
+          A decision here signs revision {pkg.revision}, its output and its pre-check, bound by the digest above.
         </p>
       )}
-      <p className="small muted">
-        Full digest <span className="mono wrap">{view.subject_digest.algorithm}:{view.subject_digest.value}</span>
-      </p>
       {actions.isLoading && <p className="muted small">Checking what you may sign</p>}
       {actions.isError && (
         <div role="alert" className="error">

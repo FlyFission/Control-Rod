@@ -27,6 +27,8 @@ Evidence status: **pass** for the daemon usage tests, the API usage tests and th
 
 Codex (gpt-6.2-astra) blind review round 1 on head 62a0b653 asked for changes: 3 privacy blockers (free-text label, plan and version fields), 8 majors (child environment, cache file handling, Codex log reading on the claim path, process-group cleanup, provider deadline and starvation, a malformed report replacing a good one) and 2 minors (reorder without drag, pace time). All 13 were fixed with regression tests; labels were removed from the contract, plan is a closed list and version a numeric pattern.
 
+Round 2 on head 2323debf asked for changes with no blockers: claim path could still block on disk, shutdown did not reach a CodexBar refresh, a malformed report could still replace a good one, Claude windows shared one observation time, Codex picked a rollout by creation name, plus three minors (missing percent read as zero, loose timestamps, drag pointer capture). All fixed with regression tests. The note that the Codex reader reads raw log tail bytes into memory before filtering is recorded in ADR 0025 decision 1 rather than changed.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

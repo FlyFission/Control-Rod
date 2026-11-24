@@ -573,6 +573,7 @@ func (d *Daemon) usageReport() *UsageLimitsReport {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	d.usage.startStore() // reads the Claude cache file in the background; Report reads memory only
 	d.usage.startEngine(ctx)
 	home, _ := os.UserHomeDir()
 	d.usage.startLogs(ctx, home, os.Getenv) // reads the CLI logs in the background; Report reads the last snapshot

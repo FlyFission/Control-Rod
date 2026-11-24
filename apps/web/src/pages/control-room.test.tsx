@@ -260,6 +260,33 @@ describe("control room: many harnesses and CodexBar", () => {
   });
 });
 
+describe("control room: per-window freshness", () => {
+  it("shows a window's own age when it differs from the provider's by more than 10 minutes", async () => {
+    serve(
+      view({
+        providers: [
+          {
+            id: "codex",
+            source: "cli-log",
+            observed_at: at(-MIN),
+            windows: [
+              { id: "five_hour", window_minutes: 300, used_percent: 10, resets_at: at(HOUR), observed_at: at(-MIN) },
+              { id: "seven_day", window_minutes: 10080, used_percent: 40, resets_at: at(3 * 24 * HOUR), observed_at: at(-2 * 24 * HOUR) },
+              { id: "monthly", used_percent: 40, resets_at: at(3 * 24 * HOUR), observed_at: at(-5 * MIN) },
+            ],
+          },
+        ],
+      }),
+    );
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 7-day window" });
+    const row = (n: string) => meter(n).closest(".cr-row") as HTMLElement;
+    expect(within(row("Codex 7-day window")).getByText("as of 2 d ago")).toBeTruthy();
+    expect(within(row("Codex 5-hour window")).queryByText(/as of/)).toBeNull();
+    expect(within(row("Codex Monthly")).queryByText(/as of/)).toBeNull();
+  });
+});
+
 describe("control room: arranging modules", () => {
   const titles = () => screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
 
@@ -327,6 +354,26 @@ describe("control room: arranging modules", () => {
     expect(screen.getByRole("button", { name: /Expand Usage limits/ }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByRole("meter", { name: "Codex 5-hour window" })).toBeNull();
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem(LAYOUT_KEY) ?? "{}").collapsed).toEqual(["usage-limits"]));
+  });
+
+  it("ends a pointer drag on pointerup, pointercancel and lostpointercapture, and ignores other pointers", async () => {
+    serve(view());
+    const { container } = await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    const grid = container.querySelector(".cr-grid") as HTMLElement;
+    const dragging = () => container.querySelectorAll(".is-dragging").length;
+    const grip = () => screen.getByRole("button", { name: /^Move Usage limits\./ });
+    for (const end of ["pointerUp", "pointerCancel", "lostPointerCapture"] as const) {
+      fireEvent.pointerDown(grip(), { pointerId: 7, button: 0 });
+      expect(dragging()).toBe(1);
+      // Another pointer neither moves nor ends the drag.
+      fireEvent[end](grid, { pointerId: 8 });
+      expect(dragging()).toBe(1);
+      fireEvent.pointerDown(grip(), { pointerId: 9, button: 0 });
+      expect(dragging()).toBe(1);
+      fireEvent[end](grid, { pointerId: 7 });
+      expect(dragging()).toBe(0);
+    }
   });
 
   it("keeps the clock moving: the countdown follows the 30 second tick", async () => {

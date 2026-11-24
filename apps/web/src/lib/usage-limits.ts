@@ -42,6 +42,24 @@ export const WINDOW_LABELS: Record<UsageWindow["id"], string> = {
 /** The row label: our words for the window id. The API carries no free-text label. */
 export const windowLabel = (w: UsageWindow): string => WINDOW_LABELS[w.id];
 
+/** When a window was read: its own observed_at, else its provider's, else the report's read_at. */
+export function windowObservedAt(w: UsageWindow, p: UsageProvider, readAt?: string | null): string | undefined {
+  return w.observed_at ?? p.observed_at ?? readAt ?? undefined;
+}
+
+/** A window read this much earlier or later than its provider shows its own age. */
+export const OWN_AGE_GAP_MS = 10 * 60_000;
+
+/** "as of 2 d ago" when the window's reading differs from the provider's by more than 10 minutes; else null. */
+export function ownAge(w: UsageWindow, p: UsageProvider, readAt: string | null | undefined, now: number): string | null {
+  if (!w.observed_at) return null;
+  const mine = Date.parse(w.observed_at);
+  const theirs = Date.parse(p.observed_at ?? readAt ?? "");
+  if (!Number.isFinite(mine) || !Number.isFinite(theirs) || Math.abs(mine - theirs) <= OWN_AGE_GAP_MS) return null;
+  const when = ago(w.observed_at, now);
+  return when ? `as of ${when}` : null;
+}
+
 export const LOW_AT = 20;
 export const CRITICAL_AT = 5;
 

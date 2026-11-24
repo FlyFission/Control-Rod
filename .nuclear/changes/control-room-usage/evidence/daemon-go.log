@@ -241,3 +241,28 @@ $ go test ./internal/runner/
 FAIL
 FAIL	github.com/flyfission/control-rod/daemon/internal/runner	28.955s
 FAIL
+
+## Round 2 review fixes (2026-11-24T17:06:26Z)
+$ gofmt -l . ; go vet ./...  (clean)
+$ go test -race -count=1 ./internal/runner/ -run 'Usage|Codex|Claude|CodexBar'
+ok  github.com/flyfission/control-rod/daemon/internal/runner
+$ go test ./internal/runner/
+--- FAIL: TestBubblewrapMountsDeliverablesReadOnly (0.00s)
+--- FAIL: TestCheckerMountBindsTheVerifiedDescriptor (0.01s)
+--- FAIL: TestConfirmSandboxSeesTheBubblewrapChild (0.00s)
+--- FAIL: TestCheckerMountBlocksWritesOutsideScratch (0.00s)
+--- FAIL: TestCheckerCannotReachAHostUnixSocket (0.00s)
+--- FAIL: TestCheckerCannotReachAnAbstractUnixSocket (0.00s)
+--- FAIL: TestCheckerKeepsSocketpairAndTCP (0.00s)
+--- FAIL: TestCheckerRejectsX32AndIoUring (0.00s)
+--- FAIL: TestCheckerRefusesADatagramSocketpair (0.00s)
+--- FAIL: TestCheckerProcDoesNotReachHostProcesses (0.00s)
+--- FAIL: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath (0.01s)
+--- FAIL: TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential (0.01s)
+--- FAIL: TestCheckerCannotRewriteLoginInstructions (0.00s)
+--- FAIL: TestCheckerSessionSymlinkDoesNotGrantHomeWrites (0.00s)
+--- FAIL: TestPreparedCheckerThroughTheMount (0.00s)
+--- FAIL: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun (0.03s)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	28.770s
+FAIL

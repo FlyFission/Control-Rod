@@ -45,3 +45,14 @@ Environment  jsdom was created 65 times · 31.12s total, 31% of tracked time
 🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [244.1ms]
  Test Files  66 passed (66)
       Tests  850 passed (850)
+
+## Round 2 review fixes (R5, r3) 2026-11-24T17:05:57Z
+web typecheck: clean; full suite: 66 files, 855 tests passed (before final test typing tweak); targeted rerun:
+
+ Test Files  2 passed (2)
+      Tests  29 passed (29)
+   Start at  17:05:51
+   Duration  2.33s (tests 44%, environment 34%, setup 10%, import 6%, transform 5%)
+
+ Test Files  66 passed (66)
+      Tests  855 passed (855)

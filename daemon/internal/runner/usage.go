@@ -29,7 +29,8 @@ const (
 	usageSourceNone     = "none"
 
 	usageTailBytes     = 256 << 10
-	usageMaxFiles      = 5
+	usageMaxFiles      = 20
+	usageMaxDays       = 3
 	usageCodexCacheTTL = time.Minute
 	usageMaxWindows    = 8
 	usageStateFile     = "usage-limits.json"
@@ -70,6 +71,9 @@ type UsageWindow struct {
 	UsedPercent   float64 `json:"used_percent"`
 	ResetsAt      string  `json:"resets_at,omitempty"`
 	Status        string  `json:"status,omitempty"`
+	// ObservedAt is when this window's reading was taken (RFC 3339). The provider's ObservedAt is
+	// the newest of its windows'; a window can be older than that.
+	ObservedAt string `json:"observed_at,omitempty"`
 }
 
 // UsageProvider is one CLI's windows and where they came from.
@@ -174,7 +178,8 @@ func codexWindow(w *codexRateWindow, fallback string) (UsageWindow, bool) {
 
 // parseCodexLine returns the provider snapshot in one rollout line, if it has one.
 func parseCodexLine(line []byte) (UsageProvider, bool) {
-	if !bytes.Contains(line, []byte(`"rate_limits"`)) || !bytes.Contains(line, []byte(`"token_count"`)) {
+	// Cheap substring checks first: most lines are not quota events and are never JSON-decoded.
+	if !bytes.Contains(line, []byte(`"token_count"`)) || !bytes.Contains(line, []byte(`"rate_limits"`)) {
 		return UsageProvider{}, false
 	}
 	var l codexLine
@@ -199,7 +204,17 @@ func parseCodexLine(line []byte) (UsageProvider, bool) {
 		p.ObservedAt = t.UTC().Format(time.RFC3339)
 	}
 	p.Plan = usagePlan(l.Payload.RateLimits.PlanType)
+	stampWindows(&p)
 	return p, true
+}
+
+// stampWindows gives every window of p that has no time of its own the provider's observed_at.
+func stampWindows(p *UsageProvider) {
+	for i := range p.Windows {
+		if p.Windows[i].ObservedAt == "" {
+			p.Windows[i].ObservedAt = p.ObservedAt
+		}
+	}
 }
 
 // usageMaxDirEntries bounds how many entries of one directory are examined. The log tree is the
@@ -250,16 +265,14 @@ func allDigits(s string) bool {
 	return true
 }
 
-// newestRollouts returns up to n rollout files under sessions/YYYY/MM/DD, newest first.
+// newestRollouts returns up to n rollout files under sessions/YYYY/MM/DD, newest name first.
 func newestRollouts(root string, n int) []string {
 	var out []string
 	for _, y := range sortedNames(root, true, allDigits) {
 		for _, m := range sortedNames(filepath.Join(root, y), true, allDigits) {
 			for _, d := range sortedNames(filepath.Join(root, y, m), true, allDigits) {
 				dir := filepath.Join(root, y, m, d)
-				for _, f := range sortedNames(dir, false, func(s string) bool {
-					return strings.HasPrefix(s, "rollout-") && strings.HasSuffix(s, ".jsonl")
-				}) {
+				for _, f := range rolloutNames(dir) {
 					out = append(out, filepath.Join(dir, f))
 					if len(out) >= n {
 						return out
@@ -267,6 +280,55 @@ func newestRollouts(root string, n int) []string {
 				}
 			}
 		}
+	}
+	return out
+}
+
+func rolloutNames(dir string) []string {
+	return sortedNames(dir, false, func(s string) bool {
+		return strings.HasPrefix(s, "rollout-") && strings.HasSuffix(s, ".jsonl")
+	})
+}
+
+// candidateRollouts returns the files the reader looks at: the rollouts in the newest
+// usageMaxDays date directories that hold any, the usageMaxFiles most recently modified of them.
+// A session resumed from an older day appends to its old file, so the newest quota event is not
+// always in the newest-created file; modification time finds it.
+func candidateRollouts(root string) []string {
+	type cand struct {
+		path string
+		mod  time.Time
+	}
+	var cs []cand
+	days := 0
+walk:
+	for _, y := range sortedNames(root, true, allDigits) {
+		for _, m := range sortedNames(filepath.Join(root, y), true, allDigits) {
+			for _, d := range sortedNames(filepath.Join(root, y, m), true, allDigits) {
+				dir := filepath.Join(root, y, m, d)
+				names := rolloutNames(dir)
+				if len(names) == 0 {
+					continue
+				}
+				for _, f := range names {
+					p := filepath.Join(dir, f)
+					if st, err := os.Lstat(p); err == nil && st.Mode().IsRegular() {
+						cs = append(cs, cand{p, st.ModTime()})
+					}
+				}
+				if days++; days >= usageMaxDays {
+					break walk
+				}
+			}
+		}
+	}
+	sort.SliceStable(cs, func(i, j int) bool { return cs[i].mod.After(cs[j].mod) })
+	if len(cs) > usageMaxFiles {
+		cs = cs[:usageMaxFiles]
+	}
+	out := make([]string, len(cs))
+	for i, c := range cs {
+		out[i] = c.path
 	}
 	return out
 }
@@ -301,25 +363,47 @@ func readTail(path string) ([]byte, time.Time, error) {
 	return buf, st.ModTime(), nil
 }
 
-// ReadCodexUsage returns the last rate-limit snapshot in the newest rollout files under sessions,
-// or false when there is none.
+// ReadCodexUsage returns the newest rate-limit snapshot (by the event's own timestamp) across the
+// candidate rollout files under sessions, or false when there is none.
+//
+// What is read: for each candidate file, at most the last usageTailBytes of raw bytes of Codex's own
+// session log, held in memory only for the scan of that file. That tail can contain prompt and tool
+// text, because the log interleaves it with the quota events. A line is JSON-decoded only if it
+// contains both "token_count" and "rate_limits", and the decoder's struct (codexLine) has only the
+// rate_limits fields, so everything else in the line is dropped by the decoder. What is kept is the
+// percentages, window lengths, reset times, plan and event time. The buffer is not retained: it is
+// released before the next file is read, and nothing is written to disk or sent.
 func ReadCodexUsage(sessions string) (UsageProvider, bool) {
-	for _, path := range newestRollouts(sessions, usageMaxFiles) {
-		buf, mtime, err := readTail(path)
-		if err != nil {
-			continue
-		}
-		lines := bytes.Split(buf, []byte{'\n'})
-		for i := len(lines) - 1; i >= 0; i-- {
-			if p, ok := parseCodexLine(lines[i]); ok {
-				if p.ObservedAt == "" {
-					p.ObservedAt = mtime.UTC().Format(time.RFC3339)
-				}
-				return p, true
-			}
+	var best UsageProvider
+	var bestAt time.Time
+	have := false
+	for _, path := range candidateRollouts(sessions) {
+		p, at, ok := newestCodexInFile(path)
+		if ok && (!have || at.After(bestAt)) {
+			best, bestAt, have = p, at, true
 		}
 	}
-	return UsageProvider{}, false
+	return best, have
+}
+
+// newestCodexInFile scans one file's tail from the end for the last quota event.
+func newestCodexInFile(path string) (UsageProvider, time.Time, bool) {
+	buf, mtime, err := readTail(path)
+	if err != nil {
+		return UsageProvider{}, time.Time{}, false
+	}
+	for end := len(buf); end > 0; {
+		start := bytes.LastIndexByte(buf[:end], '\n') + 1
+		if p, ok := parseCodexLine(buf[start:end]); ok {
+			if p.ObservedAt == "" {
+				p.ObservedAt = mtime.UTC().Format(time.RFC3339)
+				stampWindows(&p)
+			}
+			return p, observedTime(p.ObservedAt), true // strings are copies; buf is released on return
+		}
+		end = start - 1
+	}
+	return UsageProvider{}, time.Time{}, false
 }
 
 // ---- Claude Code stream ----
@@ -382,46 +466,79 @@ type usageStamped struct {
 
 // usageStore keeps the latest stream window per provider and window id, in memory and in a small
 // file in the daemon's home so a restart does not lose it. The file holds percentages and times only.
+//
+// The claim path reads only the in-memory map (provider). The file is read once by hydrate and
+// written by persist, both on background goroutines; mu guards the map alone and is never held
+// across file I/O. wmu serializes writers, and seq lets a writer skip a snapshot a later one has
+// already superseded.
 type usageStore struct {
 	mu     sync.Mutex
 	path   string
-	loaded bool
 	byProv map[string]map[string]usageStamped
+	seq    uint64
+
+	hydrateOnce sync.Once
+	wmu         sync.Mutex
+	written     uint64
+	wg          sync.WaitGroup
 }
 
-func (s *usageStore) load() {
-	if s.loaded {
-		return
-	}
-	s.loaded = true
-	s.byProv = map[string]map[string]usageStamped{}
-	if s.path == "" {
-		return
-	}
-	b, err := readCappedFile(s.path, usageStateMax)
-	if err != nil {
-		return
-	}
-	var m map[string]map[string]usageStamped
-	if json.Unmarshal(b, &m) != nil {
-		return
-	}
-	for prov, ws := range m {
-		if !usageProviderIDs[prov] {
-			continue
+// usageStampedFile is the on-disk shape. used_percent is a pointer so a missing or null value is
+// told from a real 0.
+type usageStampedFile struct {
+	Window struct {
+		ID          string   `json:"id"`
+		UsedPercent *float64 `json:"used_percent"`
+		ResetsAt    string   `json:"resets_at"`
+		Status      string   `json:"status"`
+	} `json:"window"`
+	ObservedAt string `json:"observed_at"`
+}
+
+// start hydrates from the file in the background. Report does not wait for it.
+func (s *usageStore) start() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.hydrate()
+	}()
+}
+
+// hydrate reads the state file once and merges it under what is already in memory (a window
+// recorded since startup is newer than the file's). The read happens outside mu.
+func (s *usageStore) hydrate() {
+	s.hydrateOnce.Do(func() {
+		var m map[string]map[string]usageStampedFile
+		if s.path != "" {
+			if b, err := readCappedFile(s.path, usageStateMax); err == nil && json.Unmarshal(b, &m) != nil {
+				m = nil
+			}
 		}
-		for id, st := range ws {
-			w, ok := rebuildStreamWindow(id, st.Window)
-			obs, err := time.Parse(time.RFC3339, st.ObservedAt)
-			if !ok || err != nil {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.byProv == nil {
+			s.byProv = map[string]map[string]usageStamped{}
+		}
+		for prov, ws := range m {
+			if !usageProviderIDs[prov] {
 				continue
 			}
-			if s.byProv[prov] == nil {
-				s.byProv[prov] = map[string]usageStamped{}
+			for id, st := range ws {
+				w, ok := rebuildStreamWindow(id, st.Window.ID, st.Window.UsedPercent, st.Window.ResetsAt, st.Window.Status)
+				obs, err := time.Parse(time.RFC3339, st.ObservedAt)
+				if !ok || err != nil {
+					continue
+				}
+				if s.byProv[prov] == nil {
+					s.byProv[prov] = map[string]usageStamped{}
+				}
+				if _, have := s.byProv[prov][id]; have {
+					continue
+				}
+				s.byProv[prov][id] = usageStamped{Window: w, ObservedAt: obs.UTC().Format(time.RFC3339)}
 			}
-			s.byProv[prov][id] = usageStamped{Window: w, ObservedAt: obs.UTC().Format(time.RFC3339)}
 		}
-	}
+	})
 }
 
 // usageStateMax is the hard cap on the state file read.
@@ -457,40 +574,68 @@ func streamWindowMinutes(id string) (int, bool) {
 	return 0, false
 }
 
-// rebuildStreamWindow builds a window from the validated id, the clamped percent and the parsed
-// reset time only, so nothing else in a state file's window object reaches the report. A status is
-// kept only when it is one of the contract's values.
-func rebuildStreamWindow(id string, in UsageWindow) (UsageWindow, bool) {
+// rebuildStreamWindow builds a window from the validated id, the percent and the parsed reset
+// time only, so nothing else in a state file's window object reaches the report. The window is
+// dropped when the percent is missing, null, not finite or outside 0..100. A status is kept only
+// when it is one of the contract's values.
+func rebuildStreamWindow(id, inID string, pct *float64, resetsAt, status string) (UsageWindow, bool) {
 	mins, ok := streamWindowMinutes(id)
-	if !ok || in.ID != id || math.IsNaN(in.UsedPercent) || math.IsInf(in.UsedPercent, 0) {
+	if !ok || inID != id || pct == nil || math.IsNaN(*pct) || math.IsInf(*pct, 0) || *pct < 0 || *pct > 100 {
 		return UsageWindow{}, false
 	}
-	out := UsageWindow{ID: id, WindowMinutes: mins, UsedPercent: clampPercent(in.UsedPercent)}
-	if t, err := time.Parse(time.RFC3339, in.ResetsAt); err == nil {
+	out := UsageWindow{ID: id, WindowMinutes: mins, UsedPercent: *pct}
+	if t, err := time.Parse(time.RFC3339, resetsAt); err == nil {
 		out.ResetsAt = t.UTC().Format(time.RFC3339)
 	}
-	switch in.Status {
+	switch status {
 	case "allowed", "warning", "rejected":
-		out.Status = in.Status
+		out.Status = status
 	}
 	return out, true
 }
 
+// record stores the window in memory at once and persists in the background.
 func (s *usageStore) record(provider string, w UsageWindow, now time.Time) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.load()
+	if s.byProv == nil {
+		s.byProv = map[string]map[string]usageStamped{}
+	}
 	if s.byProv[provider] == nil {
 		s.byProv[provider] = map[string]usageStamped{}
 	}
 	s.byProv[provider][w.ID] = usageStamped{Window: w, ObservedAt: now.UTC().Format(time.RFC3339)}
+	s.mu.Unlock()
 	if s.path == "" {
 		return
 	}
-	if b, err := json.Marshal(s.byProv); err == nil {
-		_ = writeFileAtomic(s.path, b)
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.persist()
+	}()
+}
+
+// persist writes the current map. It hydrates first, so the file is never overwritten with less
+// than it held. The snapshot is marshalled under mu; the write happens outside it, under wmu.
+func (s *usageStore) persist() {
+	s.hydrate()
+	s.wmu.Lock()
+	defer s.wmu.Unlock()
+	s.mu.Lock()
+	s.seq++
+	seq := s.seq
+	b, err := json.Marshal(s.byProv)
+	s.mu.Unlock()
+	if err != nil || seq <= s.written {
+		return
+	}
+	if writeFileAtomic(s.path, b) == nil {
+		s.written = seq
 	}
 }
+
+// wait blocks until background hydrate and persist calls have finished (tests).
+func (s *usageStore) wait() { s.wg.Wait() }
 
 // writeFileAtomic writes through a random temporary file in the same directory (mode 0600), syncs
 // it and renames it over path, so a reader never sees a partial file and no fixed temp name can be
@@ -530,17 +675,19 @@ func writeFileAtomic(path string, b []byte) error {
 }
 
 // provider returns the stored windows whose reset time has not passed, or false when none remain.
+// It reads memory only: no file is opened on the claim path.
 func (s *usageStore) provider(id string, now time.Time) (UsageProvider, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.load()
 	p := UsageProvider{ID: id, Source: usageSourceStream, Windows: []UsageWindow{}}
 	var newest time.Time
 	for _, st := range s.byProv[id] {
 		if t, err := time.Parse(time.RFC3339, st.Window.ResetsAt); err == nil && !t.After(now) {
 			continue // the window has reset; its old percentage no longer holds
 		}
-		p.Windows = append(p.Windows, st.Window)
+		w := st.Window
+		w.ObservedAt = st.ObservedAt
+		p.Windows = append(p.Windows, w)
 		if t, err := time.Parse(time.RFC3339, st.ObservedAt); err == nil && t.After(newest) {
 			newest = t
 		}
@@ -563,6 +710,8 @@ type usageSources struct {
 	logEvery time.Duration
 	logOnce  sync.Once
 
+	storeOnce sync.Once
+
 	// cb is the CodexBar engine's cache, set by startEngine. Report only reads it.
 	cb         atomic.Pointer[codexbarEngine]
 	engineOnce sync.Once
@@ -575,6 +724,9 @@ func newUsageSources(home string) *usageSources {
 	}
 	return u
 }
+
+// startStore hydrates the stream cache from its file in the background, once.
+func (u *usageSources) startStore() { u.storeOnce.Do(u.store.start) }
 
 // refreshLogs reads every log-reading adapter's newest snapshot and replaces the cache.
 func (u *usageSources) refreshLogs(userHome string, getenv func(string) string) {

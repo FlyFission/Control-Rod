@@ -5,6 +5,8 @@ import type { UsageLimitsView, UsageProvider, UsageWindow } from "../api/types.j
 import {
   ago,
   lowestReserve,
+  ownAge,
+  windowObservedAt,
   orderProviders,
   providerName,
   windowLabel,
@@ -52,7 +54,8 @@ function resetText(r: Reading): string {
 }
 
 function Meter({ provider, w, now, readAt }: { provider: UsageProvider; w: UsageWindow; now: number; readAt: string | undefined }) {
-  const r = readWindow(w, now, provider.observed_at ?? readAt);
+  const r = readWindow(w, now, windowObservedAt(w, provider, readAt));
+  const own = ownAge(w, provider, readAt, now);
   const label = windowLabel(w);
   const early = runsOutBefore(w, r);
   const paceAhead = early !== null;
@@ -91,6 +94,7 @@ function Meter({ provider, w, now, readAt }: { provider: UsageProvider; w: Usage
       <div className="cr-readout">
         <span className="cr-big mono">{readoutWords(r)}</span>
         <span className="cr-reset mono">{resetText(r)}</span>
+        {own && <span className="cr-reset mono cr-own-age">{own}</span>}
       </div>
       {paceAhead && r.tone !== "stuck" && (
         <p className="cr-pace-note">ahead of pace: runs out about {shortDuration(early)} before reset</p>

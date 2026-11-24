@@ -196,6 +196,8 @@ func TestUsageReport(t *testing.T) {
 
 	// The stream store survives a restart through its file.
 	u2 := newUsageSources(ctl)
+	u.store.wait()
+	u2.store.hydrate()
 	if p, ok := u2.store.provider(RuntimeClaude, now); !ok || p.Windows[0].UsedPercent != 30 {
 		t.Fatalf("reload %+v %v", p, ok)
 	}
@@ -272,9 +274,10 @@ func TestUsageStateFileHardening(t *testing.T) {
 	now := time.Date(2025, 11, 24, 12, 0, 0, 0, time.UTC)
 	read := func(dir string) (UsageProvider, bool) {
 		u := &usageStore{path: filepath.Join(dir, usageStateFile)}
+		u.hydrate()
 		return u.provider(RuntimeClaude, now)
 	}
-	good := `{"claude":{"five_hour":{"window":{"id":"five_hour","label":"PLANTED-LABEL","window_minutes":99999,"used_percent":250,"resets_at":"2025-11-24T15:00:00+02:00","status":"PLANTED","extra":"x"},"observed_at":"2025-11-24T11:00:00Z"},` +
+	good := `{"claude":{"five_hour":{"window":{"id":"five_hour","label":"PLANTED-LABEL","window_minutes":99999,"used_percent":100,"resets_at":"2025-11-24T15:00:00+02:00","status":"PLANTED","extra":"x"},"observed_at":"2025-11-24T11:00:00Z"},` +
 		`"made_up":{"window":{"id":"made_up","used_percent":5,"resets_at":"2025-11-24T15:00:00Z"},"observed_at":"2025-11-24T11:00:00Z"},` +
 		`"seven_day":{"window":{"id":"five_hour","used_percent":5,"resets_at":"2025-11-24T15:00:00Z"},"observed_at":"2025-11-24T11:00:00Z"},` +
 		`"seven_day_opus":{"window":{"id":"seven_day_opus","used_percent":5,"resets_at":"PLANTED-TIME"},"observed_at":"not a time"}},` +
@@ -343,6 +346,7 @@ func TestUsageStateAtomicWrite(t *testing.T) {
 	u := newUsageSources(dir)
 	now := time.Date(2025, 11, 24, 12, 0, 0, 0, time.UTC)
 	u.store.record(RuntimeClaude, UsageWindow{ID: "five_hour", WindowMinutes: 300, UsedPercent: 30, ResetsAt: "2025-11-24T15:00:00Z"}, now)
+	u.store.wait()
 	if b, _ := os.ReadFile(victim); string(b) != "keep" {
 		t.Fatalf("wrote through the planted link: %q", b)
 	}
@@ -356,7 +360,9 @@ func TestUsageStateAtomicWrite(t *testing.T) {
 			t.Fatalf("temp file left behind: %s", e.Name())
 		}
 	}
-	if p, ok := newUsageSources(dir).store.provider(RuntimeClaude, now); !ok || p.Windows[0].UsedPercent != 30 {
+	u3 := newUsageSources(dir)
+	u3.store.hydrate()
+	if p, ok := u3.store.provider(RuntimeClaude, now); !ok || p.Windows[0].UsedPercent != 30 {
 		t.Fatalf("%+v %v", p, ok)
 	}
 }
@@ -397,5 +403,130 @@ func TestLogBufferCapturesUsage(t *testing.T) {
 	b.add(`{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1764000000,"rateLimitType":"five_hour","utilization":0.5}}`)
 	if len(got) != 1 || got[0].UsedPercent != 50 {
 		t.Fatalf("%+v", got)
+	}
+}
+
+// r1: a missing, null or out-of-range used_percent in the cache drops the window; it is never a 0.
+func TestUsageStateDropsBadPercent(t *testing.T) {
+	now := time.Date(2025, 11, 24, 12, 0, 0, 0, time.UTC)
+	win := func(id, pct string) string {
+		return `"` + id + `":{"window":{"id":"` + id + `"` + pct + `,"resets_at":"2025-11-24T15:00:00Z"},"observed_at":"2025-11-24T11:00:00Z"}`
+	}
+	state := `{"claude":{` + strings.Join([]string{
+		win("five_hour", ``),                          // missing
+		win("seven_day", `,"used_percent":null`),      // null
+		win("seven_day_opus", `,"used_percent":250`),  // above range
+		win("seven_day_sonnet", `,"used_percent":-3`), // below range
+	}, ",") + `}}`
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, usageStateFile), []byte(state), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	u := &usageStore{path: filepath.Join(dir, usageStateFile)}
+	u.hydrate()
+	if p, ok := u.provider(RuntimeClaude, now); ok {
+		t.Fatalf("kept %+v", p.Windows)
+	}
+	// A real 0 is kept.
+	if err := os.WriteFile(filepath.Join(dir, usageStateFile), []byte(`{"claude":{`+win("five_hour", `,"used_percent":0`)+`}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	u = &usageStore{path: filepath.Join(dir, usageStateFile)}
+	u.hydrate()
+	if p, ok := u.provider(RuntimeClaude, now); !ok || len(p.Windows) != 1 || p.Windows[0].UsedPercent != 0 {
+		t.Fatalf("%+v %v", p, ok)
+	}
+}
+
+// R2: the claim path reads memory only. Report neither opens the cache file nor waits on a
+// writer that is mid-write; a FIFO at the cache path (a read would block) does not stall it.
+func TestUsageReportNeverTouchesTheCacheFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := syscall.Mkfifo(filepath.Join(dir, usageStateFile), 0o600); err != nil {
+		t.Skip("no mkfifo:", err)
+	}
+	u := newUsageSources(dir)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		u.Report(time.Now(), "", nil)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Report touched the cache file")
+	}
+
+	// A writer stuck in file I/O does not hold the snapshot mutex.
+	s := &usageStore{path: filepath.Join(t.TempDir(), "x")}
+	now := time.Now()
+	s.record(RuntimeClaude, UsageWindow{ID: "five_hour", WindowMinutes: 300, UsedPercent: 10, ResetsAt: now.Add(time.Hour).UTC().Format(time.RFC3339)}, now)
+	s.wmu.Lock() // a writer is "busy"
+	for i := 0; i < 3; i++ {
+		s.record(RuntimeClaude, UsageWindow{ID: "five_hour", WindowMinutes: 300, UsedPercent: float64(20 + i), ResetsAt: now.Add(time.Hour).UTC().Format(time.RFC3339)}, now)
+	}
+	got := make(chan UsageProvider, 1)
+	go func() { p, _ := s.provider(RuntimeClaude, now); got <- p }()
+	select {
+	case p := <-got:
+		if p.Windows[0].UsedPercent != 22 {
+			t.Fatalf("%+v", p)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("provider blocked behind a writer")
+	}
+	s.wmu.Unlock()
+	s.wait()
+}
+
+// R5: each Claude window carries its own observed_at; the provider's is the newest.
+func TestUsagePerWindowObservedAt(t *testing.T) {
+	s := &usageStore{}
+	old := time.Date(2025, 11, 24, 8, 0, 0, 0, time.UTC)
+	fresh := old.Add(3 * time.Hour)
+	reset := "2025-11-25T00:00:00Z"
+	s.record(RuntimeClaude, UsageWindow{ID: "seven_day", WindowMinutes: 10080, UsedPercent: 40, ResetsAt: reset}, old)
+	s.record(RuntimeClaude, UsageWindow{ID: "five_hour", WindowMinutes: 300, UsedPercent: 10, ResetsAt: reset}, fresh)
+	p, ok := s.provider(RuntimeClaude, fresh)
+	if !ok || len(p.Windows) != 2 || p.ObservedAt != "2025-11-24T11:00:00Z" {
+		t.Fatalf("%+v", p)
+	}
+	for _, w := range p.Windows {
+		want := map[string]string{"five_hour": "2025-11-24T11:00:00Z", "seven_day": "2025-11-24T08:00:00Z"}[w.ID]
+		if w.ObservedAt != want {
+			t.Fatalf("%s observed_at %q want %q", w.ID, w.ObservedAt, want)
+		}
+	}
+}
+
+// R5, R6: Codex windows carry the event time, and the newest event across the candidate files wins,
+// even when it sits in an older-created file (a resumed session).
+func TestReadCodexUsageNewestEventAcrossFiles(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "sessions")
+	old := writeRollout(t, root, "2025/11/22", "rollout-2025-11-22T01-00-00-a.jsonl", rl("2025-11-24T09:00:00Z", "77.0", "plus"))
+	writeRollout(t, root, "2025/11/24", "rollout-2025-11-24T01-00-00-b.jsonl", rl("2025-11-24T02:00:00Z", "5.0", "plus"))
+	writeRollout(t, root, "2025/11/20", "rollout-2025-11-20T01-00-00-c.jsonl", rl("2025-11-24T10:00:00Z", "99.0", "plus"))
+	_ = old
+	p, ok := ReadCodexUsage(root)
+	if !ok || p.ObservedAt != "2025-11-24T10:00:00Z" || p.Windows[0].UsedPercent != 99 {
+		t.Fatalf("%+v %v", p, ok)
+	}
+	for _, w := range p.Windows {
+		if w.ObservedAt != "2025-11-24T10:00:00Z" {
+			t.Fatalf("window observed_at %+v", w)
+		}
+	}
+	// A fourth, older day directory is not read.
+	writeRollout(t, root, "2025/11/10", "rollout-2025-11-10T01-00-00-d.jsonl", rl("2025-11-24T23:00:00Z", "88.0", "plus"))
+	if p, _ := ReadCodexUsage(root); p.Windows[0].UsedPercent != 99 {
+		t.Fatalf("read past the newest %d date directories: %+v", usageMaxDays, p)
+	}
+	// The file cap applies by modification time.
+	root2 := filepath.Join(t.TempDir(), "sessions")
+	for i := 0; i < usageMaxFiles+5; i++ {
+		writeRollout(t, root2, "2025/11/24", fmt.Sprintf("rollout-2025-11-24T01-00-%02d-x.jsonl", i), rl("2025-11-24T01:00:00Z", "1.0", "plus"))
+	}
+	if n := len(candidateRollouts(root2)); n != usageMaxFiles {
+		t.Fatalf("%d candidates", n)
 	}
 }

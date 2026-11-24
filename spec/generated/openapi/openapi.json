@@ -14867,6 +14867,11 @@
             "type": "string",
             "format": "date-time"
           },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the CLI recorded this window's reading; the provider's observed_at is the newest of these."
+          },
           "status": {
             "type": "string",
             "enum": [

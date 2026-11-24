@@ -39,16 +39,15 @@ describe("usage limits", () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it("keeps contract fields and drops invented providers, bad windows and anything carrying a token", async () => {
+  it("keeps contract fields, drops duplicates and unknown extras, and never stores a token", async () => {
     await claim({
       runtimes: [],
       usage_limits: {
         read_at: "2026-11-24T15:05:00Z",
         providers: [
-          { ...codex, token: secret, windows: [...codex.windows, { id: "five_hour", used_percent: 50 }, { id: "weird", used_percent: 1 }, { id: "monthly", used_percent: 140 }, { id: "primary", used_percent: 5, note: secret }] },
+          { ...codex, token: secret, windows: [{ ...codex.windows[0], observed_at: "2026-11-22T15:00:00+00:00" }, codex.windows[1], { id: "five_hour", used_percent: 50 }, { id: "primary", used_percent: 5, note: secret }] },
           { id: "claude", source: "cli-stream", plan: "enterprise-gold", windows: [{ id: "seven_day_opus", used_percent: 93, status: "rejected", resets_at: "not a time" }] },
           { id: "grok", source: "none", windows: [{ id: "five_hour", used_percent: 3 }] },
-          { id: "not-a-harness", source: "cli-log", windows: [] },
           { id: "codex", source: "cli-log", windows: [] },
         ],
       },
@@ -59,7 +58,7 @@ describe("usage limits", () => {
     expect(body.providers.map((p: { id: string }) => p.id)).toEqual(["codex", "claude", "grok"]);
     const [cx, cl, gk] = body.providers;
     expect(cx.windows).toEqual([
-      { id: "five_hour", window_minutes: 300, used_percent: 11, resets_at: "2026-11-24T17:11:00.000Z" },
+      { id: "five_hour", window_minutes: 300, used_percent: 11, resets_at: "2026-11-24T17:11:00.000Z", observed_at: "2026-11-22T15:00:00.000Z" },
       { id: "seven_day", window_minutes: 10080, used_percent: 88, resets_at: "2026-11-29T14:00:00.000Z", status: "warning" },
       { id: "primary", used_percent: 5 },
     ]);
@@ -77,7 +76,6 @@ describe("usage limits", () => {
         engine: { id: "codexbar", found: true, version: "0.81.0", path: "/secret" },
         providers: [
           { id: "cursor", source: "codexbar", windows: [{ id: "monthly", label: "Weekly (Opus)", used_percent: 40 }, { id: "primary", label: secret, used_percent: 2 }] },
-          { id: "made-up", source: "codexbar", windows: [] },
         ],
       },
     });
@@ -108,9 +106,42 @@ describe("usage limits", () => {
   it("a malformed report leaves the previous one untouched", async () => {
     await claim({ runtimes: [], usage_limits: { read_at: "2026-11-24T17:00:00Z", providers: [{ id: "claude", source: "cli-stream", windows: [{ id: "five_hour", used_percent: 30 }] }] } });
     const before = (await get()).json();
-    for (const bad of [{}, { providers: [] }, { read_at: "2026-11-24T17:05:00Z" }, { read_at: "yesterday", providers: [] }, { read_at: "2026-11-24T17:05:00Z", providers: "x" }]) {
+    const at = "2026-11-24T17:05:00Z";
+    const good = { id: "codex", source: "cli-log", windows: [{ id: "five_hour", used_percent: 5 }] };
+    const bads: unknown[] = [
+      {},
+      { providers: [] },
+      { read_at: at },
+      { read_at: "yesterday", providers: [] },
+      { read_at: at, providers: "x" },
+      { read_at: "2026-11-24T15:00:00", providers: [] },
+      { read_at: "2026-02-30T00:00:00Z", providers: [] },
+      { read_at: "2026-11-24T25:00:00Z", providers: [] },
+      { read_at: at, providers: [null] },
+      { read_at: at, providers: [good, "claude"] },
+      { read_at: at, providers: [{ id: "claude", source: "cli-stream" }] },
+      { read_at: at, providers: [{ id: "claude", source: "cli-stream", windows: "x" }] },
+      { read_at: at, providers: [{ id: "not-a-harness", source: "cli-log", windows: [] }, good] },
+      { read_at: at, providers: [{ id: "claude", source: "telepathy", windows: [] }] },
+      { read_at: at, providers: [{ id: "claude", source: "cli-stream", windows: [{ id: "weird", used_percent: 1 }] }] },
+      { read_at: at, providers: [{ id: "claude", source: "cli-stream", windows: [{ id: "monthly", used_percent: 140 }, { id: "primary", used_percent: 1 }] }] },
+      { read_at: at, providers: [{ id: "claude", source: "cli-stream", windows: [null] }] },
+    ];
+    for (const bad of bads) {
       await claim({ runtimes: [], usage_limits: bad });
       expect((await get()).json()).toEqual(before);
     }
+  });
+
+  it("accepts a valid empty providers list and offset timestamps", async () => {
+    await claim({ runtimes: [], usage_limits: { read_at: "2026-11-24T18:00:00+02:00", providers: [] } });
+    expect((await get()).json()).toEqual({ reported: true, read_at: "2026-11-24T16:00:00.000Z", providers: [] });
+  });
+
+  it("drops an optional timestamp without an offset or on an impossible date, keeping the window", async () => {
+    await claim({ runtimes: [], usage_limits: { read_at: "2026-11-24T19:00:00Z", providers: [{ id: "claude", source: "cli-stream", observed_at: "2026-02-30T00:00:00Z", windows: [
+      { id: "five_hour", used_percent: 1, resets_at: "2026-11-24T15:00:00", observed_at: "2026-02-30T00:00:00Z" },
+    ] }] } });
+    expect((await get()).json().providers).toEqual([{ id: "claude", source: "cli-stream", windows: [{ id: "five_hour", used_percent: 1 }] }]);
   });
 });

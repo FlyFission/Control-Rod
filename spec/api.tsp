@@ -928,6 +928,9 @@ model UsageWindow {
 
   resets_at?: utcDateTime;
 
+  /** When the CLI recorded this window's reading; the provider's observed_at is the newest of these. */
+  observed_at?: utcDateTime;
+
   status?: "allowed" | "warning" | "rejected";
 }
 

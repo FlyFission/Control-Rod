@@ -3706,6 +3706,11 @@ export interface components {
             used_percent: number;
             /** Format: date-time */
             resets_at?: string;
+            /**
+             * Format: date-time
+             * @description When the CLI recorded this window's reading; the provider's observed_at is the newest of these.
+             */
+            observed_at?: string;
             /** @enum {string} */
             status?: "allowed" | "warning" | "rejected";
         };

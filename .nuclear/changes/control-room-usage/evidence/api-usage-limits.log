@@ -9,3 +9,14 @@
    Duration  1.26s (tests 63%, import 26%, transform 11%)
 
 tsc exit done
+
+## Round 2 review fixes (R4, r2, R5) 2026-11-24T17:05:57Z
+tsc api --noEmit: clean
+ RUN  v5.1.0 /home/claude/Control-Rod/services/api
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  17:04:05
+   Duration  1.57s (tests 52%, import 31%, transform 17%)
+

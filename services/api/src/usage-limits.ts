@@ -31,6 +31,7 @@ export interface UsageWindow {
   window_minutes?: number;
   used_percent: number;
   resets_at?: string;
+  observed_at?: string;
   status?: (typeof STATUSES)[number];
 }
 
@@ -58,9 +59,21 @@ export interface UsageLimitsView {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const oneOf = <T extends string>(list: readonly T[], v: unknown): T | undefined => (typeof v === "string" && (list as readonly string[]).includes(v) ? (v as T) : undefined);
 
-/** An RFC 3339 time, returned in the API's own ISO form; anything else is dropped. */
+const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-](\d{2}):(\d{2}))$/;
+
+/**
+ * An RFC 3339 time with an explicit offset (Z or +-HH:MM), returned in the API's own ISO form;
+ * anything else is dropped. Impossible calendar dates (Feb 30) are dropped, not normalized.
+ */
 function cleanTime(v: unknown): string | undefined {
-  if (typeof v !== "string" || v.length > 40 || !/^\d{4}-\d{2}-\d{2}T/.test(v)) return undefined;
+  if (typeof v !== "string" || v.length > 40) return undefined;
+  const m = RFC3339.exec(v);
+  if (!m) return undefined;
+  const [y, mo, d, h, mi, sec] = m.slice(1, 7).map(Number) as [number, number, number, number, number, number];
+  if (h > 23 || mi > 59 || sec > 59) return undefined;
+  if (m[8] !== undefined && (Number(m[8]) > 23 || Number(m[9]) > 59)) return undefined;
+  const cal = new Date(Date.UTC(y, mo - 1, d));
+  if (cal.getUTCFullYear() !== y || cal.getUTCMonth() !== mo - 1 || cal.getUTCDate() !== d) return undefined;
   const t = Date.parse(v);
   return Number.isFinite(t) ? new Date(t).toISOString() : undefined;
 }
@@ -75,22 +88,33 @@ function cleanWindow(v: unknown): UsageWindow | undefined {
   if (Number.isInteger(minutes) && (minutes as number) >= 1 && (minutes as number) <= 60000) out.window_minutes = minutes as number;
   const resets = cleanTime(v.resets_at);
   if (resets) out.resets_at = resets;
+  const seen = cleanTime(v.observed_at);
+  if (seen) out.observed_at = seen;
   const status = oneOf(STATUSES, v.status);
   if (status) out.status = status;
   return out;
 }
 
-function cleanProvider(v: unknown): UsageProvider | undefined {
+/**
+ * Strict mode (a daemon report): any malformed provider or window makes the whole report invalid.
+ * Lenient mode (reading back what is stored): bad entries are skipped.
+ */
+function cleanProvider(v: unknown, strict = false): UsageProvider | undefined {
   if (!isRecord(v)) return undefined;
   const id = oneOf(PROVIDERS, v.id);
   const source = oneOf(SOURCES, v.source);
   if (!id || !source) return undefined;
+  if (strict && (!Array.isArray(v.windows) || v.windows.length > MAX_WINDOWS)) return undefined;
   const windows: UsageWindow[] = [];
   const seen = new Set<string>();
   if (source !== "none") {
     for (const item of Array.isArray(v.windows) ? v.windows.slice(0, MAX_WINDOWS) : []) {
       const w = cleanWindow(item);
-      if (!w || seen.has(w.id)) continue;
+      if (!w) {
+        if (strict) return undefined;
+        continue;
+      }
+      if (seen.has(w.id)) continue;
       seen.add(w.id);
       windows.push(w);
     }
@@ -103,12 +127,17 @@ function cleanProvider(v: unknown): UsageProvider | undefined {
   return out;
 }
 
-function cleanProviders(raw: unknown): UsageProvider[] {
+function cleanProviders(raw: unknown, strict = false): UsageProvider[] | undefined {
   const out: UsageProvider[] = [];
   const seen = new Set<string>();
+  if (strict && (!Array.isArray(raw) || raw.length > MAX_PROVIDERS)) return undefined;
   for (const item of Array.isArray(raw) ? raw.slice(0, MAX_PROVIDERS) : []) {
-    const p = cleanProvider(item);
-    if (!p || seen.has(p.id)) continue;
+    const p = cleanProvider(item, strict);
+    if (!p) {
+      if (strict) return undefined;
+      continue;
+    }
+    if (seen.has(p.id)) continue;
     seen.add(p.id);
     out.push(p);
   }
@@ -129,7 +158,9 @@ export async function recordUsageLimits(db: Db, raw: unknown): Promise<void> {
   const readAt = cleanTime(raw.read_at);
   if (!readAt || !Array.isArray(raw.providers)) return;
   const engine = cleanEngine(raw.engine);
-  const value = JSON.stringify({ read_at: readAt, ...(engine ? { engine } : {}), providers: cleanProviders(raw.providers) });
+  const providers = cleanProviders(raw.providers, true);
+  if (!providers) return;
+  const value = JSON.stringify({ read_at: readAt, ...(engine ? { engine } : {}), providers });
   await command(db, "runtime.report-status", async (c) => {
     await c.query("insert into settings (key, value) values ('usage_limits', $1) on conflict (key) do update set value = excluded.value", [value]);
   });
@@ -147,5 +178,5 @@ export async function usageLimitsView(db: Db): Promise<UsageLimitsView> {
   if (!isRecord(stored)) return { reported: false, providers: [] };
   const readAt = cleanTime(stored.read_at);
   const engine = cleanEngine(stored.engine);
-  return { reported: true, ...(readAt ? { read_at: readAt } : {}), ...(engine ? { engine } : {}), providers: cleanProviders(stored.providers) };
+  return { reported: true, ...(readAt ? { read_at: readAt } : {}), ...(engine ? { engine } : {}), providers: cleanProviders(stored.providers) ?? [] };
 }

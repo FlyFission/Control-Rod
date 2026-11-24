@@ -454,6 +454,7 @@ func TestCodexbarOffAndMissing(t *testing.T) {
 	t.Setenv(codexbarEnv, "off")
 	u := newUsageSources(ctl)
 	u.startEngine(context.Background())
+	time.Sleep(100 * time.Millisecond) // the first look runs in the background
 	if u.cb.Load() != nil {
 		t.Fatal("off must not start the engine")
 	}
@@ -492,7 +493,12 @@ func TestCodexbarStartEngineFindsBinary(t *testing.T) {
 	u := newUsageSources(t.TempDir())
 	u.startEngine(ctx)
 	u.startEngine(ctx) // once
-	rep := u.Report(time.Now(), t.TempDir(), func(string) string { return "" })
+	var rep *UsageLimitsReport
+	for end := time.Now().Add(5 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+		if rep = u.Report(time.Now(), t.TempDir(), func(string) string { return "" }); rep.Engine != nil {
+			break
+		}
+	}
 	if rep.Engine == nil || !rep.Engine.Found {
 		t.Fatalf("engine %+v", rep.Engine)
 	}
@@ -799,5 +805,57 @@ func TestCodexbarProbeHasOwnDeadline(t *testing.T) {
 	}
 	if _, p := e.snapshot(); len(p) != 1 || p[0].ID != "warp" {
 		t.Fatalf("%+v", p)
+	}
+}
+
+// R3: a cancelled context launches nothing, and a cancel during a run ends the refresh at once and
+// kills the child's process group.
+func TestCodexbarRefreshHonoursContext(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "launched")
+	bin := filepath.Join(dir, "codexbar")
+	script := "#!/bin/sh\necho x >> " + marker + "\nsleep 30 &\nsleep 30\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	e := testEngine(map[string]string{codexbarEnv: bin})
+	e.refreshCtx(ctx)
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("launched under a cancelled context")
+	}
+
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	e2 := testEngine(map[string]string{codexbarEnv: bin})
+	e2.timeout = time.Minute
+	done := make(chan struct{})
+	go func() { e2.refreshCtx(ctx2); close(done) }()
+	for end := time.Now().Add(5 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+		if _, err := os.Stat(marker); err == nil {
+			break
+		}
+	}
+	cancel2()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("refresh outlived the cancelled context")
+	}
+}
+
+// R5: every CodexBar window carries the snapshot's time.
+func TestCodexbarWindowsCarryObservedAt(t *testing.T) {
+	provs := parseCodexbarUsage([]byte(cbFixture), cbFetched)
+	if len(provs) == 0 {
+		t.Fatal("no providers")
+	}
+	for _, p := range provs {
+		for _, w := range p.Windows {
+			if w.ObservedAt == "" || w.ObservedAt != p.ObservedAt {
+				t.Fatalf("%s %+v provider %s", p.ID, w, p.ObservedAt)
+			}
+		}
 	}
 }

@@ -157,6 +157,7 @@ func parseCodexbarEntry(raw []byte, fetched time.Time) (UsageProvider, bool) {
 	if p.ObservedAt == "" && !fetched.IsZero() {
 		p.ObservedAt = fetched.UTC().Format(time.RFC3339)
 	}
+	stampWindows(&p) // every window of one snapshot was read at the snapshot's time
 	return p, true
 }
 
@@ -240,6 +241,9 @@ func runCodexbar(path string, timeout time.Duration, limit int, args ...string) 
 // timeout, ctx cancelled) the process group is killed and the child is waited for, so nothing it
 // started outlives the call.
 func runCodexbarCtx(ctx context.Context, path string, timeout time.Duration, limit int, args ...string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err // cancelled: never launch
+	}
 	cmd := exec.Command(path, args...)
 	cmd.Env = codexbarChildEnv(os.Getenv)
 	setProcessGroup(cmd)
@@ -302,9 +306,8 @@ type codexbarEngine struct {
 	lookPath func(string) (string, error)
 	fixed    []string
 
-	ctx          context.Context // ends a run in progress; nil means never
-	timeout      time.Duration   // one deadline for a whole refresh
-	probeTimeout time.Duration   // each usage call, also bounded by what is left of timeout
+	timeout      time.Duration // one deadline for a whole refresh
+	probeTimeout time.Duration // each usage call, also bounded by what is left of timeout
 	interval     time.Duration
 	initialDelay time.Duration
 	now          func() time.Time
@@ -373,8 +376,8 @@ var codexbarNeverFetch = map[string]bool{"claude": true, "codex": true}
 // fetching usage"; CLIConfigCommand.runConfigProviders) reads no credentials, starts no login and
 // contacts no provider. Output is a top-level array of {provider, displayName, enabled,
 // defaultEnabled, authentication, setup}; only provider and enabled are decoded here.
-func (e *codexbarEngine) listEnabled(deadline time.Time, path string) ([]string, error) {
-	out, err := e.run(deadline, codexbarListTimeout, path, codexbarListMax, "config", "providers", "--format", "json")
+func (e *codexbarEngine) listEnabled(ctx context.Context, deadline time.Time, path string) ([]string, error) {
+	out, err := e.run(ctx, deadline, codexbarListTimeout, path, codexbarListMax, "config", "providers", "--format", "json")
 	if err != nil {
 		return nil, err
 	}
@@ -402,17 +405,16 @@ func (e *codexbarEngine) listEnabled(deadline time.Time, path string) ([]string,
 
 // run is runCodexbarCtx under the refresh's deadline: the call gets at most limit, and never more
 // than what is left. It fails at once when nothing is left.
-func (e *codexbarEngine) run(deadline time.Time, limit time.Duration, path string, max int, args ...string) ([]byte, error) {
+func (e *codexbarEngine) run(ctx context.Context, deadline time.Time, limit time.Duration, path string, max int, args ...string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	left := time.Until(deadline)
 	if left <= 0 {
 		return nil, context.DeadlineExceeded
 	}
 	if left < limit {
 		limit = left
-	}
-	ctx := e.ctx
-	if ctx == nil {
-		ctx = context.Background()
 	}
 	return runCodexbarCtx(ctx, path, limit, max, args...)
 }
@@ -425,7 +427,11 @@ func (e *codexbarEngine) run(deadline time.Time, limit time.Duration, path strin
 // provider cannot starve the same later ones. If listing fails, nothing is fetched and the cache
 // is cleared; there is no unfiltered fallback. A provider whose fetch fails keeps its previous
 // reading this round.
-func (e *codexbarEngine) refresh() {
+func (e *codexbarEngine) refresh() { e.refreshCtx(context.Background()) }
+
+// refreshCtx is refresh under ctx: every subprocess launch checks ctx first, and a cancel while one
+// runs kills its process group (runCodexbarCtx) and ends the refresh without replacing the cache.
+func (e *codexbarEngine) refreshCtx(ctx context.Context) {
 	deadline := time.Now().Add(e.timeout)
 	path, found, disabled := e.locate()
 	e.mu.Lock()
@@ -443,14 +449,17 @@ func (e *codexbarEngine) refresh() {
 	e.mu.Unlock()
 
 	if needVersion {
-		if out, err := e.run(deadline, codexbarVersionLimit, path, 4<<10, "--version"); err == nil {
+		if out, err := e.run(ctx, deadline, codexbarVersionLimit, path, 4<<10, "--version"); err == nil {
 			v := parseCodexbarVersion(out)
 			e.mu.Lock()
 			e.version = v
 			e.mu.Unlock()
 		}
 	}
-	ids, err := e.listEnabled(deadline, path)
+	ids, err := e.listEnabled(ctx, deadline, path)
+	if ctx.Err() != nil {
+		return
+	}
 	if err != nil {
 		e.mu.Lock()
 		e.providers = nil
@@ -473,7 +482,7 @@ func (e *codexbarEngine) refresh() {
 	for i := range ids {
 		raw := ids[(start+i)%len(ids)]
 		ours := codexbarIDs[raw]
-		out, err := e.run(deadline, e.probeTimeout, path, codexbarMaxOutput, "usage", "--provider", raw, "--format", "json")
+		out, err := e.run(ctx, deadline, e.probeTimeout, path, codexbarMaxOutput, "usage", "--provider", raw, "--format", "json")
 		if err != nil {
 			continue
 		}
@@ -484,6 +493,9 @@ func (e *codexbarEngine) refresh() {
 				got[ours] = &p
 			}
 		}
+	}
+	if ctx.Err() != nil {
+		return // shutting down: keep the cache as it was
 	}
 	var provs []UsageProvider
 	for _, raw := range ids {
@@ -514,7 +526,7 @@ func (e *codexbarEngine) loop(ctx context.Context) {
 			return
 		case <-t.C:
 		}
-		e.refresh()
+		e.refreshCtx(ctx)
 		t.Reset(e.interval)
 	}
 }
@@ -539,20 +551,23 @@ func (e *codexbarEngine) snapshot() (*UsageEngine, []UsageProvider) {
 	return eng, out
 }
 
-// startEngine starts the background reader once. The binary is looked for at once (file checks
-// only), so the report can say found or not found before the first run finishes.
+// startEngine starts the background reader once. Nothing on the caller's path touches a file: the
+// binary is looked for on the engine's own goroutine, and the engine is published to Report once
+// that first look is done (so the report can say found or not found before the first run ends).
 func (u *usageSources) startEngine(ctx context.Context) {
 	u.engineOnce.Do(func() {
-		e := newCodexbarEngine()
-		_, found, disabled := e.locate()
-		if disabled {
-			return
-		}
-		e.mu.Lock()
-		e.located, e.found = true, found
-		e.mu.Unlock()
-		u.cb.Store(e)
-		go e.loop(ctx)
+		go func() {
+			e := newCodexbarEngine()
+			_, found, disabled := e.locate()
+			if disabled || ctx.Err() != nil {
+				return
+			}
+			e.mu.Lock()
+			e.located, e.found = true, found
+			e.mu.Unlock()
+			u.cb.Store(e)
+			e.loop(ctx)
+		}()
 	})
 }
 

@@ -21,7 +21,7 @@ export const MODULES: ModuleDef[] = [
 ];
 const IDS = MODULES.map((m) => m.id);
 
-function Grip(props: { title: string; onKey: (e: KeyboardEvent<HTMLButtonElement>) => void; onDown: (e: PointerEvent<HTMLButtonElement>) => void; onMove: (e: PointerEvent<HTMLButtonElement>) => void; onUp: (e: PointerEvent<HTMLButtonElement>) => void; gripRef: (el: HTMLButtonElement | null) => void }) {
+function Grip(props: { title: string; onKey: (e: KeyboardEvent<HTMLButtonElement>) => void; onDown: (e: PointerEvent<HTMLButtonElement>) => void; gripRef: (el: HTMLButtonElement | null) => void }) {
   return (
     <button
       type="button"
@@ -30,9 +30,6 @@ function Grip(props: { title: string; onKey: (e: KeyboardEvent<HTMLButtonElement
       aria-label={`Move ${props.title}. Drag, or press the up and down arrow keys.`}
       onKeyDown={props.onKey}
       onPointerDown={props.onDown}
-      onPointerMove={props.onMove}
-      onPointerUp={props.onUp}
-      onPointerCancel={props.onUp}
     >
       <svg viewBox="0 0 12 16" width="12" height="16" aria-hidden="true" focusable="false">
         {[3, 9].flatMap((x) => [3, 8, 13].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.3" fill="currentColor" />))}
@@ -45,6 +42,9 @@ export function ControlRoom() {
   const [layout, setLayout] = useState<Layout>(() => loadLayout(IDS));
   const [announce, setAnnounce] = useState("");
   const [dragging, setDragging] = useState<string | null>(null);
+  const grid = useRef<HTMLDivElement>(null);
+  /** The pointer that owns the current drag; every other pointer is ignored. */
+  const dragPointer = useRef<number | null>(null);
   const els = useRef(new Map<string, HTMLElement>());
   const grips = useRef(new Map<string, HTMLButtonElement>());
   const nudges = useRef(new Map<string, HTMLButtonElement>());
@@ -91,24 +91,32 @@ export function ControlRoom() {
     move(id, layout.order.indexOf(id) + dir);
   };
 
+  // The grip moves in the DOM when the order changes, which can drop its pointer capture. So the
+  // stable grid container holds the capture and receives the moves; the drag ends when the
+  // pointer is released, cancelled, or the capture is lost.
   const onDown = (id: string) => (e: PointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0) return;
-    e.currentTarget.setPointerCapture?.(e.pointerId);
+    if (e.button !== 0 || dragPointer.current !== null) return;
+    dragPointer.current = e.pointerId;
+    grid.current?.setPointerCapture?.(e.pointerId);
     setDragging(id);
   };
-  const onMove = (id: string) => (e: PointerEvent<HTMLButtonElement>) => {
-    if (dragging !== id) return;
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (dragging === null || e.pointerId !== dragPointer.current) return;
     for (const [other, el] of els.current) {
-      if (other === id) continue;
+      if (other === dragging) continue;
       const r = el.getBoundingClientRect();
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
         const to = layout.order.indexOf(other);
-        if (to !== layout.order.indexOf(id)) move(id, to);
+        if (to !== layout.order.indexOf(dragging)) move(dragging, to);
         break;
       }
     }
   };
-  const onUp = () => setDragging(null);
+  const onEnd = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== dragPointer.current) return;
+    dragPointer.current = null;
+    setDragging(null);
+  };
 
   const toggle = (id: string) =>
     setLayout((cur) => ({ ...cur, collapsed: cur.collapsed.includes(id) ? cur.collapsed.filter((c) => c !== id) : [...cur.collapsed, id] }));
@@ -119,7 +127,7 @@ export function ControlRoom() {
         <h1>Control room</h1>
         <p className="muted">Instruments you can arrange: agent usage limits and how the work is going.</p>
       </header>
-      <div className="cr-grid">
+      <div className="cr-grid" ref={grid} onPointerMove={onMove} onPointerUp={onEnd} onPointerCancel={onEnd} onLostPointerCapture={onEnd}>
         {layout.order.map((id) => {
           const m = byId.get(id);
           if (!m) return null;
@@ -143,8 +151,6 @@ export function ControlRoom() {
                   }}
                   onKey={onKey(id)}
                   onDown={onDown(id)}
-                  onMove={onMove(id)}
-                  onUp={onUp}
                 />
                 <h2 id={`cr-${id}-title`}>{m.title}</h2>
                 <span className="cr-nudges">

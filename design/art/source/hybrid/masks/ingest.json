@@ -25,122 +25,120 @@
   "layers/rooms/<id>-front.png",
   "layers/overlay-ticks.png"
  ],
- "seat_feet_sha256": "2950bca97fcfdd6b8560dfcf6aeacac0cd52f486fec4e5cb662d1a533e369d59",
- "blender_manifest_sha256": "fc0e99810c5f4cd7f33e8b83fbdeb6969530442e73072ffa446a85fccb21aace",
+ "seat_feet_sha256": "624187b9fe0e9a4a50093e2adbd6d19a3c8eaba1ac0f0c004236ea987bd00feb",
+ "blender_manifest_sha256": "3482a0e172160e25fceced530a68b2bc7a85cf429337d8dda16959d6e6ad5a7c",
  "masks": {
   "process-lit.png": {
    "source": "layers/rooms/process-lit.png",
-   "source_sha256": "03216c6a4e05fac3e3ed98bffe2cbbbc9554cd8661f86df85a70a3d7ff936e79"
+   "source_sha256": "0ffd78cc302fc8453d8861b0235b2c7bc0375e731e944190dccc4d0d36ca0c26"
   },
   "process-front.png": {
    "source": "layers/rooms/process-front.png",
-   "source_sha256": "0fda1c6725db20a498a23e3df353422fc38db3dd80f741c058d14c82169f0106"
+   "source_sha256": "fd032af93a082c8974ef8435f50cdf1dd4976d521024a93a8db5e73d3b5581b2"
   },
   "mechanical-lit.png": {
    "source": "layers/rooms/mechanical-lit.png",
-   "source_sha256": "e21017d62cd202fbc37e0ae2e426ed8958227f27e108030b1816c26f4913ba25"
+   "source_sha256": "ad84aafeb036fd0a730d24fc7ff7f98bd1d4a61f6e1a824b6ea0c94cdddd0be5"
   },
   "mechanical-front.png": {
    "source": "layers/rooms/mechanical-front.png",
-   "source_sha256": "2891aa1290254efd3958f68b694eccccc08f3d655bcaea8f331a0d21ec6eba6d"
+   "source_sha256": "5cbaf550974168ab1f66ce30d89fa5fa5450aabc464182fd9c0a77f05e1f5eeb"
   },
   "electrical-lit.png": {
    "source": "layers/rooms/electrical-lit.png",
-   "source_sha256": "debd2eb9bc3d73fb20ba65911e80bcf179ace89481c514322fa7aeee57a1cea3"
+   "source_sha256": "83dfbac40f3adfec1aba84656be8bfa21a80634fa4e9ca63b084827cdda31bda"
   },
   "electrical-front.png": {
    "source": "layers/rooms/electrical-front.png",
-   "source_sha256": "6b9c001e286981800c8a6e4877e60082108d337cd47ac977b7b7df6995200c05"
+   "source_sha256": "4a709756775943bbab78d06a285a0986e3d578263c1eec89fe0ef982b9768a36"
   },
   "civil-lit.png": {
    "source": "layers/rooms/civil-lit.png",
-   "source_sha256": "edf59bca125d530482cf732fb112751a5001152919110d0395d0f584200e2404"
+   "source_sha256": "1d0172ea86cb09859f9193d29c6f0552e5484e2e7e9da49c4453657ca8adaffd"
   },
   "civil-front.png": {
    "source": "layers/rooms/civil-front.png",
-   "source_sha256": "6b6a85d57c50718627495717dda6aad361045f99941affde86115c3025f0dde7"
+   "source_sha256": "ec27dedaa0fbc02163f191dd16e3a5394cc8eabcd07248724d76ab97b0e359a4"
   },
   "assurance-lit.png": {
    "source": "layers/rooms/assurance-lit.png",
-   "source_sha256": "5d3d51d6a1ddffa61a4be2f78f0017f7bf9f7bb41fc3513633725fad80bb9a55"
+   "source_sha256": "01887f304dc39ed15610d774a17d62bbdd37b3b73787ca8219ba3106f137e9aa"
   },
   "assurance-front.png": {
    "source": "layers/rooms/assurance-front.png",
-   "source_sha256": "f45d913210d10b0e9b6e1e222f9e681fdcb5e4a6e2b450261847aede50110afb"
+   "source_sha256": "44daf137927227b8d9a9d5044d67fc7472a016f91e93873b6336066c5b17104d"
   },
   "project-controls-lit.png": {
    "source": "layers/rooms/project-controls-lit.png",
-   "source_sha256": "6398f4f46cd3ca2119cf49218009c709473fb67a03ad39a8fe656292619fe571"
+   "source_sha256": "b3ea1e7a544e4d83c88007e0cde8cffa5e470f9c8435a86bef544268632aab34"
   },
   "project-controls-front.png": {
    "source": "layers/rooms/project-controls-front.png",
-   "source_sha256": "e14592826e09f836a72bc785f1ce3538c2383a45d2b0fc1082fa2a26eff4e59a"
+   "source_sha256": "36a544e72f4f879f597979173ed08715b8ddc306f936dfd26f3880f194c95050"
   },
   "review-lit.png": {
    "source": "layers/rooms/review-lit.png",
-   "source_sha256": "9d2516369bb8d5b95882398aa845a49adf81a994ee7a11bafa99dd2c8eaf416a"
+   "source_sha256": "71424073b16e41564020570200415a400958a3a378732985b1b9f7148a341612"
   },
   "review-front.png": {
    "source": "layers/rooms/review-front.png",
-   "source_sha256": "ff285819fdbb5bce44706bb0d141c91d9a25b4c5f11526a01bc91221c73d0da8"
+   "source_sha256": "ea422785bc7c890fe708f78a7a88979c3fb85ae8b82943ada0196b708bab5c45"
   },
   "interface-lit.png": {
    "source": "layers/rooms/interface-lit.png",
-   "source_sha256": "a2fd2dcf32e3852630f7ee3115d1af9f17014c10cf83bd1d3b5ccc73f8a09245"
+   "source_sha256": "7277ff9d58dc17ed14be8ad5907dab553a386093784ca2f232e26c135272889a"
   },
   "interface-front.png": {
    "source": "layers/rooms/interface-front.png",
-   "source_sha256": "ac3c049d023b17fc4fe08867d490c3d665145da2d486a914e24143c5c269fbb9"
+   "source_sha256": "ce16b3a89db28ba45b868df2d9b0601e238c0ec9ad118b17dd2e94a9d06dd642"
   },
   "verification-lit.png": {
    "source": "layers/rooms/verification-lit.png",
-   "source_sha256": "696fbcc239d24184a5e298373af58833c6320d95c7aef8acc3ad4e1b220b89ff"
+   "source_sha256": "8fcc7b3f9d67524ad07cb0fe08134b6bbfb3c30ccd8d9ecab9e1aa6c3ce396f5"
   },
   "verification-front.png": {
    "source": "layers/rooms/verification-front.png",
-   "source_sha256": "c4411b4470227a0e04bf2dd6110a1e8253875eba472161a472d8f7b6bdcadf26"
+   "source_sha256": "041a304eefa2fea0ab3b54447b9e4eff4c09d4f53619a6e52a54351ba218c8e4"
   },
   "your-office-lit.png": {
    "source": "layers/rooms/your-office-lit.png",
-   "source_sha256": "c8e2d96207e27b2e8851237ea0757713e5b9765b049c4082ffed8f3f5090c738"
+   "source_sha256": "759a0619d1802f530e3884a2045682d0199bd6c4218748d6ead8a9afb0560669"
   },
   "your-office-front.png": {
    "source": "layers/rooms/your-office-front.png",
-   "source_sha256": "5f49e3344f2cd75b36a13772f8c7199bfe75d142bfc60ac894849a8d403333f4"
+   "source_sha256": "0e2a142736eb7863f844fbe28b5e1f7a654dae2656b4badf4dd6cdd9042df21f"
   },
   "document-control-lit.png": {
    "source": "layers/rooms/document-control-lit.png",
-   "source_sha256": "eca520566311df4eb6a573a8f9b1d9bcc60d8d3ce316e299017ddc3f5ebd7368"
+   "source_sha256": "2a35819eb49631f33802da018f7da5a55856675e9ab174ff93533e3b4e361e42"
   },
   "document-control-front.png": {
    "source": "layers/rooms/document-control-front.png",
-   "source_sha256": "bfe6b2627077db814df04229d1a87a9d1330a724d6e81dc1276afdc205ff7f71"
+   "source_sha256": "60cb34a5c4ebfd01aadaf6d23a3858d82cc2efe9936c1fc7ada41e06e25c45c5"
   },
   "bench-lit.png": {
    "source": "layers/rooms/bench-lit.png",
-   "source_sha256": "efe017a9bcca7ba0c1052d378db5a4b0f3b081b2cdb98ab02bb69cdbe556ec3f"
+   "source_sha256": "5ae2b4c26dfcda304592459e984dfc85f1168e1bf624392a26aa7bb584d49b86"
   },
   "bench-front.png": {
    "source": "layers/rooms/bench-front.png",
-   "source_sha256": "e8751f9c63a4356fba9dd9430e6e6d973b4477a3e1be43ff55cafbf0244c0157"
+   "source_sha256": "0ca749e53b23e061b08fbd94bbd895692a56b160a757fe6e9291d044dee1a5fa"
   },
   "quarantine-lit.png": {
    "source": "layers/rooms/quarantine-lit.png",
-   "source_sha256": "9138a80a4f89c7d96aa254079646fbf4d17a3cf39bf475b21589250e4296283a"
+   "source_sha256": "feec1da95e1fd69d090ee03c00b93e3c410eaad8b2d36637206fead42cd5aa11"
   },
   "quarantine-front.png": {
    "source": "layers/rooms/quarantine-front.png",
-   "source_sha256": "56328885ea21746cf6bf467daecc0ef0741c4357584ea880ccc9d14664fda34f"
+   "source_sha256": "eab0d1bd66ec280609f0a58b5db93672fd9075270a85cb21587c13bd84a0e2d7"
   },
   "core-healthy.png": {
    "source": "layers/core-healthy.png",
-   "source_sha256": "5872ffe4b658cbdfdc5d9a34f60325069a0713147559de53736ab86197293292",
-   "note": "crane fix 2026-11-24: core layer re-rendered by tools/plant3d (render.py --mode v3-core, CRANE_RISE 53, CRANE_BRIDGE high) and bloomed with post3.bloom_rgba/scram_fill; alpha copied as --ingest does"
+   "source_sha256": "446bb50745c992ed6819887d6cc419fdc370eb9733068edb8c32880c37386cef"
   },
   "core-tripped.png": {
    "source": "layers/core-tripped.png",
-   "source_sha256": "c1baa634318982f9eb278d92baa267b15f9d8d7c4dfd5ad4e246bc41a076f813",
-   "note": "crane fix 2026-11-24: core layer re-rendered by tools/plant3d (render.py --mode v3-core, CRANE_RISE 53, CRANE_BRIDGE high) and bloomed with post3.bloom_rgba/scram_fill; alpha copied as --ingest does"
+   "source_sha256": "3b5ec8b4e4717328d209e03489d5e62cb76019203d71fa8554fc7b74196cfc12"
   }
  }
 }

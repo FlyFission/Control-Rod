@@ -1,10 +1,10 @@
 {
- "note": "feet_px = floor point under the worker's hips (the seat) in plate px (2400x1500). Draw sprite worker-<garb>-<pose>.png scaled by 1/6 (85.33 plate px square) so that its hip_floor_anchor_px_by_sprite[<garb>-<pose>] pixel lands on feet_px: top-left = feet_px - anchor/6. The lowest foot pixel of every sprite is at y=496 of the 512 sprite.",
- "ring_sprite": "sprites/ring-needs-you.png (512x512, ring centred on the worker floor point at (256,256), same 6 px per plate px)",
+ "note": "feet_px = floor point under the worker's hips (the seat) in plate px (2400x1500). Draw sprite worker-<garb>-<pose>.png scaled by 1/px_per_plate_px (512/px_per_plate_px plate px square) so that its hip_floor_anchor_px_by_sprite[<garb>-<pose>] pixel lands on feet_px: top-left = feet_px - anchor/px_per_plate_px. The lowest foot pixel of every sprite is at y=496 of the 512 sprite.",
+ "ring_sprite": "sprites/ring-needs-you.png (512x512, ring centred on the worker floor point at (256,256), same px_per_plate_px)",
  "sprite": {
   "size": 512,
   "lowest_foot_y_px": 496,
-  "px_per_plate_px": 6.0,
+  "px_per_plate_px": 4.8,
   "hip_floor_anchor_px_by_sprite": {
    "antic-working": [
     256,
@@ -49,7 +49,7 @@
   },
   "measured_anchor_delta_px": [
    -0.5,
-   -1.0
+   -0.88
   ],
   "measured_anchor_note": "marker disc rendered at the render-time anchor (256,440) vs its centroid"
  },

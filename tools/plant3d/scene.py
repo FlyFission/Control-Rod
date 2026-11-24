@@ -110,9 +110,9 @@ def make_book(state="healthy"):
     t("ghost", mix(lw, PALE, 0.4), amb=None, ao=0, alpha=0.05, k=kc)
     # --- the one light: Cherenkov fuel + volumetric falloff (off on SCRAM) ; red emergency fixtures on SCRAM only
     fk = 0.0 if scram else 1.0
-    t("fuel", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.06), emit_k=1.2 * fk if fk else 0.0, emit_pat="core")
+    t("fuel", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.06), emit_k=1.3 * fk if fk else 0.0, emit_pat="core")   # v5: 1.2 -> 1.3
     t("fuel_cap", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.0), emit_k=0.7 * fk if fk else 0.0)
-    t("fuel_top", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.30), emit_k=2.4 * fk if fk else 0.0)
+    t("fuel_top", mix(gd, sf, 0.5), amb=None, ao=0, emit=mix(gl, WHITE, 0.30), emit_k=2.4 * fk if fk else 0.0)   # unchanged from v4 (higher clips the grid tops to white)
     t("trip_em", P["trip"], amb=None, ao=0, emit=P["trip"], emit_k=4.2 if scram else 0.0)
     t("trip_dim", mix(gd, sf, 0.6), amb=None, ao=0, emit=P["trip"], emit_k=0.0)
     # --- rooms: lighter step floors and walls, steel/furniture tones, screens flat #3b95b7
@@ -184,8 +184,8 @@ def make_book(state="healthy"):
         return n.outputs[0]
     r2 = mth("ADD", mth("POWER", sep.outputs[0], 2.0), mth("POWER", sep.outputs[1], 2.0))
     gr = mth("EXPONENT", mth("MULTIPLY", r2, -1.0 / (2 * 80.0 ** 2)))
-    gz = mth("EXPONENT", mth("MULTIPLY", mth("POWER", mth("SUBTRACT", sep.outputs[2], 112.0), 2.0), -1.0 / (2 * 52.0 ** 2)))
-    st_ = mth("MULTIPLY", mth("MULTIPLY", gr, gz), 0.045 * fk)
+    gz = mth("EXPONENT", mth("MULTIPLY", mth("POWER", mth("SUBTRACT", sep.outputs[2], 112.0), 2.0), -1.0 / (2 * 64.0 ** 2)))   # v5: sigma 52 -> 64, glow climbs the vessel wall
+    st_ = mth("MULTIPLY", mth("MULTIPLY", gr, gz), 0.20 * fk)   # v5: 0.045 -> 0.20, the soft glow up the vessel carries the extra presence
     em = nt.nodes.new("ShaderNodeEmission"); em.inputs[0].default_value = kit.lin(mix(gl, (0.35, 0.8, 1.0), 0.25))
     nt.links.new(st_, em.inputs[1])
     out = nt.nodes.new("ShaderNodeOutputMaterial"); nt.links.new(em.outputs[0], out.inputs["Volume"])

@@ -382,6 +382,8 @@ describe("the Plant and the archived office themes", () => {
       expect(screen.getByRole("radio", { name: "List" }).getAttribute("aria-checked")).toBe("true");
       expect(plant().disabled).toBe(true);
       expect(screen.getByLabelText("Every agent, by place")).toBeTruthy();
+      // The scene is not dropped on a phone or tablet: a compact one shows above the list.
+      expect(document.querySelector(".plant-scene")).toBeTruthy();
       // Wide again: the pick returns.
       resize(1024);
       expect(plant().getAttribute("aria-checked")).toBe("true");
@@ -389,6 +391,19 @@ describe("the Plant and the archived office themes", () => {
     } finally {
       globalThis.ResizeObserver = real;
     }
+  });
+
+  it("opens a room's every agent from its +N stack, over the same buttons as the overflow list", async () => {
+    const five = ["A", "B", "C", "D", "E"].map((x, i) => figure({ id: `R-${x}`, package_id: `WP-${x}`, title: `Job ${x}`, place: "process", since: new Date(Date.now() - (9 - i) * 60e3).toISOString() }));
+    server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: five, needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })));
+    await renderPage(<OfficeView drafts={false} />);
+    const stack = await screen.findByRole("button", { name: /^Process: \d+ more agents? not drawn/ });
+    expect(screen.queryByRole("region", { name: "Process: every agent" })).toBeNull();
+    await userEvent.click(stack);
+    const open = screen.getByRole("region", { name: "Process: every agent" });
+    expect(within(open).getAllByRole("button", { name: /^WP-[A-E]: Working/ })).toHaveLength(5);
+    await userEvent.click(within(open).getByRole("button", { name: /^WP-C: Working/ }));
+    expect(screen.getByRole("complementary", { name: "Selected agent" })).toBeTruthy();
   });
 
   it("never draws the core as dark, or the rods as withdrawn, when it could not read them", async () => {

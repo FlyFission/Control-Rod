@@ -8,11 +8,12 @@
     "design/art/source/base-dark.webp": "4721cb5656b94381add3af0f857d61742dc889c223f1bd86043bb5a80c916a68",
     "design/art/source/base-lit.webp": "68e2ed555a57ab6a6497febcccb37ad13e9e6dc5a82b7ea4d4158d3b9e219064",
     "design/art/source/core-tripped.webp": "535e1bf7b67906bef7990391db292a4211b7af924d15090b23af39a53dc058da",
-    "design/art/source/crew-needs-you.webp": "972bff587242e0893c5b7d40db28896a53ea00c3c841686db091329fcd898200",
-    "design/art/source/crew-stuck.webp": "24ca50459664a019d5ac1f95a77258578e54647de5d7e4c4efb819e017d78020",
-    "design/art/source/crew-waiting.webp": "46776994b828fffc38eb66d8a0c5174c9365754958bf2927850c52a37a7ad8a4",
-    "design/art/source/crew-working.webp": "e7e63b9bff57b33e09958973fd1824ffb48d9275ee9dbbeae3cbf9cdc8f01dd7",
-    "design/art/blockout/anchors.json": "ed619c2d75e4cc7eb6d62d45d00f6814bf1f95f7d1fad07d5be5a7aad5239d5e",
+    "design/art/source/crew-needs-you.webp": "40e4fe643f0d2355da7a1bb3b3462c06414ab0f04663608e0698bb74d714ad80",
+    "design/art/source/crew-stuck.webp": "5b693e3fb3b5e7d3ea5395db295a6f4ff67ff7a07e4349aa7b2e783ece379d6c",
+    "design/art/source/crew-waiting.webp": "5be16ac9a437a5497fc4702e9a1caa60c721ce6d6695fdaee4a8287b4f66969e",
+    "design/art/source/crew-walking.webp": "c558c1204f559c2512002fec524eae8f9775207b5bc0ab5b7943c2090178c6c9",
+    "design/art/source/crew-working.webp": "43ab470c27055fb84f0ce3b2b4f7456726599a3b7d44fa80c43d9951002fa18d",
+    "design/art/blockout/anchors.json": "6522fac0292017ae93a50f7f36a08451dc03cf1b70ed34d6058a3e89e993d765",
     "design/art/blockout/room-masks/process.png": "02688f616843c181c5136c1c8843c3e187a069479930f454bc5c3cbd44ee785f",
     "design/art/blockout/room-masks/mechanical.png": "74ca6c1fa87d593e93080dbdb1e01a61a19c4ecdd9306db6692760f1b1f1f44e",
     "design/art/blockout/room-masks/electrical.png": "02688f616843c181c5136c1c8843c3e187a069479930f454bc5c3cbd44ee785f",
@@ -70,8 +71,8 @@
         128,
         128
       ],
-      "bytes": 4348,
-      "sha256": "926808334dd7acf8359fac2ef858c664139877ec2bd3d9aaba356f5db257bf1b"
+      "bytes": 5038,
+      "sha256": "32bdc8ccb9e18170179cca27917b0ee58605fe6f33d043adbf7e5aa0192d749e"
     },
     {
       "path": "crew/stuck.webp",
@@ -79,8 +80,8 @@
         128,
         128
       ],
-      "bytes": 3648,
-      "sha256": "cda9a2d7809c17b4e0e7c73840545d0a8cb939cc17aa85aeaf2b7f59e67cfca1"
+      "bytes": 4566,
+      "sha256": "61e24978099ea577c8efdc5c1690fe41acaf8d2be5cb0b12e62bf43dfd43cc57"
     },
     {
       "path": "crew/waiting.webp",
@@ -88,8 +89,8 @@
         128,
         128
       ],
-      "bytes": 4118,
-      "sha256": "3aaf58b67b4b93f7049c052c12d6d70558628c90bfc0f0cf2b7804bb1ecd3e4b"
+      "bytes": 4790,
+      "sha256": "59f6850abc1c4b2d1887ebe1eea113db301fd501f26bed40af2d38bfabd92f2c"
     },
     {
       "path": "crew/working.webp",
@@ -97,8 +98,8 @@
         128,
         128
       ],
-      "bytes": 4640,
-      "sha256": "28cf99c6e393ce09537a94a9d1b757a499ae2b0cf41dad0ef30ea3eca8911f1b"
+      "bytes": 4746,
+      "sha256": "ee80a2e25ce099e17daf5aa2ed2e987d559b18637eebb59f189a2b6466ddaf13"
     },
     {
       "path": "rooms/assurance-lit.webp",
@@ -218,6 +219,6 @@
       "sha256": "65c3fe11e641c44bfddbe53cf8f0e5c620f1926eb5a720145bf0c196631edb3b"
     }
   ],
-  "bytes_1440_path": 558612,
+  "bytes_1440_path": 560998,
   "budget_1440_path": 1500000
 }

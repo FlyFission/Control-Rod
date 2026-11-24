@@ -125,6 +125,8 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<string>();
   const [showEveryone, setShowEveryone] = useState(false);
+  // The room whose "+N" stack or count plate was used: its figures are listed under the drawing.
+  const [openRoom, setOpenRoom] = useState<string>();
   const q = useQuery({ queryKey: ["office-figures", presenting], queryFn: () => api.officeFigures(presenting), refetchInterval: REFRESH_MS });
   // The same read the SCRAM banner makes (same key), so the rods and the banner never disagree.
   const scrams = useQuery({ queryKey: ["scrams", presenting], queryFn: () => api.scrams(presenting), refetchInterval: REFRESH_MS });
@@ -136,6 +138,8 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   // so the list shows whatever was picked; the pick is kept for when the drawing fits again.
   const fits = width === undefined || width >= LIST_BELOW;
   const showList = !fits || (listChosen ?? false);
+  // Below LIST_BELOW the Plant is not hidden: a compact scene (count plates, the core in view) shows above the list.
+  const showScene = isPlant && (!fits || !(listChosen ?? false));
   const stack = width !== undefined && width < STAGE_MIN + CARD;
   // Why a lens cannot be chosen now: its own reason, or presenting, which shows no spend.
   const why = (l: (typeof LENSES)[number]) => l.unavailable ?? (presenting && l.id === "spend" ? "Spend is not shown while presenting." : undefined);
@@ -218,7 +222,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
                 className={(v === "list") === showList ? "btn small active" : "btn small"}
                 // The drawing cannot be picked where it does not fit; the list says why.
                 disabled={v === "plant" && !fits}
-                {...(v === "plant" && !fits ? { title: "The drawing needs a wider window; the list shows every agent." } : {})}
+                {...(v === "plant" && !fits ? { title: "The full drawing needs a wider window; a compact one shows above the list." } : {})}
                 onClick={() => setListChosen(v === "list")}
               >
                 {v === "plant" ? (isPlant ? "Plant" : "Floor") : "List"}
@@ -329,13 +333,27 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
       ) : (
         <div className="office-layout" ref={measure} data-stack={stack ? "" : undefined}>
           <div className="office-scroll">
+            {showScene && (
+              <PlantScene
+                figures={seated}
+                selected={selected}
+                onSelect={setSelected}
+                instruments={instruments}
+                occupancy={occupancy}
+                labels={theme.regions}
+                overflow={overflow}
+                openRoom={openRoom}
+                onOpenRoom={(room) => setOpenRoom((cur) => (cur === room ? undefined : room))}
+              />
+            )}
+            {showScene && openRoom && (
+              <RoomFigures room={openRoom} figures={floor.figures} onSelect={setSelected} onClose={() => setOpenRoom(undefined)} />
+            )}
             {showList ? (
               <PlantList figures={floor.figures} layout={isPlant ? PLANT_LAYOUT : undefined} labels={theme.regions} selected={selected} onSelect={setSelected} />
-            ) : isPlant ? (
-              <PlantScene figures={seated} selected={selected} onSelect={setSelected} instruments={instruments} occupancy={occupancy} labels={theme.regions} />
-            ) : (
-              <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} {...(isPlant ? { instruments } : {})} />
-            )}
+            ) : !isPlant ? (
+              <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} />
+            ) : null}
             {floor.figures.length === 0 && (
               <p className="office-note">
                 {emptyFloorNote(floor.hidden, coreState(floorRead).asOf)}
@@ -383,6 +401,35 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
         </details>
       )}
     </section>
+  );
+}
+
+/** One room's figures, every one of them, opened by its "+N" stack or count plate (the same buttons as the overflow list). */
+function RoomFigures({ room, figures, onSelect, onClose }: { room: string; figures: readonly AgentFigure[]; onSelect: (id: string) => void; onClose: () => void }) {
+  const here = figures.filter((f) => f.place === room);
+  const name = SCENE_LAYOUT.region[room as keyof typeof SCENE_LAYOUT.region]?.name ?? room;
+  const order = ["needs", "stuck", "changed", "waiting", "working"];
+  return (
+    <div className="office-overflow" role="region" aria-label={`${name}: every agent`} data-room-figures={room}>
+      <h2>
+        {name}: {here.length} {here.length === 1 ? "agent" : "agents"}
+      </h2>
+      <ul>
+        {here
+          .slice()
+          .sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state))
+          .map((f) => (
+            <li key={f.id}>
+              <button type="button" className="link" onClick={() => onSelect(f.id)}>
+                {f.package_id}: {STATE_INFO[f.state].label}. {f.title}
+              </button>
+            </li>
+          ))}
+      </ul>
+      <button type="button" className="btn small" onClick={onClose}>
+        Close
+      </button>
+    </div>
   );
 }
 

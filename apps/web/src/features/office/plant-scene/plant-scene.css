@@ -128,21 +128,37 @@
   }
 }
 
-/* Semantic layer. */
+/* Semantic layer. Everything here is in px from the canvas's top left, set by figure-layout.ts. */
 .plant-scene .office-semantic {
   z-index: 1;
 }
+/* A plate: near-opaque ground and a 1 px linework border, so text never depends on the art behind it. */
+.plant-room-label,
+.plant-nameplate,
+.plant-stack,
+.plant-count,
+.plant-tip,
+.plant-reactor-plate {
+  box-sizing: border-box;
+  background: #000e23f2;
+  background: color-mix(in srgb, var(--plant-ground, #000e23) 95%, transparent);
+  border: 1px solid var(--plant-linework, #255375);
+  border-radius: 4px;
+  color: var(--text, #e8f0f8);
+  font-family: var(--sans);
+}
 .plant-room-label {
   position: absolute;
-  transform: translate(-50%, 0);
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--plant-ground, #000e23);
-  color: var(--plant-screen, #3b95b7);
-  font-family: var(--sans);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  color: var(--text-2, #c5d0dc);
   font-size: var(--fs-label);
-  line-height: 1.2;
+  line-height: 1;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
 }
 .plant-reactor {
@@ -157,9 +173,6 @@
   justify-items: center;
   gap: 2px;
   padding: 4px 10px;
-  border-radius: 3px;
-  background: var(--plant-ground, #000e23);
-  box-shadow: 0 0 0 1px var(--plant-linework, #255375);
   font-size: var(--fs-label);
   line-height: 1.25;
   text-align: center;
@@ -176,61 +189,169 @@
   box-shadow: inset 3px 0 0 var(--plant-trip, #db535f);
   padding-left: 6px;
 }
-
-/* A figure: a button standing on its seat's floor anchor, its label above, no always-on ring. */
-.plant-figure-slot {
-  position: absolute;
-  width: 0;
-  height: 0;
+/* A small scene keeps the core in view: the plate shrinks to its count line. */
+.plant-scene[data-mode="counts"] .plant-reactor-plate {
+  padding: 2px 6px;
+  bottom: 3%;
 }
-.plant-scene .office-figure {
-  left: 0;
-  top: 0;
-  transform: translate(-50%, -100%);
-  flex-direction: column-reverse;
-  gap: 0;
-}
-.plant-scene .office-figure-outline {
-  width: calc(34 * var(--u));
-  height: calc(46 * var(--u));
-  min-width: 18px;
-  min-height: 24px;
-  border: 2px solid transparent;
-  border-radius: 6px;
-  box-shadow: none;
-  animation: none;
-}
-.plant-scene .office-figure:focus-visible .office-figure-outline,
-.plant-scene .office-figure[aria-pressed="true"] .office-figure-outline {
-  border-color: var(--accent, #00f2ff);
-}
-.plant-scene .office-figure-code {
-  margin: 0 0 1px;
-  font-size: var(--fs-label);
-  font-weight: 600;
-  letter-spacing: 0;
-  box-shadow: none;
-  color: var(--text, #e8f0f8);
-}
-.plant-scene .office-figure-mark {
-  top: auto;
-  bottom: 2px;
-  left: calc(50% + 8px);
-  width: 18px;
-  height: 18px;
-  box-shadow: none;
-}
-.plant-scene .office-figure-flags {
-  top: auto;
-  bottom: 2px;
-  left: calc(50% - 22px);
-  box-shadow: none;
-}
-.plant-scene .office-figure-safety {
+.plant-scene[data-mode="counts"] .plant-reactor-name {
   display: none;
 }
-.plant-scene .office-figure[data-safety] .office-figure-code {
-  box-shadow: inset 0 -2px 0 var(--text, #e8f0f8);
+
+/* A figure: a button over its painted crew, with its nameplate under it. */
+.plant-figure,
+.plant-stack,
+.plant-count {
+  position: absolute;
+  margin: 0;
+  cursor: pointer;
+}
+.plant-figure {
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.plant-figure:focus-visible,
+.plant-stack:focus-visible,
+.plant-count:focus-visible {
+  outline: 2px solid var(--accent, #00f2ff);
+  outline-offset: 1px;
+}
+.plant-figure[aria-pressed="true"] {
+  outline: 2px solid var(--accent, #00f2ff);
+  outline-offset: 1px;
+}
+.plant-nameplate {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 4px;
+  border-left-width: 3px;
+  overflow: hidden;
+  font-size: var(--fs-chip);
+  line-height: 15px;
+}
+.plant-figure[data-safety] .plant-nameplate {
+  border-bottom: 3px double var(--text, #e8f0f8);
+}
+/* The state's colour is an accent on the plate's left edge and on the chip's shape; never the only signal. */
+.plant-figure[data-state="working"] .plant-nameplate,
+.plant-count-row[data-state="working"] { --accent-state: var(--accent, #00f2ff); }
+.plant-figure[data-state="needs"] .plant-nameplate,
+.plant-count-row[data-state="needs"] { --accent-state: var(--needs, #ffaa00); }
+.plant-figure[data-state="waiting"] .plant-nameplate,
+.plant-count-row[data-state="waiting"] { --accent-state: var(--waiting, #b89cff); }
+.plant-figure[data-state="stuck"] .plant-nameplate,
+.plant-count-row[data-state="stuck"] { --accent-state: var(--stuck, #ff7a59); }
+.plant-figure[data-state="changed"] .plant-nameplate,
+.plant-count-row[data-state="changed"] { --accent-state: var(--changed, #ffb347); }
+.plant-nameplate {
+  border-left-color: var(--accent-state, var(--plant-linework, #255375));
+}
+.plant-np-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 15px;
+}
+.plant-np-head .agent-badge {
+  flex: none;
+  color: var(--text-2, #c5d0dc);
+}
+.plant-np-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.plant-np-marks {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.plant-chip,
+.plant-count-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.plant-chip .state-mark,
+.plant-count-row .state-mark {
+  flex: none;
+}
+.plant-tip {
+  display: none;
+  position: absolute;
+  z-index: 5;
+  padding: 3px 7px;
+  font-size: var(--fs-label);
+  line-height: 1.3;
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.plant-tip[data-side="below"] {
+  top: 100%;
+  margin-top: 4px;
+}
+.plant-tip[data-side="above"] {
+  bottom: 100%;
+  margin-bottom: 4px;
+}
+.plant-tip[data-align="center"] {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.plant-tip[data-align="start"] {
+  left: 0;
+}
+.plant-tip[data-align="end"] {
+  right: 0;
+}
+.plant-figure:hover .plant-tip,
+.plant-figure:focus-visible .plant-tip {
+  display: block;
+}
+/* The "+N" stack and the count plate: buttons that open the room's figures. */
+.plant-stack {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  line-height: 1;
+}
+.plant-count {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 5px;
+  font-size: var(--fs-chip);
+  line-height: 15px;
+}
+.plant-count[data-tier="micro"] {
+  align-items: center;
+  padding: 0 3px;
+}
+.plant-count-row b {
+  font-variant-numeric: tabular-nums;
+}
+.plant-stack[aria-expanded="true"],
+.plant-count[aria-expanded="true"] {
+  border-color: var(--accent, #00f2ff);
 }
 
 /* The rod gauge sits beside the Plant title. */

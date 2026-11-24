@@ -1,21 +1,27 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, useLayoutEffect, useMemo, useState } from "react";
+import { STATE_INFO, StateMark } from "../../../components/StateMark.js";
 import { useInstrumentMotion } from "../../../design/instruments/useInstrumentMotion.js";
-import { REGION, type RegionId } from "../layout.js";
-import { FigureMark, type FigureState, type PlantInstruments, type StageFigure } from "../OfficeStage.js";
+import type { FigureState, PlantInstruments, StageFigure } from "../OfficeStage.js";
 import { type OccupancyMap, flowSegments, ringPath } from "./flow.js";
-import { CANVAS, CORE_BBOX, CORE_CROP, CREW_BASELINE, CREW_FRAME, PLACE_IDS, ROOMS } from "./geometry.js";
+import { type Placed, type Rect, type RoomPlan, planScene } from "./figure-layout.js";
+import { CANVAS, CORE_BBOX, CORE_CROP, ROOMS } from "./geometry.js";
+import { CHIP_WORD, PlantFigure } from "./PlantFigure.js";
+import { SCENE_LAYOUT } from "./scene-layout.js";
 import "../office.css";
 import "./plant-scene.css";
 
 /**
  * The Plant as a painted scene (control room redesign, sections 4 and 6). Application owned, like
  * ReactorCore: no theme can fake a state. Hero art is raster only (base, room, core and crew images,
- * all aria-hidden); code draws only the named overlays below (Lamp, FlowStripe, Label, FocusOutline).
- * The focusable figure buttons and their labels are the semantic layer on top, as in OfficeStage.
+ * all aria-hidden); code draws only the named overlays below (Lamp, FlowStripe, the room plates and
+ * the nameplates). The focusable figure buttons and their nameplates are the semantic layer on top,
+ * as in OfficeStage. Where each figure, nameplate, "+N" stack and room name goes is worked out in
+ * figure-layout.ts from the room geometry and the scene's scale; rooms come from the geometry,
+ * however many it holds, so a new room needs no change here.
  */
 
 const ART = "/plant";
-/** The crew image for a state; an input that changed shows the waiting pose and a diamond mark. */
+/** The crew image for a state; an input that changed shows the waiting pose (its chip says Changed). */
 export const POSE: Record<FigureState, "working" | "waiting" | "stuck" | "needs-you"> = {
   working: "working",
   waiting: "waiting",
@@ -23,8 +29,10 @@ export const POSE: Record<FigureState, "working" | "waiting" | "stuck" | "needs-
   needs: "needs-you",
   changed: "waiting",
 };
-/** One crew frame on the canvas, in canvas units: figures stand about 45 units tall. */
-const CREW_UNITS = 52;
+/** The width assumed before the scene is measured (and where there is no layout engine, as in tests): a 1440 px window. */
+const ASSUMED_WIDTH = 1176;
+/** How many characters of a title a nameplate has room for before it is cut with an ellipsis. */
+const TITLE_CHARS = 12;
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 const at = (x: number, y: number): CSSProperties => ({ left: pct(x, CANVAS.width), top: pct(y, CANVAS.height) });
@@ -34,6 +42,8 @@ const boxOf = ([x0, y0, x1, y1]: readonly number[]): CSSProperties => ({
   width: pct(x1! - x0!, CANVAS.width),
   height: pct(y1! - y0!, CANVAS.height),
 });
+const px = (n: number) => `${Math.round(n * 100) / 100}px`;
+const rectStyle = (r: Rect): CSSProperties => ({ left: px(r.x), top: px(r.y), width: px(r.w), height: px(r.h) });
 
 /** Overlay: a small status lamp at a station (amber, red, or neutral with a shape). */
 export function Lamp({ x, y, tone, glyph, pulse }: { x: number; y: number; tone: "needs-you" | "trip" | "neutral"; glyph?: "pause" | "diamond"; pulse?: boolean }) {
@@ -53,13 +63,23 @@ export function FlowStripe({ from, to, tone }: { from: Parameters<typeof ringPat
   return <polyline className="plant-flow-stripe" data-overlay="flow" data-tone={tone} data-from={from} data-to={to} points={ringPath(from, to)} />;
 }
 
-/** Overlay: a room's name, set under its box. */
-function Label({ children, x, y }: { children: string; x: number; y: number }) {
-  return (
-    <span className="plant-room-label" data-overlay="label" style={at(x, y)}>
-      {children}
-    </span>
-  );
+/** The scene's width in px, so layout follows the scale the picture is actually drawn at. */
+function useSceneWidth(): [(el: HTMLDivElement | null) => void, number] {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(ASSUMED_WIDTH);
+  useLayoutEffect(() => {
+    if (!el) return;
+    const read = () => {
+      const w = Math.round(el.getBoundingClientRect().width);
+      if (w > 0) setWidth(w);
+    };
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const o = new ResizeObserver(read);
+    o.observe(el);
+    return () => o.disconnect();
+  }, [el]);
+  return [setEl, width];
 }
 
 export interface PlantSceneProps {
@@ -71,17 +91,62 @@ export interface PlantSceneProps {
   occupancy: OccupancyMap;
   /** The plant's functional name for each place (the theme's label), read with the room. */
   labels?: Readonly<Record<string, { label: string }>>;
+  /** Agents on the floor that have no seat (over a room's seats): they count in the room's "+N". */
+  overflow?: readonly { place: string; state: FigureState }[];
+  /** A "+N" stack or a count plate was used: open that room's figures. */
+  onOpenRoom?: ((room: string) => void) | undefined;
+  /** The room whose figures are open, for aria-expanded. */
+  openRoom?: string | undefined;
 }
 
-export function PlantScene({ figures, selected, onSelect, instruments, occupancy, labels }: PlantSceneProps) {
+/** A nameplate's title: the package title, or, where two would read the same when cut, its id suffix too. */
+function titles(figs: readonly StageFigure[]): Map<string, string> {
+  const key = (f: StageFigure) => (f.title ?? f.code).slice(0, TITLE_CHARS).toLowerCase();
+  const seen = new Map<string, number>();
+  for (const f of figs) seen.set(key(f), (seen.get(key(f)) ?? 0) + 1);
+  return new Map(
+    figs.map((f) => {
+      const full = f.title ?? f.code;
+      if ((seen.get(key(f)) ?? 0) < 2) return [f.id, full];
+      const tail = (f.name ?? f.code).slice(-4);
+      return [f.id, `${full.slice(0, TITLE_CHARS - 5).trimEnd()}… ${tail}`];
+    }),
+  );
+}
+
+const plural = (n: number) => `${n} ${n === 1 ? "agent" : "agents"}`;
+
+export function PlantScene({ figures, selected, onSelect, instruments, occupancy, labels, overflow, onOpenRoom, openRoom }: PlantSceneProps) {
   const motion = useInstrumentMotion();
+  const [measure, width] = useSceneWidth();
   const scram = instruments.rods.position === "inserted" || instruments.rods.position === "bank";
   const cold = instruments.core.lit !== true && !scram;
   const segments = flowSegments(occupancy, instruments.waiting, scram);
-  const frameH = CREW_UNITS;
+  const u = width / CANVAS.width;
+  const nameOf = (room: string) => SCENE_LAYOUT.region[room as keyof typeof SCENE_LAYOUT.region]?.name ?? room;
+  const plan = useMemo(() => {
+    const folded = new Map<string, number>();
+    for (const [room, o] of occupancy) {
+      const drawn = figures.filter((f) => f.region === room).length + (overflow ?? []).filter((f) => f.place === room).length;
+      if (o.count > drawn) folded.set(room, o.count - drawn);
+    }
+    return planScene({
+      figures: figures.map((f) => ({ id: f.id, region: f.region, state: f.state })),
+      extra: (overflow ?? []).map((f) => ({ region: f.place, state: f.state })),
+      folded,
+      u,
+      name: nameOf,
+    });
+  }, [figures, overflow, occupancy, u]);
+  const byId = new Map(figures.map((f) => [f.id, f]));
+  const shown = plan.rooms.flatMap((r) => r.placed.map((p) => byId.get(p.id)!).filter(Boolean));
+  const title = titles(shown);
+  const placedOf = new Map<string, Placed>(plan.rooms.flatMap((r) => r.placed.map((p) => [p.id, p] as const)));
+  const canvasW = CANVAS.width * u;
+  const office = ROOMS["your-office" as keyof typeof ROOMS];
   return (
-    <div className="plant-scene" data-layout="plant" data-motion={motion} data-scram={scram ? "" : undefined}>
-      <div className="plant-scene-canvas" style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
+    <div className="plant-scene" data-layout="plant" data-motion={motion} data-mode={plan.mode} data-scram={scram ? "" : undefined}>
+      <div className="plant-scene-canvas" ref={measure} style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
         <div className="plant-scene-art" aria-hidden="true" data-layer="scene">
           <img
             className="plant-art"
@@ -93,8 +158,8 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
             draggable={false}
             style={boxOf([0, 0, CANVAS.width, CANVAS.height])}
           />
-          {PLACE_IDS.map((p) => {
-            const b = ROOMS[p].bbox;
+          {Object.entries(ROOMS).map(([p, room]) => {
+            const b = room.bbox;
             const lit = (occupancy.get(p)?.count ?? 0) > 0;
             return (
               <img
@@ -130,52 +195,42 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
               <FlowStripe key={s.id} from={s.from} to={s.to} tone={s.tone} />
             ))}
           </svg>
-          {instruments.waiting && <Lamp x={(ROOMS["your-office"].bbox[0] + ROOMS["your-office"].bbox[2]) / 2} y={ROOMS["your-office"].bbox[1] + 8} tone="needs-you" pulse />}
-          {figures.map((f) => {
-            const pose = POSE[f.state];
-            const h = pose === "needs-you" ? frameH : frameH;
-            return (
-              <div key={f.id} className="plant-figure-art" data-figure-art={f.id} data-state={f.state}>
+          {instruments.waiting && office && <Lamp x={(office.bbox[0] + office.bbox[2]) / 2} y={office.bbox[1] + 8} tone="needs-you" pulse />}
+          {plan.rooms.flatMap((r) =>
+            r.placed.map((p) => (
+              <div key={p.id} className="plant-figure-art" data-figure-art={p.id} data-state={p.state}>
                 <img
                   className="plant-crew"
                   data-hero="figure"
-                  data-pose={pose}
-                  src={`${ART}/crew/${pose}.webp`}
+                  data-pose={POSE[p.state]}
+                  src={`${ART}/crew/${POSE[p.state]}.webp`}
                   alt=""
                   draggable={false}
-                  style={{
-                    left: pct(f.at.x - h / 2, CANVAS.width),
-                    top: pct(f.at.y - (h * CREW_BASELINE) / CREW_FRAME, CANVAS.height),
-                    width: pct(h, CANVAS.width),
-                    height: pct(h, CANVAS.height),
-                  }}
+                  style={{ left: pct(p.frame.x, canvasW), top: pct(p.frame.y, canvasW * (CANVAS.height / CANVAS.width)), width: pct(p.frame.w, canvasW), height: pct(p.frame.h, canvasW * (CANVAS.height / CANVAS.width)) }}
                 />
-                {f.state === "needs" && <Lamp x={f.at.x + 12} y={f.at.y - 38} tone="needs-you" />}
-                {f.state === "stuck" && <Lamp x={f.at.x + 12} y={f.at.y - 30} tone="trip" />}
-                {f.state === "waiting" && <Lamp x={f.at.x + 12} y={f.at.y - 30} tone="neutral" glyph="pause" />}
-                {f.state === "changed" && <Lamp x={f.at.x + 12} y={f.at.y - 30} tone="neutral" glyph="diamond" />}
               </div>
-            );
-          })}
+            )),
+          )}
         </div>
         <div className="office-semantic" data-layer="semantic">
-          {PLACE_IDS.map((p) => {
-            const b = ROOMS[p].bbox;
-            const r = REGION[p as RegionId];
+          {plan.rooms.map((r) => {
+            const region = SCENE_LAYOUT.region[r.id as keyof typeof SCENE_LAYOUT.region];
+            const name = region?.name ?? r.name;
+            const purpose = region?.purpose ? `: ${region.purpose}` : "";
+            const theme = labels?.[r.id]?.label;
             return (
-              <section key={p} className="office-region plant-room" style={boxOf(b)} aria-label={labels?.[p] ? `${r.name}, ${labels[p]!.label}: ${r.purpose}` : `${r.name}: ${r.purpose}`} data-region={p}>
-                <span className="sr-only">{r.name}</span>
+              <section key={r.id} className="office-region plant-room" style={boxOf(ROOMS[r.id as keyof typeof ROOMS].bbox)} aria-label={theme ? `${name}, ${theme}${purpose}` : `${name}${purpose}`} data-region={r.id}>
+                <span className="sr-only">{name}</span>
               </section>
             );
           })}
-          {PLACE_IDS.map((p) => {
-            const b = ROOMS[p].bbox;
-            return (
-              <Label key={p} x={(b[0] + b[2]) / 2} y={b[3] + 2}>
-                {REGION[p as RegionId].name}
-              </Label>
-            );
-          })}
+          {plan.rooms.map((r) =>
+            r.label ? (
+              <span key={`label-${r.id}`} className="plant-room-label" data-overlay="label" data-label="room" data-room={r.id} style={rectStyle(r.label)}>
+                {r.name}
+              </span>
+            ) : null,
+          )}
           <section className="office-region plant-reactor" style={boxOf(CORE_BBOX)} aria-label="Reactor building" data-region="reactor">
             <div className="plant-reactor-plate">
               <span className="plant-reactor-name">Reactor</span>
@@ -189,13 +244,58 @@ export function PlantScene({ figures, selected, onSelect, instruments, occupancy
               )}
             </div>
           </section>
-          {figures.map((f) => (
-            <div key={f.id} className="plant-figure-slot" data-overlay="focus" style={at(f.at.x, f.at.y)}>
-              <FigureMark canvas={CANVAS} figure={{ ...f, at: { x: 0, y: 0 } }} selected={selected === f.id} onSelect={onSelect} />
-            </div>
+          {plan.rooms.map((r) => (
+            <RoomControls key={r.id} room={r} figures={byId} placedOf={placedOf} titles={title} selected={selected} onSelect={onSelect} onOpenRoom={onOpenRoom} open={openRoom === r.id} />
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+/** One room's focusable parts: its figures with their nameplates, then its "+N" stack or its count plate. */
+function RoomControls({ room: r, figures, placedOf, titles: names, selected, onSelect, onOpenRoom, open }: { room: RoomPlan; figures: ReadonlyMap<string, StageFigure>; placedOf: ReadonlyMap<string, Placed>; titles: ReadonlyMap<string, string>; selected: string | undefined; onSelect: ((id: string) => void) | undefined; onOpenRoom: ((room: string) => void) | undefined; open: boolean }) {
+  const words = r.byState.map(([s, n]) => `${n} ${CHIP_WORD[s]}`).join(", ");
+  return (
+    <>
+      {r.placed.map((p) => {
+        const f = figures.get(p.id);
+        const placed = placedOf.get(p.id);
+        return f && placed ? <PlantFigure key={p.id} figure={f} placed={placed} title={names.get(p.id) ?? f.code} selected={selected === p.id} onSelect={onSelect} /> : null;
+      })}
+      {r.stack && (
+        <button type="button" className="plant-stack" data-label="stack" data-room={r.id} style={rectStyle(r.stack)} aria-expanded={open} aria-label={`${r.name}: ${r.more} more ${r.more === 1 ? "agent" : "agents"} not drawn. Show them.`} onClick={() => onOpenRoom?.(r.id)}>
+          +{r.more}
+        </button>
+      )}
+      {r.count && (
+        <button
+          type="button"
+          className="plant-count"
+          data-label="count"
+          data-tier={r.count.tier}
+          data-room={r.id}
+          style={rectStyle(r.count.rect)}
+          aria-expanded={open}
+          aria-label={`${r.name}: ${plural(r.total)}, ${words}. Show them.`}
+          onClick={() => onOpenRoom?.(r.id)}
+        >
+          {r.count.tier === "full" ? (
+            r.byState.map(([s, n]) => (
+              <span key={s} className="plant-count-row" data-state={s} aria-hidden="true">
+                <StateMark kind={s} size={10} title={STATE_INFO[s].label} />
+                <b>{n}</b>
+                <span>{CHIP_WORD[s]}</span>
+              </span>
+            ))
+          ) : (
+            <span className="plant-count-row" data-state={r.byState[0]![0]} aria-hidden="true">
+              <StateMark kind={r.byState[0]![0]} size={10} title={STATE_INFO[r.byState[0]![0]].label} />
+              <b>{r.total}</b>
+            </span>
+          )}
+        </button>
+      )}
+    </>
   );
 }

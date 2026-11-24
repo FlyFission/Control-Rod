@@ -35,6 +35,8 @@ export function flowSegments(occ: OccupancyMap, waiting: boolean, scram: boolean
   if (scram) return [];
   const out: Segment[] = [];
   for (const [from, to] of PIPES) {
+    // A pipe only runs between rooms the geometry has, so a geometry without one simply has no pipe.
+    if (!(from in ROOMS) || !(to in ROOMS)) continue;
     const leaves = (occ.get(from)?.count ?? 0) > 0;
     if (!leaves) continue;
     if (to === "your-office") {

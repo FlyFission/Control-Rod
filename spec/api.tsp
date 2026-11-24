@@ -906,6 +906,64 @@ model AgentSetupView {
   check_in: CheckIn;
 }
 
+/**
+ * Control room > Usage limits. How much of each agent subscription's limit window is used, as the
+ * agent CLIs themselves reported it. Read from what the CLI already writes (Codex's session log,
+ * Claude Code's stream output); Control Rod never reads a login token to get it.
+ */
+@route("/usage/limits")
+@get
+op usageLimits(): UsageLimitsView;
+
+/** One limit window of one subscription. */
+@extension("unevaluatedProperties", false)
+model UsageWindow {
+  id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "monthly" | "primary" | "secondary";
+
+  @minValue(1) @maxValue(60000)
+  window_minutes?: int32;
+
+  @minValue(0) @maxValue(100)
+  used_percent: float64;
+
+  resets_at?: utcDateTime;
+
+  status?: "allowed" | "warning" | "rejected";
+}
+
+/** One provider CLI's last limit reading. */
+@extension("unevaluatedProperties", false)
+model UsageProvider {
+  id: "claude" | "codex" | "grok" | "opencode" | "agy";
+
+  /** cli-log: the CLI's own session log. cli-stream: the CLI's run output. none: no token-free source. */
+  source: "cli-log" | "cli-stream" | "none";
+
+  /** When the CLI recorded the reading. */
+  observed_at?: utcDateTime;
+
+  @pattern("^[a-z0-9_-]{1,24}$")
+  plan?: string;
+
+  @maxItems(8)
+  windows: UsageWindow[];
+}
+
+/** The claim payload for usage limits. */
+@extension("unevaluatedProperties", false)
+model UsageLimitsReport {
+  read_at: utcDateTime;
+
+  @maxItems(8)
+  providers: UsageProvider[];
+}
+
+model UsageLimitsView {
+  reported: boolean;
+  read_at?: utcDateTime;
+  providers: UsageProvider[];
+}
+
 /** The claim payload. The same probe models the settings page returns. */
 @extension("unevaluatedProperties", false)
 model SubscriptionReport {
@@ -1522,6 +1580,9 @@ namespace Runner {
 
     /** Provider CLI probes for Settings. Output of a status command is not included. */
     subscription_report?: ControlRod.Api.SubscriptionReport;
+
+    /** Usage-limit readings the agent CLIs reported. No token is read to get them. */
+    usage_limits?: ControlRod.Api.UsageLimitsReport;
 
     /** The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations. */
     @minValue(1) run_ceiling_seconds?: int32;

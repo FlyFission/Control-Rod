@@ -1328,6 +1328,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Control room > Usage limits. How much of each agent subscription's limit window is used, as the
+         *     agent CLIs themselves reported it. Read from what the CLI already writes (Codex's session log,
+         *     Claude Code's stream output); Control Rod never reads a login token to get it.
+         */
+        get: operations["usageLimits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspace/projects": {
         parameters: {
             query?: never;
@@ -3633,6 +3654,48 @@ export interface components {
             tiers: components["schemas"]["SubscriptionTier"][];
             local_rule: string;
             pins: components["schemas"]["SubscriptionPin"][];
+        };
+        /** @description The claim payload for usage limits. */
+        UsageLimitsReport: {
+            /** Format: date-time */
+            read_at: string;
+            providers: components["schemas"]["UsageProvider"][];
+        };
+        UsageLimitsView: {
+            reported: boolean;
+            /** Format: date-time */
+            read_at?: string;
+            providers: components["schemas"]["UsageProvider"][];
+        };
+        /** @description One provider CLI's last limit reading. */
+        UsageProvider: {
+            /** @enum {string} */
+            id: "claude" | "codex" | "grok" | "opencode" | "agy";
+            /**
+             * @description cli-log: the CLI's own session log. cli-stream: the CLI's run output. none: no token-free source.
+             * @enum {string}
+             */
+            source: "cli-log" | "cli-stream" | "none";
+            /**
+             * Format: date-time
+             * @description When the CLI recorded the reading.
+             */
+            observed_at?: string;
+            plan?: string;
+            windows: components["schemas"]["UsageWindow"][];
+        };
+        /** @description One limit window of one subscription. */
+        UsageWindow: {
+            /** @enum {string} */
+            id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "monthly" | "primary" | "secondary";
+            /** Format: int32 */
+            window_minutes?: number;
+            /** Format: double */
+            used_percent: number;
+            /** Format: date-time */
+            resets_at?: string;
+            /** @enum {string} */
+            status?: "allowed" | "warning" | "rejected";
         };
         "WorkspaceProjects.ArchiveProjectPayload": {
             project_id: string;
@@ -8129,6 +8192,8 @@ export interface operations {
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
                     /** @description Provider CLI probes for Settings. Output of a status command is not included. */
                     subscription_report?: components["schemas"]["SubscriptionReport"];
+                    /** @description Usage-limit readings the agent CLIs reported. No token is read to get them. */
+                    usage_limits?: components["schemas"]["UsageLimitsReport"];
                     /**
                      * Format: int32
                      * @description The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations.
@@ -9139,6 +9204,26 @@ export interface operations {
                         /** @description The share of a limit at which a budget reads as near it, from the approved policy (budget_near_percent); null when unset. */
                         near_share: number | null;
                     } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    usageLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageLimitsView"];
                 };
             };
         };

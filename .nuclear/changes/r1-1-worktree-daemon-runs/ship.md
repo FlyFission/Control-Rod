@@ -1,6 +1,6 @@
 # Ship: worktree daemon binding
 
-Release decision: **draft only.** [Verification](verification.md) records the author checks, the overseer's macOS suite results and the [fix round](verification.md#fix-round), in which the Go and API suites and the typecheck were rerun. The independent checker verdict, Ben's acceptance, and merge are pending.
+Release decision: **authorized for the diff at head `372b80bf`** by the owner's recorded yes in the Signature table, including the linked-worktrees-only behaviour change it names. The independent different-vendor checker verdict was not run on this diff; that residual risk is accepted by the same yes. [Verification](verification.md) records the author checks, the overseer's macOS suite results and the [fix round](verification.md#fix-round).
 
 ## Behaviour change for Ben to confirm
 
@@ -14,7 +14,7 @@ Additive TypeSpec contracts and generated artifacts require owner CODEOWNERS rev
 
 | Decision | Question | Answer | When and where | Recorded by |
 | --- | --- | --- | --- | --- |
-| Pending | Pending exact-diff review | Pending | Pending | Author agent |
+| Approved: merge at head `372b80bf` once CI is green | "Do you approve merging #135 at head 372b80bf (additive spec/api.tsp, spec/records.tsp and generated contracts, daemon checkout custody, New Work workspace binding), and confirm that bound checkouts being linked worktrees only is acceptable?" | "Yes" (2026-11-24 sign-off form) | 2026-11-24, Claude Code session sign-off form | The implementing agent, from the sign-off form answer. Ben Huffer did not type this entry, and no signature or initials were typed for him. |
 
 Rollback: revert the change through review. Monitoring: the board shows a bound run's checkout hold in plain words whenever the daemon that asked cannot take custody, and a bound run never starts on an unbound workspace — watch the hold queue after any daemon or API version mix, and treat a bound run that started without a recorded checkout as a bug.
 

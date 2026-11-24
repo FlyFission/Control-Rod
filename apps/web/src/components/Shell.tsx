@@ -417,7 +417,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
           </div>
         </header>
 
-        {/* On every screen: a real trip locks actions in its scope, and a drill locks nothing. */}
+        {/* On every screen: a SCRAM locks actions in its scope; a drill locks the same way, since it stops work for real. */}
         {scrams && scrams.length > 0 && <ScramBanner presenting={presenting} />}
 
         <main id="main" className="content" tabIndex={-1}>

@@ -27,20 +27,23 @@ const withSpend = <T>(spend: T | undefined) => (spend === undefined ? {} : { spe
 const PRESENTABLE = new Set(["public", "internal"]);
 
 /**
- * A package's discipline, as free text, to its cube set. Matched by the words a discipline name uses;
- * an unset or unmatched discipline stands in Process and the figure says so.
+ * A package's discipline, as free text, to its cube set. The text is lowercased and split on non-letters
+ * into words, and a keyword matches only at a word boundary: as a whole word or as a deliberate stem
+ * ("electric" in "electrical"), never inside another word ("site" in "website", "fire" in "firebase",
+ * "power" in "powershell"). Ambiguous words ("project", "cost", "controls") count only in the phrase that
+ * makes them a discipline. An unset or unmatched discipline stands in Process and the figure says so.
  */
 const CUBE_WORDS: [Place, RegExp][] = [
   // Project controls first: "controls" alone means instrumentation and controls.
-  ["project-controls", /project|schedul|cost|estimat|procure/],
-  ["mechanical", /mechanical|piping|hvac|plumbing|fire/],
-  ["electrical", /electrical|instrument|controls?\b|i&c|power/],
-  ["civil", /civil|structural|architect|geotech|site/],
-  ["assurance", /quality|safety|regulat|licens|assurance|nqa/],
-  ["process", /process|chemical|nuclear|reactor|fuel/],
+  ["project-controls", /\b(?:project (?:controls?|management|planning|schedul\w*|cost\w*)|cost (?:estimat\w*|controls?|engineering)|schedul(?:e|es|ing)|estimat(?:e|es|ing|ion|or|ors)|procure(?:ment)?)\b/],
+  ["mechanical", /\b(?:mechanical|piping|hvac|plumbing|fire (?:protection|suppression|safety|water))\b/],
+  ["electrical", /\b(?:electrical|electric|instrument(?:ation|ed)?|i&c|c&i|power)\b|(?<!\b(?:access|document|change|configuration|version|security|quality) )\bcontrols?\b/],
+  ["civil", /\b(?:civil|structural|structure|architectural|architect|geotechnical|geotech|site)\b/],
+  ["assurance", /\b(?:quality|safety|regulatory|regulation|licensing|license|assurance|nqa)\b/],
+  ["process", /\b(?:process|chemical|nuclear|reactor|fuel)\b/],
 ];
 export function cubeFor(discipline: unknown): { place: Place; defaulted: boolean } {
-  const d = typeof discipline === "string" ? discipline.toLowerCase() : "";
+  const d = typeof discipline === "string" ? discipline.toLowerCase().replace(/[^a-z&]+/g, " ").trim() : "";
   for (const [place, words] of CUBE_WORDS) if (d && words.test(d)) return { place, defaulted: false };
   return { place: "process", defaulted: true };
 }

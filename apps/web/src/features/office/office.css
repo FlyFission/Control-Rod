@@ -599,6 +599,10 @@
   color: #e6b8bc;
 }
 .office-scram-detail {
+  /* The banner sits outside the scrolling content, so the expanded panel scrolls on its own. */
+  max-height: min(60vh, 32rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid #4e1820;

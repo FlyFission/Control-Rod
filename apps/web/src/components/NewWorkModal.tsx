@@ -8,7 +8,7 @@ import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
 import { WORKFLOWS, WORKFLOW_DESCRIPTION, WORKFLOW_LABEL, type Workflow } from "../lib/workflow.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
-import { projectCaptureTag, useActiveProject } from "../lib/projects.js";
+import { projectCaptureTag, useActiveProject, useProjects } from "../lib/projects.js";
 import {
   CLI_ECOSYSTEMS,
   defaultAuthorSelection,
@@ -70,9 +70,9 @@ interface NewWorkModalProps {
  */
 export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   // A SCRAM in force for the organization or this project stops new work being captured (section 6.6).
-  const scramLock = useActionLock();
   const copy = MODE_COPY[mode];
   const activeProject = useActiveProject();
+  const allProjects = useProjects();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const objectiveRef = useRef<HTMLTextAreaElement>(null);
   const qc = useQueryClient();
@@ -97,6 +97,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [pendingCaptureSession, setPendingCaptureSession] = useState<number | null>(null);
   const [workflow, setWorkflow] = useState<Workflow | "">("");
   const [pinnedFields, setPinnedFields] = useState(false);
+  // Lock on the project this capture will really target (the editable field), not the sidebar's.
+  const targetProject = project.trim();
+  const targetEntry = allProjects.find((p) => p.name.toLowerCase() === targetProject.toLowerCase());
+  const scramLock = useActionLock(targetEntry ? targetEntry.id : targetProject || null);
 
   const [objective, setObjective] = useState("");
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);

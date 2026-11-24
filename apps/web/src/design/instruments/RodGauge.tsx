@@ -7,7 +7,7 @@ export const ROD_WORDS: Record<RodPosition, string> = {
   withdrawn: "Control rods withdrawn, no SCRAM in force",
   bank: "Control rods: project bank inserted, SCRAM in force",
   inserted: "Control rods all inserted, SCRAM in force",
-  drill: "Control rods shown for a SCRAM drill, nothing stopped",
+  drill: "Drill SCRAM in force: work stopped",
   unknown: "Control rods unknown, SCRAM status unavailable",
 };
 

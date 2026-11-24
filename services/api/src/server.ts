@@ -23,6 +23,20 @@ privateDir(home);
 
 /** Postgres: CONTROLROD_DATABASE_URL if set (Postgres.app, Homebrew, a server), else embedded in ~/.controlrod/pg. */
 let pgServer: EmbeddedPostgres | null = null;
+// Started by `pnpm cr start`, the control plane runs in its own process group, out of reach of the
+// terminal's Ctrl+C, and the launcher stops it. If the launcher is gone (killed outright), this
+// process has been reparented: stop rather than run on unowned. Armed before the database starts,
+// since migrations can wait on a lock; until the app is built, stopping means stopping PostgreSQL.
+let onLauncherGone: () => Promise<void> = async () => {
+  await pgServer?.stop().catch(() => undefined);
+  process.exit(0);
+};
+const launcher = Number(process.env.CONTROLROD_LAUNCHER_PID);
+if (Number.isInteger(launcher) && launcher > 1) {
+  setInterval(() => {
+    if (process.ppid !== launcher) void onLauncherGone();
+  }, 1000).unref();
+}
 let dbUrl = process.env.CONTROLROD_DATABASE_URL ?? "";
 if (!dbUrl) {
   const pgPassword = privateFile(join(home, "pg.password"), () => randomBytes(24).toString("hex"));
@@ -107,15 +121,7 @@ const stop = async () => {
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
-// Started by `pnpm cr start`, the control plane runs in its own process group, out of reach of the
-// terminal's Ctrl+C, and the launcher stops it. If the launcher is gone (killed outright), this
-// process has been reparented: stop rather than run on unowned.
-const launcher = Number(process.env.CONTROLROD_LAUNCHER_PID);
-if (Number.isInteger(launcher) && launcher > 1) {
-  setInterval(() => {
-    if (process.ppid !== launcher) void stop();
-  }, 1000).unref();
-}
+onLauncherGone = stop;
 
 await app.listen({ host: "127.0.0.1", port });
 console.log(`Control Rod is running at ${origin}`);

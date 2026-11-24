@@ -236,9 +236,13 @@ async function start() {
     daemon.once("exit", exit);
     daemon.kill("SIGTERM");
   };
-  // Each child runs in its own process group, so a Ctrl+C in the terminal reaches only this launcher,
-  // which then stops them in order: the daemon first, then the control plane.
-  const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], { env, stdio: "inherit", detached: true });
+  // The children share the terminal, so a Ctrl+C reaches the daemon directly and it starts its own
+  // graceful stop. The control plane leaves Ctrl+C to this launcher, which stops it only after the
+  // daemon has exited, so the daemon's final completions still have somewhere to go.
+  const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], {
+    env: { ...env, CONTROLROD_LAUNCHER_STOPS_API: "1" },
+    stdio: "inherit",
+  });
   api.on("exit", (code, signal) => {
     apiExited = true;
     apiExitCode = code ?? (signal ? 1 : 0);
@@ -248,33 +252,6 @@ async function start() {
       afterDaemon(() => process.exit(apiExitCode || 1));
     }
   });
-  for (let i = 0; i < 120; i++) {
-    if (apiExited) throw new Error(`The control plane exited before becoming healthy (code=${apiExitCode})`);
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/health`);
-      if (r.ok) break;
-    } catch {
-      /* not up yet */
-    }
-    if (i === 119) throw new Error("The control plane did not start");
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  // The daemon reads its token from CONTROLROD_HOME/daemon.token, and reads it again if the control
-  // plane restarts and writes a new one; passing it in the environment would pin the old token.
-  const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}` };
-  delete daemonEnv.CONTROLROD_DAEMON_TOKEN;
-  daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
-    env: daemonEnv,
-    stdio: "inherit",
-    detached: true,
-  });
-  daemon.on("exit", (code, signal) => {
-    daemonExited = true;
-    if (!stopping) {
-      console.error(`\nThe run daemon exited (code=${code ?? signal}); runs will wait until it is restarted.`);
-    }
-  });
-  console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);
   const stop = () => {
     if (stopping) {
       // A second Ctrl+C does not wait: stop both now. Unsaved completions stay in the daemon's outbox.
@@ -294,15 +271,45 @@ async function start() {
       api.kill("SIGTERM");
     });
   };
+  // Installed before the health wait, so a Ctrl+C during startup also stops the control plane.
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
-  // Closing the terminal stops everything the same way; detached children would not hear it themselves.
   process.on("SIGHUP", stop);
-  // If the launcher exits any other way (an error), take the children with it.
+  // If the launcher exits any other way (an error such as a failed start), take the children with it.
   process.on("exit", () => {
     if (daemon && !daemonExited) daemon.kill("SIGTERM");
     if (!apiExited) api.kill("SIGTERM");
   });
+  for (let i = 0; i < 120; i++) {
+    if (stopping) return;
+    if (apiExited) throw new Error(`The control plane exited before becoming healthy (code=${apiExitCode})`);
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/health`);
+      if (r.ok) break;
+    } catch {
+      /* not up yet */
+    }
+    if (i === 119) throw new Error("The control plane did not start");
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  // Shutdown began during startup: never start the daemon.
+  if (stopping) return;
+  // The daemon reads its token from CONTROLROD_HOME/daemon.token, and reads it again if the control
+  // plane restarts and writes a new one; passing it in the environment would pin the old token.
+  const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}` };
+  delete daemonEnv.CONTROLROD_DAEMON_TOKEN;
+  delete daemonEnv.CONTROLROD_LAUNCHER_STOPS_API;
+  daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
+    env: daemonEnv,
+    stdio: "inherit",
+  });
+  daemon.on("exit", (code, signal) => {
+    daemonExited = true;
+    if (!stopping) {
+      console.error(`\nThe run daemon exited (code=${code ?? signal}); runs will wait until it is restarted.`);
+    }
+  });
+  console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);
 }
 
 /**

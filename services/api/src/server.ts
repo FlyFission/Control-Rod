@@ -105,7 +105,11 @@ const stop = async () => {
     process.exit(0);
   }
 };
-process.on("SIGINT", stop);
+// Started by `pnpm cr start`, the control plane shares the terminal with the run daemon, so a Ctrl+C
+// reaches both at once. The daemon still needs the control plane to take its final completions, so
+// here a Ctrl+C is left to the launcher, which sends SIGTERM once the daemon has stopped.
+if (process.env.CONTROLROD_LAUNCHER_STOPS_API === "1") process.on("SIGINT", () => undefined);
+else process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
 
 await app.listen({ host: "127.0.0.1", port });

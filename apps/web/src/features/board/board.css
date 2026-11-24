@@ -1989,7 +1989,7 @@
 }
 .bd-guide-head h2 {
   margin: 0 0 2px;
-  font-size: var(--fs-body, 15px);
+  font-size: var(--fs-title);
 }
 .bd-guide-head p {
   margin: 0;
@@ -2014,7 +2014,7 @@
   border-color: var(--accent);
 }
 .bd-guide-step[data-state="later"] {
-  color: var(--muted, var(--text));
+  color: var(--muted);
   opacity: 0.75;
 }
 .bd-guide-mark {
@@ -2028,9 +2028,9 @@
   font-size: var(--fs-label);
 }
 .bd-guide-step[data-state="done"] .bd-guide-mark {
-  background: var(--ok, var(--accent));
+  background: var(--done);
   border-color: transparent;
-  color: var(--bg, #000);
+  color: var(--ground);
 }
 .bd-guide-step[data-state="next"] .bd-guide-mark {
   border-color: var(--accent);

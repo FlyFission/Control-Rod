@@ -268,7 +268,7 @@ describe("Run again on a card whose run ended without a result", () => {
 describe("a run whose outcome is unknown", () => {
   it("sends the person to its run log, not to Run again", async () => {
     await renderPage(<CardActions card={card({ offered: [allow("return")], settleRunId: "R-1" })} />);
-    expect(screen.getByRole("link", { name: "Open run log" }).getAttribute("href")).toBe("/packages/WP-7");
+    expect(screen.getByRole("link", { name: "Open run log" }).getAttribute("href")).toBe("/packages/WP-7#run-R-1");
     expect(screen.queryByRole("button", { name: "Run again" })).toBeNull();
   });
 });

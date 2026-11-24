@@ -3,7 +3,7 @@
 - E-01: `tsc -p apps/web/tsconfig.json --noEmit` passes.
 - E-02: `vitest run` over `apps/web/src/{features/board,lib,components,pages}`: 576 tests pass, 7 new.
 - E-03: live stack (built control plane, embedded PostgreSQL, Go daemon with the scripted fake runtime, release web build, Chromium): an author scripted to exit 3. The card read "The agent could not finish, and it may not have stopped. Open its run log..." ([screenshot](evidence/card-outcome-unknown.png)); after reconciling in the run log it read "The agent could not finish. Run it again" with "agent exited with status 3" and a Run again button ([screenshot](evidence/card-run-again.png)); pressing it queued a new run.
-- Blind check: pending.
+- Blind check (Codex gpt-6.2-sol, read-only, on the owner's Mac, 2026-11-24): four findings. Fixed: (1) Run again offered when a failed check of the same deliverable blocks another (409 sticky-fail): the card now reads the view's `check_blocked` and sends the person to the run log to revise or override; (3) a verification line hid a stalled run: the stalled-run line now comes first; (4) Open run log now links to the run itself (`#run-<id>`). Not changed: (2) Run again follows the same project SCRAM lock as every other card and run-log action; a scoped restart that the board's lock does not see is a lock-reading gap for all of them, not this button.
 
 ## Evidence custody and coupling
 

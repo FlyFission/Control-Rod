@@ -102,6 +102,15 @@ describe("a run that ended without a result", () => {
     expect(line.text).toMatch(/may not have stopped. Open its run log/);
     expect(line.command).toBe("open-run-log");
   });
+  it("does not offer Run again when an earlier failed check blocks another check of the same work", () => {
+    const line = nextLine(input({ status: "in-verification", runs: [run({})], checkBlocked: { reason: "A check of this deliverable already failed." } }));
+    expect(line.command).toBe("open-run-log");
+    expect(line.text).toMatch(/earlier check of this work failed/);
+  });
+  it("puts a stalled run before the verification lines, so an earlier pass cannot hide it", () => {
+    const line = nextLine(input({ column: "person-verifies", originators: ["ben"], otherQualifiedVerifier: false, runs: [run({ status: "lost" })] }));
+    expect(line.command).toBe("requeue");
+  });
   it("keeps a long runner error short on the card", () => {
     expect(nextLine(input({ runs: [run({ error: "x".repeat(400) })] })).detail).toHaveLength(160);
   });

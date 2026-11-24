@@ -144,7 +144,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
           </button>
         )}
         {card.settleRunId !== undefined && (
-          <Link to="/packages/$id" params={{ id: pkg.id }} className="btn small primary">
+          <Link to="/packages/$id" params={{ id: pkg.id }} hash={`run-${card.settleRunId}`} className="btn small primary">
             Open run log
           </Link>
         )}

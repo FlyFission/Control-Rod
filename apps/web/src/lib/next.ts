@@ -28,11 +28,22 @@ export function stalledRun(runs: readonly Run[] | undefined): Run | undefined {
 }
 
 /** What to tell the person about a run that ended without a result, and the one thing to do. */
-export function stalledLine(run: Run): NextLine {
+export function stalledLine(run: Run, checkBlocked?: { reason?: string }): NextLine {
   const who = run.role === "pre-check" ? "The check" : "The agent";
   const what =
     run.status === "lost" ? `${who} stopped answering` : run.status === "stopped" ? `${who} was stopped` : `${who} could not finish`;
   const detail = run.error?.trim();
+  // A check of this same deliverable already failed: the server refuses another until the author
+  // revises it or the owner signs an override, so Run again would only be refused.
+  if (run.role === "pre-check" && checkBlocked) {
+    return {
+      tone: "needs",
+      text: `${what}, and an earlier check of this work failed. Revise it, or sign an override to check it again`,
+      command: "open-run-log",
+      runId: run.id,
+      ...(detail ? { detail: detail.length > 160 ? `${detail.slice(0, 157)}...` : detail } : {}),
+    };
+  }
   // Its process may still be running somewhere: requeue stays shut until the run log settles it.
   if (run.outcome_unknown !== undefined && run.reconciliation === undefined) {
     return {
@@ -102,6 +113,8 @@ export type NextInput = {
   runs?: readonly Run[];
   waitingReason?: string;
   waitingCause?: Run["waiting_cause"];
+  /** The server's refusal of another check of this deliverable (a sticky fail with no unused override). */
+  checkBlocked?: { reason?: string } | undefined;
 };
 
 /** Why an action is refused, in the API's own words where it gave them. */
@@ -119,6 +132,12 @@ export function nextLine(i: NextInput): NextLine {
   const { pkg } = i;
   if (pkg.status === "accepted") return { tone: "ok", text: "Accepted" };
   if (pkg.status === "closed") return { tone: "ok", text: "Closed" };
+
+  // A run that ended without a result needs the person, and the step is to run it again. Returning
+  // the work would send a finished author back over a check that never ran. It comes before the
+  // verification lines: an earlier pass must not hide a later run that needs recovering.
+  const stalled = i.runActive ? undefined : stalledRun(i.runs);
+  if (stalled) return stalledLine(stalled, i.checkBlocked);
 
   const verified = i.verified !== undefined ? i.verified : isVerified(pkg, i.verifications);
   const column = boardColumn(pkg, preCheckState(pkg, i.office), verified);
@@ -145,11 +164,6 @@ export function nextLine(i: NextInput): NextLine {
       text: holdReason ? `Pre-check held: ${holdReason}` : "Pre-check held: it needs a runtime independent of the author's, or your signed override",
     };
   }
-
-  // A run that ended without a result needs the person, and the step is to run it again. Returning
-  // the work would send a finished author back over a check that never ran.
-  const stalled = i.runActive ? undefined : stalledRun(i.runs);
-  if (stalled) return stalledLine(stalled);
 
   // Ruling 16: the verification outranks an allowed accept (screen-only until D-4; see blockUnverifiedAccept).
   const offered = blockUnverifiedAccept(pkg, i.actions, verified);

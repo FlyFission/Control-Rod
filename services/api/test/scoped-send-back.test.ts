@@ -118,7 +118,7 @@ describe("a failed check sends back a scoped fix", () => {
             text: "Rating has no source",
             evidence: "expected a nameplate citation, found none",
             location: { path: "report.md", line: 1 },
-            scope_paths: ["report.md", "../etc/passwd", "/abs.md", "a\\b.md"],
+            scope_paths: ["report.md", "../etc/passwd", "/abs.md", "a\\b.md", "a//b.md", "docs/"],
           },
           { id: "F-002", severity: "minor", text: "Bad location dropped", location: { path: "../x", line: 0 } },
         ],
@@ -129,7 +129,7 @@ describe("a failed check sends back a scoped fix", () => {
     expect(view.pre_check.findings[0]).toMatchObject({
       evidence: "expected a nameplate citation, found none",
       location: { path: "report.md", line: 1 },
-      scope_paths: ["report.md"],
+      scope_paths: ["report.md", "docs/"],
     });
     expect(view.pre_check.findings[1].location).toBeUndefined();
     expect(view.scope_drift).toBeUndefined();
@@ -141,6 +141,7 @@ describe("a failed check sends back a scoped fix", () => {
     const brief = input(fix, "BRIEF.md") ?? "";
     expect(brief).toContain("## Scope of this fix");
     expect(brief).toContain("- `report.md`");
+    expect(brief).toContain("- `docs/`");
     await asDaemon(`/runner/runs/${fix.run.id}/complete`, {
       status: "succeeded",
       outputs: [
@@ -149,7 +150,7 @@ describe("a failed check sends back a scoped fix", () => {
       ],
     });
 
-    const drift = { round: 2, scope_paths: ["report.md"], outside: ["notes.md"] };
+    const drift = { round: 2, scope_paths: ["docs/", "report.md"], outside: ["notes.md"] };
     const view = (await asOwner("GET", `/packages/${id}`)).json();
     expect(view.scope_drift).toEqual(drift);
     const events = await h.db.query("select body->'data' as data from events where body->>'type' = 'package.scope-drift' and body->>'subject' = $1", [id]);

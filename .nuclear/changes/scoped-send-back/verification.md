@@ -8,6 +8,7 @@ Evidence status: **pass** for the new API tests (5), the new web tests (3), the 
 | E-02 | pass | The API suite: 938 passed, 2 failed (SEC-01, SEC-03, a missing `controlrod` role on this host's server; they also fail on `main`). | `evidence/api-suite.log` |
 | E-03 | pass | The web suite: 826 tests, exit 0, including `finding-detail.test.tsx`. | `evidence/web-suite.log`, `evidence/finding-detail-web.log` |
 | E-04 | pass | API and web typecheck exit 0. `pnpm spec` reproduces the committed generated files (checked after commit with `git diff --exit-code`). | `evidence/typecheck.log` |
+| E-06 | pass | Every embedded daemon wire schema compiles with Go's RE2 engine, and `Finding.json` accepts safe paths and refuses `../x`, `a/../b`, `/abs`, a backslash, `a//b` and `..`. The same test fails on the earlier lookahead pattern. | `evidence/daemon-wire.log` |
 | E-05 | gap | Not run with real author and checker agents, or in a desktop browser. | Not executed |
 
 ## Evidence custody and coupling
@@ -18,6 +19,7 @@ Evidence status: **pass** for the new API tests (5), the new web tests (3), the 
 | E-02 | SB-05 | yes | evidence/api-suite.log | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-03 | SB-06 | yes | evidence/web-suite.log | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-04 | SB-01 | yes | evidence/typecheck.log | Implementing agent | tsc and tsp | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
+| E-06 | SB-02 | yes | evidence/daemon-wire.log | Implementing agent | go test | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-05 | SB-05 | no | Not executed | Implementing agent | Not executed | Implementing agent | Implementing agent | Not executed | Packet and export | Implementing agent | Not supplied |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -26,9 +28,10 @@ Evidence status: **pass** for the new API tests (5), the new web tests (3), the 
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: vitest | separated: owner retains merge decision | coupled: local machine | self-check | Two role-setup failures also on main [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: vitest and jsdom | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a desktop browser [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: implementation session | separated: tsc | separated: owner retains merge decision | coupled: local machine | self-check | Typecheck only [Ship limits](ship.md) |
+| E-06 | coupled: implementing agent | coupled: implementation session | separated: go test | separated: owner retains merge decision | coupled: local machine | self-check | Schema compile and path cases only [Ship limits](ship.md) |
 | E-05 | coupled: implementing agent | coupled: implementation session | partially separated: not executed | separated: owner retains merge decision | coupled: local machine | self-check | Live run not done [Ship limits](ship.md) |
 
-An independent review is requested from Codex on the pull request.
+Codex reviewed the first push and found that the path pattern used lookaheads, which the daemon's Go validator cannot compile. The pattern was rewritten without lookaheads, the server check was aligned with it (empty segments refused), and E-06 covers it.
 
 ## Required links
 

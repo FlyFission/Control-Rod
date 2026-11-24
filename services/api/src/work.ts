@@ -410,12 +410,13 @@ async function latestVerification(q: Db | Tx, id: string, rev: number, round?: n
   return r.rows[0] ?? null;
 }
 
-/** A finding path a fix may name: relative, no `..` segment, no backslash or control character. */
+/** A finding path a fix may name: relative, no empty or `..` segment, no backslash or control character. Matches `FindingPath`. */
 function findingPath(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const p = v.trim();
   if (!p || p.length > 512 || p.startsWith("/") || /[\\\u0000-\u001f]/.test(p)) return undefined;
-  if (p.split("/").some((seg) => seg === "..")) return undefined;
+  const segs = p.endsWith("/") ? p.slice(0, -1).split("/") : p.split("/");
+  if (segs.some((seg) => seg === "" || seg === "..")) return undefined;
   return p;
 }
 

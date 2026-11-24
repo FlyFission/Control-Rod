@@ -386,9 +386,12 @@ model Finding {
   @maxItems(50) scope_paths?: FindingPath[];
 }
 
-/** A relative path inside the deliverable: no leading slash, no `..` segment, no backslash. */
+/**
+ * A relative path inside the deliverable: no leading slash, no empty or `..` segment, no backslash.
+ * Written without lookaheads so Go's RE2-based schema validator in the daemon can compile it.
+ */
 @maxLength(512)
-@pattern("^(?![/\\\\])(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$")
+@pattern("^(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+)(?:/(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+))*/?$")
 scalar FindingPath extends string;
 
 @extension("unevaluatedProperties", false)

@@ -2363,7 +2363,10 @@ export interface components {
             /** Format: int32 */
             line?: number;
         };
-        /** @description A relative path inside the deliverable: no leading slash, no `..` segment, no backslash. */
+        /**
+         * @description A relative path inside the deliverable: no leading slash, no empty or `..` segment, no backslash.
+         *     Written without lookaheads so Go's RE2-based schema validator in the daemon can compile it.
+         */
         "ControlRod.Records.FindingPath": string;
         "ControlRod.Records.InterfaceConsume": {
             parameter: string;

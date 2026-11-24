@@ -13,6 +13,7 @@ import { useLiveEvents } from "./lib/live.js";
 import { sessionIdentity, watchSessionIdentity } from "./lib/session.js";
 import { CasePage } from "./features/case/CasePage.js";
 import { Board } from "./pages/Board.js";
+import { ControlRoom } from "./pages/ControlRoom.js";
 import { Compare } from "./pages/Compare.js";
 import { Explore } from "./pages/Explore.js";
 import { Inbox } from "./pages/Inbox.js";
@@ -103,6 +104,7 @@ const routes = [
   // The Roster and Provider CLIs became one Agents roster; their details sit under its Advanced section.
   createRoute({ getParentRoute: () => rootRoute, path: "/roster", beforeLoad: () => { throw redirect({ to: "/agents" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/usage", component: Usage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/control-room", component: ControlRoom }),
   createRoute({ getParentRoute: () => rootRoute, path: "/records", component: Records }),
   createRoute({ getParentRoute: () => rootRoute, path: "/policies", component: Policies }),
   createRoute({ getParentRoute: () => rootRoute, path: "/settings/subscriptions", beforeLoad: () => { throw redirect({ to: "/agents" }); } }),

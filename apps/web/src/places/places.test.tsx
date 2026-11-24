@@ -68,7 +68,7 @@ describe("commands", () => {
 
   it("matches every word anywhere, with labels that start with the query first", () => {
     const cmds = buildCommands({ places: PLACES, packages: [pkg({ id: "WP-9", title: "Usage of steam" })] });
-    expect(filterCommands(cmds, "usage").map((c) => c.label)).toEqual(["Usage", "Usage of steam"]);
+    expect(filterCommands(cmds, "usage").map((c) => c.label)).toEqual(["Usage", "Usage of steam", "Control room"]);
     expect(filterCommands(cmds, "wp-9 steam").map((c) => c.label)).toEqual(["Usage of steam"]);
     expect(filterCommands(cmds, "")).toHaveLength(cmds.length);
   });

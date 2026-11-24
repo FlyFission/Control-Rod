@@ -31,6 +31,11 @@ func (codexAdapter) LoginDir(home string, getenv func(string) string) string {
 	return filepath.Join(home, ".codex")
 }
 
+// UsageLogDir is where Codex writes its session logs, which carry its rate-limit snapshots.
+func (a codexAdapter) UsageLogDir(home string, getenv func(string) string) string {
+	return filepath.Join(a.LoginDir(home, getenv), "sessions")
+}
+
 func (codexAdapter) LoginWritableFiles() []string { return []string{"auth.json"} }
 
 func (codexAdapter) LoginSessionDirs() []string { return []string{"sessions", "log"} }

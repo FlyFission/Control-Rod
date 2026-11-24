@@ -1,6 +1,6 @@
 // Typed calls to the control plane. Paths match spec/generated/openapi/openapi.json exactly;
 // the API serves this app at the same origin, so every path is relative to it.
-import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, InboxView, NormalizedEvent, RuntimePin,
+import type { ActionDescriptor, AdminView, RosterView, UsageView, UsageLimitsView, DataLane, InboxView, NormalizedEvent, RuntimePin,
   RequirementsConfirmation,
   PreparationView,
   PreparationContent,
@@ -251,6 +251,7 @@ export const api = {
     call<WorkspaceProjectArchive>("POST", `/workspace/projects/${enc(payload.project_id)}/archive`, { payload, assertion }),
   roster: () => call<RosterView>("GET", "/roster"),
   usage: () => call<UsageView>("GET", "/usage"),
+  usageLimits: () => call<UsageLimitsView>("GET", "/usage/limits"),
   adminCommandOptions: (name: string, payload: Record<string, unknown>) =>
     call<{ subject_digest: Digest; options: Record<string, unknown> }>("POST", `/admin/commands/${enc(name)}/options`, { payload }),
   adminCommand: <T = Record<string, unknown>>(name: string, payload: Record<string, unknown>, assertion: Record<string, unknown>) =>

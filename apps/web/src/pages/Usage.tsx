@@ -22,7 +22,8 @@ export function Usage() {
   );
 }
 
-function MetricsPanel() {
+/** `bare` drops the panel and heading, for a host that supplies its own frame and title (the control room). */
+export function MetricsPanel({ bare = false }: { bare?: boolean } = {}) {
   const q = useQuery({ queryKey: ["metrics"], queryFn: api.metrics });
   const m: Metrics | undefined = q.data;
   const rows: [string, string][] =
@@ -36,9 +37,8 @@ function MetricsPanel() {
           ["Median minutes to done", m.median_minutes_to_done ?? "none yet"],
           ["Quick answers", String(m.quick_answers)],
         ];
-  return (
-    <section className="panel" aria-labelledby="metrics-title">
-      <h2 id="metrics-title">Is it earning its place?</h2>
+  const body = (
+    <>
       {m === undefined ? (
         <p className="muted">{q.isError ? "Metrics unavailable." : "Loading"}</p>
       ) : (
@@ -51,6 +51,13 @@ function MetricsPanel() {
           ))}
         </dl>
       )}
+    </>
+  );
+  if (bare) return body;
+  return (
+    <section className="panel" aria-labelledby="metrics-title">
+      <h2 id="metrics-title">Is it earning its place?</h2>
+      {body}
     </section>
   );
 }

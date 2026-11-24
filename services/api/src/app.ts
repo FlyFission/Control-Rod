@@ -33,6 +33,7 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
+import { recordUsageLimits, usageLimitsView } from "./usage-limits.js";
 import { recordSeat, recordSetup, setupView } from "./setup.js";
 import { listWorkspaceProjects } from "./workspace-projects.js";
 import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
@@ -729,6 +730,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.get("/subscriptions", async (req) => {
     return subscriptionView(db, (await callerFor(db, await person(req))).orgId);
   });
+  /** Usage-limit readings the agent CLIs reported, for the control room. Read-only; no token. */
+  app.get("/usage/limits", async (req) => {
+    await callerFor(db, await person(req));
+    return usageLimitsView(db);
+  });
   app.get("/runs", async (req) => {
     const caller = await callerFor(db, await person(req));
     return activeRuns(db, caller.orgId);
@@ -848,13 +854,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
     if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);
     if (req.body?.subscription_report !== undefined) await recordSubscriptionReport(db, req.body.subscription_report);
+    if (req.body?.usage_limits !== undefined) await recordUsageLimits(db, req.body.usage_limits);
     const notReady = new Set(status.filter((s) => !s.ready).map((s) => s.runtime));
     const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])

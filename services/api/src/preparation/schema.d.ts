@@ -1328,6 +1328,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Control room > Usage limits. How much of each agent subscription's limit window is used, as the
+         *     agent CLIs themselves reported it. Read from what the CLI already writes (Codex's session log,
+         *     Claude Code's stream output); Control Rod never reads a login token to get it.
+         */
+        get: operations["usageLimits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspace/projects": {
         parameters: {
             query?: never;
@@ -3715,6 +3736,65 @@ export interface components {
             tiers: components["schemas"]["SubscriptionTier"][];
             local_rule: string;
             pins: components["schemas"]["SubscriptionPin"][];
+        };
+        UsageEngine: {
+            /** @enum {string} */
+            id: "codexbar";
+            found: boolean;
+            version?: string;
+        };
+        /** @description The claim payload for usage limits. */
+        UsageLimitsReport: {
+            /** Format: date-time */
+            read_at: string;
+            /** @description Whether the CodexBar usage engine was found on this machine, and its version. */
+            engine?: components["schemas"]["UsageEngine"];
+            providers: components["schemas"]["UsageProvider"][];
+        };
+        UsageLimitsView: {
+            reported: boolean;
+            /** Format: date-time */
+            read_at?: string;
+            engine?: components["schemas"]["UsageEngine"];
+            providers: components["schemas"]["UsageProvider"][];
+        };
+        /** @description One provider CLI's last limit reading. */
+        UsageProvider: {
+            /** @description A harness id from the API's allowlist (Claude Code, Codex, Gemini CLI, Antigravity, Cursor, Copilot, opencode, Grok, Amp, Kiro, Factory Droid, Windsurf, Kilo, Warp, and others). */
+            id: string;
+            /**
+             * @description cli-log: the CLI's own session log. cli-stream: the CLI's run output. codexbar: the CodexBar
+             *     usage engine the person installed, which signs in on its own; Control Rod receives only numbers.
+             *     none: no source on this machine.
+             * @enum {string}
+             */
+            source: "cli-log" | "cli-stream" | "codexbar" | "none";
+            /**
+             * Format: date-time
+             * @description When the CLI recorded the reading.
+             */
+            observed_at?: string;
+            /** @enum {string} */
+            plan?: "free" | "go" | "plus" | "pro" | "max" | "team" | "business" | "enterprise" | "edu";
+            windows: components["schemas"]["UsageWindow"][];
+        };
+        /** @description One limit window of one subscription. */
+        UsageWindow: {
+            /** @enum {string} */
+            id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "daily" | "weekly" | "monthly" | "primary" | "secondary" | "tertiary";
+            /** Format: int32 */
+            window_minutes?: number;
+            /** Format: double */
+            used_percent: number;
+            /** Format: date-time */
+            resets_at?: string;
+            /**
+             * Format: date-time
+             * @description When the CLI recorded this window's reading; the provider's observed_at is the newest of these.
+             */
+            observed_at?: string;
+            /** @enum {string} */
+            status?: "allowed" | "warning" | "rejected";
         };
         "WorkspaceProjects.ArchiveProjectPayload": {
             project_id: string;
@@ -8224,6 +8304,8 @@ export interface operations {
                     supports_checkouts?: boolean;
                     /** @description Provider CLI probes for Settings. Output of a status command is not included. */
                     subscription_report?: components["schemas"]["SubscriptionReport"];
+                    /** @description Usage-limit readings the agent CLIs reported. No token is read to get them. */
+                    usage_limits?: components["schemas"]["UsageLimitsReport"];
                     /**
                      * Format: int32
                      * @description The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations.
@@ -9234,6 +9316,26 @@ export interface operations {
                         /** @description The share of a limit at which a budget reads as near it, from the approved policy (budget_near_percent); null when unset. */
                         near_share: number | null;
                     } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    usageLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageLimitsView"];
                 };
             };
         };

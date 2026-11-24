@@ -933,6 +933,85 @@ model AgentSetupView {
   check_in: CheckIn;
 }
 
+/**
+ * Control room > Usage limits. How much of each agent subscription's limit window is used, as the
+ * agent CLIs themselves reported it. Read from what the CLI already writes (Codex's session log,
+ * Claude Code's stream output); Control Rod never reads a login token to get it.
+ */
+@route("/usage/limits")
+@get
+op usageLimits(): UsageLimitsView;
+
+/** One limit window of one subscription. */
+@extension("unevaluatedProperties", false)
+model UsageWindow {
+  id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "daily" | "weekly" | "monthly" | "primary" | "secondary" | "tertiary";
+
+  @minValue(1) @maxValue(60000)
+  window_minutes?: int32;
+
+  @minValue(0) @maxValue(100)
+  used_percent: float64;
+
+  resets_at?: utcDateTime;
+
+  /** When the CLI recorded this window's reading; the provider's observed_at is the newest of these. */
+  observed_at?: utcDateTime;
+
+  status?: "allowed" | "warning" | "rejected";
+}
+
+/** One provider CLI's last limit reading. */
+@extension("unevaluatedProperties", false)
+model UsageProvider {
+  /** A harness id from the API's allowlist (Claude Code, Codex, Gemini CLI, Antigravity, Cursor, Copilot, opencode, Grok, Amp, Kiro, Factory Droid, Windsurf, Kilo, Warp, and others). */
+  @pattern("^[a-z0-9-]{1,32}$")
+  id: string;
+
+  /**
+   * cli-log: the CLI's own session log. cli-stream: the CLI's run output. codexbar: the CodexBar
+   * usage engine the person installed, which signs in on its own; Control Rod receives only numbers.
+   * none: no source on this machine.
+   */
+  source: "cli-log" | "cli-stream" | "codexbar" | "none";
+
+  /** When the CLI recorded the reading. */
+  observed_at?: utcDateTime;
+
+  plan?: "free" | "go" | "plus" | "pro" | "max" | "team" | "business" | "enterprise" | "edu";
+
+  @maxItems(8)
+  windows: UsageWindow[];
+}
+
+/** The claim payload for usage limits. */
+@extension("unevaluatedProperties", false)
+model UsageLimitsReport {
+  read_at: utcDateTime;
+
+  /** Whether the CodexBar usage engine was found on this machine, and its version. */
+  engine?: UsageEngine;
+
+  @maxItems(24)
+  providers: UsageProvider[];
+}
+
+@extension("unevaluatedProperties", false)
+model UsageEngine {
+  id: "codexbar";
+  found: boolean;
+
+  @pattern("^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$")
+  version?: string;
+}
+
+model UsageLimitsView {
+  reported: boolean;
+  read_at?: utcDateTime;
+  engine?: UsageEngine;
+  providers: UsageProvider[];
+}
+
 /** The claim payload. The same probe models the settings page returns. */
 @extension("unevaluatedProperties", false)
 model SubscriptionReport {
@@ -1552,6 +1631,9 @@ namespace Runner {
 
     /** Provider CLI probes for Settings. Output of a status command is not included. */
     subscription_report?: ControlRod.Api.SubscriptionReport;
+
+    /** Usage-limit readings the agent CLIs reported. No token is read to get them. */
+    usage_limits?: ControlRod.Api.UsageLimitsReport;
 
     /** The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations. */
     @minValue(1) run_ceiling_seconds?: int32;

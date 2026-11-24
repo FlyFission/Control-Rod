@@ -1,0 +1,393 @@
+/*
+ * Control room. Instrument frames and the usage gauges. Tokens only. Healthy reads near-monochrome;
+ * amber (--needs) and red (--stuck) appear only for a low or refused window, always with words beside them.
+ */
+.cr-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.cr-module {
+  position: relative;
+  grid-column: span 12;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  padding: 0;
+}
+.cr-module.w-6 {
+  grid-column: span 6;
+}
+/* Corner ticks: short rules that overshoot each corner of the ruled border. */
+.cr-module::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  --t: var(--text-2);
+  background:
+    linear-gradient(var(--t), var(--t)) top left / 7px 1px no-repeat,
+    linear-gradient(var(--t), var(--t)) top left / 1px 7px no-repeat,
+    linear-gradient(var(--t), var(--t)) top right / 7px 1px no-repeat,
+    linear-gradient(var(--t), var(--t)) top right / 1px 7px no-repeat,
+    linear-gradient(var(--t), var(--t)) bottom left / 7px 1px no-repeat,
+    linear-gradient(var(--t), var(--t)) bottom left / 1px 7px no-repeat,
+    linear-gradient(var(--t), var(--t)) bottom right / 7px 1px no-repeat,
+    linear-gradient(var(--t), var(--t)) bottom right / 1px 7px no-repeat;
+}
+.cr-module.is-dragging {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.cr-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 0 4px;
+  min-height: 40px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-2);
+}
+.cr-module.is-collapsed .cr-strip {
+  border-bottom: 0;
+}
+.cr-strip h2 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.cr-caption {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.cr-grip,
+.cr-nudge,
+.cr-fold {
+  font: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.cr-grip {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  cursor: grab;
+  touch-action: none;
+}
+.cr-module.is-dragging .cr-grip {
+  cursor: grabbing;
+}
+.cr-fold {
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 8px;
+  min-height: 32px;
+}
+.cr-nudges {
+  display: inline-flex;
+  gap: 2px;
+}
+.cr-nudge {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+.cr-nudge:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.cr-grip:hover,
+.cr-nudge:hover:not(:disabled),
+.cr-fold:hover {
+  color: var(--text);
+  border-color: var(--line-2);
+}
+.cr-body {
+  padding: 16px 20px 18px;
+}
+.cr-body[hidden] {
+  display: none;
+}
+
+/* Usage limits */
+.cr-summary {
+  margin: 0 0 18px;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--text);
+  max-width: 40ch;
+}
+.cr-summary.warm {
+  color: var(--needs);
+}
+.cr-summary.warm:has(~ .cr-providers .tone-stuck.cr-row) {
+  color: var(--stuck);
+}
+.cr-empty {
+  padding: 8px 0 4px;
+}
+.cr-empty .cr-summary {
+  margin-bottom: 6px;
+  color: var(--text-2);
+}
+.cr-providers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr));
+  gap: 18px 28px;
+  align-items: start;
+}
+.cr-providers .cr-row {
+  grid-template-columns: 6.75rem minmax(0, 1fr) 8.25rem;
+  column-gap: 14px;
+  padding: 7px 0;
+}
+.cr-providers .cr-big {
+  font-size: 1.125rem;
+}
+.cr-providers .cr-reset {
+  font-size: var(--fs-chip);
+}
+.cr-provider {
+  min-width: 0;
+}
+.cr-provider-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.cr-provider-head h3 {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  color: var(--text);
+}
+.cr-plan {
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+.cr-fresh {
+  margin-left: auto;
+}
+.cr-row {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr) 11rem;
+  grid-template-areas:
+    "label gauge readout"
+    ".     note  .";
+  align-items: center;
+  column-gap: 20px;
+  row-gap: 2px;
+  padding: 10px 0;
+}
+.cr-row + .cr-row {
+  border-top: 1px solid var(--line);
+}
+.cr-row-label {
+  grid-area: label;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-small);
+  color: var(--text-2);
+}
+.cr-state {
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--needs);
+}
+.tone-stuck .cr-state {
+  color: var(--stuck);
+}
+.cr-gauge {
+  grid-area: gauge;
+  min-width: 0;
+}
+.cr-track {
+  position: relative;
+  height: 14px;
+  background: var(--line);
+  border: 1px solid var(--line-2);
+}
+.cr-fill {
+  height: 100%;
+  background: var(--idle);
+  transition: width 400ms ease;
+}
+.tone-needs .cr-fill {
+  background: var(--needs);
+}
+.tone-stuck .cr-fill {
+  background: var(--stuck);
+}
+.is-stale .cr-fill {
+  background: repeating-linear-gradient(135deg, var(--idle) 0 3px, transparent 3px 7px);
+  opacity: 0.45;
+}
+/* The pace marker: the share of the window still to come, like the "now" line on a tide chart. */
+.cr-pace {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+}
+.cr-pace::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -3px;
+  border: 4px solid transparent;
+  border-top-color: var(--text);
+  border-bottom: 0;
+}
+.cr-scale {
+  position: relative;
+  height: 8px;
+  margin-top: 3px;
+}
+.cr-scale span {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 4px;
+  margin-left: -1px;
+  background: var(--line-2);
+}
+.cr-scale span.major {
+  height: 8px;
+  background: var(--muted);
+}
+.cr-scale span:last-child {
+  margin-left: -1px;
+}
+.cr-readout {
+  grid-area: readout;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cr-big {
+  font-size: 1.375rem;
+  line-height: 1.15;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.tone-needs .cr-big {
+  color: var(--needs);
+}
+.tone-stuck .cr-big {
+  color: var(--stuck);
+}
+.is-stale .cr-big {
+  color: var(--muted);
+  font-weight: 500;
+}
+.cr-reset {
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+.cr-pace-note {
+  grid-area: note;
+  margin: 2px 0 0;
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+.cr-engine {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  max-width: var(--measure);
+}
+.cr-engine p {
+  margin: 0;
+}
+.cr-engine p + p {
+  margin-top: 4px;
+}
+.cr-engine a {
+  color: var(--text-2);
+}
+.cr-key,
+.cr-silent {
+  margin: 18px 0 0;
+  max-width: var(--measure);
+}
+.cr-key + .cr-silent {
+  margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+  .cr-module.w-6 {
+    grid-column: span 12;
+  }
+}
+@media (max-width: 520px) {
+  .cr-providers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .cr-providers .cr-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .cr-body {
+    padding: 14px 14px 16px;
+  }
+  .cr-caption {
+    display: none;
+  }
+  .cr-fold {
+    margin-left: auto;
+  }
+  .cr-summary {
+    font-size: 1.25rem;
+  }
+  .cr-fresh {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .cr-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "label readout"
+      "gauge gauge"
+      "note  note";
+    column-gap: 12px;
+    row-gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cr-fill {
+    transition: none;
+  }
+}

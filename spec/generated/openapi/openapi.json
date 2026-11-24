@@ -6154,6 +6154,10 @@
                     "$ref": "#/components/schemas/SubscriptionReport",
                     "description": "Provider CLI probes for Settings. Output of a status command is not included."
                   },
+                  "usage_limits": {
+                    "$ref": "#/components/schemas/UsageLimitsReport",
+                    "description": "Usage-limit readings the agent CLIs reported. No token is read to get them."
+                  },
                   "run_ceiling_seconds": {
                     "type": "integer",
                     "format": "int32",
@@ -7586,6 +7590,25 @@
                       "$ref": "#/components/schemas/ApiError"
                     }
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usage/limits": {
+      "get": {
+        "operationId": "usageLimits",
+        "description": "Control room > Usage limits. How much of each agent subscription's limit window is used, as the\nagent CLIs themselves reported it. Read from what the CLI already writes (Codex's session log,\nClaude Code's stream output); Control Rod never reads a login token to get it.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageLimitsView"
                 }
               }
             }
@@ -14912,6 +14935,184 @@
             }
           }
         }
+      },
+      "UsageEngine": {
+        "type": "object",
+        "required": [
+          "id",
+          "found"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "codexbar"
+            ]
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+          }
+        }
+      },
+      "UsageLimitsReport": {
+        "type": "object",
+        "required": [
+          "read_at",
+          "providers"
+        ],
+        "properties": {
+          "read_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "engine": {
+            "$ref": "#/components/schemas/UsageEngine",
+            "description": "Whether the CodexBar usage engine was found on this machine, and its version."
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageProvider"
+            },
+            "maxItems": 24
+          }
+        },
+        "description": "The claim payload for usage limits."
+      },
+      "UsageLimitsView": {
+        "type": "object",
+        "required": [
+          "reported",
+          "providers"
+        ],
+        "properties": {
+          "reported": {
+            "type": "boolean"
+          },
+          "read_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "engine": {
+            "$ref": "#/components/schemas/UsageEngine"
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageProvider"
+            }
+          }
+        }
+      },
+      "UsageProvider": {
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "windows"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,32}$",
+            "description": "A harness id from the API's allowlist (Claude Code, Codex, Gemini CLI, Antigravity, Cursor, Copilot, opencode, Grok, Amp, Kiro, Factory Droid, Windsurf, Kilo, Warp, and others)."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "cli-log",
+              "cli-stream",
+              "codexbar",
+              "none"
+            ],
+            "description": "cli-log: the CLI's own session log. cli-stream: the CLI's run output. codexbar: the CodexBar\nusage engine the person installed, which signs in on its own; Control Rod receives only numbers.\nnone: no source on this machine."
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the CLI recorded the reading."
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "go",
+              "plus",
+              "pro",
+              "max",
+              "team",
+              "business",
+              "enterprise",
+              "edu"
+            ]
+          },
+          "windows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageWindow"
+            },
+            "maxItems": 8
+          }
+        },
+        "description": "One provider CLI's last limit reading."
+      },
+      "UsageWindow": {
+        "type": "object",
+        "required": [
+          "id",
+          "used_percent"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "five_hour",
+              "seven_day",
+              "seven_day_opus",
+              "seven_day_sonnet",
+              "daily",
+              "weekly",
+              "monthly",
+              "primary",
+              "secondary",
+              "tertiary"
+            ]
+          },
+          "window_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 60000
+          },
+          "used_percent": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "resets_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the CLI recorded this window's reading; the provider's observed_at is the newest of these."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "allowed",
+              "warning",
+              "rejected"
+            ]
+          }
+        },
+        "description": "One limit window of one subscription."
       },
       "WorkspaceProjects.ArchiveProjectPayload": {
         "type": "object",

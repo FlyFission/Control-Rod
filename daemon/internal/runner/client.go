@@ -125,6 +125,8 @@ type ClaimRequest struct {
 	RuntimeStatus      []RuntimeStatus     `json:"runtime_status,omitempty"`
 	RunCeilingSeconds  int                 `json:"run_ceiling_seconds,omitempty"`
 	SubscriptionReport *SubscriptionReport `json:"subscription_report,omitempty"`
+	// UsageLimits is what each CLI reports about its subscription windows. It never holds a token.
+	UsageLimits *UsageLimitsReport `json:"usage_limits,omitempty"`
 	// AgentUpdates is nil until the startup update check finishes; then always sent, even empty.
 	AgentUpdates *[]AgentUpdate `json:"agent_updates,omitempty"`
 	// AgentUpdatesUnchecked names, with AgentUpdates, the agents whose check could not finish.
@@ -134,10 +136,15 @@ type ClaimRequest struct {
 // Claim asks for one job, offering only ready runtimes. It returns ErrNoWork on HTTP 204. The
 // ceiling is rounded up to a whole second, so a reservation sized from it is never short.
 func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeStatus, runCeiling time.Duration, report *SubscriptionReport, updates ...AgentReport) (*Job, error) {
+	return c.ClaimWithUsage(ctx, runtimes, status, runCeiling, report, nil, updates...)
+}
+
+// ClaimWithUsage is Claim with the usage-limits report attached.
+func (c *Client) ClaimWithUsage(ctx context.Context, runtimes []string, status []RuntimeStatus, runCeiling time.Duration, report *SubscriptionReport, usage *UsageLimitsReport, updates ...AgentReport) (*Job, error) {
 	if runtimes == nil {
 		runtimes = []string{}
 	}
-	req := ClaimRequest{SupportsCheckouts: checkoutCustodySupported(), Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report}
+	req := ClaimRequest{SupportsCheckouts: checkoutCustodySupported(), Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report, UsageLimits: usage}
 	if len(updates) > 0 {
 		list := append([]AgentUpdate{}, updates[0].List...)
 		req.AgentUpdates = &list

@@ -17,6 +17,7 @@ export const PLACES: Place[] = [
   { to: "/", label: "Board", purpose: "Every card by step: what needs you and what is waiting", group: "Work" },
   { to: "/inbox", label: "Inbox", purpose: "Decisions waiting on you, riskiest first", group: "Work" },
   { to: "/plant", label: "Plant", purpose: "Who is working, where, and what needs you", group: "Work" },
+  { to: "/control-room", label: "Control room", purpose: "Instruments you can arrange: agent usage limits and how the work is going", group: "Work" },
   { to: "/packages", label: "Packages", purpose: "Capture work and find every package", group: "Work" },
   { to: "/compare", label: "Compare", purpose: "Side-by-side comparison of frozen revisions", group: "Audit" },
   { to: "/snapshots", label: "Snapshots", purpose: "Save a checkpoint or freeze a worktree to compare later", group: "Audit" },

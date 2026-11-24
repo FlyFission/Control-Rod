@@ -149,6 +149,9 @@ type Daemon struct {
 	probeTimeouts map[string]int
 	subscriptions *SubscriptionReport
 
+	usageOnce sync.Once
+	usage     *usageSources
+
 	activeMu    sync.Mutex
 	active      map[string]bool
 	activeUnits map[string]bool
@@ -305,7 +308,7 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport(), d.updates.report(d.cfg.UpdateStamp)...)
+		job, err := d.client.ClaimWithUsage(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport(), d.usageReport(), d.updates.report(d.cfg.UpdateStamp)...)
 		if job != nil {
 			job.claimSent = claimSent
 		}
@@ -570,6 +573,20 @@ func (d *Daemon) subscriptionReport() *SubscriptionReport {
 	return &cp
 }
 
+// usageReport is the usage_limits body for a claim. It reads no token: see usage.go.
+func (d *Daemon) usageReport() *UsageLimitsReport {
+	d.usageOnce.Do(func() { d.usage = newUsageSources(d.cfg.Home) })
+	ctx := d.quit
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	d.usage.startStore() // reads the Claude cache file in the background; Report reads memory only
+	d.usage.startEngine(ctx)
+	home, _ := os.UserHomeDir()
+	d.usage.startLogs(ctx, home, os.Getenv) // reads the CLI logs in the background; Report reads the last snapshot
+	return d.usage.Report(time.Now(), home, os.Getenv)
+}
+
 // outboxLoop sends completions left from an earlier run at once, then retries any still
 // waiting every OutboxInterval until ctx ends.
 func (d *Daemon) outboxLoop(ctx context.Context) {
@@ -773,6 +790,8 @@ type logBuffer struct {
 	// adapt parses this run's stream. execute sets it to the runtime's adapter. A nil value uses
 	// the shared Normalize and TurnEnd, which is what those adapters call.
 	adapt Adapter
+	// onUsage receives a rate-limit window the adapter's stream reported. Called outside the lock.
+	onUsage func(UsageWindow)
 }
 
 // ended returns a channel closed once the runtime has reported the end of its turn.
@@ -971,6 +990,13 @@ func (b *logBuffer) streamModel(line string) string {
 func (b *logBuffer) add(line string) {
 	now := b.clock()
 	events := b.normalize(line, now)
+	if b.onUsage != nil {
+		if p, ok := b.adapt.(usageStreamParser); ok {
+			if w, ok := p.ParseUsageLine(line); ok {
+				b.onUsage(w)
+			}
+		}
+	}
 	b.mu.Lock()
 	b.lines = append(b.lines, line)
 	if l := b.streamLabel(line); l != "" {
@@ -1416,7 +1442,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	if d.cfg.Breaker != nil {
 		policy = *d.cfg.Breaker
 	}
-	buf := &logBuffer{adapt: a, admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
+	d.usageOnce.Do(func() { d.usage = newUsageSources(d.cfg.Home) })
+	buf := &logBuffer{adapt: a, onUsage: func(w UsageWindow) { d.usage.store.record(a.ID(), w, time.Now()) }, admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
 		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
 		release(errBreaker{reason})
 	}}

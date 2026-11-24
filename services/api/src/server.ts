@@ -105,12 +105,17 @@ const stop = async () => {
     process.exit(0);
   }
 };
-// Started by `pnpm cr start`, the control plane shares the terminal with the run daemon, so a Ctrl+C
-// reaches both at once. The daemon still needs the control plane to take its final completions, so
-// here a Ctrl+C is left to the launcher, which sends SIGTERM once the daemon has stopped.
-if (process.env.CONTROLROD_LAUNCHER_STOPS_API === "1") process.on("SIGINT", () => undefined);
-else process.on("SIGINT", stop);
+process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
+// Started by `pnpm cr start`, the control plane runs in its own process group, out of reach of the
+// terminal's Ctrl+C, and the launcher stops it. If the launcher is gone (killed outright), this
+// process has been reparented: stop rather than run on unowned.
+const launcher = Number(process.env.CONTROLROD_LAUNCHER_PID);
+if (Number.isInteger(launcher) && launcher > 1) {
+  setInterval(() => {
+    if (process.ppid !== launcher) void stop();
+  }, 1000).unref();
+}
 
 await app.listen({ host: "127.0.0.1", port });
 console.log(`Control Rod is running at ${origin}`);

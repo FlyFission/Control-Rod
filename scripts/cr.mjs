@@ -236,12 +236,15 @@ async function start() {
     daemon.once("exit", exit);
     daemon.kill("SIGTERM");
   };
-  // The children share the terminal, so a Ctrl+C reaches the daemon directly and it starts its own
-  // graceful stop. The control plane leaves Ctrl+C to this launcher, which stops it only after the
-  // daemon has exited, so the daemon's final completions still have somewhere to go.
+  // The daemon shares the terminal, so a Ctrl+C reaches it directly and it starts its own graceful
+  // stop. The control plane, and the embedded PostgreSQL it starts, run in their own process group
+  // where a Ctrl+C does not reach them: this launcher stops them only after the daemon has exited,
+  // so the daemon's final completions still have somewhere to go. The control plane also stops by
+  // itself if this launcher disappears (CONTROLROD_LAUNCHER_PID).
   const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], {
-    env: { ...env, CONTROLROD_LAUNCHER_STOPS_API: "1" },
+    env: { ...env, CONTROLROD_LAUNCHER_PID: String(process.pid) },
     stdio: "inherit",
+    detached: true,
   });
   api.on("exit", (code, signal) => {
     apiExited = true;
@@ -296,9 +299,8 @@ async function start() {
   if (stopping) return;
   // The daemon reads its token from CONTROLROD_HOME/daemon.token, and reads it again if the control
   // plane restarts and writes a new one; passing it in the environment would pin the old token.
-  const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}` };
+  const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}`, CONTROLROD_LAUNCHER_PID: String(process.pid) };
   delete daemonEnv.CONTROLROD_DAEMON_TOKEN;
-  delete daemonEnv.CONTROLROD_LAUNCHER_STOPS_API;
   daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
     env: daemonEnv,
     stdio: "inherit",

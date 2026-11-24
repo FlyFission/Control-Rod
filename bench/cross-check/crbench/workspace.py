@@ -1,5 +1,7 @@
-"""Per-call workspaces: an exported single-commit tree in an opaque directory outside the repo,
-the run directory and $HOME (DESIGN.md §4). Checker trees are read-only (§5)."""
+"""Per-call workspaces (DESIGN.md §4, §5): the task's exact base tree, materialized from git
+objects and verified by tree OID, committed once with generic metadata in an opaque directory
+outside the repo, the study directory and $HOME. Git always runs with no system or global config
+and no hooks, so nothing an agent writes into a tree can run on the host."""
 
 from __future__ import annotations
 
@@ -9,69 +11,102 @@ import secrets
 import shutil
 import stat
 import subprocess
-import tarfile
-import io
 from pathlib import Path
 
-from .common import HERE, Refused, sh
+from .common import HERE, ROOT, Refused
 
 GENERIC = {"GIT_AUTHOR_NAME": "bench", "GIT_AUTHOR_EMAIL": "bench@invalid", "GIT_COMMITTER_NAME": "bench",
            "GIT_COMMITTER_EMAIL": "bench@invalid", "GIT_AUTHOR_DATE": "2000-01-01T00:00:00Z",
            "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"}
+SAFE = ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "commit.gpgsign=false",
+        "-c", "core.autocrlf=false", "-c", "core.symlinks=true", "-c", "safe.directory=*",
+        "-c", "advice.detachedHead=false", "-c", "init.defaultBranch=main"]
 
 
-def workspace_root(cfg: dict) -> Path:
-    root = Path(cfg["caps"].get("workspace_root") or f"/var/tmp/cr-bench-{os.getuid()}")
-    forbidden = [HERE.parent.parent.resolve(), Path.home().resolve()]
-    r = root.resolve() if root.exists() else root.absolute()
+def git_env(extra: dict | None = None) -> dict:
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+           "GIT_TERMINAL_PROMPT": "0", "HOME": "/nonexistent", "LC_ALL": "C", **GENERIC}
+    if extra:
+        env.update(extra)
+    return env
+
+
+def _gitb(args, cwd, stdin: bytes | None = None, env: dict | None = None) -> bytes:
+    r = subprocess.run(["git", *SAFE, *args], cwd=cwd, input=stdin, capture_output=True, env=git_env(env))
+    if r.returncode != 0:
+        raise SystemExit(f"git {' '.join(map(str, args))} failed: {r.stderr.decode(errors='replace').strip()}")
+    return r.stdout
+
+
+def _git(args, cwd, env: dict | None = None) -> str:
+    return _gitb(args, cwd, env=env).decode(errors="replace")
+
+
+def workspace_root(cfg: dict, study_dir: Path | None = None) -> Path:
+    raw = cfg["caps"].get("workspace_root") or f"/var/tmp/cr-bench-{os.getuid()}"
+    root = Path(os.path.expanduser(raw)).resolve(strict=False)
+    forbidden = [ROOT.resolve(), Path.home().resolve(strict=False)]
+    if study_dir is not None:
+        forbidden.append(Path(study_dir).resolve(strict=False))
     for f in forbidden:
-        if r == f or f in r.parents:
-            raise Refused("§4 isolation", f"workspace root {r} is inside {f}")
+        if root == f or f in root.parents or root in f.parents:
+            raise Refused("§4 isolation", f"workspace root {root} overlaps {f}")
     root.mkdir(parents=True, exist_ok=True)
-    root.chmod(0o711)  # others can enter a directory whose 96-bit name they know, never list one
+    root.chmod(0o711)
     return root
 
 
 def new_dir(root: Path) -> Path:
-    d = root / secrets.token_hex(12)
+    d = Path(root) / secrets.token_hex(12)
     d.mkdir(parents=True, exist_ok=False)
     return d
 
 
-def _git(args, cwd):
-    env = {**os.environ, **GENERIC}
-    r = subprocess.run(["git", *args], cwd=cwd, text=True, capture_output=True, env=env)
-    if r.returncode != 0:
-        raise SystemExit(f"git {' '.join(args)} failed: {r.stderr.strip()}")
-    return r.stdout
-
-
 def mirror(task: dict, cache: Path) -> Path:
+    """A bare mirror of the task's repository, cloned atomically, fetched if the base is missing."""
     m = cache / (task["repo"].replace("/", "__") + ".git")
     if not m.exists():
         m.parent.mkdir(parents=True, exist_ok=True)
-        sh(["git", "clone", "-q", "--mirror", f"https://github.com/{task['repo']}.git", str(m)])
+        tmp = m.parent / f".{m.name}.{secrets.token_hex(4)}"
+        _gitb(["clone", "-q", "--mirror", f"https://github.com/{task['repo']}.git", str(tmp)], cache)
+        os.replace(tmp, m)
+    r = subprocess.run(["git", *SAFE, "--git-dir", str(m), "cat-file", "-e", f"{task['base_commit']}^{{commit}}"],
+                       capture_output=True, env=git_env())
+    if r.returncode != 0:
+        _gitb(["--git-dir", str(m), "fetch", "-q", "origin", task["base_commit"]], cache)
     return m
 
 
 def export_base(task: dict, root: Path, cache: Path) -> Path:
-    """A fresh opaque directory holding the task's base tree as the only commit. No history,
-    remotes, caches or upstream object store (§4)."""
+    """A fresh opaque directory holding the task's base tree as the only commit: no history,
+    remotes, caches or upstream object store. For a real task the committed tree OID must equal
+    the source commit's tree OID."""
     d = new_dir(root)
     repo = d / "repo"
     repo.mkdir()
+    want = None
     if task.get("fixture_dir"):
-        shutil.copytree(HERE / task["fixture_dir"] / "repo", repo, dirs_exist_ok=True)
+        shutil.copytree(HERE / task["fixture_dir"] / "repo", repo, dirs_exist_ok=True, symlinks=True)
     else:
         m = mirror(task, cache)
-        data = subprocess.run(["git", "-C", str(m), "archive", "--format=tar", task["base_commit"]],
-                              capture_output=True, check=True).stdout
-        with tarfile.open(fileobj=io.BytesIO(data)) as t:
-            t.extractall(repo, filter="data")
-    _git(["init", "-q"], repo)
-    _git(["add", "-A"], repo)
-    _git(["commit", "-qm", "base"], repo)
+        want = _git(["--git-dir", str(m), "rev-parse", f"{task['base_commit']}^{{tree}}"], cache).strip()
+        idx = {"GIT_INDEX_FILE": str(d / ".idx")}
+        _gitb(["--git-dir", str(m), "read-tree", task["base_commit"]], d, env=idx)
+        _gitb(["--git-dir", str(m), "--work-tree", str(repo), "checkout-index", "-a", "-f"], d, env=idx)
+        (d / ".idx").unlink()
+    _gitb(["init", "-q"], repo)
+    _gitb(["add", "-A", "-f"], repo)
+    _gitb(["commit", "-q", "--allow-empty", "-m", "base"], repo)
+    if want is not None:
+        got = tree_oid(repo, "HEAD")
+        if got != want:
+            remove(d)
+            raise Refused("§4 base tree", f"{task['instance_id']}: materialized tree {got[:12]} != source {want[:12]}")
     return repo
+
+
+def tree_oid(repo: Path, rev: str = "HEAD") -> str:
+    return _git(["rev-parse", f"{rev}^{{tree}}"], repo).strip()
 
 
 def base_rev(repo: Path) -> str:
@@ -83,34 +118,46 @@ def commit_count(repo: Path) -> int:
 
 
 def tree_hash(repo: Path) -> str:
-    """Digest of every file path, mode and content under repo, .git included."""
+    """Digest of every path, mode, link target and file content under repo, .git included."""
     h = hashlib.sha256()
-    for p in sorted(repo.rglob("*")):
-        rel = p.relative_to(repo).as_posix()
-        st = p.lstat()
-        h.update(rel.encode() + b"\0" + oct(st.st_mode).encode() + b"\0")
-        if p.is_file() and not p.is_symlink():
-            h.update(p.read_bytes())
+    for dirpath, dirnames, filenames in os.walk(repo, followlinks=False):
+        dirnames.sort()
+        for name in sorted(dirnames + filenames):
+            p = Path(dirpath) / name
+            st = p.lstat()
+            h.update(p.relative_to(repo).as_posix().encode() + b"\0" + oct(st.st_mode).encode() + b"\0")
+            if stat.S_ISLNK(st.st_mode):
+                h.update(os.readlink(p).encode())
+            elif stat.S_ISREG(st.st_mode):
+                h.update(p.read_bytes())
     return h.hexdigest()
 
 
 def make_read_only(repo: Path) -> None:
-    for p in [repo, *repo.rglob("*")]:
-        if p.is_symlink():
-            continue
-        mode = p.stat().st_mode
-        p.chmod(mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
+    """Defense in depth only; the read-only guarantee is the OS confinement (confine.py)."""
+    for dirpath, dirnames, filenames in os.walk(repo, followlinks=False):
+        for name in [*dirnames, *filenames]:
+            p = Path(dirpath) / name
+            if not p.is_symlink():
+                p.chmod(p.lstat().st_mode & ~0o222)
+    repo.chmod(repo.stat().st_mode & ~0o222)
 
 
-def checker_tree(task: dict, patch: str, root: Path, cache: Path) -> tuple[Path, Path]:
-    """The base commit with the patch applied (uncommitted, so `git diff` shows it), read-only,
-    plus a separate writable scratch directory."""
+def apply_patch(repo: Path, patch: bytes, index: bool = True) -> None:
+    pf = repo.parent / f".p-{secrets.token_hex(4)}.diff"
+    pf.write_bytes(patch)
+    try:
+        _gitb(["apply", "--binary", *(["--index"] if index else []), str(pf)], repo)
+    finally:
+        pf.unlink()
+
+
+def checker_tree(task: dict, patch: bytes, root: Path, cache: Path) -> tuple[Path, Path]:
+    """The base commit with the patch applied to the index and tree (so `git diff HEAD` shows
+    every change, new files included), plus a separate writable scratch directory."""
     repo = export_base(task, root, cache)
     if patch.strip():
-        pf = repo.parent / "p.diff"
-        pf.write_text(patch)
-        _git(["apply", "--binary", str(pf)], repo)
-        pf.unlink()
+        apply_patch(repo, patch)
     scratch = repo.parent / "scratch"
     scratch.mkdir()
     make_read_only(repo)
@@ -118,14 +165,20 @@ def checker_tree(task: dict, patch: str, root: Path, cache: Path) -> tuple[Path,
 
 
 def remove(d: Path) -> None:
-    """Delete a workspace, read-only parts included."""
+    """Delete a workspace, read-only parts included, without following links."""
     d = Path(d)
-    if not d.exists():
+    if not d.exists() and not d.is_symlink():
         return
-    for p in [d, *d.rglob("*")]:
-        if not p.is_symlink():
-            try:
-                p.chmod(p.stat().st_mode | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRUSR)
-            except OSError:
-                pass
+    for dirpath, dirnames, filenames in os.walk(d, followlinks=False):
+        for name in [*dirnames, *filenames]:
+            p = Path(dirpath) / name
+            if not p.is_symlink():
+                try:
+                    p.chmod(p.lstat().st_mode | 0o700)
+                except OSError:
+                    pass
+    try:
+        d.chmod(d.stat().st_mode | 0o700)
+    except OSError:
+        pass
     shutil.rmtree(d)

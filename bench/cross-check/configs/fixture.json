@@ -11,7 +11,8 @@
            "author_timeout_s": 60, "checker_timeout_s": 60, "max_retries": 2, "quota_reset_hours": 5,
            "max_diff_chars": 60000, "min_disk_gb": 0},
   "evaluation": {"kind": "fixture"},
-  "test_path_rule": ["test_*.py", "*/test_*.py", "*_test.py", "*/tests/*", "tests/*", "conftest.py", "*/conftest.py"],
+  "test_path_rule": ["test_*.py", "*/test_*.py", "*_test.py", "*/tests/*", "tests/*", "conftest.py", "*/conftest.py",
+                     "tests.py", "*/tests.py", "test/*", "*/test/*", "testing/*", "*/testing/*"],
   "stability": {"rule": "min(n, max(12, ceil(0.10 n)))"},
   "stats": {"bootstrap_B": 500},
   "prices": null

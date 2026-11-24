@@ -1,4 +1,5 @@
-"""Statistics with no third-party dependencies (DESIGN.md §2, §7)."""
+"""Statistics with no third-party dependencies (DESIGN.md §2, §7). Full precision throughout;
+only the report rounds."""
 
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ def wilson(k: int, n: int, z: float = Z95) -> list[float] | None:
     d = 1 + z * z / n
     c = (p + z * z / (2 * n)) / d
     h = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
-    return [round(max(0.0, c - h), 4), round(min(1.0, c + h), 4)]
+    return [max(0.0, c - h), min(1.0, c + h)]
 
 
 def wilson80_lower(k: int, n: int) -> float | None:
@@ -31,7 +32,7 @@ def mcnemar_exact(b: int, c: int) -> float | None:
         return None
     k = min(b, c)
     tail = sum(math.comb(n, i) for i in range(k + 1)) / 2**n
-    return round(min(1.0, 2 * tail), 4)
+    return min(1.0, 2 * tail)
 
 
 def kappa(pairs: list[tuple[str, str]], cats=("pass", "fail", "inconclusive")) -> float | None:
@@ -43,7 +44,7 @@ def kappa(pairs: list[tuple[str, str]], cats=("pass", "fail", "inconclusive")) -
     pe = sum((sum(a == c for a, _ in pairs) / n) * (sum(b == c for _, b in pairs) / n) for c in cats)
     if pe >= 1:
         return None
-    return round((po - pe) / (1 - pe), 4)
+    return (po - pe) / (1 - pe)
 
 
 def percentile(xs: list[float], q: float) -> float:
@@ -68,4 +69,4 @@ def cluster_bootstrap(clusters: list, stat, B: int, seed) -> dict:
             vals.append(v)
     if len(vals) < 0.5 * B:
         return {"ci95": None, "B": B, "dropped": dropped}
-    return {"ci95": [round(percentile(vals, 0.025), 4), round(percentile(vals, 0.975), 4)], "B": B, "dropped": dropped}
+    return {"ci95": [percentile(vals, 0.025), percentile(vals, 0.975)], "B": B, "dropped": dropped}

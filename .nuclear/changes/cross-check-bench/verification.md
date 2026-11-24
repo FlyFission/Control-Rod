@@ -4,9 +4,10 @@ Evidence status: **pass** for the offline harness on fixture tasks with stub age
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | 48 offline unit and end-to-end tests of every rule the code enforces (see README, Tests). | `evidence/unittest.log` |
+| E-01 | pass | 67 offline unit and end-to-end tests of every rule the code enforces (see README, Tests), on Python 3.9 and 3.13, with bwrap confinement on Linux. Seatbelt is exercised only on macOS. | `evidence/unittest.log` |
 | E-02 | pass | Fixture study through the command line from `init` to `size`. Stub output, never a finding. | `evidence/fixture-dryrun.log`, `evidence/fixture-report.md` |
 | E-03 | open | Real `claude` and `codex` calls, isolation probes, billing route, SWE-bench grading and controls. | Not executed |
+| E-04 | open | Blind code review. Round 1 on e602a360: Codex on Astra and Antigravity on Neon both NOT READY (33 and 24 findings). The fixes are in this change; the confirmation round is pending. | Review texts held on the owner's Mac |
 
 ## Evidence custody and coupling
 
@@ -15,12 +16,14 @@ Evidence status: **pass** for the offline harness on fixture tasks with stub age
 | E-01 | XB-01, XB-02, XB-03, XB-04, XB-05, XB-06, XB-07, XB-08, XB-09, XB-10 | yes | evidence/unittest.log | Implementing agent | python unittest | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
 | E-02 | XB-06, XB-07, XB-08 | no | evidence/fixture-dryrun.log | Implementing agent | bench.py with stub agents | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
 | E-03 | XB-03, XB-05 | no | Not executed | Implementing agent | Not executed | Implementing agent | Implementing agent | Not executed | Packet | Implementing agent | Not supplied |
+| E-04 | XB-01, XB-02, XB-03, XB-04, XB-05, XB-06, XB-07, XB-08, XB-09, XB-10 | no | Review texts on the owner's Mac | Implementing agent | Codex CLI and Antigravity CLI | Implementing agent | Implementing agent | Owner's Mac | Owner | Implementing agent | Independent reviewers |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | stub agents only  [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | stub agents only  [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | partially separated: not executed | separated: owner retains merge decision | coupled: local machine | self-check | real run not made  [Ship limits](ship.md) |
+| E-04 | separated: other vendors' agents | separated: blind review sessions | separated: other vendors' models | separated: owner retains merge decision | separated: owner's Mac | diverse verification | confirmation round pending  [Ship limits](ship.md) |
 
 
 ## Required links

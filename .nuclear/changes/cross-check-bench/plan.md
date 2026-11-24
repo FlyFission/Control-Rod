@@ -3,8 +3,9 @@
 1. Rebuild `bench/cross-check/` as the `crbench` package to DESIGN.md v3.3: protocol freeze and selection (`manifest.py`), workspaces (`workspace.py`), patch capture (`patches.py`), agent calls and isolation flags (`agents.py`), the ledger (`ledger.py`), preflight and probes (`preflight.py`), grading and controls (`grading.py`), the run (`run.py`), lock, adjudication and evaluation (`adjudicate.py`), scoring (`score.py`, `stats.py`), sizing (`power.py`) and release (`release.py`). `bench.py` is the command line.
 2. Configs: `fixture` (offline, stub agents) and `verified-historical` (the real study template; policy caps are the owner's to set before `init`). Fixtures cover good, bad, falsely rejected and checker-discordant patches.
 3. Offline tests for every rule the code enforces. Update `pnpm cr bench` usage. Draft pull request #160.
-4. Blind code review by Codex on Astra and Antigravity on Neon.
-5. Calibration on the owner's Mac only after the owner says go.
+4. Blind code review by Codex on Astra and Antigravity on Neon. Round 1 (on e602a360): both NOT READY; 57 findings merged into 30 fixes, including outer OS confinement (`confine.py`), trusted git, bytes patches, unique attempt IDs and a run lock, a staged verdict lock, and the release rules.
+5. Confirmation review of the fixes by both reviewers.
+6. Calibration on the owner's Mac only after the owner says go.
 
 
 ## Required links

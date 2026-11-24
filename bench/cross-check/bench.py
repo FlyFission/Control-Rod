@@ -17,13 +17,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from crbench import adjudicate as adj  # noqa: E402
 from crbench import grading, manifest, power, preflight, release, run, score  # noqa: E402
-from crbench.common import HERE, PHASES, Study, write_json  # noqa: E402
+from crbench.common import HERE, PHASES, Study, stamp, write_json  # noqa: E402
 from crbench.ledger import Ledger  # noqa: E402
 from crbench.workspace import workspace_root  # noqa: E402
 
 
 def out(x) -> None:
     print(json.dumps(x, indent=2, sort_keys=True, default=str))
+
+
+def controls(study: Study, phase: str) -> dict:
+    """Base, gold and known-bad controls for every task of the phase, bound to its manifest."""
+    cfg = study.protocol()["frozen"]["config"]
+    m = manifest.load_manifest(study, phase)
+    lg = Ledger(study)
+    with lg.run_lock():
+        root = workspace_root(cfg, study.dir)
+        r = grading.run_controls(cfg, m["rows"], m["tasks"], root, study.dir / "cache",
+                                 study.phase_dir(phase) / "eval-controls", preflight.denied_paths(study, root),
+                                 m["source"].get("file_sha256"))
+        r["stamp"] = stamp(study, phase)
+        write_json(study.phase_dir(phase) / "controls.json", r)
+        (study.phase_dir(phase) / "controls.md").write_text(grading.controls_md(r))
+    return r
 
 
 def main(argv=None) -> None:
@@ -44,7 +60,9 @@ def main(argv=None) -> None:
     p = cmd("exclude", phase=True, help="strike a defective task before any agent runs")
     p.add_argument("--task", required=True)
     p.add_argument("--reason", required=True)
-    cmd("preflight", phase=True, help="billing route, sign-in, CLI versions, host, Docker")
+    p = cmd("preflight", phase=True, help="billing route, sign-in, CLI versions, host, Docker")
+    p.add_argument("--confirm-overage-off", action="store_true",
+                   help="you checked that paid overage / extra usage is off on both subscriptions")
     cmd("probe", help="isolation probes for every vendor and role (phase 0)")
     cmd("controls", phase=True, help="grade base, gold, known-bad and missing-report controls")
     p = cmd("run", phase=True, help="author and checker calls; prints the plan unless --yes")
@@ -59,7 +77,9 @@ def main(argv=None) -> None:
     cmd("score", phase=True, help="completeness check, then results.json and report.md")
     p = cmd("size", help="power.py sizing from calibration; frozen once written")
     p.add_argument("--sims", type=int, default=power.SIMS)
-    cmd("release", help="privacy scan, digests, transcript asset and share.md")
+    p = cmd("release", help="privacy scan, digests, transcript asset and share.md")
+    p.add_argument("--confirm-redistribution", action="store_true",
+                   help="you checked the task repositories' licences allow redistributing their code")
     cmd("status", help="ledger summary")
     a = ap.parse_args(argv)
     study = Study(Path(a.study))
@@ -74,7 +94,7 @@ def main(argv=None) -> None:
         m = manifest.exclude(study, a.phase, a.task, a.reason)
         out({"tasks": m["tasks"], "replaced": m["replaced"]})
     elif a.cmd == "preflight":
-        r = preflight.preflight(study, a.phase)
+        r = preflight.preflight(study, a.phase, a.confirm_overage_off)
         out(r)
         sys.exit(0 if r["passed"] else 1)
     elif a.cmd == "probe":
@@ -82,17 +102,13 @@ def main(argv=None) -> None:
         out(r)
         sys.exit(0 if r["passed"] else 1)
     elif a.cmd == "controls":
-        proto = study.protocol()
-        cfg = proto["frozen"]["config"]
-        m = manifest.load_manifest(study, a.phase)
-        n = cfg["evaluation"].get("controls_n") or len(m["tasks"])
-        r = grading.run_controls(cfg, m["rows"], m["tasks"][:n], workspace_root(cfg), study.dir / "cache",
-                                 study.phase_dir(a.phase) / "eval-controls")
-        write_json(study.phase_dir(a.phase) / "controls.json", r)
+        r = controls(study, a.phase)
         out(r)
         sys.exit(0 if r["passed"] else 1)
     elif a.cmd == "run":
-        out(run.Runner(study, a.phase).run(yes=a.yes))
+        r = run.Runner(study, a.phase).run(yes=a.yes)
+        out(r)
+        sys.exit(0 if r["status"] in ("planned", "complete") else 1)
     elif a.cmd == "lock":
         r = adj.lock(study, a.phase)
         out({"locked": r["sha256"], "rows": len(r["rows"])})
@@ -108,7 +124,7 @@ def main(argv=None) -> None:
     elif a.cmd == "size":
         out(power.size(study, a.sims))
     elif a.cmd == "release":
-        out(release.release(study))
+        out(release.release(study, a.confirm_redistribution))
     elif a.cmd == "status":
         out(Ledger(study).summary())
 

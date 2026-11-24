@@ -1,9 +1,10 @@
-++ python3 bench/cross-check/bench.py init --study <tmp>/study --config bench/cross-check/configs/fixture.json
+++ python3 bench/cross-check/bench.py init --config bench/cross-check/configs/fixture.json --study <tmp>/study
 {
-  "frozen_sha256": "e33e5a4fdddb9cb290e6159cb10aace372952ee535b81a1c499827ff3e4050e7",
+  "frozen_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac",
   "study": "<tmp>/study"
 }
-++ python3 bench/cross-check/bench.py select --study <tmp>/study --phase calibration
+exit 0
+++ python3 bench/cross-check/bench.py select --phase calibration --study <tmp>/study
 {
   "audit": "<tmp>/study/calibration/audit.md",
   "reserve": [],
@@ -14,9 +15,10 @@
     "fixture__t3"
   ]
 }
-++ python3 bench/cross-check/bench.py preflight --study <tmp>/study --phase calibration
+exit 0
+++ python3 bench/cross-check/bench.py preflight --phase calibration --study <tmp>/study
 {
-  "at": "2026-11-24T14:51:09Z",
+  "at": "2026-11-24T15:53:37Z",
   "checks": {
     "stub-a": {
       "auth": {
@@ -24,13 +26,20 @@
         "route": "stub"
       },
       "billing_keys": [],
+      "cli": {
+        "sha256": "stub",
+        "version": "stub"
+      },
+      "features": {
+        "ok": true
+      },
       "local": {
         "config": {},
         "custom_bin": false,
+        "extra_read_dirs": 0,
         "login_mode": null
       },
-      "ok": true,
-      "version": "stub"
+      "ok": true
     },
     "stub-b": {
       "auth": {
@@ -38,13 +47,20 @@
         "route": "stub"
       },
       "billing_keys": [],
+      "cli": {
+        "sha256": "stub",
+        "version": "stub"
+      },
+      "features": {
+        "ok": true
+      },
       "local": {
         "config": {},
         "custom_bin": false,
+        "extra_read_dirs": 0,
         "login_mode": null
       },
-      "ok": true,
-      "version": "stub"
+      "ok": true
     }
   },
   "docker": {
@@ -53,280 +69,489 @@
   },
   "host": {
     "arch": "x86_64",
-    "disk_free_gb": 64.1,
+    "confinement": "bwrap",
+    "disk_free_gb": 63.9,
     "python": "3.13.18",
     "system": "Linux"
   },
   "host_ok": true,
+  "identities": {
+    "stub-a": {
+      "path": "stub",
+      "sha256": "stub",
+      "version": "stub"
+    },
+    "stub-b": {
+      "path": "stub",
+      "sha256": "stub",
+      "version": "stub"
+    }
+  },
+  "overage": {
+    "basis": "stub agents",
+    "confirmed_off": true
+  },
   "passed": true,
   "phase": "calibration",
-  "pinned_from_calibration": false,
-  "versions": {
-    "stub-a": "stub",
-    "stub-b": "stub"
+  "stamp": {
+    "harness_sha256": "ae2bfa83688b5253b1b590f915c7eaa299d84b1b102d7be59973c04bc86089d8",
+    "study_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac"
   }
 }
+exit 0
 ++ python3 bench/cross-check/bench.py probe --study <tmp>/study
 {
-  "at": "2026-11-24T14:51:10Z",
+  "at": "2026-11-24T15:53:38Z",
   "passed": true,
   "results": {
     "stub-a/author": {
-      "call": "probe--stub-a--author--a4d646",
+      "call": "probe--stub-a--author--092013",
       "checks": {
-        "call completed": true,
+        "agent: call completed": true,
+        "agent: did not read AGENTS.md": true,
+        "agent: did not read other vendor's sign-in": true,
+        "agent: did not read real HOME": true,
+        "agent: did not read run directory": true,
+        "agent: did not read sibling workspace": true,
+        "agent: did not read upstream mirror cache": true,
+        "agent: no shell network egress": true,
+        "agent: no web search or MCP tool used": true,
+        "agent: no web, MCP or subagent tool offered": true,
+        "agent: one synthetic commit": true,
+        "agent: positive read": true,
+        "agent: tried shell network": true,
+        "agent: tried to read AGENTS.md": true,
+        "agent: tried to read other vendor's sign-in": true,
+        "agent: tried to read real HOME": true,
+        "agent: tried to read run directory": true,
+        "agent: tried to read sibling workspace": true,
+        "agent: tried to read upstream mirror cache": true,
         "negative: cannot read AGENTS.md": true,
-        "negative: cannot read other sign-in": true,
+        "negative: cannot read other vendor's sign-in": true,
         "negative: cannot read real HOME": true,
         "negative: cannot read run directory": true,
         "negative: cannot read sibling workspace": true,
-        "negative: no MCP or subagent tools": true,
-        "negative: no shell network egress": true,
-        "negative: no web search tool used": true,
-        "positive: one synthetic commit": true,
-        "positive: reads its own tree": true
+        "negative: cannot read upstream mirror cache": true,
+        "negative: cannot read ~/.aws": true,
+        "negative: cannot read ~/.claude/projects": true,
+        "negative: cannot read ~/.config": true,
+        "negative: cannot read ~/.ssh": true,
+        "positive: reads its own tree": true,
+        "positive: writes its own tree": true
       },
+      "harness_probes": "bwrap",
       "ok": true
     },
     "stub-a/checker": {
-      "call": "probe--stub-a--checker--4d00c8",
+      "call": "probe--stub-a--checker--44b495",
       "checks": {
-        "call completed": true,
+        "agent: call completed": true,
+        "agent: did not read AGENTS.md": true,
+        "agent: did not read other vendor's sign-in": true,
+        "agent: did not read real HOME": true,
+        "agent: did not read run directory": true,
+        "agent: did not read sibling workspace": true,
+        "agent: did not read upstream mirror cache": true,
+        "agent: no shell network egress": true,
+        "agent: no web search or MCP tool used": true,
+        "agent: no web, MCP or subagent tool offered": true,
+        "agent: one synthetic commit": true,
+        "agent: positive read": true,
+        "agent: source unchanged": true,
+        "agent: tried shell network": true,
+        "agent: tried to read AGENTS.md": true,
+        "agent: tried to read other vendor's sign-in": true,
+        "agent: tried to read real HOME": true,
+        "agent: tried to read run directory": true,
+        "agent: tried to read sibling workspace": true,
+        "agent: tried to read upstream mirror cache": true,
         "negative: cannot read AGENTS.md": true,
-        "negative: cannot read other sign-in": true,
+        "negative: cannot read other vendor's sign-in": true,
         "negative: cannot read real HOME": true,
         "negative: cannot read run directory": true,
         "negative: cannot read sibling workspace": true,
-        "negative: checker cannot write source": true,
-        "negative: no MCP or subagent tools": true,
-        "negative: no shell network egress": true,
-        "negative: no web search tool used": true,
-        "positive: one synthetic commit": true,
-        "positive: reads its own tree": true
+        "negative: cannot read upstream mirror cache": true,
+        "negative: cannot read ~/.aws": true,
+        "negative: cannot read ~/.claude/projects": true,
+        "negative: cannot read ~/.config": true,
+        "negative: cannot read ~/.ssh": true,
+        "negative: cannot write source": true,
+        "positive: reads its own tree": true,
+        "positive: writes scratch": true
       },
+      "harness_probes": "bwrap",
       "ok": true
     },
     "stub-b/author": {
-      "call": "probe--stub-b--author--1b9b44",
+      "call": "probe--stub-b--author--3f4f01",
       "checks": {
-        "call completed": true,
+        "agent: call completed": true,
+        "agent: did not read AGENTS.md": true,
+        "agent: did not read other vendor's sign-in": true,
+        "agent: did not read real HOME": true,
+        "agent: did not read run directory": true,
+        "agent: did not read sibling workspace": true,
+        "agent: did not read upstream mirror cache": true,
+        "agent: no shell network egress": true,
+        "agent: no web search or MCP tool used": true,
+        "agent: no web, MCP or subagent tool offered": true,
+        "agent: one synthetic commit": true,
+        "agent: positive read": true,
+        "agent: tried shell network": true,
+        "agent: tried to read AGENTS.md": true,
+        "agent: tried to read other vendor's sign-in": true,
+        "agent: tried to read real HOME": true,
+        "agent: tried to read run directory": true,
+        "agent: tried to read sibling workspace": true,
+        "agent: tried to read upstream mirror cache": true,
         "negative: cannot read AGENTS.md": true,
-        "negative: cannot read other sign-in": true,
+        "negative: cannot read other vendor's sign-in": true,
         "negative: cannot read real HOME": true,
         "negative: cannot read run directory": true,
         "negative: cannot read sibling workspace": true,
-        "negative: no MCP or subagent tools": true,
-        "negative: no shell network egress": true,
-        "negative: no web search tool used": true,
-        "positive: one synthetic commit": true,
-        "positive: reads its own tree": true
+        "negative: cannot read upstream mirror cache": true,
+        "negative: cannot read ~/.aws": true,
+        "negative: cannot read ~/.claude/projects": true,
+        "negative: cannot read ~/.config": true,
+        "negative: cannot read ~/.ssh": true,
+        "positive: reads its own tree": true,
+        "positive: writes its own tree": true
       },
+      "harness_probes": "bwrap",
       "ok": true
     },
     "stub-b/checker": {
-      "call": "probe--stub-b--checker--02c8d2",
+      "call": "probe--stub-b--checker--4dfbdd",
       "checks": {
-        "call completed": true,
+        "agent: call completed": true,
+        "agent: did not read AGENTS.md": true,
+        "agent: did not read other vendor's sign-in": true,
+        "agent: did not read real HOME": true,
+        "agent: did not read run directory": true,
+        "agent: did not read sibling workspace": true,
+        "agent: did not read upstream mirror cache": true,
+        "agent: no shell network egress": true,
+        "agent: no web search or MCP tool used": true,
+        "agent: no web, MCP or subagent tool offered": true,
+        "agent: one synthetic commit": true,
+        "agent: positive read": true,
+        "agent: source unchanged": true,
+        "agent: tried shell network": true,
+        "agent: tried to read AGENTS.md": true,
+        "agent: tried to read other vendor's sign-in": true,
+        "agent: tried to read real HOME": true,
+        "agent: tried to read run directory": true,
+        "agent: tried to read sibling workspace": true,
+        "agent: tried to read upstream mirror cache": true,
         "negative: cannot read AGENTS.md": true,
-        "negative: cannot read other sign-in": true,
+        "negative: cannot read other vendor's sign-in": true,
         "negative: cannot read real HOME": true,
         "negative: cannot read run directory": true,
         "negative: cannot read sibling workspace": true,
-        "negative: checker cannot write source": true,
-        "negative: no MCP or subagent tools": true,
-        "negative: no shell network egress": true,
-        "negative: no web search tool used": true,
-        "positive: one synthetic commit": true,
-        "positive: reads its own tree": true
+        "negative: cannot read upstream mirror cache": true,
+        "negative: cannot read ~/.aws": true,
+        "negative: cannot read ~/.claude/projects": true,
+        "negative: cannot read ~/.config": true,
+        "negative: cannot read ~/.ssh": true,
+        "negative: cannot write source": true,
+        "positive: reads its own tree": true,
+        "positive: writes scratch": true
       },
+      "harness_probes": "bwrap",
       "ok": true
     }
+  },
+  "stamp": {
+    "harness_sha256": "ae2bfa83688b5253b1b590f915c7eaa299d84b1b102d7be59973c04bc86089d8",
+    "study_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac"
   }
 }
-++ python3 bench/cross-check/bench.py controls --study <tmp>/study --phase calibration
+exit 0
+++ python3 bench/cross-check/bench.py controls --phase calibration --study <tmp>/study
 {
-  "at": "2026-11-24T14:51:12Z",
-  "evaluation": {
-    "kind": "fixture"
-  },
+  "at": "2026-11-24T15:53:40Z",
+  "flaky_or_failing_tasks": [],
+  "images": [],
   "passed": true,
+  "repeats": 2,
+  "report_layout": [],
   "results": {
-    "base:fixture__t1": {
-      "expected": {
-        "a1_pass": true,
-        "resolved": false,
-        "status": "graded"
-      },
+    "base-0-fixture__t1": {
       "got": {
         "a1_pass": true,
+        "report_layout": null,
         "resolved": false,
+        "seconds": null,
         "status": "graded",
         "why": null
       },
-      "ok": true
+      "kind": "base",
+      "ok": true,
+      "task": "fixture__t1"
     },
-    "base:fixture__t2": {
-      "expected": {
-        "a1_pass": true,
-        "resolved": false,
-        "status": "graded"
-      },
+    "base-0-fixture__t2": {
       "got": {
         "a1_pass": true,
+        "report_layout": null,
         "resolved": false,
+        "seconds": null,
         "status": "graded",
         "why": null
       },
-      "ok": true
+      "kind": "base",
+      "ok": true,
+      "task": "fixture__t2"
     },
-    "base:fixture__t3": {
-      "expected": {
+    "base-0-fixture__t3": {
+      "got": {
         "a1_pass": true,
+        "report_layout": null,
         "resolved": false,
-        "status": "graded"
+        "seconds": null,
+        "status": "graded",
+        "why": null
       },
+      "kind": "base",
+      "ok": true,
+      "task": "fixture__t3"
+    },
+    "base-0-fixture__t6": {
       "got": {
         "a1_pass": true,
+        "report_layout": null,
         "resolved": false,
+        "seconds": null,
         "status": "graded",
         "why": null
       },
-      "ok": true
+      "kind": "base",
+      "ok": true,
+      "task": "fixture__t6"
     },
-    "base:fixture__t6": {
-      "expected": {
+    "base-2-fixture__t1": {
+      "got": {
         "a1_pass": true,
+        "report_layout": null,
         "resolved": false,
-        "status": "graded"
+        "seconds": null,
+        "status": "graded",
+        "why": null
       },
+      "kind": "base",
+      "ok": true,
+      "task": "fixture__t1"
+    },
+    "base-2-fixture__t2": {
       "got": {
         "a1_pass": true,
+        "report_layout": null,
         "resolved": false,
+        "seconds": null,
         "status": "graded",
         "why": null
       },
-      "ok": true
+      "kind": "base",
+      "ok": true,
+      "task": "fixture__t2"
     },
-    "gold:fixture__t1": {
-      "expected": {
-        "a1_pass": true,
-        "resolved": true,
-        "status": "graded"
-      },
+    "base-2-fixture__t3": {
       "got": {
         "a1_pass": true,
-        "resolved": true,
-        "status": "graded",
-        "why": null
-      },
-      "ok": true
-    },
-    "gold:fixture__t2": {
-      "expected": {
-        "a1_pass": true,
-        "resolved": true,
-        "status": "graded"
-      },
-      "got": {
-        "a1_pass": true,
-        "resolved": true,
-        "status": "graded",
-        "why": null
-      },
-      "ok": true
-    },
-    "gold:fixture__t3": {
-      "expected": {
-        "a1_pass": true,
-        "resolved": true,
-        "status": "graded"
-      },
-      "got": {
-        "a1_pass": true,
-        "resolved": true,
-        "status": "graded",
-        "why": null
-      },
-      "ok": true
-    },
-    "gold:fixture__t6": {
-      "expected": {
-        "a1_pass": true,
-        "resolved": true,
-        "status": "graded"
-      },
-      "got": {
-        "a1_pass": true,
-        "resolved": true,
-        "status": "graded",
-        "why": null
-      },
-      "ok": true
-    },
-    "known_bad:fixture__t1": {
-      "expected": {
+        "report_layout": null,
         "resolved": false,
-        "status": "graded"
+        "seconds": null,
+        "status": "graded",
+        "why": null
       },
+      "kind": "base",
+      "ok": true,
+      "task": "fixture__t3"
+    },
+    "base-2-fixture__t6": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": false,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "base",
+      "ok": true,
+      "task": "fixture__t6"
+    },
+    "gold-1-fixture__t1": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": true,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "gold",
+      "ok": true,
+      "task": "fixture__t1"
+    },
+    "gold-1-fixture__t2": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": true,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "gold",
+      "ok": true,
+      "task": "fixture__t2"
+    },
+    "gold-1-fixture__t3": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": true,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "gold",
+      "ok": true,
+      "task": "fixture__t3"
+    },
+    "gold-1-fixture__t6": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": true,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "gold",
+      "ok": true,
+      "task": "fixture__t6"
+    },
+    "gold-3-fixture__t1": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": true,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "gold",
+      "ok": true,
+      "task": "fixture__t1"
+    },
+    "gold-3-fixture__t2": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": true,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "gold",
+      "ok": true,
+      "task": "fixture__t2"
+    },
+    "gold-3-fixture__t3": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": true,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "gold",
+      "ok": true,
+      "task": "fixture__t3"
+    },
+    "gold-3-fixture__t6": {
+      "got": {
+        "a1_pass": true,
+        "report_layout": null,
+        "resolved": true,
+        "seconds": null,
+        "status": "graded",
+        "why": null
+      },
+      "kind": "gold",
+      "ok": true,
+      "task": "fixture__t6"
+    },
+    "known_bad-4-fixture__t1": {
       "got": {
         "a1_pass": false,
+        "report_layout": null,
         "resolved": false,
+        "seconds": null,
         "status": "graded",
         "why": null
       },
-      "ok": true
+      "kind": "known_bad",
+      "ok": true,
+      "task": "fixture__t1"
     },
-    "known_bad:fixture__t2": {
-      "expected": {
-        "resolved": false,
-        "status": "graded"
-      },
+    "known_bad-4-fixture__t2": {
       "got": {
         "a1_pass": false,
+        "report_layout": null,
         "resolved": false,
+        "seconds": null,
         "status": "graded",
         "why": null
       },
-      "ok": true
+      "kind": "known_bad",
+      "ok": true,
+      "task": "fixture__t2"
     },
-    "known_bad:fixture__t3": {
-      "expected": {
-        "resolved": false,
-        "status": "graded"
-      },
+    "known_bad-4-fixture__t3": {
       "got": {
         "a1_pass": false,
+        "report_layout": null,
         "resolved": false,
+        "seconds": null,
         "status": "graded",
         "why": null
       },
-      "ok": true
+      "kind": "known_bad",
+      "ok": true,
+      "task": "fixture__t3"
     },
-    "known_bad:fixture__t6": {
-      "expected": {
-        "resolved": false,
-        "status": "graded"
-      },
+    "known_bad-4-fixture__t6": {
       "got": {
         "a1_pass": false,
+        "report_layout": null,
         "resolved": false,
+        "seconds": null,
         "status": "graded",
         "why": null
       },
-      "ok": true
+      "kind": "known_bad",
+      "ok": true,
+      "task": "fixture__t6"
     },
     "missing_report": {
-      "expected": {
-        "status": "infra_error"
-      },
       "got": {
         "status": "infra_error"
       },
+      "kind": "missing_report",
       "ok": true
     }
+  },
+  "stamp": {
+    "harness_sha256": "ae2bfa83688b5253b1b590f915c7eaa299d84b1b102d7be59973c04bc86089d8",
+    "manifest_sha256": "5c74ec9c935128457f0edc2a240a3d3b2ccdb27c7cc10d31dade3842a24986fa",
+    "study_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac"
   }
 }
-++ python3 bench/cross-check/bench.py run --study <tmp>/study --phase calibration
+exit 0
+++ python3 bench/cross-check/bench.py run --phase calibration --study <tmp>/study
 {
   "plan": {
     "author_calls": 8,
@@ -337,47 +562,68 @@
   },
   "status": "planned"
 }
-++ python3 bench/cross-check/bench.py run --study <tmp>/study --phase calibration --yes
+exit 0
+++ python3 bench/cross-check/bench.py run --phase calibration --yes --study <tmp>/study
 {
-  "at": "2026-11-24T14:51:19Z",
+  "at": "2026-11-24T15:53:44Z",
   "ledger": {
     "by": {
       "calibration/stub-a/author": {
-        "calls": 5,
         "known_tokens": 600,
+        "launched": 5,
         "statuses": {
           "ok": 5
+        },
+        "tokens": {
+          "cached_input": 0,
+          "input": 500,
+          "output": 100
         },
         "unknown_usage": 0
       },
       "calibration/stub-a/checker": {
-        "calls": 17,
         "known_tokens": 2040,
+        "launched": 17,
         "statuses": {
           "ok": 17
+        },
+        "tokens": {
+          "cached_input": 0,
+          "input": 1700,
+          "output": 340
         },
         "unknown_usage": 0
       },
       "calibration/stub-b/author": {
-        "calls": 5,
         "known_tokens": 600,
+        "launched": 5,
         "statuses": {
           "ok": 5
+        },
+        "tokens": {
+          "cached_input": 0,
+          "input": 500,
+          "output": 100
         },
         "unknown_usage": 0
       },
       "calibration/stub-b/checker": {
-        "calls": 17,
         "known_tokens": 2040,
+        "launched": 17,
         "statuses": {
           "ok": 17
+        },
+        "tokens": {
+          "cached_input": 0,
+          "input": 1700,
+          "output": 340
         },
         "unknown_usage": 0
       }
     },
     "calls_with_unknown_usage": 0,
     "halted": null,
-    "in_flight": [],
+    "in_flight": 0,
     "known_tokens": 5280,
     "launched": 44,
     "max_calls": 200
@@ -391,20 +637,23 @@
   },
   "status": "complete"
 }
-++ python3 bench/cross-check/bench.py lock --study <tmp>/study --phase calibration
+exit 0
+++ python3 bench/cross-check/bench.py lock --phase calibration --study <tmp>/study
 {
   "locked": "9b1f7f96865430477810ecb7ac2cac394eab0cefa6619d2d7036c6baab3103c4",
   "rows": 32
 }
-++ python3 bench/cross-check/bench.py adjudicate --study <tmp>/study --phase calibration --skip 'fixture dry run'
+exit 0
+++ python3 bench/cross-check/bench.py adjudicate --phase calibration --skip fixture-dry-run --study <tmp>/study
 {
   "judgments": {},
   "skipped": {
-    "at": "2026-11-24T14:51:19Z",
-    "reason": "fixture dry run"
+    "at": "2026-11-24T15:53:44Z",
+    "reason": "fixture-dry-run"
   }
 }
-++ python3 bench/cross-check/bench.py evaluate --study <tmp>/study --phase calibration
+exit 0
+++ python3 bench/cross-check/bench.py evaluate --phase calibration --study <tmp>/study
 {
   "fixture__t1": {
     "stub-a": "graded",
@@ -423,7 +672,8 @@
     "stub-b": "graded"
   }
 }
-++ python3 bench/cross-check/bench.py score --study <tmp>/study --phase calibration
+exit 0
+++ python3 bench/cross-check/bench.py score --phase calibration --study <tmp>/study
 {
   "designation": "calibration (never published as findings)",
   "equal_author_weight": {
@@ -437,9 +687,18 @@
         0.0,
         0.0
       ],
+      "complete_case": 0.0,
       "dropped": 27,
+      "fail_closed": 0.0,
       "point": 0.0,
-      "pooled_diff": 0.0
+      "pooled": {
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "dropped": 35,
+        "point": 0.0
+      }
     },
     "good": {
       "B": 500,
@@ -451,33 +710,71 @@
         0.0,
         0.0
       ],
+      "complete_case": 0.0,
       "dropped": 29,
+      "fail_closed": 0.0,
       "point": 0.0,
-      "pooled_diff": 0.0
+      "pooled": {
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "dropped": 37,
+        "point": 0.0
+      }
     }
   },
   "report": "<tmp>/study/calibration/report.md"
 }
-++ python3 bench/cross-check/bench.py size --study <tmp>/study --sims 50
+exit 0
+++ python3 bench/cross-check/bench.py size --sims 100 --study <tmp>/study
 {
   "assumptions": [
     "true catch gain equals delta_catch; no true change in false rejection",
     "discordance splits (p_d + gain)/2 cross-only and (p_d - gain)/2 same-only",
     "within-task correlation rho on both yield and verdict discordance",
     "cluster-robust normal interval stands in for the task bootstrap inside the simulation",
-    "missingness is the phase-0 share of inconclusive checks, applied per pair"
+    "each checker is inconclusive with the phase-0 share of inconclusive checks; an inconclusive is a non-rejection and stays in the denominator",
+    "a concordant pair is a double rejection with the phase-0 share f_both",
+    "power must clear the target after subtracting 1.96 Monte Carlo standard errors"
   ],
-  "at": "2026-11-24T14:51:20Z",
+  "at": "2026-11-24T15:53:46Z",
   "capacity": {
-    "calibration_days": 0.0,
+    "bounds": {
+      "calls": 15.6,
+      "time": null,
+      "tokens": 828.9333333333333
+    },
     "calibration_tasks": 4,
-    "days_left": 14.0,
-    "n_feasible": 1343,
+    "days_left": 13.99912037037037,
+    "n_feasible": 15,
+    "per_vendor": {
+      "stub-a": {
+        "busy_s": 0.0,
+        "calls": 20,
+        "known_tokens": 2400,
+        "unknown_usage": 0
+      },
+      "stub-b": {
+        "busy_s": 0.0,
+        "calls": 20,
+        "known_tokens": 2400,
+        "unknown_usage": 0
+      }
+    },
+    "quota_paused_vendors": [],
     "task_supply": 4,
-    "tasks_per_day": 96.0
+    "tasks_per_day": null,
+    "token_p95": {
+      "stub-a/author": 120,
+      "stub-a/checker": 120,
+      "stub-b/author": 120,
+      "stub-b/checker": 120
+    }
   },
   "designation": "feasibility pilot",
   "inputs": {
+    "f_both": 0.75,
     "grid": [
       [
         0.3,
@@ -508,28 +805,102 @@
         "attempts": 4,
         "eligible_bad": 2,
         "eligible_good": 2,
-        "good_lower80": 0.2302,
-        "q_lower80": 0.2302,
+        "good_lower80": 0.23024149937764676,
+        "q_lower80": 0.23024149937764676,
         "q_point": 0.5
       },
       "stub-b": {
         "attempts": 4,
         "eligible_bad": 2,
         "eligible_good": 2,
-        "good_lower80": 0.2302,
-        "q_lower80": 0.2302,
+        "good_lower80": 0.23024149937764676,
+        "q_lower80": 0.23024149937764676,
         "q_point": 0.5
       }
     },
-    "sims": 50
+    "sims": 100
   },
   "n_phase1": 4,
-  "n_required": null,
+  "n_required": 3547,
   "power_at_required": {
-    "searched_to": 4000
+    "p_d=0.3,rho=0.2": 0.93,
+    "p_d=0.3,rho=0.3": 0.92,
+    "p_d=0.35,rho=0.2": 0.92,
+    "p_d=0.35,rho=0.3": 0.9
   },
-  "reason": "no count up to 4000 meets the rule",
-  "script_sha256": "cef08263aefddf7b4f5935e214286a9deb8cc394eec7b0f836d064be6eb249ea",
-  "sha256": "ff50fddfce5c5411512f59cfb7e527089d725ecfae56728c3564d61899d343dd",
-  "study_sha256": "e33e5a4fdddb9cb290e6159cb10aace372952ee535b81a1c499827ff3e4050e7"
+  "reason": "required count exceeds the verified subscription capacity, the horizon or the task supply",
+  "script_sha256": "bb54f31158fbf470054fe3b82d759ba0475e96feda5c7338db925ac9604c772c",
+  "sha256": "bd5ca3f8b357510b6a0db2ec45e1ab501730005ea220ff0ee351267e0437e5cf",
+  "study_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac",
+  "token_p95": {
+    "stub-a/author": 120,
+    "stub-a/checker": 120,
+    "stub-b/author": 120,
+    "stub-b/checker": 120
+  }
 }
+exit 0
+++ python3 bench/cross-check/bench.py status --study <tmp>/study
+{
+  "by": {
+    "calibration/stub-a/author": {
+      "known_tokens": 600,
+      "launched": 5,
+      "statuses": {
+        "ok": 5
+      },
+      "tokens": {
+        "cached_input": 0,
+        "input": 500,
+        "output": 100
+      },
+      "unknown_usage": 0
+    },
+    "calibration/stub-a/checker": {
+      "known_tokens": 2040,
+      "launched": 17,
+      "statuses": {
+        "ok": 17
+      },
+      "tokens": {
+        "cached_input": 0,
+        "input": 1700,
+        "output": 340
+      },
+      "unknown_usage": 0
+    },
+    "calibration/stub-b/author": {
+      "known_tokens": 600,
+      "launched": 5,
+      "statuses": {
+        "ok": 5
+      },
+      "tokens": {
+        "cached_input": 0,
+        "input": 500,
+        "output": 100
+      },
+      "unknown_usage": 0
+    },
+    "calibration/stub-b/checker": {
+      "known_tokens": 2040,
+      "launched": 17,
+      "statuses": {
+        "ok": 17
+      },
+      "tokens": {
+        "cached_input": 0,
+        "input": 1700,
+        "output": 340
+      },
+      "unknown_usage": 0
+    }
+  },
+  "calls_with_unknown_usage": 0,
+  "halted": null,
+  "in_flight": 0,
+  "known_tokens": 5280,
+  "launched": 44,
+  "max_calls": 200
+}
+exit 0

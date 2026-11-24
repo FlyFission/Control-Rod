@@ -7,7 +7,7 @@ import json
 import random
 from pathlib import Path
 
-from .common import HERE, Refused, Study, digest, git_dirty, git_head, now, read_json, sha256_file, write_json
+from .common import HERE, Refused, Study, digest, git_dirty, git_head, harness_digest, now, read_json, sha256_file, write_json
 
 REQUIRED_TASK_FIELDS = ("instance_id", "repo", "base_commit", "problem_statement", "test_patch",
                         "FAIL_TO_PASS", "PASS_TO_PASS")
@@ -41,6 +41,22 @@ def validate_config(cfg: dict) -> None:
             raise Refused("§6 grading", f"evaluation.harness must pin a version (name==X.Y.Z), got {h!r}")
         if not cfg["evaluation"].get("python"):
             raise Refused("§6 grading", "evaluation.python must pin the interpreter version")
+    if not (0 < m["delta_catch"] <= min(cfg["nuisance"]["p_d"]) and m["delta_fr"] > 0 and 0 < m["alpha"] < 1
+            and 0 < m["power"] < 1):
+        raise Refused("§2 margins", "need 0 < delta_catch <= min(p_d), delta_fr > 0, 0 < alpha, power < 1")
+    if not all(0 <= r < 1 for r in cfg["nuisance"]["rho"]) or not all(0 < p < 1 for p in cfg["nuisance"]["p_d"]):
+        raise Refused("§2 nuisance", "need 0 <= rho < 1 and 0 < p_d < 1")
+    if caps["calibration_max_calls"] > caps["max_calls"]:
+        raise Refused("§9 caps", "calibration_max_calls cannot exceed max_calls")
+    if cfg["evaluation"].get("max_workers", 1) > 2:
+        raise Refused("§9", "at most 2 evaluation workers")
+    if cfg["snapshot"]["kind"] == "swebench":
+        snap = cfg["snapshot"]
+        if not snap.get("sha256") or not isinstance(snap.get("expected_rows"), int) or not snap.get("split"):
+            raise Refused("§3 snapshot", "a SWE-bench snapshot needs a pinned sha256, expected_rows and split")
+        pre = cfg["selection"].get("pre_exclusions")
+        if pre is not None and not (pre.get("path") and pre.get("sha256")):
+            raise Refused("§3", "selection.pre_exclusions needs a path and a sha256")
     if cfg["lower_bound"] != "wilson80":
         raise Refused("§2 sizing", "lower_bound must be wilson80 (the method frozen in DESIGN.md)")
     if not cfg["cohort"].get("population"):
@@ -64,6 +80,7 @@ def init_study(study: Study, config_path: Path, agents_path: Path = HERE / "agen
         "prompts": {p: (HERE / "prompts" / p).read_text() for p in PROMPTS},
         "control_rod_commit": git_head(),
         "control_rod_dirty": git_dirty(),
+        "harness_sha256": harness_digest(),
     }
     proto = {"frozen": frozen, "frozen_sha256": digest(frozen), "frozen_at": now()}
     write_json(study.protocol_path, proto)
@@ -90,7 +107,7 @@ def load_snapshot(cfg: dict) -> tuple[list[dict], dict]:
             raise Refused("§3 snapshot", f"local snapshot {p} not found; download it once and pin its digest")
         text = p.read_text()
         rows = [json.loads(line) for line in text.splitlines() if line.strip()]
-        prov = {"kind": "swebench", "path": str(p), "file_sha256": sha256_file(p), "rows_sha256": digest(rows),
+        prov = {"kind": "swebench", "path": snap["path"], "file_sha256": sha256_file(p), "rows_sha256": digest(rows),
                 "dataset_name": snap.get("dataset_name"), "split": snap.get("split")}
         if snap.get("sha256") and snap["sha256"] != prov["file_sha256"]:
             raise Refused("§3 snapshot", "snapshot file digest differs from the pinned sha256")
@@ -114,6 +131,10 @@ def validate_rows(rows: list[dict], expected: int | None) -> None:
         for f in ("FAIL_TO_PASS", "PASS_TO_PASS"):
             if isinstance(r[f], str):  # SWE-bench stores these lists as JSON text
                 r[f] = json.loads(r[f])
+            if not isinstance(r[f], list) or not r[f]:
+                raise Refused("§6 A1", f"{r['instance_id']} has an empty {f}")
+        if not r.get("patch"):
+            raise Refused("§6 controls", f"{r['instance_id']} has no gold patch")
 
 
 # ------------------------------------------------------------------ selection
@@ -129,9 +150,18 @@ def pool_for(study: Study, phase: str, rows: list[dict]) -> list[dict]:
     sel = study.protocol()["frozen"]["config"]["selection"]
     used = set()
     if phase == "main":
-        cal = read_json(study.phase_dir("calibration") / "manifest.json")
+        cal = load_manifest(study, "calibration")
         used = set(cal["tasks"]) | set(cal["reserve"]) | set(cal.get("replaced", {}))
-    excl = exclusions(study)
+    excl = dict(exclusions(study))
+    pre = sel.get("pre_exclusions")
+    if pre:
+        pp = Path(pre["path"]).expanduser()
+        if not pp.is_absolute():
+            pp = HERE / pp
+        if not pp.exists() or sha256_file(pp) != pre["sha256"]:
+            raise Refused("§3", f"pre-exclusion list {pre['path']} is missing or differs from its pinned sha256")
+        for tid in json.loads(pp.read_text()):
+            excl.setdefault(tid, "pre-sampling exclusion list")
     pool = [r for r in rows if r["instance_id"] not in used and r["instance_id"] not in excl]
     if sel.get("difficulty"):
         pool = [r for r in pool if r.get("difficulty") in sel["difficulty"]]
@@ -155,6 +185,9 @@ def select(study: Study, phase: str, n: int | None = None) -> dict:
         if not sizing.exists():
             raise Refused("§2 sizing", "main needs a frozen sizing.json from `size`")
         sz = read_json(sizing)
+        if sz.get("sha256") != digest({k: v for k, v in sz.items() if k != "sha256"}) or \
+                sz.get("study_sha256") != proto["frozen_sha256"]:
+            raise Refused("§2 sizing", "sizing.json changed after it was frozen, or belongs to another study")
         n = sz["n_phase1"]
         if n < 1:
             raise Refused("§2 sizing", "sizing says stop; no phase 1")
@@ -169,8 +202,9 @@ def select(study: Study, phase: str, n: int | None = None) -> dict:
         picked.append(r)
         if len(picked) == want:
             break
-    if len(picked) < n:
-        raise Refused("§3 quotas", f"only {len(picked)} tasks fit the filters and quotas; {n} needed")
+    if len(picked) < want:
+        raise Refused("§3 quotas", f"only {len(picked)} tasks fit the filters and quotas; {n} plus a reserve of "
+                      f"{want - n} needed")
     tasks, reserve = picked[:n], picked[n:]
     order = [r["instance_id"] for r in tasks]
     random.Random(f"{sel['seed']}:{phase}:order").shuffle(order)
@@ -214,7 +248,7 @@ def exclude(study: Study, phase: str, task: str, reason: str) -> dict:
         raise Refused("§3 audit", "agents have already run in this phase; exclusions are closed")
     if not reason.strip():
         raise Refused("§3 audit", "an exclusion needs a reason")
-    m = read_json(pdir / "manifest.json")
+    m = load_manifest(study, phase)
     if task not in m["tasks"]:
         raise Refused("§3 audit", f"{task} is not a selected task in {phase}")
     if not m["reserve"]:
@@ -242,4 +276,4 @@ def load_manifest(study: Study, phase: str) -> dict:
 
 def is_test_path(path: str, rule: list[str]) -> bool:
     """The public test-path rule from author.md (§6)."""
-    return any(fnmatch.fnmatch(path, g) for g in rule)
+    return any(fnmatch.fnmatchcase(path, g) for g in rule)

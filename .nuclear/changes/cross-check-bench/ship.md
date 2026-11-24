@@ -2,7 +2,7 @@
 
 Release decision: **pull request for owner review. This record does not authorize a merge or any run.**
 
-- **Proposed:** merge `bench/cross-check/` (harness rebuilt to DESIGN.md v3.3) and the `pnpm cr bench` subcommand, after blind code review by Codex on Astra and Antigravity on Neon.
+- **Proposed:** merge `bench/cross-check/` (harness rebuilt to DESIGN.md v3.3) and the `pnpm cr bench` subcommand, after blind code review by Codex on Astra and Antigravity on Neon. Round 1 found the harness not ready; the 30 fixes are in; the confirmation round decides.
 - **Not claimed:** any result about cross-vendor checking. The fixture numbers come from stub agents.
 - **Not claimed:** the real CLI calls, isolation probes against real CLIs, the billing-route check and the SWE-bench grader have not run. Calibration exercises them and stops on any failed probe or control.
 - **Owner decisions still open:** the policy values in `configs/verified-historical.json` (calendar horizon, call and token caps, timeouts) before `init`, and the go for calibration.

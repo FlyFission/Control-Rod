@@ -6,6 +6,7 @@ fixture tasks with stub agents. No network, no model calls, no Docker.
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import json
 import os
@@ -22,11 +23,20 @@ sys.path.insert(0, str(HERE))
 
 from crbench import adjudicate as adj  # noqa: E402
 from crbench import agents as ag  # noqa: E402
-from crbench import grading, manifest, patches, power, preflight, release, run, score, stats, workspace  # noqa: E402
-from crbench.common import Refused, Study, read_json, read_jsonl, write_json  # noqa: E402
+from crbench import confine, grading, manifest, patches, power, preflight, release, run, score, stats, workspace  # noqa: E402
+from crbench.common import Refused, Study, digest, read_json, read_jsonl, write_json  # noqa: E402
 from crbench.ledger import Ledger  # noqa: E402
 
 FIXTURE = read_json(HERE / "configs" / "fixture.json")
+_spec = importlib.util.spec_from_file_location("bench_cli", HERE / "bench.py")
+bench_cli = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(bench_cli)
+
+
+def freeze_sizing(s: Study, n: int, **extra) -> None:
+    rec = {"n_phase1": n, "designation": "feasibility pilot", "study_sha256": s.protocol()["frozen_sha256"], **extra}
+    rec["sha256"] = digest(rec)
+    write_json(s.dir / "sizing.json", rec)
 
 
 class Tmp(unittest.TestCase):
@@ -69,12 +79,8 @@ class Tmp(unittest.TestCase):
         self.assertTrue(preflight.preflight(s, phase)["passed"])
         if phase == "calibration":
             self.assertTrue(preflight.run_probes(s, ledger=Ledger(s))["passed"])
-        cfg = s.protocol()["frozen"]["config"]
-        m = manifest.load_manifest(s, phase)
-        c = grading.run_controls(cfg, m["rows"], m["tasks"], workspace.workspace_root(cfg), s.dir / "cache",
-                                 s.phase_dir(phase) / "eval-controls")
+        c = bench_cli.controls(s, phase)
         self.assertTrue(c["passed"], c)
-        write_json(s.phase_dir(phase) / "controls.json", c)
 
 
 # ---------------------------------------------------------------------- statistics
@@ -82,7 +88,9 @@ class Tmp(unittest.TestCase):
 
 class Stats(unittest.TestCase):
     def test_wilson(self):
-        self.assertEqual(stats.wilson(0, 10), [0.0, 0.2775])
+        lo, hi = stats.wilson(0, 10)
+        self.assertEqual(lo, 0.0)
+        self.assertAlmostEqual(hi, 0.27753, places=5)  # full precision; only reports round
         self.assertIsNone(stats.wilson(0, 0))
         lo = stats.wilson80_lower(3, 12)
         self.assertTrue(0 < lo < 3 / 12)
@@ -90,7 +98,7 @@ class Stats(unittest.TestCase):
 
     def test_mcnemar(self):
         self.assertEqual(stats.mcnemar_exact(1, 1), 1.0)
-        self.assertEqual(stats.mcnemar_exact(6, 0), 0.0312)
+        self.assertEqual(stats.mcnemar_exact(6, 0), 0.03125)
         self.assertIsNone(stats.mcnemar_exact(0, 0))
 
     def test_kappa(self):
@@ -133,53 +141,65 @@ class Verdicts(unittest.TestCase):
         self.assertIn("{{test_rule}}", (HERE / "prompts" / "author.md").read_text())
 
 
+AGENTS = read_json(HERE / "agents.json")
+
+
 class AgentArgs(unittest.TestCase):
     def test_codex_isolation_flags(self):
-        a = ag.codex_args("checker", Path("/w/repo"), Path("/w/scratch"), ["/home/u", "/study"], "m", "high",
-                          Path("/c/last.txt"), {"config": {}})
+        codex = AGENTS["codex"]
+        a = ag.codex_args(codex, "checker", Path("/w/repo"), Path("/w/scratch"), ["/home/u", "/home/u/x", "/study"],
+                          Path("/c/last.txt"))
         s = " ".join(a)
         for need in ("--ignore-user-config", "--ignore-rules", "--ephemeral", 'web_search="disabled"',
-                     "network.enabled=false", 'approval_policy="never"', "notify=[]",
-                     "check_for_update_on_startup=false", "--disable memories", "--disable multi_agent"):
+                     "permissions.control-rod.network.enabled=false", 'approval_policy="never"', "notify=[]",
+                     "check_for_update_on_startup=false", "--disable memories", "--disable multi_agent",
+                     "--disable hooks", '":root"="read"'):
             self.assertIn(need, s)
         self.assertEqual(a[-1], "-")  # prompt on stdin
         self.assertIn('"/home/u"="deny"', s)
+        self.assertNotIn('"/home/u/x"="deny"', s)  # outermost denials only
         self.assertIn('"/w/repo"="read"', s)
         self.assertIn('"/w/scratch"="write"', s)
-        author = " ".join(ag.codex_args("author", Path("/w/repo"), None, [], "m", None, Path("/l"), {"config": {}}))
-        self.assertIn('"/w/repo"="write"', author)
+        author = " ".join(ag.codex_args(codex, "author", Path("/w/repo"), None, [], Path("/l")))
+        self.assertIn('extends=":workspace"', author)
+        self.assertNotIn('":root"', author)
 
     def test_claude_isolation_flags(self):
-        a = ag.claude_args("checker", Path("/w"), ["/home/u"], "m", None, 50)
+        claude = dict(AGENTS["claude"])
+        a = ag.claude_args(claude, "checker", Path("/w/repo"), Path("/w/scratch"), ["/home/u", "/w"])
         self.assertIn("--strict-mcp-config", a)
+        self.assertEqual(a[a.index("--output-format") + 1], "stream-json")
         self.assertEqual(a[a.index("--tools") + 1], "Read,Glob,Grep,Bash")
         self.assertIn("WebSearch", a[a.index("--disallowedTools") + 1])
         self.assertIn("Agent", a[a.index("--disallowedTools") + 1])
-        self.assertNotIn("plan", a)
+        self.assertEqual(a[a.index("--add-dir") + 1], "/w/scratch")
         st = json.loads(a[a.index("--settings") + 1])
         self.assertEqual(st["sandbox"]["network"]["allowedDomains"], [])
         self.assertTrue(st["permissions"]["blockReadsOutsideWorkingDirectories"])
         self.assertIn("Read(//home/u/**)", st["permissions"]["deny"])
+        self.assertNotIn("Read(//w/**)", st["permissions"]["deny"])  # contains the workspace: left to the outer layer
 
     def test_env_drops_billing_keys(self):
-        with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "x", "ANTHROPIC_API_KEY": "y", "PATH": "/bin"}):
+        with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "x", "ANTHROPIC_API_KEY": "y", "ANTHROPIC_BASE_URL": "z",
+                                          "PATH": "/bin"}):
             env = ag.clean_env({})
-        self.assertNotIn("OPENAI_API_KEY", env)
-        self.assertNotIn("ANTHROPIC_API_KEY", env)
+        for k in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"):
+            self.assertNotIn(k, env)
         self.assertEqual(env["PYTHONDONTWRITEBYTECODE"], "1")
 
-    def test_local_file_cannot_set_model(self):
-        p = HERE / "agents.local.json"
-        if p.exists():
-            self.skipTest("a real agents.local.json is present")
-        try:
+    def test_local_file_cannot_set_model_or_free_transport(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(ag, "HERE", Path(d)):
+            p = Path(d) / "agents.local.json"
+            codex = AGENTS["codex"]
             p.write_text(json.dumps({"codex": {"config": {"model": "other"}}}))
             with self.assertRaises(SystemExit):
-                ag.load_local("codex")
-            p.write_text(json.dumps({"codex": {"config": {"openai_base_url": "https://x"}}}))
-            self.assertEqual(ag.local_record("codex")["config"], {"openai_base_url": "https://x"})
-        finally:
-            p.unlink()
+                ag.load_local("codex", codex)
+            p.write_text(json.dumps({"codex": {"config": {"openai_base_url": "https://evil.example"}}}))
+            with self.assertRaises(SystemExit):
+                ag.load_local("codex", codex)
+            ok = codex["transport_allow"]["openai_base_url"][0]
+            p.write_text(json.dumps({"codex": {"config": {"openai_base_url": ok}}}))
+            self.assertEqual(ag.local_record("codex", codex)["config"], {"openai_base_url": ok})
 
     def test_usage_normalized(self):
         c = ag.norm_usage("claude", {"input_tokens": 10, "cache_creation_input_tokens": 5, "cache_read_input_tokens": 100,
@@ -188,14 +208,24 @@ class AgentArgs(unittest.TestCase):
         x = ag.norm_usage("codex", {"input_tokens": 110, "cached_input_tokens": 100, "output_tokens": 7})
         self.assertEqual((x["input"], x["cached_input"], x["total"]), (10, 100, 117))
         self.assertFalse(ag.norm_usage("codex", {})["known"])
+        self.assertFalse(ag.norm_usage("codex", {"input_tokens": "x", "output_tokens": 1})["known"])
 
     def test_failure_taxonomy(self):
-        self.assertEqual(ag.classify_failure("You've hit your usage limit. Resets at 5pm", {}), "quota_paused")
-        self.assertEqual(ag.classify_failure("segfault", {}), "infra_error")
+        q = ag.classify_failure("You've hit your usage limit. Try again in 3 hours.", {})
+        self.assertEqual(q["status"], "quota_paused")
+        self.assertEqual(ag.classify_failure("segfault", {}), {"status": "infra_error"})
+        self.assertTrue(ag.classify_failure("Error: not logged in", {}).get("auth"))
+
+    def test_pass_with_defects_is_malformed(self):
+        v = ag.parse_verdict('<verdict>{"verdict": "pass", "defects": [{"location": "a.py:1", "reason": "x"}]}</verdict>')
+        self.assertIsNone(v[0])
 
     def test_timeout_kills_process_group(self):
-        with self.assertRaises(subprocess.TimeoutExpired):
-            ag.run_proc(["sh", "-c", "sleep 30 & sleep 30"], Path("/"), "", 1, dict(os.environ))
+        with tempfile.TemporaryDirectory() as d:
+            rc, timed_out = ag.run_proc(["sh", "-c", "sleep 30 & sleep 30"], Path("/"), "", 1, dict(os.environ),
+                                        Path(d) / "o", Path(d) / "e")
+        self.assertTrue(timed_out)
+        self.assertIsNone(rc)
 
 
 # ---------------------------------------------------------------------- protocol and tasks
@@ -246,6 +276,13 @@ class Protocol(Tmp):
         manifest.init_study(s2, self.config(**{"selection.max_per_repo": 3, "selection.reserve": 1}))
         self.assertEqual(manifest.select(s2, "calibration")["tasks"], m["tasks"])  # seeded
         write_json(s.dir / "sizing.json", {"n_phase1": 3})
+        with self.assertRaises(Refused):
+            manifest.select(s, "main")  # an unsigned sizing file is refused
+        freeze_sizing(s, 3)
+        with self.assertRaises(Refused):
+            manifest.select(s, "main")  # 3 left, but 3 plus a reserve of 1 are needed: the reserve must fill
+        (s.dir / "sizing.json").unlink()
+        freeze_sizing(s, 2)
         main = manifest.select(s, "main")
         self.assertFalse(set(main["tasks"]) & (set(m["tasks"]) | set(m["reserve"])))
 
@@ -294,16 +331,37 @@ class Workspaces(Tmp):
         self.assertEqual(len(repo.parent.name), 24)  # opaque nonce, no task or vendor name
         self.assertEqual(oct(root.stat().st_mode & 0o777), "0o711")
 
-    def test_root_inside_repo_or_home_refused(self):
+    def test_root_inside_repo_home_or_study_refused(self):
         for bad in (HERE / "ws", self.home / "ws"):
             with self.assertRaises(Refused):
                 workspace.workspace_root({"caps": {"workspace_root": str(bad)}})
+        with self.assertRaises(Refused):
+            workspace.workspace_root({"caps": {"workspace_root": str(self.d / "study" / "ws")}}, self.d / "study")
 
-    def test_checker_tree_read_only_with_patch_uncommitted(self):
+    def test_root_through_a_symlink_is_resolved(self):
+        """macOS /var is a link to /private/var; the root must be the real path so confinement rules match."""
+        (self.d / "real").mkdir()
+        os.symlink(self.d / "real", self.d / "link")
+        root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "link" / "ws")}})
+        self.assertEqual(root, (self.d / "real" / "ws").resolve())
+
+    def test_base_tree_matches_and_git_ignores_hooks(self):
         root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
-        patch = (HERE / "fixtures" / "t1" / "stub-fix.patch").read_text()
+        repo = workspace.export_base(self.task, root, self.d / "cache")
+        hook = repo / ".git" / "hooks" / "pre-commit"
+        hook.parent.mkdir(parents=True, exist_ok=True)
+        hook.write_text("#!/bin/sh\ntouch HOOK_RAN\nexit 1\n")
+        hook.chmod(0o755)
+        (repo / "x.txt").write_text("x")
+        workspace._gitb(["add", "-A"], repo)
+        workspace._gitb(["commit", "-q", "-m", "x"], repo)
+        self.assertFalse((repo / "HOOK_RAN").exists())
+
+    def test_checker_tree_read_only_with_patch_staged(self):
+        root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
+        patch = (HERE / "fixtures" / "t1" / "stub-fix.patch").read_bytes()
         repo, scratch = workspace.checker_tree(self.task, patch, root, self.d / "cache")
-        self.assertIn("raise ValueError", subprocess.run(["git", "diff"], cwd=repo, capture_output=True,
+        self.assertIn("raise ValueError", subprocess.run(["git", "diff", "HEAD"], cwd=repo, capture_output=True,
                                                          text=True).stdout)
         if os.geteuid() != 0:  # root ignores file modes
             with self.assertRaises(OSError):
@@ -313,9 +371,8 @@ class Workspaces(Tmp):
     def capture(self, edit):
         root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
         repo = workspace.export_base(self.task, root, self.d / "cache")
-        base = workspace.base_rev(repo)
         edit(repo)
-        return patches.capture(repo, base, FIXTURE["test_path_rule"]), repo, root
+        return patches.capture(repo, self.task, root, self.d / "cache", FIXTURE["test_path_rule"]), repo, root
 
     def test_capture_statuses(self):
         self.assertEqual(self.capture(lambda r: None)[0]["status"], "empty")
@@ -325,31 +382,47 @@ class Workspaces(Tmp):
             (r / "__pycache__").mkdir()
             (r / "__pycache__" / "x.pyc").write_bytes(b"\0")
             (r / "data.bin").write_bytes(bytes(range(256)))
+            os.symlink("lists.py", r / "alias.py")
         cap, repo, root = self.capture(fix)
         self.assertEqual(cap["status"], "ok")
-        self.assertNotIn("__pycache__", cap["patch"])
-        self.assertIn("GIT binary patch", cap["patch"])
-        ok, h = patches.reapply_ok(self.task, cap["patch"], root, self.d / "cache")
+        self.assertIsInstance(cap["patch"], bytes)
+        self.assertNotIn(b"__pycache__", cap["patch"])
+        self.assertIn(b"GIT binary patch", cap["patch"])
+        self.assertIn(b"new file mode 120000", cap["patch"])  # a link is captured as a link
+        ok, got = patches.reapply_ok(self.task, cap["patch"], cap["tree_oid"], root, self.d / "cache")
         self.assertTrue(ok)
-        self.assertEqual(h, cap["sha256"])
+        self.assertEqual(got, cap["tree_oid"])
         for edit in (lambda r: (r / "test_new.py").write_text("x"),
                      lambda r: (r / "test_existing.py").unlink(),
                      lambda r: (r / "test_existing.py").rename(r / "moved.py"),
-                     lambda r: (r / "lists.py").rename(r / "test_lists.py")):
+                     lambda r: (r / "lists.py").rename(r / "test_lists.py"),
+                     lambda r: ((r / "tests").mkdir(), (r / "tests" / "x.py").write_text("x"))):
             c = self.capture(edit)[0]
             self.assertEqual(c["status"], "patch_invalid", c["changes"])
+
+    def test_capture_never_reads_the_authors_git_dir(self):
+        def poison(r):
+            (r / "lists.py").write_text("def last_n(items, n):\n    return []\n")
+            (r / ".git" / "config").write_text("[core]\n\tfsmonitor = touch FSMON_RAN\n")
+        cap, repo, root = self.capture(poison)
+        self.assertEqual(cap["status"], "ok")
+        self.assertFalse((repo / "FSMON_RAN").exists())
 
 
 # ---------------------------------------------------------------------- ledger
 
 
 class LedgerRules(Tmp):
+    def ok(self, lg, call, phase="calibration", vendor="v", role="author", rec=None):
+        lid = lg.launch(call, phase, vendor, role, 0)
+        lg.done(lid, rec or {"status": "ok", "usage": {"known": False}})
+        return lid
+
     def test_call_cap_and_calibration_allocation(self):
         s = self.study(**{"caps.calibration_max_calls": 2, "caps.max_calls": 3})
         lg = Ledger(s)
         for i in range(2):
-            lg.launch(f"c{i}", "calibration", "v", "author", 0)
-            lg.done(f"c{i}", "calibration", "v", "author", {"status": "ok", "usage": {"known": False}})
+            self.ok(lg, f"c{i}")
         with self.assertRaises(Refused) as e:
             lg.launch("c2", "calibration", "v", "author", 0)
         self.assertIn("calibration", e.exception.rule)
@@ -358,52 +431,79 @@ class LedgerRules(Tmp):
             lg.launch("m1", "main", "v", "author", 0)
         self.assertIn("call cap", e.exception.rule)
 
-    def test_interrupted_launch_still_counts(self):
-        s = self.study(**{"caps.max_calls": 2})
+    def test_every_attempt_has_its_own_id_and_interrupted_ones_count(self):
+        s = self.study(**{"caps.max_calls": 2, "caps.calibration_max_calls": 2})
         lg = Ledger(s)
-        lg.launch("c0", "calibration", "v", "author", 0)
-        lg.launch("c0", "calibration", "v", "author", 0)  # relaunch after a crash
+        a = lg.launch("c0", "calibration", "v", "author", 0)
+        b = lg.launch("c0", "calibration", "v", "author", 1)  # same call, next attempt
+        self.assertNotEqual(a, b)
+        self.assertTrue(lg.reconcile(a))
+        self.assertFalse(lg.reconcile(a))  # closed once
+        self.assertEqual(lg.state()["dones"][a]["status"], "infra_error")
         self.assertEqual(lg.summary()["launched"], 2)
-        self.assertTrue(any(e.get("why") == "interrupted launch" for e in lg.events()))
         with self.assertRaises(Refused):
             lg.launch("c1", "calibration", "v", "author", 0)
 
-    def test_token_gate_phase1_only(self):
+    def test_run_lock_is_exclusive(self):
+        s = self.study()
+        with Ledger(s).run_lock():
+            with self.assertRaises(Refused):
+                with Ledger(s).run_lock():
+                    pass
+
+    def test_token_gate_uses_frozen_phase0_p95(self):
         s = self.study(**{"caps.max_tokens": 1000})
         lg = Ledger(s)
-        lg.launch("c0", "calibration", "v", "checker", 0)
-        lg.done("c0", "calibration", "v", "checker", {"status": "ok", "usage": {"known": True, "total": 400}})
-        lg.launch("c1", "calibration", "v", "checker", 0)  # phase 0 never needs a percentile
-        lg.done("c1", "calibration", "v", "checker", {"status": "ok", "usage": {"known": True, "total": 100}})
+        self.ok(lg, "c0", role="checker", rec={"status": "ok", "usage": {"known": True, "total": 400}})
+        self.ok(lg, "c1", role="checker", rec={"status": "ok", "usage": {"known": True, "total": 100}})
+        lg.launch("m0", "main", "v", "checker", 0)  # no frozen sizing yet: gated on calls and time only
+        self.assertEqual(lg.calibration_p95(), {"v/checker": 400})
+        freeze_sizing(s, 1, token_p95=lg.calibration_p95())
         with self.assertRaises(Refused) as e:  # used 500 + reserve 2 x 400 > 1000
-            lg.launch("m0", "main", "v", "checker", 0)
+            lg.launch("m1", "main", "v", "checker", 0)
         self.assertIn("token", e.exception.rule)
-        lg.launch("m1", "main", "other", "checker", 0)  # unknown p95: gated on calls and time only
+        lg.launch("m2", "main", "other", "checker", 0)  # unknown p95: gated on calls and time only
 
-    def test_quota_pause_and_grace(self):
+    def test_probes_are_left_out_of_the_p95(self):
+        s = self.study()
+        lg = Ledger(s)
+        self.ok(lg, "probe--x", role="checker", rec={"status": "ok", "usage": {"known": True, "total": 9000}})
+        self.ok(lg, "c0", role="checker", rec={"status": "ok", "usage": {"known": True, "total": 10}})
+        self.assertEqual(lg.calibration_p95(), {"v/checker": 10})
+
+    def test_quota_pause_order_and_grace(self):
         s = self.study()
         lg = Ledger(s)
         with mock.patch("crbench.ledger.now", return_value="2026-11-24T10:00:00Z"):
-            lg.launch("c0", "calibration", "v", "author", 0)
-            lg.done("c0", "calibration", "v", "author", {"status": "quota_paused", "usage": {"known": False}})
+            self.ok(lg, "c0", rec={"status": "quota_paused", "usage": {"known": False}, "reset_hours": 2})
             with self.assertRaises(Refused) as e:
                 lg.launch("c1", "calibration", "v", "author", 0)
             self.assertIn("quota", e.exception.rule)
             lg.launch("c1", "calibration", "w", "author", 0)  # only that vendor pauses
-        with mock.patch("crbench.ledger.now", return_value="2026-11-24T16:00:00Z"):
-            lg.launch("c2", "calibration", "v", "author", 0)
+        with mock.patch("crbench.ledger.now", return_value="2026-11-24T12:30:00Z"):  # the CLI's own reset time
+            c2 = lg.launch("c2", "calibration", "v", "author", 0)
         self.assertFalse(any(e["event"] == "halt" for e in lg.events()))
-        with mock.patch("crbench.ledger.now", return_value="2026-11-25T16:00:00Z"):
-            lg.done("c2", "calibration", "v", "author", {"status": "quota_paused", "usage": {"known": False}})
+        with mock.patch("crbench.ledger.now", return_value="2026-11-25T13:00:00Z"):  # 25 h past the first reset
+            lg.done(c2, {"status": "quota_paused", "usage": {"known": False}})
         self.assertTrue(any(e["event"] == "halt" for e in lg.events()))
+
+    def test_a_later_success_clears_a_pause(self):
+        s = self.study()
+        lg = Ledger(s)
+        with mock.patch("crbench.ledger.now", return_value="2026-11-24T10:00:00Z"):
+            self.ok(lg, "c0", rec={"status": "quota_paused", "usage": {"known": False}, "reset_hours": 1})
+        with mock.patch("crbench.ledger.now", return_value="2026-11-24T11:30:00Z"):
+            self.ok(lg, "c1")
+        with mock.patch("crbench.ledger.now", return_value="2026-11-26T10:00:00Z"):
+            lid = lg.launch("c2", "calibration", "v", "author", 0)
+            lg.done(lid, {"status": "quota_paused", "usage": {"known": False}})  # a new pause, not past grace
+        self.assertFalse(any(e["event"] == "halt" for e in lg.events()))
 
     def test_three_infra_errors_halt(self):
         s = self.study()
         lg = Ledger(s)
         for i in range(3):
-            lg.launch(f"c{i}", "calibration", "v", "author", 0)
-            lg.done(f"c{i}", "calibration", "v", "author", {"status": "infra_error", "why": "boom",
-                                                             "usage": {"known": False}})
+            self.ok(lg, f"c{i}", rec={"status": "infra_error", "why": "boom", "usage": {"known": False}})
         with self.assertRaises(Refused) as e:
             lg.launch("c9", "calibration", "v", "author", 0)
         self.assertIn("halt", e.exception.rule)
@@ -411,9 +511,7 @@ class LedgerRules(Tmp):
     def test_sign_in_error_halts(self):
         s = self.study()
         lg = Ledger(s)
-        lg.launch("c0", "calibration", "v", "author", 0)
-        lg.done("c0", "calibration", "v", "author", {"status": "infra_error", "why": "Not logged in",
-                                                     "usage": {"known": False}})
+        self.ok(lg, "c0", rec={"status": "infra_error", "auth": True, "why": "Not logged in", "usage": {"known": False}})
         with self.assertRaises(Refused):
             lg.launch("c1", "calibration", "v", "author", 0)
 
@@ -433,7 +531,7 @@ class Preflight(Tmp):
         (self.home / "auth.json").write_text(json.dumps({"OPENAI_API_KEY": "sk-x", "tokens": {}}))
         (self.home / "config.toml").write_text('model = "x"\npreferred_auth_method = "apikey"\n')
         agent = {"billing_config_files": ["~/auth.json", "~/config.toml"]}
-        with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "y"}):
+        with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "y", "HOME": str(self.home), "PATH": "/bin"}, clear=True):
             hits = preflight.scan_billing(agent)
         self.assertEqual(len(hits), 3, hits)
         self.assertFalse(any("sk-x" in h for h in hits))  # values are never recorded
@@ -448,25 +546,88 @@ class Preflight(Tmp):
         fake.write_text("#!/bin/sh\necho 'Logged in using an API key'\n")
         self.assertFalse(preflight.auth_status({"kind": "codex", "bin": str(fake), "auth_status": spec}, root)["ok"])
 
-    def test_sealed_probe_passes_and_leaky_fails(self):
+    def test_probes_need_a_matching_preflight(self):
         s = self.study()
         manifest.select(s, "calibration")
-        self.assertTrue(preflight.run_probes(s)["passed"])
+        with self.assertRaises(Refused):
+            preflight.run_probes(s)
+        self.assertTrue(preflight.preflight(s, "calibration")["passed"])
+        rec = read_json(s.phase_dir("calibration") / "preflight.json")
+        rec["stamp"]["harness_sha256"] = "0" * 64
+        write_json(s.phase_dir("calibration") / "preflight.json", rec)
+        with self.assertRaises(Refused):
+            preflight.run_probes(s)
+
+    def test_sealed_probe_passes_and_leaky_or_lazy_fails(self):
+        s = self.study()
+        manifest.select(s, "calibration")
+        preflight.preflight(s, "calibration")
+        r = preflight.run_probes(s)
+        self.assertTrue(r["passed"], {k: [c for c, ok in v["checks"].items() if not ok] for k, v in r["results"].items()})
+        if confine.mechanism():
+            self.assertTrue(all(v["harness_probes"] == confine.mechanism() for v in r["results"].values()))
+            self.assertTrue(any(k.startswith("negative: cannot read real HOME") for v in r["results"].values()
+                                for k in v["checks"]))
         leaky = lambda agent, *a, **k: ag.run_call({**agent, "leaky": True}, *a, **k)  # noqa: E731
         r = preflight.run_probes(s, run_call=leaky)
         self.assertFalse(r["passed"])
         failed = {k for v in r["results"].values() for k, ok in v["checks"].items() if not ok}
-        for k in ("negative: cannot read run directory", "negative: cannot read sibling workspace",
-                  "negative: cannot read real HOME", "negative: cannot read other sign-in",
-                  "negative: cannot read AGENTS.md"):
+        for k in ("agent: did not read run directory", "agent: did not read sibling workspace",
+                  "agent: did not read real HOME", "agent: did not read other vendor's sign-in"):
             self.assertIn(k, failed)
-        self.assertEqual(list(self.home.iterdir()), [])  # the HOME canary is cleaned up
+        lazy = lambda agent, *a, **k: ag.run_call({**agent, "lazy": True}, *a, **k)  # noqa: E731
+        r = preflight.run_probes(s, run_call=lazy)
+        self.assertFalse(r["passed"])  # a probe that never tried proves nothing
+        failed = {k for v in r["results"].values() for k, ok in v["checks"].items() if not ok}
+        self.assertIn("agent: tried to read real HOME", failed)
+        self.assertIn("agent: tried shell network", failed)
+        self.assertFalse([p for p in self.home.iterdir() if p.name.startswith(".cr-bench-probe")])  # canary cleaned up
 
     def test_run_refuses_without_gates(self):
         s = self.study()
         manifest.select(s, "calibration")
         with self.assertRaises(Refused):
             run.Runner(s, "calibration").run(yes=True)
+
+
+# ---------------------------------------------------------------------- confinement
+
+
+@unittest.skipUnless(confine.mechanism(), "no Seatbelt or bwrap on this host")
+class Confinement(Tmp):
+    def sh(self, cmd, **kw):
+        argv, rec = confine.wrap(["/bin/sh", "-c", cmd], **kw)
+        return subprocess.run(argv, capture_output=True, text=True, timeout=30)
+
+    def test_deny_then_allow_back(self):
+        outer = self.d / "outer"
+        own, sib = outer / "own", outer / "sib"
+        own.mkdir(parents=True)
+        sib.mkdir()
+        (own / "f").write_text("OWN")
+        (sib / "f").write_text("SIB")
+        kw = {"deny_read": [outer], "allow_read": [own], "writable": [own]}
+        self.assertIn("OWN", self.sh(f"cat '{own}/f'", **kw).stdout)
+        r = self.sh(f"cat '{sib}/f'", **kw)
+        self.assertNotIn("SIB", r.stdout)
+        self.assertEqual(self.sh(f"echo x > '{sib}/new'", **kw).returncode != 0, True)
+        self.assertFalse((sib / "new").exists())
+
+    def test_read_only_tree(self):
+        tree = self.d / "tree"
+        tree.mkdir()
+        (tree / "a").write_text("A")
+        scratch = self.d / "scratch"
+        scratch.mkdir()
+        kw = {"deny_read": [], "allow_read": [tree], "writable": [scratch], "read_only": [tree]}
+        self.assertIn("A", self.sh(f"cat '{tree}/a'", **kw).stdout)
+        self.assertNotEqual(self.sh(f"echo x > '{tree}/b'", **kw).returncode, 0)
+        self.assertEqual(self.sh(f"echo x > '{scratch}/b'", **kw).returncode, 0)
+
+    def test_no_network(self):
+        r = self.sh("python3 -c \"import socket; socket.create_connection(('1.1.1.1', 53), 3)\"",
+                    deny_read=[], allow_read=[], writable=[], network=False)
+        self.assertNotEqual(r.returncode, 0)
 
 
 # ---------------------------------------------------------------------- grading
@@ -479,7 +640,7 @@ class Grading(Tmp):
         self.assertEqual(grading.judge(self.task, {"f": "passed", "p": "passed"})["resolved"], True)
         g = grading.judge(self.task, {"f": "failed", "p": "passed"})
         self.assertEqual((g["a1_pass"], g["resolved"]), (True, False))
-        self.assertEqual(grading.judge(self.task, {"f": "passed"})["status"], "infra_error")  # absent ID
+        self.assertEqual(grading.judge(self.task, {"f": "passed"})["status"], "infra_error")  # did not run
         self.assertEqual(grading.judge(self.task, None)["status"], "infra_error")  # no report
         self.assertFalse(grading.judge(self.task, {"f": "passed", "p": "skipped"})["a1_pass"])  # skip is not a pass
         with self.assertRaises(Refused):
@@ -487,22 +648,45 @@ class Grading(Tmp):
 
     def test_swebench_report_parsing(self):
         p = self.d / "report.json"
-        p.write_text(json.dumps({"x": {"resolved": True, "tests_status": {
+        p.write_text(json.dumps({"x": {"patch_successfully_applied": True, "resolved": False, "tests_status": {
             "FAIL_TO_PASS": {"success": ["f"], "failure": []}, "PASS_TO_PASS": {"success": [], "failure": ["p"]}}}}))
-        self.assertEqual(grading.parse_swebench_report(p, "x"), {"f": "passed", "p": "failed"})
+        r = grading.parse_swebench_report(p, "x")
+        self.assertEqual((r["applied"], r["resolved"]), (True, False))
         self.assertIsNone(grading.parse_swebench_report(self.d / "missing.json", "x"))
         p.write_text("{}")
         self.assertIsNone(grading.parse_swebench_report(p, "x"))
         self.assertEqual(len(grading.report_paths(self.d, "r", "m", "x")), 2)
 
+    def test_labels_are_safe_directory_names(self):
+        self.assertEqual(grading.label_dir("gold-0-django__django-1|../../x"), "gold-0-django__django-1_.._.._x")
+
+    def test_submission_statuses_pass_through(self):
+        for st in ("empty", "patch_invalid", "author_timeout", "infra_error"):
+            self.assertEqual(grading.grade_submission({"status": st}, None)["status"], st)
+        self.assertEqual(grading.grade_submission({"status": "ok"}, None)["status"], "infra_error")
+
     def test_controls_pass_on_fixtures(self):
+        s = self.study()
+        manifest.select(s, "calibration")
+        c = bench_cli.controls(s, "calibration")
+        self.assertTrue(c["passed"], c)
+        m = manifest.load_manifest(s, "calibration")
+        self.assertEqual(c["stamp"]["manifest_sha256"], m["manifest_sha256"])
+        kinds = [r["kind"] for r in c["results"].values()]
+        self.assertEqual(kinds.count("known_bad"), len(m["tasks"]))  # every task, not a sample
+        self.assertEqual(kinds.count("gold"), 2 * len(m["tasks"]))  # repeated, for flakiness
+        self.assertIn("missing_report", c["results"])
+        self.assertTrue((s.phase_dir("calibration") / "controls.md").exists())
+
+    def test_a_broken_patch_is_patch_invalid(self):
         s = self.study()
         m = manifest.select(s, "calibration")
         cfg = s.protocol()["frozen"]["config"]
-        c = grading.run_controls(cfg, m["rows"], m["tasks"][:2], workspace.workspace_root(cfg), s.dir / "cache",
-                                 s.dir / "eval")
-        self.assertTrue(c["passed"], c)
-        self.assertIn("missing_report", c["results"])
+        tid = m["tasks"][0]
+        root = workspace.workspace_root(cfg, s.dir)
+        g = grading.grade(cfg, [("x", tid, b"diff --git a/nope.py b/nope.py\n--- a/nope.py\n+++ b/nope.py\n@@ -1 +1 @@\n-a\n+b\n")],
+                          m["rows"], root, s.dir / "cache", s.dir / "eval", preflight.denied_paths(s, root))
+        self.assertEqual(g["x"]["status"], "patch_invalid")
 
 
 # ---------------------------------------------------------------------- the whole pipeline
@@ -514,17 +698,23 @@ class EndToEnd(Tmp):
         self.ready(s)
         planned = run.Runner(s, "calibration").run()
         self.assertEqual(planned["status"], "planned")
-        self.assertEqual(read_jsonl(s.ledger_path)[-1]["call"].startswith("probe"), True)  # nothing ran but probes
+        self.assertTrue(read_jsonl(s.ledger_path)[-1]["call"].startswith("probe"))  # nothing ran but probes
         r = run.Runner(s, "calibration").run(yes=True)
         self.assertEqual(r["status"], "complete", r)
         launched = r["ledger"]["launched"]
         self.assertEqual(run.Runner(s, "calibration").run(yes=True)["ledger"]["launched"], launched)  # idempotent
         stab = read_json(s.phase_dir("calibration") / "stability.json")
         self.assertEqual((stab["n_checked"], len(stab["sample"])), (16, 12))
+        sub = read_json(s.phase_dir("calibration") / "calls" / "fixture__t1--stub-a--author" / "submission.json")
+        self.assertEqual(sub["status"], "ok")
+        self.assertTrue(sub["tree_oid"])
         with self.assertRaises(Refused):
             adj.evaluate(s, "calibration")  # not before the lock
         adj.lock(s, "calibration")
+        self.assertFalse(list(s.phase_dir("calibration").glob(".lock-*")))  # staging is gone
+        lock = adj.verify_lock(s, "calibration")
         q = read_json(s.phase_dir("calibration") / "adjudication" / "queue.json")
+        self.assertEqual(lock["queue"]["items"], len(q["items"]))
         self.assertEqual(len(q["items"]), 4)  # t4 and t8 shapes, both authors: the strict checker alone fails them
         blob = json.dumps(q)
         for leak in ("stub-a", "stub-b", "same", "cross", "resolved"):
@@ -543,14 +733,31 @@ class EndToEnd(Tmp):
         self.assertEqual((d["stub-a"]["bad"]["n"], d["stub-a"]["bad"]["diff"]), (4, 0.5))
         self.assertEqual(d["stub-b"]["bad"]["diff"], -0.5)
         self.assertEqual(res["equal_author_weight"]["bad"]["point"], 0.0)
+        self.assertIsNotNone(res["equal_author_weight"]["bad"]["pooled"]["ci95"])
         self.assertEqual(d["stub-a"]["bad"]["discordant"], {"cross_only": 2, "same_only": 0})
         self.assertEqual(res["adjudication"]["counts"]["cross-only/bad"]["supported"], 2)
-        self.assertEqual(res["stability"]["stub-a"]["flips"], 0)
+        self.assertEqual(res["stability"]["stub-a"]["flips"]["k"], 0)
         self.assertEqual(res["workflow"]["stub-a"]["A1"]["accepted"], 8)
+        self.assertEqual(res["workflow"]["stub-a"]["checker_tokens"]["same"]["checks"], 8 + 6)  # first checks + repeats
         self.assertEqual(res["spend"]["actual_usd"], 0)
+        self.assertFalse(res["spend"]["partial"])
         rep = (s.phase_dir("calibration") / "report.md").read_text()
-        self.assertIn("no effectiveness claim", rep)
-        self.assertIn("A4 (human sign-off) is omitted", rep)
+        for need in ("no effectiveness claim", "A4 (human sign-off) is omitted", "A1, hidden tests only",
+                     "| Item | Task |", "## Environment"):
+            self.assertIn(need, rep)
+
+    def test_a_check_edited_after_the_lock_is_caught(self):
+        s = self.study()
+        self.ready(s)
+        run.Runner(s, "calibration").run(yes=True)
+        adj.lock(s, "calibration")
+        adj.adjudicate(s, "calibration", None, None, None, skip="calibration only")
+        rp = next((s.phase_dir("calibration") / "calls").glob("*--same--r0-a0")) / "result.json"
+        r = read_json(rp)
+        r["text"] = r["text"] + " "
+        write_json(rp, r)
+        with self.assertRaises(Refused):
+            adj.evaluate(s, "calibration")
 
     def test_missing_grade_blocks_score(self):
         s = self.study()
@@ -566,6 +773,19 @@ class EndToEnd(Tmp):
         with self.assertRaises(Refused):
             score.score(s, "calibration")
         self.assertEqual(read_json(s.phase_dir("calibration") / "results.json")["status"], "incomplete")
+
+    def test_exhausted_retries_stop_the_run_incomplete(self):
+        s = self.study()
+        self.ready(s)
+
+        def broken(agent, role, *a, **k):
+            return {"status": "infra_error", "why": "boom", "usage": {"known": False}, "seconds": 0}
+        r = run.Runner(s, "calibration", run_call=broken).run(yes=True)
+        self.assertFalse(r["status"] == "complete")
+        with self.assertRaises(SystemExit) as e, redirect_stdout(io.StringIO()):
+            bench_cli.main(["run", "--study", str(s.dir), "--phase", "calibration", "--yes"])
+        self.assertNotEqual(e.exception.code, 0)
+        self.assertFalse(list((s.phase_dir("calibration") / "calls").glob("*--author/submission.json")))
 
     def test_quota_pause_resume_and_interrupt(self):
         s = self.study()
@@ -586,27 +806,27 @@ class EndToEnd(Tmp):
             Ledger(s).launch("x", "calibration", "stub-a", "author", 0)
         lg = Ledger(s)
         last = [e for e in lg.events() if e["event"] == "quota_paused"][-1]
-        later = last["expected_reset"].replace("Z", "") + "Z"
-        with mock.patch("crbench.ledger.now", return_value=later):
+        with mock.patch("crbench.ledger.now", return_value=last["expected_reset"]):
             with self.assertRaises(KeyboardInterrupt):
                 run.Runner(s, "calibration", run_call=flaky).run(yes=True)
             r = run.Runner(s, "calibration", run_call=flaky).run(yes=True)
         self.assertEqual(r["status"], "complete", r)
-        self.assertTrue(any(e.get("why") in ("interrupted launch", "interrupted call") for e in lg.events()
-                            if e["event"] == "done") or
-                        any(read_json(p).get("why") == "interrupted call"
-                            for p in (s.phase_dir("calibration") / "calls").glob("*/result.json")))
+        interrupted = [read_json(p) for p in (s.phase_dir("calibration") / "calls").glob("*/result.json")
+                       if read_json(p).get("why") == "interrupted call"]
+        self.assertEqual(len(interrupted), 1)
+        self.assertEqual(Ledger(s).summary()["in_flight"], 0)
 
     def test_checker_changing_source_halts(self):
         s = self.study()
         self.ready(s)
 
-        def vandal(agent, role, prompt, workspace_, *a, **k):
+        def vandal(agent, role, prompt, ws, *a, **k):
             if role == "checker":
-                for p in [workspace_, *workspace_.rglob("*")]:
+                w = ws["workspace"]
+                for p in [w, *w.rglob("*")]:
                     p.chmod(p.stat().st_mode | 0o200)
-                (workspace_ / "lists.py").write_text("vandalized\n")
-            return ag.run_call(agent, role, prompt, workspace_, *a, **k)
+                (w / "lists.py").write_text("vandalized\n")
+            return ag.run_call(agent, role, prompt, ws, *a, **k)
         r = run.Runner(s, "calibration", run_call=vandal).run(yes=True)
         self.assertTrue(r["status"].startswith("stopped"), r)
         self.assertTrue(any(e["event"] == "halt" for e in Ledger(s).events()))
@@ -625,10 +845,14 @@ class EndToEnd(Tmp):
         r = run.Runner(s, "calibration", run_call=drift).run(yes=True)
         self.assertIn("model change", r["status"])
 
-    def test_cli_version_change_stops(self):
+    def test_cli_or_harness_change_stops(self):
         s = self.study()
         self.ready(s)
-        with mock.patch("crbench.preflight.cli_version", return_value="2.0"), self.assertRaises(Refused):
+        changed = {"path": "stub", "sha256": "f" * 64, "version": "2.0"}
+        with mock.patch("crbench.preflight.cli_identity", return_value=changed), self.assertRaises(Refused):
+            run.Runner(s, "calibration").run(yes=True)
+        with mock.patch("crbench.run.stamp", return_value={"study_sha256": "x", "harness_sha256": "y"}), \
+                self.assertRaises(Refused):
             run.Runner(s, "calibration").run(yes=True)
 
     def full_calibration(self, s):
@@ -639,15 +863,9 @@ class EndToEnd(Tmp):
         adj.evaluate(s, "calibration")
         score.score(s, "calibration")
 
-    def test_sizing_and_release(self):
-        s = self.study()
+    def main_phase(self, s):
         self.full_calibration(s)
-        sz = power.size(s, sims=10)
-        self.assertIn(sz["designation"], ("stop", "feasibility pilot", "publication run"))
-        with self.assertRaises(Refused):
-            power.size(s, sims=10)  # frozen once
-        # phase 1 at a fixed count, to exercise the release gate
-        write_json(s.dir / "sizing.json", {**sz, "designation": "feasibility pilot", "n_phase1": 4})
+        freeze_sizing(s, 4, token_p95=Ledger(s).calibration_p95())
         manifest.select(s, "main")
         self.ready(s, "main")
         self.assertEqual(run.Runner(s, "main").run(yes=True)["status"], "complete")
@@ -655,46 +873,81 @@ class EndToEnd(Tmp):
         adj.adjudicate(s, "main", None, None, None, skip="test")
         adj.evaluate(s, "main")
         score.score(s, "main")
-        m = release.release(s)
+
+    def test_sizing_is_frozen_and_signed(self):
+        s = self.study()
+        self.full_calibration(s)
+        sz = power.size(s, sims=10)
+        self.assertIn(sz["designation"], ("stop", "feasibility pilot", "publication run"))
+        self.assertEqual(sz["sha256"], digest({k: v for k, v in sz.items() if k != "sha256"}))
+        self.assertIn("token_p95", sz)
+        with self.assertRaises(Refused):
+            power.size(s, sims=10)  # frozen once
+
+    def test_power_simulation_behaves(self):
+        m = {"delta_catch": 0.15, "delta_fr": 0.05, "power": 0.8}
+        small = power.simulate(20, [0.4, 0.4], [0.4, 0.4], 0.3, 0.2, 0.05, 0.15, 0.05, 100, 1)
+        big = power.simulate(600, [0.4, 0.4], [0.4, 0.4], 0.3, 0.2, 0.05, 0.15, 0.05, 100, 1)
+        self.assertLess(small, big)
+        self.assertLess(power.mc_lower(0.8, 100), 0.8)
+        n, _ = power.required_n([0.4, 0.4], [0.4, 0.4], [(0.3, 0.2)], 0.05, {**m, "delta_catch": 0.0001}, sims=20)
+        self.assertIsNone(n)  # an unreachable gain is reported as such, after N_CAP itself is tried
+
+    def test_release(self):
+        s = self.study()
+        self.main_phase(s)
+        call = next((s.phase_dir("main") / "calls").glob("*-a0"))
+        (call / "note.txt").write_text(f"worked in {self.home}/project")
+        with self.assertRaises(Refused):
+            release.release(s)  # redistribution not confirmed
+        m = release.release(s, confirm_redistribution=True)
         share_md = (s.dir / "release" / "share.md").read_text()
         for need in ("FEASIBILITY PILOT", "directly, not through Control Rod's daemon", "(A4) was omitted",
-                     "not adjudicated", "Open source, free"):
+                     "not adjudicated", "Open source, free", "Release manifest digest", "Transcript asset digest"):
             self.assertIn(need, share_md)
-        self.assertIn("main/results.json", m["files"])
-        rel = (s.dir / "release" / "records" / "ledger.jsonl").read_text()
-        self.assertNotIn(str(self.d), rel)
+        self.assertIn("main/results.json", m["records"]["files"])
+        rel = s.dir / "release" / "records"
+        self.assertEqual((rel / "ledger.jsonl").read_bytes(), s.ledger_path.read_bytes())  # byte for byte
+        self.assertTrue(any(m["asset"]["redactions"].values()))
+        import tarfile
+        with tarfile.open(s.dir / "release" / "transcripts.tar.gz") as t:
+            note = next(x for x in t.getmembers() if x.name.endswith("note.txt"))
+            self.assertNotIn(str(self.home), t.extractfile(note).read().decode())
         with self.assertRaises(Refused):
-            release.release(s)  # once
+            release.release(s, confirm_redistribution=True)  # once
 
     def test_release_refuses_private_data(self):
         s = self.study()
-        self.full_calibration(s)
-        write_json(s.dir / "sizing.json", {"designation": "feasibility pilot", "n_phase1": 4})
-        manifest.select(s, "main")
-        self.ready(s, "main")
-        run.Runner(s, "main").run(yes=True)
-        adj.lock(s, "main")
-        adj.adjudicate(s, "main", None, None, None, skip="test")
-        adj.evaluate(s, "main")
-        score.score(s, "main")
+        self.main_phase(s)
         call = next((s.phase_dir("main") / "calls").glob("*-a0"))
-        (call / "stdout.txt").write_text("contact someone@example.com")
+        (call / "stdout.txt").write_text("token sk-ant-" + "a" * 30)
         with self.assertRaises(Refused) as e:
-            release.release(s)
+            release.release(s, confirm_redistribution=True)
         self.assertIn("privacy", e.exception.rule)
         self.assertFalse((s.dir / "release").exists())
+        self.assertFalse(list(s.dir.glob(".release-*")))
+        (call / "stdout.txt").unlink()
+        with open(s.phase_dir("main") / "report.md", "a") as f:
+            f.write(f"\n{self.home}\n")  # a record is never edited, so a host path in one stops the release
+        with self.assertRaises(Refused):
+            release.release(s, confirm_redistribution=True)
+        (s.phase_dir("main") / "report.md").unlink()
+        os.symlink("/etc/hostname", s.phase_dir("main") / "report.md")
+        with self.assertRaises(Refused):
+            release.release(s, confirm_redistribution=True)
+
+    def test_open_source_maintainer_emails_are_not_flagged(self):
+        ids = release.host_identifiers()
+        self.assertEqual(release.scan(b"Author: Jane Dev <jane@example.org>", ids), [])
+        self.assertEqual(release.scan(b"AKIA" + b"A" * 16, ids), ["API key or token"])
 
 
 class Cli(Tmp):
     def test_cli_dry_path(self):
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("bench_cli", HERE / "bench.py")
-        bench = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(bench)
         with redirect_stdout(io.StringIO()) as o:
-            bench.main(["init", "--study", str(self.d / "c"), "--config", str(self.config())])
-            bench.main(["select", "--study", str(self.d / "c"), "--phase", "calibration"])
-            bench.main(["status", "--study", str(self.d / "c")])
+            bench_cli.main(["init", "--study", str(self.d / "c"), "--config", str(self.config())])
+            bench_cli.main(["select", "--study", str(self.d / "c"), "--phase", "calibration"])
+            bench_cli.main(["status", "--study", str(self.d / "c")])
         self.assertIn("launched", o.getvalue())
 
 

@@ -1,6 +1,7 @@
 You are reviewing a proposed change to an open-source repository. The repository in your working
-directory already has the change applied, uncommitted, so `git diff` shows it. You did not write it.
-The source tree is read-only; use the scratch directory you were given for any files you create.
+directory already has the change applied and staged, uncommitted, so `git diff HEAD` shows all of
+it, new files included. You did not write it. The source tree is read-only. Put any file you
+create in the scratch directory `{{scratch}}`.
 
 Decide whether the change resolves the issue correctly and completely, without introducing
 regressions in other behavior. Judge functional correctness only, not style. Read the code around
@@ -9,6 +10,10 @@ the change and run the repository's tests if that helps.
 <issue>
 {{issue}}
 </issue>
+
+Changed paths:
+
+{{changed}}
 
 <diff>
 {{diff}}

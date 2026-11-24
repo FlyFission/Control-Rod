@@ -6,10 +6,62 @@
     "model": "claude-sonnet-5-5",
     "effort": null,
     "max_turns": 200,
-    "login_store": {"mode": "token_file", "source": "~/.config/cr-bench/claude-oauth-token", "env": "CLAUDE_CODE_OAUTH_TOKEN"},
-    "auth_status": {"argv": ["auth", "status"], "require": "claude\\.ai|subscription|claude (pro|max|team|enterprise)", "refuse": "api[ _-]?key|anthropic console"},
-    "billing_config_files": ["~/.claude/settings.json", "~/.claude.json"],
-    "quota_patterns": ["usage limit", "limit reached", "rate.?limit", "\\b429\\b", "resets? (at|in)"]
+    "login_store": {
+      "mode": "token_file",
+      "source": "~/.config/cr-bench/claude-oauth-token",
+      "env": "CLAUDE_CODE_OAUTH_TOKEN",
+      "readable_by_own_tools": true
+    },
+    "auth_status": {
+      "argv": [
+        "auth",
+        "status"
+      ],
+      "require": "claude\\.ai|subscription|claude (pro|max|team|enterprise)",
+      "refuse": "api[ _-]?key|anthropic console"
+    },
+    "billing_config_files": [
+      "~/.claude/settings.json",
+      "~/.claude/settings.local.json",
+      "~/.claude.json"
+    ],
+    "quota_patterns": [
+      "usage limit",
+      "limit reached",
+      "rate.?limit",
+      "\\b429\\b",
+      "resets? (at|in)"
+    ],
+    "isolation": {
+      "args": [
+        "--restricted",
+        "--strict-mcp-config",
+        "--mcp-config",
+        "{\"mcpServers\":{}}",
+        "--setting-sources",
+        "",
+        "--disable-slash-commands",
+        "--no-session-persistence"
+      ],
+      "tools": {
+        "author": "Read,Edit,Write,Glob,Grep,Bash",
+        "checker": "Read,Glob,Grep,Bash"
+      },
+      "denied_tools": "mcp__*,Agent,Task,WebSearch,WebFetch",
+      "env": {
+        "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+        "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
+        "DISABLE_AUTOUPDATER": "1",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+      },
+      "forbidden_tools_in_init": [
+        "WebSearch",
+        "WebFetch",
+        "Agent",
+        "Task",
+        "mcp__"
+      ]
+    }
   },
   "codex": {
     "kind": "codex",
@@ -17,11 +69,140 @@
     "bin": "codex",
     "model": "gpt-6.2-sol",
     "effort": null,
-    "login_store": {"mode": "files", "source": "~/.codex", "files": ["auth.json"], "env": "CODEX_HOME"},
-    "auth_status": {"argv": ["login", "status"], "require": "chatgpt", "refuse": "api key"},
-    "billing_config_files": ["~/.codex/config.toml", "~/.codex/auth.json"],
-    "quota_patterns": ["usage limit", "limit reached", "rate.?limit", "\\b429\\b", "try again (at|in)"]
+    "login_store": {
+      "mode": "files",
+      "source": "~/.codex",
+      "files": [
+        "auth.json"
+      ],
+      "env": "CODEX_HOME"
+    },
+    "auth_status": {
+      "argv": [
+        "login",
+        "status"
+      ],
+      "require": "chatgpt",
+      "refuse": "api key"
+    },
+    "billing_config_files": [
+      "~/.codex/config.toml",
+      "~/.codex/auth.json"
+    ],
+    "quota_patterns": [
+      "usage limit",
+      "limit reached",
+      "rate.?limit",
+      "\\b429\\b",
+      "try again (at|in)"
+    ],
+    "isolation": {
+      "disabled_features": [
+        "apps",
+        "browser_use",
+        "browser_use_external",
+        "browser_use_full_cdp_access",
+        "computer_use",
+        "daemon_auto_start",
+        "deferred_tool_world_state",
+        "goals",
+        "guardian_approval",
+        "hooks",
+        "image_generation",
+        "in_app_browser",
+        "in_app_local_automation",
+        "memories",
+        "multi_agent",
+        "plugin_discovery_prefetch",
+        "plugin_sharing",
+        "plugins",
+        "remote_plugin",
+        "shell_snapshot",
+        "skill_mcp_dependency_install",
+        "skill_search",
+        "tool_call_mcp_elicitation",
+        "tool_suggest",
+        "view_image",
+        "workspace_dependencies"
+      ],
+      "safe_features": [
+        "api_key_cyber_access_programs",
+        "api_key_model_discovery",
+        "auth_elicitation",
+        "bedrock_setup_wizard",
+        "browser_annotation_api",
+        "cli_daybreak",
+        "code_mode_host",
+        "code_mode_host_grpc",
+        "code_mode_host_output_truncation",
+        "code_mode_interrupt",
+        "compaction_image_budget",
+        "content_item_kinds",
+        "enable_request_compression",
+        "fast_mode",
+        "guardian_include_additional_context",
+        "guardian_reuse_parent_compaction",
+        "in_app_chat",
+        "in_app_dictation",
+        "in_app_updates",
+        "in_app_voice",
+        "incremental_tools",
+        "incremental_tools_legacy",
+        "incremental_tools_legacy_gcp",
+        "instant_interrupt",
+        "mcp_oauth_refresh_coordination",
+        "mentions_v2",
+        "prediction_preserve_parent_tools",
+        "reasoning_effort_override",
+        "retain_client_tool_outputs",
+        "shell_tool",
+        "sleep_tool",
+        "system_proxy_fallback",
+        "tui_workspace",
+        "ultrafast_mode",
+        "unbounded_connection_retries",
+        "unified_exec",
+        "unified_exec_tty",
+        "unified_image_budget",
+        "untrusted_as_tool_output",
+        "write_stdin_approval"
+      ],
+      "config": [
+        "approval_policy=\"never\"",
+        "web_search=\"disabled\"",
+        "notify=[]",
+        "shell_environment_policy.inherit=\"core\"",
+        "check_for_update_on_startup=false",
+        "permissions.control-rod.network.enabled=false"
+      ],
+      "args": [
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--ephemeral"
+      ],
+      "managed_config": [
+        "/etc/codex/config.toml",
+        "/etc/codex/managed_config.toml",
+        "/etc/codex/requirements.toml"
+      ]
+    },
+    "transport_allow": {
+      "openai_base_url": [
+        "https://chatgpt.com/backend-api/codex"
+      ]
+    }
   },
-  "stub-a": {"kind": "stub", "vendor": "stub-a", "model": "stub-a"},
-  "stub-b": {"kind": "stub", "vendor": "stub-b", "model": "stub-b", "strict": true}
+  "stub-a": {
+    "kind": "stub",
+    "vendor": "stub-a",
+    "model": "stub-a",
+    "isolation": {}
+  },
+  "stub-b": {
+    "kind": "stub",
+    "vendor": "stub-b",
+    "model": "stub-b",
+    "strict": true,
+    "isolation": {}
+  }
 }

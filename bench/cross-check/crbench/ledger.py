@@ -1,14 +1,17 @@
-"""The one concurrency-locked ledger for every call in a study: the hard call cap, the phase-1 token
-launch gate, quota pauses, consecutive-error halts and the calendar deadline (DESIGN.md §9)."""
+"""The one concurrency-locked ledger for every call in a study (DESIGN.md §9): every launch has a
+unique attempt ID, the hard call cap counts every launch across resumes, phase 0 runs on its
+pre-frozen allocation, phase 1 launches pass a token gate built on the frozen phase-0 95th
+percentile, quota pauses are per vendor, and halts and the deadline stop everything."""
 
 from __future__ import annotations
 
 import fcntl
 import math
+import secrets
 from contextlib import contextmanager
 from datetime import timedelta
 
-from .common import Refused, Study, append_jsonl, now, parse_time, read_jsonl
+from .common import Refused, Study, append_jsonl, now, parse_time, read_json, read_jsonl
 
 QUOTA_GRACE_H = 24
 INFRA_HALT = 3
@@ -26,8 +29,11 @@ class Ledger:
         self.study = study
         self.path = study.ledger_path
         self.lock_path = study.dir / ".ledger.lock"
-        self.caps = study.protocol()["frozen"]["config"]["caps"]
-        self.frozen_at = parse_time(study.protocol()["frozen_at"])
+        proto = study.protocol()
+        self.caps = proto["frozen"]["config"]["caps"]
+        self.frozen_at = parse_time(proto["frozen_at"])
+
+    # ------------------------------------------------------------ locks
 
     @contextmanager
     def locked(self):
@@ -39,57 +45,60 @@ class Ledger:
             finally:
                 fcntl.flock(f, fcntl.LOCK_UN)
 
-    def events(self) -> list[dict]:
-        return read_jsonl(self.path)
+    @contextmanager
+    def run_lock(self):
+        """One runner per study. Held for a whole run, probe, controls or evaluation; while it is
+        held, any launch without a result belongs to a dead process and can be reconciled."""
+        p = self.study.dir / ".run.lock"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        f = p.open("w")
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            f.close()
+            raise Refused("§9 concurrency", "another bench command is running on this study")
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+            f.close()
 
     # ------------------------------------------------------------ state
 
+    def events(self) -> list[dict]:
+        return read_jsonl(self.path)
+
     def state(self) -> dict:
         ev = self.events()
-        launches = {e["call"]: e for e in ev if e["event"] == "launch"}
-        dones = {e["call"]: e for e in ev if e["event"] == "done"}
+        launches = [e for e in ev if e["event"] == "launch"]
+        dones = {e["launch_id"]: e for e in ev if e["event"] == "done"}
         halted = [e for e in ev if e["event"] == "halt"]
-        launch_ev = [e for e in ev if e["event"] == "launch"]
-        open_ = {}
-        for e in ev:  # a call ID can be launched again only after its interrupted launch is reconciled
-            if e["event"] == "launch":
-                open_[e["call"]] = e
-            elif e["event"] == "done":
-                open_.pop(e["call"], None)
         return {"events": ev, "launches": launches, "dones": dones, "halted": halted[-1] if halted else None,
-                "in_flight": list(open_), "n_launch": len(launch_ev),
-                "n_cal": sum(1 for e in launch_ev if e["phase"] == "calibration")}
+                "in_flight": [e for e in launches if e["launch_id"] not in dones]}
 
     def deadline(self):
         return self.frozen_at + timedelta(days=self.caps["calendar_days"])
 
-    def token_reserve(self, st: dict, vendor: str, role: str) -> int | None:
-        """Twice the phase-0 95th-percentile tokens for this vendor and role, when known (§9)."""
-        known = [d["usage"]["total"] for c, d in st["dones"].items()
-                 if d.get("phase") == "calibration" and d.get("vendor") == vendor and d.get("role") == role
-                 and d.get("usage", {}).get("known")]
-        q = p95(known)
-        return None if q is None else 2 * q
+    def frozen_p95(self) -> dict:
+        p = self.study.dir / "sizing.json"
+        return read_json(p).get("token_p95", {}) if p.exists() else {}
 
-    def usage_totals(self, st: dict) -> dict:
-        known = sum(d["usage"]["total"] for d in st["dones"].values() if d.get("usage", {}).get("known"))
-        unknown = sum(1 for d in st["dones"].values() if not d.get("usage", {}).get("known"))
-        return {"known_tokens": known, "calls_with_unknown_usage": unknown}
+    @staticmethod
+    def known_tokens(st: dict) -> int:
+        return sum(d["usage"]["total"] for d in st["dones"].values() if d.get("usage", {}).get("known"))
 
     # ------------------------------------------------------------ gates
 
     def check_launch(self, st: dict, phase: str, vendor: str, role: str) -> int | None:
-        """Raise Refused if the next call may not start. Returns the token reservation, if any."""
         if st["halted"]:
             raise Refused("§9 halt", f"the study halted: {st['halted']['why']}")
-        t = parse_time(now())
-        if t > self.deadline():
+        if parse_time(now()) > self.deadline():
             raise Refused("§9 deadline", f"the frozen calendar horizon ended at {self.deadline():%Y-%m-%d %H:%M}Z")
-        calls = st["n_launch"]
-        if calls + 1 > self.caps["max_calls"]:
-            raise Refused("§9 call cap", f"{calls} of max_calls {self.caps['max_calls']} used")
+        n = len(st["launches"])
+        if n + 1 > self.caps["max_calls"]:
+            raise Refused("§9 call cap", f"{n} of max_calls {self.caps['max_calls']} used")
         if phase == "calibration":
-            cal = st["n_cal"]
+            cal = sum(1 for e in st["launches"] if e["phase"] == "calibration")
             if cal + 1 > self.caps["calibration_max_calls"]:
                 raise Refused("§2 calibration allocation",
                               f"{cal} of calibration_max_calls {self.caps['calibration_max_calls']} used")
@@ -97,94 +106,137 @@ class Ledger:
         if pause:
             raise Refused("§9 quota pause", f"{vendor} is paused until about {pause}Z; start `run` again after that")
         if phase != "main":
-            return None  # phase 0 launches on calls, timeouts, billing and the deadline only
-        res = self.token_reserve(st, vendor, role)
+            return None  # phase 0: calls, timeouts, verified billing and the deadline only
+        res = self.frozen_p95().get(f"{vendor}/{role}")
         if res is None:
-            return None  # unknown usage: gated on calls and time
-        used = self.usage_totals(st)["known_tokens"]
-        outstanding = sum(st["launches"][c].get("reserve") or 0 for c in st["in_flight"])
+            return None  # usage unknown in phase 0: gated on calls and time
+        res = 2 * res
+        outstanding = sum(e.get("reserve") or 0 for e in st["in_flight"])
+        used = self.known_tokens(st)
         if used + outstanding + res > self.caps["max_tokens"]:
             raise Refused("§9 token launch gate", f"used {used} + reserved {outstanding} + next {res} "
                           f"> max_tokens {self.caps['max_tokens']}")
         return res
 
     def paused(self, st: dict, vendor: str) -> str | None:
-        """The expected reset time if this vendor's latest quota pause has not passed."""
-        ps = [e for e in st["events"] if e["event"] == "quota_paused" and e["vendor"] == vendor]
-        resumed = [e for e in st["events"] if e["event"] == "done" and e.get("vendor") == vendor
-                   and e["status"] != "quota_paused"]
-        if not ps or (resumed and resumed[-1]["at"] > ps[-1]["at"]):
+        """The expected reset of this vendor's latest pause, unless a later call by the same vendor
+        succeeded (ledger order, not timestamps) or the reset has passed."""
+        last_pause, last_ok = None, -1
+        for i, e in enumerate(st["events"]):
+            if e["event"] == "quota_paused" and e["vendor"] == vendor:
+                last_pause = (i, e)
+            elif e["event"] == "done" and e.get("vendor") == vendor and e["status"] in ("ok", "inconclusive",
+                                                                                          "author_timeout"):
+                last_ok = i
+        if not last_pause or last_ok > last_pause[0]:
             return None
-        reset = ps[-1]["expected_reset"]
+        reset = last_pause[1]["expected_reset"]
         return reset if parse_time(now()) < parse_time(reset) else None
 
     # ------------------------------------------------------------ writes
 
-    def reconcile(self, call: str) -> bool:
-        """Close an interrupted launch as infra_error with unknown usage. It still counts against the cap."""
-        with self.locked():
-            st = self.state()
-            if call not in st["in_flight"]:
-                return False
-            e = st["launches"][call]
-            append_jsonl(self.path, {"event": "done", "call": call, "phase": e["phase"], "vendor": e["vendor"],
-                                     "role": e["role"], "status": "infra_error", "why": "interrupted launch",
-                                     "usage": {"known": False}, "at": now()})
-            return True
-
-    def launch(self, call: str, phase: str, vendor: str, role: str, attempt: int) -> None:
-        self.reconcile(call)
+    def launch(self, call: str, phase: str, vendor: str, role: str, attempt: int, launch_id: str | None = None) -> str:
         with self.locked():
             st = self.state()
             res = self.check_launch(st, phase, vendor, role)
-            append_jsonl(self.path, {"event": "launch", "call": call, "phase": phase, "vendor": vendor, "role": role,
-                                     "attempt": attempt, "reserve": res, "at": now()})
+            lid = launch_id or secrets.token_hex(8)
+            append_jsonl(self.path, {"event": "launch", "launch_id": lid, "call": call, "phase": phase, "vendor": vendor,
+                                     "role": role, "attempt": attempt, "reserve": res, "at": now()})
+            return lid
 
-    def done(self, call: str, phase: str, vendor: str, role: str, rec: dict) -> None:
+    def is_in_flight(self, launch_id: str) -> bool:
+        return any(e["launch_id"] == launch_id for e in self.state()["in_flight"])
+
+    def launched(self, launch_id: str) -> bool:
+        return any(e["launch_id"] == launch_id for e in self.state()["launches"])
+
+    def reconcile(self, launch_id: str, rec: dict | None = None) -> bool:
+        """Close a launch whose process is gone: with its saved result if there is one, otherwise
+        as an interrupted infra_error with unknown usage. It still counts against the cap. Call it
+        only while holding run_lock."""
         with self.locked():
-            append_jsonl(self.path, {"event": "done", "call": call, "phase": phase, "vendor": vendor, "role": role,
-                                     "status": rec["status"], "usage": rec.get("usage", {"known": False}),
-                                     "seconds": rec.get("seconds"), "model_resolved": rec.get("model_resolved"),
-                                     "at": now()})
             st = self.state()
-            if rec["status"] == "quota_paused":
-                self.quota(st, vendor, rec)
-            elif rec["status"] == "infra_error":
-                why = (rec.get("why") or "").lower()
-                if any(k in why for k in ("not logged in", "not signed in", "unauthorized", "401", "login")):
-                    self.halt(f"sign-in error from {vendor}: {rec.get('why', '')[:200]}")
-                recent = [e for e in st["events"] if e["event"] == "done" and e["status"] != "quota_paused"]
-                if len(recent) >= INFRA_HALT and all(e["status"] == "infra_error" for e in recent[-INFRA_HALT:]):
-                    self.halt(f"{INFRA_HALT} consecutive infra errors")
+            e = next((x for x in st["in_flight"] if x["launch_id"] == launch_id), None)
+            if e is None:
+                return False
+            rec = rec or {"status": "infra_error", "why": "interrupted launch", "usage": {"known": False}}
+            self._done(st, e, rec)
+            return True
 
-    def quota(self, st: dict, vendor: str, rec: dict) -> None:
+    def done(self, launch_id: str, rec: dict) -> None:
+        with self.locked():
+            st = self.state()
+            e = next(x for x in st["launches"] if x["launch_id"] == launch_id)
+            if launch_id in st["dones"]:
+                return
+            self._done(st, e, rec)
+
+    def _done(self, st: dict, e: dict, rec: dict) -> None:
+        append_jsonl(self.path, {"event": "done", "launch_id": e["launch_id"], "call": e["call"], "phase": e["phase"],
+                                 "vendor": e["vendor"], "role": e["role"], "probe": e["call"].startswith("probe"),
+                                 "status": rec["status"], "usage": rec.get("usage") or {"known": False},
+                                 "seconds": rec.get("seconds"), "model_resolved": rec.get("model_resolved"), "at": now()})
+        st = self.state()
+        if rec["status"] == "quota_paused":
+            self._quota(st, e["vendor"], rec)
+        elif rec["status"] == "infra_error":
+            if rec.get("auth"):
+                self.halt(f"sign-in error from {e['vendor']}: {(rec.get('why') or '')[:200]}")
+            recent = [x for x in st["events"] if x["event"] == "done" and x["status"] != "quota_paused"]
+            if len(recent) >= INFRA_HALT and all(x["status"] == "infra_error" for x in recent[-INFRA_HALT:]):
+                self.halt(f"{INFRA_HALT} consecutive infra errors")
+
+    def _quota(self, st: dict, vendor: str, rec: dict) -> None:
         hours = rec.get("reset_hours") or self.caps.get("quota_reset_hours", 5)
         t = parse_time(now())
         first = None
         for e in st["events"]:
             if e["event"] == "quota_paused" and e["vendor"] == vendor:
                 first = first or e
-            elif e["event"] == "done" and e.get("vendor") == vendor and e["status"] != "quota_paused":
+            elif e["event"] == "done" and e.get("vendor") == vendor and e["status"] in ("ok", "inconclusive",
+                                                                                        "author_timeout"):
                 first = None
         if first and t > parse_time(first["expected_reset"]) + timedelta(hours=QUOTA_GRACE_H):
             self.halt(f"{vendor} still blocked {QUOTA_GRACE_H} h past its expected reset")
-        append_jsonl(self.path, {"event": "quota_paused", "vendor": vendor, "at": now(),
+        append_jsonl(self.path, {"event": "quota_paused", "vendor": vendor, "at": now(), "reset_hours": hours,
+                                 "reset_source": "cli message" if rec.get("reset_hours") else "config default",
                                  "expected_reset": (t + timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")})
 
     def halt(self, why: str) -> None:
         append_jsonl(self.path, {"event": "halt", "why": why, "at": now()})
 
+    # ------------------------------------------------------------ summaries
+
     def summary(self) -> dict:
         st = self.state()
         by = {}
-        for d in st["dones"].values():
-            k = f"{d.get('phase')}/{d.get('vendor')}/{d.get('role')}"
-            b = by.setdefault(k, {"calls": 0, "known_tokens": 0, "unknown_usage": 0, "statuses": {}})
-            b["calls"] += 1
-            b["statuses"][d["status"]] = b["statuses"].get(d["status"], 0) + 1
-            if d.get("usage", {}).get("known"):
-                b["known_tokens"] += d["usage"]["total"]
+        for e in st["launches"]:
+            k = f"{e['phase']}/{e['vendor']}/{e['role']}"
+            b = by.setdefault(k, {"launched": 0, "statuses": {}, "known_tokens": 0, "unknown_usage": 0,
+                                  "tokens": {"input": 0, "cached_input": 0, "output": 0}})
+            b["launched"] += 1
+            d = st["dones"].get(e["launch_id"])
+            s = d["status"] if d else "in_flight"
+            b["statuses"][s] = b["statuses"].get(s, 0) + 1
+            u = (d or {}).get("usage") or {}
+            if u.get("known"):
+                b["known_tokens"] += u["total"]
+                for t in b["tokens"]:
+                    b["tokens"][t] += u.get(t) or 0
             else:
                 b["unknown_usage"] += 1
-        return {"launched": st["n_launch"], "in_flight": st["in_flight"], "halted": st["halted"],
-                "max_calls": self.caps["max_calls"], "by": by, **self.usage_totals(st)}
+        return {"launched": len(st["launches"]), "in_flight": len(st["in_flight"]), "halted": st["halted"],
+                "max_calls": self.caps["max_calls"], "by": by, "known_tokens": self.known_tokens(st),
+                "calls_with_unknown_usage": sum(b["unknown_usage"] for b in by.values())}
+
+    def calibration_p95(self) -> dict:
+        """Phase-0 95th-percentile tokens per vendor and role, from completed task calls only
+        (probes and failed calls left out). Frozen into sizing.json."""
+        st = self.state()
+        out = {}
+        for d in st["dones"].values():
+            if d["phase"] != "calibration" or d.get("probe") or d["status"] not in ("ok", "inconclusive"):
+                continue
+            if d.get("usage", {}).get("known"):
+                out.setdefault(f"{d['vendor']}/{d['role']}", []).append(d["usage"]["total"])
+        return {k: p95(v) for k, v in out.items()}

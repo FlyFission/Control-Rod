@@ -1,16 +1,20 @@
 """Verdict lock, the blind adjudication queue, judgments, and hidden-test evaluation, in that order
-(DESIGN.md §7, Owner decision 2 and 3). The queue is built after every verdict is hashed and locked
-and before evaluation.json exists; evaluation waits until adjudication is complete or skipped."""
+(DESIGN.md §7, Owner decision 2 and 3). The lock and the queue are staged together and committed by
+one rename; evaluation, scoring and release re-verify the lock against the call records, and
+evaluation waits until adjudication is complete or skipped."""
 
 from __future__ import annotations
 
 import hashlib
 import random
 import secrets
+import shutil
 
-from .common import Refused, Study, digest, now, read_json, sha256_bytes, write_json
+from .common import Refused, Study, digest, now, read_json, sha256_bytes, sha256_file, write_json
 from .grading import grade, grade_submission
+from .ledger import Ledger
 from .manifest import load_manifest
+from .preflight import denied_paths
 from .workspace import workspace_root
 
 JUDGMENTS = ("supported", "unsupported", "indeterminate")
@@ -20,14 +24,17 @@ RUBRIC = ("supported: a concrete in-scope defect with a code-location citation f
 
 
 def _first(pdir, tid, author, role, rep=0) -> dict | None:
-    for n in range(50):
+    """The first terminal check result; attempts that ended in infra_error are skipped."""
+    n = 0
+    while True:
         p = pdir / "calls" / f"{tid}--{author}--{role}--r{rep}-a{n}" / "result.json"
-        if not p.exists():
+        if not p.parent.exists():
             return None
-        r = read_json(p)
-        if r["status"] in ("ok", "inconclusive"):
-            return r
-    return None
+        if p.exists():
+            r = read_json(p)
+            if r["status"] in ("ok", "inconclusive"):
+                return r
+        n += 1
 
 
 def verdict_of(r: dict | None) -> str | None:
@@ -38,11 +45,18 @@ def verdict_of(r: dict | None) -> str | None:
     return r["verdict"]["verdict"] if r.get("verdict") else "inconclusive"
 
 
+def stability_sample(pdir) -> set[tuple[str, str]]:
+    p = pdir / "stability.json"
+    return {tuple(x) for x in read_json(p)["sample"]} if p.exists() else set()
+
+
 def checks(study: Study, phase: str) -> list[dict]:
-    """Every first check and repeat, keyed by task, author and checker role."""
+    """Every first check, and every repeat the stability sample requires, keyed by task, author and
+    checker role. A required check with no result has verdict None."""
     pdir = study.phase_dir(phase)
     m = load_manifest(study, phase)
     authors = study.protocol()["frozen"]["config"]["authors"]
+    sample = stability_sample(pdir)
     out = []
     for tid in m["tasks"]:
         for a in authors:
@@ -51,12 +65,18 @@ def checks(study: Study, phase: str) -> list[dict]:
                 continue
             for role in ("same", "cross"):
                 for rep in (0, 1):
-                    r = _first(pdir, tid, a, role, rep)
-                    if r is None and rep == 1:
+                    if rep == 1 and (tid, a) not in sample:
                         continue
+                    r = _first(pdir, tid, a, role, rep)
                     out.append({"task": tid, "author": a, "role": role, "rep": rep, "result": r,
                                 "verdict": verdict_of(r)})
     return out
+
+
+def lock_rows(cs: list[dict]) -> list[dict]:
+    return [{"task": c["task"], "author": c["author"], "role": c["role"], "rep": c["rep"], "verdict": c["verdict"],
+             "text_sha256": sha256_bytes((c["result"].get("text") or "").encode()),
+             "patch_sha256": c["result"].get("patch_sha256")} for c in cs]
 
 
 # ------------------------------------------------------------------ lock
@@ -71,50 +91,75 @@ def lock(study: Study, phase: str) -> dict:
     run = pdir / "run.json"
     if not run.exists() or read_json(run)["status"] != "complete":
         raise Refused("§9", f"{phase} run is not complete")
-    cs = checks(study, phase)
-    missing = [c for c in cs if c["rep"] == 0 and c["verdict"] is None]
-    if missing:
-        raise Refused("§6 completeness", f"{len(missing)} first checks have no verdict")
-    rows = [{"task": c["task"], "author": c["author"], "role": c["role"], "rep": c["rep"], "verdict": c["verdict"],
-             "text_sha256": sha256_bytes((c["result"].get("text") or "").encode()),
-             "patch_sha256": c["result"].get("patch_sha256")} for c in cs]
-    rec = {"at": now(), "rows": rows, "sha256": digest(rows)}
-    write_json(pdir / "verdicts.lock.json", rec)
-    build_queue(study, phase, cs)
+    with Ledger(study).run_lock():
+        cs = checks(study, phase)
+        missing = [c for c in cs if c["verdict"] is None]
+        if missing:
+            raise Refused("§6 completeness", f"{len(missing)} required checks (first or repeat) have no verdict")
+        stage = pdir / f".lock-{secrets.token_hex(4)}"
+        try:
+            q = build_queue(study, phase, cs, stage / "adjudication")
+            rows = lock_rows(cs)
+            rec = {"at": now(), "rows": rows, "sha256": digest(rows),
+                   "queue_sha256": sha256_file(stage / "adjudication" / "queue.json"),
+                   "key_sha256": sha256_file(stage / "adjudication" / "key.json"), "queue": q}
+            write_json(stage / "verdicts.lock.json", rec)
+            adir = pdir / "adjudication"
+            if adir.exists():  # left by a lock that died before its commit; nothing can have used it
+                shutil.rmtree(adir)
+            (stage / "adjudication").rename(adir)
+            (stage / "verdicts.lock.json").rename(pdir / "verdicts.lock.json")  # the commit point
+        finally:
+            shutil.rmtree(stage, ignore_errors=True)
     return rec
 
 
-def build_queue(study: Study, phase: str, cs: list[dict]) -> dict:
+def verify_lock(study: Study, phase: str) -> dict:
+    """The lock still matches the call records, the queue and the key."""
+    pdir = study.phase_dir(phase)
+    lp = pdir / "verdicts.lock.json"
+    if not lp.exists():
+        raise Refused("§7 blinding", "verdicts are not locked")
+    rec = read_json(lp)
+    if digest(rec["rows"]) != rec["sha256"] or digest(lock_rows(checks(study, phase))) != rec["sha256"]:
+        raise Refused("§7 blinding", "check results differ from the locked verdicts")
+    adir = pdir / "adjudication"
+    for f, k in (("queue.json", "queue_sha256"), ("key.json", "key_sha256")):
+        if not (adir / f).exists() or sha256_file(adir / f) != rec[k]:
+            raise Refused("§7 blinding", f"adjudication/{f} differs from the one locked with the verdicts")
+    return rec
+
+
+def build_queue(study: Study, phase: str, cs: list[dict], adir) -> dict:
     """Discordant explicit rejections among first checks: one checker failed the patch, the other
-    passed it or was inconclusive. Anonymized and shuffled with the frozen seed."""
+    passed it or was inconclusive. Anonymized and shuffled with the frozen seed and a secret salt."""
     pdir = study.phase_dir(phase)
     seed = study.protocol()["frozen"]["config"]["selection"]["seed"]
     first = {(c["task"], c["author"], c["role"]): c for c in cs if c["rep"] == 0}
-    items, key = [], {}
-    fail_fail = 0
+    items, key, fail_fail = [], {}, []
     salt = secrets.token_hex(16)  # item IDs must not be computable from the public seed
     m = load_manifest(study, phase)
-    for (tid, a, role), c in first.items():
+    for (tid, a, role), c in sorted(first.items()):
         if role != "same":
             continue
         x = first[(tid, a, "cross")]
         if c["verdict"] == "fail" and x["verdict"] == "fail":
-            fail_fail += 1
+            fail_fail.append({"task": tid, "author": a})
             continue
         for rejecting, other in ((c, x), (x, c)):
             if rejecting["verdict"] == "fail" and other["verdict"] != "fail":
                 iid = hashlib.sha256(f"{salt}:{tid}:{a}:{rejecting['role']}".encode()).hexdigest()[:10]
-                patch = (pdir / "calls" / f"{tid}--{a}--author" / "patch.diff").read_text()
-                items.append({"item": iid, "issue": m["rows"][tid]["problem_statement"], "patch": patch,
-                              "patch_sha256": sha256_bytes(patch.encode()),
+                patch = (pdir / "calls" / f"{tid}--{a}--author" / "patch.diff").read_bytes()
+                items.append({"item": iid, "issue": m["rows"][tid]["problem_statement"],
+                              "patch": patch.decode("utf-8", errors="replace"), "patch_sha256": sha256_bytes(patch),
                               "citations": rejecting["result"]["verdict"]["defects"]})
                 key[iid] = {"task": tid, "author": a, "rejected_by": rejecting["role"],
                             "other_verdict": other["verdict"]}
     items.sort(key=lambda i: i["item"])
     random.Random(f"{seed}:adjudication:{salt}").shuffle(items)
-    adir = pdir / "adjudication"
-    write_json(adir / "queue.json", {"rubric": RUBRIC, "items": items, "fail_fail_unaudited": fail_fail})
-    write_json(adir / "key.json", {"note": "do not open before adjudication is complete", "salt": salt, "key": key})
+    write_json(adir / "queue.json", {"rubric": RUBRIC, "items": items, "fail_fail_unaudited": len(fail_fail)})
+    write_json(adir / "key.json", {"note": "do not open before adjudication is complete", "salt": salt, "key": key,
+                                   "fail_fail": fail_fail})
     lines = ["# Adjudication queue", "", f"Rubric: {RUBRIC}.", "",
              "Each item is one explicit rejection. Vendor, checker role, the other verdict and the hidden-test",
              "result are withheld. Record each with",
@@ -125,7 +170,7 @@ def build_queue(study: Study, phase: str, cs: list[dict]) -> dict:
                   "### Cited defects", "", *[f"- `{d['location']}`: {d['reason']}" for d in it["citations"]], "",
                   "### Patch", "", "```diff", it["patch"].rstrip(), "```", ""]
     (adir / "queue.md").write_text("\n".join(lines))
-    return {"items": len(items), "fail_fail_unaudited": fail_fail}
+    return {"items": len(items), "fail_fail_unaudited": len(fail_fail)}
 
 
 def adjudicate(study: Study, phase: str, item: str | None, judgment: str | None, note: str | None,
@@ -134,8 +179,7 @@ def adjudicate(study: Study, phase: str, item: str | None, judgment: str | None,
     adir = pdir / "adjudication"
     if (pdir / "evaluation.json").exists():
         raise Refused("§7 blinding", "evaluation.json exists; adjudication is closed")
-    if not (adir / "queue.json").exists():
-        raise Refused("§7", "lock the verdicts first; that builds the queue")
+    verify_lock(study, phase)
     jp = adir / "judgments.json"
     rec = read_json(jp) if jp.exists() else {"judgments": {}, "skipped": None}
     if skip is not None:
@@ -171,8 +215,7 @@ def adjudication_done(study: Study, phase: str) -> dict:
 
 def evaluate(study: Study, phase: str) -> dict:
     pdir = study.phase_dir(phase)
-    if not (pdir / "verdicts.lock.json").exists():
-        raise Refused("§7 blinding", "lock the verdicts before evaluation")
+    verify_lock(study, phase)
     st = adjudication_done(study, phase)
     if not st["complete"]:
         raise Refused("§7 blinding", f"{st['pending']} adjudication items pending; finish or skip them first")
@@ -181,23 +224,27 @@ def evaluate(study: Study, phase: str) -> dict:
     cfg = study.protocol()["frozen"]["config"]
     m = load_manifest(study, phase)
     authors = cfg["authors"]
-    items, subs = [], {}
-    for tid in m["tasks"]:
-        for a in authors:
-            sp = pdir / "calls" / f"{tid}--{a}--author" / "submission.json"
-            sub = read_json(sp) if sp.exists() else {"status": "infra_error", "why": "no submission"}
-            subs[(tid, a)] = sub
-            if sub["status"] == "ok":
-                patch = (pdir / "calls" / f"{tid}--{a}--author" / "patch.diff").read_text()
-                if sha256_bytes(patch.encode()) != sub["sha256"]:
-                    raise Refused("§6 digest", f"{tid}/{a}: the grader would not receive the checked patch")
-                items.append((f"{tid}|{a}", tid, patch))
-    graded = grade(cfg, items, m["rows"], workspace_root(cfg), study.dir / "cache", pdir / "eval")
-    results = {}
-    for (tid, a), sub in subs.items():
-        g = grade_submission(sub, graded.get(f"{tid}|{a}"))
-        g["patch_sha256"] = sub.get("sha256")
-        results.setdefault(tid, {})[a] = g
-    rec = {"at": now(), "results": results, "snapshot": cfg["snapshot"], "evaluation": cfg["evaluation"]}
-    write_json(pdir / "evaluation.json", rec)
+    with Ledger(study).run_lock():
+        items, subs = [], {}
+        for tid in m["tasks"]:
+            for a in authors:
+                sp = pdir / "calls" / f"{tid}--{a}--author" / "submission.json"
+                sub = read_json(sp) if sp.exists() else {"status": "infra_error", "why": "no submission"}
+                subs[(tid, a)] = sub
+                if sub["status"] == "ok":
+                    patch = (pdir / "calls" / f"{tid}--{a}--author" / "patch.diff").read_bytes()
+                    if sha256_bytes(patch) != sub["sha256"]:
+                        raise Refused("§6 digest", f"{tid}/{a}: the grader would not receive the checked patch")
+                    items.append((f"{tid}|{a}", tid, patch))
+        root = workspace_root(cfg, study.dir)
+        graded = grade(cfg, items, m["rows"], root, study.dir / "cache", pdir / "eval", denied_paths(study, root),
+                       m["source"].get("file_sha256"))
+        results = {}
+        for (tid, a), sub in subs.items():
+            g = grade_submission(sub, graded.get(f"{tid}|{a}"))
+            g["patch_sha256"] = sub.get("sha256")
+            results.setdefault(tid, {})[a] = g
+        rec = {"at": now(), "results": results, "snapshot": cfg["snapshot"], "evaluation": cfg["evaluation"],
+               "images": graded.get("_images", []), "manifest_sha256": m["manifest_sha256"]}
+        write_json(pdir / "evaluation.json", rec)
     return rec

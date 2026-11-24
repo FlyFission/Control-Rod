@@ -475,3 +475,37 @@
     display: none;
   }
 }
+
+/* On a phone the panel group holds only the workspace and must not clip or scroll it: the page
+   scrolls as before (sticky stage headers rely on it). These override the library's inline styles. */
+.shell[data-phone] .shell-panes,
+.shell[data-phone] .shell-panes > [data-panel],
+.shell[data-phone] .shell-panes > [data-panel] > div {
+  display: block !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* The resize handle keeps a focus ring in forced-colors mode, where backgrounds and shadows flatten. */
+.shell .rail-sep:focus-visible {
+  outline: 2px solid transparent;
+}
+@media (forced-colors: active) {
+  .shell .rail-sep {
+    background: CanvasText;
+  }
+  .shell .rail-sep:focus-visible,
+  .shell .rail-sep[data-separator="hover"],
+  .shell .rail-sep[data-separator="active"] {
+    background: Highlight;
+    outline: 2px solid Highlight;
+  }
+}
+
+/* A keyboard user sees a long project name in full on the focused row, not just in a tooltip. */
+.shell .rail-proj-btn:focus-visible .rail-proj-name {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+}

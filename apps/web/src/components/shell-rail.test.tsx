@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -65,6 +66,44 @@ describe("the navigation rail", () => {
     await userEvent.setup().click(toggle());
     expect(rail().closest("[data-panel]")?.getAttribute("data-size-px")).toBe("360");
     expect(loadRailLayout("dora")).toEqual({ width: 210, collapsed: false });
+  });
+
+  it("hands focus to the toggle when [ hides the rail from inside it", async () => {
+    api();
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    const proj = await screen.findByRole("button", { name: new RegExp(longName) });
+    proj.focus();
+    await user.keyboard("[[");
+    expect(rail().hasAttribute("inert")).toBe(true);
+    expect(document.activeElement).toBe(toggle());
+  });
+
+  it("keeps the workspace mounted, with an unsaved draft, across the phone breakpoint", async () => {
+    api();
+    let matches = false;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      get matches() { return query === "(max-width: 820px)" ? matches : false; },
+      media: query,
+      addEventListener: (_: string, l: () => void) => listeners.add(l),
+      removeEventListener: (_: string, l: () => void) => listeners.delete(l),
+      addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false,
+    }));
+    try {
+      await renderPage(<Shell session={ben}><input aria-label="Draft" /></Shell>);
+      const draft = screen.getByLabelText("Draft") as HTMLInputElement;
+      await userEvent.setup().type(draft, "half a thought");
+      act(() => { matches = true; listeners.forEach((l) => l()); });
+      expect(document.getElementById("cr-rail")).toBeNull();
+      expect(screen.getByLabelText("Draft")).toBe(draft);
+      act(() => { matches = false; listeners.forEach((l) => l()); });
+      expect(document.getElementById("cr-rail")).not.toBeNull();
+      expect(screen.getByLabelText("Draft")).toBe(draft);
+      expect(draft.value).toBe("half a thought");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("shows a project's full name and repository on hover", async () => {

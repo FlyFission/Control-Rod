@@ -340,41 +340,62 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const railUser = session.signed_in ? session.user : undefined;
   const [railStart] = useState(() => loadRailLayout(railUser));
   const railPanel = usePanelRef();
+  // The width the person chose. Only their own drags, key presses, double-clicks and the toggle change
+  // it: a narrow window that squeezes the rail for the workspace's minimum never does.
   const railWidth = useRef(railStart.width);
   const [railCollapsed, setRailCollapsed] = useState(railStart.collapsed);
   function onRailResize(size: PanelSize) {
-    const tucked = size.inPixels < 1;
-    setRailCollapsed(tucked);
-    if (!tucked) railWidth.current = size.inPixels;
+    setRailCollapsed(size.inPixels < 1);
   }
-  function persistRail() {
-    const panel = railPanel.current;
-    if (!panel) return;
-    const collapsed = panel.isCollapsed();
-    if (!collapsed) railWidth.current = panel.getSize().inPixels;
-    saveRailLayout(railUser, { width: railWidth.current, collapsed });
-  }
-  // The library reports a finished layout before the panel's own size reads the new value: save on
+  // The library reports a finished layout before the panel's own size reads the new value: read it on
   // the next task, once it does.
-  function persistRailSoon() {
-    window.setTimeout(persistRail, 0);
+  function persistRailSoon(chosen: boolean) {
+    if (!chosen) return;
+    window.setTimeout(() => {
+      const panel = railPanel.current;
+      if (!panel) return;
+      const collapsed = panel.isCollapsed();
+      if (!collapsed) railWidth.current = panel.getSize().inPixels;
+      saveRailLayout(railUser, { width: railWidth.current, collapsed });
+    }, 0);
   }
   function toggleRail() {
     const panel = railPanel.current;
     if (!panel) return;
-    if (panel.isCollapsed()) panel.resize(`${Math.max(railWidth.current, RAIL_MIN_PX)}px`);
-    else panel.collapse();
-    persistRail();
+    if (panel.isCollapsed()) {
+      panel.resize(`${Math.max(railWidth.current, RAIL_MIN_PX)}px`);
+    } else {
+      // Focus inside a rail about to go inert would be stranded: hand it to the toggle first.
+      const railEl = document.getElementById("cr-rail");
+      if (railEl && document.activeElement && railEl.contains(document.activeElement)) {
+        document.querySelector<HTMLElement>(".rail-toggle")?.focus();
+      }
+      panel.collapse();
+    }
+    persistRailSoon(true);
   }
   // The panel's default stays the app's default, so double-clicking the edge resets to it (the library's
   // behaviour); the person's saved layout is applied before the first paint.
   useLayoutEffect(() => {
-    const panel = railPanel.current;
-    if (!panel) return;
+    if (phone) return;
     const saved = loadRailLayout(railUser);
     railWidth.current = saved.width;
-    if (saved.collapsed) panel.collapse();
-    else if (saved.width !== RAIL_DEFAULT_PX) panel.resize(`${saved.width}px`);
+    let frame = 0;
+    let tries = 0;
+    const apply = () => {
+      const panel = railPanel.current;
+      if (!panel) return;
+      try {
+        if (saved.collapsed) panel.collapse();
+        else if (saved.width !== RAIL_DEFAULT_PX) panel.resize(`${saved.width}px`);
+      } catch {
+        // A rail that comes back after a phone-width window is registered with its group a frame
+        // later than on first load: try again on the next frames.
+        if (++tries < 10) frame = window.requestAnimationFrame(apply);
+      }
+    };
+    apply();
+    return () => window.cancelAnimationFrame(frame);
     // On mount, and again when a phone-width window widens and the rail comes back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phone]);
@@ -773,34 +794,36 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         Skip to content
       </a>
 
-      {phone ? (
-        workspace
-      ) : (
-        <Group orientation="horizontal" className="shell-panes" onLayoutChanged={persistRailSoon}>
-          <Panel
-            id="rail"
-            className="rail-panel"
-            panelRef={railPanel}
-            defaultSize={`${RAIL_DEFAULT_PX}px`}
-            minSize={`${RAIL_MIN_PX}px`}
-            maxSize={`${RAIL_MAX_PX}px`}
-            collapsible
-            collapsedSize={0}
-            groupResizeBehavior="preserve-pixel-size"
-            onResize={onRailResize}
-          >
-            {rail}
-          </Panel>
-          <Separator
-            className="rail-sep"
-            aria-label="Navigation width"
-            title="Drag to resize the navigation. Double-click to reset. Press [ to hide or show it."
-          />
-          <Panel id="workspace" className="main-panel" minSize="360px">
-            {workspace}
-          </Panel>
-        </Group>
-      )}
+      {/* One tree on every width: the workspace stays mounted (and keeps unsaved drafts and focus) when
+          a window crosses the phone breakpoint; on a phone the rail and its handle are simply absent. */}
+      <Group orientation="horizontal" className="shell-panes" onLayoutChanged={(_layout, meta) => persistRailSoon(meta.isUserInteraction)}>
+        {!phone && (
+        <Panel
+          id="rail"
+          className="rail-panel"
+          panelRef={railPanel}
+          defaultSize={`${RAIL_DEFAULT_PX}px`}
+          minSize={`${RAIL_MIN_PX}px`}
+          maxSize={`${RAIL_MAX_PX}px`}
+          collapsible
+          collapsedSize={0}
+          groupResizeBehavior="preserve-pixel-size"
+          onResize={onRailResize}
+        >
+          {rail}
+        </Panel>
+        )}
+        {!phone && (
+        <Separator
+          className="rail-sep"
+          aria-label="Navigation width"
+          title="Drag to resize the navigation. Double-click to reset. Press [ to hide or show it."
+        />
+        )}
+        <Panel id="workspace" className="main-panel" minSize="360px">
+          {workspace}
+        </Panel>
+      </Group>
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
       <NewWorkModal open={newWorkOpen} mode={mode} onClose={() => setNewWorkOpen(false)} />

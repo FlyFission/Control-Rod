@@ -3,8 +3,9 @@
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | Web: all tests, `tsc` clean, build, license gate; bundle growth. | `evidence/web.log` |
-| E-02 | pass | Rendered check in Chromium on the dev server with a mocked API: default width, drag to widen, max, keyboard narrow, reload keeps width, window resize keeps pixels, hide by button, inert, Tab skips, stays hidden after reload, `[` shows at saved width, drag past minimum hides, double-click resets, clicks near the edge reach the workspace, phone has no handle or toggle and no horizontal scroll (20 checks). | `evidence/rail-check.js`, `evidence/rail-check.log` |
+| E-02 | pass | Rendered check in Chromium on the dev server with a mocked API: default width, drag to widen, max, keyboard narrow, reload keeps width, window resize keeps pixels, hide by button, inert, Tab skips, stays hidden after reload, `[` shows at saved width, drag past minimum hides, double-click resets, clicks near the edge reach the workspace, phone has no handle or toggle and no horizontal scroll; `[` from a rail link hands focus to the toggle; crossing the phone breakpoint and back keeps the same workspace element and the group does not clip the phone page; opening at 830 px (rail squeezed) keeps the saved 480 (26 checks). | `evidence/rail-check.js`, `evidence/rail-check.log` |
 | E-03 | pass | Screenshots at 1440 (default, widened, hidden) and 390. | `evidence/*.jpg` |
+| E-04 | done | Blind review by Codex (gpt-6.2-sol, read-only) on the owner's machine at fdedc6e: NO-MERGE with 3 P2 and 2 P3. Fixed: one tree on every width so the workspace (drafts, focus) is not remounted across the phone breakpoint; only the person's own changes save the width (a squeezed rail never overwrites it); `[` from inside the rail hands focus to the toggle before the rail goes inert; the handle keeps a focus ring in forced-colors mode; a focused project row shows its full name. Tests and rendered checks added for each. | PR thread |
 
 ## Evidence custody and coupling
 

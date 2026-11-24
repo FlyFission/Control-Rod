@@ -12,10 +12,16 @@ ok   Tab does not land inside the hidden rail
 ok   stays hidden after reload
 ok   [ shows it again at the saved width (got 408)
 ok   dragging past the minimum tucks it away (width 0)
-ok   shows again at least at the minimum (got 200)
+ok   shows again at least at the minimum (got 408)
 ok   double-click resets to 248 (got 248)
 ok   a click 24 px right of the edge does not grab the handle
 ok   workspace buttons still take clicks (the palette opened)
+ok   [ from a rail link moves focus to the toggle
+ok   narrowing to a phone width drops the rail and keeps the workspace mounted
+     phone group: visible 721.562px 722 722
+ok   on a phone the panel group does not clip the page
+ok   widening again brings the rail back with the same workspace
+ok   opening at 830 px (rail squeezed to 469) keeps the saved 480 (got 480)
 ok   phone: no drag handle
 ok   phone: no rail toggle
 ok   phone: no horizontal scroll

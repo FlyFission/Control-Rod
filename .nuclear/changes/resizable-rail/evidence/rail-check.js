@@ -100,6 +100,35 @@ const truncated = (page) => page.evaluate(() => [...document.querySelectorAll('.
   check(!focusInHandle, 'a click 24 px right of the edge does not grab the handle');
   await page.getByRole('button', { name: /Search/ }).click();
   check(await page.locator('.palette').count() >= 1 || (await page.getByText('could not be shown').count()) >= 1, 'workspace buttons still take clicks (the palette opened)');
+  // The mocked API is too thin for the palette; start the next checks from a fresh page.
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(500);
+  // [ from inside the rail hands focus to the toggle.
+  await page.locator('.rail-proj-btn').first().focus();
+  await page.keyboard.press('[');
+  await page.waitForTimeout(200);
+  check(await page.evaluate(() => document.activeElement?.classList.contains('rail-toggle')), '[ from a rail link moves focus to the toggle');
+  await page.keyboard.press('[');
+  await page.waitForTimeout(200);
+  // Crossing the phone breakpoint keeps the same workspace element (no remount).
+  await page.evaluate(() => { window.__main = document.querySelector('.main'); });
+  await page.setViewportSize({ width: 700, height: 800 }); await page.waitForTimeout(400);
+  const samePhone = await page.evaluate(() => document.querySelector('.main') === window.__main);
+  check(await page.locator('#cr-rail').count() === 0 && samePhone, 'narrowing to a phone width drops the rail and keeps the workspace mounted');
+  const flow = await page.evaluate(() => { const g = getComputedStyle(document.querySelector('.shell-panes')); return g.overflow + ' ' + g.height + ' ' + document.querySelector('.shell-panes').offsetHeight + ' ' + document.querySelector('.main').offsetHeight; });
+  console.log('     phone group:', flow);
+  check(flow.startsWith('visible'), 'on a phone the panel group does not clip the page');
+  await page.setViewportSize({ width: 1440, height: 900 }); await page.waitForTimeout(400);
+  check(await page.evaluate(() => document.querySelector('.main') === window.__main) && await page.locator('#cr-rail').count() === 1, 'widening again brings the rail back with the same workspace');
+  await ctx.close();
+  // A narrow window that squeezes the rail does not overwrite the person's chosen width.
+  ({ ctx, page } = await open(b, 1440, 900));
+  await page.evaluate(() => localStorage.setItem('cr.rail:ben', JSON.stringify({ width: 480, collapsed: false })));
+  await page.setViewportSize({ width: 830, height: 800 });
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
+  const squeezed = await railW(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
+  check((await railW(page)) === 480, `opening at 830 px (rail squeezed to ${squeezed}) keeps the saved 480 (got ${await railW(page)})`);
   await ctx.close();
   // Phone: no handle, no toggle.
   ({ ctx, page } = await (async () => {

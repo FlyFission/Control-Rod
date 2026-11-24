@@ -1,6 +1,6 @@
 # Benchmark design v3.3 (agreed)
 
-Status: **agreed by both reviewers** (round 4, with Codex's one-sentence phase-0 launch fix applied). Code changes wait for the owner's go. This version folds in two rounds of independent review by Antigravity on Gemini 4 Neon (`gemini-4-neon-high`) and Codex on Astra (`gpt-6.2-astra`, medium effort).
+Status: **agreed by both reviewers** (round 4, with Codex's one-sentence phase-0 launch fix applied). Code changes wait for the owner's go. This version folds in four rounds of independent review by Antigravity on Gemini 4 Neon (`gemini-4-neon-high`) and Codex on Astra (`gpt-6.2-astra`, medium effort).
 
 - Round 1, of v1 at `d1ef5e7a`: both answered agree with changes.
 - Round 2, of v2 at `3ef17753`: both answered agree with changes in every section. Their section-by-section rewrites are adopted here. Where the two rewrites differ, the stricter one is used.

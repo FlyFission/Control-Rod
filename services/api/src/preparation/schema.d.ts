@@ -3655,27 +3655,38 @@ export interface components {
             local_rule: string;
             pins: components["schemas"]["SubscriptionPin"][];
         };
+        UsageEngine: {
+            /** @enum {string} */
+            id: "codexbar";
+            found: boolean;
+            version?: string;
+        };
         /** @description The claim payload for usage limits. */
         UsageLimitsReport: {
             /** Format: date-time */
             read_at: string;
+            /** @description Whether the CodexBar usage engine was found on this machine, and its version. */
+            engine?: components["schemas"]["UsageEngine"];
             providers: components["schemas"]["UsageProvider"][];
         };
         UsageLimitsView: {
             reported: boolean;
             /** Format: date-time */
             read_at?: string;
+            engine?: components["schemas"]["UsageEngine"];
             providers: components["schemas"]["UsageProvider"][];
         };
         /** @description One provider CLI's last limit reading. */
         UsageProvider: {
-            /** @enum {string} */
-            id: "claude" | "codex" | "grok" | "opencode" | "agy";
+            /** @description A harness id from the API's allowlist (Claude Code, Codex, Gemini CLI, Antigravity, Cursor, Copilot, opencode, Grok, Amp, Kiro, Factory Droid, Windsurf, Kilo, Warp, and others). */
+            id: string;
             /**
-             * @description cli-log: the CLI's own session log. cli-stream: the CLI's run output. none: no token-free source.
+             * @description cli-log: the CLI's own session log. cli-stream: the CLI's run output. codexbar: the CodexBar
+             *     usage engine the person installed, which signs in on its own; Control Rod receives only numbers.
+             *     none: no source on this machine.
              * @enum {string}
              */
-            source: "cli-log" | "cli-stream" | "none";
+            source: "cli-log" | "cli-stream" | "codexbar" | "none";
             /**
              * Format: date-time
              * @description When the CLI recorded the reading.
@@ -3687,7 +3698,9 @@ export interface components {
         /** @description One limit window of one subscription. */
         UsageWindow: {
             /** @enum {string} */
-            id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "monthly" | "primary" | "secondary";
+            id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "daily" | "weekly" | "monthly" | "primary" | "secondary" | "tertiary";
+            /** @description The usage engine's own display label for the window, e.g. "Weekly (Opus)". */
+            label?: string;
             /** Format: int32 */
             window_minutes?: number;
             /** Format: double */

@@ -918,7 +918,11 @@ op usageLimits(): UsageLimitsView;
 /** One limit window of one subscription. */
 @extension("unevaluatedProperties", false)
 model UsageWindow {
-  id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "monthly" | "primary" | "secondary";
+  id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "daily" | "weekly" | "monthly" | "primary" | "secondary" | "tertiary";
+
+  /** The usage engine's own display label for the window, e.g. "Weekly (Opus)". */
+  @pattern("^[A-Za-z0-9 ()/.,+-]{1,40}$")
+  label?: string;
 
   @minValue(1) @maxValue(60000)
   window_minutes?: int32;
@@ -934,10 +938,16 @@ model UsageWindow {
 /** One provider CLI's last limit reading. */
 @extension("unevaluatedProperties", false)
 model UsageProvider {
-  id: "claude" | "codex" | "grok" | "opencode" | "agy";
+  /** A harness id from the API's allowlist (Claude Code, Codex, Gemini CLI, Antigravity, Cursor, Copilot, opencode, Grok, Amp, Kiro, Factory Droid, Windsurf, Kilo, Warp, and others). */
+  @pattern("^[a-z0-9-]{1,32}$")
+  id: string;
 
-  /** cli-log: the CLI's own session log. cli-stream: the CLI's run output. none: no token-free source. */
-  source: "cli-log" | "cli-stream" | "none";
+  /**
+   * cli-log: the CLI's own session log. cli-stream: the CLI's run output. codexbar: the CodexBar
+   * usage engine the person installed, which signs in on its own; Control Rod receives only numbers.
+   * none: no source on this machine.
+   */
+  source: "cli-log" | "cli-stream" | "codexbar" | "none";
 
   /** When the CLI recorded the reading. */
   observed_at?: utcDateTime;
@@ -954,13 +964,26 @@ model UsageProvider {
 model UsageLimitsReport {
   read_at: utcDateTime;
 
-  @maxItems(8)
+  /** Whether the CodexBar usage engine was found on this machine, and its version. */
+  engine?: UsageEngine;
+
+  @maxItems(24)
   providers: UsageProvider[];
+}
+
+@extension("unevaluatedProperties", false)
+model UsageEngine {
+  id: "codexbar";
+  found: boolean;
+
+  @pattern("^[0-9A-Za-z.+-]{1,32}$")
+  version?: string;
 }
 
 model UsageLimitsView {
   reported: boolean;
   read_at?: utcDateTime;
+  engine?: UsageEngine;
   providers: UsageProvider[];
 }
 

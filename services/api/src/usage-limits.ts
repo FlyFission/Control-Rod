@@ -9,18 +9,28 @@ import { command } from "./commands/executor.js";
  * (ADR 0021).
  */
 
-const PROVIDERS = ["claude", "codex", "grok", "opencode", "agy"] as const;
-const SOURCES = ["cli-log", "cli-stream", "none"] as const;
-const WINDOWS = ["five_hour", "seven_day", "seven_day_opus", "seven_day_sonnet", "monthly", "primary", "secondary"] as const;
+/**
+ * Harnesses the control room names. Ids follow Control Rod's adapters where one exists (claude,
+ * codex, grok, opencode, agy) and CodexBar's provider ids otherwise; the daemon maps between them.
+ */
+const PROVIDERS = [
+  "claude", "codex", "gemini", "agy", "cursor", "copilot", "opencode", "opencode-go", "grok",
+  "amp", "kiro", "factory", "windsurf", "kilo", "warp", "mistral", "zed", "devin",
+] as const;
+const SOURCES = ["cli-log", "cli-stream", "codexbar", "none"] as const;
+const WINDOWS = ["five_hour", "seven_day", "seven_day_opus", "seven_day_sonnet", "daily", "weekly", "monthly", "primary", "secondary", "tertiary"] as const;
+const LABEL = /^[A-Za-z0-9 ()/.,+-]{1,40}$/;
+const VERSION = /^[0-9A-Za-z.+-]{1,32}$/;
 const STATUSES = ["allowed", "warning", "rejected"] as const;
 const PLAN = /^[a-z0-9_-]{1,24}$/;
 /** A plan name is a short word such as "plus" or "max". One that looks like a credential is dropped. */
 const TAINTED = /sk-|api[_-]?key|bearer|ghp_|xox|token|secret/i;
-const MAX_PROVIDERS = 8;
+const MAX_PROVIDERS = 24;
 const MAX_WINDOWS = 8;
 
 export interface UsageWindow {
   id: (typeof WINDOWS)[number];
+  label?: string;
   window_minutes?: number;
   used_percent: number;
   resets_at?: string;
@@ -35,9 +45,16 @@ export interface UsageProvider {
   windows: UsageWindow[];
 }
 
+export interface UsageEngine {
+  id: "codexbar";
+  found: boolean;
+  version?: string;
+}
+
 export interface UsageLimitsView {
   reported: boolean;
   read_at?: string;
+  engine?: UsageEngine;
   providers: UsageProvider[];
 }
 
@@ -57,6 +74,7 @@ function cleanWindow(v: unknown): UsageWindow | undefined {
   const used = v.used_percent;
   if (!id || typeof used !== "number" || !Number.isFinite(used) || used < 0 || used > 100) return undefined;
   const out: UsageWindow = { id, used_percent: used };
+  if (typeof v.label === "string" && LABEL.test(v.label) && !TAINTED.test(v.label)) out.label = v.label;
   const minutes = v.window_minutes;
   if (Number.isInteger(minutes) && (minutes as number) >= 1 && (minutes as number) <= 60000) out.window_minutes = minutes as number;
   const resets = cleanTime(v.resets_at);
@@ -100,11 +118,19 @@ function cleanProviders(raw: unknown): UsageProvider[] {
   return out;
 }
 
+function cleanEngine(v: unknown): UsageEngine | undefined {
+  if (!isRecord(v) || v.id !== "codexbar" || typeof v.found !== "boolean") return undefined;
+  const out: UsageEngine = { id: "codexbar", found: v.found };
+  if (typeof v.version === "string" && VERSION.test(v.version)) out.version = v.version;
+  return out;
+}
+
 /** Keeps the daemon's latest usage-limit report. Fields outside the contract are not stored. */
 export async function recordUsageLimits(db: Db, raw: unknown): Promise<void> {
   if (!isRecord(raw)) return;
   const readAt = cleanTime(raw.read_at) ?? new Date().toISOString();
-  const value = JSON.stringify({ read_at: readAt, providers: cleanProviders(raw.providers) });
+  const engine = cleanEngine(raw.engine);
+  const value = JSON.stringify({ read_at: readAt, ...(engine ? { engine } : {}), providers: cleanProviders(raw.providers) });
   await command(db, "runtime.report-status", async (c) => {
     await c.query("insert into settings (key, value) values ('usage_limits', $1) on conflict (key) do update set value = excluded.value", [value]);
   });
@@ -121,5 +147,6 @@ export async function usageLimitsView(db: Db): Promise<UsageLimitsView> {
   }
   if (!isRecord(stored)) return { reported: false, providers: [] };
   const readAt = cleanTime(stored.read_at);
-  return { reported: true, ...(readAt ? { read_at: readAt } : {}), providers: cleanProviders(stored.providers) };
+  const engine = cleanEngine(stored.engine);
+  return { reported: true, ...(readAt ? { read_at: readAt } : {}), ...(engine ? { engine } : {}), providers: cleanProviders(stored.providers) };
 }

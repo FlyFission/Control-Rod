@@ -14705,6 +14705,28 @@
           }
         }
       },
+      "UsageEngine": {
+        "type": "object",
+        "required": [
+          "id",
+          "found"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "codexbar"
+            ]
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9A-Za-z.+-]{1,32}$"
+          }
+        }
+      },
       "UsageLimitsReport": {
         "type": "object",
         "required": [
@@ -14716,12 +14738,16 @@
             "type": "string",
             "format": "date-time"
           },
+          "engine": {
+            "$ref": "#/components/schemas/UsageEngine",
+            "description": "Whether the CodexBar usage engine was found on this machine, and its version."
+          },
           "providers": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/UsageProvider"
             },
-            "maxItems": 8
+            "maxItems": 24
           }
         },
         "description": "The claim payload for usage limits."
@@ -14739,6 +14765,9 @@
           "read_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "engine": {
+            "$ref": "#/components/schemas/UsageEngine"
           },
           "providers": {
             "type": "array",
@@ -14758,22 +14787,18 @@
         "properties": {
           "id": {
             "type": "string",
-            "enum": [
-              "claude",
-              "codex",
-              "grok",
-              "opencode",
-              "agy"
-            ]
+            "pattern": "^[a-z0-9-]{1,32}$",
+            "description": "A harness id from the API's allowlist (Claude Code, Codex, Gemini CLI, Antigravity, Cursor, Copilot, opencode, Grok, Amp, Kiro, Factory Droid, Windsurf, Kilo, Warp, and others)."
           },
           "source": {
             "type": "string",
             "enum": [
               "cli-log",
               "cli-stream",
+              "codexbar",
               "none"
             ],
-            "description": "cli-log: the CLI's own session log. cli-stream: the CLI's run output. none: no token-free source."
+            "description": "cli-log: the CLI's own session log. cli-stream: the CLI's run output. codexbar: the CodexBar\nusage engine the person installed, which signs in on its own; Control Rod receives only numbers.\nnone: no source on this machine."
           },
           "observed_at": {
             "type": "string",
@@ -14808,10 +14833,18 @@
               "seven_day",
               "seven_day_opus",
               "seven_day_sonnet",
+              "daily",
+              "weekly",
               "monthly",
               "primary",
-              "secondary"
+              "secondary",
+              "tertiary"
             ]
+          },
+          "label": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9 ()/.,+-]{1,40}$",
+            "description": "The usage engine's own display label for the window, e.g. \"Weekly (Opus)\"."
           },
           "window_minutes": {
             "type": "integer",

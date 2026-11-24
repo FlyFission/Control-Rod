@@ -48,7 +48,7 @@ describe("usage limits", () => {
           { ...codex, token: secret, windows: [...codex.windows, { id: "five_hour", used_percent: 50 }, { id: "weird", used_percent: 1 }, { id: "monthly", used_percent: 140 }, { id: "primary", used_percent: 5, note: secret }] },
           { id: "claude", source: "cli-stream", plan: secret, windows: [{ id: "seven_day_opus", used_percent: 93, status: "rejected", resets_at: "not a time" }] },
           { id: "grok", source: "none", windows: [{ id: "five_hour", used_percent: 3 }] },
-          { id: "cursor", source: "cli-log", windows: [] },
+          { id: "not-a-harness", source: "cli-log", windows: [] },
           { id: "codex", source: "cli-log", windows: [] },
         ],
       },
@@ -66,6 +66,24 @@ describe("usage limits", () => {
     expect(cx.plan).toBe("plus");
     expect(cl).toEqual({ id: "claude", source: "cli-stream", windows: [{ id: "seven_day_opus", used_percent: 93, status: "rejected" }] });
     expect(gk).toEqual({ id: "grok", source: "none", windows: [] });
+    expect(JSON.stringify(body)).not.toContain(secret);
+  });
+
+  it("keeps CodexBar readings for allowlisted harnesses, their labels and the engine record", async () => {
+    await claim({
+      runtimes: [],
+      usage_limits: {
+        read_at: "2026-11-24T16:30:00Z",
+        engine: { id: "codexbar", found: true, version: "0.81.0", path: "/secret" },
+        providers: [
+          { id: "cursor", source: "codexbar", windows: [{ id: "monthly", label: "Monthly", used_percent: 40 }, { id: "primary", label: secret, used_percent: 2 }] },
+          { id: "made-up", source: "codexbar", windows: [] },
+        ],
+      },
+    });
+    const body = (await get()).json();
+    expect(body.engine).toEqual({ id: "codexbar", found: true, version: "0.81.0" });
+    expect(body.providers).toEqual([{ id: "cursor", source: "codexbar", windows: [{ id: "monthly", label: "Monthly", used_percent: 40 }, { id: "primary", used_percent: 2 }] }]);
     expect(JSON.stringify(body)).not.toContain(secret);
   });
 

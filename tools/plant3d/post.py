@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Compose Blender raw renders into deliverables: bloom from the glow pass, vignette, drawn-by-code engineering overlays
-(margin ticks, corner marks, dash-dot centre line, dimension lines, balloon leaders; no text), sprite sheet, compare sheet, manifest.
-Usage: post.py RAW_DIR OUT_DIR [--only healthy,scram,site,layers,sprites,compare]   (system python with Pillow + numpy)"""
+"""Compose Blender raw renders (v2) into deliverables: soft core falloff from the glow pass, vignette, code-drawn engineering overlays
+(margin ticks, corner marks, dash-dot vertical axis, a few unnumbered dimension ticks and leaders; no text), tiles, sprites, compare sheet, manifest.
+Usage: post.py RAW_DIR OUT_DIR [--only healthy,scram,site,tiles,sprites,compare,manifest]   (system python with Pillow + numpy)"""
 import hashlib, json, math, sys
 from pathlib import Path
 import numpy as np
@@ -111,105 +111,123 @@ class Ov:
         return self.im.resize((W_, H_), Image.LANCZOS)
 
 
-def overlays(state="healthy"):
+def overlays(state="healthy", site_only=False):
     o = Ov()
-    # margin ticks
+    o.col = lambda a: (*hexrgb("#6fb4d6"), int(max(0, min(255, a))))
     for x in range(0, W_ + 1, 50):
         L = 14 if x % 250 == 0 else 6
-        o.line((x, 0), (x, L), 90 if L > 6 else 55, 1); o.line((x, H_), (x, H_ - L), 90 if L > 6 else 55, 1)
+        o.line((x, 0), (x, L), 80 if L > 6 else 45, 1); o.line((x, H_), (x, H_ - L), 80 if L > 6 else 45, 1)
     for y in range(0, H_ + 1, 50):
         L = 14 if y % 250 == 0 else 6
-        o.line((0, y), (L, y), 90 if L > 6 else 55, 1); o.line((W_, y), (W_ - L, y), 90 if L > 6 else 55, 1)
+        o.line((0, y), (L, y), 80 if L > 6 else 45, 1); o.line((W_, y), (W_ - L, y), 80 if L > 6 else 45, 1)
     for (cx, cy, sx, sy) in ((18, 18, 1, 1), (W_ - 18, 18, -1, 1), (18, H_ - 18, 1, -1), (W_ - 18, H_ - 18, -1, -1)):
-        o.line((cx, cy), (cx + 34 * sx, cy), 150, 1.4); o.line((cx, cy), (cx, cy + 34 * sy), 150, 1.4)
-    # dash-dot centre line through the core axis, with a datum marker
-    cx, top = ORIGIN[0], 98
-    o.line((cx, 300), (cx, top), 120, 1.0, dash=(22, 5, 3, 5))
-    o.d.ellipse([(cx - 6) * 2, (top - 6) * 2, (cx + 6) * 2, (top + 6) * 2], outline=o.col(150), width=2)
-    o.line((cx - 10, top), (cx + 10, top), 130, 1); o.line((cx, top - 10), (cx, top + 10), 130, 1)
-    # height dimension of the containment back wall (left extreme)
+        o.line((cx, cy), (cx + 34 * sx, cy), 130, 1.2); o.line((cx, cy), (cx, cy + 34 * sy), 130, 1.2)
+    # vertical dash-dot axis through the core, with a datum marker above the containment
+    cx, top = ORIGIN[0], 96
+    o.line((cx, 372), (cx, top), 105, 1.0, dash=(22, 5, 3, 5))
+    o.d.ellipse([(cx - 6) * 2, (top - 6) * 2, (cx + 6) * 2, (top + 6) * 2], outline=o.col(140), width=2)
+    o.line((cx - 10, top), (cx + 10, top), 120, 1); o.line((cx, top - 10), (cx, top + 10), 120, 1)
     R, H = LAY["core"]["radius"], LAY["core"]["wall_height"]
     ex, ey = proj(*pol(R, -225), 0)
-    o.dim((ex, ey), (ex, ey - H), (-34, 0))
-    # diameter dimension along the gx axis in front of the containment
-    a0, a1 = proj(-R, R * 0.0 + 640), proj(R, 640)
-    o.dim(proj(-R, 0, 0), proj(R, 0, 0), (0, 0), 0) if False else None
-    # room widths on three rooms (outer side of the front edge)
+    o.dim((ex, ey), (ex, ey - H), (-34, 0), 120)
     rooms = {r["id"]: r for r in LAY["rooms"]}
-    for pid in ("your-office", "process", "review"):
+    for pid in ("your-office", "process"):
         r = rooms[pid]
-        o.dim(proj(r["x"], r["y"] + r["d"]), proj(r["x"] + r["w"], r["y"] + r["d"]), (-4, 22), 120)
-    # balloons: steam generators, polar crane, vessel head, control room
-    sg = proj(*pol(335, 102), 120); o.leader(sg, (430, 905))
-    sg2 = proj(*pol(335, -18), 120); o.leader(sg2, (1985, 600))
-    hd = proj(*pol(232, -70), 150); o.leader(hd, (hd[0] + 190, hd[1] - 230))
-    yo = rooms["your-office"]; yp = proj(yo["x"] + yo["w"] * 0.5, yo["y"] + yo["d"] * 0.5, 60); o.leader(yp, (yp[0] - 190, yp[1] + 120))
+        o.dim(proj(r["x"], r["y"] + r["d"]), proj(r["x"] + r["w"], r["y"] + r["d"]), (-4, 22), 95)
+    # leaders: steam generator, polar crane girder, vessel head, control room
+    sg = proj(-285, 118, 150); o.leader(sg, (sg[0] - 150, sg[1] - 120), 120)
+    sg2 = proj(118, -285, 150); o.leader(sg2, (sg2[0] + 150, sg2[1] - 120), 120)
+    cr = proj(*pol(R - 20, -62), 176); o.leader(cr, (cr[0] + 120, cr[1] - 70), 120)
+    hd = proj(0, 0, 180); o.leader(hd, (hd[0] + 150, hd[1] - 100), 120)
+    yo = rooms["your-office"]; yp = proj(yo["x"] + yo["w"] * 0.5, yo["y"] + yo["d"] * 0.5, 60); o.leader(yp, (yp[0] - 160, yp[1] + 100), 120)
     return o.result()
 
 
-def finish(raw, name, state="healthy", with_overlay=True, glow_gain=1.0):
+BLOOM = {"healthy": dict(k=(0.45, 0.38, 0.34), radii=(3, 14, 56), gain=1.1), "scram": dict(k=(0.55, 0.35, 0.15), radii=(3, 9, 28), gain=1.0)}
+
+
+def finish(raw, name, state="healthy", with_overlay=True, glow_gain=1.0, site_only=False):
     im = Image.open(raw / f"{name}.png").convert("RGB")
     gp = raw / f"{name}_glow.png"
     if gp.exists():
-        im = bloom(im, gp, gain=glow_gain)
-    im = vignette(im, 0.3)
+        b = BLOOM[state]
+        im = bloom(im, gp, k=b["k"], radii=b["radii"], gain=b["gain"] * glow_gain)
+    im = vignette(im, 0.28)
     if with_overlay:
-        im = Image.alpha_composite(im.convert("RGBA"), overlays(state)).convert("RGB")
+        im = Image.alpha_composite(im.convert("RGBA"), overlays(state, site_only)).convert("RGB")
     return im
 
 
 def main():
     raw, out = Path(sys.argv[1]), Path(sys.argv[2])
-    only = (sys.argv[sys.argv.index("--only") + 1].split(",")) if "--only" in sys.argv else ["healthy", "scram", "site", "layers", "sprites", "compare"]
-    sfx = ""
-    for a in sys.argv:
-        if a.startswith("--suffix="):
-            sfx = a.split("=")[1]
+    only = (sys.argv[sys.argv.index("--only") + 1].split(",")) if "--only" in sys.argv else ["healthy", "scram", "site", "tiles", "sprites", "compare", "manifest"]
     out.mkdir(parents=True, exist_ok=True)
     made = {}
+
     def save(img, path, **kw):
-        img.save(path, **kw); made[Path(path).name] = {"sha256": sha(path), "size": list(img.size)}
-    res = {}
+        img.save(path, **kw); made[str(Path(path).relative_to(out))] = {"sha256": sha(path), "size": list(img.size)}
+
     if "healthy" in only:
-        im = finish(raw, "healthy" + sfx, "healthy"); res["healthy"] = im
+        im = finish(raw, "healthy", "healthy")
         save(im, out / "healthy-2400.png"); save(im.resize((1440, 900), Image.LANCZOS), out / "healthy-1440.jpg", quality=93)
     if "scram" in only:
-        im = finish(raw, "scram" + sfx, "scram", glow_gain=1.0); res["scram"] = im
+        im = finish(raw, "scram", "scram")
         save(im.resize((1440, 900), Image.LANCZOS), out / "scram-1440.jpg", quality=93)
     if "site" in only:
-        im = finish(raw, "site" + sfx, "healthy"); save(im.resize((1440, 900), Image.LANCZOS), out / "site-1440.jpg", quality=93)
-    if "layers" in only:
-        (out / "layers").mkdir(exist_ok=True)
-        for p in sorted(raw.glob("room_*_*.png")):
-            if p.name.endswith("_glow.png"):
-                continue
-            bb = json.loads((raw / p.name.replace(".png", ".bbox.json")).read_text())
-            im = Image.open(p).convert("RGBA")
-            canvas = Image.new("RGBA", (W_, H_), (0, 0, 0, 0)); canvas.alpha_composite(im, (bb[0], bb[1]))
-            save(canvas, out / "layers" / p.name)
+        im = finish(raw, "site", "healthy", site_only=True)
+        save(im, out / "site-2400.png")
+    if "tiles" in only:
+        (out / "tiles").mkdir(exist_ok=True)
+        tj = json.loads((ROOT / "design/art/blockout/tiles/tiles.json").read_text())["tiles"]
+        for key, spec in tj.items():
+            for v in ("lit", "dark", "front"):
+                p = raw / f"tile_{key}_{v}.png"
+                if p.exists():
+                    im = Image.open(p).convert("RGBA")
+                    assert list(im.size) == spec["canvas"], (key, im.size)
+                    save(im, out / "tiles" / f"{key}-{v}.png")
     if "sprites" in only:
+        (out / "sprites").mkdir(exist_ok=True)
         poses = ["working", "waiting", "stuck", "needs-you", "walking"]
-        ims = [Image.open(raw / f"sprite_{p}.png").convert("RGBA") for p in poses]
-        w, h = ims[0].size
-        sheet = Image.new("RGBA", (w * 5, h + 200), (0, 0, 0, 0))
-        small = Image.new("RGBA", (w * 5, 200), (0, 0, 0, 0))
-        for i, im in enumerate(ims):
-            sheet.alpha_composite(im, (i * w, 0))
-            sm = im.resize((w // 4, h // 4), Image.LANCZOS)      # 1x canvas size; a 64 px legibility check is the 130 px sprite at 0.5x
-            sheet.alpha_composite(sm, (i * w + (w - sm.width) // 2, h + 10))
-            s64 = im.resize((64, 64), Image.LANCZOS)
-            sheet.alpha_composite(s64, (i * w + (w - 64) // 2, h + 110))
-            save(im, out / f"worker-{poses[i]}.png")
-        save(sheet, out / "workers-sheet.png")
+        meta = json.loads((raw / "sprites.json").read_text())
+        for var, tag in (("plant", ""), ("face", "face-")):
+            ims = [Image.open(raw / f"sprite_{var}_{p}.png").convert("RGBA") for p in poses]
+            for p, im in zip(poses, ims):
+                bb = im.getbbox()
+                save(im, out / "sprites" / f"worker-{tag}{p}.png")
+            w, h = ims[0].size
+            sheet = Image.new("RGBA", (w * 5, h + 140), (0, 14, 35, 255))
+            for i, im in enumerate(ims):
+                sheet.alpha_composite(im, (i * w, 0))
+                s64 = im.resize((w // 4, h // 4), Image.LANCZOS)   # 1x plate size
+                sheet.alpha_composite(s64, (i * w + (w - s64.width) // 2, h + 4))
+            save(sheet, out / "sprites" / f"workers-{tag}sheet.png")
+        (out / "sprites" / "sprites.json").write_text(json.dumps(meta, indent=1))
     if "compare" in only:
-        kf = Image.open("/mnt/project-files/control-rod/keyframes/B-healthy-1440.jpg").convert("RGB").resize((1440, 900))
-        app = Image.open("/mnt/project-files/control-rod/step2d/plant-busy-collapsed-1440.png").convert("RGB").resize((1440, 900))
-        sp = Image.open(out / "healthy-1440.jpg").convert("RGB")
+        sheet = Image.open(ROOT / "design/art/bakeoff/schematic-sheet.jpg").convert("RGB")
+        cod = sheet.crop((246, 578, 946, 1016)).resize((1440, 900), Image.LANCZOS)
+        v1 = Image.open("/mnt/project-files/control-rod/plant3d/healthy-1440.jpg").convert("RGB").resize((1440, 900))
+        v2 = Image.open(out / "healthy-1440.jpg").convert("RGB")
         c = Image.new("RGB", (1440 * 3 + 40, 900), (0, 14, 35))
-        for i, im in enumerate((kf, app, sp)):
+        for i, im in enumerate((cod, v1, v2)):
             c.paste(im, (i * (1440 + 20), 0))
         save(c, out / "compare-1440.jpg", quality=90)
     (out / "post-manifest.json").write_text(json.dumps(made, indent=1))
+    if "manifest" in only:
+        params = {}
+        for f in sorted(raw.glob("render_params_*.json")):
+            params[f.stem.replace("render_params_", "")] = json.loads(f.read_text())
+        reg = json.loads((raw / "registration.json").read_text()) if (raw / "registration.json").exists() else None
+        files = {}
+        for f in sorted(out.rglob("*")):
+            if f.is_file() and f.name not in ("manifest.json", "post-manifest.json"):
+                files[str(f.relative_to(out))] = {"sha256": sha(f), "bytes": f.stat().st_size}
+        man = {"version": "plant3d-v2", "blender": "5.3 (bpy module), Cycles CPU 4 cores, OIDN denoise, Freestyle linework",
+               "style": "design/art/bakeoff/prompts/final-v2.md STYLE block; palette from design/art/palette.json",
+               "render_runs": params, "registration": {"max_bbox_delta_px": reg and reg["max_bbox_delta_px"], "max_boundary_px_99pct": reg and reg["max_boundary_px_99pct"], "rooms": reg and reg["rooms"]},
+               "sprites_anchor_note": "anchor_px in sprites/sprites.json = floor point under the worker's hips in the sprite image (scale 4 px per plate px); seated poses sit on a chair at that point, facing the in-plant direction",
+               "files": files}
+        (out / "manifest.json").write_text(json.dumps(man, indent=1))
 
 
 if __name__ == "__main__":

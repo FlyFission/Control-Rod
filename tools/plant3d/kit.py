@@ -32,14 +32,21 @@ LIGHT = Vector((0.35, -0.55, 0.76)).normalized()   # fixed key direction in B sp
 class Book:
     """Material book. tone() builds one material; .m maps name -> material; set_glow(v) flips every shaded part off/on."""
     def __init__(self, prefix=""):
-        self.m, self.gm, self.prefix = {}, [], prefix
+        self.m, self.gm, self.prefix, self.sv, self.cut = {}, [], prefix, [], set()
+
+    def set_screen(self, res, scale):
+        """Screen-space patterns (hatching) work in canvas px: window 0..1 -> res / scale canvas units; aa = one render px."""
+        for i in range(0, len(self.sv), 3):
+            self.sv[i].outputs[0].default_value = res[0] / scale
+            self.sv[i + 1].outputs[0].default_value = res[1] / scale
+            self.sv[i + 2].outputs[0].default_value = 1.0 / scale
 
     def set_glow(self, v):
         for n in self.gm:
             n.outputs[0].default_value = float(v)
 
     def tone(self, name, base, amb=0.30, ao=0.5, pat=None, pat_col=None, emit=None, emit_k=0.0, emit_pat=None,
-             radial=None, alpha=None, voronoi=None):
+             radial=None, alpha=None, voronoi=None, k=1.0, cut=False):
         mat = bpy.data.materials.new(self.prefix + name)
         mat.use_nodes = True
         nt = mat.node_tree
@@ -93,10 +100,19 @@ class Book:
         mask = None
         if pat:
             kind = pat[0]
-            if kind == "hatch":
+            if kind == "hatch":      # 45 degree hatching in screen space (canvas px), analytic anti-aliasing
                 _, period, w = pat
-                d = vec_("DOT_PRODUCT", pos, (1.0 / period,) * 3)
-                mask = math_("LESS_THAN", math_("FRACT", d.outputs["Value"]), w / period)
+                tc = N("ShaderNodeTexCoord")
+                sw = N("ShaderNodeSeparateXYZ"); L(tc.outputs["Window"], sw.inputs[0])
+                vw, vh, vp = N("ShaderNodeValue"), N("ShaderNodeValue"), N("ShaderNodeValue")
+                for v_ in (vw, vh, vp):
+                    self.sv.append(v_)
+                ux = math_("MULTIPLY", sw.outputs[0], vw.outputs[0]); uy = math_("MULTIPLY", sw.outputs[1], vh.outputs[0])
+                t_ = math_("FRACT", math_("MULTIPLY", math_("ADD", ux, uy), 1.0 / period))
+                dist = math_("MULTIPLY", math_("MINIMUM", t_, math_("SUBTRACT", 1.0, t_)), period)
+                aa = vp.outputs[0]
+                mask = math_("DIVIDE", math_("SUBTRACT", w * 0.5, dist), math_("MAXIMUM", aa, 0.05))
+                mask = math_("ADD", mask, 0.5, clamp=True)
             elif kind == "grid":
                 _, sp, w = pat
                 mask = math_("MAXIMUM", line(X, sp, w), line(Y, sp, w))
@@ -130,6 +146,8 @@ class Book:
         gmn = N("ShaderNodeValue"); gmn.outputs[0].default_value = 0.0; self.gm.append(gmn)
         inv = math_("SUBTRACT", 1.0, gmn.outputs[0])
         s = inv if s is None else math_("MULTIPLY", s, inv)
+        if k != 1.0:
+            s = math_("MULTIPLY", s, k)
         shaded = vec_("SCALE", col, s=s)
         outc = shaded.outputs[0]
 
@@ -148,6 +166,10 @@ class Book:
                 br.inputs["Mortar Smooth"].default_value = 0.0
                 bw = vec_("DOT_PRODUCT", br.outputs["Color"], (0.3333, 0.3333, 0.3333))
                 efac = math_("MULTIPLY_ADD", bw.outputs["Value"], 0.55, 0.45)
+            elif emit_pat == "rods":    # fine vertical rod stripes on fuel assemblies
+                h = math_("ADD", X, math_("MULTIPLY", Y, -1.0))
+                fr = math_("FRACT", math_("MULTIPLY", h, 1.0 / 0.9))
+                efac = math_("MULTIPLY_ADD", math_("MINIMUM", fr, math_("SUBTRACT", 1.0, fr)), 0.9, 0.62)
             elif emit_pat == "voronoi":
                 vn = N("ShaderNodeTexVoronoi"); vn.feature = "DISTANCE_TO_EDGE"
                 L(pos, vn.inputs["Vector"]); vn.inputs["Scale"].default_value = 0.06
@@ -171,6 +193,8 @@ class Book:
         else:
             L(em.outputs[0], out.inputs[0])
         self.m[name] = mat
+        if cut:
+            self.cut.add(name)
         return mat
 
 # ---------------------------------------------------------------------------------------------- meshing
@@ -290,6 +314,49 @@ class Mesher:
             for f in fl:
                 f.material_index = self.slot(mats.get(g) or mats["*"]); f.smooth = smooth and g in ("outer", "inner")
 
+    def lathe(self, poly, a0, a1, n, mats, cutmat="hatch", smooth=True):
+        """Revolve a closed (r, z) polygon about the local z axis from layout angle a0 to a1 (a full 360 closes on itself; a
+        partial sweep gets two flat cut faces in cutmat). mats: one name or a list with one name per polygon edge i -> i+1."""
+        bm = self.bm
+        full = abs(abs(a1 - a0) - 360) < 1e-6
+        m = len(poly)
+        nk = n if full else n + 1
+        rings, cache = [], {}
+        for k in range(nk):
+            a = math.radians(a0 + (a1 - a0) * k / n)
+            row = []
+            for i, (r, z) in enumerate(poly):
+                key = (0, z) if r < 1e-6 else (k, i)
+                if key not in cache:
+                    cache[key] = bm.verts.new(self.xf @ Vector((r * math.cos(a), -r * math.sin(a), z)))
+                row.append(cache[key])
+            rings.append(row)
+        faces = []
+        for i in range(m):
+            j = (i + 1) % m
+            em = mats if isinstance(mats, str) else mats[i]
+            horiz = abs(poly[j][1] - poly[i][1]) < 1e-6
+            for k in range(n):
+                k2 = (k + 1) % nk
+                vs = [rings[k][i], rings[k2][i], rings[k2][j], rings[k][j]]
+                uv = []
+                for v in vs:
+                    if v not in uv:
+                        uv.append(v)
+                if len(uv) < 3:
+                    continue
+                try:
+                    f = bm.faces.new(uv)
+                except ValueError:
+                    continue
+                f.material_index = self.slot(em); f.smooth = smooth and not horiz
+                faces.append(f)
+        if not full:
+            for k in (0, nk - 1):
+                f = bm.faces.new(list(dict.fromkeys(rings[k])))
+                f.material_index = self.slot(cutmat); faces.append(f)
+        bmesh.ops.recalc_face_normals(bm, faces=faces)
+
     def tube(self, pts, r, mat, seg=8, caps=True):
         """Round tube along a polyline of local points, parallel-transport frames."""
         bm, P_ = self.bm, [Vector(p) for p in pts]
@@ -320,6 +387,16 @@ class Mesher:
         self.bm.to_mesh(me); self.bm.free()
         for m in self.slots:
             me.materials.append(m)
+        cutidx = {i for i, mt in enumerate(self.slots) if mt.name[len(self.book.prefix):] in self.book.cut}
+        if cutidx:
+            em = {tuple(sorted(e.vertices)): e.index for e in me.edges}
+            flags = [False] * len(me.edges)
+            for p in me.polygons:
+                if p.material_index in cutidx:
+                    for ek in p.edge_keys:
+                        flags[em[tuple(sorted(ek))]] = True
+            at = me.attributes.get("freestyle_edge") or me.attributes.new("freestyle_edge", "BOOLEAN", "EDGE")
+            at.data.foreach_set("value", flags)
         ob = bpy.data.objects.new(name, me)
         for c in collections:
             c.objects.link(ob)

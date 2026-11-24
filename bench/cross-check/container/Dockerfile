@@ -21,8 +21,13 @@ RUN set -eu; \
 
 WORKDIR /opt/cr-bench
 COPY container/package.json container/package-lock.json ./
+# No install script runs. Claude Code's postinstall would only copy its native binary over a
+# placeholder, so `claude` points straight at the pinned platform package's binary instead.
 RUN npm ci --ignore-scripts --no-audit --no-fund && npm cache clean --force \
-    && ln -s /opt/cr-bench/node_modules/.bin/claude /usr/local/bin/claude \
+    && case "$(dpkg --print-architecture)" in amd64) A=x64 ;; arm64) A=arm64 ;; *) exit 1 ;; esac \
+    && test -x "/opt/cr-bench/node_modules/@anthropic-ai/claude-code-linux-$A/claude" \
+    && ln -s "/opt/cr-bench/node_modules/@anthropic-ai/claude-code-linux-$A/claude" /usr/local/bin/claude \
+    && claude --version | grep -q "(Claude Code)" \
     && ln -s /opt/cr-bench/node_modules/.bin/codex /usr/local/bin/codex \
     && ln -s /opt/cr-bench/node_modules/.bin/srt /usr/local/bin/srt
 COPY crbench/egress.py /opt/cr-bench/egress.py

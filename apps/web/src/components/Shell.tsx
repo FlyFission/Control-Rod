@@ -57,6 +57,18 @@ const MODES: { id: EngineeringMode; label: string }[] = [
   { id: "nuclear-grade", label: "Nuclear-Grade" },
 ];
 
+/**
+ * Whether the SCRAM the lamp describes is still stopping (its stop not yet recorded): an organization
+ * SCRAM if one holds, else the project SCRAMs, else drills. Matches what rodState captions.
+ */
+function scramStopping(scrams: readonly { scram: { scope: string; drill?: boolean }; stopped?: unknown }[] | undefined): boolean {
+  const list = scrams ?? [];
+  const real = list.filter((x) => !x.scram.drill);
+  const org = real.find((x) => x.scram.scope === "organization");
+  const described = org ? [org] : real.length > 0 ? real : list;
+  return described.some((x) => !x.stopped);
+}
+
 const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control / Setup"];
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -661,7 +673,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
 
             <ScramSwitch
               rods={rods}
-              stopping={(scrams ?? []).some((x) => !x.stopped)}
+              stopping={scramStopping(scrams)}
               failed={scramRead.isError}
               presenting={presenting}
               onRestart={openScramReview}

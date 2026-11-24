@@ -14,7 +14,7 @@ The top bar shows one SCRAM button with a lamp beside it and a hover card; SCRAM
 
 | Check | Result |
 |---|---|
-| `pnpm --filter @control-rod/web exec vitest run` (85 files, 931 tests), including new assertions in `shell-scram.test.tsx` and `shell-phone.test.tsx` | pass |
+| `pnpm --filter @control-rod/web exec vitest run` (85 files, 932 tests), including new assertions in `shell-scram.test.tsx` and `shell-phone.test.tsx` | pass |
 | Codex blind review round 1 (gpt-6.2-sol, read-only) | FAIL: 3 major, 3 minor; all fixed in round 2 (below) |
 | Round 2 fixes: the card says "stopping" until the control plane records the stop; Restart opens the real SCRAM before any drill; no Restart and no clear lamp after a failed read; a hover bridge and a document-level Escape for the card; review scrolled to centre so a sticky phone bar cannot cover it | 5 new tests; 4 of them fail against the round 1 `Shell.tsx` (failed-first) |
 | Codex blind review round 2 | all six round 1 findings FIXED; new: 2 major, 2 minor |
@@ -24,6 +24,8 @@ The top bar shows one SCRAM button with a lamp beside it and a hover card; SCRAM
 | Chromium with reduced motion: computed `animation-name` of the lit lamp | `none` |
 | Restart while tripped opens and focuses the banner's "Review and restart" | pass |
 | `ng.py validate --strict-custody` on this packet | run in CI |
+
+Round 3 (Codex): round 2 findings 1, 3, 4 FIXED; 2 partly (restart scope wording); one new major (stopping taken from any SCRAM). Round 4 fixes: the restart step and screen-reader summary say "in that scope" and name the three restart scopes; "stopping" now comes from the SCRAM the lamp describes (organization, else projects, else drills). New test fails against the round 3 `Shell.tsx` (failed-first). Web suite: 932 tests pass.
 
 Not tested: Safari and Firefox rendering of the conic-gradient bezel; screen reader output beyond the accessible names asserted in tests.
 

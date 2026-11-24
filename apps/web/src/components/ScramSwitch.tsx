@@ -32,7 +32,7 @@ const LAMP_WORDS: Record<Lamp, string> = {
 const STEPS = [
   { n: "1", head: "Stop", body: "Every running agent stops at its next heartbeat, everywhere or in one project. Queued work is held." },
   { n: "2", head: "Review", body: "See what each stopped run reported." },
-  { n: "3", head: "Restart", body: "Sign a restart for all of it, one discipline or one package. It is refused while anything is unresolved." },
+  { n: "3", head: "Restart", body: "Sign a restart for all of it, one discipline or one package. It is refused while anything in that scope is unresolved." },
 ];
 
 /**
@@ -111,7 +111,7 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
             </span>
           ))}
         </span>
-        <span className="sr-only">Stop at the next heartbeat, then review what each run reported, then sign a restart.</span>
+        <span className="sr-only">Stop at the next heartbeat, then review what each run reported, then sign a restart for all, one discipline or one package; it is refused while anything in that scope is unresolved.</span>
       </span>
     </span>
   );

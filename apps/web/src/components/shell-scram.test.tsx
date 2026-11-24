@@ -81,6 +81,16 @@ describe("the SCRAM banner is app-wide", () => {
     await waitFor(() => expect(screen.getByRole("tooltip").textContent).toMatch(/Agent work is stopped and held/));
   });
 
+  it("takes stopping from the SCRAM the lamp describes, not from a later project SCRAM", async () => {
+    baseApi([{ id: "p1", name: "Plant A", mode: "software" }]);
+    server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [{ ...summary(org), stopped: { at: new Date().toISOString(), ms_to_stop: 900, runs: 1 } }, summary(proj)] })));
+    await renderShell("/board");
+    await screen.findByRole("region", { name: "SCRAM in force" });
+    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toMatch(/runs stopped at/));
+    expect(screen.getByRole("tooltip").textContent).toMatch(/Agent work is stopped and held/);
+    expect(screen.getByRole("tooltip").textContent).not.toMatch(/Agents are stopping/);
+  });
+
   it("opens the real SCRAM's review from Restart when a drill is also in force", async () => {
     baseApi();
     // The drill is listed first; Restart must still open the real SCRAM.

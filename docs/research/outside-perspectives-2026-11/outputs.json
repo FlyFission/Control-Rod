@@ -1,0 +1,213 @@
+{
+  "input_sha256": "c57dea339621c993888779cf84b5739f61fd07814f8ede825fe8d958197019e3",
+  "perspectives_evaluated": 200,
+  "cohorts_evaluated": 10,
+  "criteria_evaluated": 12,
+  "overall_rubric_pct": {
+    "before": 38.7,
+    "after": 98.4,
+    "gain_pp": 59.7
+  },
+  "cohorts": [
+    {
+      "id": "G01",
+      "name": "Solo OSS & Indie Builders",
+      "perspectives_count": 20,
+      "before_pct": 36.2,
+      "after_pct": 97.9,
+      "gain_pp": 61.7
+    },
+    {
+      "id": "G02",
+      "name": "Staff & Principal Software Engineers",
+      "perspectives_count": 20,
+      "before_pct": 39.6,
+      "after_pct": 98.4,
+      "gain_pp": 58.8
+    },
+    {
+      "id": "G03",
+      "name": "Engineering Managers, Directors & VPs",
+      "perspectives_count": 20,
+      "before_pct": 38.8,
+      "after_pct": 98.4,
+      "gain_pp": 59.6
+    },
+    {
+      "id": "G04",
+      "name": "AppSec, Red-Team & Security Architects",
+      "perspectives_count": 20,
+      "before_pct": 40.0,
+      "after_pct": 98.6,
+      "gain_pp": 58.6
+    },
+    {
+      "id": "G05",
+      "name": "AI Harness Authors, Contributors & Researchers",
+      "perspectives_count": 20,
+      "before_pct": 39.2,
+      "after_pct": 98.4,
+      "gain_pp": 59.2
+    },
+    {
+      "id": "G06",
+      "name": "Hacker News, X/Twitter & DevRel Evaluators",
+      "perspectives_count": 20,
+      "before_pct": 36.5,
+      "after_pct": 98.0,
+      "gain_pp": 61.5
+    },
+    {
+      "id": "G07",
+      "name": "Regulated Software Leads (MedTech, FinTech, Aero, Defense)",
+      "perspectives_count": 20,
+      "before_pct": 40.0,
+      "after_pct": 98.8,
+      "gain_pp": 58.8
+    },
+    {
+      "id": "G08",
+      "name": "Capital Projects & Responsible-Charge Engineers",
+      "perspectives_count": 20,
+      "before_pct": 40.0,
+      "after_pct": 99.2,
+      "gain_pp": 59.2
+    },
+    {
+      "id": "G09",
+      "name": "Consultants, Agencies & Client-Data Stewards",
+      "perspectives_count": 20,
+      "before_pct": 38.4,
+      "after_pct": 98.4,
+      "gain_pp": 60.0
+    },
+    {
+      "id": "G10",
+      "name": "First-Time Visitors, Non-Git Domain Experts & Tough Critics",
+      "perspectives_count": 20,
+      "before_pct": 38.1,
+      "after_pct": 98.1,
+      "gain_pp": 60.0
+    }
+  ],
+  "criteria_ranked_by_lift": [
+    {
+      "id": "C08",
+      "name": "Viral shareable artifact (PR receipt)",
+      "before_score": 0,
+      "after_score": 5,
+      "total_cohort_weight": 46,
+      "weighted_lift_points": 230
+    },
+    {
+      "id": "C06",
+      "name": "Screenshot freshness & mode consistency",
+      "before_score": 1,
+      "after_score": 5,
+      "total_cohort_weight": 44,
+      "weighted_lift_points": 176
+    },
+    {
+      "id": "C09",
+      "name": "Workflow pack flexibility (Superpowers / Pocock / Nuclear)",
+      "before_score": 1,
+      "after_score": 5,
+      "total_cohort_weight": 37,
+      "weighted_lift_points": 148
+    },
+    {
+      "id": "C02",
+      "name": "Dynamic council & baton-pass visibility",
+      "before_score": 2,
+      "after_score": 5,
+      "total_cohort_weight": 45,
+      "weighted_lift_points": 135
+    },
+    {
+      "id": "C05",
+      "name": "Diagram & visual instrument excellence",
+      "before_score": 2,
+      "after_score": 5,
+      "total_cohort_weight": 43,
+      "weighted_lift_points": 129
+    },
+    {
+      "id": "C01",
+      "name": "5-second multi-agent value hook",
+      "before_score": 2,
+      "after_score": 5,
+      "total_cohort_weight": 40,
+      "weighted_lift_points": 120
+    },
+    {
+      "id": "C04",
+      "name": "30-second standalone wedge before full install",
+      "before_score": 1,
+      "after_score": 4,
+      "total_cohort_weight": 39,
+      "weighted_lift_points": 117
+    },
+    {
+      "id": "C03",
+      "name": "Subscription & quota gauge clarity ($0 API markup)",
+      "before_score": 2,
+      "after_score": 5,
+      "total_cohort_weight": 36,
+      "weighted_lift_points": 108
+    },
+    {
+      "id": "C11",
+      "name": "Dual-domain power (Software + Capital Projects)",
+      "before_score": 2,
+      "after_score": 5,
+      "total_cohort_weight": 30,
+      "weighted_lift_points": 90
+    },
+    {
+      "id": "C07",
+      "name": "Empirical evidence & published research punch",
+      "before_score": 3,
+      "after_score": 5,
+      "total_cohort_weight": 42,
+      "weighted_lift_points": 84
+    },
+    {
+      "id": "C10",
+      "name": "Kernel, sandbox & red-team trust architecture",
+      "before_score": 3,
+      "after_score": 5,
+      "total_cohort_weight": 41,
+      "weighted_lift_points": 82
+    },
+    {
+      "id": "C12",
+      "name": "Radical honesty, Apache-2.0 license & zero lock-in",
+      "before_score": 4,
+      "after_score": 5,
+      "total_cohort_weight": 48,
+      "weighted_lift_points": 48
+    }
+  ],
+  "remaining_product_gaps": [
+    {
+      "id": "RG-1",
+      "gap": "Prebuilt single-command binary / Homebrew installer (currently requires Node 22+, pnpm, Go, or mise)",
+      "tracked_in": "docs/patterns/onboarding.md, docs/superpowers/specs/2026-11-08-program-gap-analysis.md (G-07)"
+    },
+    {
+      "id": "RG-2",
+      "gap": "Live-login end-to-end verification on macOS and native Linux beyond scripted CI confinement",
+      "tracked_in": "docs/status.md, Issue #123"
+    },
+    {
+      "id": "RG-3",
+      "gap": "Additional sandboxed runnable CLI seats beyond Claude Code and Codex (Antigravity, Grok, OpenCode, Ollama)",
+      "tracked_in": "ADR 0024, Issue #125"
+    },
+    {
+      "id": "RG-4",
+      "gap": "Pre-passkey look-around mode inside the local apps/web client itself (complementing the new public site/ interactive preview)",
+      "tracked_in": "docs/superpowers/specs/2026-11-08-adoption-and-retention-analysis.md (I-01)"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 560" width="1120" height="560" role="img" aria-labelledby="eb-t eb-d">
+<title id="eb-t">Published Empirical Evidence Behind Control Rod</title>
+<desc id="eb-d">Four published failure modes mapped to Control Rod controls: multi-turn instruction drop, self-verification collapse, self-preference and conceding when challenged, and test-passing PRs maintainers would not merge.</desc>
+<rect width="1120" height="560" rx="12" fill="#06090f" stroke="#1a2739" stroke-width="1.5"/>
+<rect x="16" y="16" width="1088" height="528" rx="8" fill="#0b111b" stroke="#1a2739"/>
+<path d="M16,28 V16 H28" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M1092,16 H1104 V28" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M16,532 V544 H28" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M1092,544 H1104 V532" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<text x="40" y="46" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#00f2ff">EMPIRICAL BASIS // NINE PUBLISHED STUDIES, ZERO MODEL-TYPED NUMBERS</text>
+<text x="40" y="72" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="22" font-weight="700" fill="#edf4fc">Why one model writing and checking its own work breaks down</text>
+<text x="40" y="94" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="13" fill="#9eb0c4">Every Control Rod gate answers a specific failure measured in peer-reviewed and maintainer studies (docs/research/second-checker/inputs.json).</text>
+<rect x="40" y="114" width="510" height="188" rx="6" fill="#101926" stroke="#2b3f59"/>
+<path d="M40,121 V114 H47" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M543,114 H550 V121" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M40,295 V302 H47" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M543,302 H550 V295" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<text x="58" y="138" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#00f2ff">01 // LOCKED BRIEF &amp; ROLE SEATS</text>
+<text x="532" y="142" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="700" fill="#ff6b6b">-39%</text>
+<text x="58" y="166" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="16" font-weight="700" fill="#edf4fc">Multi-turn drift when instructions trickle in</text>
+<line x1="58" x2="532" y1="178" y2="178" stroke="#1a2739"/>
+<text x="58" y="198" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Across 15 LLMs and 6 tasks, sharding instructions across turns cut</text>
+<text x="58" y="215" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">performance by 39% vs. one complete brief (Laban et al., 2025).</text>
+<text x="58" y="232" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">Clear role specs alone lifted ChatDev +9.4 pp on ProgramDev</text>
+<text x="58" y="249" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">with the same user prompt and GPT-4o model (Cemri et al., 2025).</text>
+<rect x="54" y="272" width="482" height="22" rx="4" fill="#0b111b" stroke="#1a2739"/>
+<text x="64" y="287" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.8" font-weight="500" fill="#22f59e">Control Rod -&gt; One signed, complete brief + explicit role baseline per run.</text>
+<rect x="570" y="114" width="510" height="188" rx="6" fill="#101926" stroke="#2b3f59"/>
+<path d="M570,121 V114 H577" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M1073,114 H1080 V121" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M570,295 V302 H577" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M1073,302 H1080 V295" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<text x="588" y="138" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#00f2ff">02 // EXTERNAL CHECK VS. SELF-CHECK</text>
+<text x="1062" y="142" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="700" fill="#00f2ff">16% -&gt; 2% vs 38%</text>
+<text x="588" y="166" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="16" font-weight="700" fill="#edf4fc">Self-critique can collapse valid solutions</text>
+<line x1="588" x2="1062" y1="178" y2="178" stroke="#1a2739"/>
+<text x="588" y="198" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Graph coloring: 16% alone dropped to 2% when GPT-4 checked itself,</text>
+<text x="588" y="215" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">vs. 38% with an outside program checker; Game of 24: 5% -&gt; 3% vs 36%.</text>
+<text x="588" y="232" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">Intrinsic self-correction cut GSM8K 95.5% -&gt; 89.0% &amp; CSQA 75.8% -&gt; 38.1%</text>
+<text x="588" y="249" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">(Huang 2024; Blocksworld rose 40% -&gt; 55%, outside checker 60%).</text>
+<rect x="584" y="272" width="482" height="22" rx="4" fill="#0b111b" stroke="#1a2739"/>
+<text x="594" y="287" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.8" font-weight="500" fill="#22f59e">Control Rod -&gt; Independent check with real test &amp; build evidence attached.</text>
+<rect x="40" y="318" width="510" height="184" rx="6" fill="#101926" stroke="#2b3f59"/>
+<path d="M40,325 V318 H47" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M543,318 H550 V325" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M40,495 V502 H47" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M543,502 H550 V495" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<text x="58" y="342" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#00f2ff">03 // BLIND WALL &amp; DISTINCT VENDOR</text>
+<text x="532" y="346" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="700" fill="#ffb020">98% &amp; r=0.84</text>
+<text x="58" y="370" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="16" font-weight="700" fill="#edf4fc">Sycophancy, self-preference &amp; shared blind spots</text>
+<line x1="58" x2="532" y1="382" y2="382" stroke="#1a2739"/>
+<text x="58" y="402" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Challenged on a right answer, Claude 1.3 falsely admitted error 98%</text>
+<text x="58" y="419" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">of the time; pushback cut accuracy up to 27% (Sharma et al., 2023).</text>
+<text x="58" y="436" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">GPT-4 spotted its own text 73.5% (Panickssery 2024); judge scores track</text>
+<text x="58" y="453" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">mistake overlap at average Pearson r = 0.84 (Goel et al., 2025).</text>
+<rect x="54" y="472" width="482" height="22" rx="4" fill="#0b111b" stroke="#1a2739"/>
+<text x="64" y="487" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.8" font-weight="500" fill="#22f59e">Control Rod -&gt; Checker comes from another vendor and never sees reasoning.</text>
+<rect x="570" y="318" width="510" height="184" rx="6" fill="#101926" stroke="#2b3f59"/>
+<path d="M570,325 V318 H577" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M1073,318 H1080 V325" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M570,495 V502 H577" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<path d="M1073,502 H1080 V495" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
+<text x="588" y="342" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#ffb020">04 // HUMAN PASSKEY GATE</text>
+<text x="1062" y="346" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="700" fill="#22f59e">~1/2 not mergeable</text>
+<text x="588" y="370" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="16" font-weight="700" fill="#edf4fc">Passing automated tests != ready to merge</text>
+<line x1="588" x2="1062" y1="382" y2="382" stroke="#1a2739"/>
+<text x="588" y="402" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Maintainers of scikit-learn, Sphinx, and pytest reviewed 296 AI pull</text>
+<text x="588" y="419" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">requests written by agents on SWE-bench Verified tasks (METR, 2026).</text>
+<text x="588" y="436" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">Estimate: roughly half of test-passing PRs would not have been merged,</text>
+<text x="588" y="453" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">even after adjusting for noise in maintainer merge decisions.</text>
+<rect x="584" y="472" width="482" height="22" rx="4" fill="#0b111b" stroke="#1a2739"/>
+<text x="594" y="487" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.8" font-weight="500" fill="#22f59e">Control Rod -&gt; Nothing is Accepted until your passkey signs the bound digest.</text>
+<rect x="40" y="514" width="1040" height="22" rx="4" fill="#06090f"/>
+<text x="48" y="529" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#9eb0c4">HONESTY BOUNDARY: Stechly 2024 outside checker is a deterministic program, not a 2nd LLM. Measure real cross-vendor code checks yourself with pnpm cr bench.</text>
+</svg>

@@ -4,6 +4,7 @@ import { api, explain } from "../../api/client.js";
 import type { DecisionKind } from "../../api/types.js";
 import { needsIndependentCheck } from "../../lib/board.js";
 import { DECISION_LABEL, NEEDS_REASON, browserPasskeys, decide, type Passkeys } from "../../lib/decide.js";
+import { useActionLock } from "../../lib/scramLock.js";
 import { type MenuItem, menuItems, primaryItem } from "./actions.js";
 import { MoveMenu } from "./MoveMenu.js";
 import type { BoardCard } from "./useBoardData.js";
@@ -22,6 +23,7 @@ const REASON_PROMPT: Partial<Record<DecisionKind, string>> = {
  */
 export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardCard; passkeys?: Passkeys }) {
   const qc = useQueryClient();
+  const scramLock = useActionLock(card.pkg.project);
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [reason, setReason] = useState("");
   const [busyWith, setBusyWith] = useState<"sign" | "stop" | null>(null);
@@ -32,9 +34,11 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
   const [done, setDone] = useState<string | null>(null);
 
   if (card.offered === undefined || card.digest === undefined) return null;
-  const items = menuItems(card.offered, card.activeRunId !== undefined);
-  if (items.length === 0) return null;
-  const primary = primaryItem(items);
+  const base = menuItems(card.offered, card.activeRunId !== undefined);
+  if (base.length === 0) return null;
+  // Under a SCRAM or drill every decision is held, so each is shown refused with the lock's reason; Stop stays open.
+  const items: MenuItem[] = scramLock.locked ? base.map((i) => (i.id === "stop" ? i : { ...i, enabled: false, ...(scramLock.why ? { reason: scramLock.why } : {}) })) : base;
+  const primary = primaryItem(base);
   // A decision is signable only while the card's current reads still offer it. A reason form opened
   // before the decision was withdrawn is put away and says why; its text is kept if it opens again.
   const openNow = (id: DecisionKind) => items.some((i) => i.id === id && i.enabled);
@@ -116,7 +120,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
     <div className="bd-actions">
       <div className="bd-actions-row">
         {primary && (
-          <button type="button" className="btn small primary" disabled={busy} onClick={() => choose(primary)}>
+          <button type="button" className="btn small primary" disabled={busy || scramLock.locked} title={scramLock.why} onClick={() => choose(primary)}>
             {primary.label}
           </button>
         )}
@@ -134,7 +138,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
             <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
           <div className="bd-actions-row">
-            <button type="button" className="btn small primary" disabled={busy || reason.trim().length === 0} onClick={() => void sign(pending, reason.trim())}>
+            <button type="button" className="btn small primary" disabled={busy || scramLock.locked || reason.trim().length === 0} title={scramLock.why} onClick={() => void sign(pending, reason.trim())}>
               Sign: {DECISION_LABEL[pending]}
             </button>
             <button type="button" className="btn small ghost" disabled={busy} onClick={() => setPending(null)}>

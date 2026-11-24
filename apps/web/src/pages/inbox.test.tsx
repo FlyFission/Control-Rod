@@ -43,7 +43,7 @@ function mockInboxApi(getItems: () => AttentionItem[]) {
 }
 
 describe("Inbox", () => {
-  it("auto-opens the drawer for the first package, keeps it closed on Close/Esc, and reopens on Inspect inline", async () => {
+  it("keeps the list readable until you inspect an item, then opens the signing drawer and closes it on Close/Esc", async () => {
     const items = [
       attentionItem({ package_id: "WP-0001", title: "First item" }),
       attentionItem({ package_id: "WP-0002", title: "Second item" }),
@@ -53,9 +53,16 @@ describe("Inbox", () => {
     const { container } = await renderPage(<Inbox />);
     const user = userEvent.setup();
 
-    // Auto-opens for the first package_id
+    // The docked cockpit covers most of the page, so nothing opens by itself.
+    await screen.findByText("First item");
+    expect(screen.queryByRole("complementary", { name: /Review / })).toBeNull();
+    expect(container.querySelector(".inbox-has-drawer")).toBeNull();
+
+    // Inspect and sign opens the drawer for that item, with the signing readout in it.
+    await user.click(screen.getAllByRole("button", { name: "Inspect and sign" })[0]!);
     expect(await screen.findByRole("complementary", { name: "Review WP-0001" })).toBeTruthy();
     expect(container.querySelector(".inbox-has-drawer")).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Signing readout" })).toBeTruthy();
 
     // Clicking Close dismisses the drawer and does NOT snap back to WP-0001
     await user.click(screen.getByRole("button", { name: "Close review drawer" }));
@@ -63,9 +70,11 @@ describe("Inbox", () => {
       expect(screen.queryByRole("complementary", { name: /Review / })).toBeNull();
     });
     expect(container.querySelector(".inbox-has-drawer")).toBeNull();
+    // Focus returns to the button that opened the drawer, not the page body.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole("button", { name: "Inspect and sign" })[0]));
 
-    // Clicking Inspect inline reopens the drawer for that item
-    const inspectButtons = screen.getAllByRole("button", { name: "Inspect inline" });
+    // Clicking Inspect and sign reopens the drawer for that item
+    const inspectButtons = screen.getAllByRole("button", { name: "Inspect and sign" });
     await user.click(inspectButtons[1]!);
     expect(await screen.findByRole("complementary", { name: "Review WP-0002" })).toBeTruthy();
     expect(container.querySelector(".inbox-has-drawer")).toBeTruthy();
@@ -88,10 +97,9 @@ describe("Inbox", () => {
     const { container, qc } = await renderPage(<Inbox />);
     const user = userEvent.setup();
 
-    await screen.findByRole("complementary", { name: "Review WP-0001" });
-
-    // Explicitly select WP-0002 (WP-0001 currently shows "Inspecting")
-    await user.click(screen.getByRole("button", { name: "Inspect inline" }));
+    await screen.findByText("Second item");
+    // Explicitly select WP-0002
+    await user.click(screen.getAllByRole("button", { name: "Inspect and sign" })[1]!);
     expect(await screen.findByRole("complementary", { name: "Review WP-0002" })).toBeTruthy();
 
     // WP-0002 is completed and no longer in inbox on refresh
@@ -105,7 +113,7 @@ describe("Inbox", () => {
     expect(container.querySelector(".inbox-has-drawer")).toBeNull();
 
     // If explicitly dismissed, refreshing inbox with new items keeps the drawer closed
-    await user.click(screen.getByRole("button", { name: "Inspect inline" }));
+    await user.click(screen.getByRole("button", { name: "Inspect and sign" }));
     expect(await screen.findByRole("complementary", { name: "Review WP-0001" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Close review drawer" }));
     await waitFor(() => expect(screen.queryByRole("complementary", { name: /Review / })).toBeNull());

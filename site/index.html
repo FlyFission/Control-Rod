@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'self'" />
+  <title>Control Rod — Seat Your Coding Agents at One Table. Blind Cross-Vendor Check on Every Diff.</title>
+  <meta
+    name="description"
+    content="Open-source local multi-agent council harness. Seat Claude Code, Codex, and your CLI subscriptions at one table. A different vendor's agent checks every diff blind before your passkey signs off."
+  />
+  <meta property="og:title" content="Control Rod — Multi-Agent Council Harness with Blind Cross-Vendor Verification" />
+  <meta
+    property="og:description"
+    content="Seat your coding agents at one table on the CLI plans you already pay for ($0 API markup). One writes, a different vendor checks blind, and your passkey signs off."
+  />
+  <meta property="og:type" content="website" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body data-scram="clear">
+  <!-- Live SCRAM / Drill Banner (triggered from the Plant & SCRAM console or header rod gauge) -->
+  <div id="scram-banner" class="scram-hazard-banner" role="status" aria-live="polite">
+    <div class="wrap scram-hazard-inner">
+      <span id="scram-banner-text">SCRAM IN FORCE // Control rods inserted. Active runs halted on the record; nothing dispatches until reviewed.</span>
+      <button id="btn-scram-clear-top" type="button" class="btn btn-sm">Reset console to normal</button>
+    </div>
+  </div>
+
+  <!-- Sticky Control-Room Header -->
+  <header class="console-bar">
+    <div class="wrap console-bar-inner">
+      <a id="nav-brand" href="#top" class="brand-link">
+        <svg width="24" height="24" viewBox="0 0 28 28" aria-hidden="true">
+          <rect x="12" y="2" width="4" height="24" rx="2" fill="#00f2ff" />
+          <rect x="4" y="8" width="4" height="12" rx="2" fill="#0a8b99" />
+          <rect x="20" y="8" width="4" height="12" rx="2" fill="#0a8b99" />
+        </svg>
+        <span>Control Rod</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary sections">
+        <a id="nav-council" href="#council">The Council</a>
+        <a id="nav-receipt" href="#receipt">Blind Wall &amp; Receipt</a>
+        <a id="nav-evidence" href="#evidence">Evidence</a>
+        <a id="nav-tour" href="#tour">Tour</a>
+        <a id="nav-plant" href="#plant-sim">Plant &amp; SCRAM</a>
+        <a id="nav-compare" href="#compare">Compare</a>
+      </nav>
+
+      <div class="console-right">
+        <button
+          id="header-rod-gauge"
+          type="button"
+          class="rod-pill"
+          title="Jump to live Plant &amp; SCRAM simulator"
+          aria-label="Rod position status: No SCRAM. Click to test SCRAM simulator."
+        >
+          <span class="rod-pill-bars" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+          <span id="header-rod-label">NO SCRAM</span>
+        </button>
+        <a
+          id="nav-github-cta"
+          href="https://github.com/FlyFission/Control-Rod"
+          class="btn btn-primary btn-sm"
+        >
+          GitHub · Apache-2.0
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap">
+        <p class="hero-kicker">OPEN-SOURCE LOCAL MULTI-AGENT HARNESS // PRE-ALPHA ON MAIN</p>
+        <h1>Seat every coding agent you pay for at one table. Never let one grade its own homework.</h1>
+        <p class="hero-lead">
+          <strong>Control Rod</strong> runs on your machine over the command-line subscriptions you already use—<strong>Claude Code</strong> and <strong>Codex</strong> today, with zero API keys and zero cloud account. One agent builds in an isolated git worktree; a <strong>different vendor's agent</strong> checks only the diff and test evidence behind a blind wall; and a small <strong>Rust/WASM kernel</strong> holds every card until your passkey signs off.
+        </p>
+
+        <div class="hero-actions">
+          <a id="cta-try-council" href="#council" class="btn btn-primary">Configure Your Council Live</a>
+          <a id="cta-inspect-receipt" href="#receipt" class="btn btn-amber">Inspect a Verifiable PR Receipt</a>
+          <a id="cta-view-repo" href="https://github.com/FlyFission/Control-Rod" class="btn">Explore the Repository</a>
+        </div>
+
+        <!-- Dual Entry Quickstart Console -->
+        <div class="instrument cmd-console" aria-label="Quickstart commands">
+          <div class="cmd-tabs">
+            <div class="cmd-tab-group" role="tablist" aria-label="Choose how to start">
+              <button
+                id="cmd-tab-workspace"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                aria-controls="cmd-panel"
+                class="seg-btn"
+                data-cmd="workspace"
+              >
+                1. Full Council Workspace (localhost:7300)
+              </button>
+              <button
+                id="cmd-tab-cli"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="cmd-panel"
+                class="seg-btn"
+                data-cmd="cli"
+              >
+                2. 30s Standalone Blind Check CLI
+              </button>
+              <button
+                id="cmd-tab-action"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="cmd-panel"
+                class="seg-btn"
+                data-cmd="action"
+              >
+                3. Reusable GitHub Action
+              </button>
+            </div>
+            <button id="btn-copy-cmd" type="button" class="btn btn-sm">Copy commands</button>
+          </div>
+          <div id="cmd-panel" role="tabpanel" class="cmd-body">
+            <pre id="cmd-code" class="cmd-pre">git clone https://github.com/FlyFission/Control-Rod.git &amp;&amp; cd Control-Rod
+mise install          # or bring Node 22.12+, pnpm, and Go
+pnpm install
+pnpm cr doctor        # verifies your signed-in CLIs and OS sandbox
+pnpm cr start         # opens the Control Rod workspace at http://localhost:7300</pre>
+          </div>
+          <div class="cmd-caption">
+            <span id="cmd-note">One machine, one person, data stored locally in ~/.controlrod. Register a passkey (Touch ID / Windows Hello) on first launch.</span>
+            <span class="mono">Apache-2.0 · 0 telemetry</span>
+          </div>
+        </div>
+
+        <!-- Four High-Signal Instrument Readouts -->
+        <div class="readout-strip">
+          <div class="readout-cell">
+            <div class="readout-label">Subscription Engine</div>
+            <div class="readout-val cyan">$0 API Keys</div>
+            <p class="readout-sub">Drives your existing Claude Code &amp; Codex logins with live 5h &amp; 7d reserve gauges. Never reads or stores tokens.</p>
+          </div>
+          <div class="readout-cell">
+            <div class="readout-label">Adversarial Separation</div>
+            <div class="readout-val cyan">2 Vendors</div>
+            <p class="readout-sub">Cross-vendor blind check on by default. Author reasoning is stripped so it cannot talk the checker into agreeing.</p>
+          </div>
+          <div class="readout-cell">
+            <div class="readout-label">Published SWE-bench Reality</div>
+            <div class="readout-val amber">~1/2 Rejected</div>
+            <p class="readout-sub">Maintainers reviewed 296 AI PRs; roughly half of those that passed the tests would not be merged (METR, 2026). You sign the call.</p>
+          </div>
+          <div class="readout-cell">
+            <div class="readout-label">Portable Custody</div>
+            <div class="readout-val green">Offline Proof</div>
+            <p class="readout-sub">Attach a tamper-evident receipt to any PR and verify it anywhere without a server via <code class="mono">pnpm cr verify</code>.</p>
+          </div>
+        </div>
+
+        <!-- Architectural Council Schematic -->
+        <div class="instrument diagram-frame">
+          <img
+            src="./assets/readme/council-loop.svg"
+            width="1120"
+            height="440"
+            alt="Control Rod multi-agent council architecture: your passkey release feeds an isolated author worktree, crosses a blind wall that strips reasoning, enters a cross-vendor checker, and seals a verifiable PR receipt under Rust/WASM kernel custody."
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE 1: MULTI-AGENT COUNCIL & DYNAMIC WORKFLOW BUILDER -->
+    <section id="council" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-kicker">INTERACTIVE COUNCIL &amp; WORKFLOW SIMULATOR</p>
+          <h2>Seat your agents, pick a workflow pack, and watch the baton pass adapt live</h2>
+          <p>
+            Across 29,938 issues studied in 15 agent-tool repositories (<code class="mono">ADR 0024</code>), the largest group of the 60 most-reacted issues asks to bring any model or agent to one table, with fallback. Toggle seats, simulate a 5-hour quota wall, or switch per-card workflows below.
+          </p>
+        </div>
+
+        <div class="council-grid">
+          <!-- Left Controls -->
+          <div class="instrument control-deck">
+            <div class="deck-block">
+              <h3>1. Seats on this computer</h3>
+              <div class="seat-list">
+                <div class="seat-row is-seated">
+                  <div class="seat-id">
+                    <span class="seat-mark"><img src="./agent-marks/claude.svg" alt="" /></span>
+                    <div>
+                      <span class="seat-name">Claude Code</span>
+                      <span class="seat-vendor">Anthropic · Runnable today</span>
+                    </div>
+                  </div>
+                  <button id="toggle-seat-claude" type="button" class="seat-toggle" aria-pressed="true">Seated</button>
+                </div>
+
+                <div class="seat-row is-seated">
+                  <div class="seat-id">
+                    <span class="seat-mark"><img src="./agent-marks/codex.svg" alt="" /></span>
+                    <div>
+                      <span class="seat-name">Codex CLI</span>
+                      <span class="seat-vendor">OpenAI · Runnable today</span>
+                    </div>
+                  </div>
+                  <button id="toggle-seat-codex" type="button" class="seat-toggle" aria-pressed="true">Seated</button>
+                </div>
+
+                <div class="seat-row">
+                  <div class="seat-id">
+                    <span class="seat-mark"><img src="./agent-marks/agy.svg" alt="" /></span>
+                    <div>
+                      <span class="seat-name">Antigravity, Grok, OpenCode, Ollama</span>
+                      <span class="seat-vendor">Detected · Held off until confined</span>
+                    </div>
+                  </div>
+                  <span class="seat-badge-held">Detected</span>
+                </div>
+              </div>
+              <div style="margin-top: 10px;">
+                <button id="btn-sim-quota" type="button" class="btn btn-sm" aria-pressed="false" style="width: 100%;">
+                  Simulate Claude 5h Quota Exhausted
+                </button>
+              </div>
+            </div>
+
+            <div class="deck-block">
+              <h3>2. Per-card workflow pack</h3>
+              <div class="pill-choices" role="radiogroup" aria-label="Workflow pack">
+                <button id="wf-superpowers" type="button" class="choice-btn is-active" data-wf="superpowers">
+                  <strong>Superpowers</strong>
+                  <span>Jesse Vincent · TDD slices</span>
+                </button>
+                <button id="wf-pocock" type="button" class="choice-btn" data-wf="pocock">
+                  <strong>Matt Pocock</strong>
+                  <span>Structured skill stages</span>
+                </button>
+                <button id="wf-hybrid" type="button" class="choice-btn" data-wf="pocock-superpowers">
+                  <strong>Pocock Superpowers</strong>
+                  <span>Hybrid · SHA-256 locked</span>
+                </button>
+                <button id="wf-playbook" type="button" class="choice-btn" data-wf="playbook">
+                  <strong>Playbook</strong>
+                  <span>Plain stage brief</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="deck-block">
+              <h3>3. Context depth &amp; check-ins</h3>
+              <div class="pill-choices" style="margin-bottom: 8px;">
+                <button id="ctx-light" type="button" class="choice-btn is-active" data-ctx="light">
+                  <strong>Light Context</strong>
+                  <span>Fast brief for everyday code</span>
+                </button>
+                <button id="ctx-nuclear" type="button" class="choice-btn is-amber" data-ctx="nuclear">
+                  <strong>Nuclear Context</strong>
+                  <span>Full basis &amp; trace discipline</span>
+                </button>
+              </div>
+              <div class="pill-choices single-col">
+                <button id="chk-merge" type="button" class="choice-btn is-amber is-active" data-chk="start-and-merge">
+                  <strong>Check in at start &amp; before merge (Live today)</strong>
+                  <span>Passkey at release + passkey at acceptance</span>
+                </button>
+                <button id="chk-start" type="button" class="choice-btn" data-chk="start-only">
+                  <strong>At the start only (Saved · Coming soon)</strong>
+                  <span>Needs signed standing acceptance in the Rust kernel</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Live Output -->
+          <div class="instrument council-stage">
+            <div id="council-readback" class="readback-banner" aria-live="polite">
+              <strong>Council read-back:</strong> Seating <strong>Claude Code</strong> (Anthropic) and <strong>Codex</strong> (OpenAI). Claude Code plans and writes under the <strong>Superpowers</strong> workflow (Light context); Codex checks the diff blind with zero author chain-of-thought.
+            </div>
+
+            <div class="flow-lanes" aria-label="Dynamic workflow stages">
+              <div class="flow-node gate-human">
+                <span class="flow-step">Stage 1 · You</span>
+                <div class="flow-title">Sign &amp; Release</div>
+                <div id="stage-1-detail" class="flow-detail">
+                  One complete brief locked before any agent starts. Superpowers stage skills attached after SHA-256 manifest check.
+                </div>
+                <span class="flow-tag">Passkey #1</span>
+              </div>
+
+              <div class="flow-node" id="stage-2-node">
+                <span class="flow-step" id="stage-2-step">Stage 2 · Author</span>
+                <div class="flow-title" id="stage-2-title">Claude Code Writes</div>
+                <div class="flow-detail" id="stage-2-detail">
+                  Runs in its selected git worktree with native CLI sandbox preflight and outbound egress filtering on by default.
+                </div>
+                <span class="flow-tag" id="stage-2-tag">Anthropic · Isolated worktree</span>
+              </div>
+
+              <div class="flow-node gate-blind" id="stage-3-node">
+                <span class="flow-step" id="stage-3-step">Stage 3 · Blind Check</span>
+                <div class="flow-title" id="stage-3-title">Codex Verifies Blind</div>
+                <div class="flow-detail" id="stage-3-detail">
+                  Different vendor family. Receives diff, criteria, and test evidence in a read-only mount—never author reasoning. Never fails over to shop a pass.
+                </div>
+                <span class="flow-tag" id="stage-3-tag">OpenAI · Blind mount</span>
+              </div>
+
+              <div class="flow-node gate-done">
+                <span class="flow-step">Stage 4 · You</span>
+                <div class="flow-title" id="stage-4-title">Accept &amp; Export Receipt</div>
+                <div class="flow-detail" id="stage-4-detail">
+                  Your passkey binds the exact revision and SHA-256 diff digest into the sealed event chain. Ready for <code class="mono">pnpm cr receipt</code>.
+                </div>
+                <span class="flow-tag">Passkey #2 · Sealed</span>
+              </div>
+            </div>
+
+            <div class="blind-wall-callout">
+              <div>
+                <strong>BLIND WALL ACTIVE:</strong> Author reasoning, intermediate tool chatter, and self-praise are dropped before Stage 3. Up to 2 scoped send-backs run automatically on checker findings before opening a human dispute.
+              </div>
+            </div>
+
+            <!-- Live Subscription Reserve Meters -->
+            <div class="quota-grid" aria-label="Simulated subscription reserve meters">
+              <div class="quota-card">
+                <div class="quota-head">
+                  <strong>Claude Code · Max</strong>
+                  <span id="claude-quota-status" class="mono muted">from stream-json</span>
+                </div>
+                <div class="quota-meter-row">
+                  <span>5h window</span>
+                  <div class="quota-bar"><div id="claude-5h-bar" class="quota-fill" style="width: 72%;"></div></div>
+                  <span id="claude-5h-txt">72% left</span>
+                </div>
+                <div class="quota-meter-row">
+                  <span>7d window</span>
+                  <div class="quota-bar"><div class="quota-fill" style="width: 56%;"></div></div>
+                  <span>56% left</span>
+                </div>
+              </div>
+
+              <div class="quota-card">
+                <div class="quota-head">
+                  <strong>Codex CLI · Plus</strong>
+                  <span class="mono muted">from session log</span>
+                </div>
+                <div class="quota-meter-row">
+                  <span>5h window</span>
+                  <div class="quota-bar"><div class="quota-fill" style="width: 84%;"></div></div>
+                  <span>84% left</span>
+                </div>
+                <div class="quota-meter-row">
+                  <span>7d window</span>
+                  <div class="quota-bar"><div class="quota-fill" style="width: 69%;"></div></div>
+                  <span>69% left</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="instrument diagram-frame">
+          <img
+            src="./assets/readme/workflow-modes.svg"
+            width="1040"
+            height="350"
+            alt="Three orthogonal harness dials: Workflow Pack (Playbook, Superpowers, Matt Pocock, Pocock Superpowers), Context Depth (Light vs Nuclear), and Check-In Points."
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE 2: BLIND WALL & PR RECEIPT INSPECTOR -->
+    <section id="receipt" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-kicker">PORTABLE PROOF // VERIFIABLE PULL REQUEST RECEIPTS</p>
+          <h2>Every accepted change produces a receipt anyone can verify offline</h2>
+          <p>
+            A simulated walkthrough on a sample bugfix (<code class="mono">WP-0042</code>): what gets stripped at the Blind Wall, what the second vendor actually reviews, and how <code class="mono">pnpm cr verify --receipt</code> catches a one-character edit against the sealed bundle without needing a Control Rod server.
+          </p>
+        </div>
+
+        <div class="instrument inspector-shell">
+          <div class="inspector-bar">
+            <div class="cmd-tab-group" role="tablist" aria-label="Receipt inspector views">
+              <button id="insp-tab-receipt" type="button" role="tab" aria-selected="true" class="seg-btn" data-insp="receipt">
+                1. Signed PR Receipt (Markdown)
+              </button>
+              <button id="insp-tab-blind" type="button" role="tab" aria-selected="false" class="seg-btn" data-insp="blind">
+                2. What Codex Sees (Blind Input)
+              </button>
+              <button id="insp-tab-author" type="button" role="tab" aria-selected="false" class="seg-btn" data-insp="author">
+                3. What Gets Stripped (Author CoT)
+              </button>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button id="btn-tamper-receipt" type="button" class="btn btn-sm" aria-pressed="false">
+                Simulate 1-Char Tamper
+              </button>
+              <button id="btn-copy-receipt" type="button" class="btn btn-sm">
+                Copy Sample Receipt
+              </button>
+            </div>
+          </div>
+
+          <div class="inspector-grid">
+            <div id="insp-code-pane" class="inspector-code">
+              <pre id="insp-pre"></pre>
+            </div>
+            <div class="inspector-side">
+              <div>
+                <p class="section-kicker" style="margin-bottom: 6px;">OFFLINE CUSTODY CHECK</p>
+                <h3 id="insp-side-title" style="margin: 0 0 8px; font-size: 1.05rem;">Line-for-line cryptographic binding</h3>
+                <p id="insp-side-desc" style="margin: 0; font-size: 0.86rem; color: var(--text-2);">
+                  Generated by <code class="mono">pnpm cr receipt inclusion-proof.json</code>. The receipt binds package ID, revision, author runtime, distinct-vendor checker verdict, human passkey acceptance, and the SHA-256 patch digest.
+                </p>
+              </div>
+              <div id="verify-readout" class="verify-box" role="status" aria-live="polite">
+                <div>$ pnpm cr verify --receipt pr-receipt.md inclusion-proof.json</div>
+                <div style="margin-top: 6px; font-weight: 700;">✓ VERIFIED OFFLINE: authenticated seal, human passkey decision, rev 1 &amp; diff_sha256 match.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="instrument diagram-frame">
+          <img
+            src="./assets/readme/pr-receipt-card.svg"
+            width="960"
+            height="376"
+            alt="Control Rod verifiable pull request provenance receipt card comparing full governed workspace receipts and 30-second standalone CLI checks."
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: PUBLISHED EMPIRICAL EVIDENCE -->
+    <section id="evidence" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-kicker">PUBLISHED RESEARCH &amp; REPEATABLE BENCHMARKING</p>
+          <h2>Built on measured failure modes—never model-invented numbers</h2>
+          <p>
+            Every figure below is read directly from <code class="mono">docs/research/second-checker/inputs.json</code> by script (<code class="mono">AGENTS.md</code> rule 5). And because no published paper yet measures one vendor's coding CLI checking another vendor's code, Control Rod ships <code class="mono">pnpm cr bench</code> (<code class="mono">DESIGN.md</code> v3.3) so anyone can measure cross-vendor vs. same-model checking on SWE-bench tasks at $0 extra API spend.
+          </p>
+        </div>
+
+        <div class="instrument diagram-frame" style="margin-top: 0;">
+          <img
+            src="./assets/readme/evidence-board.svg"
+            width="1120"
+            height="560"
+            alt="Four published failure modes: a 39% average performance drop when instructions arrive across turns (Laban 2025), 16% to 2% when GPT-4 checked itself vs 38% with an outside checker on graph coloring (Stechly 2024), Claude 1.3 conceding a correct answer 98% of the time when challenged and r=0.84 correlated judge mistakes (Sharma 2023, Goel 2025), and roughly half of test-passing AI PRs that maintainers would not merge (METR 2026)."
+          />
+        </div>
+
+        <div class="instrument diagram-frame">
+          <img
+            src="./assets/readme/second-checker.svg"
+            width="920"
+            height="400"
+            alt="Bar chart from Stechly, Valmeekam and Kambhampati (2024), Table 1: Graph coloring 16% alone, 2% self-check, 38% sound outside checker; Game of 24 5%, 3%, 36%; Blocksworld planning 40%, 55%, 60%."
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE 4: REAL RELEASE-BUILD SCREENSHOT TOUR -->
+    <section id="tour" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-kicker">REAL APPLICATION TOUR // CAPTURED FROM RELEASE BUILD</p>
+          <h2>One calm workspace from first card to signed acceptance</h2>
+          <p>
+            Every screenshot below is taken automatically by Playwright from Control Rod's release build—never mockups. Switch views to inspect the Board, the live Council Workflow diagram, the Control Room reserve gauges, Inbox sign-off, and the Plant.
+          </p>
+        </div>
+
+        <div class="tour-tabs" role="tablist" aria-label="Product screens">
+          <button id="tour-btn-board" type="button" role="tab" aria-selected="true" class="seg-btn" data-shot="board">1. The Board</button>
+          <button id="tour-btn-workflow" type="button" role="tab" aria-selected="false" class="seg-btn" data-shot="workflow">2. Council Workflow</button>
+          <button id="tour-btn-control" type="button" role="tab" aria-selected="false" class="seg-btn" data-shot="control-room">3. Control Room Quota</button>
+          <button id="tour-btn-inbox" type="button" role="tab" aria-selected="false" class="seg-btn" data-shot="inbox">4. Passkey Sign-Off</button>
+          <button id="tour-btn-plant" type="button" role="tab" aria-selected="false" class="seg-btn" data-shot="office">5. The Plant</button>
+          <button id="tour-btn-packages" type="button" role="tab" aria-selected="false" class="seg-btn" data-shot="packages">6. Capital Projects &amp; Packages</button>
+        </div>
+
+        <div class="instrument shot-stage">
+          <img
+            id="tour-img"
+            src="./assets/readme/app/board.png"
+            alt="The Control Rod Board: cards move from Ready through Implementing, CI / Agent check, Peer review, and Needs signature to Accepted."
+          />
+          <div class="shot-meta">
+            <div>
+              <h3 id="tour-title">The Board — calm when healthy, unmistakable when waiting on you</h3>
+              <p id="tour-desc">
+                Cards move left to right only through signed decisions and recorded checks—never by dragging across columns. Cards waiting on you sort to the top in warm amber; everything healthy stays quiet.
+              </p>
+            </div>
+            <span id="tour-route" class="mono muted">Route: /</span>
+          </div>
+        </div>
+
+        <!-- Powerhouse Second Act: Software + Capital Projects -->
+        <div class="two-col" style="margin-top: 22px;">
+          <div class="instrument domain-card">
+            <span class="section-kicker">ACT I // SOFTWARE BUILDERS &amp; TEAMS</span>
+            <h3>Ship faster with multi-vendor code custody</h3>
+            <p class="muted" style="margin: 0;">
+              Built for solo developers, OSS maintainers, and engineering teams running Claude Code and Codex all day.
+            </p>
+            <ul>
+              <li><strong>Isolated git worktrees:</strong> each author run executes in its selected worktree with outbound egress filtering on by default.</li>
+              <li><strong>Workflow packs built in:</strong> run Jesse Vincent's <em>Superpowers</em>, Matt Pocock's skills, or their hybrid per card.</li>
+              <li><strong>Standalone CI wedge:</strong> run <code class="mono">controlrod check</code> or <code class="mono">packages/check-action</code> on any GitHub PR.</li>
+            </ul>
+          </div>
+
+          <div class="instrument domain-card">
+            <span class="section-kicker">ACT II // CAPITAL PROJECTS &amp; HIGH-CONSEQUENCE ENGINEERING</span>
+            <h3>Calculation packages, datasheets, and Nuclear-Grade rigor</h3>
+            <p class="muted" style="margin: 0;">
+              One control spine serves both code patches and formal engineering deliverables (<code class="mono">Software</code>, <code class="mono">Capital Projects</code>, and <code class="mono">Nuclear-Grade</code> modes).
+            </p>
+            <ul>
+              <li><strong>Grades &amp; disciplines:</strong> Safety, Material, and General-service grades; Safety &amp; Material always enforce Nuclear context and independent person verification.</li>
+              <li><strong>Snapshots &amp; Compare:</strong> line up revisions side by side and freeze repository checkpoints before signing.</li>
+              <li><strong>Honest standards crosswalk:</strong> <code class="mono">docs/qa-standards.md</code> maps controls against 10 CFR 50 Appendix B, NQA-1, and ISO 9001 with gaps marked—making zero compliance claims.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE 5: PLANT ANNUNCIATOR & SCRAM CONSOLE -->
+    <section id="plant-sim" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-kicker">ISA-101 PROCESS CONSOLE // LIVE EMERGENCY STOP</p>
+          <h2>Test the Plant annunciator and guarded SCRAM trip</h2>
+          <p>
+            Real nuclear control rooms keep normal operation dark and quiet so abnormal states jump off the glass in under a second. Click any state below—including a real <strong>SCRAM</strong>—to see how Control Rod halts runs, drops control rods, and quarantines in-flight outputs on the record.
+          </p>
+        </div>
+
+        <div class="instrument plant-console">
+          <div class="annunciator-bank" aria-label="Annunciator windows">
+            <div id="ann-waiting" class="ann-tile lit-amber">
+              <span class="ann-tile-title">WAITING ON YOU</span>
+              <span id="ann-waiting-val" class="ann-tile-val">1 GATE</span>
+            </div>
+            <div id="ann-stuck" class="ann-tile">
+              <span class="ann-tile-title">STUCK / LOST</span>
+              <span id="ann-stuck-val" class="ann-tile-val">0 CLEAR</span>
+            </div>
+            <div id="ann-changed" class="ann-tile">
+              <span class="ann-tile-title">INPUT CHANGED</span>
+              <span id="ann-changed-val" class="ann-tile-val">0 CLEAR</span>
+            </div>
+            <div id="ann-scram" class="ann-tile">
+              <span class="ann-tile-title">SCRAM HOLD</span>
+              <span id="ann-scram-val" class="ann-tile-val">CLEAR</span>
+            </div>
+          </div>
+
+          <div class="plant-sim-body">
+            <div class="reactor-dial">
+              <svg width="190" height="170" viewBox="0 0 190 170" role="img" aria-label="Simulated reactor core and control rod position">
+                <circle id="sim-core-outer" class="core-ring" cx="95" cy="96" r="58" fill="#071a22" stroke="#00f2ff" stroke-width="2" />
+                <circle id="sim-core-inner" class="core-ring" cx="95" cy="96" r="34" fill="#0b3642" stroke="#00f2ff" stroke-width="1.5" />
+                <g id="sim-rods" class="rod-drop" transform="translate(0, 0)">
+                  <rect x="73" y="14" width="8" height="44" rx="2" fill="#00f2ff" />
+                  <rect x="91" y="8" width="8" height="50" rx="2" fill="#00f2ff" />
+                  <rect x="109" y="14" width="8" height="44" rx="2" fill="#00f2ff" />
+                </g>
+              </svg>
+              <span id="sim-core-caption" class="mono" style="font-size: 0.75rem; color: var(--accent);">CORE LIT · 3 AGENTS WORKING</span>
+            </div>
+
+            <div class="sim-controls">
+              <h3 id="sim-headline" style="margin: 0; font-size: 1.15rem;">Normal shift: 3 agents working, 1 checked diff waiting on your passkey</h3>
+              <p id="sim-explain" style="margin: 0; color: var(--text-2); font-size: 0.9rem;">
+                The annunciator stays dark except for the single warm window waiting on your decision. Presenting mode hides spend so you can keep the Plant on a wall monitor or client screen share.
+              </p>
+              <div class="sim-btn-row">
+                <button id="sim-btn-normal" type="button" class="btn btn-sm">Normal Shift</button>
+                <button id="sim-btn-calm" type="button" class="btn btn-sm">All Clear (0 Waiting)</button>
+                <button id="sim-btn-stuck" type="button" class="btn btn-sm">Simulate Stuck Run</button>
+                <button id="sim-btn-drill" type="button" class="btn btn-amber btn-sm">Run SCRAM Drill</button>
+                <button id="sim-btn-scram" type="button" class="btn btn-scram btn-sm">PULL SCRAM</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: HARNESS COMPARISON MATRIX -->
+    <section id="compare" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-kicker">WHY CONTROL ROD STANDS APART</p>
+          <h2>How Control Rod compares across the agent-harness field</h2>
+          <p>
+            Most tools optimize for spawning more parallel terminals. Control Rod optimizes for <strong>knowing the output is right before it lands</strong>—without giving up your existing subscriptions or local privacy.
+          </p>
+        </div>
+
+        <div class="table-wrap">
+          <table class="cmp-table">
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th class="col-cr">Control Rod</th>
+                <th>Terminal Multiplexers</th>
+                <th>Single-Vendor IDE Agents</th>
+                <th>Cloud Agent Boards</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cross-vendor blind check on by default</td>
+                <td class="col-cr"><span class="cmp-yes">● Built in</span> (strips reasoning)</td>
+                <td><span class="cmp-no">○ Manual copy-paste</span></td>
+                <td><span class="cmp-no">○ Same vendor / context</span></td>
+                <td><span class="cmp-warn">◐ Optional human gate</span></td>
+              </tr>
+              <tr>
+                <td>Uses existing CLI logins ($0 API key markup)</td>
+                <td class="col-cr"><span class="cmp-yes">● Yes</span> (Claude Code, Codex)</td>
+                <td><span class="cmp-yes">● Yes</span></td>
+                <td><span class="cmp-warn">◐ Vendor locked</span></td>
+                <td><span class="cmp-warn">◐ Often metered cloud</span></td>
+              </tr>
+              <tr>
+                <td>Live 5-hour &amp; 7-day subscription reserve gauges</td>
+                <td class="col-cr"><span class="cmp-yes">● Token-free readouts</span></td>
+                <td><span class="cmp-no">○ Blind until rate-limited</span></td>
+                <td><span class="cmp-warn">◐ Single vendor only</span></td>
+                <td><span class="cmp-no">○ Dollar estimates</span></td>
+              </tr>
+              <tr>
+                <td>Deterministic Rust/WASM state kernel</td>
+                <td class="col-cr"><span class="cmp-yes">● Agents cannot self-accept</span></td>
+                <td><span class="cmp-no">○ None</span></td>
+                <td><span class="cmp-no">○ None</span></td>
+                <td><span class="cmp-no">○ Drag-and-drop status</span></td>
+              </tr>
+              <tr>
+                <td>Hardware passkey human sign-off &amp; scoped SCRAM</td>
+                <td class="col-cr"><span class="cmp-yes">● WebAuthn + recorded stop</span></td>
+                <td><span class="cmp-no">○ Ctrl+C (unrecorded)</span></td>
+                <td><span class="cmp-no">○ Click-to-apply</span></td>
+                <td><span class="cmp-no">○ Cloud login click</span></td>
+              </tr>
+              <tr>
+                <td>Tamper-evident PR receipt verifiable offline</td>
+                <td class="col-cr"><span class="cmp-yes">● pnpm cr verify</span></td>
+                <td><span class="cmp-no">○ None</span></td>
+                <td><span class="cmp-no">○ None</span></td>
+                <td><span class="cmp-no">○ Locked in vendor DB</span></td>
+              </tr>
+              <tr>
+                <td>Per-card Superpowers &amp; Matt Pocock workflows</td>
+                <td class="col-cr"><span class="cmp-yes">● Digest-locked MIT packs</span></td>
+                <td><span class="cmp-warn">◐ Manual prompt setup</span></td>
+                <td><span class="cmp-warn">◐ Per-editor rules</span></td>
+                <td><span class="cmp-warn">◐ Custom templates</span></td>
+              </tr>
+              <tr>
+                <td>Code patches AND engineering deliverables</td>
+                <td class="col-cr"><span class="cmp-yes">● Software + Capital Projects</span></td>
+                <td><span class="cmp-no">○ Code only</span></td>
+                <td><span class="cmp-no">○ Code only</span></td>
+                <td><span class="cmp-no">○ Code / tickets only</span></td>
+              </tr>
+              <tr>
+                <td>OSI Apache-2.0 license &amp; zero default telemetry</td>
+                <td class="col-cr"><span class="cmp-yes">● Apache-2.0 · 0 phone-home</span></td>
+                <td><span class="cmp-warn">◐ Mixed (often AGPL)</span></td>
+                <td><span class="cmp-no">○ Proprietary</span></td>
+                <td><span class="cmp-no">○ Source-available / SaaS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Honest Boundary Box -->
+        <div class="instrument" style="padding: 20px; margin-top: 20px;">
+          <p class="section-kicker" style="margin-bottom: 6px;">WHAT CONTROL ROD IS NOT // HONEST BOUNDARIES</p>
+          <p style="margin: 0; font-size: 0.9rem; color: var(--text-2);">
+            Control Rod is <strong>pre-alpha</strong> (owner-local: one machine, one person) and is <strong>not</strong> a quality assurance program, a certification, or a replacement for qualified engineering judgment. Nothing here claims compliance or certification under NQA-1, 10 CFR 50 Appendix B, ISO 9001, or any other standard, and the full web app is not yet air-gap ready (see <a href="https://github.com/FlyFission/Control-Rod/blob/main/docs/status.md">docs/status.md</a> and <a href="https://github.com/FlyFission/Control-Rod/blob/main/docs/qa-standards.md">docs/qa-standards.md</a>). Live CLI runs with native sandbox confinement are verified with real logins on WSL2 and against scripted CI providers on native Linux and macOS.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div>
+        <strong style="color: var(--text);">Control Rod</strong> · Apache License 2.0 · Built by <a href="https://flyfission.com">FlyFission Consulting Group</a>.
+        <p style="margin: 8px 0 0; max-width: 72ch; font-size: 0.78rem;">
+          Product names and logos (Claude, OpenAI/Codex, Google/Antigravity, xAI/Grok, OpenCode, Ollama) are trademarks of their respective owners; Control Rod is not affiliated with, sponsored by, or endorsed by them. Vector marks from Lobe Icons (<a href="./agent-marks/LICENSE">MIT License</a>).
+        </p>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/FlyFission/Control-Rod">GitHub</a>
+        <a href="https://github.com/FlyFission/Control-Rod/blob/main/docs/quickstart-check.md">30s Check CLI</a>
+        <a href="https://github.com/FlyFission/Control-Rod/blob/main/docs/getting-started.md">Getting Started</a>
+        <a href="https://github.com/FlyFission/Control-Rod/blob/main/docs/status.md">Status</a>
+        <a href="https://github.com/FlyFission/Control-Rod/blob/main/docs/threat-model.md">Threat Model</a>
+        <a href="https://github.com/FlyFission/Control-Rod/blob/main/docs/research/outside-perspectives-2026-11/README.md">200-Perspective Audit</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>

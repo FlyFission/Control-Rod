@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { explain } from "../api/client.js";
 import type { CheckIn } from "../api/types.js";
+import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
 import { AgentList } from "../components/AgentList.js";
 import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
 import { CHECK_IN_CHOICES, CHECK_IN_LATER, readBack } from "../lib/agents.js";
@@ -9,6 +10,7 @@ import { buildCouncilFlow } from "../lib/councilFlow.js";
 import { SETUP_SKIPPED_KEY } from "../lib/firstRun.js";
 import { writeSession } from "../lib/storage.js";
 import { setupRequest, useAgents } from "../lib/useAgents.js";
+import "./screens.css";
 
 /**
  * First-run setup (docs/patterns/onboarding.md): state what was found, let the person confirm, bench
@@ -25,6 +27,7 @@ export function Setup() {
 
   const chosenCheckIn: CheckIn = checkIn ?? agents.setup?.check_in ?? "start-and-merge";
   const rows = agents.rows.map((r) => (r.info.runnable ? { ...r, seated: changed[r.info.id] ?? r.seated } : r));
+  const found = rows.filter((r) => r.info.runnable && r.state !== "not-found").length;
   const choice = CHECK_IN_CHOICES.find((c) => c.id === chosenCheckIn)!;
 
   const confirm = () =>
@@ -41,9 +44,12 @@ export function Setup() {
         <p className="muted">Two quick checks: which agents sit at the table, and when we check with you. You can change both any time.</p>
       </header>
 
-      <section className="panel" aria-labelledby="setup-agents-title">
+      <section className="seat-panel" aria-labelledby="setup-agents-title">
         <div className="panel-head">
           <h2 id="setup-agents-title">1. Agents on this computer</h2>
+          <span className="found-count mono" role="status">
+            {agents.loading ? "Looking" : `${found} found, ${rows.filter((r) => r.state === "ready").length} ready`}
+          </span>
           <button type="button" className="btn small" onClick={agents.refetch}>
             Check again
           </button>
@@ -55,7 +61,11 @@ export function Setup() {
             The agent checks could not be loaded. Is Control Rod still running?
           </p>
         )}
-        {!agents.loading && <AgentList rows={rows} busy={agents.save.isPending} onToggle={(id, seated) => setChanged({ ...changed, [id]: seated })} />}
+        {!agents.loading && (
+          <InstrumentFrame label="Council table">
+            <AgentList lightUp rows={rows} busy={agents.save.isPending} onToggle={(id, seated) => setChanged({ ...changed, [id]: seated })} />
+          </InstrumentFrame>
+        )}
       </section>
 
       <section className="panel" aria-labelledby="setup-checkin-title">

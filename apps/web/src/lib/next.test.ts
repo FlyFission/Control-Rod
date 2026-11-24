@@ -64,7 +64,7 @@ describe("nextLine", () => {
     expect(nextLine(input()).text).toBe("Nothing to do yet");
   });
   it("says an agent is working while a run is active and nothing is allowed", () => {
-    expect(nextLine(input({ status: "in-work", runActive: true, actions: [refused("accept", "no")] }))).toEqual({ tone: "wait", text: "An agent is working on it" });
+    expect(nextLine(input({ status: "in-work", runActive: true, actions: [refused("accept", "no")] }))).toEqual({ tone: "wait", text: "Author running" });
   });
   it("blocks on a disputed pre-check", () => {
     const p = pkg({ status: "in-verification" });

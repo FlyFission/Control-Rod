@@ -23,6 +23,7 @@ If `pnpm cr doctor` reports that the database cannot start, it means the bundled
 ## Run it
 
 ```sh
+mise install               # every pinned version, unless you already have the tools
 pnpm install --frozen-lockfile
 pnpm cr link     # installs the controlrod command in ~/.local/bin (once)
 controlrod doctor   # lists anything missing

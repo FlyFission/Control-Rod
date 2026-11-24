@@ -1,0 +1,79 @@
+import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { DIFF_LINE_CAP, DiffView } from "./DiffView.js";
+
+const PATCH = `--- a/f.ts
++++ b/f.ts
+@@ -1,3 +1,3 @@
+ same
+-before
++after
+ tail
+`;
+
+describe("DiffView", () => {
+  it("marks added and removed lines by sign and class, with both line numbers", () => {
+    render(<DiffView text={PATCH} />);
+    const rows = screen.getAllByRole("row").filter((r) => r.getAttribute("data-kind"));
+    expect(rows.map((r) => r.getAttribute("data-kind"))).toEqual(["ctx", "del", "add", "ctx"]);
+    const del = rows[1]!;
+    const add = rows[2]!;
+    // The sign is text, so a reader without colour still has it; the screen reader hears the word.
+    expect(del.querySelector(".diff-sign")!.textContent).toContain("−");
+    expect(add.querySelector(".diff-sign")!.textContent).toContain("+");
+    expect(within(del).getByText(/Removed line 2/)).toBeTruthy();
+    expect(within(add).getByText(/Added line 2/)).toBeTruthy();
+    expect([...del.querySelectorAll(".diff-no")].map((c) => c.textContent)).toEqual(["2", ""]);
+    expect([...add.querySelectorAll(".diff-no")].map((c) => c.textContent)).toEqual(["", "2"]);
+    expect(screen.getByLabelText("1 files, 1 lines added, 1 lines removed")).toBeTruthy();
+  });
+
+  it("falls back to plain text when the text is not a diff", () => {
+    const { container } = render(<DiffView text={"hello\nworld"} />);
+    expect(container.querySelector("pre.preview-text")!.textContent).toBe("hello\nworld");
+  });
+
+  it("draws a long patch in part and shows the rest on request", async () => {
+    const body = Array.from({ length: DIFF_LINE_CAP + 40 }, (_, i) => `+line ${i}`).join("\n");
+    const text = `--- a/big\n+++ b/big\n@@ -0,0 +1,${DIFF_LINE_CAP + 40} @@\n${body}\n`;
+    const { container } = render(<DiffView text={text} />);
+    expect(container.querySelectorAll("tr.diff-line")).toHaveLength(DIFF_LINE_CAP);
+    await userEvent.setup().click(screen.getByRole("button", { name: /Show all \(40 more lines\)/ }));
+    expect(container.querySelectorAll("tr.diff-line")).toHaveLength(DIFF_LINE_CAP + 40);
+  });
+
+  it("still shows a binary file that comes after the line cap", () => {
+    const body = Array.from({ length: DIFF_LINE_CAP }, (_, i) => `+line ${i}`).join("\n");
+    const text = `diff --git a/big.txt b/big.txt\n--- a/big.txt\n+++ b/big.txt\n@@ -0,0 +1,${DIFF_LINE_CAP} @@\n${body}\ndiff --git a/logo.png b/logo.png\nBinary files a/logo.png and b/logo.png differ\n`;
+    render(<DiffView text={text} />);
+    expect(screen.getByRole("region", { name: "logo.png" })).toBeTruthy();
+    expect(screen.getByText(/Binary files a\/logo.png/)).toBeTruthy();
+  });
+
+  it("shows a mode change and a rename on files that also have text edits", () => {
+    const text = [
+      "diff --git a/run.sh b/run.sh",
+      "old mode 100644",
+      "new mode 100755",
+      "index 1111111..2222222",
+      "--- a/run.sh",
+      "+++ b/run.sh",
+      "@@ -1 +1 @@",
+      "-echo a",
+      "+echo b",
+      "diff --git a/old.md b/new.md",
+      "similarity index 90%",
+      "rename from old.md",
+      "rename to new.md",
+      "--- a/old.md",
+      "+++ b/new.md",
+      "@@ -1 +1 @@",
+      "-x",
+      "+y",
+    ].join("\n");
+    render(<DiffView text={text} />);
+    expect(within(screen.getByRole("region", { name: "run.sh" })).getByText(/new mode 100755/)).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "new.md" })).getByText(/rename from old.md/)).toBeTruthy();
+  });
+});

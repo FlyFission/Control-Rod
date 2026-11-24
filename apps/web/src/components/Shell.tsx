@@ -32,6 +32,8 @@ import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 import { useFirstRunSetup } from "../lib/firstRun.js";
 import { readString, writeString } from "../lib/storage.js";
+import { PHONE_QUERY, useMedia } from "../lib/useMedia.js";
+import "./shell.css";
 
 const COLLAPSED_GROUPS_KEY = "cr.nav-collapsed";
 const COLLAPSIBLE_GROUPS = new Set<PlaceGroup>(["Audit", "Control / Setup"]);
@@ -67,6 +69,200 @@ const ROD_LABEL: Record<RodPosition, string> = {
 const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control / Setup"];
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+
+/** The places the phone's bottom bar names; every other place sits under More. */
+const BAR_PLACES = ["/", "/plant", "/inbox", "/today"];
+
+/**
+ * The phone's navigation: Board, Plant, Inbox, Today and More along the bottom, each at least 44 px
+ * tall. More opens a sheet with every other place, the engineering mode, search, runs and sign out.
+ */
+function PhoneBar({
+  needs,
+  moreOpen,
+  setMoreOpen,
+  mode,
+  projectUser,
+  user,
+  pendingSignOut,
+  onSignOut,
+  onSearch,
+  onNewProject,
+}: {
+  needs: number;
+  moreOpen: boolean;
+  setMoreOpen: (open: boolean) => void;
+  mode: EngineeringMode;
+  projectUser: string | undefined;
+  user: string | undefined;
+  pendingSignOut: boolean;
+  onSignOut: () => void;
+  onSearch: () => void;
+  /** Opens the workspace project form; on a phone the rail's "+" is gone, so More carries it. */
+  onNewProject: () => void;
+}) {
+  const moreBtn = useRef<HTMLButtonElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    sheet.current?.querySelector<HTMLElement>("a, button")?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Tab" && sheet.current) {
+        // A modal sheet keeps Tab inside itself: wrap from the last control to the first and back.
+        const items = [...sheet.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")];
+        if (items.length === 0) return;
+        const first = items[0]!;
+        const last = items[items.length - 1]!;
+        const at = document.activeElement;
+        if (!sheet.current.contains(at)) {
+          e.preventDefault();
+          first.focus();
+        } else if (e.shiftKey && at === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && at === last) {
+          e.preventDefault();
+          first.focus();
+        }
+        return;
+      }
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      setMoreOpen(false);
+      moreBtn.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [moreOpen, setMoreOpen]);
+  const byTo = (to: string) => PLACES.find((p) => p.to === to);
+  const rest = PLACES.filter((p) => !BAR_PLACES.includes(p.to));
+  return (
+    <>
+      {moreOpen && (
+        <div className="more-scrim" onClick={() => { setMoreOpen(false); moreBtn.current?.focus(); }}>
+          <div
+            ref={sheet}
+            className="more-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="More"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="more-head">
+              <span className="more-title">More</span>
+              <button type="button" className="btn small" onClick={() => { setMoreOpen(false); moreBtn.current?.focus(); }}>
+                Close
+              </button>
+            </div>
+            <ul className="more-list">
+              {PLACE_GROUPS.map((group) => {
+                const items = rest.filter((p) => p.group === group);
+                if (items.length === 0) return null;
+                return (
+                  <li key={group}>
+                    <span className="more-group">{group}</span>
+                    <ul>
+                      {items.map((p) => (
+                        <li key={p.to}>
+                          <Link to={p.to} className="more-link" activeProps={{ "aria-current": "page" }}>
+                            {p.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="more-tools">
+              <button type="button" className="btn small" onClick={onSearch}>
+                Search
+              </button>
+              <button type="button" className="btn small" onClick={onNewProject}>
+                New project
+              </button>
+              <ActiveRuns />
+            </div>
+            <div className="more-mode seg" role="group" aria-label="Engineering mode">
+              {MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={mode === m.id ? "active" : ""}
+                  aria-pressed={mode === m.id}
+                  onClick={() => switchModeAndSyncProject(projectUser, m.id)}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div className="more-foot">
+              <span className="user-chip">
+                <span className="rail-avatar" aria-hidden="true">
+                  {userInitial(user)}
+                </span>
+                <span>{user ?? "Signed in"}</span>
+              </span>
+              <button type="button" className="btn small" disabled={pendingSignOut} onClick={onSignOut}>
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <nav aria-label="Primary" className="bottom-bar">
+        {BAR_PLACES.map((to) => {
+          const p = byTo(to);
+          if (!p) return null;
+          return (
+            <Link
+              key={to}
+              to={p.to}
+              className="bar-link"
+              activeOptions={{ exact: to === "/" }}
+              activeProps={{ className: "bar-link active", "aria-current": "page" }}
+            >
+              <BarGlyph to={to} />
+              <span>{p.label}</span>
+              {to === "/inbox" && needs > 0 && (
+                <span className="badge" aria-label={`${needs} waiting on you`}>
+                  {needs}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+        <button
+          ref={moreBtn}
+          type="button"
+          className={moreOpen ? "bar-link active" : "bar-link"}
+          aria-expanded={moreOpen}
+          aria-haspopup="dialog"
+          onClick={() => setMoreOpen(!moreOpen)}
+        >
+          <BarGlyph to="more" />
+          <span>More</span>
+        </button>
+      </nav>
+    </>
+  );
+}
+
+/** One plain stroke glyph per bar place: geometry drawn for this app, never a vendor mark. */
+function BarGlyph({ to }: { to: string }) {
+  const d: Record<string, string> = {
+    "/": "M3 4h4v12H3ZM8.5 4h3v8h-3ZM13 4h4v5h-4Z",
+    "/plant": "M10 3.5v3M10 13.5v3M3.5 10h3M13.5 10h3M10 7.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4Z",
+    "/inbox": "M3 11h4l1 2h4l1-2h4M3 11l2-6h10l2 6v4H3Z",
+    "/today": "M3.5 5h13v11h-13ZM3.5 8.5h13M7 3v3M13 3v3",
+    more: "M4.5 10h.01M10 10h.01M15.5 10h.01",
+  };
+  return (
+    <svg className="bar-glyph" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d={d[to] ?? d["more"]!} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function userInitial(name: string | undefined): string {
   const s = (name ?? "U").trim();
@@ -130,6 +326,8 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     });
   }
   const [helpOpen, setHelpOpen] = useState(false);
+  const phone = useMedia(PHONE_QUERY);
+  const [moreOpen, setMoreOpen] = useState(false);
   const navigate = useNavigate();
   // The tab title count and opt-in notifications read the same Inbox as the rail badge (pattern AW1, AW2).
   useAttentionSignals(session.user, inbox, () => void navigate({ to: "/inbox" }));
@@ -148,6 +346,19 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const modeProjects = projects.filter((p) => p.mode === mode);
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
+  useEffect(() => setMoreOpen(false), [path]);
+  // The phone's sticky stage headers sit under the top bar: publish its height.
+  const shellRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const shell = shellRef.current;
+    const bar = shell?.querySelector<HTMLElement>(".topbar");
+    if (!shell || !bar || !phone) return;
+    const set = () => shell.style.setProperty("--phone-top-h", `${bar.offsetHeight}px`);
+    set();
+    const ro = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(set);
+    ro?.observe(bar);
+    return () => ro?.disconnect();
+  }, [phone]);
   const activePlace = PLACES.find((p) => (p.to === "/" ? path === "/" : path.startsWith(p.to)));
   useFirstRunSetup(path);
 
@@ -213,11 +424,12 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
 
   return (
     <ScramLockContext.Provider value={lock}>
-    <div className="shell" data-look={look} data-mode={mode} data-scram={scramKind} data-tab-hidden={tabHidden ? "" : undefined}>
+    <div className="shell" ref={shellRef} data-phone={phone ? "" : undefined} data-look={look} data-mode={mode} data-scram={scramKind} data-tab-hidden={tabHidden ? "" : undefined}>
       <a className="skip" href="#main">
         Skip to content
       </a>
 
+      {!phone && (
       <aside className="rail">
         <div className="brand-row">
           <Link to="/" className="brand">
@@ -342,10 +554,42 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
           </button>
         </div>
       </aside>
+      )}
 
       <div className="main">
         <AgentUpdates />
         <header className="topbar">
+          {phone && (
+            <div className="phone-top">
+              <Link to="/" className="brand phone-brand" aria-label="Control Rod, Board">
+                <BrandMark />
+              </Link>
+              <label className="phone-project">
+                <span className="sr-only">Project</span>
+                <select
+                  value={activeProject?.id ?? ""}
+                  onChange={(e) => selectProject(projectUser, e.target.value === "" ? null : e.target.value)}
+                >
+                  <option value="">All {modeCopy.label}</option>
+                  {modeProjects.map((proj) => (
+                    <option key={proj.id} value={proj.id}>
+                      {proj.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="places-cta phone-new"
+                onClick={() => setNewWorkOpen(true)}
+                disabled={newLock.locked}
+                title={newLock.why}
+              >
+                <span aria-hidden="true">+ New</span>
+                <span className="sr-only">{modeCopy.newCta}</span>
+              </button>
+            </div>
+          )}
           <div className="top-left">
             <span className="console-live-dot" aria-hidden="true" />
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>
@@ -397,19 +641,21 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
                 {ROD_LABEL[rods.position]}
               </span>
             </span>
-            <ActiveRuns />
-            <button
-              type="button"
-              className="btn small palette-trigger"
-              onClick={() => setPalette(true)}
-              aria-keyshortcuts={isMac() ? "Meta+K" : "Control+K"}
-            >
-              <span>
-                Search{" "}
-                <span className="sr-only">or run a command </span>
-              </span>
-              <kbd>{shortcut}</kbd>
-            </button>
+            {!phone && <ActiveRuns />}
+            {!phone && (
+              <button
+                type="button"
+                className="btn small palette-trigger"
+                onClick={() => setPalette(true)}
+                aria-keyshortcuts={isMac() ? "Meta+K" : "Control+K"}
+              >
+                <span>
+                  Search{" "}
+                  <span className="sr-only">or run a command </span>
+                </span>
+                <kbd>{shortcut}</kbd>
+              </button>
+            )}
 
             <Link to="/office" className="btn small danger topbar-scram">
               SCRAM
@@ -418,11 +664,31 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         </header>
 
         {/* On every screen: a SCRAM locks actions in its scope; a drill locks the same way, since it stops work for real. */}
-        {scrams && scrams.length > 0 && <ScramBanner presenting={presenting} />}
+        <ScramBanner presenting={presenting} />
 
         <main id="main" className="content" tabIndex={-1}>
           {children}
         </main>
+        {phone && (
+          <PhoneBar
+            needs={needs}
+            moreOpen={moreOpen}
+            setMoreOpen={setMoreOpen}
+            mode={mode}
+            projectUser={projectUser}
+            user={session.user}
+            pendingSignOut={pendingSignOut}
+            onSignOut={() => void logout()}
+            onSearch={() => {
+              setMoreOpen(false);
+              setPalette(true);
+            }}
+            onNewProject={() => {
+              setMoreOpen(false);
+              setNewProjectOpen(true);
+            }}
+          />
+        )}
       </div>
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} />

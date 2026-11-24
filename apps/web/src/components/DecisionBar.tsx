@@ -6,6 +6,9 @@ import { decisionLabel, NEEDS_REASON, browserPasskeys, decide, type Passkeys } f
 import { shortDigest } from "../lib/format.js";
 import { useOfferedActions } from "../lib/offered.js";
 import { needsIndependentCheck } from "../lib/board.js";
+import { useActionLock } from "../lib/scramLock.js";
+import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
+import "../pages/screens.css";
 
 const KINDS: DecisionKind[] = ["release", "accept", "accept-with-findings", "return", "reject"];
 const isKind = (c: string): c is DecisionKind => (KINDS as string[]).includes(c);
@@ -21,6 +24,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   const pkg = view.package;
   // The server's actions with the acceptance rule applied (ruling 16), the same rule the board uses.
   const actions = useOfferedActions(pkg);
+  const scramLock = useActionLock(pkg.project);
   const label = (k: DecisionKind) => decisionLabel(k);
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [reason, setReason] = useState("");
@@ -40,6 +44,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   }, [pending, actions.isSuccess, allowed]);
 
   async function sign(kind: DecisionKind) {
+    if (scramLock.locked) return;
     setBusy(true);
     setError(null);
     setDone(null);
@@ -73,16 +78,32 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   return (
     <section id="decide" className="panel decide" aria-labelledby="decide-title">
       <h2 id="decide-title">Your decision</h2>
+      <InstrumentFrame label="Signing readout">
+        <dl className="sign-readout">
+          <div className="sign-readout-cell">
+            <dt>Package</dt>
+            <dd className="mono">{pkg.id}</dd>
+          </div>
+          <div className="sign-readout-cell">
+            <dt>Bound revision</dt>
+            <dd className="mono">rev {pkg.revision}</dd>
+          </div>
+          <div className="sign-readout-cell sign-readout-digest">
+            <dt>Digest</dt>
+            <dd className="mono">{shortDigest(view.subject_digest)}</dd>
+          </div>
+        </dl>
+        <p className="small muted sign-readout-full">
+          Full digest <span className="mono wrap">{view.subject_digest.algorithm}:{view.subject_digest.value}</span>
+        </p>
+      </InstrumentFrame>
       {view.binds !== undefined ? (
         <p className="binds small">{view.binds}</p>
       ) : (
         <p className="muted small">
-          A decision here signs <span className="mono">{shortDigest(view.subject_digest)}</span>, the digest of this revision, its output and its pre-check.
+          A decision here signs revision {pkg.revision}, its output and its pre-check, bound by the digest above.
         </p>
       )}
-      <p className="small muted">
-        Full digest <span className="mono wrap">{view.subject_digest.algorithm}:{view.subject_digest.value}</span>
-      </p>
       {actions.isLoading && <p className="muted small">Checking what you may sign</p>}
       {actions.isError && (
         <div role="alert" className="error">
@@ -100,6 +121,11 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
           </button>
         </div>
       )}
+      {allowed.length > 0 && scramLock.locked && scramLock.why && (
+        <p className="lock-note" role="status">
+          {scramLock.why}
+        </p>
+      )}
       {allowed.length > 0 && (
         <div className="decide-buttons">
           {allowed.map((k) => (
@@ -108,7 +134,8 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
               type="button"
               className={k === "accept" || k === "release" ? "btn primary" : k === "reject" ? "btn danger" : "btn ghost"}
               onClick={() => choose(k)}
-              disabled={busy || !current}
+              disabled={busy || !current || scramLock.locked}
+              title={scramLock.why}
             >
               {label(k)}
             </button>
@@ -129,7 +156,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
             <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
           <div className="decide-buttons">
-            <button type="button" className="btn primary" onClick={() => void sign(pending)} disabled={busy || !pendingAllowed || reason.trim().length === 0}>
+            <button type="button" className="btn primary" onClick={() => void sign(pending)} disabled={busy || !pendingAllowed || scramLock.locked || reason.trim().length === 0} title={scramLock.why}>
               Sign: {label(pending)}
             </button>
             <button type="button" className="btn ghost" onClick={() => setPending(null)} disabled={busy}>

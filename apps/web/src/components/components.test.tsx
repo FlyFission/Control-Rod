@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
@@ -333,6 +333,17 @@ describe("decision flow", () => {
     );
   });
 
+  it("shows the bound revision and digest as a signing readout above the decision buttons", async () => {
+    offer(["accept"]);
+    await renderPage(<DecisionBar view={view({}, { status: "in-verification", revision: 3 })} passkeys={passkeys([])} />);
+    const readout = await screen.findByRole("region", { name: "Signing readout" });
+    expect(within(readout).getByText("rev 3")).toBeTruthy();
+    expect(within(readout).getByText("Bound revision")).toBeTruthy();
+    const button = await screen.findByRole("button", { name: "Accept" });
+    // The readout comes before the buttons in the document, so it is read before the person signs.
+    expect(readout.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("never disappears: with nothing open to the viewer it says why, what is missing and what would change it", async () => {
     offer([], { reason: "This needs the approver role, which your qualification does not include", change: "An administrator issues you a qualification with that role." });
     await renderPage(<DecisionBar view={view({ binds: "Signing releases revision 0 of WP-0001 as drafted: 1 acceptance criterion and 1 deliverable (sha256:ab12cd34ef56)." }, { status: "draft", revision: 0 })} passkeys={passkeys([])} />);
@@ -431,6 +442,33 @@ describe("inbox", () => {
     expect(screen.getByText(/Waiting on someone who is an approver/)).toBeTruthy();
   });
 
+  it("draws a risk band at each item's left edge by rank, and a short digest only where an item has one", async () => {
+    window.localStorage.setItem("cr.lastSeenSeq:ben", "12");
+    server.use(
+      http.get("*/inbox", () =>
+        HttpResponse.json({
+          items: [
+            attention({ kind: "scram", package_id: undefined, scram_id: "S-1", title: "SCRAM: test", risk: { rank: 0, label: "Security hold" }, href: { to: "/policies", hash: "command-scram.restart" } }),
+            attention({ subject_digest: { algorithm: "sha256", value: "ab12cd34ef56aabbcc" }, binds: "Signing binds revision 1.", decisions: ["accept"] }),
+          ],
+          waiting_on_others: [],
+          digest: { head: 12, lines: [] },
+        }),
+      ),
+    );
+    await renderPage(<Inbox />);
+    await screen.findByText("Accept WP-1");
+    const rows = screen.getByRole("list", { name: "2 waiting on you" }).querySelectorAll(":scope > li");
+    expect(rows[0]!.querySelector(".risk-band")!.getAttribute("data-level")).toBe("4");
+    expect(rows[0]!.querySelector(".risk-band")!.getAttribute("data-tone")).toBe("trip");
+    expect(rows[1]!.querySelector(".risk-band")!.getAttribute("data-level")).toBe("1");
+    expect(rows[0]!.querySelector(".risk-band svg")!.getAttribute("data-glyph")).toBe("cross");
+    expect(rows[1]!.querySelector(".risk-band svg")!.getAttribute("data-glyph")).toBe("bang");
+    // A scram item has no digest; the decision has a short one.
+    expect(rows[0]!.querySelector(".inbox-digest")).toBeNull();
+    expect(rows[1]!.querySelector(".inbox-digest")!.textContent).toBe("sha256:ab12cd34ef56");
+  });
+
   it("shows the digest lines in words and marks them seen, on this person's own cursor", async () => {
     window.localStorage.setItem("cr.lastSeenSeq:dora", "10");
     window.localStorage.setItem("cr.lastSeenSeq:alice", "3");
@@ -455,7 +493,8 @@ describe("inbox", () => {
     try {
       await renderPage(<Inbox />);
       expect(await screen.findByText("2 packages changed: 2 drafted.")).toBeTruthy();
-      expect(screen.getByText("Nothing waits on you. Decisions and held work arrive here as they need you.")).toBeTruthy();
+      expect(screen.getByText("Nothing waits on you.")).toBeTruthy();
+      expect(screen.getByText(/Decisions and held work arrive here as they need you/)).toBeTruthy();
       await waitFor(() => expect(asked).toContain("?since=10"));
       await userEvent.setup().click(screen.getByRole("button", { name: "Mark as seen" }));
       await waitFor(() => expect(window.localStorage.getItem("cr.lastSeenSeq:dora")).toBe("15"));

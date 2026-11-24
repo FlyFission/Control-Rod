@@ -1,0 +1,382 @@
+/* The shell in the instrument vocabulary (control room redesign, section 7).
+   Machined rule lines, square corners, engraved legends; cyan marks only the current place and the
+   live things, amber only the count that waits on you. Every rule is prefixed with .shell so it
+   outranks styles.css regardless of load order. */
+
+.shell {
+  --topbar-h: 72px;
+}
+
+/* ---- Rail ---- */
+.shell .rail {
+  background-color: var(--plant-ground);
+  background-image: none;
+  border-right: 1px solid var(--plant-linework);
+  box-shadow: none;
+  padding: 12px 12px 10px;
+}
+.shell .brand-row {
+  padding: 4px 4px 10px;
+  border-bottom: 1px solid var(--plant-linework);
+}
+.shell .brand {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.shell .places-cta {
+  border-radius: 2px;
+  border-color: var(--plant-linework);
+  background-color: var(--plant-surface);
+  background-image: none;
+  box-shadow: none;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.shell .places-cta:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+.shell .places-cta:focus-visible,
+.shell .place-link:focus-visible,
+.shell .rail-proj-btn:focus-visible,
+.shell .bar-link:focus-visible,
+.shell .more-link:focus-visible,
+.shell .phone-project select:focus-visible,
+.shell .phone-brand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.shell .places-group-label,
+.shell .places-group-toggle {
+  font-family: var(--sans);
+  font-size: var(--fs-chip);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--plant-screen);
+}
+.shell .place-link {
+  border-radius: 2px;
+  color: var(--text-2);
+}
+.shell .place-link:hover {
+  background-color: var(--plant-surface);
+  border-color: var(--plant-linework);
+}
+.shell .place-link.active {
+  background-color: var(--plant-surface);
+  background-image: none;
+  border-color: var(--plant-linework);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--text);
+}
+.shell .rail-projects {
+  border: 1px solid var(--plant-linework);
+  border-radius: 2px;
+  background: var(--plant-surface);
+  padding: 8px;
+}
+.shell .rail-proj-btn {
+  border-radius: 2px;
+}
+.shell .rail-foot {
+  border-top-color: var(--plant-linework);
+}
+.shell .rail-avatar {
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+/* ---- Top bar ---- */
+.shell .topbar {
+  min-height: var(--topbar-h);
+  background-color: var(--plant-ground);
+  background-image: none;
+  border-bottom: 1px solid var(--plant-linework);
+  box-shadow: none;
+  padding: 4px 20px;
+  flex-wrap: nowrap;
+}
+.shell .crumb {
+  font-family: var(--sans);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.shell .stream-pill {
+  border-radius: 2px;
+  background-image: none;
+  box-shadow: none;
+  border-color: var(--plant-linework);
+}
+.shell .top-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+/* The rod gauge at full size, on an engraved plate: the state of the whole plant, read at a glance. */
+.shell .shell-rods {
+  position: relative;
+  gap: 10px;
+  padding: 4px 12px 4px 8px;
+  border: 1px solid var(--plant-linework);
+  background: var(--plant-surface);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font-size: var(--fs-label);
+}
+.shell .shell-rods .rod-gauge {
+  zoom: 1;
+}
+.shell .shell-rods-label {
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.shell[data-scram="trip"] .shell-rods-label {
+  color: var(--plant-trip);
+}
+.shell .topbar .btn.small {
+  border-radius: 2px;
+  background-image: none;
+  box-shadow: none;
+  border-color: var(--plant-linework);
+}
+.shell .topbar .btn.small:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+.shell .topbar-scram {
+  letter-spacing: 0.04em;
+}
+.shell .topbar .btn.small:focus-visible,
+.shell .topbar summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Phone: top bar with project switcher and New, bottom bar for places ---- */
+.shell[data-phone] {
+  --topbar-h: 0px;
+  display: block;
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+.shell[data-phone] .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 8px;
+  padding: 8px 12px;
+}
+.shell[data-phone] .phone-top {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.shell[data-phone] .phone-brand {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+.shell[data-phone] .phone-top > .phone-brand {
+  grid-column: 1;
+  grid-row: 1;
+}
+.shell[data-phone] .phone-top > .phone-project {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+.shell[data-phone] .phone-top > .phone-new {
+  grid-column: 3;
+  grid-row: 1;
+}
+.shell[data-phone] .phone-project select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--plant-linework);
+  border-radius: 2px;
+  background: var(--plant-surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-ui);
+}
+.shell[data-phone] .phone-new {
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+.shell[data-phone] .top-left {
+  min-width: 0;
+}
+.shell[data-phone] .crumb {
+  font-size: var(--fs-ui);
+}
+.shell[data-phone] .top-right {
+  gap: 6px;
+}
+.shell[data-phone] .shell-rods {
+  padding: 2px 8px 2px 4px;
+}
+.shell[data-phone] .shell-rods .rod-gauge {
+  zoom: 0.7;
+}
+.shell[data-phone] .shell-rods-label {
+  display: none;
+}
+.shell[data-phone] .topbar .btn.small {
+  min-height: 44px;
+}
+.shell .bottom-bar {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 46;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--plant-ground);
+  border-top: 1px solid var(--plant-linework);
+}
+.shell .bar-link {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-chip);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.shell .bar-link.active {
+  color: var(--text);
+  box-shadow: inset 0 3px 0 var(--accent);
+  background: var(--plant-surface);
+}
+.shell .bar-link .badge {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 6px);
+  margin: 0;
+  padding: 0 5px;
+  font-size: var(--fs-chip);
+}
+.shell .more-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: flex-end;
+  background: rgb(0 0 0 / 0.6);
+}
+.shell .more-sheet {
+  width: 100%;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  padding: 12px 16px calc(72px + env(safe-area-inset-bottom, 0px));
+  background: var(--plant-ground);
+  border-top: 1px solid var(--plant-linework);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.shell .more-head,
+.shell .more-foot,
+.shell .more-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.shell .more-title {
+  font-size: var(--fs-title);
+  font-weight: 600;
+}
+.shell .more-list,
+.shell .more-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.shell .more-group {
+  display: block;
+  padding: 6px 0 2px;
+  color: var(--plant-screen);
+  font-size: var(--fs-chip);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.shell .more-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+}
+.shell .more-link[aria-current="page"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.shell .more-sheet .btn {
+  min-height: 44px;
+}
+.shell .more-mode button {
+  min-height: 44px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell .bar-link,
+  .shell .place-link {
+    transition: none;
+  }
+}
+
+/* Phone Board: one column grouped by stage, each stage header sticking under the top bar. */
+.shell[data-phone] .bd-stage-jump {
+  display: none;
+}
+.shell[data-phone] .bd-board {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: visible;
+  align-items: stretch;
+  padding: 0;
+}
+.shell[data-phone] .bd-col {
+  min-height: 0;
+  padding: 0 8px 8px;
+  scroll-margin-top: var(--phone-top-h, 112px);
+}
+.shell[data-phone] .bd-col-head {
+  position: sticky;
+  top: var(--phone-top-h, 112px);
+  z-index: 5;
+  margin: 0 -8px;
+  padding: 0 10px;
+  min-height: 44px;
+  background: var(--plant-surface);
+  border-bottom: 1px solid var(--plant-linework);
+}
+.shell[data-phone] .bd-col-head :is(h2, h3) {
+  font-size: var(--fs-ui);
+  text-transform: none;
+}
+.shell .more-foot .user-chip > span:not(.rail-avatar) {
+  display: inline;
+}

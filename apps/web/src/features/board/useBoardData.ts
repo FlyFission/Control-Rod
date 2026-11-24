@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { canStop } from "../../components/RunLog.js";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client.js";
-import type { ActionDescriptor, CaptureView, Digest, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
+import type { ActionDescriptor, CaptureView, Digest, PersonVerificationEntry, Run, WorkPackage } from "../../api/types.js";
 import { type ColumnId, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
 import { useLiveStatus } from "../../lib/live.js";
@@ -34,6 +34,9 @@ export type BoardCard = {
   digest?: Digest;
   /** The run that Stop would end, when one is queued or running. */
   activeRunId?: string;
+  /** The runtime providers of the latest author run and the latest pre-check run, for the card's agent icons. */
+  author?: string;
+  checker?: string;
   /** The brief carries the Nuclear context (card value, else project default; Safety and Material always). */
   nuclear: boolean;
 };
@@ -224,6 +227,7 @@ export function useBoardData(): BoardData {
       ...(owner ? { owner } : {}),
       runActive,
       ...(runRunning ? { runRunning: true } : {}),
+      ...latestProviders(view?.runs),
       ...(retry ? { retry } : {}),
       lastKnown: !cardFresh,
       nuclear,
@@ -267,6 +271,15 @@ export function useBoardData(): BoardData {
     me: session.data?.user ?? "",
     projects: Object.fromEntries((admin.data?.projects ?? []).map((p) => [p.id, p.name])),
   };
+}
+
+/** Providers of the most recent author and pre-check runs, newest first by when each was queued. */
+export function latestProviders(runs: readonly Run[] | undefined): { author?: string; checker?: string } {
+  const newest = (role: Run["role"]) =>
+    [...(runs ?? [])].filter((r) => r.role === role).sort((a, b) => (Date.parse(b.queued_at) || 0) - (Date.parse(a.queued_at) || 0))[0];
+  const author = newest("author")?.runtime?.provider;
+  const checker = newest("pre-check")?.runtime?.provider;
+  return { ...(author ? { author } : {}), ...(checker ? { checker } : {}) };
 }
 
 /**

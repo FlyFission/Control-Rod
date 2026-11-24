@@ -142,6 +142,21 @@ p {
   opacity: 0.55;
   cursor: not-allowed;
 }
+/* A locked primary or danger button must not still read as the lit target: drop its fill and glow. */
+.btn.primary:disabled,
+.btn.danger:disabled {
+  background-color: transparent;
+  background-image: none;
+  color: var(--muted);
+  border-color: var(--line-2);
+  box-shadow: none;
+  opacity: 0.7;
+}
+.lock-note {
+  margin: 0 0 8px;
+  color: #ffd6d6;
+  font-size: var(--fs-ui);
+}
 .field {
   display: flex;
   flex-direction: column;
@@ -2256,12 +2271,6 @@ select {
 .agent-updates .au-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-top: 1px solid var(--line-2); }
 .agent-updates .au-foot:empty { display: none; }
 .agent-updates .au-close { background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; }
-.today-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  gap: 1rem;
-  align-items: start;
-}
 .today-list {
   list-style: none;
   margin: 0;

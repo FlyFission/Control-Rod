@@ -32,11 +32,11 @@ export function pgStartFailure(pgDir: string, port: number, log: string[], error
   const pid = text.match(/Is another postmaster \(PID (\d+)\) running/)?.[1];
   if (lock) {
     advice =
-      `Another PostgreSQL${pid ? ` (process ${pid})` : ""} is using this data folder, usually one left behind when ` +
-      `Control Rod was stopped abruptly. Stop Control Rod everywhere, then check with \`ps -p ${pid ?? "<pid>"} -o command=\`: ` +
-      `if it is a postgres for ${pgDir}, stop it with \`kill ${pid ?? "<pid>"}\` and start again. If no such process exists, ` +
-      `the lock is stale: remove ${pgDir}/postmaster.pid and start again. Your data is not affected either way.`;
-  } else if (/could not bind|Address already in use/i.test(text)) {
+      `Another PostgreSQL${pid ? ` (process ${pid})` : ""} may still be using this data folder, usually one left behind when ` +
+      `Control Rod was stopped abruptly. Stop Control Rod everywhere (\`controlrod stop\`), wait a few seconds and start again. ` +
+      `If it still fails, check \`ps -p ${pid ?? "<pid>"} -o command=\`: if that is a postgres for ${pgDir}, stop it with ` +
+      `\`kill ${pid ?? "<pid>"}\`. Do not delete files in ${pgDir}: it holds your records.`;
+  } else if (/Address already in use/i.test(text)) {
     advice =
       `Port ${port} is already in use. Find what holds it with \`lsof -nP -iTCP:${port} -sTCP:LISTEN\`, stop it, or set ` +
       `CONTROLROD_PG_PORT to a free port.`;

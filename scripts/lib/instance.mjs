@@ -1,7 +1,7 @@
 // The running Control Rod on this machine: a small record the launcher writes while it runs, so
 // `controlrod stop`, `status`, `restart` and `update` can find it from any terminal.
 import { spawnSync } from "node:child_process";
-import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, openSync, readFileSync, renameSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 
 export const recordPath = (home) => join(home, "launcher.json");
@@ -43,10 +43,45 @@ export function commandOf(pid) {
   return r.status === 0 ? r.stdout.trim() || null : null;
 }
 
+/** When the process started, as ps prints it: with the pid, it names one process for good. */
+export function startedOf(pid) {
+  const r = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } });
+  return r.status === 0 ? r.stdout.trim() || null : null;
+}
+
+// `node /path/to/scripts/cr.mjs start` or, under pnpm, `node scripts/cr.mjs start`.
+const LAUNCHER = /(^|[\s/])scripts\/cr\.mjs\s+start(\s|$)/;
 const isLauncher = (pid) => {
   const c = commandOf(pid);
-  return c !== null && /cr\.mjs(\s|$)/.test(c);
+  return c !== null && LAUNCHER.test(c);
 };
+
+/** A record names a live launcher only when the pid, its start time and its command line all match. */
+export function recordIsLive(r) {
+  return Boolean(r && alive(r.pid) && r.started && startedOf(r.pid) === r.started && isLauncher(r.pid));
+}
+
+/**
+ * Claims the record for this launcher, atomically: false when a live launcher already holds it.
+ * A stale record (its process gone or replaced) is taken over.
+ */
+export function claimRecord(home, record) {
+  const path = recordPath(home);
+  const full = { ...record, pid: process.pid, started: startedOf(process.pid) };
+  for (let i = 0; i < 3; i++) {
+    try {
+      const fd = openSync(path, "wx", 0o600);
+      writeSync(fd, `${JSON.stringify(full, null, 2)}\n`);
+      closeSync(fd);
+      return true;
+    } catch (e) {
+      if (e?.code !== "EEXIST") throw e;
+      if (recordIsLive(readRecord(home))) return false;
+      rmSync(path, { force: true });
+    }
+  }
+  return false;
+}
 
 /** The process listening on a local TCP port, via lsof when it is installed. */
 function listenerOf(port) {
@@ -79,12 +114,12 @@ export async function healthy(port, timeoutMs = 1500) {
  */
 export async function findRunning(home, port) {
   const record = readRecord(home);
-  if (record && alive(record.pid) && isLauncher(record.pid)) return { pid: record.pid, mode: record.mode ?? "foreground", record };
+  if (recordIsLive(record)) return { pid: record.pid, mode: record.mode ?? "foreground", record, started: record.started };
   if (record) clearRecord(home, record.pid);
   const listener = listenerOf(port);
   if (listener) {
     const parent = parentOf(listener);
-    if (parent && isLauncher(parent)) return { pid: parent, mode: "foreground", record: null };
+    if (parent && isLauncher(parent)) return { pid: parent, mode: "foreground", record: null, started: startedOf(parent) };
     return { foreign: true, pid: listener, command: commandOf(listener) };
   }
   if (await healthy(port)) return { foreign: true, pid: null, command: null };
@@ -98,17 +133,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * second signal a moment later skips that wait (the launcher treats it as a second Ctrl+C).
  * Resolves true once it has exited, false if it is still finishing after timeoutMs.
  */
-export async function stopLauncher(pid, { now = false, timeoutMs = 180000, log = console.log } = {}) {
-  if (!alive(pid)) return true;
+export async function stopLauncher(pid, { now = false, timeoutMs = 180000, log = console.log, started = startedOf(pid) } = {}) {
+  // Every signal goes only to the same process that was found: same pid, same start time.
+  const same = () => started !== null && alive(pid) && startedOf(pid) === started;
+  if (!same()) return !alive(pid) || startedOf(pid) !== started;
   process.kill(pid, "SIGTERM");
   if (now) {
     await sleep(1200);
-    if (alive(pid)) process.kill(pid, "SIGTERM");
+    if (same()) process.kill(pid, "SIGTERM");
   }
-  const started = Date.now();
-  let told = started;
-  while (alive(pid)) {
-    if (Date.now() - started > timeoutMs) return false;
+  const t0 = Date.now();
+  let told = t0;
+  while (same()) {
+    if (Date.now() - t0 > timeoutMs) return false;
     if (Date.now() - told > 10000) {
       log("  still finishing running work...");
       told = Date.now();
@@ -152,6 +189,19 @@ export function parseSegments(text, user, isAlive) {
     out.push({ id: f[iId], size: Number(f[iSize]), cpid });
   }
   return out;
+}
+
+/**
+ * How many System V shared memory segments exist on this Mac, and the most there can be
+ * (kern.sysv.shmmni). null when either cannot be read.
+ */
+export function segmentUse() {
+  const lim = spawnSync("sysctl", ["-n", "kern.sysv.shmmni"], { encoding: "utf8" });
+  const list = spawnSync("ipcs", ["-m"], { encoding: "utf8" });
+  const limit = Number(lim.stdout?.trim());
+  if (lim.status !== 0 || list.status !== 0 || !Number.isInteger(limit)) return null;
+  const used = list.stdout.split("\n").filter((l) => /^m\s/.test(l.trim())).length;
+  return { used, limit };
 }
 
 /** Frees orphaned segments (see orphanedSegments). Returns how many were removed. */

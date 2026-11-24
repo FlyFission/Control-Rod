@@ -11,9 +11,9 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import { homedir, platform } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { alive, clearRecord, findRunning, freeOrphanedSegments, healthy, orphanedSegments, readRecord, stopLauncher, writeRecord } from "./lib/instance.mjs";
+import { alive, claimRecord, clearRecord, findRunning, freeOrphanedSegments, healthy, orphanedSegments, readRecord, segmentUse, stopLauncher } from "./lib/instance.mjs";
 import { commandPath, link, ownerOf, refresh, unlink } from "./lib/link.mjs";
-import { gitRunner, update, UpdateError } from "./lib/update.mjs";
+import { cleanEnv, gitRunner, update, UpdateError } from "./lib/update.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const home = process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod");
@@ -220,10 +220,13 @@ function newer(src, out) {
 function setup() {
   mkdirSync(bin, { recursive: true });
   if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
-  if (newer(join(root, "apps", "web", "src"), join(root, "apps", "web", "dist", "index.html"))) {
+  // An update builds everything again: a change to a build config or a workspace package does
+  // not show in an app's own sources.
+  const force = process.env.CONTROLROD_FORCE_BUILD === "1";
+  if (force || newer(join(root, "apps", "web", "src"), join(root, "apps", "web", "dist", "index.html"))) {
     run("pnpm", ["--filter", "@control-rod/web", "build"]);
   }
-  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "server.js"))) {
+  if (force || newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "server.js"))) {
     run("pnpm", ["--filter", "@control-rod/api", "build"]);
   }
   run("go", ["build", "-o", join(bin, "controlrod"), "./cmd/controlrod"], { cwd: join(root, "daemon") });
@@ -253,18 +256,44 @@ async function alreadyRunning() {
 
 /**
  * macOS has only 32 shared memory segments in all, and every PostgreSQL that is killed outright
- * leaves one behind; when they run out, no PostgreSQL starts. Free the ones whose owner is gone.
+ * leaves one behind; when they run out, no PostgreSQL starts. Only when they are about to run out,
+ * free the PostgreSQL-sized ones whose creator is gone and that nothing is attached to.
  */
 function freeDeadDatabaseMemory() {
   if (platform() !== "darwin" || process.env.CONTROLROD_DATABASE_URL) return;
+  const use = segmentUse();
+  if (!use || use.used < use.limit - 2) return;
   const dead = orphanedSegments();
   if (!dead.length) return;
   const n = freeOrphanedSegments(dead);
   if (n) console.log(`Freed ${n} shared memory segment${n === 1 ? "" : "s"} left behind by PostgreSQL runs that were stopped abruptly.`);
 }
 
+/** The address the browser uses. In GitHub Codespaces that is the forwarded https address. */
+function origin() {
+  if (process.env.CONTROLROD_ORIGIN) return process.env.CONTROLROD_ORIGIN;
+  const csName = process.env.CODESPACE_NAME;
+  const csDomain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+  return csName && csDomain ? `https://${csName}-${port}.${csDomain}` : `http://localhost:${port}`;
+}
+
 async function start() {
   if (await alreadyRunning()) return;
+  // Claimed before anything is built or started, so two starts at once cannot both go ahead.
+  const background = process.env.CONTROLROD_LAUNCH_MODE === "background";
+  const claimed = claimRecord(home, {
+    root,
+    port,
+    url: origin(),
+    mode: background ? "background" : "foreground",
+    log: background ? logFile : null,
+    startedAt: new Date().toISOString(),
+  });
+  if (!claimed) {
+    if (!(await alreadyRunning())) console.log(`Another Control Rod is starting. See \`${me} status\`.`);
+    return;
+  }
+  process.on("exit", () => clearRecord(home));
   if (!doctor()) process.exit(1);
   setup();
   // On a first run the database package was not installed yet when `doctor` looked; look again now.
@@ -307,15 +336,6 @@ async function start() {
     env: { ...env, CONTROLROD_LAUNCHER_PID: String(process.pid) },
     stdio: "inherit",
     detached: true,
-  });
-  writeRecord(home, {
-    pid: process.pid,
-    root,
-    port,
-    url: env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`,
-    mode: process.env.CONTROLROD_LAUNCH_MODE === "background" ? "background" : "foreground",
-    log: process.env.CONTROLROD_LAUNCH_MODE === "background" ? logFile : null,
-    startedAt: new Date().toISOString(),
   });
   api.on("exit", (code, signal) => {
     apiExited = true;
@@ -505,7 +525,8 @@ async function startBackground() {
   process.stdout.write("\nStarting Control Rod in the background");
   for (let i = 0; i < 240; i++) {
     if (child.exitCode !== null || !alive(child.pid)) break;
-    if (await healthy(port)) {
+    // Ready means this launch answers: its own record, and the port healthy.
+    if (readRecord(home)?.pid === child.pid && (await healthy(port))) {
       console.log(`\nControl Rod is running at ${appUrl()}`);
       console.log(`Log: ${logFile}  (\`${me} logs\`)`);
       console.log(`Stop it with \`${me} stop\`.`);
@@ -514,6 +535,8 @@ async function startBackground() {
     if (i % 4 === 3) process.stdout.write(".");
     await sleep(500);
   }
+  // Do not leave a launch that never became ready running unseen.
+  if (child.exitCode === null && alive(child.pid)) child.kill("SIGTERM");
   console.error(`\nControl Rod did not start. The end of its log (${logFile}):\n`);
   console.error(tail(logFile, 30));
   return 1;
@@ -530,7 +553,7 @@ async function stopCommand({ now = false, quiet = false } = {}) {
     return { code: 1, wasRunning: false };
   }
   console.log(now ? "Stopping Control Rod now..." : "Stopping Control Rod (running work finishes and is saved first)...");
-  if (!(await stopLauncher(running.pid, { now }))) {
+  if (!(await stopLauncher(running.pid, { now, started: running.started }))) {
     console.error(`Control Rod is still finishing running work. Wait, or run \`${me} stop --now\` to stop without waiting.`);
     return { code: 1, wasRunning: true, stuck: true, mode: running.mode };
   }
@@ -541,7 +564,7 @@ async function stopCommand({ now = false, quiet = false } = {}) {
 /** Runs the launcher in this terminal as a child, so this process can return its exit code. */
 function startHere() {
   return new Promise((done) => {
-    const child = spawn(process.execPath, [join(root, "scripts", "cr.mjs"), "start"], { cwd: root, stdio: "inherit" });
+    const child = spawn(process.execPath, [join(root, "scripts", "cr.mjs"), "start"], { cwd: root, stdio: "inherit", env: cleanEnv() });
     // Ctrl+C reaches the child directly (same terminal); a stop signal sent here is passed on.
     const pass = (sig) => () => child.kill(sig);
     process.on("SIGINT", () => undefined);
@@ -633,14 +656,18 @@ async function updateCommand(flags) {
             console.error("pnpm was not found. Install it (https://pnpm.io/installation) and run `controlrod update` again.");
             return false;
           }
-          return spawnSync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, stdio: "inherit" }).status === 0;
+          return spawnSync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, stdio: "inherit", env: cleanEnv() }).status === 0;
         },
         // The updated checkout's own setup builds it, so a new version's build steps are the ones used.
         build: () =>
-          spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "setup"], { cwd: root, stdio: "inherit", env: { ...process.env } }).status === 0,
+          spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "setup"], {
+            cwd: root,
+            stdio: "inherit",
+            env: { ...cleanEnv(), CONTROLROD_FORCE_BUILD: "1" },
+          }).status === 0,
         restart: async ({ mode }) => {
           if (mode === "background") {
-            return spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "start", "--background"], { cwd: root, stdio: "inherit" }).status ?? 1;
+            return spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "start", "--background"], { cwd: root, stdio: "inherit", env: cleanEnv() }).status ?? 1;
           }
           console.log("\nControl Rod was running, so it starts again here (Ctrl+C stops it).\n");
           return startHere();

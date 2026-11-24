@@ -2,13 +2,13 @@
 // running-instance record. Real git and real processes; the install and build steps are stand-ins.
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { clearRecord, findRunning, parseSegments, readRecord, stopLauncher, writeRecord } from "../lib/instance.mjs";
-import { link, MARK, unlink } from "../lib/link.mjs";
+import { claimRecord, clearRecord, findRunning, parseSegments, readRecord, startedOf, stopLauncher, writeRecord } from "../lib/instance.mjs";
+import { link, MARK, shellProfile, unlink } from "../lib/link.mjs";
 import { gitRunner, update, UpdateError } from "../lib/update.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -67,6 +67,23 @@ test("the command explains a moved checkout instead of failing obscurely", () =>
   const out = spawnSync(r.path, ["status"], { encoding: "utf8" });
   assert.equal(out.status, 1);
   assert.match(out.stderr, /no longer at .*pnpm cr link/);
+});
+
+test("link treats a symlink, even a dangling one, as someone else's", () => {
+  const home = tmp("home");
+  const env = { HOME: home, PATH: join(home, ".local", "bin") };
+  mkdirSync(join(home, ".local", "bin"), { recursive: true });
+  symlinkSync(join(home, "nowhere"), join(home, ".local", "bin", "controlrod"));
+  assert.equal(link(repoRoot, { env }).status, "foreign");
+});
+
+test("the PATH line never lets the shell run text from a folder name", () => {
+  const home = "/home/u";
+  assert.equal(shellProfile("/home/u/.local/bin", { HOME: home, SHELL: "/bin/zsh" }).line, 'export PATH="$HOME/.local/bin:$PATH"');
+  const odd = shellProfile("/home/u/$(touch x)/bin", { HOME: home, SHELL: "/bin/zsh" }).line;
+  assert.equal(odd, `export PATH='/home/u/$(touch x)/bin'":$PATH"`);
+  const out = spawnSync("sh", ["-c", `${odd}; printf %s "$PATH"`], { encoding: "utf8", env: { PATH: "/bin" } });
+  assert.equal(out.stdout, "/home/u/$(touch x)/bin:/bin");
 });
 
 test("link refuses native Windows", () => {
@@ -225,31 +242,127 @@ test("not running: updates without restarting and says how to start", async () =
   assert.match(f.logs(), /controlrod start/);
 });
 
+test("git variables pointing elsewhere never redirect the update", async () => {
+  const f = fixture();
+  const next = commit(f.origin, "a.txt", "two\n", "new");
+  const other = tmp("other");
+  gitIn(other, "init", "-q", "-b", "main");
+  const head = commit(other, "o.txt", "other\n", "other repo");
+  const saved = { GIT_DIR: process.env.GIT_DIR, GIT_WORK_TREE: process.env.GIT_WORK_TREE };
+  process.env.GIT_DIR = join(other, ".git");
+  process.env.GIT_WORK_TREE = other;
+  try {
+    f.deps.git = gitRunner(f.root);
+    assert.equal(await update(f.root, {}, f.deps), 0);
+  } finally {
+    for (const [k, v] of Object.entries(saved)) v === undefined ? delete process.env[k] : (process.env[k] = v);
+  }
+  assert.equal(gitIn(f.root, "rev-parse", "HEAD"), next);
+  assert.equal(gitIn(other, "rev-parse", "HEAD"), head, "the other repository is untouched");
+});
+
+test("a file the person keeps that git ignores is never overwritten; the update rolls back instead", async () => {
+  const f = fixture();
+  commit(f.origin, ".gitignore", "local.env\n", "ignore local.env");
+  await update(f.root, {}, { ...f.deps, stop: async () => ({ wasRunning: false }) });
+  writeFileSync(join(f.root, "local.env"), "SECRET=mine\n");
+  // Upstream starts tracking a file of that name.
+  gitIn(f.origin, "rm", "-q", "--cached", ".gitignore");
+  writeFileSync(join(f.origin, "local.env"), "SECRET=upstream\n");
+  gitIn(f.origin, "add", "-f", "local.env");
+  gitIn(f.origin, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "track local.env");
+  assert.equal(await update(f.root, {}, f.deps), 1);
+  assert.equal(readFileSync(join(f.root, "local.env"), "utf8"), "SECRET=mine\n");
+});
+
+test("only one update runs per checkout at a time", async () => {
+  const f = fixture();
+  commit(f.origin, "a.txt", "two\n", "new");
+  let release;
+  const paused = new Promise((r) => (release = r));
+  const first = update(f.root, {}, { ...f.deps, stop: async () => (await paused, { wasRunning: false }) });
+  await new Promise((r) => setTimeout(r, 200));
+  await assert.rejects(update(f.root, {}, f.deps), /Another `controlrod update` is running/);
+  release();
+  assert.equal(await first, 0);
+  assert.equal(existsSync(join(f.root, ".git", "controlrod-update.lock")), false);
+});
+
+test("after an unfinished update, a failing next update goes back to the last version that built", async () => {
+  const f = fixture();
+  const b = commit(f.origin, "a.txt", "B\n", "B");
+  // A -> B was interrupted after moving: HEAD is B, journal says it came from A.
+  gitIn(f.root, "fetch", "-q", "origin", "main");
+  gitIn(f.root, "merge", "-q", "--ff-only", b);
+  writeFileSync(join(f.root, ".git", "controlrod-update.json"), JSON.stringify({ pending: b, from: f.first }));
+  commit(f.origin, "a.txt", "C\n", "C");
+  let builds = 0;
+  f.deps.build = () => ++builds > 1;
+  assert.equal(await update(f.root, {}, f.deps), 1);
+  assert.equal(gitIn(f.root, "rev-parse", "HEAD"), f.first, "back on A, the last version known to build");
+});
+
+test("a restart that fails after a good update says so and keeps the new version", async () => {
+  const f = fixture();
+  const next = commit(f.origin, "a.txt", "two\n", "new");
+  f.deps.restart = async () => 1;
+  assert.equal(await update(f.root, {}, f.deps), 1);
+  assert.equal(gitIn(f.root, "rev-parse", "HEAD"), next);
+  assert.match(f.logs(), /installed but did not start/);
+});
+
 // ---------- running instance ----------
+
+const fakeLauncher = (name = "scripts") => {
+  const dir = join(tmp("fake"), name);
+  mkdirSync(dir, { recursive: true });
+  const fake = join(dir, name === "scripts" ? "cr.mjs" : "notcr.mjs");
+  writeFileSync(fake, "process.on('SIGTERM', () => setTimeout(() => process.exit(0), 300)); setInterval(() => {}, 1000);\n");
+  return spawn(process.execPath, [fake, "start"], { stdio: "ignore" });
+};
+const settle = () => new Promise((r) => setTimeout(r, 300));
 
 test("finds the running launcher from its record and stops it with a signal", async () => {
   const home = tmp("home");
-  const dir = tmp("fake");
-  const fake = join(dir, "cr.mjs");
-  writeFileSync(fake, "process.on('SIGTERM', () => setTimeout(() => process.exit(0), 300)); setInterval(() => {}, 1000);\n");
-  const child = spawn(process.execPath, [fake, "start"], { stdio: "ignore" });
-  await new Promise((r) => setTimeout(r, 300));
-  writeRecord(home, { pid: child.pid, mode: "background" });
+  const child = fakeLauncher();
+  await settle();
+  writeRecord(home, { pid: child.pid, mode: "background", started: startedOf(child.pid) });
   const found = await findRunning(home, 1);
   assert.equal(found?.pid, child.pid);
   assert.equal(found.mode, "background");
-  assert.equal(await stopLauncher(child.pid, { timeoutMs: 5000 }), true);
+  assert.equal(await stopLauncher(child.pid, { timeoutMs: 5000, started: found.started }), true);
   clearRecord(home, child.pid);
   assert.equal(readRecord(home), null);
 });
 
-test("a stale record (dead or reused pid) is dropped, never signalled", async () => {
+test("a stale record is dropped and never signalled: not a launcher, a look-alike name, or a reused pid", async () => {
   const home = tmp("home");
   const sleeper = spawn("sleep", ["30"], { stdio: "ignore" });
-  writeRecord(home, { pid: sleeper.pid, mode: "foreground" });
+  const lookalike = fakeLauncher("tools");
+  const real = fakeLauncher();
+  await settle();
+  writeRecord(home, { pid: sleeper.pid, mode: "foreground", started: startedOf(sleeper.pid) });
   assert.equal(await findRunning(home, 1), null, "a process that is not a launcher is not ours");
   assert.equal(readRecord(home), null);
-  sleeper.kill();
+  writeRecord(home, { pid: lookalike.pid, mode: "foreground", started: startedOf(lookalike.pid) });
+  assert.equal(await findRunning(home, 1), null, "notcr.mjs is not cr.mjs");
+  writeRecord(home, { pid: real.pid, mode: "foreground", started: "Mon Jan  1 00:00:00 2001" });
+  assert.equal(await findRunning(home, 1), null, "same pid, other start time: a reused pid");
+  assert.equal(await stopLauncher(real.pid, { started: "Mon Jan  1 00:00:00 2001" }), true);
+  await settle();
+  assert.equal(real.exitCode, null, "the reused pid got no signal");
+  for (const p of [sleeper, lookalike, real]) p.kill("SIGKILL");
+});
+
+test("only one launcher can claim the record; a dead claim is taken over", () => {
+  const home = tmp("home");
+  writeRecord(home, { pid: 999999, started: "gone", mode: "foreground" });
+  assert.equal(claimRecord(home, { mode: "foreground" }), true, "a stale record is taken over");
+  assert.equal(readRecord(home).pid, process.pid);
+  // This test process is not a launcher, so a second claim is let through only because the holder
+  // is not live; with a live launcher holding it, claimRecord returns false (covered end to end).
+  clearRecord(home);
+  assert.equal(readRecord(home), null);
 });
 
 test("dead PostgreSQL shared memory is found by header, with the live and the foreign left alone", () => {

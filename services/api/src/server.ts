@@ -59,6 +59,11 @@ if (!dbUrl) {
     const previous = process.umask(0o077);
     try {
       await pgServer.initialise();
+    } catch (error) {
+      // initdb's own output is in the error message; show it the same way as a failed start.
+      pgLog.push(error instanceof Error ? error.message : String(error));
+      console.error(`\n${pgStartFailure(pgDir, pgPort, pgLog.all(), error)}\n`);
+      process.exit(1);
     } finally {
       process.umask(previous);
     }

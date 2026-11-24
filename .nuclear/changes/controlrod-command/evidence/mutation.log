@@ -15,3 +15,15 @@ not ok 19 - dead PostgreSQL shared memory is found by header, with the live and 
 not ok 3 - link never replaces a controlrod it did not write; unlink removes only its own
 # pass 19
 # fail 1
+## Mutation 5: fast-forward without --no-overwrite-ignore
+not ok 20 - a file the person keeps that git ignores is never overwritten; the update rolls back instead
+# pass 27
+# fail 1
+## Mutation 6: git runner keeps GIT_DIR and GIT_WORK_TREE
+not ok 19 - git variables pointing elsewhere never redirect the update
+# pass 27
+# fail 1
+## Mutation 7: no update lock
+not ok 21 - only one update runs per checkout at a time
+# pass 27
+# fail 1

@@ -4,7 +4,7 @@
 // Pattern taken, no code copied: uv's installer (MIT/Apache-2.0) and Claude Code's native installer
 // put their command in ~/.local/bin and, when that folder is not on PATH, add one line for it to the
 // shell's startup file, once.
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync, appendFileSync } from "node:fs";
+import { appendFileSync, chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { basename, delimiter, dirname, join, resolve } from "node:path";
 
@@ -42,7 +42,14 @@ exit 1
 
 /** Who wrote the file at path: "ours" (a controlrod shim), "foreign", or "none". */
 export function ownerOf(path) {
-  if (!existsSync(path)) return "none";
+  let st;
+  try {
+    st = lstatSync(path);
+  } catch (e) {
+    return e?.code === "ENOENT" ? "none" : "foreign";
+  }
+  // A symlink (even a dangling one) or anything but a plain file is someone else's.
+  if (!st.isFile()) return "foreign";
   try {
     return readFileSync(path, "utf8").includes(MARK) ? "ours" : "foreign";
   } catch {
@@ -57,11 +64,12 @@ export const onPath = (dir, env = process.env) =>
 export function shellProfile(dir, env = process.env, os = platform()) {
   const home = env.HOME ?? homedir();
   const shell = basename(env.SHELL ?? "");
-  const shown = dir.startsWith(`${home}/`) ? `$HOME/${dir.slice(home.length + 1)}` : dir;
   if (shell === "fish") {
     return { file: join(home, ".config", "fish", "conf.d", "controlrod.fish"), line: `fish_add_path ${sq(dir)}` };
   }
-  const line = `export PATH="${shown}:$PATH"`;
+  // The folder is written as literal text: a name with $ or backquotes is never run by the shell.
+  const rest = dir.startsWith(`${home}/`) ? dir.slice(home.length + 1) : null;
+  const line = rest !== null && /^[A-Za-z0-9._/-]+$/.test(rest) ? `export PATH="$HOME/${rest}:$PATH"` : `export PATH=${sq(dir)}":$PATH"`;
   if (shell === "zsh") return { file: join(env.ZDOTDIR ?? home, ".zshrc"), line };
   if (shell === "bash") return { file: join(home, os === "darwin" ? ".bash_profile" : ".bashrc"), line };
   return { file: join(home, ".profile"), line };
@@ -81,9 +89,19 @@ export function link(root, { env = process.env, editProfile = true, os = platfor
   let status = "unchanged";
   if (owner === "none" || readFileSync(path, "utf8") !== text) {
     mkdirSync(dirname(path), { recursive: true });
-    const tmp = `${path}.tmp.${process.pid}`;
-    writeFileSync(tmp, text, { mode: 0o755 });
+    // Created exclusively, so a planted file or symlink at the temporary name is never written through.
+    const tmp = `${path}.tmp.${process.pid}.${Date.now()}`;
+    const fd = openSync(tmp, "wx", 0o755);
+    try {
+      writeSync(fd, text);
+    } finally {
+      closeSync(fd);
+    }
     chmodSync(tmp, 0o755);
+    if (ownerOf(path) === "foreign") {
+      rmSync(tmp, { force: true });
+      return { path, status: "foreign" };
+    }
     renameSync(tmp, path);
     status = "written";
   }

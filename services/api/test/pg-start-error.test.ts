@@ -22,7 +22,8 @@ describe("pgStartFailure", () => {
     const text = pgStartFailure("/d/pg", 7301, log, undefined);
     expect(text).toContain("process 4242");
     expect(text).toContain("kill 4242");
-    expect(text).toContain("not affected");
+    expect(text).toContain("Do not delete files");
+    expect(text).not.toContain("remove");
   });
 
   it("says the port is in use", () => {

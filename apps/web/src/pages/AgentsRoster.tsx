@@ -82,7 +82,7 @@ export function AgentsRoster({ passkeys }: { passkeys?: Passkeys } = {}) {
         {!agents.loading && (
           <p className="readback-line" aria-live="polite">
             {readBack(agents.rows)} Check-in preference: {checkIn.label.toLowerCase()}
-            {checkIn.today ? "." : " (saved; today every card still stops at the start and before merge)."} <Link to="/setup">Change</Link>
+            {checkIn.today ? "." : " (saved; today every card still stops for your signed release and your signed acceptance)."} <Link to="/setup">Change</Link>
           </p>
         )}
       </section>

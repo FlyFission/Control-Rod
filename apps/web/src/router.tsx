@@ -27,6 +27,7 @@ import { SignIn } from "./pages/SignIn.js";
 import { Today } from "./pages/Today.js";
 import { Usage } from "./pages/Usage.js";
 import { Setup } from "./pages/Setup.js";
+import { Workflow } from "./pages/Workflow.js";
 
 /**
  * Decides between the sign-in page and the app from the session query. Exported so tests can drive
@@ -97,6 +98,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/compare", component: Compare }),
   createRoute({ getParentRoute: () => rootRoute, path: "/today", component: Today }),
   createRoute({ getParentRoute: () => rootRoute, path: "/setup", component: Setup }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/workflow", component: Workflow }),
   createRoute({ getParentRoute: () => rootRoute, path: "/agents", component: AgentsRoster }),
   // The Roster and Provider CLIs became one Agents roster; their details sit under its Advanced section.
   createRoute({ getParentRoute: () => rootRoute, path: "/roster", beforeLoad: () => { throw redirect({ to: "/agents" }); } }),

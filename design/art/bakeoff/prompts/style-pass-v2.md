@@ -59,3 +59,15 @@ Pixel-locked sprite-sheet repaint: preserve every figure's exact silhouette, pos
 - **Trip (both).** The lamps and cut line carry the alarm, as annunciators. The deck stays navy with only a faint crimson bounce, the fuel stays readable in steel-blue, and the prompt says the dark core implies neither cooling nor decay heat has stopped. No rods are drawn.
 - **Lit specifics (both).** Only existing screens, panels and task lights switch on. Screenless bays get overhead light only, and no monitors are invented.
 - **Workers (both).** The sheet is opaque, so it is keyed to alpha and the input silhouette is applied after the repaint. Antigravity's per-row palette matches the actual cyan taped gloves and bands. The needs-you forearm band is neutral, so only the lamp is warm. Codex's "no exterior halo" becomes broad value shapes plus a fine rim. The tiny scale figures are kept, simplified.
+
+## Amendment, 2026-11-24: polar crane
+
+The owner found the crane bridge distracting and "much too low to the reactor". In the DARK prompt, the sentence "Separate the polar-crane bridge girder clearly in depth." is replaced with:
+
+> The polar crane rides high on the rear wall: keep its ring girder, bridge, trolley and hook block as a faint phantom outline (thin, low-contrast dashed hairlines, drafting convention for equipment shown for reference), never a solid or bright beam, so it reads as a crane high above the reactor and does not compete with the core.
+
+The TRIPPED prompt gains, after "Do not draw or move control rods or drive heads.":
+
+> Keep the polar crane high on the rear wall exactly as in attachment 1: a faint phantom outline, never a solid beam.
+
+The geometry change, the measurements and the exact tool arguments are in `design/art/source/hybrid/PROMPTS.md`, under "Polar-crane fix".

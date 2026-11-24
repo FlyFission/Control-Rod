@@ -19,6 +19,13 @@ LAY = K.LAYOUT
 CORE = LAY["core"]
 R = CORE["radius"]
 H_WALL, LIP_C = CORE["wall_height"], CORE["lip_height"]
+# The polar crane runs high in a real containment, far above the operating floor. The blockout wall is cut low, so the rear
+# half-wall is drawn taller by CRANE_RISE to carry the ring girder, and the bridge is drawn in phantom above the cut (see
+# rear_wall_features). The CRANE_RISE environment variable lets a preview render try other heights without editing the file.
+# 53 is the largest rise that keeps the taller wall 8 px clear of the electrical and civil room boxes on screen, measured from
+# rendered core layers (see .nuclear/changes/control-room-redesign/proof.md, "Polar crane").
+CRANE_RISE = float(__import__("os").environ.get("CRANE_RISE", "53"))
+H_REAR = H_WALL + CRANE_RISE    # top of the rear half-wall, which carries the polar-crane ring girder
 ROOMS = K.rooms()
 GROUND_Z = -6.0
 WT = 14.0                       # containment wall thickness (blockout)
@@ -443,7 +450,7 @@ def rear_wall_features(cx):
     f = cx.mesher("wall_f"); m = cx.mesher("wall_m")
     Rin = R - WT
     # liner line on the inner face (thin pale band low on the wall) and a second near the top
-    for z, h in ((4.0, 1.2), (H_WALL - 30, 1.0)):
+    for z, h in ((4.0, 1.2), (H_REAR - 30, 1.0)):
         m.sector(Rin - 0.9, Rin, -225, -45, z, z + h, 72, {"*": "liner"})
     # equipment hatch (round, bolted) and personnel airlock on the rear wall at floor level
     for ang, kind in ((-146, "hatch"), (-118, "lock")):
@@ -467,7 +474,7 @@ def rear_wall_features(cx):
             f.cone(c + n_in * 10, c + n_in * 12, 14.2, 14.2, "c_band", 20, True, False)
             f.cone(c + n_in * 22, c + n_in * 24, 14.2, 14.2, "c_band", 20, True, False)
     # polar crane ring girder on the upper inner face of the rear half-wall, with brackets
-    zg = H_WALL - 22
+    zg = H_REAR - 22
     m.sector(Rin - 9, Rin, -225, -45, zg, zg + 12, 90, {"outer": "c_steel", "inner": "c_steel", "top": "c_steel_in", "bottom": "c_steel_in", "end": "hatch", "*": "c_steel"})
     f.sector(Rin - 9.6, Rin - 9, -225, -45, zg + 4, zg + 5.2, 90, {"*": "c_pale"})
     for a in range(-222, -47, 6):
@@ -481,9 +488,17 @@ def rear_wall_features(cx):
         f.box((x, -y, 104), (2, 2, 18), "c_dark", rot=(0, 0, math.radians(a)))
     cx.done(m, "cont", cx.reg["site"]); cx.done(f, "contf", cx.reg["site"])
     # phantom bridge: faint outline spanning the cut ends of the girder, trolley parked at one side
+    mode = __import__("os").environ.get("CRANE_BRIDGE", "high")   # high (default) | wall | none: preview switch
+    if mode == "none":
+        return
     gh = cx.mesher("phantom")
     d = Vector((0.7071, 0.7071, 0.0))                          # B direction of the layout chord (-225 -> -45): (1,-1)/sqrt2 -> B (1, 1)/sqrt2
-    zb = H_WALL - 3
+    zb = H_REAR - 3
+    if mode == "high":
+        # phantom bridge at a height whose screen line clears the shield drum's far rim by 20 px (drafting convention: the
+        # upper containment is cut away, so the crane is drawn in phantom above the cut)
+        rim = min(K.proj(DRUM_R * math.cos(math.radians(a)), DRUM_R * math.sin(math.radians(a)), DRUM_H)[1] for a in range(360))
+        zb = max(zb, DRUM_H + (K.proj(0, 0, DRUM_H)[1] - rim) + 20)
     half = Rin * 0.998
     for off in (-7, 7):
         c = Vector((0, 0, zb)) + Vector((-0.7071, 0.7071, 0)) * off
@@ -493,6 +508,11 @@ def rear_wall_features(cx):
         gh.box(Vector((e.x, e.y, zb)), (3, 20, 4.0), "ghost", rot=(0, 0, math.atan2(d.y, d.x)))
     tr = d * (-half * 0.6)
     gh.box(Vector((tr.x, tr.y, zb + 4)), (12, 20, 5.0), "ghost", rot=(0, 0, math.atan2(d.y, d.x)))
+    # hook block on a short cable under the parked trolley, so the bridge reads as a crane rather than a rafter
+    hz = zb - 46
+    gh.box(Vector((tr.x, tr.y, (zb + hz) / 2 + 3)), (1.2, 1.2, zb - hz - 6), "ghost", rot=(0, 0, math.atan2(d.y, d.x)))
+    gh.box(Vector((tr.x, tr.y, hz)), (7, 7, 9.0), "ghost", rot=(0, 0, math.atan2(d.y, d.x)))
+    gh.box(Vector((tr.x, tr.y, hz - 7)), (2.4, 2.4, 6.0), "ghost", rot=(0, 0, math.atan2(d.y, d.x)))
     cx.done(gh, "ghost", cx.reg["site"])
 
 
@@ -536,11 +556,11 @@ def build_containment(cx, state):
     m = cx.mesher("shell"); f = cx.mesher("shell_f")
     # floor slab, back half-wall (cut at H, hatched top and ends) and the near lip (cut at LIP_C)
     m.sector(0.01, R, 0, 360, GROUND_Z, 0, 120, {"top": "c_floor", "*": "c_wall_out"}, closed=True)
-    m.sector(R - WT, R, -225, -45, 0, H_WALL, 90, {"outer": "c_wall_out", "inner": "c_wall", "top": "hatch", "end": "hatch", "bottom": "c_wall"})
+    m.sector(R - WT, R, -225, -45, 0, H_REAR, 90, {"outer": "c_wall_out", "inner": "c_wall", "top": "hatch", "end": "hatch", "bottom": "c_wall"})
     m.sector(R - WT, R, -45, 135, GROUND_Z, LIP_C, 90, {"outer": "c_wall_out", "inner": "c_wall", "top": "hatch", "end": "hatch", "bottom": "c_wall"})
     # wall ribs on the inner face
     for a in range(-222, -47, 9):
-        f.sector(R - WT - 1.6, R - WT, a, a + 1.4, 0, H_WALL - 24, 2, {"*": "c_dark"})
+        f.sector(R - WT - 1.6, R - WT, a, a + 1.4, 0, H_REAR - 24, 2, {"*": "c_dark"})
     cx.done(m, "cont", reg); cx.done(f, "contf", reg)
     shield_drum(cx)
     vessel(cx, None)

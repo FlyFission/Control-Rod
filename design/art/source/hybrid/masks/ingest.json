@@ -134,11 +134,13 @@
   },
   "core-healthy.png": {
    "source": "layers/core-healthy.png",
-   "source_sha256": "bb3594c56f66b1b3b5017c3b915bc8535f65e7db1e79afdeec7615f6441717a4"
+   "source_sha256": "5872ffe4b658cbdfdc5d9a34f60325069a0713147559de53736ab86197293292",
+   "note": "crane fix 2026-11-24: core layer re-rendered by tools/plant3d (render.py --mode v3-core, CRANE_RISE 53, CRANE_BRIDGE high) and bloomed with post3.bloom_rgba/scram_fill; alpha copied as --ingest does"
   },
   "core-tripped.png": {
    "source": "layers/core-tripped.png",
-   "source_sha256": "633f2880987ae042b75b5ec1b45f6a9f00620b0c6effc05cd891d4e72ec79505"
+   "source_sha256": "c1baa634318982f9eb278d92baa267b15f9d8d7c4dfd5ad4e246bc41a076f813",
+   "note": "crane fix 2026-11-24: core layer re-rendered by tools/plant3d (render.py --mode v3-core, CRANE_RISE 53, CRANE_BRIDGE high) and bloomed with post3.bloom_rgba/scram_fill; alpha copied as --ingest does"
   }
  }
 }

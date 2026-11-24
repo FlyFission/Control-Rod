@@ -49,6 +49,25 @@ At opening, the change is the plan only. Results per step are added here as each
 | contrast and type-scale tests | extended to `components/shell.css`; pass |
 | Screenshots (Playwright, API mocked in the browser) 1440x900 at 2x and 390x844 at 2x: Board, open drawer with a diff output, phone More sheet | `/mnt/project-files/control-rod/step3/` (`board-1440.png`, `drawer-diff-1440.png`, `board-390.png`, `drawer-diff-390.png`, `more-390.png`) |
 
+## Polar crane (owner, 2026-11-24 17:45 UTC)
+
+The owner said the crane was distracting and "much too low to the reactor". Two causes. First, the bridge sat at the top of the 190-unit cut wall, 37 px above the shield drum on screen. Second, style-pass-v2 asked the model to "separate the polar-crane bridge girder clearly in depth", which turned the Blender phantom outline into a solid beam.
+
+| Check | Result |
+|---|---|
+| Baseline reproduction: `render.py --mode v3-plate,v3-core` plus post3 compositing vs committed `bakeoff/v3` frames | mean 1.6/255; committed core masks = baseline render alpha, max difference 0 |
+| Wall rise (`CRANE_RISE` in `tools/plant3d/scene.py`) | 53 = largest rise keeping the wall 8 px clear of the electrical and civil room boxes, from rendered core layers at rises 0/60/110/160; clearing the drum with a wall-supported bridge needs ≥124, which covers rooms |
+| Bridge (`CRANE_BRIDGE` = high) | phantom bridge, trolley and hook drawn above the cut at a height computed in code: bridge line 20 px above the shield drum's far rim (screen y 548.6 vs 568.6) |
+| Registration, styled vs Blender and lit vs dark (`register.py`, 4 px step) | 42 of 42 room and core rows at 0 px |
+| Identity outside the containment | frame-dark and frame-lit byte-identical to the previously approved frames (max 0); lit = dark outside the rooms (max 0); tripped = dark outside containment +120 px (max 4) |
+| Warm colour | dark 0.00%, lit 0.00%, tripped 4.8% of the containment box and 0.09% elsewhere (rim edge) |
+| `tools/cut_plant_layers.py` | re-cut at quality 84, 1,348,787 bytes (budget 1,500,000); `CORE_CROP` [535,269,…] → [496,216,…] |
+| `npx vitest run src/features/office` | 13 files, 158 tests pass |
+| `git diff --check`, `tools/check_originality.py`, `tools/check_offline_assets.py` | pass |
+| `tsc --noEmit` (apps/web) | 160 errors, identical count on main before this change, none in files this change touches |
+
+Evidence: `design/art/bakeoff/crane-fix-sheet.jpg` (before/after), and `design/art/source/hybrid/PROMPTS.md`, under "Polar-crane fix".
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).

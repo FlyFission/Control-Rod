@@ -28,7 +28,7 @@ export interface Room {
 
 /** The containment's box, and the box the core layers are cut to (the mask grown and feathered). */
 export const CORE_BBOX: Box = [575, 309, 1825, 1221];
-export const CORE_CROP: Box = [535, 269, 1865, 1266];
+export const CORE_CROP: Box = [496, 216, 1865, 1266];
 
 /** The sprite cell, how many sprite px make one plate px, and the pixel of each sprite that stands on its seat's feet point. */
 export const SPRITE = { cell: 512, pxPerPlatePx: 6.0 } as const;

@@ -22,3 +22,25 @@ func fileIdentity(info os.FileInfo) (id string, changed time.Time, ok bool) {
 	return fmt.Sprintf("dev=%d ino=%d size=%d mtime=%d.%09d ctime=%d.%09d",
 		st.Dev, st.Ino, st.Size, st.Mtim.Sec, st.Mtim.Nsec, st.Ctim.Sec, st.Ctim.Nsec), changed, true
 }
+
+// ownChangeTime reports whether the filesystem holding path keeps a change time of its own.
+// FAT filesystems store one timestamp for both, so restoring the modification time restores the
+// change time too, and identity proves nothing there. Only filesystems known to keep one count.
+func ownChangeTime(path string) bool {
+	var fs syscall.Statfs_t
+	if err := syscall.Statfs(path, &fs); err != nil {
+		return false
+	}
+	switch uint32(fs.Type) {
+	case 0xef53, // ext2, ext3, ext4
+		0x58465342, // xfs
+		0x9123683e, // btrfs
+		0x01021994, // tmpfs
+		0x794c7630, // overlayfs
+		0x2fc12fc1, // zfs
+		0xf2f52010, // f2fs
+		0xca451a4e: // bcachefs
+		return true
+	}
+	return false
+}

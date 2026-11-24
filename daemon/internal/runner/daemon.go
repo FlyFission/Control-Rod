@@ -1353,8 +1353,9 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 // so the completion must not be sent.
 func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resultErr error) {
 	started := time.Now().UTC()
+	// Every early refusal comes before any process exists, so it says that nothing was started.
 	fail := func(msg string) Completion {
-		return Completion{Status: "failed", Error: msg, Outputs: []NamedFile{}}
+		return Completion{Status: "failed", Error: msg, Outputs: []NamedFile{}, Containment: "none"}
 	}
 	runtime := RuntimeFor(job.Run.Runtime.Provider)
 	if runtime == "" || !slices.Contains(d.cfg.Runtimes, runtime) {

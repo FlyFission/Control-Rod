@@ -36,6 +36,9 @@ func TestCheckerRequiresTheControlPlaneToBindAModel(t *testing.T) {
 	if err != nil || completion.Status != "failed" || !strings.Contains(completion.Error, "did not bind a concrete checker model") {
 		t.Fatalf("unbound checker: status %q, completion error %q, execute error %v", completion.Status, completion.Error, err)
 	}
+	if completion.Containment != "none" {
+		t.Fatalf("an early refusal reported containment %q; want none, so it is not held as outcome unknown", completion.Containment)
+	}
 }
 
 func TestFinalFlushSendsEveryLineBeforeCompletion(t *testing.T) {

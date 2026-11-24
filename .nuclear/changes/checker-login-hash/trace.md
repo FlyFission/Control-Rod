@@ -6,6 +6,8 @@
 | CL-02 A change to such a file still changes the hash. | same | same-size rewrite with restored mtime case | implemented and tested |
 | CL-04 A large file changed too recently to prove anything by identity is refused. | `checker.go` identityQuietPeriod | `TestProtectedLoginHashRefusesARecentlyChangedLargeFile` | implemented and tested |
 | CL-05 Links still hash after the content budget is spent. | `checker.go` hashLink | `TestProtectedLoginHashKeepsLinksPastTheContentBudget` | implemented and tested |
+| CL-06 Identity is trusted only where the filesystem keeps its own change time. | `fileid_*.go` ownChangeTime | tests skip identity cases where it is not kept | implemented |
+| CL-07 Every early refusal reports that no process started. | `daemon.go` fail | `TestCheckerRequiresTheControlPlaneToBindAModel` | implemented and tested |
 | CL-03 A run refused before start is failed with its reason, not outcome unknown. | `daemon.go` completion containment | `TestRunRefusedBeforeStartReportsNoProcess` | implemented and tested |
 
 ## Required links

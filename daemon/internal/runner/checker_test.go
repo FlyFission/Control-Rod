@@ -712,7 +712,7 @@ func TestAbsentLoginDirectoryIsPartOfTheHash(t *testing.T) {
 	f.Close()
 	noQuietPeriod(t)
 	big, err := hashProtected(dir)
-	if _, _, ok := fileIdentity(mustLstat(t, settings)); !ok {
+	if ok := identityWorks(t, settings); !ok {
 		if err == nil {
 			t.Fatal("a settings file over the output cap was hashed without an identity record")
 		}
@@ -729,6 +729,13 @@ func noQuietPeriod(t *testing.T) {
 	saved := identityQuietPeriod
 	identityQuietPeriod = 0
 	t.Cleanup(func() { identityQuietPeriod = saved })
+}
+
+// identityWorks says whether large files at path can be named by identity on this machine.
+func identityWorks(t *testing.T, path string) bool {
+	t.Helper()
+	_, _, ok := fileIdentity(mustLstat(t, path))
+	return ok && ownChangeTime(path)
 }
 
 func mustLstat(t *testing.T, path string) os.FileInfo {
@@ -755,7 +762,7 @@ func TestProtectedLoginHashNamesLargeFilesByIdentity(t *testing.T) {
 	if err := os.Truncate(exe, MaxOutputTotal+1); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, ok := fileIdentity(mustLstat(t, exe)); !ok {
+	if ok := identityWorks(t, exe); !ok {
 		t.Skip("no change-time record on this platform; large files still fail closed")
 	}
 	noQuietPeriod(t)
@@ -802,7 +809,7 @@ func TestProtectedLoginHashRefusesARecentlyChangedLargeFile(t *testing.T) {
 	if err := os.Truncate(big, MaxOutputFile+1); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, ok := fileIdentity(mustLstat(t, big)); !ok {
+	if ok := identityWorks(t, big); !ok {
 		t.Skip("no change-time record on this platform")
 	}
 	if digest, err := hashProtected(root); err == nil || !strings.Contains(err.Error(), "changed") || digest != "" {
@@ -827,7 +834,7 @@ func TestProtectedLoginHashKeepsLinksPastTheContentBudget(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, _, ok := fileIdentity(mustLstat(t, plugins)); !ok {
+	if ok := identityWorks(t, plugins); !ok {
 		t.Skip("no change-time record on this platform")
 	}
 	noQuietPeriod(t)
@@ -902,7 +909,7 @@ func TestProtectedLoginHashOverBudgetTrees(t *testing.T) {
 			digest, err := hashProtected(root)
 			// Over the byte limits, files are named by identity where the platform records a change
 			// time; only the entry limit, or a platform without that record, still fails.
-			if _, _, ok := fileIdentity(mustLstat(t, root)); ok && tc.name != "entries" {
+			if ok := identityWorks(t, root); ok && tc.name != "entries" {
 				if err != nil || digest == "" {
 					t.Fatalf("hashProtected returned %q, %v; want a digest by identity", digest, err)
 				}

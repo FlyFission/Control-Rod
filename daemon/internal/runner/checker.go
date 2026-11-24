@@ -1334,7 +1334,7 @@ func (b *protectedHashBudget) hashFile(path string) (string, error) {
 	if err := b.checkBytes(path, st.Size()); err != nil {
 		// Too large to read within the budget: name it by its identity when the platform allows.
 		id, changed, ok := fileIdentity(st)
-		if !ok {
+		if !ok || !ownChangeTime(path) {
 			return "", err
 		}
 		// Timestamps advance in clock ticks (seconds on some filesystems). A file changed within

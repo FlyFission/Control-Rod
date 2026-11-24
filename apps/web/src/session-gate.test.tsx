@@ -141,4 +141,37 @@ describe("the session gate when the signed-in person changes behind it", () => {
     expect(qc.getQueryData(["packages"])).toEqual(["Ben's packages"]);
     expect(screen.getByDisplayValue("Ben's unsaved draft")).toBeTruthy();
   });
+
+  it("shows Retry on unreachable initial session and recovers, while keeping Shell mounted during transient refetch failures", async () => {
+    let failSession = true;
+    server.use(
+      http.get("*/auth/session", () =>
+        failSession
+          ? HttpResponse.json({ code: "unavailable", message: "Backend down" }, { status: 503 })
+          : HttpResponse.json({ registered: true, signed_in: true, user: "ben" }),
+      ),
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+    );
+    const { qc } = await renderPage(
+      <SessionGate>
+        <Draft />
+      </SessionGate>,
+    );
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    const retryBtn = screen.getByRole("button", { name: "Retry" });
+
+    failSession = false;
+    const user = userEvent.setup();
+    await user.click(retryBtn);
+
+    const box = await screen.findByRole("textbox", { name: "Draft" });
+    await user.type(box, "Unsaved work");
+
+    // Transient background refetch failure preserves mounted Shell & draft state instead of blanking the app.
+    failSession = true;
+    await act(() => qc.invalidateQueries({ queryKey: ["session"] }));
+    await waitFor(() => expect(qc.getQueryState(["session"])?.fetchStatus).toBe("idle"));
+    expect(screen.getByDisplayValue("Unsaved work")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
 });

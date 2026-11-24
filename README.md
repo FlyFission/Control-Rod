@@ -82,14 +82,14 @@ Watch your agents across one facility drawn in plan. Each figure's state comes f
 ### And the rest
 
 - **Today** gathers what needs you and what is running.
-- **Compare** puts two candidate packages side by side before you decide, and **Snapshots** saves checkpoints of a repository you're working in.
+- **Compare** lines up package headers, metadata, and status side by side with temporary session-local review notes before you decide, and **Snapshots** saves private checkpoints and freezes of a repository you're working in.
 - **Usage** shows whether agents are earning their place: acceptance, findings caught before review, and time to done.
 - **Records** keep who did, checked and approved what, and `pnpm cr verify` checks an exported record offline.
 - **Software** and **Capital Projects** modes run the same discipline on a code change or an engineering deliverable such as a calculation package.
 
 ## Try it
 
-Control Rod runs on your own machine, with your own agents and sign-ins. You need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/), or run `mise install` and [mise](https://mise.jdx.dev) fetches them all. Sign in to [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex) or both. Use an ordinary user account, since the bundled database won't run as root.
+Control Rod runs on your own machine, with your own agents and sign-ins. You need [Node 22+](https://nodejs.org) (`>= 22.12.0`), [pnpm](https://pnpm.io/installation), and [Go](https://go.dev/dl/) (plus [uv](https://docs.astral.sh/uv/getting-started/installation/) if you run Python checks or the Python SDK), or run `mise install` and [mise](https://mise.jdx.dev) fetches the full toolchain. Sign in to [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex) or both. Use an ordinary user account, since the bundled database won't run as root.
 
 ```sh
 git clone https://github.com/FlyFission/Control-Rod.git
@@ -103,8 +103,8 @@ Choose **Set up this machine** and register a passkey. That's the whole account:
 
 | | Windows (WSL2) | Linux | macOS |
 | --- | --- | --- | --- |
-| The app | Yes | Yes | Expected to work, not yet verified |
-| Agents working inside their sandbox | Yes | Yes ([Ubuntu 24.04 needs one step](docs/daemon.md#linux-setup)) | Yes |
+| The app | Yes | Scripted CI only | Expected to work, not yet verified live |
+| Agents working inside their sandbox | Yes (live login verified) | Yes (scripted CI; [Ubuntu 24.04 needs one step](docs/daemon.md#linux-setup)) | Yes (scripted CI only) |
 
 Stuck? [docs/getting-started.md](docs/getting-started.md) covers troubleshooting, including what to do when the database won't start.
 
@@ -112,7 +112,7 @@ Stuck? [docs/getting-started.md](docs/getting-started.md) covers troubleshooting
 
 A request becomes a card with clear acceptance criteria, which you release. An author agent does the work inside the sandbox recorded for that run, while Control Rod saves the test runs and changes as evidence. A checker from a different vendor gets the result and that evidence, and nothing else. Then the card waits for you.
 
-Every state change is decided by a small Rust program (the *kernel*) that no agent can touch, so an agent can't release its own work, accept its own result, edit its own tests or type up a number and have it believed. When Control Rod refuses something, it says why. We keep a [catalog of known ways around a control](tests/redteam/catalog.yaml); each is meant to become a test that keeps failing, and some are still pending.
+Every state change is decided by a small Rust program (the *kernel*) that no agent can touch, so an agent can't release its own work, accept its own result, edit its own tests or type up a number and have it believed. When Control Rod refuses something, it says why. We keep a [catalog of known ways around a control](tests/redteam/catalog.yaml); each is meant to become a test that keeps failing, and most are still pending.
 
 ## What it is not
 
@@ -134,7 +134,7 @@ Each change gets a short record under `.nuclear/changes/`, contracts in `spec/` 
 | `kernel/` | The Rust kernel that decides every state change |
 | `daemon/` | The Go daemon that runs agents and collects evidence |
 | `spec/` | The contracts everything else is generated from |
-| `packs/` | Agent roles and playbooks: general, software and nuclear-grade |
+| `packs/` | Agent roles and playbooks: general, software, nuclear-grade, and `packs/workflows/` |
 
 ## License
 

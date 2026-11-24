@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -92,6 +93,7 @@ func daemon(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	ctx = stopWhenLauncherGone(ctx, os.Getenv("CONTROLROD_LAUNCHER_PID"), os.Getppid)
 	cfg := runner.Config{
 		API:       api,
 		Token:     token,
@@ -176,4 +178,31 @@ func sandboxArgs(args []string) int {
 	out, _ := json.MarshalIndent(map[string]any{"argv": cmd.Args, "env": cmd.Env, "dir": cmd.Dir}, "", "  ")
 	fmt.Println(string(out))
 	return 0
+}
+
+// stopWhenLauncherGone ends ctx, the same graceful stop as a signal, once the launcher named by
+// launcherPID (set by `pnpm cr start`) is no longer this process's parent: a launcher killed outright
+// cannot stop its children, so the daemon notices on its own. An empty or invalid value does nothing.
+func stopWhenLauncherGone(ctx context.Context, launcherPID string, getppid func() int) context.Context {
+	pid, err := strconv.Atoi(launcherPID)
+	if err != nil || pid <= 1 {
+		return ctx
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		defer cancel()
+		t := time.NewTicker(time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if getppid() != pid {
+					return
+				}
+			}
+		}
+	}()
+	return ctx
 }

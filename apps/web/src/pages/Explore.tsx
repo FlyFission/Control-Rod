@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { api } from "../api/client.js";
+import { api, explain } from "../api/client.js";
 
 /**
  * Snapshots (formerly Explore): private-ref checkpoints and a non-destructive Merkle freeze over a
@@ -24,7 +24,7 @@ export function Explore() {
       });
       setStatus(`Checkpoint saved at ${res.ref} (${res.commit_sha.slice(0, 12)})`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Checkpoint failed");
+      setError(explain(err, "Checkpoint failed"));
     } finally {
       setBusy(false);
     }
@@ -43,7 +43,7 @@ export function Explore() {
         `Frozen: ${res.manifest_digest.slice(0, 16)} (${res.file_count} files, ref ${res.checkpoint_ref})`,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Freeze failed");
+      setError(explain(err, "Freeze failed"));
     } finally {
       setBusy(false);
     }
@@ -59,7 +59,7 @@ export function Explore() {
       </header>
 
       <section className="panel" style={{ marginBottom: "1rem" }}>
-        <div className="row" style={{ gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
           <label>
             Worktree or repository path{" "}
             <input
@@ -80,17 +80,17 @@ export function Explore() {
           </label>
         </div>
 
-        <div className="row" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
-          <button type="button" onClick={runCheckpoint} disabled={busy || !repoPath.trim()}>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" className="btn primary" onClick={runCheckpoint} disabled={busy || !repoPath.trim()}>
             Save checkpoint
           </button>
-          <button type="button" onClick={runFreeze} disabled={busy || !repoPath.trim()}>
+          <button type="button" className="btn" onClick={runFreeze} disabled={busy || !repoPath.trim()}>
             Freeze
           </button>
-          <Link to="/packages" className="button">
+          <Link to="/packages" className="btn">
             Open Packages
           </Link>
-          <Link to="/compare" className="button">
+          <Link to="/compare" className="btn">
             Compare
           </Link>
         </div>

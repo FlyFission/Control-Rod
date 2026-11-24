@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,6 +23,20 @@ privateDir(home);
 
 /** Postgres: CONTROLROD_DATABASE_URL if set (Postgres.app, Homebrew, a server), else embedded in ~/.controlrod/pg. */
 let pgServer: EmbeddedPostgres | null = null;
+// Started by `pnpm cr start`, the control plane runs in its own process group, out of reach of the
+// terminal's Ctrl+C, and the launcher stops it. If the launcher is gone (killed outright), this
+// process has been reparented: stop rather than run on unowned. Armed before the database starts,
+// since migrations can wait on a lock; until the app is built, stopping means stopping PostgreSQL.
+let onLauncherGone: () => Promise<void> = async () => {
+  await pgServer?.stop().catch(() => undefined);
+  process.exit(0);
+};
+const launcher = Number(process.env.CONTROLROD_LAUNCHER_PID);
+if (Number.isInteger(launcher) && launcher > 1) {
+  setInterval(() => {
+    if (process.ppid !== launcher) void onLauncherGone();
+  }, 1000).unref();
+}
 let dbUrl = process.env.CONTROLROD_DATABASE_URL ?? "";
 if (!dbUrl) {
   const pgPassword = privateFile(join(home, "pg.password"), () => randomBytes(24).toString("hex"));
@@ -68,9 +82,11 @@ const db = await openDb(dbUrl, roleUrls
   : { secrets: localRoleSecrets(join(home, "db-roles.json")), ownsCluster: pgServer !== null });
 
 const tokenPath = join(home, "daemon.token");
+const tokenTmp = `${tokenPath}.tmp.${process.pid}`;
 const token = randomBytes(32).toString("base64url");
-writeFileSync(tokenPath, token, { mode: 0o600 });
-chmodSync(tokenPath, 0o600);
+writeFileSync(tokenTmp, token, { mode: 0o600 });
+chmodSync(tokenTmp, 0o600);
+renameSync(tokenTmp, tokenPath);
 
 const origin = process.env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`;
 const sourceConfigPath=process.env.CONTROLROD_PREPARATION_CONFIG;
@@ -91,14 +107,21 @@ const app = buildApp({
   },
 });
 
+let stopping = false;
 const stop = async () => {
-  await app.close();
-  await closeDb(db);
-  await pgServer?.stop();
-  process.exit(0);
+  if (stopping) return;
+  stopping = true;
+  try {
+    await app.close().catch(() => undefined);
+    await closeDb(db).catch(() => undefined);
+    await pgServer?.stop().catch(() => undefined);
+  } finally {
+    process.exit(0);
+  }
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
+onLauncherGone = stop;
 
 await app.listen({ host: "127.0.0.1", port });
 console.log(`Control Rod is running at ${origin}`);

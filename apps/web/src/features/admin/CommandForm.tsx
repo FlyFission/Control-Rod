@@ -71,7 +71,9 @@ export function CommandForm({ spec, action, passkeys = browserPasskeys }: { spec
       return signed ? signAdmin<Record<string, unknown>>(spec.name, payload, passkeys) : api.adminUnsigned<Record<string, unknown>>(spec.name, payload);
     },
     onSuccess: () => {
-      for (const key of ["admin", "usage", "roster", "office-figures"]) void qc.invalidateQueries({ queryKey: [key] });
+      for (const key of ["admin", "usage", "roster", "office-figures", "workspace-projects"]) {
+        void qc.invalidateQueries({ queryKey: [key] });
+      }
     },
   });
   const allowed = action?.allowed === true;

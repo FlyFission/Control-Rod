@@ -147,9 +147,12 @@ export function RunTranscript({ packageId, run, showStop, bounded = false, initi
     mutationFn: async (before: number) => {
       const generation = sessionGeneration();
       const page = await api.transcriptWindow(packageId, run.id, { before }, PANEL_STEPS);
+      return { page, before, generation };
+    },
+    onSuccess: ({ page, before, generation }) => {
       if (!stillCurrent(generation)) return;
       setEarlier((held) => mergeTranscript(held, page.events));
-      // The server guarantees before is exclusive. An empty or nonadvancing response cannot be paged again.
+      // The server treats before as exclusive. An empty or nonadvancing response cannot be paged again.
       if (!page.events.some((item) => item.seq < before)) setEarlierExhausted(true);
     },
   });

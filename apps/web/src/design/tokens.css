@@ -72,6 +72,10 @@
   --fs-label: 12px;
   --fs-small: 13px;
   --fs-ui: 14px;
+  /* Display steps for instruments and headings (control room redesign, section 3). */
+  --fs-title: 20px;
+  --fs-headline: 28px;
+  --fs-display: 40px;
   /* Multi-line monospace (run logs, previews): open enough to group lines, tight enough to scan. */
   --lh-mono: 1.25;
   /* A prose reading column. Code, tables and logs may run wider. */

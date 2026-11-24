@@ -6,7 +6,7 @@ import { http, HttpResponse } from "msw/http";
 import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
 import { pkg, view } from "../../test/fixtures.js";
-import type { CaptureView, WorkPackage } from "../../api/types.js";
+import type { CaptureView, DataLane, WorkPackage } from "../../api/types.js";
 import { resetLiveStatus, useLiveEvents } from "../../lib/live.js";
 import { hydrateServerProjects, selectProject, WorkspaceProjectUser } from "../../lib/projects.js";
 import { saveMode } from "../../lib/mode.js";
@@ -57,7 +57,7 @@ function api(s: { packages?: WorkPackage[]; captures?: CaptureView[] } = {}) {
     http.get("*/admin", () => HttpResponse.json({ members: [], registry: { qualifications: [] } })),
     http.get("*/captures", () => HttpResponse.json(state.captures)),
     http.post("*/captures", async ({ request }) => {
-      const body = (await request.json()) as { text: string; lane?: string };
+      const body = (await request.json()) as { text: string; lane?: DataLane };
       posted.push(body);
       // The server classifies at capture for a sender with lane authority, as ben has here.
       const c = capture({ id: `C-${posted.length}`, text: body.text, ...(body.lane ? { lane: body.lane, effective_lane: body.lane } : {}) });
@@ -253,13 +253,13 @@ describe("QuickAdd on the board", () => {
     let failSecond = true;
     server.use(
       http.post("*/captures", async ({ request }) => {
-        const body = (await request.json()) as { text: string; source: string };
+        const body = (await request.json()) as { text: string; source: string; lane?: DataLane };
         if (failSecond && body.text.endsWith("Line two")) {
           return HttpResponse.json({ code: "boom", message: "Server hiccup" }, { status: 500 });
         }
         posted.push(body);
         // The server classifies at capture for a sender with lane authority, as ben has here.
-      const c = capture({ id: `C-${posted.length}`, text: body.text, ...(body.lane ? { lane: body.lane, effective_lane: body.lane } : {}) });
+        const c = capture({ id: `C-${posted.length}`, text: body.text, ...(body.lane ? { lane: body.lane, effective_lane: body.lane } : {}) });
         state.captures = [...state.captures, c];
         return HttpResponse.json(c, { status: 201 });
       }),

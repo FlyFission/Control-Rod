@@ -498,3 +498,7 @@
 .wf-who-system {
   color: var(--text-2);
 }
+.wf-matrix-wrap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -52,11 +52,14 @@ describe("flow", () => {
 
   it("never sends the stand-in's work to its own vendor or to the author it replaced", () => {
     const f = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge");
-    // Codex stands in for Claude; Codex cannot check Codex, and Claude is out, so that check waits.
-    expect(f.edges.filter((e) => e.from === "fallback").map((e) => e.to)).toEqual(["fallback-check"]);
+    // Codex stands in for Claude, you see the switch (coming), and Codex's work cannot go to Codex. Claude may
+    // check it once it is back, as pickChecker judges independence against the runtime that wrote the work.
+    expect(f.edges.filter((e) => e.from === "fallback").map((e) => e.to)).toEqual(["see-fallback"]);
+    expect(f.steps.find((s) => s.id === "see-fallback")?.stop).toBe("coming");
+    expect(f.edges.filter((e) => e.from === "see-fallback").map((e) => e.to)).toEqual(["fallback-check"]);
     const hold = f.steps.find((s) => s.id === "fallback-check")!;
-    expect(hold.seat).toBeUndefined();
-    expect(hold.detail).toMatch(/Waits for a vendor other than OpenAI/);
+    expect(hold.seat?.id).toBe("claude");
+    expect(hold.detail).toMatch(/Once Claude Code is back/);
     // The main check stays with Codex, which is independent of the author, Claude.
     expect(f.steps.find((s) => s.id === "check")?.seat?.id).toBe("codex");
     // No checker step is reached by a fallback edge: checkers never fall over.
@@ -74,7 +77,7 @@ describe("flow", () => {
     for (const answer of ["start", "start-and-merge", "every-step"] as const) {
       const f = buildCouncilFlow(rows({ claude: true, codex: true }), answer);
       expect(f.steps.find((s) => s.id === "merge")?.stop).toBe("on");
-      expect(f.matrix.find((r) => r.step === "Sign off and merge")?.stopsForYou).toBe("on");
+      expect(f.matrix.find((r) => r.step === "Accept the work")?.stopsForYou).toBe("on");
     }
   });
 
@@ -87,15 +90,16 @@ describe("flow", () => {
     expect(f.steps.some((s) => s.id === "fallback")).toBe(false);
   });
 
-  it("shows a seated agent that is not ready as the stand-in, not as the checker", () => {
+  it("shows a seated agent that is not ready as the stand-in, not as the checker, and does not promise it", () => {
     const f = buildCouncilFlow(rows({ claude: true, codex: false }), "start-and-merge");
     expect(f.steps.find((s) => s.id === "fallback")?.seat).toMatchObject({ id: "codex", ready: false });
+    expect(f.steps.find((s) => s.id === "fallback")?.detail).toMatch(/until then the card waits/);
     expect(f.steps.find((s) => s.id === "check")?.seat).toBeUndefined();
   });
 
   it("gives the spend limit its own row, holding new work only", () => {
     const m = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge").matrix;
-    expect(m.find((r) => r.step === "Spend limit")).toMatchObject({ who: "control-rod", stopsForYou: "no" });
+    expect(m.find((r) => r.step === "Spend limit")).toMatchObject({ who: "control-rod", stopsForYou: "coming" });
     expect(m.find((r) => r.step.startsWith("SCRAM"))?.step).not.toMatch(/spend/i);
   });
 
@@ -103,7 +107,7 @@ describe("flow", () => {
     for (const answer of ["start", "start-and-merge", "every-step"] as const) {
       const m = buildCouncilFlow(rows({ claude: true, codex: true }), answer).matrix;
       expect(m.find((r) => r.step.startsWith("SCRAM"))?.stopsForYou).toBe("always");
-      expect(m.find((r) => r.step === "Sign off and merge")?.stopsForYou).toBe("on");
+      expect(m.find((r) => r.step === "Accept the work")?.stopsForYou).toBe("on");
       expect(m.find((r) => r.step === "Settle a dispute")?.stopsForYou).toBe("always");
       expect(m.find((r) => r.step === "Approve the plan")?.stopsForYou).toBe("on");
     }
@@ -124,7 +128,7 @@ describe("layout", () => {
           const f = buildCouncilFlow(r, answer);
           const l = layoutFlow(f.steps, f.edges, dir);
           expect(l.spine).toEqual(spineOf(f.steps, f.edges));
-          for (const branch of ["fallback", "fallback-check", "dispute"]) expect(l.spine).not.toContain(branch);
+          for (const branch of ["fallback", "see-fallback", "fallback-check", "dispute"]) expect(l.spine).not.toContain(branch);
           const centre = (id: string) => {
             const p = l.placed.get(id)!;
             return dir === "LR" ? p.y + p.height / 2 : p.x + p.width / 2;

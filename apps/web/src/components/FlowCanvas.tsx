@@ -1,7 +1,7 @@
 import "@xyflow/react/dist/base.css";
 import { Background, BackgroundVariant, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { CouncilFlow, EdgeKind, FlowStep } from "../lib/councilFlow.js";
+import { type CouncilFlow, type EdgeKind, type FlowStep, SEND_BACKS } from "../lib/councilFlow.js";
 import { type Direction, layoutFlow } from "../lib/councilLayout.js";
 import { AgentMark } from "./AgentMark.js";
 import { KeyGlyph, STOP_LABEL } from "./workflowParts.js";
@@ -129,7 +129,7 @@ export default function FlowDiagram({ flow }: { flow: CouncilFlow }) {
   // Fit the whole flow, never larger than its drawn size, with room for the send-back loop: over the
   // top on a wide screen, down the right on a phone.
   const loopTop = direction === "LR" ? 64 : 0;
-  const loopRight = direction === "TB" ? 64 : 0;
+  const loopRight = direction === "TB" ? 120 : 0; // the loop and its label
   // Below MIN_SCALE the type gets too small to read, so a long flow scrolls sideways inside its frame.
   const fit = width > 0 ? Math.min(1, (width - 24) / (layout.width + loopRight)) : 1;
   const scrolls = fit < MIN_SCALE;
@@ -169,8 +169,8 @@ export default function FlowDiagram({ flow }: { flow: CouncilFlow }) {
       type: "smoothstep",
       className: EDGE_CLASS[e.kind],
       markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-      pathOptions: { borderRadius: 10, offset: e.kind === "send-back" ? 40 : 18 },
-      ...(e.label && !(direction === "TB" && e.kind === "send-back") ? { label: e.label, labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 4, labelShowBg: true } : {}),
+      pathOptions: { borderRadius: 10, offset: e.kind === "send-back" ? (direction === "TB" ? 64 : 40) : 18 },
+      ...(e.label ? { label: direction === "TB" && e.kind === "send-back" ? `No: again, ≤${SEND_BACKS}×` : e.label, labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 4, labelShowBg: true } : {}),
       focusable: false,
       selectable: false,
     };

@@ -19,7 +19,7 @@ The owner, a process engineer, asked on 2026-11-24 for the person's current work
 ## Proposal
 
 1. `lib/councilFlow.ts`: one pure function from the joined rows and the check-in answer to the council, the flow (steps and edges) and a decision matrix. A stop the person chose but that is not built is "coming soon", never drawn as in force.
-2. `lib/councilLayout.ts`: dagre (MIT) ranks the steps; the main line is drawn straight and branches (stand-in author, dispute) sit beside it; left to right on a wide screen, top to bottom on a phone.
+2. `lib/councilLayout.ts`: a small lane layout (no graph library) draws the main line straight and branches (stand-in author, dispute) sit beside it; left to right on a wide screen, top to bottom on a phone.
 3. `components/FlowCanvas.tsx`: React Flow (MIT) draws it, loaded only when a diagram is shown. `WorkflowDiagram` adds the council strip, the flow/matrix switch and the key.
 4. Placement: the Setup read-back (updates live as seats and the answer change) and a new place, Control / Setup > Workflow (`/workflow`). The control room (draft PR #171) can mount the same component as a module once it lands.
 5. Agent marks: vectors from Lobe Icons (MIT) in `apps/web/public/agent-marks/`, in their owners' colours, with a not-affiliated note. The owner chose real logos on 2026-11-24 after the brand terms were read (Anthropic, OpenAI, xAI and Google ask for permission and no alteration).

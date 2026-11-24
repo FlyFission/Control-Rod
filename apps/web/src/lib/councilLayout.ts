@@ -1,12 +1,13 @@
-import dagre from "@dagrejs/dagre";
 import type { FlowEdge, FlowStep, StepKind } from "./councilFlow.js";
 
 /**
- * Places the workflow's blocks. dagre (MIT) ranks them, left to right on a wide screen and top to
- * bottom on a phone. Then the main line (the path a card takes when nothing goes wrong) is drawn
- * straight, as a block flow diagram is, and each branch (a stand-in author, a dispute) sits beside the
- * main-line block of its rank: below it on a wide screen, to its left on a phone. The send-back loop is
- * left out of the ranking and runs on the free side, over the top or down the right.
+ * Places the workflow's blocks as a process engineer draws a block flow diagram: the main line (the path
+ * a card takes when nothing goes wrong) runs straight, left to right on a wide screen and top to bottom
+ * on a phone, and each branch (a stand-in author and its check, a dispute) runs in a lane beside it:
+ * below on a wide screen, to the left on a phone. A branch block starts just after the block it comes
+ * from and moves along past any branch block already in its lane. The send-back loop runs on the free
+ * side, over the top or down the right. The flow is a short line with a few branches, so this is a few
+ * lines of arithmetic rather than a general graph layout.
  */
 export type Direction = "LR" | "TB";
 
@@ -49,43 +50,59 @@ export function spineOf(steps: FlowStep[], edges: FlowEdge[]): string[] {
   return out;
 }
 
+/** Gap between blocks along the line. */
+const GAP = { LR: 32, TB: 40 } as const;
+
 export function layoutFlow(steps: FlowStep[], edges: FlowEdge[], direction: Direction): Layout {
   const lr = direction === "LR";
-  const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: direction, nodesep: 32, ranksep: lr ? 32 : 40, marginx: 0, marginy: 0 });
-  g.setDefaultEdgeLabel(() => ({}));
-  for (const s of steps) g.setNode(s.id, { ...BLOCK_SIZE[s.kind] });
-  for (const e of edges) if (e.kind !== "send-back") g.setEdge(e.from, e.to);
-  dagre.layout(g);
+  const gap = GAP[direction];
+  const size = (id: string) => BLOCK_SIZE[steps.find((s) => s.id === id)!.kind];
+  const alongSize = (id: string) => (lr ? size(id).width : size(id).height);
+  const acrossSize = (id: string) => (lr ? size(id).height : size(id).width);
 
   const spine = spineOf(steps, edges);
-  const size = (id: string) => BLOCK_SIZE[steps.find((s) => s.id === id)!.kind];
-  // Rank position (x on a wide screen, y on a phone) comes from dagre; the cross position is ours.
-  const along = (id: string) => (lr ? g.node(id).x : g.node(id).y);
-  const across = (id: string) => (lr ? size(id).height : size(id).width);
-  const lane = Math.max(...spine.map(across));
-  const centre = new Map<string, { a: number; c: number }>();
-  for (const id of spine) centre.set(id, { a: along(id), c: lane / 2 });
-  // Each branch goes beside the main-line block nearest its rank, stacking if a rank has several.
-  const used = new Map<string, number>();
-  for (const s of steps) {
-    if (spine.includes(s.id)) continue;
-    const a = along(s.id);
-    const host = spine.reduce((best, id) => (Math.abs(along(id) - a) < Math.abs(along(best) - a) ? id : best), spine[0]!);
-    const offset = used.get(host) ?? lane;
-    centre.set(s.id, { a, c: offset + BRANCH_GAP + across(s.id) / 2 });
-    used.set(host, offset + BRANCH_GAP + across(s.id));
+  const lane = Math.max(...spine.map(acrossSize));
+  // Along the line: [start, end] for every block. Across: the main line is centred in its lane; branch
+  // blocks share one lane beside it, aligned to its near edge.
+  const along = new Map<string, { start: number; end: number }>();
+  let at = 0;
+  for (const id of spine) {
+    along.set(id, { start: at, end: at + alongSize(id) });
+    at += alongSize(id) + gap;
   }
-  const crossMax = Math.max(lane, ...used.values());
+  const branches = steps.filter((s) => !spine.includes(s.id)).map((s) => s.id);
+  const placedBranches: string[] = [];
+  for (const id of branches) {
+    const from = edges.find((e) => e.to === id && e.kind !== "send-back" && along.has(e.from))?.from;
+    let start = from ? along.get(from)!.end + gap : 0;
+    // Move along past any branch block already in the lane.
+    for (let moved = true; moved; ) {
+      moved = false;
+      for (const other of placedBranches) {
+        const o = along.get(other)!;
+        if (start < o.end + gap && o.start < start + alongSize(id) + gap) {
+          start = o.end + gap;
+          moved = true;
+        }
+      }
+    }
+    along.set(id, { start, end: start + alongSize(id) });
+    placedBranches.push(id);
+  }
+  const branchLane = branches.length > 0 ? Math.max(...branches.map(acrossSize)) : 0;
+  const crossMax = lane + (branchLane > 0 ? BRANCH_GAP + branchLane : 0);
 
   const placed = new Map<string, Placed>();
   let alongMax = 0;
   for (const s of steps) {
     const { width: w, height: h } = BLOCK_SIZE[s.kind];
-    const { a, c } = centre.get(s.id)!;
-    // On a phone the branches sit to the left, so the cross axis is flipped.
-    const x = lr ? a - w / 2 : crossMax - c - w / 2;
-    const y = lr ? c - h / 2 : a - h / 2;
+    const a = along.get(s.id)!.start;
+    const onLine = spine.includes(s.id);
+    // Distance from the main line's outer edge, across the line.
+    const c = onLine ? (lane - acrossSize(s.id)) / 2 : lane + BRANCH_GAP;
+    // On a phone the branch lane sits to the left, so the cross axis is flipped.
+    const x = lr ? a : crossMax - c - w;
+    const y = lr ? c : a;
     placed.set(s.id, { id: s.id, x, y, width: w, height: h });
     alongMax = Math.max(alongMax, lr ? x + w : y + h);
   }

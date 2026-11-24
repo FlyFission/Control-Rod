@@ -5,7 +5,7 @@ import { AgentMark } from "./AgentMark.js";
 import { KeyGlyph, STOP_LABEL } from "./workflowParts.js";
 
 /**
- * The person's workflow drawn as a block flow diagram (React Flow, MIT, laid out by dagre) or read as a
+ * The person's workflow drawn as a block flow diagram (drawn with React Flow, MIT) or read as a
  * decision matrix. The matrix is the same content as a table, so it is also the screen-reader view.
  */
 
@@ -30,7 +30,7 @@ function Who({ who }: { who: MatrixRow["who"] }) {
 
 export function DecisionMatrix({ flow }: { flow: CouncilFlow }) {
   return (
-    <div className="wf-matrix-wrap">
+    <div className="wf-matrix-wrap" role="region" aria-label="Decision matrix, scrolls sideways on a narrow screen" tabIndex={0}>
       <table className="wf-matrix">
         <caption className="sr-only">Your workflow, step by step: who does each step, whether it stops for you, and what happens if it fails.</caption>
         <thead>

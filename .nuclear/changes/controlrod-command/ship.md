@@ -67,13 +67,14 @@ Round 6 dispositions (all fixed, checked as an ordinary Linux user):
 
 ## Follow-up: one-step start
 
-Built after #177 merged, on a new pull request; review and the owner's yes for that pull request are recorded below the #177 signature.
+Built after #177 merged, as pull request #185. GitHub Codex review of 3ce2e11: no findings; CI green.
 
 ## Signature
 
 | Decision | Question | Answer, word for word | When | Where | Recorded by |
 |---|---|---|---|---|---|
 | Merge of pull request #177 | Round 5 fixes pushed (67ac266); Codex round 6 running | "Excellent, merge." | 2026-11-24 4:02 PM America/New_York (UTC-05:00) | Claude project thread for the controlrod command | Recorded by the agent (Claude); not signed for the owner |
+| Merge of pull request #185 | "Merge #185 so controlrod start does everything in one step?" (decision card) | "Merge #185" (option chosen on the card) | 2026-11-24 6:12 PM America/New_York (UTC-05:00) | Claude project thread for the controlrod command | Recorded by the agent (Claude); not signed for the owner |
 
 The owner approved while Codex round 6 was running; its four findings, all in the startup dependency repair, were fixed before the merge (below). Every finding of rounds 1 to 6 is fixed or declined with its reason above.
 

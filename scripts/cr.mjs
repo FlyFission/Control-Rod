@@ -1,19 +1,147 @@
 #!/usr/bin/env node
-// Control Rod on one machine: `pnpm cr doctor`, `pnpm cr setup`, `pnpm cr start`, and
-// `pnpm cr verify <file>` to check a downloaded inclusion proof offline, and `pnpm cr bench` for
-// Control Rod's own cross-vendor checking benchmark.
+// Control Rod on one machine. Run as `controlrod <command>` from any folder once `pnpm cr link` has
+// put that command on PATH, or as `pnpm cr <command>` inside this checkout: start, stop, restart,
+// status, open, logs, update, doctor, setup, verify <file> (checks a downloaded inclusion proof
+// offline), receipt, bench (Control Rod's own cross-vendor checking benchmark), link and unlink.
+// Any other command goes to the run daemon's own CLI (`controlrod agents update`, for example).
 // Starts the control plane (with an embedded Postgres unless CONTROLROD_DATABASE_URL is set),
 // the run daemon, and serves the web app at http://localhost:7300.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync } from "node:fs";
 import { homedir, platform } from "node:os";
-import { delimiter, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { commandPath, link, ownerOf, refresh, unlink } from "./lib/link.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const home = process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod");
+
+// The command's own dependencies (package.json "dependencies") must load before anything imports
+// them; an update stopped between moving the code and installing leaves them missing or half
+// installed, and the command then installs them first instead of failing to load. Never while an
+// update is running: that update installs them itself.
+{
+  const deps = Object.keys(JSON.parse(readFileSync(join(root, "package.json"), "utf8")).dependencies ?? {});
+  const missingDeps = async () => {
+    const out = [];
+    for (const d of deps) {
+      try {
+        await import(d);
+      } catch (e) {
+        if (!["ERR_MODULE_NOT_FOUND", "MODULE_NOT_FOUND"].includes(e?.code)) throw e;
+        out.push(d);
+      }
+    }
+    return out;
+  };
+  const missing = await missingDeps();
+  if (missing.length) {
+    // The repair holds the update lock (the same proper-lockfile folder, kept fresh while pnpm
+    // runs), so it never installs alongside an update or another repair. A lock nobody has
+    // refreshed for 15 seconds is stale, as proper-lockfile treats it.
+    const gitEnv = { ...process.env };
+    for (const k of Object.keys(gitEnv)) if (k.startsWith("GIT_")) delete gitEnv[k];
+    const gd = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, encoding: "utf8", env: gitEnv }).stdout?.trim();
+    const lock = gd ? join(gd, "controlrod-update.lock") : join(root, "node_modules", ".controlrod-repair.lock");
+    // Ownership-aware without files inside the folder (proper-lockfile removes a stale lock with a
+    // plain rmdir): a holder knows its lock by the folder's inode and only ever removes that one. A
+    // stale lock is taken over by renaming it aside (only one process can win that rename) and
+    // checking that what was moved is still the stale folder that was looked at.
+    const look = (dir) => {
+      try {
+        const st = statSync(dir);
+        return { ino: st.ino, age: Date.now() - st.mtimeMs };
+      } catch {
+        return null;
+      }
+    };
+    let mine = null;
+    const take = () => {
+      try {
+        mkdirSync(lock);
+      } catch (e) {
+        if (e?.code !== "EEXIST") throw e;
+        return false;
+      }
+      mine = look(lock)?.ino ?? null;
+      return mine !== null;
+    };
+    const ownerOf = (dir) => look(dir)?.ino ?? null;
+    let held = take();
+    if (!held) {
+      const seen = look(lock);
+      if (seen && seen.age > 15000) {
+        const aside = `${lock}.stale.${process.pid}.${Date.now()}`;
+        let moved = false;
+        try {
+          renameSync(lock, aside);
+          moved = true;
+        } catch {}
+        if (moved) {
+          const now = look(aside);
+          if (now && now.ino === seen.ino && now.age > 15000) {
+            rmSync(aside, { recursive: true, force: true });
+            held = take();
+          } else {
+            // Another command took the lock between the look and the rename: give it back.
+            try {
+              renameSync(aside, lock);
+            } catch {}
+          }
+        }
+      }
+    }
+    if (!held) {
+      console.error("Control Rod is being updated or its dependencies installed right now. Try again when that has finished.");
+      process.exit(1);
+    }
+    const release = () => {
+      if (ownerOf(lock) === mine) rmSync(lock, { recursive: true, force: true });
+    };
+    // A plain install first; pnpm trusts a half-installed node_modules, so the second try forces a
+    // reinstall. Each try runs this command again in a fresh process, since a module that failed to
+    // load stays failed in this one.
+    const attempt = Number(process.env.CONTROLROD_DEPS_ATTEMPT ?? 0);
+    const installed = attempt < 2;
+    if (installed) {
+      console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
+      const touch = setInterval(() => {
+        try {
+          if (ownerOf(lock) === mine) utimesSync(lock, new Date(), new Date());
+        } catch {}
+      }, 3000);
+      await new Promise((done) => {
+        const child = spawn("pnpm", ["install", "--frozen-lockfile", ...(attempt ? ["--force"] : [])], { cwd: root, stdio: "inherit" });
+        child.on("error", done);
+        child.on("exit", done);
+      });
+      clearInterval(touch);
+    }
+    release();
+    if (!installed) {
+      console.error(`Could not install ${missing.join(", ")}. In ${root}, run: pnpm install --frozen-lockfile --force`);
+      process.exit(1);
+    }
+    const again = spawnSync(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
+      stdio: "inherit",
+      env: { ...process.env, CONTROLROD_DEPS_ATTEMPT: String(attempt + 1) },
+    });
+    process.exit(again.status ?? 1);
+  }
+  delete process.env.CONTROLROD_DEPS_ATTEMPT;
+}
+const { alive, claimRecord, clearRecord, findRunning, freeOrphanedSegments, healthy, orphanedSegments, readRecord, segmentUse, stopLauncher } =
+  await import("./lib/instance.mjs");
+const { cleanEnv, gitRunner, update, UpdateError } = await import("./lib/update.mjs");
+// Resolved once against the folder the command was run in, and handed to every child as an
+// absolute path, so a relative CONTROLROD_HOME means the same folder everywhere.
+const home = resolve(process.env.INIT_CWD ?? process.cwd(), process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod"));
+process.env.CONTROLROD_HOME = home;
 const bin = join(home, "bin");
 const port = Number(process.env.CONTROLROD_PORT ?? 7300);
+const logFile = join(home, "logs", "controlrod.log");
+const cli = process.env.CONTROLROD_CLI === "1";
+const me = cli ? "controlrod" : "pnpm cr";
+const appUrl = () => process.env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`;
 
 const which = (cmd) => {
   const r = spawnSync(platform() === "win32" ? "where" : "which", [cmd], { encoding: "utf8" });
@@ -109,7 +237,7 @@ function agentRunProblems() {
   return problems;
 }
 
-function doctor({ agents = false } = {}) {
+function doctor({ agents = false, fix = false } = {}) {
   // The bundled PostgreSQL refuses to run as root, and it fails with a stack trace well after setup has
   // built everything. Catch it first, unless the caller brings their own database.
   if (typeof process.getuid === "function" && process.getuid() === 0 && !process.env.CONTROLROD_DATABASE_URL) {
@@ -140,6 +268,19 @@ function doctor({ agents = false } = {}) {
     if (!found && required) ok = false;
   }
   if (!databaseOk()) ok = false;
+  if (platform() === "darwin" && !process.env.CONTROLROD_DATABASE_URL) {
+    const dead = orphanedSegments();
+    if (!dead.length) console.log("ok    database memory: no shared memory left behind by stopped databases");
+    else if (fix) {
+      const n = freeOrphanedSegments(dead);
+      console.log(`ok    database memory: freed ${n} shared memory segment${n === 1 ? "" : "s"} left behind by stopped databases`);
+    } else {
+      console.log(
+        `--    database memory: ${dead.length} shared memory segment${dead.length === 1 ? "" : "s"} left behind by PostgreSQL runs that were killed.` +
+          `\n      macOS has 32 in all; when they run out the database cannot start. \`${me} doctor --fix\` frees them (only ones whose PostgreSQL is gone).`,
+      );
+    }
+  }
   const problems = agentRunProblems();
   if (problems.length === 0) console.log("ok    agent runs: the sandbox can start on this platform");
   for (const p of problems) console.log(`--    agent runs: ${p}`);
@@ -175,7 +316,7 @@ function agentChecks() {
     : spawnSync("go", ["run", "./cmd/controlrod", "runtimes"], { cwd: join(root, "daemon"), encoding: "utf8", timeout: 300000 });
   const out = (r.stdout ?? "").trim();
   if (r.status !== 0 || !out) {
-    console.log("--    agents: the daemon's checks could not run here; `pnpm cr start` reports each agent when it starts");
+    console.log("--    agents: the daemon's checks could not run here; `${me} start` reports each agent when it starts");
     return;
   }
   console.log("\nAgents, as the daemon will find them:");
@@ -198,20 +339,87 @@ function newer(src, out) {
 function setup() {
   mkdirSync(bin, { recursive: true });
   if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
-  if (newer(join(root, "apps", "web", "src"), join(root, "apps", "web", "dist", "index.html"))) {
+  // An update builds everything again: a change to a build config or a workspace package does
+  // not show in an app's own sources.
+  const force = process.env.CONTROLROD_FORCE_BUILD === "1";
+  if (force || newer(join(root, "apps", "web", "src"), join(root, "apps", "web", "dist", "index.html"))) {
     run("pnpm", ["--filter", "@control-rod/web", "build"]);
   }
-  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "server.js"))) {
+  if (force || newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "server.js"))) {
     run("pnpm", ["--filter", "@control-rod/api", "build"]);
   }
   run("go", ["build", "-o", join(bin, "controlrod"), "./cmd/controlrod"], { cwd: join(root, "daemon") });
+  // A `controlrod` command that points here is rewritten if this version writes it differently.
+  try {
+    refresh(root);
+  } catch {
+    /* the command is a convenience; never fail a build over it */
+  }
+}
+
+/** Says what runs already; true when the caller should not start another. */
+async function alreadyRunning() {
+  const running = await findRunning(home, port, root);
+  if (!running) return false;
+  if (running.foreign) {
+    console.error(
+      `Port ${port} is already in use${running.command ? ` by: ${running.command}` : ""}.\n` +
+        `Stop that program, or start Control Rod on another port with CONTROLROD_PORT.`,
+    );
+    process.exit(1);
+  }
+  console.log(`Control Rod is already running at ${appUrl()} (${running.mode === "background" ? "in the background" : "in another terminal"}).`);
+  console.log(`Open it with \`${me} open\`, or stop it with \`${me} stop\`.`);
+  return true;
+}
+
+/**
+ * macOS has only 32 shared memory segments in all, and every PostgreSQL that is killed outright
+ * leaves one behind; when they run out, no PostgreSQL starts. Say so before starting; freeing them
+ * is the person's call (`doctor --fix`), since nothing proves a segment was PostgreSQL's.
+ */
+function warnDeadDatabaseMemory() {
+  if (platform() !== "darwin" || process.env.CONTROLROD_DATABASE_URL) return;
+  const use = segmentUse();
+  if (!use || use.used < use.limit - 2) return;
+  const dead = orphanedSegments();
+  console.log(
+    `\nmacOS is almost out of shared memory segments (${use.used} of ${use.limit} in use), so the database may not start.` +
+      (dead.length ? `\n${dead.length} look left behind by PostgreSQL runs that were killed; \`${me} doctor --fix\` frees them, or restart the Mac.` : "\nRestarting the Mac frees them."),
+  );
+}
+
+/** The address the browser uses. In GitHub Codespaces that is the forwarded https address. */
+function origin() {
+  if (process.env.CONTROLROD_ORIGIN) return process.env.CONTROLROD_ORIGIN;
+  const csName = process.env.CODESPACE_NAME;
+  const csDomain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+  return csName && csDomain ? `https://${csName}-${port}.${csDomain}` : `http://localhost:${port}`;
 }
 
 async function start() {
+  if (await alreadyRunning()) return;
+  // Claimed before anything is built or started, so two starts at once cannot both go ahead.
+  const background = process.env.CONTROLROD_LAUNCH_MODE === "background";
+  mkdirSync(home, { recursive: true, mode: 0o700 });
+  const claimed = await claimRecord(home, {
+    root,
+    port,
+    url: origin(),
+    mode: background ? "background" : "foreground",
+    log: background ? logFile : null,
+    startedAt: new Date().toISOString(),
+  });
+  if (!claimed) {
+    if (!(await alreadyRunning())) console.log(`Another Control Rod is starting. See \`${me} status\`; if none is, one just stopped abruptly: try again in 15 seconds.`);
+    return;
+  }
+  process.on("exit", () => clearRecord(home));
   if (!doctor()) process.exit(1);
   setup();
   // On a first run the database package was not installed yet when `doctor` looked; look again now.
   if (!databaseOk()) process.exit(1);
+  warnDeadDatabaseMemory();
   const env = { ...process.env, CONTROLROD_HOME: home };
   // In GitHub Codespaces the browser reaches the app at a forwarded https address, not localhost, and a
   // passkey is bound to the address it was made on. Use that address unless the caller chose one.
@@ -260,9 +468,11 @@ async function start() {
       afterDaemon(() => process.exit(apiExitCode || 1));
     }
   });
-  const stop = () => {
+  // A second Ctrl+C (SIGINT) skips the drain. SIGTERM and SIGHUP, which `controlrod stop` and a
+  // closed terminal send, only ever ask for the graceful stop, however often they arrive.
+  const stop = (force) => {
     if (stopping) {
-      if (performance.now() - stopAt < 1000) return;
+      if (!force || performance.now() - stopAt < 1000) return;
       // A second Ctrl+C does not wait: stop both now. Unsaved completions stay in the daemon's outbox.
       console.error("\nStopping now.");
       if (daemon && !daemonExited) daemon.kill("SIGKILL");
@@ -282,11 +492,12 @@ async function start() {
     });
   };
   // Installed before the health wait, so a Ctrl+C during startup also stops the control plane.
-  process.on("SIGINT", stop);
-  process.on("SIGTERM", stop);
-  process.on("SIGHUP", stop);
+  process.on("SIGINT", () => stop(true));
+  process.on("SIGTERM", () => stop(false));
+  process.on("SIGHUP", () => stop(false));
   // If the launcher exits any other way (an error such as a failed start), take the children with it.
   process.on("exit", () => {
+    clearRecord(home);
     if (daemon && !daemonExited) daemon.kill("SIGTERM");
     if (!apiExited) api.kill("SIGTERM");
   });
@@ -318,7 +529,11 @@ async function start() {
       console.error(`\nThe run daemon exited (code=${code ?? signal}); runs will wait until it is restarted.`);
     }
   });
-  console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);
+  const how = process.env.CONTROLROD_LAUNCH_MODE === "background" ? `\`${me} stop\` stops everything` : "Ctrl+C stops everything";
+  console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (${how})\n`);
+  if (!cli && ownerOf(commandPath()) === "none") {
+    console.log("Tip: run `pnpm cr link` once to get the `controlrod` command (controlrod start, update, stop) in any folder.\n");
+  }
 }
 
 /**
@@ -370,25 +585,361 @@ function resolveCliArgs(argv) {
   return out;
 }
 
-const cmd = process.argv[2] ?? "start";
-if (cmd === "doctor") process.exit(doctor({ agents: true }) ? 0 : 1);
-else if (cmd === "setup") setup();
-else if (cmd === "start") await start();
-else if (cmd === "bench") {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** The short commit and its date, for `version` and `status`. */
+function versionLine() {
+  const git = gitRunner(root);
+  const sha = git(["rev-parse", "--short", "HEAD"]);
+  const date = git(["log", "-1", "--format=%cs"]);
+  return sha.ok ? `Control Rod ${sha.out} (${date.out || "unknown date"})` : "Control Rod (not a git clone)";
+}
+
+/** Keeps the log from growing without end: one older copy, rotated at start. */
+function openLog() {
+  mkdirSync(dirname(logFile), { recursive: true });
+  try {
+    if (statSync(logFile).size > 10 * 1024 * 1024) renameSync(logFile, `${logFile}.1`);
+  } catch {
+    /* no log yet */
+  }
+  return openSync(logFile, "a", 0o600);
+}
+
+function tail(file, lines) {
+  try {
+    return readFileSync(file, "utf8").split("\n").slice(-lines - 1).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Starts Control Rod detached from this terminal, its output going to the log. Builds in the
+ * foreground first, so the person sees progress and errors here, then waits until it answers.
+ */
+async function startBackground() {
+  if (await alreadyRunning()) return 0;
+  // The checks print only when something is missing; the full list is in `doctor`.
+  const said = [];
+  const print = console.log;
+  console.log = (...a) => said.push(a.join(" "));
+  let ok;
+  try {
+    ok = doctor();
+  } finally {
+    console.log = print;
+  }
+  if (!ok) {
+    console.log(said.join("\n"));
+    return 1;
+  }
+  setup();
+  if (!databaseOk()) return 1;
+  const fd = openLog();
+  const child = spawn(process.execPath, [join(root, "scripts", "cr.mjs"), "start"], {
+    cwd: root,
+    detached: true,
+    stdio: ["ignore", fd, fd],
+    env: { ...process.env, CONTROLROD_LAUNCH_MODE: "background" },
+  });
+  closeSync(fd);
+  child.unref();
+  process.stdout.write("\nStarting Control Rod in the background");
+  for (let i = 0; i < 240; i++) {
+    if (child.exitCode !== null || !alive(child.pid)) break;
+    // Ready means this launch answers: its own record, and the port healthy.
+    if (readRecord(home)?.pid === child.pid && (await healthy(port))) {
+      console.log(`\nControl Rod is running at ${appUrl()}`);
+      console.log(`Log: ${logFile}  (\`${me} logs\`)`);
+      console.log(`Stop it with \`${me} stop\`.`);
+      return 0;
+    }
+    if (i % 4 === 3) process.stdout.write(".");
+    await sleep(500);
+  }
+  // Do not leave a launch that never became ready running unseen.
+  if (child.exitCode === null && alive(child.pid)) child.kill("SIGTERM");
+  else {
+    // Another start won the race: that one is running, which is what was asked for.
+    const other = await findRunning(home, port, root);
+    if (other && !other.foreign) {
+      console.log(`\nControl Rod is already running at ${readRecord(home)?.url ?? appUrl()} (started by another command).`);
+      return 0;
+    }
+  }
+  console.error(`\nControl Rod did not start. The end of its log (${logFile}):\n`);
+  console.error(tail(logFile, 30));
+  return 1;
+}
+
+async function stopCommand({ now = false, quiet = false } = {}) {
+  const running = await findRunning(home, port, root);
+  if (!running) {
+    if (!quiet) console.log("Control Rod is not running.");
+    return { code: 0, wasRunning: false };
+  }
+  if (running.foreign) {
+    console.error(`Something other than a Control Rod started here is using port ${port}${running.command ? `: ${running.command}` : ""}. Not stopping it.`);
+    return { code: 1, wasRunning: false };
+  }
+  console.log(now ? "Stopping Control Rod now..." : "Stopping Control Rod (running work finishes and is saved first)...");
+  if (!(await stopLauncher(running.pid, { now, started: running.started }))) {
+    console.error(`Control Rod is still finishing running work. Wait, or run \`${me} stop --now\` to stop without waiting.`);
+    return { code: 1, wasRunning: true, stuck: true, mode: running.mode };
+  }
+  console.log("Stopped.");
+  return { code: 0, wasRunning: true, mode: running.mode };
+}
+
+/** Runs the launcher in this terminal as a child, so this process can return its exit code. */
+function startHere() {
+  return new Promise((done) => {
+    const child = spawn(process.execPath, [join(root, "scripts", "cr.mjs"), "start"], { cwd: root, stdio: "inherit", env: cleanEnv() });
+    // Ctrl+C reaches the child directly (same terminal); a stop signal sent here is passed on.
+    const pass = (sig) => () => child.kill(sig);
+    process.on("SIGINT", () => undefined);
+    process.on("SIGTERM", pass("SIGTERM"));
+    process.on("SIGHUP", pass("SIGHUP"));
+    child.on("exit", (code) => done(code ?? 1));
+  });
+}
+
+async function status() {
+  const running = await findRunning(home, port, root);
+  const r = readRecord(home);
+  console.log(versionLine());
+  console.log(`  code:  ${root}`);
+  console.log(`  data:  ${home}`);
+  if (!running) {
+    console.log(`\nNot running. Start it with \`${me} start\` (or \`${me} start --background\`).`);
+    return 0;
+  }
+  if (running.foreign) {
+    console.log(`\nPort ${port} is in use by something else${running.command ? `: ${running.command}` : ""}.`);
+    return 1;
+  }
+  const up = await healthy(port);
+  const since = r?.startedAt ? ` since ${new Date(r.startedAt).toLocaleString()}` : "";
+  const where = running.mode === "background" ? "in the background" : "in a terminal";
+  console.log(`\n${up ? "Running" : "Starting"} at ${r?.url ?? appUrl()}, ${where}${since}.`);
+  if (running.mode === "background") console.log(`Log: ${logFile}`);
+  return 0;
+}
+
+function openUrl(url) {
+  const os = platform();
+  const opener = os === "darwin" ? "open" : os === "win32" ? "explorer.exe" : which("wslview") ? "wslview" : which("xdg-open") ? "xdg-open" : null;
+  if (opener && spawnSync(opener, [url], { stdio: "ignore" }).status === 0) {
+    console.log(`Opened ${url}`);
+    return 0;
+  }
+  console.log(`Open ${url} in your browser.`);
+  return 0;
+}
+
+async function openCommand() {
+  const running = await findRunning(home, port, root);
+  if (running?.foreign) {
+    console.error(`Port ${port} is in use by something else${running.command ? `: ${running.command}` : ""}.`);
+    return 1;
+  }
+  if (!running) {
+    const code = await startBackground();
+    if (code !== 0) return code;
+  }
+  return openUrl(readRecord(home)?.url ?? appUrl());
+}
+
+function logsCommand(follow) {
+  if (!existsSync(logFile)) {
+    console.log(`No log yet. A start with \`${me} start --background\` writes one to ${logFile}; a start in a terminal prints there instead.`);
+    return 0;
+  }
+  if (follow) {
+    const r = spawnSync("tail", ["-n", "100", "-f", logFile], { stdio: "inherit" });
+    return r.status ?? 0;
+  }
+  console.log(tail(logFile, 200));
+  return 0;
+}
+
+// Long steps of an update run without blocking, so the update lock keeps being refreshed while they do.
+const runAsync = (cmd, args, opts) =>
+  new Promise((done) => {
+    const child = spawn(cmd, args, { stdio: "inherit", ...opts });
+    child.on("error", () => done(false));
+    child.on("exit", (code) => done(code === 0));
+  });
+
+async function updateCommand(flags) {
+  const pnpmCmd = which("pnpm");
+  try {
+    return await update(
+      root,
+      { check: Boolean(flags.check), restart: flags.restart !== false },
+      {
+        git: gitRunner(root),
+        log: (m) => console.log(m),
+        holdInterrupts: () => {
+          process.on("SIGINT", () => console.log("\nFinishing the update safely first; please wait."));
+        },
+        stop: async () => {
+          const s = await stopCommand({ quiet: true });
+          if (s.stuck) return null;
+          if (s.code !== 0) throw new UpdateError("Could not stop what is using Control Rod's port; nothing was changed.");
+          return { wasRunning: s.wasRunning, mode: s.mode };
+        },
+        install: () => {
+          if (!pnpmCmd) {
+            console.error("pnpm was not found. Install it (https://pnpm.io/installation) and run `controlrod update` again.");
+            return false;
+          }
+          return runAsync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, env: cleanEnv() });
+        },
+        // The updated checkout's own setup builds it, so a new version's build steps are the ones used.
+        build: () =>
+          runAsync(process.execPath, [join(root, "scripts", "cr.mjs"), "setup"], {
+            cwd: root,
+            env: { ...cleanEnv(), CONTROLROD_FORCE_BUILD: "1" },
+          }),
+        restart: async ({ mode }) => {
+          if (mode === "background") {
+            return spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "start", "--background"], { cwd: root, stdio: "inherit", env: cleanEnv() }).status ?? 1;
+          }
+          console.log("\nControl Rod was running, so it starts again here (Ctrl+C stops it).\n");
+          return startHere();
+        },
+      },
+    );
+  } catch (e) {
+    if (e instanceof UpdateError) {
+      console.error(e.message);
+      return e.code;
+    }
+    throw e;
+  }
+}
+
+function linkCommand() {
+  const r = link(root);
+  if (r.status === "unsupported") {
+    console.error("The controlrod command needs macOS, Linux or WSL2. On Windows, run Control Rod inside WSL2.");
+    return 1;
+  }
+  if (r.status === "foreign") {
+    console.error(`${r.path} already exists and was not written by Control Rod. Not replacing it.\nSet CONTROLROD_BIN_DIR to another folder on your PATH and run \`pnpm cr link\` again.`);
+    return 1;
+  }
+  console.log(`${r.status === "written" ? "Installed" : "Already installed:"} ${r.path} -> ${root}`);
+  if (r.profile) {
+    if (r.profile.added) console.log(`Added ${dirname(r.path)} to your PATH in ${r.profile.file}.`);
+    console.log(`\nOpen a new terminal (or run: ${r.profile.line}), then:`);
+  } else console.log("\nFrom any folder:");
+  console.log("  controlrod start      start Control Rod (add --background to keep this terminal free)");
+  console.log("  controlrod update     update to the latest version");
+  console.log("  controlrod help       every command");
+  return 0;
+}
+
+/** Hands a command Control Rod's launcher does not own to the run daemon's CLI. */
+function daemonCommand(args) {
+  const built = join(bin, "controlrod");
+  if (!existsSync(built)) {
+    mkdirSync(bin, { recursive: true });
+    run("go", ["build", "-o", built, "./cmd/controlrod"], { cwd: join(root, "daemon") });
+  }
+  const r = spawnSync(built, args, { stdio: "inherit", env: { ...process.env, CONTROLROD_HOME: home } });
+  return r.status ?? 1;
+}
+
+function bench(rest) {
   // Control Rod's own benchmark (bench/cross-check/README.md). Started by hand only.
   const py = which("python3") ?? which("python");
   if (!py) {
-    console.error("pnpm cr bench needs Python 3.");
-    process.exit(1);
+    console.error(`${me} bench needs Python 3.`);
+    return 1;
   }
-  const r = spawnSync(py, [join(root, "bench", "cross-check", "bench.py"), ...process.argv.slice(3)], {
+  const r = spawnSync(py, [join(root, "bench", "cross-check", "bench.py"), ...rest], {
     stdio: "inherit",
     cwd: process.env.INIT_CWD ?? process.cwd(),
   });
-  process.exit(r.status ?? 1);
-} else if (cmd === "verify") verify(resolveCliArgs(process.argv.slice(3)));
-else if (cmd === "receipt") receipt(process.argv[3] ? resolveCliArgs(process.argv.slice(3))[0] : undefined);
-else {
-  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|receipt <inclusion-proof.json>|bench <init|select|preflight|probe|controls|run|lock|adjudicate|evaluate|score|size|release> ...]");
-  process.exit(2);
+  return r.status ?? 1;
+}
+
+/**
+ * Commander (MIT) parses the commands and writes the help. A fresh clone that skipped
+ * `pnpm install` has no node_modules yet: install once, then load it.
+ */
+const { Command } = await import("commander");
+const exit = (code) => process.exit(typeof code === "number" ? code : 0);
+const program = new Command()
+  .name(me)
+  .description("Control Rod: your coding agents at one table, checked by a different one, on your own machine.")
+  .version(versionLine(), "-v, --version", "show which version this is")
+  .helpCommand("help [command]", "show help for a command")
+  .showSuggestionAfterError(true)
+  .addHelpText(
+    "after",
+    `\nAgent CLIs:\n  agents [check]        which agent CLIs are installed and signed in\n  agents update         update Claude Code, Codex and the others, asking before each\n\nYour records live in ${home}.`,
+  );
+
+program.command("start").description("start Control Rod (Ctrl+C stops it)")
+  .option("-b, --background", "run in the background and give this terminal back")
+  .action(async (o) => (o.background ? exit(await startBackground()) : start()));
+program.command("stop").description("stop Control Rod; running work finishes and is saved first")
+  .option("--now", "stop without waiting for running work")
+  .action(async (o) => exit((await stopCommand({ now: o.now })).code));
+program.command("restart").description("stop, then start again the same way")
+  .option("-b, --background", "start again in the background")
+  .option("--now", "stop without waiting for running work")
+  .action(async (o) => {
+    const s = await stopCommand({ now: o.now, quiet: true });
+    if (s.code !== 0) exit(s.code);
+    if (s.mode === "background" || o.background) exit(await startBackground());
+    else exit(await startHere());
+  });
+program.command("status").description("is it running, where, and which version").action(async () => exit(await status()));
+program.command("open").description("open the app in your browser (starts it in the background if needed)").action(async () => exit(await openCommand()));
+program.command("logs").description("show the log of a background start")
+  .option("-f, --follow", "keep printing new lines")
+  .action((o) => exit(logsCommand(o.follow)));
+program.command("update").alias("upgrade").description("update to the latest version, rebuild, and restart it if it was running")
+  .option("--check", "only say what is new")
+  .option("--no-restart", "do not start it again afterwards")
+  .action(async (o) => exit(await updateCommand(o)));
+program.command("version").description("show which version this is").action(() => console.log(versionLine()));
+program.command("doctor").description("check this machine and say what to fix")
+  .option("--fix", "free shared memory left behind by stopped databases (macOS)")
+  .action((o) => exit(doctor({ agents: true, fix: o.fix }) ? 0 : 1));
+program.command("setup").description("build without starting").action(() => setup());
+program.command("verify").description("check a downloaded inclusion proof or audit export offline").argument("<files...>");
+program.command("receipt").description("write a PR receipt from an inclusion proof").argument("[file]");
+program.command("link").description("install the controlrod command so it works in any folder").action(() => exit(linkCommand()));
+program.command("unlink").description("remove the controlrod command").action(() => {
+  const r = unlink();
+  console.log(r.status === "removed" ? `Removed ${r.path}.` : r.status === "none" ? "The controlrod command is not installed." : `${r.path} was not written by Control Rod; left alone.`);
+});
+program.command("bench").description("Control Rod's own cross-vendor checking benchmark")
+  .argument("[args...]")
+  .helpOption(false)
+  .allowUnknownOption()
+  .action(() => undefined);
+
+const DAEMON_COMMANDS = new Set(["agents", "check", "runtimes", "sandbox-args", "attestation-public", "daemon"]);
+const args = process.argv.slice(2);
+const known = new Set(program.commands.flatMap((c) => [c.name(), ...c.aliases()]));
+// These pass their own flags through untouched, so they skip the parser.
+const raw = { bench: (rest) => exit(bench(rest)), verify: (rest) => verify(resolveCliArgs(rest)), receipt: (rest) => receipt(rest.length ? resolveCliArgs(rest)[0] : undefined) };
+if (args.length === 0 && cli) {
+  program.outputHelp();
+} else if (raw[args[0]] && !args.slice(1).some((a) => a === "--help" || a === "-h") ) {
+  raw[args[0]](args.slice(1));
+} else if (args.length === 0 && !cli) {
+  await program.parseAsync(["start"], { from: "user" });
+} else if (DAEMON_COMMANDS.has(args[0]) && !known.has(args[0])) {
+  // The run daemon's own commands (daemon/cmd/controlrod/main.go).
+  exit(daemonCommand(args));
+} else {
+  await program.parseAsync(args, { from: "user" });
 }

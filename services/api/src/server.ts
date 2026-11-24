@@ -10,6 +10,7 @@ import { hashToken } from "./auth.js";
 import { closeDb, openDb } from "./db/index.js";
 import { localRoleSecrets, privateDir, privateFile } from "./db/roles.js";
 import { loadTrustAnchors } from "./attestation.js";
+import { PgLogTail, pgStartFailure } from "./pg-start-error.js";
 
 /**
  * Starts Control Rod on this machine: an embedded Postgres in ~/.controlrod/pg, the control
@@ -42,31 +43,42 @@ if (!dbUrl) {
   const pgPassword = privateFile(join(home, "pg.password"), () => randomBytes(24).toString("hex"));
   const pgPort = Number(process.env.CONTROLROD_PG_PORT ?? 7301);
   const pgDir = join(home, "pg");
+  // Kept so a failed start can say what PostgreSQL said, not just that it stopped.
+  const pgLog = new PgLogTail();
   pgServer = new EmbeddedPostgres({
     databaseDir: pgDir,
     user: "controlrod",
     password: pgPassword,
     port: pgPort,
     persistent: true,
-    onLog: () => undefined,
+    onLog: (message: string) => pgLog.push(String(message)),
+    onError: (message: unknown) => pgLog.push(String(message)),
   });
   if (!existsSync(join(pgDir, "PG_VERSION"))) {
     // Initialisation briefly writes the owner password to a temporary file; keep it private.
     const previous = process.umask(0o077);
     try {
       await pgServer.initialise();
+    } catch (error) {
+      // initdb's own output is in the error message; show it the same way as a failed start.
+      pgLog.push(error instanceof Error ? error.message : String(error));
+      console.error(`\n${pgStartFailure(pgDir, pgPort, pgLog.all(), error)}\n`);
+      process.exit(1);
     } finally {
       process.umask(previous);
     }
   }
   // A database stopped a moment ago may still be shutting down; give it a few seconds.
   for (let attempt = 1; ; attempt++) {
+    pgLog.clear();
     try {
       await pgServer.start();
       break;
     } catch (error) {
-      if (attempt === 10)
-        throw new Error(`Control Rod could not start its database in ${pgDir}. If Control Rod was just stopped, wait a few seconds and try again. Detail: ${String(error)}`);
+      if (attempt === 10) {
+        console.error(`\n${pgStartFailure(pgDir, pgPort, pgLog.all(), error)}\n`);
+        process.exit(1);
+      }
       await new Promise((r) => setTimeout(r, 1000));
     }
   }

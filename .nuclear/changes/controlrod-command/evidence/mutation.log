@@ -1,0 +1,38 @@
+## Mutation 1: no reset to the old commit on failure
+not ok 8 - a failed build goes back to the old version, rebuilds it and restarts it
+not ok 9 - a failed install also rolls back
+# pass 18
+# fail 2
+## Mutation 2: signal a recorded pid without checking it is a launcher
+not ok 18 - a stale record (dead or reused pid) is dropped, never signalled
+# pass 19
+# fail 1
+## Mutation 3: free segments whose creator is still alive
+not ok 19 - dead PostgreSQL shared memory is found by header, with the live and the foreign left alone
+# pass 19
+# fail 1
+## Mutation 4: link replaces a foreign controlrod
+not ok 3 - link never replaces a controlrod it did not write; unlink removes only its own
+# pass 19
+# fail 1
+## Mutation 5: fast-forward without --no-overwrite-ignore
+not ok 20 - a file the person keeps that git ignores is never overwritten; the update rolls back instead
+# pass 27
+# fail 1
+## Mutation 6: git runner keeps GIT_DIR and GIT_WORK_TREE
+not ok 19 - git variables pointing elsewhere never redirect the update
+# pass 27
+# fail 1
+## Mutation 7: no update lock
+not ok 21 - only one update runs per checkout at a time
+# pass 27
+# fail 1
+## Mutation 8: rollback without the ignored-file check
+not ok 26 - going back never writes over an ignored file the person keeps; it stops and says so
+# pass 32
+# fail 1
+## Mutation 9: any marked file counts as ours
+not ok 3 - link never replaces a controlrod it did not write; unlink removes only its own
+# pass 32
+# fail 1
+10. round 5: skip the ls-files --others check in rollback -> 'going back never removes an ignored file inside a folder' fails

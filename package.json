@@ -17,5 +17,9 @@
   "devDependencies": {
     "turbo": "2.11.11",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "commander": "15.0.0",
+    "proper-lockfile": "4.1.2"
   }
 }

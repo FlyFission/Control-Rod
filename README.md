@@ -142,11 +142,24 @@ git clone https://github.com/FlyFission/Control-Rod.git
 cd Control-Rod
 mise install     # fetches every pinned tool (Node, pnpm, Go, and friends); skip it if you already have them
 pnpm install
-pnpm cr doctor   # checks your CLIs, sandbox prerequisites, and setup
-pnpm cr start    # builds on first run, then opens http://localhost:7300
+pnpm cr link          # installs the controlrod command, so the rest works from any folder
+controlrod doctor     # checks your setup and tells you what to fix
+controlrod start      # builds on first run, then serves http://localhost:7300
 ```
 
 Choose **Set up this machine**, register a passkey, confirm your seated agents, and land on the Board. `Ctrl+C` stops everything cleanly; your data stays in `~/.controlrod`. To preview the standalone interactive landing page locally, run `node scripts/serve-site.mjs` (`http://localhost:7310`).
+
+After that:
+
+| Command | Does |
+| --- | --- |
+| `controlrod start --background` | runs it without keeping a terminal open; `controlrod open` brings up the app |
+| `controlrod stop` / `restart` / `status` / `logs -f` | what they say; `stop` lets running work finish first |
+| `controlrod update` | gets the latest version, rebuilds, and restarts it; goes back to your version if anything fails |
+| `controlrod agents update` | updates Claude Code, Codex and the other agent CLIs, asking before each |
+| `controlrod help` | everything else |
+
+`pnpm cr <command>` inside the folder does the same if you'd rather not install the command.
 
 | Surface | Windows (WSL2) | Linux | macOS |
 | --- | --- | --- | --- |

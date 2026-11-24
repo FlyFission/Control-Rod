@@ -4,8 +4,10 @@ Evidence status: **pass** for the web typecheck and suite. **Open** for a deskto
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web typecheck and suite (85 files, 927 tests), including the new waiting-card tests and the empty-state axe scan with colour contrast disabled (jsdom). | `evidence/web.log` |
+| E-01 | pass | Web typecheck and suite (see the log for counts), including the new waiting-card tests and the empty-state axe scan with colour contrast disabled (jsdom). | `evidence/web.log` |
 | E-02 | gap | Not run on a desktop against a real daemon. The screenshot used mocked API responses. | Not executed |
+
+Codex blind review round 1 on head 6f829169 asked for changes: a built-in harness reporting a source but no windows skipped the waiting card; the card promised numbers from the next run although a run may report none; and the page fetched the full machine probe even when both built-in harnesses had readings. All fixed with regression tests; the probe is now fetched only while a waiting card needs it.
 
 ## Evidence custody and coupling
 

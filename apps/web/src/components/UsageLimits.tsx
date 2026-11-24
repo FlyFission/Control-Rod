@@ -131,8 +131,8 @@ const NATIVE = ["claude", "codex"] as const;
 type NativeId = (typeof NATIVE)[number];
 
 const WAIT_WORDS: Record<NativeId, string> = {
-  claude: "Claude Code reports its limits only while it works, so this fills in during Control Rod's first Claude run.",
-  codex: "Codex records its limits in its own session log, so this fills in after your next Codex session on this machine.",
+  claude: "Claude Code reports its limits only while it works. Numbers appear here once a Claude run that Control Rod makes reports them.",
+  codex: "Codex records its limits in its own session log. Numbers appear here once a Codex session on this machine records them.",
 };
 
 function waitingText(id: NativeId, probe: SubscriptionProbe | undefined): { state: string; detail: string } {
@@ -182,8 +182,11 @@ function EngineLine({ engine, silent }: { engine: UsageLimitsView["engine"]; sil
 /** The usage-limits module: each agent subscription's windows as reserve gauges, with a pace marker. */
 export function UsageLimits() {
   const q = useQuery({ queryKey: ["usage-limits"], queryFn: api.usageLimits, refetchInterval: 60_000, refetchIntervalInBackground: false });
-  // Shared with the agents roster; only used to say whether a built-in harness was found and signed in.
-  const subs = useQuery<SubscriptionView>({ queryKey: ["subscriptions"], queryFn: api.subscriptions });
+  // Shared with the agents roster. Fetched only while a built-in harness has no reading, to say whether it was found and signed in.
+  const needsProbe =
+    q.data !== undefined &&
+    NATIVE.some((id) => !q.data.providers.some((p) => p.id === id && p.source !== "none" && p.windows.length > 0));
+  const subs = useQuery<SubscriptionView>({ queryKey: ["subscriptions"], queryFn: api.subscriptions, enabled: needsProbe });
   const now = useNow(30_000);
   if (q.isError) {
     return (
@@ -193,10 +196,15 @@ export function UsageLimits() {
     );
   }
   if (q.data === undefined) return <p className="muted">Loading</p>;
-  const reporting = orderProviders(q.data.providers.filter((p) => p.source !== "none"), now);
+  // A built-in harness counts as reporting only with at least one window; otherwise it gets a waiting card.
+  const isNative = (id: string) => (NATIVE as readonly string[]).includes(id);
+  const reporting = orderProviders(
+    q.data.providers.filter((p) => p.source !== "none" && !(isNative(p.id) && p.windows.length === 0)),
+    now,
+  );
   const readingIds = new Set(reporting.map((p) => p.id));
   const waiting = NATIVE.filter((id) => !readingIds.has(id));
-  const silent = q.data.providers.filter((p) => p.source === "none" && !(NATIVE as readonly string[]).includes(p.id));
+  const silent = q.data.providers.filter((p) => p.source === "none" && !isNative(p.id));
   const probeOf = (id: string) => subs.data?.probes.find((p) => p.id === id);
   const hasReadings = q.data.reported && reporting.some((p) => p.windows.length > 0);
   const lowest = hasReadings ? lowestReserve(reporting, now) : null;

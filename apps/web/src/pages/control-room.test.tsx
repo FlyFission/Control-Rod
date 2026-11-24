@@ -196,10 +196,35 @@ describe("control room: usage limits", () => {
     await renderPage(<ControlRoom />);
     const card = await screen.findByRole("region", { name: "Claude Code limits" });
     await within(card).findByText("Signed in, no reading yet");
-    expect(within(card).getByText(/fills in during Control Rod's first Claude run/)).toBeTruthy();
+    expect(within(card).getByText(/once a Claude run that Control Rod makes reports them/)).toBeTruthy();
     expect(within(card).queryByRole("meter")).toBeNull();
     expect(screen.getByRole("meter", { name: "Codex 5-hour window" })).toBeTruthy();
     expect(screen.queryByText(/Not reported: .*Claude/)).toBeNull();
+  });
+
+  it("gives a signed-in harness whose report has no windows a waiting card, not an empty reading", async () => {
+    const v = view();
+    v.providers = v.providers.map((p) => (p.id === "claude" ? { id: "claude", source: "cli-stream", windows: [] } : p));
+    serve(v, [probe("claude", true, "signed-in")]);
+    await renderPage(<ControlRoom />);
+    const card = await screen.findByRole("region", { name: "Claude Code limits" });
+    await within(card).findByText("Signed in, no reading yet");
+    expect(within(card).queryByText("No windows reported.")).toBeNull();
+  });
+
+  it("does not ask for machine details when both built-in harnesses have readings", async () => {
+    let asked = 0;
+    serve(view());
+    server.use(
+      http.get("*/subscriptions", () => {
+        asked += 1;
+        return HttpResponse.json({ reported: false, probes: [], checkers: [], tiers: [], local_rule: "", pins: [] });
+      }),
+    );
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(asked).toBe(0);
   });
 
   it("says when a built-in harness is missing or signed out", async () => {

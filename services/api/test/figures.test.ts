@@ -242,6 +242,39 @@ describe("office figures", () => {
     expect(figure(floor, "WP-FIG-QUEUED").run_status).toBe("queued");
   });
 
+  it("places work by the project's work lanes: tag, then paths, then keywords, then the default", async () => {
+    const signedAdmin = async (name: string, payload: Json) => {
+      const o = await h.app.inject({ method: "POST", url: `/admin/commands/${name}/options`, headers: { cookie, origin: ORIGIN }, payload: { payload } });
+      return h.app.inject({ method: "POST", url: `/admin/commands/${name}`, headers: { cookie, origin: ORIGIN }, payload: { payload, assertion: key.assert(o.json().options) } });
+    };
+    const made = await signedAdmin("project.create", { name: "Software lanes", mode: "software", default_rigor: "standard", lanes: ["internal"], qa_overlays: [], work_lanes: { preset: "software" } });
+    expect(made.statusCode, made.body).toBe(200);
+    const projectId = made.json().id;
+    const org = (await h.db.query<{ org_id: string }>("select org_id from projects where id = $1", [projectId])).rows[0]!.org_id;
+    const work = async (id: string, discipline: string | undefined, outputs: string[]) => {
+      await h.admin.query("insert into object_owners (object_kind, object_id, org_id, project_id) values ('package', $1, $2, $3)", [id, org, projectId]);
+      await pkg(id, "in-work", { discipline });
+      await run(`R-${id}`, id, "running", { started_at: ago(0.1) });
+      for (const name of outputs) await h.admin.query("insert into outputs (run_id, package_id, package_revision, name, sha256, bytes) values ($1, $2, 0, $3, $4, $5)", [`R-${id}`, id, name, "0".repeat(64), Buffer.from("x")]);
+    };
+    await work("WP-LANE-PATH", undefined, ["apps/web/src/Plant.tsx", "apps/web/src/office.css"]);
+    await work("WP-LANE-TAG", "Docs", ["services/api/src/a.ts"]);
+    await work("WP-LANE-KEYWORD", "database migration", []);
+    await work("WP-LANE-DEFAULT", undefined, []);
+    const floor = await get("/office/figures");
+    // Lane i stands in slot i: Frontend, Backend, Platform, Data, Tests, Docs.
+    expect(figure(floor, "WP-LANE-PATH")).toMatchObject({ place: "process", lane: "frontend", lane_name: "Frontend" });
+    expect(figure(floor, "WP-LANE-TAG")).toMatchObject({ place: "project-controls", lane: "docs", lane_name: "Docs" });
+    expect(figure(floor, "WP-LANE-KEYWORD")).toMatchObject({ place: "civil", lane: "data" });
+    expect(figure(floor, "WP-LANE-DEFAULT")).toMatchObject({ place: "electrical", lane: "platform", place_defaulted: true });
+    expect(figure(floor, "WP-LANE-PATH").place_defaulted).toBeUndefined();
+    // The floor carries the set, so the Plant names its bays by the project.
+    expect(floor.lane_sets.find((s: Json) => s.project_id === projectId).work_lanes.lanes.map((l: Json) => l.name)).toEqual(["Frontend", "Backend", "Platform", "Data", "Tests", "Docs"]);
+    // Work with no project keeps the capital-project bays, and says which lane it is in.
+    expect(figure(floor, "WP-FIG-WORK")).toMatchObject({ place: "mechanical", lane: "mechanical", lane_name: "Mechanical" });
+    expect(floor.lane_sets.every((s: Json) => s.project_id !== undefined)).toBe(true);
+  });
+
   it("reads the floor in a fixed number of queries, however many agents are on it", async () => {
     const count = async () => {
       const spy = vi.spyOn(h.db, "query");

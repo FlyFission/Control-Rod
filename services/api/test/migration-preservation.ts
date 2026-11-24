@@ -18,6 +18,7 @@ import { RUN_ATTESTATION_DOWN_SQL } from "../src/db/migrations/023-run-attestati
 import { CONTEXT_PROFILE_DOWN_SQL } from "../src/db/migrations/024-context-profile.js";
 import { DEPENDENCY_PROVENANCE_DOWN_SQL } from "../src/db/migrations/025-dependency-provenance.js";
 import { DEFAULT_WORKFLOW_DOWN_SQL } from "../src/db/migrations/026-default-workflow.js";
+import { WORK_LANES_DOWN_SQL } from "../src/db/migrations/027-work-lanes.js";
 import { verifyChain } from "../src/events.js";
 import { TEST_ROLE_SECRETS } from "./harness.js";
 
@@ -48,7 +49,7 @@ async function snapshot(db: Db, tables: string[]) {
 }
 
 /**
- * Run with the owner (migrator) connection. Reverses migrations 026 through 009 over the history a test built, reapplies them, and checks that
+ * Run with the owner (migrator) connection. Reverses migrations 027 through 009 over the history a test built, reapplies them, and checks that
  * every legacy row and every event is unchanged and the chain verifies. `nonEmpty` names tables
  * that must hold rows, so the comparison can never pass on empty collections (review R14).
  */
@@ -57,6 +58,7 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   const before = await snapshot(db, tables);
   for (const t of [...nonEmpty, "events"]) expect(before[t]?.length ?? 0, `${t} must hold history`).toBeGreaterThan(0);
   expect((await verifyChain(db)).ok).toBe(true);
+  await db.query(WORK_LANES_DOWN_SQL);
   await db.query(DEFAULT_WORKFLOW_DOWN_SQL);
   await db.query(DEPENDENCY_PROVENANCE_DOWN_SQL);
   await db.query(CONTEXT_PROFILE_DOWN_SQL);

@@ -6,6 +6,7 @@ import { callerFor } from "./admin.js";
 import { effectiveLane } from "./markings.js";
 import { scramHoldIndex } from "./scram.js";
 import type { WorkConfig } from "./work.js";
+import { type WorkLaneSet, laneSetOf, placeWork } from "./work-lanes.js";
 
 /**
  * The AgentFigure projection (specification 13 and 18; plan task 4.6): one figure per agent at the
@@ -26,27 +27,8 @@ const withSpend = <T>(spend: T | undefined) => (spend === undefined ? {} : { spe
 /** Lanes shown in presenting mode; everything above internal is left out and only counted. */
 const PRESENTABLE = new Set(["public", "internal"]);
 
-/**
- * A package's discipline, as free text, to its cube set. The text is lowercased and split on non-letters
- * into words, and a keyword matches only at a word boundary: as a whole word or as a deliberate stem
- * ("electric" in "electrical"), never inside another word ("site" in "website", "fire" in "firebase",
- * "power" in "powershell"). Ambiguous words ("project", "cost", "controls") count only in the phrase that
- * makes them a discipline. An unset or unmatched discipline stands in Process and the figure says so.
- */
-const CUBE_WORDS: [Place, RegExp][] = [
-  // Project controls first: "controls" alone means instrumentation and controls.
-  ["project-controls", /\b(?:project (?:controls?|management|planning|schedul\w*|cost\w*)|cost (?:estimat\w*|controls?|engineering)|schedul(?:e|es|ing)|estimat(?:e|es|ing|ion|or|ors)|procure(?:ment)?)\b/],
-  ["mechanical", /\b(?:mechanical|piping|hvac|plumbing|fire (?:protection|suppression|safety|water))\b/],
-  ["electrical", /\b(?:electrical|electric|instrument(?:ation|ed)?|i&c|c&i|power)\b|(?<!\b(?:access|document|change|configuration|version|security|quality) )\bcontrols?\b/],
-  ["civil", /\b(?:civil|structural|structure|architectural|architect|geotechnical|geotech|site)\b/],
-  ["assurance", /\b(?:quality|safety|regulatory|regulation|licensing|license|assurance|nqa)\b/],
-  ["process", /\b(?:process|chemical|nuclear|reactor|fuel)\b/],
-];
-export function cubeFor(discipline: unknown): { place: Place; defaulted: boolean } {
-  const d = typeof discipline === "string" ? discipline.toLowerCase().replace(/[^a-z&]+/g, " ").trim() : "";
-  for (const [place, words] of CUBE_WORDS) if (d && words.test(d)) return { place, defaulted: false };
-  return { place: "process", defaulted: true };
-}
+// A package's discipline to a bay, and the project lanes behind it, live in work-lanes.ts.
+export { cubeFor } from "./work-lanes.js";
 
 const ROLE_WORDS: Record<string, string> = {
   author: "Author run",
@@ -174,6 +156,22 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       "select object_kind, object_id, project_id from object_owners where object_kind in ('package', 'capture') and project_id is not null",
     )).rows.map((o) => [`${o.object_kind}:${o.object_id}`, o.project_id!]),
   );
+  // Each project's work lanes, and the repository paths each package's recorded outputs touch, so a
+  // figure's bay follows its project's lanes. Two reads, whatever the number of packages.
+  const laneSets = new Map(
+    (await db.query<{ id: string; lanes: unknown }>("select id, body->'work_lanes' as lanes from projects where org_id = $1", [orgId])).rows.map((r) => [r.id, laneSetOf(r.lanes)]),
+  );
+  const touched = new Map(
+    (
+      await db.query<{ package_id: string; names: string[] }>(
+        `select o.package_id, array_agg(distinct o.name) as names
+           from outputs o join (select distinct on (id) id, revision from packages order by id, revision desc) c
+             on c.id = o.package_id and c.revision = o.package_revision
+          group by o.package_id`,
+      )
+    ).rows.map((r) => [r.package_id, r.names]),
+  );
+  const shownSets = new Map<string, WorkLaneSet>();
   // SCRAM holds for every agent from one load of the active SCRAMs, owners and restarts.
   const holdOf = await scramHoldIndex(db);
   const currentRevision = new Map(packages.map((p) => [p.id, p.revision]));
@@ -193,7 +191,11 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       continue;
     }
     const held = holdOf({ kind: "package", id: p.id, ...(typeof p.body.discipline === "string" ? { discipline: p.body.discipline } : {}) });
-    const cube = cubeFor(p.body.discipline);
+    const projectId = projects.get(`package:${p.id}`);
+    const set = (projectId && laneSets.get(projectId)) || laneSetOf(undefined);
+    const placed = placeWork(set, { discipline: p.body.discipline, paths: touched.get(p.id) ?? [] });
+    const cube = { place: placed.slot as Place, defaulted: placed.defaulted };
+    if (projectId && laneSets.has(projectId)) shownSets.set(projectId, set);
     const pending = pendingFor.get(p.id) ?? [];
     const changed = changedInput(deps.get(p.id) ?? [], pinned.get(p.id), currentRevision);
     const { hash, ...figure } = project({
@@ -210,6 +212,8 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       role: run.role,
       ...figure,
       ...(cube.defaulted && figure.place === cube.place ? { place_defaulted: true } : {}),
+      // The lane is named only where the figure stands in the bay it placed the work in.
+      ...(figure.place === cube.place ? { lane: placed.lane.id, lane_name: placed.lane.name } : {}),
       marks: {
         gate: pending.some((i) => i.kind === "release" || i.kind === "accept" || i.kind === "confirm"),
         ...(changed.changed ? { changed_input: changed.changed.input } : {}),
@@ -290,6 +294,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
     // Everything the Inbox holds for the viewer, agents or not, so the floor never claims less.
     inbox_items: box.items.length,
     hidden,
+    lane_sets: [...shownSets].map(([project_id, work_lanes]) => ({ project_id, work_lanes })).sort((a, b) => a.project_id.localeCompare(b.project_id)),
     generated_at: new Date().toISOString(),
   };
 }

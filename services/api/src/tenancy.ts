@@ -4,6 +4,7 @@ import type { Db, Tx } from "./db/index.js";
 import { appendEvent, type Actor } from "./events.js";
 import { digest } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
+import type { WorkLaneSet } from "./work-lanes.js";
 
 /** Storage for tenancy, people and authority (specification 5.1). Commands that authorize these writes land in task 1.5. */
 
@@ -40,6 +41,8 @@ export interface Project {
   default_context_profile?: "light" | "nuclear";
   /** The workflow a package carries when it names none. Absent means the playbook. */
   default_workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
+  /** The work lanes the Plant's bays follow. Absent means the capital-project preset. */
+  work_lanes?: WorkLaneSet;
   lanes: DataLane[]; qa_overlays: string[]; autonomy_level: number; status: LifecycleStatus;
 }
 export interface RepoBinding { id: string; org_id: string; project_id: string; url: string; default_branch: string; status: LifecycleStatus }

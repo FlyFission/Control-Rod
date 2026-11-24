@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { qualificationIdFor } from "../src/admin.js";
 import { currentFloor } from "../src/authority.js";
@@ -164,6 +167,53 @@ describe("commands", () => {
     expect(stored.rows[0]?.status).toBe("retired");
     expect(await projectRuntimePrefs(h.db, LOCAL_ORG, payload.name)).toBeNull();
     expect(await projectRuntimePrefs(h.db, otherOrg, payload.name)).toMatchObject({ author: "claude", checker: "codex" });
+  });
+
+  it("proposes work lanes from the repository at setup, stores them on the project, and lets an administrator change them", async () => {
+    // A software clone (a manifest, no discipline folders) is proposed the Software preset, whatever the mode.
+    const root = mkdtempSync(join(homedir(), "cr-lanes-"));
+    try {
+      mkdirSync(join(root, "app"));
+      writeFileSync(join(root, "app", "package.json"), "{}");
+      const made = await signed(ben, benKey, "project.workspace-create", { name: "Lanes from repo", mode: "capital-projects", repo: "app", workspaceRoot: root });
+      expect(made.statusCode, made.body).toBe(200);
+      const proposed = made.json();
+      expect(proposed.work_lanes.preset).toBe("software");
+      expect(proposed.work_lanes.lanes.map((l: Json) => l.name)).toEqual(["Frontend", "Backend", "Platform", "Data", "Tests", "Docs"]);
+      const stored = await h.db.query("select body->'work_lanes'->>'preset' as preset from projects where id = $1", [proposed.id]);
+      expect(stored.rows[0]?.preset).toBe("software");
+
+      // A project made without a readable repository keeps the six bays as they were, unless its mode says Software.
+      const bare = (await signed(ben, benKey, "project.workspace-create", { name: "Lanes bare", mode: "capital-projects" })).json();
+      expect(bare.work_lanes.preset).toBe("capital-project");
+      expect((await signed(ben, benKey, "project.workspace-create", { name: "Lanes bare software", mode: "software" })).json().work_lanes.preset).toBe("software");
+
+      // The administrator changes them to custom lanes; the list shows them, and a seventh is refused.
+      const custom = { preset: "custom", lanes: [{ id: "web", name: "Web", purpose: "The storefront", paths: ["site/"] }, { id: "ops", name: "Ops", purpose: "Release and on call" }] };
+      const patch = await signedPayload(ben, benKey, "project.workspace-update", { project_id: proposed.id, patch: { work_lanes: custom } });
+      const updated = await h.app.inject({ method: "PATCH", url: `/workspace/projects/${proposed.id}`, headers: { cookie: ben, origin: ORIGIN }, payload: patch });
+      expect(updated.statusCode, updated.body).toBe(200);
+      expect(updated.json().work_lanes).toMatchObject({ preset: "custom", default_lane: "web" });
+      const listed = (await h.app.inject({ method: "GET", url: "/workspace/projects", headers: { cookie: ben } })).json().find((p: Json) => p.id === proposed.id);
+      expect(listed.work_lanes.lanes.map((l: Json) => l.name)).toEqual(["Web", "Ops"]);
+      const seven = Array.from({ length: 7 }, (_, i) => ({ id: `l${i}`, name: `Lane ${i}`, purpose: "x" }));
+      const tooMany = await signedPayload(ben, benKey, "project.workspace-update", { project_id: proposed.id, patch: { work_lanes: { preset: "custom", lanes: seven } } });
+      const refused = await h.app.inject({ method: "PATCH", url: `/workspace/projects/${proposed.id}`, headers: { cookie: ben, origin: ORIGIN }, payload: tooMany });
+      expect(refused.statusCode).toBe(400);
+      // Nothing changed.
+      expect((await h.db.query("select body->'work_lanes'->>'preset' as preset from projects where id = $1", [proposed.id])).rows[0]?.preset).toBe("custom");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reads a project stored before work lanes existed as the capital-project preset", async () => {
+    const id = "prj_lanes-legacy";
+    await tx(h.admin, (c) => createProject(c, { id, org_id: LOCAL_ORG, name: "Legacy lanes", mode: "software", default_rigor: "standard", lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active" }, { kind: "human", id: BEN }));
+    expect((await h.db.query("select body ? 'work_lanes' as has from projects where id = $1", [id])).rows[0]?.has).toBe(false);
+    const listed = (await h.app.inject({ method: "GET", url: "/workspace/projects", headers: { cookie: ben } })).json().find((p: Json) => p.id === id);
+    expect(listed.work_lanes.preset).toBe("capital-project");
+    expect(listed.work_lanes.lanes.map((l: Json) => l.id)).toEqual(["process", "mechanical", "electrical", "civil", "assurance", "project-controls"]);
   });
 
   it("preserves concurrent signed edits to distinct workspace projects", async () => {

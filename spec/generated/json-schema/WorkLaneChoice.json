@@ -1,0 +1,27 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WorkLaneChoice.json",
+    "type": "object",
+    "properties": {
+        "preset": {
+            "$ref": "WorkLanePreset.json"
+        },
+        "lanes": {
+            "type": "array",
+            "items": {
+                "$ref": "WorkLane.json"
+            },
+            "minItems": 1,
+            "maxItems": 6
+        },
+        "default_lane": {
+            "type": "string",
+            "description": "The id of the lane that takes work no tag, path or keyword places. Absent means the preset's own default (the first lane for custom)."
+        }
+    },
+    "required": [
+        "preset"
+    ],
+    "description": "A request to set a project's work lanes. `lanes` is required (one to six) for the custom preset and\nignored for the others, whose lanes the control plane supplies.",
+    "unevaluatedProperties": false
+}

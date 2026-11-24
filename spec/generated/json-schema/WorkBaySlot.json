@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WorkBaySlot.json",
+    "anyOf": [
+        {
+            "type": "string",
+            "const": "process"
+        },
+        {
+            "type": "string",
+            "const": "mechanical"
+        },
+        {
+            "type": "string",
+            "const": "electrical"
+        },
+        {
+            "type": "string",
+            "const": "civil"
+        },
+        {
+            "type": "string",
+            "const": "assurance"
+        },
+        {
+            "type": "string",
+            "const": "project-controls"
+        }
+    ],
+    "description": "The six work-bay positions of the Plant, in drawing order. A slot names a place on the floor, not a\ndiscipline: the project's work lanes say what each position is called. Under the capital-project\npreset the six ids are the six disciplines they have always been, so stored figures and older\nclients keep their meaning."
+}

@@ -10,7 +10,8 @@ import { FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "
 export const CAPTURE_LIMIT = 20000;
 
 export function CaptureBox() {
-  const scramLock = useActionLock();
+  // A capture carries no project, so only an organization SCRAM locks it, never the sidebar's project.
+  const scramLock = useActionLock(null);
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<Attached[]>([]);

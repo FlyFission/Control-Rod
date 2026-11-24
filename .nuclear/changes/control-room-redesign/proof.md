@@ -47,3 +47,4 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - New change modal locks on the project it will actually capture into (the editable field, resolved to a project id), not the sidebar's active project (`NewWorkModal.tsx`; test in `shell-scram.test.tsx`).
 - RodGauge drill accessible name is now "Drill SCRAM in force: work stopped", matching the spec that a drill really stops work (`RodGauge.tsx`; `instruments.test.tsx`).
 - Drill lock (Nov 24): lockFrom now locks under drills too (server holds work under a drill per spec/workbench.tsp); words say 'SCRAM drill'. vitest shell-scram 10/10.
+- CaptureBox (Nov 24): unscoped captures use the organization-only lock (useActionLock(null)), per Codex review.

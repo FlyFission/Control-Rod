@@ -1,5 +1,6 @@
 import { type ReactNode, useContext, useEffect, useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { AgentUpdates } from "./AgentUpdates.js";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
@@ -19,6 +20,9 @@ import { ActiveRuns } from "./ActiveRuns.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
+import { ShortcutHelp } from "./ShortcutHelp.js";
+import { OPEN_MODAL, singleKeysOn } from "../lib/singleKeys.js";
+import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 import { useFirstRunSetup } from "../lib/firstRun.js";
 import { readString, writeString } from "../lib/storage.js";
@@ -100,6 +104,10 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       return next;
     });
   }
+  const [helpOpen, setHelpOpen] = useState(false);
+  const navigate = useNavigate();
+  // The tab title count and opt-in notifications read the same Inbox as the rail badge (pattern AW1, AW2).
+  useAttentionSignals(session.user, inbox, () => void navigate({ to: "/inbox" }));
   const shortcut = isMac() ? "⌘K" : "Ctrl K";
   const look = useLook();
   const mode = useMode();
@@ -137,8 +145,17 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       // The board's quick add claims `c` first (its listener prevents the default). Its state update can
       // re-render before this listener runs and remove the .bd-add opener, so look at the event too.
       if (e.defaultPrevented) return;
+      // Every key below is a single character: none fires when the person turned them off.
+      if (!singleKeysOn()) return;
       const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-add-form") !== null;
-      const hasOpenOverlay = document.querySelector("dialog[open], .palette") !== null;
+      const hasOpenOverlay = document.querySelector(OPEN_MODAL) !== null;
+      // `?` opens the shortcut list only when nothing modal is open: inside New Work or the palette
+      // the list would open behind it. The list closes itself on `?` and Escape from its own handler.
+      if (!inField && !hasOpenOverlay && e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
       if (!inField && !hasBoardQuickAdd && !hasOpenOverlay && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         setNewWorkOpen(true);
@@ -286,6 +303,9 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
             </span>
             <span>{session.user ?? "Signed in"}</span>
           </div>
+          <button type="button" className="btn small rail-shortcuts" aria-keyshortcuts="?" onClick={() => setHelpOpen(true)}>
+            Shortcuts <kbd>?</kbd>
+          </button>
           <button type="button" className="btn small" disabled={pendingSignOut} onClick={() => void logout()}>
             Sign out
           </button>
@@ -293,6 +313,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       </aside>
 
       <div className="main">
+        <AgentUpdates />
         <header className="topbar">
           <div className="top-left">
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>
@@ -377,6 +398,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
       <NewWorkModal open={newWorkOpen} mode={mode} onClose={() => setNewWorkOpen(false)} />
       {newProjectOpen && <ProjectModal open={newProjectOpen} defaultMode={mode} onClose={() => setNewProjectOpen(false)} />}
+      <ShortcutHelp open={helpOpen} mac={isMac()} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

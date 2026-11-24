@@ -7,6 +7,8 @@ import { type OfficeThemeV1, validateSvg, validateTheme } from "./contract.js";
 import { REGION } from "./layout.js";
 import bright from "./themes/harness-bright.js";
 import standard from "./themes/standard-office.js";
+import plant from "./themes/plant.js";
+import { PLANT_LAYOUT } from "./plant-layout.js";
 import released from "./themes/released.json";
 import { OFFICE_THEMES, releasedOfficeThemes } from "./registry.js";
 import { renderAll } from "../../../scripts/build-office-themes.ts";
@@ -27,6 +29,18 @@ const size = { width: REGION.review.w, height: REGION.review.h };
 const ok = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size.width} ${size.height}"><rect x="0" y="0" width="10" height="10" fill="#123456"/></svg>`;
 
 describe("themes", () => {
+  it("passes for the Plant: drawn for the plant layout, its site exactly the canvas, its art sized from that layout", async () => {
+    expect(await validateTheme(plant, read, sha)).toEqual([]);
+    expect(plant.layout).toBe("plant");
+    expect(plant.site).toMatchObject(PLANT_LAYOUT.canvas);
+    expect(plant.regions["your-office"].art).toMatchObject({ width: PLANT_LAYOUT.region["your-office"].w, height: PLANT_LAYOUT.region["your-office"].h });
+    expect(plant.regions["your-office"].label).toBe("Main control room");
+    // The same art sized for the office layout is refused, and so is a site of the wrong size.
+    expect((await validateTheme({ ...plant, layout: undefined } as unknown as OfficeThemeV1)).some((p) => p.startsWith("your-office art is"))).toBe(true);
+    expect(await validateTheme({ ...plant, site: { ...plant.site!, width: 10 } })).toContain(`the site art is 10 by ${PLANT_LAYOUT.canvas.height}, not the canvas's 1200 by ${PLANT_LAYOUT.canvas.height}`);
+    expect(await validateTheme({ ...plant, layout: "factory" } as unknown as OfficeThemeV1)).toContain("the theme layout must be plant or absent");
+  });
+
   it("passes for the default theme and the structurally different test theme, files and digests included", async () => {
     expect(await validateTheme(standard, read, sha)).toEqual([]);
     expect(await validateTheme(bright, read, sha)).toEqual([]);
@@ -106,7 +120,7 @@ describe("generated files", () => {
       const manifest = JSON.parse(readFileSync(join(PUBLIC, "office-themes", t.id, "assets.json"), "utf8")) as { theme: string; files: { file: string }[] };
       expect(manifest.theme).toBe(t.id);
       const listed = new Set(manifest.files.map((f) => f.file));
-      const used = [...Object.values(t.regions).map((r) => r.art), ...t.bodies].flatMap((a) => (a ? [a.path.split("/").pop()!] : []));
+      const used = [t.site, ...Object.values(t.regions).map((r) => r.art), ...t.bodies].flatMap((a) => (a ? [a.path.split("/").pop()!] : []));
       expect(new Set(used), t.id).toEqual(listed);
       for (const f of readdirSync(join(PUBLIC, "office-themes", t.id))) expect(listed.has(f) || f === "assets.json" || f === "NOTICE.txt", `${t.id}/${f}`).toBe(true);
     }
@@ -116,7 +130,7 @@ describe("generated files", () => {
 describe("registry", () => {
   it("ships exactly the released themes, and the build reads the same list", () => {
     expect(releasedOfficeThemes().map((t) => t.id)).toEqual(released);
-    expect(released).toEqual(["standard-office", ...WORLD_THEMES.map((t) => t.id)]);
+    expect(released).toEqual(["plant", "standard-office", ...WORLD_THEMES.map((t) => t.id)]);
     expect(new Set(OFFICE_THEMES.map((t) => t.id)).size).toBe(OFFICE_THEMES.length);
   });
 });

@@ -23,6 +23,7 @@ import { preparationRoutes } from "./preparation/routes.js";
 import { repoRoutes } from "./repos.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
+import { agentUpdateView, recordAgentUpdates } from "./agent-updates.js";
 import { REASONS, teach } from "./refusals.js";
 import { listPersonVerifications, originatorsInOrder, personVerificationSubject, recordPersonVerification, requireOwnPackage } from "./person-verification.js";
 import { inbox } from "./inbox.js";
@@ -708,7 +709,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return usageView(db, caller.orgId);
   });
   app.get("/runtimes", async (req) => {
-    return runtimeStatus(db, (await callerFor(db, await person(req))).orgId);
+    return { ...(await runtimeStatus(db, (await callerFor(db, await person(req))).orgId)), ...(await agentUpdateView(db)) };
   });
   /** First-run setup: which agents are seated and when to check with the person. */
   app.get("/setup", async (req) => {
@@ -847,8 +848,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
+    if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);

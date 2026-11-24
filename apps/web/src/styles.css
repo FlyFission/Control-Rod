@@ -289,9 +289,15 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: var(--fs-label);
   color: var(--muted);
+}
+.rail-shortcuts {
+  order: 3;
+  width: 100%;
+  justify-content: space-between;
 }
 .user-chip {
   display: inline-flex;
@@ -584,6 +590,44 @@ kbd {
 }
 .palette-detail p {
   margin: 0 0 4px;
+}
+/* Keyboard shortcut list (pattern AW4) */
+.shortcut-help {
+  padding: 16px;
+  gap: 12px;
+  overflow: auto;
+}
+.shortcut-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.shortcut-help-head h2 {
+  margin: 0;
+}
+.shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-ui);
+}
+.shortcut-table th {
+  text-align: left;
+  font-size: var(--fs-label);
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0 8px 6px 0;
+}
+.shortcut-table td {
+  border-top: 1px solid var(--line);
+  padding: 7px 8px 7px 0;
+  vertical-align: top;
+}
+.shortcut-table td:first-child {
+  white-space: nowrap;
+}
+.shortcut-help p {
+  margin: 0;
 }
 .who {
   display: flex;
@@ -1991,6 +2035,34 @@ select {
   overflow-wrap: anywhere;
 }
 
+/* Agent updates (components/AgentUpdates.tsx): a card over the top right, shown when the daemon's
+   startup check found a newer agent CLI. */
+.agent-updates {
+  position: fixed;
+  top: 64px;
+  right: 16px;
+  z-index: 30;
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+}
+.agent-updates h2 { margin: 0; font-size: 16px; }
+.agent-updates .au-head,
+.agent-updates .au-item,
+.agent-updates .au-foot { padding: 12px 16px; }
+.agent-updates .au-head { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line-2); }
+.agent-updates .au-list { list-style: none; margin: 0; padding: 0; }
+.agent-updates .au-item + .au-item { border-top: 1px solid var(--line-2); }
+.agent-updates .au-item p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.agent-updates .au-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.agent-updates .au-row + .au-row { margin-top: 6px; }
+.agent-updates .au-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-top: 1px solid var(--line-2); }
+.agent-updates .au-foot:empty { display: none; }
+.agent-updates .au-close { background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; }
 .today-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
@@ -2109,4 +2181,21 @@ select {
   .run-workbench:has(.run-outputs[open]) {
     grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   }
+}
+
+/* Inbox notification opt-in (pattern AW2) */
+.notify-toggle {
+  margin: 0 0 12px;
+}
+
+/* A run answered by a different model than it asked for (fallback seat, ADR 0024). */
+.run-rerouted {
+  margin: 4px 0;
+  padding: 4px 8px;
+  border-left: 3px solid var(--needs);
+  color: var(--text);
+}
+.shortcut-toggle {
+  display: block;
+  margin: 0;
 }

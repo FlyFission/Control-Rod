@@ -18,6 +18,8 @@ export type BoardCard = {
   owner?: string;
   /** An agent run on this revision is queued or running. */
   runActive: boolean;
+  /** An agent run on this revision is running now (not only queued). */
+  runRunning?: boolean;
   /** Set when a read behind the next line failed: reads it again. */
   retry?: () => void;
   /** A read behind this card has not succeeded since the latest stream drop: what it shows is last known. */
@@ -43,6 +45,8 @@ export type BoardData = {
   cards: BoardCard[];
   /** Captures not yet drafted into a package, newest first; they sit at the top of Ready (spec 6.2). */
   captures: CaptureView[];
+  /** The captures read succeeded since the latest stream drop: their tones are current, not last known. */
+  capturesFresh: boolean;
   loading: boolean;
   /** The reads the whole board rests on that failed, in plain words; empty when none did. */
   problems: string[];
@@ -160,6 +164,7 @@ export function useBoardData(): BoardData {
     const owner = view?.originators?.[0];
     const activeRun = (view?.runs ?? []).find((r) => r.status === "running" || r.status === "queued");
     const runActive = activeRun !== undefined;
+    const runRunning = (view?.runs ?? []).some((r) => r.status === "running");
     const waitingOnVerifs = verifQ?.isPending === true && verifQ.fetchStatus !== "idle";
     let next: NextLine;
     let retry: (() => void) | undefined;
@@ -218,6 +223,7 @@ export function useBoardData(): BoardData {
       next,
       ...(owner ? { owner } : {}),
       runActive,
+      ...(runRunning ? { runRunning: true } : {}),
       ...(retry ? { retry } : {}),
       lastKnown: !cardFresh,
       nuclear,
@@ -242,6 +248,7 @@ export function useBoardData(): BoardData {
   return {
     cards,
     captures: pendingCaptures(capturesQ.data ?? []),
+    capturesFresh: fresh(capturesQ),
     loading: packages.isPending || capturesQ.isPending,
     problems,
     retry: () => {

@@ -81,11 +81,13 @@ function Root() {
 
 const rootRoute = createRootRoute({ component: Root });
 
-/** The places (specification 12). "/" is the board; "/board" is its old address. The Inbox stays at /inbox. */
+/** The places (specification 12). "/" is the board; "/board" is its old address. The Inbox stays at /inbox. "/office" is the Plant's old address. */
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: Board }),
   createRoute({ getParentRoute: () => rootRoute, path: "/inbox", component: Inbox }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/office", component: () => <OfficePlace view="office" /> }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/plant", component: () => <OfficePlace view="office" /> }),
+  // The office became the Plant; its old address (the shell's SCRAM banner and the floor link to it) still arrives.
+  createRoute({ getParentRoute: () => rootRoute, path: "/office", beforeLoad: () => { throw redirect({ to: "/plant" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/floor", component: () => <OfficePlace view="floor" /> }),
   createRoute({ getParentRoute: () => rootRoute, path: "/board", beforeLoad: () => { throw redirect({ to: "/" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/packages", component: Packages }),

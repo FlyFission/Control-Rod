@@ -1,0 +1,12 @@
+## R13-1 the list must update after the mark (strict) (mutated)
+     × shows the command only from data fetched since the window regained focus 1016ms
+     × a remount with a cached list shows no command until a fresh response arrives 27ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+## R13-1 the list must update after the mark (strict) (restored)
+      Tests  11 passed (11)
+## R13-2 a mount refetches a still-fresh cached list (mutated)
+     × a remount with a cached list shows no command until a fresh response arrives 1031ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+            ×
+## R13-2 a mount refetches a still-fresh cached list (restored)
+      Tests  11 passed (11)

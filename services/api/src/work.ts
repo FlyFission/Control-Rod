@@ -3153,9 +3153,20 @@ export async function office(db: Db, orgId: string) {
   // packages (the same rows the per-package queries returned), so the cost does not grow with them.
   const current = `(select distinct on (p.id) p.id, p.revision from packages p ${owned} order by p.id, p.revision desc)`;
   const byPackage = <T extends { package_id: string }>(rows: T[]) => new Map(rows.map((r) => [r.package_id, r]));
-  const latestRuns = byPackage((await db.query<{ package_id: string; status: string; body: Json }>(
-    `select distinct on (r.package_id) r.package_id, r.status, r.body from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
+  const latestRuns = byPackage((await db.query<{ id: string; package_id: string; status: string; body: Json; created_at: Date }>(
+    `select distinct on (r.package_id) r.id, r.package_id, r.status, r.body, r.created_at from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
       order by r.package_id, r.created_at desc`, [orgId])).rows);
+  // A stopped or lost run can be saved without finished_at. Its Inbox time is then a stored one: the
+  // earliest run.stopped or run.lost event for that run, else when the run row was created. It never
+  // comes from the read, so the same run gives the same item and the same notification key. The
+  // events are read only for such runs, all of them in one pass, and only when there are any.
+  const unfinished = [...latestRuns.values()].filter((r) => (r.status === "stopped" || r.status === "lost") && r.body.finished_at == null).map((r) => r.id);
+  const endedEvents = new Map(unfinished.length === 0 ? [] : (await db.query<{ subject: string; at: Date }>(
+    `select e.body->>'subject' as subject, min(e.at) as at from events e
+      where e.body->>'type' in ('run.stopped', 'run.lost') and e.body->>'subject' = any($1::text[])
+      group by e.body->>'subject'`, [unfinished])).rows.map((e) => [e.subject, e.at]));
+  const endedAt = (run: { id: string; body: Json; created_at: Date }) =>
+    String(run.body.finished_at ?? new Date(endedEvents.get(run.id) ?? run.created_at).toISOString());
   const latestFailed = byPackage((await db.query<{ package_id: string; body: Json }>(
     `select distinct on (r.package_id) r.package_id, r.body from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
       where r.status = 'failed' order by r.package_id, r.created_at desc`, [orgId])).rows);
@@ -3212,7 +3223,7 @@ export async function office(db: Db, orgId: string) {
           package_revision: p.revision,
           title,
           detail: `${last.body.role === "pre-check" ? "Pre-check" : "Author"} run stopped. Requeue it, or return or reject the package.`,
-          since: String(last.body.finished_at ?? new Date().toISOString()),
+          since: endedAt(last),
         });
       } else if (last?.status === "lost") {
         items.push({
@@ -3223,7 +3234,7 @@ export async function office(db: Db, orgId: string) {
           detail: last.body.outcome_unknown && !last.body.reconciliation
             ? `${last.body.role === "pre-check" ? "Pre-check" : "Author"} run lost: the daemon stopped answering and its outcome is unknown. Restart the daemon so it can report, or reconcile the run; then requeue it.`
             : `${last.body.role === "pre-check" ? "Pre-check" : "Author"} run lost: the daemon stopped answering. Requeue it, or return or reject the package.`,
-          since: String(last.body.finished_at ?? new Date().toISOString()),
+          since: endedAt(last),
         });
       } else if (failed.rows[0] && last?.status === "failed") {
         items.push({

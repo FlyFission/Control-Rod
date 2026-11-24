@@ -86,6 +86,7 @@ export function CaptureCard({
       aria-labelledby={titleId}
       className={selected ? "bd-card bd-capture selected" : "bd-card bd-capture"}
       data-tone={line.tone}
+      data-kind="capture"
       draggable={Boolean(onDragStartCard)}
       onDragStart={(e) => {
         e.dataTransfer.setData("application/x-cr-card", JSON.stringify({ kind: "capture", id: capture.id }));

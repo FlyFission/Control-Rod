@@ -42,32 +42,61 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
     for (const k of Object.keys(gitEnv)) if (k.startsWith("GIT_")) delete gitEnv[k];
     const gd = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, encoding: "utf8", env: gitEnv }).stdout?.trim();
     const lock = gd ? join(gd, "controlrod-update.lock") : join(root, "node_modules", ".controlrod-repair.lock");
+    // Ownership-aware without files inside the folder (proper-lockfile removes a stale lock with a
+    // plain rmdir): a holder knows its lock by the folder's inode and only ever removes that one. A
+    // stale lock is taken over by renaming it aside (only one process can win that rename) and
+    // checking that what was moved is still the stale folder that was looked at.
+    const look = (dir) => {
+      try {
+        const st = statSync(dir);
+        return { ino: st.ino, age: Date.now() - st.mtimeMs };
+      } catch {
+        return null;
+      }
+    };
+    let mine = null;
     const take = () => {
       try {
         mkdirSync(lock);
-        return true;
       } catch (e) {
         if (e?.code !== "EEXIST") throw e;
         return false;
       }
+      mine = look(lock)?.ino ?? null;
+      return mine !== null;
     };
+    const ownerOf = (dir) => look(dir)?.ino ?? null;
     let held = take();
     if (!held) {
-      let age = 0;
-      try {
-        age = Date.now() - statSync(lock).mtimeMs;
-      } catch {
-        age = Infinity;
-      }
-      if (age > 15000) {
-        rmSync(lock, { recursive: true, force: true });
-        held = take();
+      const seen = look(lock);
+      if (seen && seen.age > 15000) {
+        const aside = `${lock}.stale.${process.pid}.${Date.now()}`;
+        let moved = false;
+        try {
+          renameSync(lock, aside);
+          moved = true;
+        } catch {}
+        if (moved) {
+          const now = look(aside);
+          if (now && now.ino === seen.ino && now.age > 15000) {
+            rmSync(aside, { recursive: true, force: true });
+            held = take();
+          } else {
+            // Another command took the lock between the look and the rename: give it back.
+            try {
+              renameSync(aside, lock);
+            } catch {}
+          }
+        }
       }
     }
     if (!held) {
       console.error("Control Rod is being updated or its dependencies installed right now. Try again when that has finished.");
       process.exit(1);
     }
+    const release = () => {
+      if (ownerOf(lock) === mine) rmSync(lock, { recursive: true, force: true });
+    };
     // A plain install first; pnpm trusts a half-installed node_modules, so the second try forces a
     // reinstall. Each try runs this command again in a fresh process, since a module that failed to
     // load stays failed in this one.
@@ -77,7 +106,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
       console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
       const touch = setInterval(() => {
         try {
-          utimesSync(lock, new Date(), new Date());
+          if (ownerOf(lock) === mine) utimesSync(lock, new Date(), new Date());
         } catch {}
       }, 3000);
       await new Promise((done) => {
@@ -87,7 +116,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
       });
       clearInterval(touch);
     }
-    rmSync(lock, { recursive: true, force: true });
+    release();
     if (!installed) {
       console.error(`Could not install ${missing.join(", ")}. In ${root}, run: pnpm install --frozen-lockfile --force`);
       process.exit(1);

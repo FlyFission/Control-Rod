@@ -63,6 +63,7 @@ Round 6 dispositions (all fixed, checked as an ordinary Linux user):
 - P2 git location variables: the repair's probe drops every `GIT_` variable, like the updater.
 - P2 two repairs at once: the repair takes the update lock itself (an atomic folder, kept fresh while pnpm runs), so a second command waits its turn and says so.
 - P3 Node flags: the fresh process gets the same Node flags.
+- GitHub Codex review of 188ffdc (P2, stale takeover deleting a new repair's lock): takeover renames the stale folder aside and checks it is the same folder (inode) it judged stale, giving back a fresh one; release and refresh touch only the holder's own folder. Four commands started together on a stale lock with a dependency missing ran exactly one repair, twice over.
 
 ## Signature
 

@@ -47,6 +47,19 @@ describe("the shell on a phone", () => {
     expect(document.activeElement).toBe(more);
   });
 
+  it("offers New project in More, since the rail's + is gone on a phone", async () => {
+    media(true);
+    // jsdom has no <dialog> methods; the project form is a modal dialog.
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.setAttribute("open", ""); };
+    HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) { this.removeAttribute("open"); };
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "More" }));
+    await user.click(within(screen.getByRole("dialog", { name: "More" })).getByRole("button", { name: "New project" }));
+    expect(screen.queryByRole("dialog", { name: "More" })).toBeNull();
+    expect(document.getElementById("new-project-title")).toBeTruthy();
+  });
+
   it("keeps the rail and no bottom bar on a wide screen", async () => {
     media(false);
     await renderPage(<Shell session={ben}><p>app</p></Shell>);

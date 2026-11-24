@@ -155,3 +155,4 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - Run controls: Requeue and the reconcile Sign read the sidebar's project. They now lock by the package's own project from the cached package view (RunLog `usePackageLock`); two tests in components/scram-locks.test.tsx.
 - Roster seats: `/usage` run counts are cumulative, so "runs this window" became "runs recorded".
 - vitest 82 files / 890 tests, tsc clean.
+- Codex review on 9f072494: the diff line cap hid a binary or rename file that came after 1,500 text lines, with no Show all. The cap now applies to text hunks only, and a test is added. Also, phones had lost the only New project opener (the rail's +); the More sheet now carries "New project", with a test. vitest 82 files / 892 tests.

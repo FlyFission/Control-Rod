@@ -87,6 +87,7 @@ function PhoneBar({
   pendingSignOut,
   onSignOut,
   onSearch,
+  onNewProject,
 }: {
   needs: number;
   moreOpen: boolean;
@@ -97,6 +98,8 @@ function PhoneBar({
   pendingSignOut: boolean;
   onSignOut: () => void;
   onSearch: () => void;
+  /** Opens the workspace project form; on a phone the rail's "+" is gone, so More carries it. */
+  onNewProject: () => void;
 }) {
   const moreBtn = useRef<HTMLButtonElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
@@ -174,6 +177,9 @@ function PhoneBar({
             <div className="more-tools">
               <button type="button" className="btn small" onClick={onSearch}>
                 Search
+              </button>
+              <button type="button" className="btn small" onClick={onNewProject}>
+                New project
               </button>
               <ActiveRuns />
             </div>
@@ -676,6 +682,10 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
             onSearch={() => {
               setMoreOpen(false);
               setPalette(true);
+            }}
+            onNewProject={() => {
+              setMoreOpen(false);
+              setNewProjectOpen(true);
             }}
           />
         )}

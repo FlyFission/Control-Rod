@@ -42,4 +42,12 @@ describe("DiffView", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: /Show all \(40 more lines\)/ }));
     expect(container.querySelectorAll("tr.diff-line")).toHaveLength(DIFF_LINE_CAP + 40);
   });
+
+  it("still shows a binary file that comes after the line cap", () => {
+    const body = Array.from({ length: DIFF_LINE_CAP }, (_, i) => `+line ${i}`).join("\n");
+    const text = `diff --git a/big.txt b/big.txt\n--- a/big.txt\n+++ b/big.txt\n@@ -0,0 +1,${DIFF_LINE_CAP} @@\n${body}\ndiff --git a/logo.png b/logo.png\nBinary files a/logo.png and b/logo.png differ\n`;
+    render(<DiffView text={text} />);
+    expect(screen.getByRole("region", { name: "logo.png" })).toBeTruthy();
+    expect(screen.getByText(/Binary files a\/logo.png/)).toBeTruthy();
+  });
 });

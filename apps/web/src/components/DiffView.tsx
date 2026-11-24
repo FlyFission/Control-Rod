@@ -26,7 +26,9 @@ export function DiffView({ text, parsed }: { text: string; parsed?: ParsedDiff |
         <span className="diff-count-del">{"−"}{diff.removed}</span>
       </p>
       {diff.files.map((f, fi) => {
-        if (budget <= 0) return null;
+        // The line cap applies to text hunks only: a binary, rename or mode-only file is always shown, so the
+        // preview never hides a file without offering "Show all".
+        if (budget <= 0 && f.hunks.length > 0) return null;
         return (
           <section key={fi} className="diff-file" aria-label={f.path || `File ${fi + 1}`}>
             <h4 className="diff-file-head mono">

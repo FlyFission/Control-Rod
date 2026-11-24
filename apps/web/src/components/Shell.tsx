@@ -372,7 +372,12 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       }
       panel.collapse();
     }
-    persistRailSoon(true);
+    // Showing or hiding never changes the chosen width: a rail reopened in a narrow window may be
+    // squeezed, and that squeeze is not the person's choice.
+    window.setTimeout(() => {
+      const p = railPanel.current;
+      if (p) saveRailLayout(railUser, { width: railWidth.current, collapsed: p.isCollapsed() });
+    }, 0);
   }
   // The panel's default stays the app's default, so double-clicking the edge resets to it (the library's
   // behaviour); the person's saved layout is applied before the first paint.
@@ -398,6 +403,22 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     return () => window.cancelAnimationFrame(frame);
     // On mount, and again when a phone-width window widens and the rail comes back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone]);
+  // Crossing the phone breakpoint removes the rail, its handle and toggle (or the phone's own bars).
+  // If focus sat on one of them it would fall to the page: note it during the render that flips the
+  // layout and hand focus to the workspace once the new layout is in place.
+  const lastPhone = useRef(phone);
+  const focusLost = useRef(false);
+  if (lastPhone.current !== phone) {
+    lastPhone.current = phone;
+    const at = typeof document === "undefined" ? null : document.activeElement;
+    const going = phone ? "#cr-rail, .rail-toggle, .rail-sep" : ".phone-top, .bottom-bar, .more-sheet";
+    focusLost.current = at instanceof Element && at.closest(going) !== null;
+  }
+  useLayoutEffect(() => {
+    if (!focusLost.current) return;
+    focusLost.current = false;
+    document.getElementById("main")?.focus();
   }, [phone]);
   const toggleRailRef = useRef(toggleRail);
   toggleRailRef.current = toggleRail;
@@ -820,7 +841,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
           title="Drag to resize the navigation. Double-click to reset. Press [ to hide or show it."
         />
         )}
-        <Panel id="workspace" className="main-panel" minSize="360px">
+        <Panel id="workspace" className="main-panel" minSize="560px">
           {workspace}
         </Panel>
       </Group>

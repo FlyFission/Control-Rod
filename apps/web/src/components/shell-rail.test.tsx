@@ -7,6 +7,7 @@ import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import type { Session } from "../api/types.js";
 import { Shell } from "./Shell.js";
+import { setSingleKeys } from "../lib/singleKeys.js";
 import { RAIL_DEFAULT_PX, RAIL_MAX_PX, RAIL_MIN_PX, loadRailLayout, railLayoutKey, saveRailLayout } from "../lib/railLayout.js";
 
 const ben = { registered: true, signed_in: true, user: "ben" } as Session;
@@ -101,6 +102,43 @@ describe("the navigation rail", () => {
       expect(document.getElementById("cr-rail")).not.toBeNull();
       expect(screen.getByLabelText("Draft")).toBe(draft);
       expect(draft.value).toBe("half a thought");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does nothing on [ when single-key shortcuts are turned off", async () => {
+    api();
+    setSingleKeys(false);
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    await userEvent.setup().keyboard("[[");
+    expect(rail().hasAttribute("inert")).toBe(false);
+  });
+
+  it("showing the rail again never changes the saved width", async () => {
+    api();
+    saveRailLayout("ben", { width: 480, collapsed: true });
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    await userEvent.setup().click(toggle());
+    await waitFor(() => expect(loadRailLayout("ben")).toEqual({ width: 480, collapsed: false }));
+  });
+
+  it("moves focus to the workspace when the focused toggle goes away at the phone breakpoint", async () => {
+    api();
+    let matches = false;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      get matches() { return query === "(max-width: 820px)" ? matches : false; },
+      media: query,
+      addEventListener: (_: string, l: () => void) => listeners.add(l),
+      removeEventListener: (_: string, l: () => void) => listeners.delete(l),
+      addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false,
+    }));
+    try {
+      await renderPage(<Shell session={ben}><p>app</p></Shell>);
+      toggle().focus();
+      act(() => { matches = true; listeners.forEach((l) => l()); });
+      expect(document.activeElement?.id).toBe("main");
     } finally {
       vi.unstubAllGlobals();
     }

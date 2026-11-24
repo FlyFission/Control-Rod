@@ -110,8 +110,11 @@
 .shell .top-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
-  flex-wrap: nowrap;
+  /* A wide rail can leave the workspace narrow: the status and actions wrap rather than clip. */
+  flex-wrap: wrap;
+  min-width: 0;
 }
 /* The rod gauge at full size, on an engraved plate: the state of the whole plant, read at a glance. */
 .shell .shell-rods {
@@ -508,4 +511,18 @@
   display: block;
   -webkit-line-clamp: unset;
   line-clamp: none;
+}
+
+/* Inside the desktop rail, places always stack, whatever the window width (an older narrow-window rule
+   laid them out in a row, which cut them off between 821 and 900 px). */
+.shell .rail .places {
+  border-bottom: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+.shell .rail .places ul {
+  flex-direction: column;
+}
+.shell .rail .place-link.active {
+  box-shadow: inset 3px 0 0 var(--accent);
 }

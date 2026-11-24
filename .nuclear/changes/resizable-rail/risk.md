@@ -8,8 +8,8 @@
 |---|---|---|---|
 | R-01 | The resize handle steals clicks or focus from the workspace. | Hit area only at the rail's edge; rendered check clicks 24 px right of the edge and the Search button. | A click in the workspace that grabs the handle. |
 | R-02 | A hidden rail still takes keyboard focus. | The rail is `inert` while hidden; rendered check tabs after hiding. | Focus inside the hidden rail. |
-| R-03 | A saved width makes the app unusable (too wide, junk in storage). | Clamped to 200 to 480 px on read and write; junk falls back to the default; the workspace keeps at least 360 px. | A saved value outside the clamp taking effect. |
-| R-04 | `[` fires while typing or under a dialog. | Same guards as the other single keys (fields, open dialogs, the single-key switch). Test. | `[` toggling inside a field. |
+| R-03 | A saved width makes the app unusable (too wide, junk in storage). | Clamped to 200 to 480 px on read and write; junk falls back to the default; the workspace keeps at least 560 px; only the person's own resizes save a width. | A saved value outside the clamp taking effect. |
+| R-04 | `[` fires while typing, under a dialog, or from speech input. | Same guards as the other single keys (fields, open dialogs) and the same off switch in the shortcut list (WCAG 2.1.4). Tests. | `[` toggling inside a field. |
 | R-05 | New dependency: license and bundle weight. | react-resizable-panels 4.22.1, MIT, 11 days old at install; license gate passes; main bundle grows about 16 kB gzip. | License gate failure or growth above 50 kB gzip. |
 | R-06 | Unit tests run against a stand-in for the library, not the library. | The stand-in is only for jsdom (no layout); the real library is exercised by the rendered check in Chromium (`evidence/rail-check.js`). | A behaviour the rendered check does not cover. |
 

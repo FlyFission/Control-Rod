@@ -21,7 +21,11 @@ ok   narrowing to a phone width drops the rail and keeps the workspace mounted
      phone group: visible 721.562px 722 722
 ok   on a phone the panel group does not clip the page
 ok   widening again brings the rail back with the same workspace
-ok   opening at 830 px (rail squeezed to 469) keeps the saved 480 (got 480)
+ok   opening at 830 px (rail squeezed to 269) keeps the saved 480 (got 480)
+ok   showing it at 830 px (squeezed to 269) keeps the saved 480 (got 480)
+ok   focus on the handle moves to the workspace when the handle goes away
+     830 px top bar: {"out":[],"rail":269,"labels":["Not live","SCRAM: organization"]}
+ok   no top-bar control clipped at 830 px with the rail at 269 px
 ok   phone: no drag handle
 ok   phone: no rail toggle
 ok   phone: no horizontal scroll

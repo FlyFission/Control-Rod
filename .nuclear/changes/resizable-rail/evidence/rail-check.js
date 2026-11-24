@@ -10,7 +10,7 @@ const projects = [
 ];
 let fail = 0;
 const check = (ok, what) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if (!ok) fail++; };
-async function open(b, w, h, storage) {
+async function open(b, w, h, storage, scrams = []) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, ...(storage ? { storageState: storage } : {}) });
   const page = await ctx.newPage();
   await page.addInitScript(() => { localStorage.setItem('controlrod.firstRun.done', '1'); });
@@ -21,7 +21,8 @@ async function open(b, w, h, storage) {
     if (accept.includes('text/html') || /\.(js|css|svg|png|woff2|webp|jpg|tsx|ts|mjs)$/.test(p) || p.startsWith('/@') || p.startsWith('/node_modules') || p.startsWith('/src')) return r.fallback();
     if (p === '/auth/session') return r.fulfill(json({ registered: true, signed_in: true, user: 'ben' }));
     if (p === '/workspace/projects') return r.fulfill(json(projects));
-    if (p === '/scrams') return r.fulfill(json({ scrams: [] }));
+    if (p === '/scrams') return r.fulfill(json({ scrams }));
+    if (p.startsWith('/scrams/')) return r.fulfill(json({ scram: scrams[0]?.scram, restarts: [], packages: [], runs: [] }));
     if (p === '/inbox') return r.fulfill(json({ items: [], waiting_on_others: [], digest: { head: 1, lines: [] } }));
     return r.fulfill(json([]));
   });
@@ -129,6 +130,36 @@ const truncated = (page) => page.evaluate(() => [...document.querySelectorAll('.
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
   check((await railW(page)) === 480, `opening at 830 px (rail squeezed to ${squeezed}) keeps the saved 480 (got ${await railW(page)})`);
+  await ctx.close();
+  // Reopening a hidden rail in a narrow window does not save the squeezed width.
+  ({ ctx, page } = await open(b, 1440, 900));
+  await page.evaluate(() => localStorage.setItem('cr.rail:ben', JSON.stringify({ width: 480, collapsed: true })));
+  await page.setViewportSize({ width: 830, height: 800 });
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(500);
+  await page.getByRole('button', { name: 'Show navigation' }).click(); await page.waitForTimeout(300);
+  const reopened = await railW(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
+  check((await railW(page)) === 480, `showing it at 830 px (squeezed to ${reopened}) keeps the saved 480 (got ${await railW(page)})`);
+  // Focus on the handle survives the phone breakpoint by moving to the workspace.
+  await page.locator('[role="separator"][aria-label="Navigation width"]').focus();
+  await page.setViewportSize({ width: 700, height: 800 }); await page.waitForTimeout(400);
+  check(await page.evaluate(() => document.activeElement?.id === 'main'), 'focus on the handle moves to the workspace when the handle goes away');
+  await ctx.close();
+  // With the widest rail at 830 px and both statuses showing, no top-bar control is clipped.
+  const org = { scram: { id: 'scr_1', org_id: 'org', scope: 'organization', reason: 'Bad prompt shipped', pulled_by: 'm', drill: false }, run_count: 2, pulled_at: new Date().toISOString() };
+  ({ ctx, page } = await open(b, 830, 800, undefined, [org]));
+  await page.evaluate(() => localStorage.setItem('cr.rail:ben', JSON.stringify({ width: 480, collapsed: false })));
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(800);
+  const clip = await page.evaluate(() => {
+    const ws = document.querySelector('.main').getBoundingClientRect();
+    const items = [...document.querySelectorAll('.topbar .top-left > *, .topbar .top-right > *')].filter((e) => e.offsetParent !== null);
+    const out = items.filter((e) => { const r = e.getBoundingClientRect(); return r.right > ws.right + 0.5 || r.left < ws.left - 0.5; }).map((e) => e.className || e.tagName);
+    return { out, rail: Math.round(document.getElementById('rail').getBoundingClientRect().width), labels: [...document.querySelectorAll('.shell-notlive, .shell-rods-label')].map((e) => e.textContent) };
+  });
+  console.log('     830 px top bar:', JSON.stringify(clip));
+  check(clip.out.length === 0, `no top-bar control clipped at 830 px with the rail at ${clip.rail} px`);
+  await page.screenshot({ path: `${out}/topbar-830.png` });
   await ctx.close();
   // Phone: no handle, no toggle.
   ({ ctx, page } = await (async () => {

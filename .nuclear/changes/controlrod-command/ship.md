@@ -59,7 +59,11 @@ Round 5 dispositions:
 
 ## Signature
 
-Pending.
+| Decision | Question | Answer, word for word | When | Where | Recorded by |
+|---|---|---|---|---|---|
+| Merge of pull request #177 | Round 5 fixes pushed (67ac266); Codex round 6 running | "Excellent, merge." | 2026-11-24 4:02 PM America/New_York (UTC-05:00) | Claude project thread for the controlrod command | Recorded by the agent (Claude); not signed for the owner |
+
+Merged on the owner's word while Codex round 6 (diff e6954cb..67ac266) was still running; its findings, if any, go to a follow-up pull request. Every finding of rounds 1 to 5 is fixed or declined with its reason above.
 
 ## Exit criteria
 

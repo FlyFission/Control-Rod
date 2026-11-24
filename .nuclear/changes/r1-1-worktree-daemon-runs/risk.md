@@ -21,6 +21,11 @@
 | Checker sees author history | Checker never inherits the checkout binding. | Checker starts inside author checkout. |
 | Old daemon ignores new binding | Claim admission requires checkout support. | Unsupported daemon claims a bound author run. |
 
+## Selected mode
+
+- **Mode:** Standard
+- Basis: daemon and API behavior with additive contracts; reversible by revert; no kernel, policy, protected-path or setting change.
+
 ## Accepted residual risk
 
 A process running as the same user, outside the agent's sandbox, can switch the checkout's branch or HEAD after the last check and before the agent process starts, then restore it before the post-run read. Neither check can see this, and no user-space lock prevents it: Git does not lock a worktree against other processes of its owner, and the checks read state rather than hold it. The same applies to a change made and undone entirely inside the run. The agent process is likewise started in the checkout by pathname, so a directory swapped in at that path after preparation by such a process can be entered. A cheap mitigation narrows it: immediately before the start, `beforeStartCheck` requires the path to still name the directory the held handle opened (`os.SameFile`). It does not close the window between that check and the operating system's `chdir`. Cleanup has the same gap: a same-user process can swap a directory in at the run directory's name between the identity check and the recursive delete, and the delete then removes what was swapped in. The check narrows this; it does not prevent it. This is accepted as residual because closing it needs operating-system level mandatory locking or a different execution model, both out of scope for this change. The run's recorded branch and HEAD show what was found, not what was held throughout.

@@ -16,7 +16,7 @@ Additive TypeSpec contracts and generated artifacts require owner CODEOWNERS rev
 | --- | --- | --- | --- | --- |
 | Pending | Pending exact-diff review | Pending | Pending | Author agent |
 
-Rollback: revert the change through review. Bound runs must never fall back to an unbound workspace during a mixed-version upgrade or rollback.
+Rollback: revert the change through review. Monitoring: the board shows a bound run's checkout hold in plain words whenever the daemon that asked cannot take custody, and a bound run never starts on an unbound workspace — watch the hold queue after any daemon or API version mix, and treat a bound run that started without a recorded checkout as a bug.
 
 ## Required links
 

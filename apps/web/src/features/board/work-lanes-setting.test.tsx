@@ -75,5 +75,10 @@ describe("lane choices", () => {
     expect(choiceOf("custom", [row("A"), row("a")])).toHaveProperty("problem");
     expect(choiceOf("custom", [row("x".repeat(25))])).toHaveProperty("problem");
     expect(choiceOf("software", [])).toEqual({ choice: { preset: "software" } });
+    // An edit keeps the configured default lane while it remains, and drops it once removed.
+    const kept = choiceOf("custom", [row("Frontend", { id: "frontend" }), row("General", { id: "general" })], "general");
+    expect(kept).toEqual({ choice: expect.objectContaining({ default_lane: "general" }) });
+    const gone = choiceOf("custom", [row("Frontend", { id: "frontend" })], "general");
+    expect("choice" in gone && gone.choice.default_lane).toBeFalsy();
   });
 });

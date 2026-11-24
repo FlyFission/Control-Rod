@@ -35,3 +35,4 @@ As in [basis](basis.md#exit-criteria).
 ## Source-lineage note
 
 Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.
+- Custom lane edits keep the configured default_lane while it remains (Codex review on 3f5e494); work-lanes-setting tests.

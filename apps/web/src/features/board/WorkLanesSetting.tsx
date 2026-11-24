@@ -38,7 +38,7 @@ export function laneId(name: string, taken: readonly string[]): string {
 }
 
 /** The request the form stands for, or why it cannot be sent. */
-export function choiceOf(preset: WorkLaneChoice["preset"], rows: readonly Row[]): { choice: WorkLaneChoice } | { problem: string } {
+export function choiceOf(preset: WorkLaneChoice["preset"], rows: readonly Row[], defaultLane?: string): { choice: WorkLaneChoice } | { problem: string } {
   if (preset !== "custom") return { choice: { preset } };
   const named = rows.filter((r) => r.name.trim());
   if (named.length === 0) return { problem: "Name at least one lane." };
@@ -53,7 +53,9 @@ export function choiceOf(preset: WorkLaneChoice["preset"], rows: readonly Row[])
     const keywords = list(r.keywords);
     return { id, name: r.name.trim(), purpose: r.purpose.trim(), ...(keywords.length ? { keywords } : {}), ...(paths.length ? { paths } : {}) };
   });
-  return { choice: { preset, lanes } };
+  // Keep the configured default lane while it is still in the set; otherwise the server picks the first.
+  const keep = defaultLane && lanes.some((l) => l.id === defaultLane) ? { default_lane: defaultLane } : {};
+  return { choice: { preset, lanes, ...keep } };
 }
 
 export function WorkLanesSetting({ current, pending, onSave }: { current: WorkLaneSet | undefined; pending: boolean; onSave: (choice: WorkLaneChoice) => void }) {
@@ -123,7 +125,7 @@ export function WorkLanesSetting({ current, pending, onSave }: { current: WorkLa
           className="btn small"
           disabled={pending}
           onClick={() => {
-            const r = choiceOf(preset, rows);
+            const r = choiceOf(preset, rows, current?.preset === "custom" ? current.default_lane : undefined);
             if ("problem" in r) setProblem(r.problem);
             else {
               setProblem(null);

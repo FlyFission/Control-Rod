@@ -1,0 +1,82 @@
+# Proposed: .github/workflows/release.yml
+#
+# This is the byte-exact content that will be committed as .github/workflows/release.yml
+# under the owner's recorded yes naming it (ADR 0025 sole-maintainer sign-off). It is kept
+# here, outside .github/, because AGENTS.md rule 2 forbids editing trust surfaces without
+# the signature — not merely merging them. Nothing under .github/ changes until that yes
+# is recorded. If the yes asks for changes, this file changes first and the yes is asked
+# again, so what lands is always what was approved.
+#
+# What it does when wired: an on-demand release for an annotated tag. The tag must point at
+# a commit on main with a successful ci run (refuses otherwise), the notes come out of git
+# via tools/release_notes.py, the SBOM is the artifact ci.yml already built for that commit
+# (not regenerated), and the GitHub release carries both. No secrets beyond the job token.
+
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The annotated tag to release (must point at a commit on main with a green ci run)
+        required: true
+        type: string
+      notes-from:
+        description: The ref the release notes start after (the previous release tag)
+        required: true
+        type: string
+      preamble:
+        description: Optional repo path to a file whose contents head the notes (the release record commits what it used)
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: The tag must be annotated and point at a commit on main
+        run: |
+          test "$(git cat-file -t "$TAG")" = tag
+          git merge-base --is-ancestor "$TAG^{commit}" origin/main
+        env:
+          TAG: ${{ inputs.tag }}
+      - name: The tag's commit must have a green ci run
+        run: |
+          sha="$(git rev-parse "$TAG^{commit}")"
+          run_id="$(gh api "repos/{owner}/{repo}/actions/runs?head_sha=$sha" \
+            -q '.workflow_runs[] | select(.name == "ci" and .conclusion == "success") | .id' | head -1)"
+          test -n "$run_id" || { echo "no successful ci run for $sha; not releasing"; exit 1; }
+          echo "RUN_ID=$run_id" >> "$GITHUB_ENV"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+      - name: Release notes from the change titles
+        run: |
+          args=(--from "$NOTES_FROM" --to "$TAG")
+          if [ -n "$PREAMBLE" ]; then args+=(--preamble "$PREAMBLE"); fi
+          python3 tools/release_notes.py "${args[@]}" > notes.md
+        env:
+          NOTES_FROM: ${{ inputs.notes-from }}
+          PREAMBLE: ${{ inputs.preamble }}
+          TAG: ${{ inputs.tag }}
+      - name: The SBOM ci.yml already built for this commit
+        run: gh run download "$RUN_ID" --name control-rod-sbom.cdx.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Create the release with the notes and the SBOM
+        run: gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md control-rod-sbom.cdx.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}

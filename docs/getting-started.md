@@ -23,6 +23,7 @@ If `pnpm cr doctor` reports that the database cannot start, it means the bundled
 ## Run it
 
 ```sh
+mise install               # every pinned version, unless you already have the tools
 pnpm install --frozen-lockfile
 pnpm cr doctor   # lists anything missing
 pnpm cr start    # control plane, embedded Postgres and daemon; Ctrl+C stops all

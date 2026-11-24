@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { WorkPackage } from "../api/types.js";
+import { STATUS_LABEL } from "../lib/format.js";
 
 /**
  * Compare (Wave 3): side-by-side comparison of candidate revisions with temporary
@@ -15,6 +16,7 @@ export function Compare() {
   const packages = packagesQuery.data;
   const [leftId, setLeftId] = useState<string>("");
   const [rightId, setRightId] = useState<string>("");
+  const [noteTarget, setNoteTarget] = useState<"left" | "right">("left");
   const [notes, setNotes] = useState<Array<{ id: string; revisionRef: string; text: string }>>([]);
   const [draftNote, setDraftNote] = useState("");
 
@@ -26,14 +28,15 @@ export function Compare() {
     () => (packages ? packages.find((p) => p.id === rightId) ?? packages[1] ?? packages[0] ?? null : null),
     [packages, rightId],
   );
+  const targetPkg = noteTarget === "right" ? resolvedRight : resolvedLeft;
 
   const addLocalNote = () => {
     const trimmed = draftNote.trim();
-    if (!trimmed || !resolvedLeft) return;
+    if (!trimmed || !targetPkg) return;
     setNotes((prev) => [
       {
         id: `note-${Date.now()}`,
-        revisionRef: `${resolvedLeft.id}@r${resolvedLeft.revision}`,
+        revisionRef: `${targetPkg.id}@r${targetPkg.revision}`,
         text: trimmed,
       },
       ...prev,
@@ -52,9 +55,9 @@ export function Compare() {
     }
     return (
       <section className="panel">
-        <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
           <h3>{pkg.title || pkg.id}</h3>
-          <span className="pill">{pkg.status}</span>
+          <span className="tag">{STATUS_LABEL[pkg.status] ?? pkg.status}</span>
         </div>
         <dl className="kv-list" style={{ marginTop: "0.75rem" }}>
           <div>
@@ -85,7 +88,7 @@ export function Compare() {
       <header className="place-head">
         <h1>Compare</h1>
         <p className="muted">
-          Inspect candidate revisions side-by-side with temporary local review notes before recording a signed decision.
+          Compare package headers, metadata, and status side-by-side with temporary local review notes before recording a signed decision.
         </p>
       </header>
 
@@ -106,7 +109,7 @@ export function Compare() {
       {packages !== undefined && (
         <>
           <section className="panel" style={{ marginBottom: "1rem" }}>
-            <div className="row" style={{ gap: "1rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
               <label>
                 Left candidate{" "}
                 <select value={resolvedLeft?.id ?? ""} onChange={(e) => setLeftId(e.target.value)}>
@@ -130,7 +133,7 @@ export function Compare() {
             </div>
           </section>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: "1rem" }}>
             {renderCard(resolvedLeft, "Candidate A")}
             {renderCard(resolvedRight, "Candidate B")}
           </div>
@@ -140,15 +143,23 @@ export function Compare() {
             <p className="muted small">
               Notes added here are tagged with <code className="mono">id@rN</code> in this session only and are not persisted across reloads or cryptographically bound to a digest.
             </p>
-            <div className="row" style={{ gap: "0.5rem", marginTop: "0.5rem" }}>
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <select
+                aria-label="Note target candidate"
+                value={noteTarget}
+                onChange={(e) => setNoteTarget(e.target.value as "left" | "right")}
+              >
+                <option value="left">Left candidate</option>
+                <option value="right">Right candidate</option>
+              </select>
               <input
                 type="text"
                 value={draftNote}
                 onChange={(e) => setDraftNote(e.target.value)}
-                placeholder="Add a temporary local note for the left candidate revision (not persisted across reloads)..."
-                style={{ flex: 1 }}
+                placeholder={`Add a temporary local note for the ${noteTarget} candidate revision (not persisted across reloads)...`}
+                style={{ flex: 1, minWidth: "200px" }}
               />
-              <button type="button" onClick={addLocalNote} disabled={!draftNote.trim() || !resolvedLeft}>
+              <button type="button" className="btn" onClick={addLocalNote} disabled={!draftNote.trim() || !targetPkg}>
                 Add Local Note
               </button>
             </div>

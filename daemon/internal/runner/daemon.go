@@ -342,7 +342,9 @@ claim:
 		<-done
 	}
 	<-outboxDone
-	d.drainOutbox(context.Background())
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	d.drainOutbox(drainCtx)
+	drainCancel()
 	d.log.Info("daemon stopped")
 	return nil
 }
@@ -871,17 +873,29 @@ func authorEgressHosts(runtime string, sandbox *SandboxPolicy) []string {
 	for _, h := range runtimeProviderHosts(runtime) {
 		add(h)
 	}
+	for _, h := range harnessSignInHosts[runtime] {
+		add(h)
+	}
 	return hosts
 }
 
-// setProxyEnv removes any case-insensitive HTTP_PROXY, HTTPS_PROXY, and NO_PROXY
+// harnessSignInHosts are the hosts a harness reaches when it runs on the person's
+// subscription sign-in instead of an API key. Codex signed in with ChatGPT sends model
+// traffic to chatgpt.com (backend-api/codex) and refreshes its token at auth.openai.com,
+// neither of which is a model endpoint in models.json. Without them the default-on egress
+// filter blocks a ChatGPT-signed-in Codex on its first run.
+var harnessSignInHosts = map[string][]string{
+	"codex": {"chatgpt.com", "auth.openai.com"},
+}
+
+// setProxyEnv removes any case-insensitive HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, and NO_PROXY
 // entries so parent environment variables cannot bypass the egress filter, then
 // injects both uppercase and lowercase HTTP_PROXY/HTTPS_PROXY.
 func setProxyEnv(env []string, proxyURL string) []string {
 	out := make([]string, 0, len(env)+4)
 	for _, kv := range env {
 		k, _, ok := strings.Cut(kv, "=")
-		if ok && (strings.EqualFold(k, "HTTP_PROXY") || strings.EqualFold(k, "HTTPS_PROXY") || strings.EqualFold(k, "NO_PROXY")) {
+		if ok && (strings.EqualFold(k, "HTTP_PROXY") || strings.EqualFold(k, "HTTPS_PROXY") || strings.EqualFold(k, "ALL_PROXY") || strings.EqualFold(k, "NO_PROXY")) {
 			continue
 		}
 		out = append(out, kv)
@@ -894,11 +908,21 @@ func setProxyEnv(env []string, proxyURL string) []string {
 	)
 }
 
+func egressFilterEnabled(runtime string) bool {
+	v := strings.TrimSpace(os.Getenv("CONTROLROD_EGRESS_FILTER"))
+	a, ok := AdapterFor(runtime)
+	if !ok || !a.SandboxRequired() {
+		return v == "1" || strings.EqualFold(v, "true")
+	}
+	return v != "0" && !strings.EqualFold(v, "false")
+}
+
 // wireAuthorEgressFilter starts the local HTTP/CONNECT egress proxy and injects
-// proxy env vars into cmd.Env for author runs when CONTROLROD_EGRESS_FILTER=1.
+// proxy env vars into cmd.Env for author runs. Real runtimes enable it by default
+// (unless CONTROLROD_EGRESS_FILTER=0/false); fake runtime stays opt-in (=1).
 // Checker runs and nil commands are skipped.
 func wireAuthorEgressFilter(runtime string, cmd *exec.Cmd, ws *Workspace, sandbox *SandboxPolicy) (*EgressFilter, error) {
-	if cmd == nil || ws == nil || ws.Checker || os.Getenv("CONTROLROD_EGRESS_FILTER") != "1" {
+	if cmd == nil || ws == nil || ws.Checker || !egressFilterEnabled(runtime) {
 		return nil, nil
 	}
 	ef, err := startEgressFilter(authorEgressHosts(runtime, sandbox))
@@ -1113,14 +1137,18 @@ func (b *logBuffer) leftEvents(final ...Event) ([]Event, int) {
 	return events[start:], events[start].idx
 }
 
-// putBackEvents returns a failed batch's events to the front of the buffer.
+// putBackEvents returns a failed batch's events to the front of the buffer, capped at maxHeldEvents.
 func (b *logBuffer) putBackEvents(events []Event) {
 	if len(events) == 0 {
 		return
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.events = append(append(make([]Event, 0, len(events)+len(b.events)), events...), b.events...)
+	merged := append(append(make([]Event, 0, len(events)+len(b.events)), events...), b.events...)
+	if len(merged) > maxHeldEvents {
+		merged = merged[len(merged)-maxHeldEvents:]
+	}
+	b.events = merged
 	b.dirty = true
 }
 
@@ -1170,7 +1198,7 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 				buf.putBack(batch.Lines)
 				buf.putBackEvents(batch.Events)
 				stop(errOutOfContact)
-				continue
+				return
 			}
 			postCtx, cancelPost := context.WithDeadline(ctx, end)
 			reply, err := d.client.Log(postCtx, job.Run.ID, batch)

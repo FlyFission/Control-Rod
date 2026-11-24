@@ -827,7 +827,7 @@ func CodexEffectiveFeatures(ctx context.Context) (string, error) {
 	c, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(c, a.Path, args...)
-	cmd.Env = append(append(AgentEnv(os.Environ()), a.Env...), "CODEX_HOME="+tmp)
+	cmd.Env = withEnv(append(AgentEnv(os.Environ()), a.Env...), "CODEX_HOME="+tmp)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

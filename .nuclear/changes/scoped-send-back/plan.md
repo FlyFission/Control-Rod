@@ -1,6 +1,6 @@
 # Plan: scoped send-back after a failed check
 
-**Status:** Proposed. These steps run only after the owner says to build it.
+**Status:** Done. Each step is traced in [trace](trace.md).
 
 1. Add optional `evidence: string`, `location: { path: string; line?: int32 }` and `scope_paths: string[]` to `Finding` in `spec/records.tsp`. Regenerate `spec/generated`. Do not bump `schema_version`.
 2. Pre-check brief: ask for evidence, a location and a scope on each finding, and say that a finding without evidence is advisory.
@@ -11,7 +11,7 @@
 
 ## Required links
 
-[Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
 
 ## Exit criteria
 

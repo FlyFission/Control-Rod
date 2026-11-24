@@ -196,6 +196,15 @@ function pendingIntake(capture: Json): boolean {
 /** Dismisses an owned capture and stops its intake. */
 export async function dismissCapture(db: Db, cfg: WorkConfig, { userName: user, orgId }: { userName: string; orgId: string }, id: string) {
   return command(db, "capture.dismiss", async (c) => {
+    // Lock order matches the intake claim: the queued or running intake runs first, then the
+    // capture. The claim takes the run row and then a share lock on the capture, so taking the
+    // capture first here could deadlock against a claim of the same capture.
+    const runs = await c.query<RunRow>(
+      `select r.* from runs r
+         join object_owners o on o.object_kind = 'run' and o.object_id = r.id and o.org_id = $2
+        where r.package_id = $1 and r.role = 'intake' and r.status in ('queued', 'running')
+        order by r.id
+        for update of r`, [id, orgId]);
     const r = await c.query<{ body: Json }>(
       `select c.body from captures c
          join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $2
@@ -206,11 +215,6 @@ export async function dismissCapture(db: Db, cfg: WorkConfig, { userName: user, 
     const next = { ...cap, disposition: "answered", answer: `Dismissed by ${user}.` };
     validate(cfg, "Capture.json", next);
     await c.query("update captures set body = $2 where id = $1", [id, next]);
-    const runs = await c.query<RunRow>(
-      `select r.* from runs r
-         join object_owners o on o.object_kind = 'run' and o.object_id = r.id and o.org_id = $2
-        where r.package_id = $1 and r.role = 'intake' and r.status in ('queued', 'running')
-        for update of r`, [id, orgId]);
     for (const run of runs.rows) {
       if (run.status === "queued") await stopQueuedRun(c, cfg, run, `Stopped because the capture was dismissed by ${user}.`);
       else await requestRunningStop(c, cfg, user, run);
@@ -340,8 +344,8 @@ async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; 
   if (key) held.waiting_key = key;
   else delete held.waiting_key;
   validate(cfg, "Run.json", held);
-  await c.query("update runs set body = $2 where id = $1", [row.id, held]);
-  await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
+  const res = await c.query("update runs set body = $2 where id = $1 and status = 'queued'", [row.id, held]);
+  if (res.rowCount) await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
 }
 
 /* ---------- packages ---------- */
@@ -406,6 +410,82 @@ async function latestVerification(q: Db | Tx, id: string, rev: number, round?: n
   return r.rows[0] ?? null;
 }
 
+/** A finding path a fix may name: relative, no empty or `..` segment, no backslash or control character. Matches `FindingPath`. */
+function findingPath(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const p = v.trim();
+  if (!p || p.length > 512 || p.startsWith("/") || /[\\\u0000-\u001f]/.test(p)) return undefined;
+  const segs = p.endsWith("/") ? p.slice(0, -1).split("/") : p.split("/");
+  if (segs.some((seg) => seg === "" || seg === "..")) return undefined;
+  return p;
+}
+
+/** The optional evidence, location and scope a checker may add to a finding. Bad values are dropped. */
+function findingDetail(f: Json): Json {
+  const out: Json = {};
+  if (typeof f.evidence === "string" && f.evidence.trim()) out.evidence = f.evidence.slice(0, 4000);
+  const loc = f.location && typeof f.location === "object" ? f.location : undefined;
+  const locPath = findingPath(loc?.path);
+  if (locPath) {
+    out.location = { path: locPath };
+    if (Number.isInteger(loc.line) && loc.line >= 1) out.location.line = loc.line;
+  }
+  if (Array.isArray(f.scope_paths)) {
+    const scope = [...new Set(f.scope_paths.map(findingPath).filter((x: string | undefined): x is string => x !== undefined))].slice(0, 50);
+    if (scope.length) out.scope_paths = scope;
+  }
+  return out;
+}
+
+/** The union of the files a fix may change, from the findings that name any. Sorted. */
+export function fixScope(findings: Json[] | undefined): string[] {
+  const all = new Set<string>();
+  for (const f of findings ?? []) for (const p of Array.isArray(f.scope_paths) ? f.scope_paths : []) all.add(String(p));
+  return [...all].sort();
+}
+
+/** True when a changed path is one of the scope paths or sits under one as a folder. */
+function inScope(path: string, scope: string[]): boolean {
+  return scope.some((s) => path === s || path.startsWith(s.endsWith("/") ? s : `${s}/`));
+}
+
+/** Paths whose bytes differ between two output sets, including ones added or removed. Sorted. */
+export function changedPaths(before: { name: string; sha256: string }[], after: { name: string; sha256: string }[]): string[] {
+  const a = new Map(before.map((o) => [o.name, o.sha256]));
+  const b = new Map(after.map((o) => [o.name, o.sha256]));
+  const names = new Set([...a.keys(), ...b.keys()]);
+  return [...names].filter((n) => a.get(n) !== b.get(n)).sort();
+}
+
+/** Changed paths that fall outside the scope. An empty scope reports nothing: no scope was set. */
+export function outsideScope(changed: string[], scope: string[]): string[] {
+  return scope.length ? changed.filter((p) => !inScope(p, scope)) : [];
+}
+
+async function succeededAuthorRun(q: Db | Tx, id: string, rev: number, round: number) {
+  const r = await q.query<{ id: string }>(
+    "select id from runs where package_id = $1 and package_revision = $2 and role = 'author' and round = $3 and status = 'succeeded' order by created_at desc, id desc limit 1",
+    [id, rev, round],
+  );
+  return r.rows[0] ?? null;
+}
+
+/**
+ * Scope drift for an author round: files it changed, against the round before, that the previous
+ * check's findings did not name. Null for a first round, or when no finding named a scope.
+ */
+async function scopeDrift(q: Db | Tx, id: string, rev: number, round: number, authorRunId?: string) {
+  if (round < 2) return null;
+  const prevVer = await latestVerification(q, id, rev, round - 1);
+  const scope = fixScope(prevVer?.body.findings);
+  if (!scope.length) return null;
+  const prev = await succeededAuthorRun(q, id, rev, round - 1);
+  const cur = authorRunId ? { id: authorRunId } : await succeededAuthorRun(q, id, rev, round);
+  if (!prev || !cur) return null;
+  const outside = outsideScope(changedPaths(await outputDigestsOf(q, prev.id), await outputDigestsOf(q, cur.id)), scope);
+  return { round, scope_paths: scope, outside };
+}
+
 /** What a person reviews before deciding: the revision, its current output and its pre-check. */
 export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
   const author = await latestAuthorRun(q, pkg.id, pkg.revision);
@@ -463,6 +543,8 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
   const current = await currentDeliverable(db, id, pkg.revision);
   const warning = current ? await checkWarning(db, id, current.digest) : null;
   const lane = await liveLane(db, id, pkg.body.data_lane, cfg);
+  const drift =
+    s.author && s.author.status === "succeeded" ? await scopeDrift(db, id, pkg.revision, Number(s.author.round), s.author.id) : null;
   return {
     ...(pkg.status === "draft" ? { draft_etag: draftEtag(pkg.body) } : {}),
     ...(lane ? { effective_lane: lane } : {}),
@@ -474,6 +556,7 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     recheck_overrides: await listRecheckOverrides(db, id),
     ...(blocked ? { check_blocked: blocked } : {}),
     ...(warning ? { check_warning: warning } : {}),
+    ...(drift?.outside.length ? { scope_drift: drift } : {}),
     decisions: decisions.rows.map((d) => d.body),
     subject_digest: { algorithm: "sha256", value: s.digest },
     // What a signature on this revision binds, in words; for statuses with a gate decision.
@@ -512,7 +595,9 @@ export async function packageOutput(db: Db, id: string, name: string) {
   const pkg = await currentPackage(db, id);
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
   const author = await latestAuthorRun(db, id, pkg.revision);
-  if (!author) throw new Refusal(404, "not-found", "No output yet");
+  if (!author || author.status !== "succeeded" || author.body?.scram_id) {
+    throw new Refusal(404, "not-found", "No output yet");
+  }
   const r = await db.query<{ bytes: Buffer; sha256: string }>("select bytes, sha256 from outputs where run_id = $1 and name = $2", [
     author.id,
     name,
@@ -1178,7 +1263,9 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
     const capture = cap.rows[0]?.body;
     const workflow = await workflowContext(c, cfg, run, undefined);
-    const isNuclearCapture = typeof capture?.text === "string" && /\[mode:nuclear-grade\]/i.test(capture.text);
+    const isNuclearCapture = (captureTags(capture?.text) ?? []).some(
+      (t) => t.key === "mode" && t.value.toLowerCase() === "nuclear-grade",
+    );
     const brief = [
       header,
       findRole(cfg, "intake") ?? "",
@@ -1228,11 +1315,23 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   if (run.role === "pre-check") {
     const author = await latestAuthorRun(c, pkg.id, pkg.revision);
     for (const o of author ? await outputsOf(c, author.id) : []) inputs.push(file(`deliverables/${o.name}`, o.bytes));
+    const drift = author && author.status === "succeeded" ? await scopeDrift(c, pkg.id, pkg.revision, Number(author.round), author.id) : null;
+    if (drift?.outside.length) {
+      inputs.push(file("scope-drift.json", Buffer.from(JSON.stringify(drift, null, 2))));
+      extra.push(
+        `## Changes outside the fix scope\n\nThe previous check limited this fix to ${drift.scope_paths.map((p) => `\`${p}\``).join(", ")}. This round also changed ${drift.outside.map((p) => `\`${p}\``).join(", ")} (inputs/scope-drift.json). Check that each of those changes was needed, and say so in a finding if not.\n`,
+      );
+    }
   } else {
     if (run.round > 1) {
       const prevVer = await latestVerification(c, pkg.id, pkg.revision, run.round - 1);
       findings = prevVer?.body.findings ?? [];
       extra.push(`## Findings to fix from the pre-check\n\n${JSON.stringify(findings, null, 2)}\n`);
+      const scope = fixScope(findings);
+      if (scope.length)
+        extra.push(
+          `## Scope of this fix\n\nChange only these files:\n\n${scope.map((p) => `- \`${p}\``).join("\n")}\n\nKeep every other file as it is in previous/. If the fix truly needs another file, change it and say why. Control Rod reports any file changed outside this list to the checker and on the card.\n`,
+        );
       const prev = await c.query<{ id: string }>(
         "select id from runs where package_id = $1 and package_revision = $2 and role = 'author' and round = $3 and status = 'succeeded' order by created_at desc, id desc limit 1",
         [pkg.id, pkg.revision, run.round - 1],
@@ -1466,6 +1565,10 @@ export async function claim(
           return started;
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
+        // Lock the queued run first so hold/stop decisions serialize with concurrent claims or dismissals.
+        const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
+        if(!locked.rows[0]) continue;row=locked.rows[0];
+        if(!legacyRun(row)) continue;
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
         const capture = (await c.query<{ body: Json }>("select body from captures where id = $1 for share", [row.package_id])).rows[0]?.body;
         if (!pendingIntake(capture)) {
@@ -1491,9 +1594,6 @@ export async function claim(
         }
         const runtime = pickRuntime(netIntake.offer);
         if (!runtime) continue;
-        const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
-        if(!locked.rows[0]) continue;row=locked.rows[0];
-          if(!legacyRun(row)) continue;
         // An intake run whose capture is tagged for a workflow needs that pack, or it fails here.
         if (await blockedByWorkflowPack(c, cfg, row, undefined)) continue;
         const budget = await reserveForRun(c, row, `intake-${runtime}`, ceiling);
@@ -1575,6 +1675,9 @@ async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id:
 /** The most normalized events one run keeps; past it a single dropped marker records the overflow. */
 export const MAX_RUN_EVENTS = 20000;
 
+/** The largest PostgreSQL int (int4), the type of run_events.origin. */
+const PG_INT_MAX = 2147483647;
+
 /**
  * Stores a log post's normalized events in order (specification 20). A permission request becomes
  * a run.waiting event naming the tool and the digest of its input (plan task 2.9), and a breaker
@@ -1585,6 +1688,10 @@ async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown
   if (raw.length > 500) throw new Refusal(400, "too-many-lines", "Send at most 500 events per batch");
   for (const e of raw) validate(cfg, "NormalizedEvent.json", e);
   if (from !== undefined && !(Number.isInteger(from) && (from as number) >= 0)) throw new Refusal(400, "invalid", "events_from must be a whole number");
+  // run_events.origin is a PostgreSQL int (migration 014): every origin this batch writes must fit,
+  // or the insert fails inside the command's transaction. Every refusal here comes before any query.
+  // events_from itself must fit too: an empty batch can still write a dropped marker at it.
+  if (from !== undefined && (from as number) + Math.max(raw.length, 1) - 1 > PG_INT_MAX) throw new Refusal(400, "invalid", "events_from is out of range");
   const last = (await c.query<{ n: number; o: number | null }>(
     "select coalesce(max(seq), 0)::int as n, max(origin)::int as o from run_events where run_id = $1", [row.id])).rows[0]!;
   let seq = last.n;
@@ -2542,7 +2649,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   if (body.trace) finished.trace = body.trace;
   takeReceipt(cfg, row, finished, body);
   const counting = body.verification != null || body.criterion_results !== undefined;
-  if (row.role === "pre-check" && countedProvider(row.body?.runtime?.provider) && counting) {
+  if (row.role === "pre-check" && countedProvider(row.body?.runtime?.provider) && counting && !row.body.stop_requested_at) {
     const pkg = await currentPackage(c, row.package_id, true);
     const pinned = (await c.query<{ deliverable_digest: string }>(
       "select deliverable_digest from checker_queued_digests where run_id = $1", [runId])).rows[0]?.deliverable_digest;
@@ -2661,7 +2768,16 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     finished.status=status;
     if (refusal.code === "scram-quarantined") finished.label = "Quarantined";
     holdIfUnproven(row, finished, body);
-    if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
+    if (body.events !== undefined) {
+      try {
+        await recordRunEvents(c, cfg, row, body.events, body.events_from);
+      } catch (e) {
+        // The malformed completion is quarantined below; never let invalid trailing events strand the run running.
+        // recordRunEvents refuses before it writes anything, so a refusal leaves the transaction usable. Any other
+        // error came from the database, which has aborted the transaction: no write below could succeed, so rethrow.
+        if (!(e instanceof Refusal)) throw e;
+      }
+    }
     await quarantineCompletion(c,runId,key,body,refusal.code);
     if (adopted.associated) await quarantineScramCompletion(c, runId, key, body);
     const receipt = receiptOf(runId, key, status, [], refusal);
@@ -2760,7 +2876,9 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     );
     if (!project.rowCount) throw new Refusal(409, "wrong-state", "The selected workspace project is unavailable for this capture");
   }
-  const captureIsNuclear = /\[mode:nuclear-grade\]/i.test(String(capture.text ?? ""));
+  const captureIsNuclear = (captureTags(capture.text) ?? []).some(
+    (t) => t.key === "mode" && t.value.toLowerCase() === "nuclear-grade",
+  );
   for (const d of ordered) {
     const rawMode = String(d.mode ?? "");
     const isNuclearDraft = rawMode === "nuclear-grade" || captureIsNuclear;
@@ -2813,6 +2931,8 @@ async function finishAuthor(c: Tx, cfg: WorkConfig, row: Json, agent: Actor) {
   const next = kernel(decide({ status: pkg.status, action: "submit-output", actor_kind: "agent", actor_id: agent.id, ...(preparation?{preparation}:{}) }), "submit output");
   await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
   await appendEvent(c, "package.output", pkg.id, agent, { revision: pkg.revision, round: row.round, status: next });
+  const drift = await scopeDrift(c, pkg.id, pkg.revision, Number(row.round), row.id);
+  if (drift?.outside.length) await appendEvent(c, "package.scope-drift", pkg.id, agent, { revision: pkg.revision, ...drift });
   await queueRun(c, cfg, pkg.id, pkg.revision, "pre-check", row.round);
 }
 
@@ -2884,6 +3004,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       id: String(f.id ?? `F-${String(i + 1).padStart(3, "0")}`).slice(0, 20),
       severity: ["info", "minor", "major", "critical"].includes(f.severity) ? f.severity : "major",
       text: String(f.text ?? "").slice(0, 4000) || "(no text)",
+      ...(f && typeof f === "object" ? findingDetail(f) : {}),
     })),
     outcome: raw.outcome,
     independence: {
@@ -3183,7 +3304,7 @@ export async function office(db: Db, orgId: string) {
           package_id: p.id,
           package_revision: p.revision,
           title,
-          detail: `Pre-check ${ver.body.outcome} after ${author.round} rounds with ${ver.body.findings.length} findings`,
+          detail: `Pre-check ${ver.body.outcome} after ${author.round} rounds with ${ver.body.findings.length} findings. Three failed rounds usually mean the plan needs another look: Return sends it back to planning.`,
           since: ver.created_at.toISOString(),
         });
       }

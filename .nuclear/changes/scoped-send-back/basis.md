@@ -4,7 +4,7 @@
 **Related risk record:** `risk.md`
 **Owner:** Ben Huffer
 **Date:** 2026-11-23
-**Status:** Proposed. Nothing is built yet. This record asks the owner whether to build it.
+**Status:** Built, for owner review. The owner asked for it on 2026-11-24 (thread reply "Sure" to building the scoped send-back).
 
 ## Mission / need
 
@@ -45,7 +45,7 @@ This idea came from a public post on agent loops that the owner shared on 2026-1
 
 ## Required links
 
-[Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
 
 ## Exit criteria
 

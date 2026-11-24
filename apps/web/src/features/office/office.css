@@ -220,21 +220,50 @@
   margin: 0;
   font-size: 22px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.office-view[data-scram-active] .office-head h1 {
+  color: var(--stuck);
 }
 .office-count {
   margin: 4px 0 0;
   color: var(--text-2);
 }
-.office-controls,
-.office-lenses {
+.office-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+/* Recessed segmented console switch bank. */
+.office-lenses {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background-color: var(--surface);
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.35), 0 1px 0 rgb(255 255 255 / 0.04);
+}
+.office-lenses .btn {
+  min-height: 30px;
+  padding: 0 11px;
+  border-color: transparent;
+  border-radius: 6px;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+.office-lenses .btn:hover:not(:disabled):not(.active) {
+  background-color: var(--line);
+  color: var(--text);
 }
 .office-lenses .btn.active {
-  border-color: var(--accent);
+  background-color: var(--panel);
+  border-color: var(--accent-dim);
   color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35), inset 0 -2px 0 var(--accent);
 }
 .office-legend {
   display: flex;
@@ -295,23 +324,29 @@
 }
 .office-card {
   display: grid;
-  gap: 8px;
-  padding: 14px;
+  gap: 10px;
+  padding: 16px;
   border: 1px solid var(--line-2);
-  border-radius: 12px;
-  background: var(--panel);
+  border-radius: 10px;
+  background-color: var(--panel);
+  box-shadow: 0 14px 32px -22px rgb(0 0 0 / 0.75), inset 0 1px 0 rgb(255 255 255 / 0.05);
 }
 .office-card h2 {
   margin: 0;
   font-size: 16px;
+  line-height: 1.3;
 }
 .office-card p {
   margin: 0;
 }
 .office-state {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background-color: var(--surface);
   font-weight: 600;
 }
 .office-marks {
@@ -351,20 +386,33 @@
 }
 .office-glance {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 10px;
-  margin: 0;
-  font-size: var(--fs-ui);
+  grid-template-columns: minmax(82px, max-content) 1fr;
+  gap: 7px 12px;
+  margin: 2px 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-small);
 }
 .office-glance dt {
   color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-top: 2px;
 }
 .office-glance dd {
   margin: 0;
+  color: var(--text);
 }
 .office-actions h3 {
-  font-size: var(--fs-ui);
-  margin: 4px 0;
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 4px 0 6px;
 }
 .office-actions ul {
   display: grid;
@@ -389,52 +437,171 @@
   border-color: var(--stuck);
   color: var(--stuck);
 }
+/* Guarded nuclear trip button: crimson anodized presence in the Plant control bar. */
+.scram-trigger {
+  position: relative;
+  border-color: #ff5d5d;
+  background-color: #3f0b10;
+  background-image: linear-gradient(180deg, rgb(255 120 120 / 0.16), rgb(63 11 16 / 0) 60%);
+  color: #ffe8e8;
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 0 14px;
+  box-shadow: 0 0 16px rgb(255 77 77 / 0.28), inset 0 1px 0 rgb(255 190 190 / 0.25), inset 0 -2px 0 rgb(0 0 0 / 0.35);
+  transition: background-color 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+.scram-trigger:hover:not(:disabled) {
+  border-color: #ff8080;
+  background-color: #540f16;
+  color: #ffffff;
+  box-shadow: 0 0 24px rgb(255 77 77 / 0.5), inset 0 1px 0 rgb(255 210 210 / 0.32), inset 0 -2px 0 rgb(0 0 0 / 0.35);
+}
 /* A native modal dialog: the page behind it is inert and focus stays inside. */
 .office-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(2, 4, 8, 0.78);
+  backdrop-filter: blur(3px);
 }
 .office-dialog[open] {
   display: grid;
 }
 .office-dialog {
-  gap: 10px;
-  color: inherit;
-  width: min(560px, calc(100vw - 32px));
-  padding: 18px;
-  border: 1px solid var(--line-2);
+  position: relative;
+  overflow: hidden;
+  gap: 12px;
+  color: var(--text);
+  width: min(580px, calc(100vw - 32px));
+  padding: 24px 20px 18px;
+  border: 1px solid #b83238;
   border-radius: 12px;
-  background: var(--panel);
+  background-color: var(--panel);
+  box-shadow: 0 28px 70px rgb(0 0 0 / 0.78), 0 0 36px rgb(255 77 77 / 0.2), inset 0 1px 0 rgb(255 170 170 / 0.12);
+}
+.office-dialog::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background-image: repeating-linear-gradient(-45deg, #ff4d4d 0 10px, #24070a 10px 20px);
+}
+.office-dialog-eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--stuck);
 }
 .office-dialog h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 700;
 }
 .office-dialog fieldset {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
   border: 1px solid var(--line-2);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
+  background-color: var(--surface);
+}
+.office-dialog legend {
+  padding: 0 6px;
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 .office-dialog-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+.office-dialog .scram-confirm {
+  border-color: #ff5d5d;
+  background-color: #9e1520;
+  background-image: linear-gradient(180deg, rgb(255 150 150 / 0.18), rgb(158 21 32 / 0) 60%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 20px rgb(255 77 77 / 0.35), inset 0 1px 0 rgb(255 210 210 / 0.25);
+}
+.office-dialog .scram-confirm:hover:not(:disabled) {
+  background-color: #b81a27;
+  box-shadow: 0 0 26px rgb(255 77 77 / 0.52), inset 0 1px 0 rgb(255 220 220 / 0.3);
 }
 .office-scram-scope {
   margin: 0;
-  padding: 8px 10px;
-  border-left: 3px solid var(--stuck);
-}
-.office-scram {
-  display: grid;
-  gap: 10px;
   padding: 10px 12px;
-  border: 1px solid var(--stuck);
-  border-radius: 8px;
+  border: 1px solid #5c1920;
+  border-left: 3px solid #ff4d4d;
+  border-radius: 6px;
+  background-color: #1c080b;
+  color: #ffe8e8;
+  box-shadow: inset 0 2px 8px rgb(0 0 0 / 0.4);
+}
+.office-scram-scope p {
+  margin: 0 0 6px;
+}
+.office-scram-scope p:last-child {
+  margin-bottom: 0;
+}
+/* Active Reactor Trip / SCRAM Hold Panel. */
+.office-scram {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 12px;
+  padding: 18px 16px 14px;
+  border: 1px solid #ff4d4d;
+  border-radius: 10px;
+  background-color: #1c080b;
+  background-image: linear-gradient(180deg, rgb(255 77 77 / 0.14), rgb(28 8 11 / 0) 80px);
+  color: #ffe8e8;
+  box-shadow: 0 0 28px rgb(255 77 77 / 0.25), inset 0 1px 0 rgb(255 160 160 / 0.18);
+}
+.office-scram::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-image: repeating-linear-gradient(-45deg, #ff4d4d 0 10px, #24070a 10px 20px);
+}
+.office-scram-eyebrow {
+  margin: 0 0 4px;
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ff9c9c;
 }
 .office-scram-item p {
   margin: 0 0 6px;
+}
+.office-scram .btn {
+  border-color: #ff7a7a;
+  background-color: #2c0c11;
+  color: #ffe8e8;
+}
+.office-scram .btn:hover:not(:disabled) {
+  background-color: #3f1219;
+  border-color: #ff9c9c;
+}
+.office-scram .muted {
+  color: #e6b8bc;
+}
+.office-scram-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #4e1820;
 }
 .office-scram-detail ul {
   margin: 6px 0;
@@ -487,7 +654,7 @@
 }
 .office-scram-new {
   padding: 6px 8px;
-  border-left: 3px solid var(--stuck);
+  border-left: 3px solid #ff4d4d;
 }
 .office-theme-choice {
   display: flex;
@@ -628,23 +795,95 @@
 }
 .plant-core-buttress {
   fill: #22303f;
-  stroke: #4a6580;
-  stroke-width: 0.8;
+  stroke: #567492;
+  stroke-width: 0.85;
 }
 .plant-core-ticks {
   fill: none;
+  stroke: #46617b;
+  stroke-width: 0.9;
+}
+.plant-core-ticks-cardinal {
+  fill: none;
+  stroke: #85abc9;
+  stroke-width: 1.4;
+}
+/* Primary coolant loop nozzles connecting pressure vessel to biological shield. */
+.plant-core-nozzle-body {
+  fill: #172330;
   stroke: #4a6580;
-  stroke-width: 1;
+  stroke-width: 0.9;
+}
+.plant-core-nozzle-flange {
+  fill: #26394d;
+  stroke: #6f8fad;
+  stroke-width: 0.8;
+}
+.plant-core-coolant {
+  fill: #0f2234;
+  stroke: #24405c;
+  stroke-width: 0.6;
+  transition: fill 700ms ease, stroke 700ms ease, filter 700ms ease;
+}
+.plant-core-svg[data-lit="lit"] .plant-core-coolant {
+  fill: #46d3ff;
+  stroke: #b8eeff;
+  filter: drop-shadow(0 0 3px rgb(70 211 255 / 0.75));
+}
+.plant-core-svg:is([data-rods="inserted"], [data-rods="bank"]) .plant-core-coolant {
+  fill: #2b1318;
+  stroke: #ff5d5d;
+  filter: drop-shadow(0 0 2px rgb(255 93 93 / 0.45));
 }
 .plant-core-crane {
   transform-box: view-box;
   transform-origin: 140px 102px;
 }
+.plant-core-flange {
+  fill: none;
+  stroke: #344c64;
+  stroke-width: 4.2;
+}
+.plant-core-stud {
+  fill: #7f9fc0;
+  stroke: #101923;
+  stroke-width: 0.4;
+}
 .plant-core-vessel {
   fill: none;
-  stroke: #7f9fc0;
+  stroke: #88aacb;
   stroke-width: 2.4;
-  transition: stroke 600ms ease;
+  transition: stroke 600ms ease, filter 600ms ease;
+}
+.plant-core-svg[data-lit="lit"] .plant-core-vessel {
+  stroke: #a6d8f5;
+  filter: drop-shadow(0 0 3px rgb(70 211 255 / 0.38));
+}
+.plant-core-caustic {
+  stroke: #68d4ff;
+  stroke-width: 1.2;
+  stroke-dasharray: 8 10 3 12;
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 140px 102px;
+  transition: opacity 900ms ease;
+}
+.plant-core-svg[data-lit="lit"] .plant-core-caustic {
+  opacity: 0.42;
+  animation: plant-turn 90s linear infinite reverse;
+}
+.plant-core-trip-ring {
+  stroke: #ff4d4d;
+  stroke-width: 1.6;
+  stroke-dasharray: 6 4;
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+.plant-core-trip-ring-inner {
+  stroke: #ff8080;
+  stroke-width: 1;
+  opacity: 0;
+  transition: opacity 400ms ease;
 }
 .plant-core-cell {
   fill: #132031;
@@ -653,13 +892,21 @@
   transition: fill 900ms ease;
 }
 .plant-core-svg[data-lit="lit"] .plant-core-cell {
-  stroke: #d8f2ff;
-  stroke-opacity: 0.35;
+  stroke: #dff4ff;
+  stroke-opacity: 0.45;
 }
 .plant-core-svg[data-lit="unknown"] .plant-core-cell {
   fill: #0e151e;
   stroke: #1f2c3b;
   stroke-dasharray: 2 2;
+}
+.plant-core-glint {
+  fill: #e8faff;
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+.plant-core-svg[data-lit="lit"] .plant-core-glint {
+  opacity: 0.72;
 }
 .plant-core-glow,
 .plant-core-bloom {
@@ -670,7 +917,7 @@
   opacity: 1;
 }
 .plant-core-svg[data-lit="lit"] .plant-core-bloom {
-  opacity: 0.85;
+  opacity: 0.88;
 }
 .plant-core-rod {
   fill: #070b11;
@@ -678,28 +925,45 @@
   stroke-width: 1;
 }
 .plant-core-rod[data-inserted] {
-  fill: #f4f8ff;
+  fill: #ff3b3b;
   stroke: #ffffff;
+  stroke-width: 1.15;
+}
+.plant-core-rod-core {
+  fill: #ffffff;
 }
 .plant-core-rod-halo {
-  fill: #ff6a4d;
-  opacity: 0.85;
+  fill: #ff4d4d;
+  opacity: 0.92;
 }
 .plant-core-rod[data-drill] {
   fill: none;
   stroke: #ffb347;
   stroke-dasharray: 1.5 1.5;
 }
-/* A SCRAM in force: the vessel rings red and the core is drawn shut down. */
+/* A SCRAM in force: double-ringed crimson trip halo around the vessel and core drawn shut down. */
 .plant-core-svg:is([data-rods="inserted"], [data-rods="bank"]) .plant-core-vessel {
   stroke: #ff5d5d;
-  filter: drop-shadow(0 0 4px rgb(255 93 93 / 0.8));
+  filter: drop-shadow(0 0 6px rgb(255 77 77 / 0.9));
+}
+.plant-core-svg:is([data-rods="inserted"], [data-rods="bank"]) .plant-core-trip-ring {
+  opacity: 0.9;
+  filter: drop-shadow(0 0 5px rgb(255 77 77 / 0.85));
+}
+.plant-core-svg:is([data-rods="inserted"], [data-rods="bank"]) .plant-core-trip-ring-inner {
+  opacity: 0.75;
+}
+.plant-core-svg:is([data-rods="inserted"], [data-rods="bank"]) .plant-core-caustic {
+  opacity: 0;
 }
 .plant-core-svg[data-rods="inserted"] .plant-core-assemblies {
   filter: saturate(0.25) brightness(0.55);
 }
+.plant-core-svg[data-rods="inserted"] .plant-core-glint {
+  opacity: 0;
+}
 .plant-core-svg[data-rods="inserted"] .plant-core-bloom {
-  opacity: 0.2;
+  opacity: 0.18;
 }
 /* The main control room's light: warm, and only while something waits on you. */
 .plant-control-light {
@@ -716,10 +980,10 @@
 @keyframes plant-breathe {
   0%,
   100% {
-    opacity: 0.85;
+    opacity: 0.88;
   }
   50% {
-    opacity: 0.55;
+    opacity: 0.56;
   }
 }
 @keyframes plant-turn {
@@ -733,101 +997,183 @@
 .plant-core-svg[data-lit="lit"] .plant-core-crane {
   animation: plant-turn 120s linear infinite;
 }
-.office-stage[data-motion="paused"] :is(.plant-control-light, .plant-core-cell, .plant-core-glow, .plant-core-bloom, .plant-core-crane, .plant-core-vessel) {
+.office-stage[data-motion="paused"]
+  :is(
+    .plant-control-light,
+    .plant-core-cell,
+    .plant-core-glow,
+    .plant-core-bloom,
+    .plant-core-crane,
+    .plant-core-vessel,
+    .plant-core-caustic,
+    .plant-core-coolant,
+    .plant-core-glint,
+    .plant-core-trip-ring,
+    .plant-core-trip-ring-inner
+  ) {
   transition: none;
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.plant-control-light, .plant-core-cell, .plant-core-glow, .plant-core-bloom, .plant-core-crane, .plant-core-vessel) {
+  :is(
+    .plant-control-light,
+    .plant-core-cell,
+    .plant-core-glow,
+    .plant-core-bloom,
+    .plant-core-crane,
+    .plant-core-vessel,
+    .plant-core-caustic,
+    .plant-core-coolant,
+    .plant-core-glint,
+    .plant-core-trip-ring,
+    .plant-core-trip-ring-inner,
+    .office-lenses .btn,
+    .scram-trigger,
+    .plant-console
+  ) {
     transition: none;
     animation: none;
   }
-  .plant-core-svg[data-lit] :is(.plant-core-bloom, .plant-core-crane) {
+  .plant-core-svg[data-lit] :is(.plant-core-bloom, .plant-core-crane, .plant-core-caustic) {
     animation: none;
   }
 }
 
-/* The console around the drawing. It stays dark in every look: it is an instrument, not page chrome. */
+/* The console around the drawing: anodized steel control housing. Stays dark in every look. */
 .plant-console {
   padding: 0 12px 12px;
-  border: 1px solid #1b2836;
+  border: 1px solid #1d2d3f;
   border-radius: 12px;
-  background-color: #05080d;
-  background-image: linear-gradient(180deg, #0a1018, #05080d 40px);
-  box-shadow: 0 30px 60px -30px #000000, inset 0 1px 0 rgb(255 255 255 / 0.05);
+  background-color: #05090f;
+  background-image: linear-gradient(180deg, #0e1724 0%, #070d15 44px, #05090f 100%);
+  box-shadow: 0 28px 60px -26px #000000, inset 0 1px 0 rgb(255 255 255 / 0.08);
+  transition: border-color 400ms ease, box-shadow 400ms ease;
+}
+.plant-console[data-status="lit"] {
+  border-color: #1f5578;
+  box-shadow:
+    0 28px 60px -24px #000000,
+    0 0 0 1px rgb(70 211 255 / 0.16),
+    0 0 34px -6px rgb(0 210 255 / 0.28),
+    inset 0 1px 0 rgb(170 234 255 / 0.15);
+}
+.plant-console[data-status="scram"] {
+  border-color: #c43038;
+  background-image: linear-gradient(180deg, #24090d 0%, #0d0609 44px, #070508 100%);
+  box-shadow:
+    0 28px 60px -24px #000000,
+    0 0 0 1px rgb(255 93 93 / 0.35),
+    0 0 38px -4px rgb(255 77 77 / 0.4),
+    inset 0 1px 0 rgb(255 160 160 / 0.22);
+}
+.plant-console[data-status="drill"] {
+  border-color: #966018;
+  box-shadow:
+    0 28px 60px -24px #000000,
+    0 0 28px -6px rgb(255 179 71 / 0.26),
+    inset 0 1px 0 rgb(255 220 150 / 0.14);
 }
 .plant-console-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 22px;
-  padding: 10px 2px 8px 16px;
+  gap: 8px 20px;
+  padding: 10px 4px 9px 14px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #162332;
   color: #9fb3c8;
   font-family: var(--mono);
   font-size: var(--fs-chip);
   text-transform: uppercase;
   letter-spacing: 0.14em;
 }
+.plant-console[data-status="scram"] .plant-console-bar {
+  border-bottom-color: #46151b;
+}
 .plant-console-title {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: #c5d6e6;
+  gap: 9px;
+  color: #d4e3f2;
+  font-weight: 600;
 }
 .plant-console-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: #43e08a;
-  box-shadow: 0 0 8px #43e08a;
+  background-color: #43e08a;
+  box-shadow: 0 0 0 3px rgb(67 224 138 / 0.2), 0 0 10px #43e08a;
+}
+.plant-console[data-status="lit"] .plant-console-dot {
+  background-color: #46d3ff;
+  box-shadow: 0 0 0 3px rgb(70 211 255 / 0.22), 0 0 10px #46d3ff;
+}
+.plant-console[data-status="dark"] .plant-console-dot,
+.plant-console[data-status="unknown"] .plant-console-dot {
+  background-color: #6b8096;
+  box-shadow: 0 0 0 3px rgb(107 128 150 / 0.18);
+}
+.plant-console[data-status="drill"] .plant-console-dot {
+  background-color: #ffb347;
+  box-shadow: 0 0 0 3px rgb(255 179 71 / 0.24), 0 0 10px #ffb347;
 }
 .plant-console[data-status="scram"] .plant-console-dot {
-  background: #ff5d5d;
-  box-shadow: 0 0 8px #ff5d5d;
+  background-color: #ff5d5d;
+  box-shadow: 0 0 0 3px rgb(255 93 93 / 0.28), 0 0 12px #ff5d5d;
 }
 .plant-console-readouts {
   display: inline-flex;
-  gap: 18px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .plant-console-readout {
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
+  padding: 2px 9px;
+  border: 1px solid #162436;
+  border-radius: 4px;
+  background-color: #070e17;
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.5);
 }
 .plant-console-readout-name {
-  color: #8195aa;
+  color: #889eb5;
 }
 .plant-console-readout-value {
   color: #7fe0ff;
   font-size: var(--fs-small);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 8px rgb(70 211 255 / 0.55);
+  text-shadow: 0 0 10px rgb(70 211 255 / 0.65);
 }
 .plant-console-status {
   margin-left: auto;
-  padding: 3px 10px;
-  border: 1px solid #2a3b4f;
-  border-radius: 3px;
-  background-color: #0b1118;
-  color: #9fb3c8;
+  padding: 4px 11px;
+  border: 1px solid #2b3f54;
+  border-radius: 4px;
+  background-color: #0b121b;
+  color: #aec2d6;
+  font-weight: 600;
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.55);
 }
 .plant-console-status[data-tone="lit"] {
-  border-color: #1f6f96;
-  background-color: #06131d;
-  color: #7fe0ff;
-  box-shadow: 0 0 14px rgb(70 211 255 / 0.25);
+  border-color: #2986b8;
+  background-color: #061624;
+  color: #8ce5ff;
+  box-shadow: 0 0 16px rgb(70 211 255 / 0.3), inset 0 1px 0 rgb(170 236 255 / 0.16);
 }
 .plant-console-status[data-tone="scram"] {
   border-color: #ff5d5d;
-  background-color: #4a0d0d;
-  color: #ffe3e3;
-  box-shadow: 0 0 16px rgb(255 93 93 / 0.45);
+  background-color: #4f0d12;
+  color: #ffe8e8;
+  box-shadow: 0 0 20px rgb(255 77 77 / 0.55), inset 0 1px 0 rgb(255 190 190 / 0.22);
 }
 .plant-console-status[data-tone="drill"] {
   border-color: #ffb347;
   border-style: dashed;
-  background-color: #1f1606;
+  background-color: #241907;
   color: #ffe7c2;
+  box-shadow: 0 0 14px rgb(255 179 71 / 0.3);
 }
 .plant-console-status[data-tone="unknown"] {
   border-style: dashed;
@@ -877,11 +1223,21 @@
 .plant-console-corner {
   position: absolute;
   z-index: 2;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border: 0 solid #46d3ff;
-  opacity: 0.8;
+  opacity: 0.88;
+  filter: drop-shadow(0 0 5px rgb(70 211 255 / 0.65));
   pointer-events: none;
+}
+.plant-console[data-status="scram"] .plant-console-corner {
+  border-color: #ff5d5d;
+  opacity: 1;
+  filter: drop-shadow(0 0 7px rgb(255 77 77 / 0.9));
+}
+.plant-console[data-status="drill"] .plant-console-corner {
+  border-color: #ffb347;
+  filter: drop-shadow(0 0 5px rgb(255 179 71 / 0.7));
 }
 .plant-console-corner[data-corner="tl"] {
   top: -4px;
@@ -909,18 +1265,48 @@
 }
 
 /*
- * The annunciator, in the instrument tile's language (design/instruments/instruments.css): four
- * windows, dark when clear and lit with the lamp colour and a glyph when active, each at least
- * 160 x 56 px, the count in mono. Colours come only from --plant-* tokens. A window flashes three
- * times when it comes on, never on the first reading.
+ * The annunciator: backlit engraved acrylic tiles in a recessed matte-obsidian steel tray.
+ * Dark when clear; lit, each window glows incandescent amber (crimson for SCRAM/stuck) and
+ * flashes three times when it comes on. Stays dark in every look: it is an instrument.
  */
 .plant-annunciator {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0;
-  padding: 0;
+  padding: 9px;
+  border: 1px solid #1d2d3f;
+  border-radius: 10px;
+  background-color: #04070c;
+  background-image: linear-gradient(180deg, #080f18 0%, #04070c 28px);
   list-style: none;
+  box-shadow: inset 0 3px 10px #000000, inset 0 0 0 1px rgb(255 255 255 / 0.03), 0 1px 0 rgb(255 255 255 / 0.05);
+}
+.plant-window {
+  flex: 1 1 160px;
+  max-width: 260px;
+  border: 1px solid #1f3042;
+  border-radius: 5px;
+  background-color: #091018;
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.08) 0%, rgb(255 255 255 / 0.02) 38%, rgb(0 0 0 / 0) 42%, rgb(0 0 0 / 0.3) 100%);
+  color: #93a8bc;
+  font-size: var(--fs-label);
+  line-height: 1.25;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09), inset 0 -10px 18px rgb(0 0 0 / 0.45), 0 1px 2px rgb(0 0 0 / 0.65);
+  transition: background-color 300ms ease, box-shadow 300ms ease, border-color 300ms ease;
+}
+.plant-window-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 11px;
+  padding: 8px 12px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 4px;
+}
+a.plant-window-body:hover {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
 }
 @media (max-width: 1023px) {
   /* Phone and tablet: a 2 x 2 grid. */
@@ -947,11 +1333,59 @@
   margin-left: auto;
   min-width: 2ch;
   font-family: var(--mono);
-  font-size: var(--fs-headline);
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  color: #cdd8e3;
+}
+.plant-window-label {
+  font-family: var(--mono);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.plant-window-note {
+  font-size: var(--fs-chip);
+}
+.plant-window[data-state="lit"] {
+  border-color: #ffbc57;
+  background-color: #3d2605;
+  background-image:
+    linear-gradient(180deg, rgb(255 240 195 / 0.22) 0%, rgb(255 200 100 / 0) 36%),
+    radial-gradient(ellipse at 50% 52%, rgb(255 190 80 / 0.46), rgb(255 155 30 / 0.12) 72%);
+  color: #ffeed2;
+  box-shadow:
+    0 0 22px rgb(255 170 40 / 0.42),
+    inset 0 1px 0 rgb(255 242 205 / 0.35),
+    inset 0 0 18px rgb(255 170 40 / 0.32);
+}
+.plant-window[data-state="lit"][data-flash] {
+  animation: plant-flash 0.8s ease-in-out 3;
+}
+.plant-window[data-state="lit"]:is([data-window="scram"], [data-window="stuck"]) {
+  border-color: #ff5d5d;
+  background-color: #3f0a0d;
+  background-image:
+    linear-gradient(180deg, rgb(255 215 215 / 0.2) 0%, rgb(255 110 110 / 0) 36%),
+    radial-gradient(ellipse at 50% 52%, rgb(255 100 100 / 0.48), rgb(255 60 60 / 0.14) 72%);
+  color: #ffe6e6;
+  box-shadow:
+    0 0 24px rgb(255 77 77 / 0.52),
+    inset 0 1px 0 rgb(255 215 215 / 0.3),
+    inset 0 0 18px rgb(255 77 77 / 0.36);
+}
+.plant-window[data-state="lit"] .plant-window-count {
+  color: #ffffff;
+  text-shadow: 0 0 12px rgb(255 220 160 / 0.85);
+}
+.plant-window[data-state="lit"]:is([data-window="scram"], [data-window="stuck"]) .plant-window-count {
+  color: #ffffff;
+  text-shadow: 0 0 12px rgb(255 160 160 / 0.9);
+}
+.plant-window[data-state="unavailable"],
+.plant-window[data-state="loading"] {
+  border-style: dashed;
 }
 /* Lit: the lamp colour on the border, the tint and the glyph; the words and the count stay in the plain text colour so they read. */
 .plant-window[data-state="lit"] .plant-window-body { color: var(--text); }
@@ -1020,22 +1454,54 @@
   letter-spacing: 0.06em;
   color: var(--text-2, #c5d0dc);
 }
+/* Phone / narrow-screen telemetry list view. */
 .plant-list {
   display: grid;
   gap: 12px;
 }
+.plant-list section {
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background-color: var(--panel);
+}
 .plant-list h3 {
-  margin: 0 0 4px;
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
   font-size: var(--fs-small);
-  font-variant: small-caps;
-  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-2);
 }
 .plant-list ul {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 4px;
+  gap: 6px;
+}
+.plant-list li button.link {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-2);
+  border-radius: 6px;
+  background-color: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.plant-list li button.link:hover {
+  border-color: var(--line-2);
+  border-left-color: var(--accent);
+}
+.plant-list li button.link[aria-pressed="true"] {
+  border-color: var(--accent-dim);
+  border-left-color: var(--accent);
+  color: var(--accent);
 }
 .plant-list ul {
   gap: 0;

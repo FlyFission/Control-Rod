@@ -16,6 +16,7 @@ import { story, traceFacts } from "./story.js";
 import { StoryLine, allRunEvents } from "./StoryLine.js";
 import { PackageLoadError } from "../../components/PackageLoadError.js";
 import { DaemonNotice } from "../../components/DaemonNotice.js";
+import { FindingDetail } from "../../components/FindingDetail";
 
 const ROLE_WORDS: Record<string, string> = { intake: "Intake", author: "Author", "pre-check": "Pre-check" };
 
@@ -317,6 +318,7 @@ function Checked({ pkg, view, p }: { pkg: WorkPackage; view: PackageView; p: Pre
               {record.findings.map((f) => (
                 <li key={f.id}>
                   <span className={`tag sev-${f.severity}`}>{f.severity}</span> <span className="mono small">{f.id}</span> {f.text}
+                  <FindingDetail finding={f} />
                   {f.resolution !== undefined && <p className="muted small">Resolution: {f.resolution}</p>}
                 </li>
               ))}

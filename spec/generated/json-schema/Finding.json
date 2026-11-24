@@ -31,6 +31,23 @@
         },
         "resolution": {
             "type": "string"
+        },
+        "evidence": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "What was expected and what was seen, for example \"expected 302, got 200\"."
+        },
+        "location": {
+            "$ref": "FindingLocation.json",
+            "description": "Where the problem is in the deliverable."
+        },
+        "scope_paths": {
+            "type": "array",
+            "items": {
+                "$ref": "FindingPath.json"
+            },
+            "maxItems": 50,
+            "description": "The files a fix may change. The author's next round is told to change only these, and\nchanges outside them are reported as scope drift."
         }
     },
     "required": [

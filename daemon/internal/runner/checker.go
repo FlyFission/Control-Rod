@@ -463,7 +463,7 @@ func writeFilePrefixed(h io.Writer, path string, size int64) error {
 	if _, err := fmt.Fprintf(h, "%d:", size); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_RDONLY|syscallNoFollow, 0)
+	f, err := os.OpenFile(path, os.O_RDONLY|syscallNoFollow|syscallNonblock, 0)
 	if err != nil {
 		return err
 	}
@@ -531,7 +531,7 @@ func contentSHA256(root string, m treeMeta) (string, error) {
 	h := sha256.New()
 	switch m.kind {
 	case "file":
-		f, err := os.OpenFile(filepath.Join(root, filepath.FromSlash(m.rel)), os.O_RDONLY|syscallNoFollow, 0)
+		f, err := os.OpenFile(filepath.Join(root, filepath.FromSlash(m.rel)), os.O_RDONLY|syscallNoFollow|syscallNonblock, 0)
 		if err != nil {
 			return "", err
 		}
@@ -768,7 +768,7 @@ func collectCheckerEvidence(dir string) ([]NamedFile, []Artifact, error) {
 }
 
 func readCapped(path string) ([]byte, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY|syscallNoFollow, 0)
+	f, err := os.OpenFile(path, os.O_RDONLY|syscallNoFollow|syscallNonblock, 0)
 	if err != nil {
 		return nil, err
 	}

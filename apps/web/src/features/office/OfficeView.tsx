@@ -12,7 +12,7 @@ import { REGION } from "./layout.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
 import { PLANT_LAYOUT } from "./plant-layout.js";
-import { type Read, annunciator, coreState, emptyFloorNote, rodState } from "./plant-instruments.js";
+import { type Read, annunciator, anyRealScram, coreState, emptyFloorNote, rodState } from "./plant-instruments.js";
 import { FigureRow, PlantList } from "./PlantList.js";
 import { PlantScene } from "./plant-scene/PlantScene.js";
 import { SCENE_LAYOUT } from "./plant-scene/scene-layout.js";
@@ -173,7 +173,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const open = floor?.figures.find((f) => f.id === selected);
 
   return (
-    <section className="office-view" aria-labelledby="office-title">
+    <section className="office-view" aria-labelledby="office-title" data-scram-active={anyRealScram(scrams.data?.scrams) ? "" : undefined}>
       <header className="office-head">
         <div className="plant-title">
           <div className="plant-title-row">

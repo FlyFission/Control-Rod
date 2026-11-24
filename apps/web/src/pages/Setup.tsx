@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
+import { explain } from "../api/client.js";
 import type { CheckIn } from "../api/types.js";
 import { AgentList } from "../components/AgentList.js";
 import { CHECK_IN_CHOICES, CHECK_IN_LATER, readBack } from "../lib/agents.js";
@@ -64,6 +65,7 @@ export function Setup() {
               <span>
                 <strong>{c.label}</strong>
                 {c.id === "start-and-merge" && <span className="tag">Recommended</span>}
+                {!c.today && <span className="tag">Coming soon</span>}
                 <span className="muted small block">{c.detail}</span>
               </span>
             </label>
@@ -81,7 +83,7 @@ export function Setup() {
         </p>
         {agents.save.error && (
           <p role="alert" className="error">
-            {agents.save.error.message}
+            {explain(agents.save.error, "Could not save setup.")}
           </p>
         )}
         <div className="row setup-actions">

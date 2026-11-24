@@ -11050,8 +11050,47 @@
           },
           "resolution": {
             "type": "string"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "What was expected and what was seen, for example \"expected 302, got 200\"."
+          },
+          "location": {
+            "$ref": "#/components/schemas/ControlRod.Records.FindingLocation",
+            "description": "Where the problem is in the deliverable."
+          },
+          "scope_paths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.FindingPath"
+            },
+            "maxItems": 50,
+            "description": "The files a fix may change. The author's next round is told to change only these, and\nchanges outside them are reported as scope drift."
           }
         }
+      },
+      "ControlRod.Records.FindingLocation": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "$ref": "#/components/schemas/ControlRod.Records.FindingPath"
+          },
+          "line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          }
+        }
+      },
+      "ControlRod.Records.FindingPath": {
+        "type": "string",
+        "maxLength": 512,
+        "pattern": "^(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+)(?:/(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+))*/?$",
+        "description": "A relative path inside the deliverable: no leading slash, no empty or `..` segment, no backslash.\nWritten without lookaheads so Go's RE2-based schema validator in the daemon can compile it."
       },
       "ControlRod.Records.InterfaceConsume": {
         "type": "object",
@@ -12330,6 +12369,34 @@
         },
         "description": "One version of a sandbox policy, as a run cites it."
       },
+      "ControlRod.Records.ScopeDrift": {
+        "type": "object",
+        "required": [
+          "round",
+          "scope_paths",
+          "outside"
+        ],
+        "properties": {
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 2
+          },
+          "scope_paths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.FindingPath"
+            }
+          },
+          "outside": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.FindingPath"
+            }
+          }
+        },
+        "description": "Files an author's rework round changed outside the scope the previous check's findings named.\nReported, not refused."
+      },
       "ControlRod.Records.ScramEvent": {
         "type": "object",
         "required": [
@@ -13155,6 +13222,10 @@
           "check_warning": {
             "$ref": "#/components/schemas/ControlRod.Records.CheckWarning",
             "description": "Set when several checks of the current digest were inconclusive. A warning only:\nanother check is still allowed."
+          },
+          "scope_drift": {
+            "$ref": "#/components/schemas/ControlRod.Records.ScopeDrift",
+            "description": "Set when the author's latest rework round changed files outside the scope the previous\ncheck's findings named. A report, not a refusal."
           },
           "decisions": {
             "type": "array",

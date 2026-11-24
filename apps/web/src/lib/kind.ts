@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { WorkPackage } from "../api/types.js";
 import { readString, writeString } from "./storage.js";
 
-/** What a card is made of. Derived from deliverables; no contract field. */
+/** What a card is made of. Inferred from deliverables; no contract field. */
 export type Kind = "code" | "doc";
 
 /** Deliverable types that mean code. Everything else is a document. Grow here, not in the contract. */

@@ -61,6 +61,9 @@ function windowFrom<T>(id: WindowId, read: Read<T>, count: (d: T) => number, not
 
 const isDrill = (s: ScramSummary) => Boolean(s.scram.drill);
 
+/** Whether any SCRAM is real: a drill is shown and named, but never styled as a trip. */
+export const anyRealScram = (scrams: readonly ScramSummary[] | undefined): boolean => (scrams ?? []).some((s) => !isDrill(s));
+
 /** How many distinct projects the project SCRAMs in force cover: one project can hold several. */
 export function projectsStopped(scrams: readonly ScramSummary[]): number {
   return new Set(scrams.filter((s) => s.scram.scope === "project").map((s, i) => s.scram.project_id ?? `unnamed-${i}`)).size;

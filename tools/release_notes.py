@@ -19,15 +19,16 @@ import sys
 from pathlib import Path
 
 
-def git(*args: str) -> str:
-    r = subprocess.run(["git", *args], capture_output=True, text=True)
-    if r.returncode != 0:
-        sys.exit(f"git {' '.join(args)} failed: {r.stderr.strip()}")
-    return r.stdout
+def record_existed(slug: str, at: str) -> bool:
+    """Whether the record's directory existed at the ref. `--diff-filter=A` selects files,
+    not directories, so a pre-existing record that gains a file inside the range still
+    appears in the log and must be excluded here."""
+    r = subprocess.run(["git", "cat-file", "-e", f"{at}:.nuclear/changes/{slug}"], capture_output=True)
+    return r.returncode == 0
 
 
 def added_slugs(from_ref: str, to_ref: str) -> list[str]:
-    """Record slugs whose first file appears in the range, newest addition first."""
+    """Record slugs first created in the range, newest addition first."""
     out = git("log", "--first-parent", "--diff-filter=A", "--name-only", "--pretty=format:--", f"{from_ref}..{to_ref}", "--", ".nuclear/changes/")
     seen: list[str] = []
     for line in out.splitlines():
@@ -35,7 +36,7 @@ def added_slugs(from_ref: str, to_ref: str) -> list[str]:
         if len(parts) < 3 or parts[0] != ".nuclear" or parts[1] != "changes":
             continue
         slug = parts[2]
-        if slug and slug not in seen:
+        if slug and slug not in seen and not record_existed(slug, from_ref):
             seen.append(slug)
     return seen
 

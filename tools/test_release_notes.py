@@ -67,6 +67,34 @@ def test_a_reversed_range_is_refused():
     out = run_notes(RANGE[1], RANGE[0])
     assert out.returncode != 0
     assert "refusing to emit empty release notes" in out.stderr
+def test_a_file_added_to_a_pre_existing_record_does_not_republish_it(tmp_path):
+    # `--diff-filter=A` selects files, not directories: a record that predates the range
+    # but gains a file inside it must not be listed, and must not satisfy the empty-range guard.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run = lambda *a: subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True)
+    run("init", "-b", "main")
+    run("config", "user.email", "t@example.test")
+    run("config", "user.name", "Test")
+    old = repo / ".nuclear" / "changes" / "old-record"
+    old.mkdir(parents=True)
+    (old / "basis.md").write_text("# Basis: old record\n", encoding="utf-8")
+    run("add", "-A")
+    run("commit", "-m", "old")
+    base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
+    (old / "evidence.md").write_text("later evidence\n", encoding="utf-8")
+    new = repo / ".nuclear" / "changes" / "new-record"
+    new.mkdir()
+    (new / "basis.md").write_text("# Basis: new record\n", encoding="utf-8")
+    run("add", "-A")
+    run("commit", "-m", "new")
+    r = subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "release_notes.py"), "--from", base, "--to", "HEAD"],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "- Basis: new record (new-record)"
+    assert "old record" not in r.stdout
 
 
 def test_an_unknown_ref_fails():

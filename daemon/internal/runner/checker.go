@@ -1234,6 +1234,11 @@ func hashProtected(root string) (string, error) {
 // file contents are bounded separately by the byte budget.
 var protectedMaxEntries = 200_000
 
+// identityQuietPeriod is how long a large protected file must have gone unchanged before its
+// identity stands for its contents. It covers the coarsest common timestamp tick (FAT's two
+// seconds, HFS+'s one) with margin.
+var identityQuietPeriod = 5 * time.Second
+
 type protectedHashBudget struct {
 	bytesLeft   int64
 	entriesLeft int
@@ -1302,11 +1307,14 @@ func (b *protectedHashBudget) hashLink(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// A link target is at most a path long and is always read in full: it is bounded by the
+	// entry limit, not the content budget, so a tree whose large files used up that budget
+	// still hashes its links.
 	size := int64(len(target))
-	if err := b.checkBytes(path, size); err != nil {
-		return "", err
+	if size > MaxOutputFile {
+		return "", b.checkBytes(path, size)
 	}
-	b.bytesLeft -= size
+	b.bytesLeft = max(b.bytesLeft-size, 0)
 	return sha256Hex([]byte(target)), nil
 }
 
@@ -1325,10 +1333,17 @@ func (b *protectedHashBudget) hashFile(path string) (string, error) {
 	}
 	if err := b.checkBytes(path, st.Size()); err != nil {
 		// Too large to read within the budget: name it by its identity when the platform allows.
-		if id, ok := fileIdentity(st); ok {
-			return "identity:" + id, nil
+		id, changed, ok := fileIdentity(st)
+		if !ok {
+			return "", err
 		}
-		return "", err
+		// Timestamps advance in clock ticks (seconds on some filesystems). A file changed within
+		// the last tick could be rewritten again inside that same tick without moving its change
+		// time, so a recently changed file proves nothing by identity and is refused.
+		if age := time.Since(changed); age < identityQuietPeriod {
+			return "", fmt.Errorf("protected login entry %q is too large to read and changed %s ago, so its identity cannot prove it unchanged and the check cannot count; run the check again in a few seconds", path, max(age, 0).Round(time.Millisecond))
+		}
+		return "identity:" + id, nil
 	}
 	fh := sha256.New()
 	// Recheck the bytes actually read so file growth cannot exhaust the budget.

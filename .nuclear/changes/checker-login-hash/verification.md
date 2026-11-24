@@ -4,7 +4,7 @@
 |---|---|---|---|
 | E-01 | pass | `go test ./...` in the daemon with bubblewrap installed: every test passes, including the Linux checker-sandbox login tests (`TestCheckerCannotRewriteLoginInstructions`, `TestCheckerMountKeepsTheLoginDirectoryReadOnly...`), except `TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun`, which fails the same way on main because this cloud container sets its own HTTPS_PROXY. `go vet` for darwin/arm64, build for windows, gofmt clean. macOS Seatbelt tests are not run here. | `evidence/go-test.log` |
 | E-02 | pass | `TestRunRefusedBeforeStartReportsNoProcess` fails with the daemon fix reverted and passes with it. | `evidence/go-test.log` |
-| E-03 | pending | Codex blind review on the owner's Mac. | PR thread |
+| E-03 | done | Codex blind review (gpt-6.2-sol, read-only) on the owner's Mac at 994a94e: NO-MERGE, 1 P1, 1 P2. P1: on a coarse-timestamp filesystem a same-size rewrite in the same tick as the last change keeps mtime and ctime. Fixed: a large file changed within the last 5 s (identityQuietPeriod, above FAT's 2 s tick) is refused, not trusted by identity; test `TestProtectedLoginHashRefusesARecentlyChangedLargeFile`. P2: a symlink after the content budget was spent still failed. Fixed: links are bounded by the entry limit and always read; test `TestProtectedLoginHashKeepsLinksPastTheContentBudget`. No false "not started" path found. The owner's ~/.codex/plugins: 772 MB, 7,021 entries, 8 files over 20 MB (three Codex app binaries, five from an installed plugin's vendored binaries). | PR thread |
 
 ## Evidence custody and coupling
 

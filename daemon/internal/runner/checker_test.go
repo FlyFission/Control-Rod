@@ -710,8 +710,9 @@ func TestAbsentLoginDirectoryIsPartOfTheHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.Close()
+	noQuietPeriod(t)
 	big, err := hashProtected(dir)
-	if _, ok := fileIdentity(mustLstat(t, settings)); !ok {
+	if _, _, ok := fileIdentity(mustLstat(t, settings)); !ok {
 		if err == nil {
 			t.Fatal("a settings file over the output cap was hashed without an identity record")
 		}
@@ -720,6 +721,14 @@ func TestAbsentLoginDirectoryIsPartOfTheHash(t *testing.T) {
 	if err != nil || big == changed {
 		t.Fatalf("a settings file over the output cap: %q, %v; want a new digest by identity", big, err)
 	}
+}
+
+// noQuietPeriod lets a test hash large files it has just written.
+func noQuietPeriod(t *testing.T) {
+	t.Helper()
+	saved := identityQuietPeriod
+	identityQuietPeriod = 0
+	t.Cleanup(func() { identityQuietPeriod = saved })
 }
 
 func mustLstat(t *testing.T, path string) os.FileInfo {
@@ -746,9 +755,10 @@ func TestProtectedLoginHashNamesLargeFilesByIdentity(t *testing.T) {
 	if err := os.Truncate(exe, MaxOutputTotal+1); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := fileIdentity(mustLstat(t, exe)); !ok {
+	if _, _, ok := fileIdentity(mustLstat(t, exe)); !ok {
 		t.Skip("no change-time record on this platform; large files still fail closed")
 	}
+	noQuietPeriod(t)
 	first, err := hashProtected(root)
 	if err != nil {
 		t.Fatalf("a login directory holding a large app binary could not be hashed: %v", err)
@@ -777,10 +787,74 @@ func TestProtectedLoginHashNamesLargeFilesByIdentity(t *testing.T) {
 	}
 }
 
+// A rewrite inside the same timestamp tick as the last change would keep the change time, so a
+// large file changed within the quiet period is refused rather than trusted by identity. This
+// covers coarse-timestamp filesystems, where the baseline and a rewrite can share one tick.
+func TestProtectedLoginHashRefusesARecentlyChangedLargeFile(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "plugins"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	big := filepath.Join(root, "plugins", "bin")
+	if err := os.WriteFile(big, nil, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(big, MaxOutputFile+1); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok := fileIdentity(mustLstat(t, big)); !ok {
+		t.Skip("no change-time record on this platform")
+	}
+	if digest, err := hashProtected(root); err == nil || !strings.Contains(err.Error(), "changed") || digest != "" {
+		t.Fatalf("a large file changed just now was trusted by identity: %q, %v", digest, err)
+	}
+}
+
+// Symlinks are bounded by the entry limit, not the content budget: a plugin tree whose large
+// files used up the budget, with a link sorted after them, still hashes, and the link counts.
+func TestProtectedLoginHashKeepsLinksPastTheContentBudget(t *testing.T) {
+	root := t.TempDir()
+	plugins := filepath.Join(root, "plugins")
+	if err := os.Mkdir(plugins, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for i := range MaxOutputTotal/MaxOutputFile + 1 {
+		f := filepath.Join(plugins, fmt.Sprintf("a%d", i))
+		if err := os.WriteFile(f, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Truncate(f, MaxOutputFile); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, ok := fileIdentity(mustLstat(t, plugins)); !ok {
+		t.Skip("no change-time record on this platform")
+	}
+	noQuietPeriod(t)
+	link := filepath.Join(plugins, "zz-link")
+	if err := os.Symlink("a0", link); err != nil {
+		t.Fatal(err)
+	}
+	first, err := hashProtected(root)
+	if err != nil {
+		t.Fatalf("a link after the content budget was spent failed the hash: %v", err)
+	}
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("a1", link); err != nil {
+		t.Fatal(err)
+	}
+	if second, err := hashProtected(root); err != nil || second == first {
+		t.Fatalf("retargeting the link did not change the hash: %q, %v", second, err)
+	}
+}
+
 func TestProtectedLoginHashOverBudgetTrees(t *testing.T) {
 	saved := protectedMaxEntries
 	protectedMaxEntries = 2000
 	t.Cleanup(func() { protectedMaxEntries = saved })
+	noQuietPeriod(t)
 	for _, tc := range []struct {
 		name string
 		want string
@@ -828,7 +902,7 @@ func TestProtectedLoginHashOverBudgetTrees(t *testing.T) {
 			digest, err := hashProtected(root)
 			// Over the byte limits, files are named by identity where the platform records a change
 			// time; only the entry limit, or a platform without that record, still fails.
-			if _, ok := fileIdentity(mustLstat(t, root)); ok && tc.name != "entries" {
+			if _, _, ok := fileIdentity(mustLstat(t, root)); ok && tc.name != "entries" {
 				if err != nil || digest == "" {
 					t.Fatalf("hashProtected returned %q, %v; want a digest by identity", digest, err)
 				}

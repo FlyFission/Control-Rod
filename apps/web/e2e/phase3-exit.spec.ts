@@ -162,6 +162,25 @@ test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page
   expect(bad).toEqual([]);
 });
 
+test("phone: project switching and New project stay in view at 320 CSS px, even with a long project name", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium");
+  const long = { id: "p-long", name: "Northfield substation relay coordination and protection study, phase two", mode: "software", status: "active",
+    repo: "org/northfield-substation-relay-coordination-study", repoStrategy: "worktree", workspaceRoot: "/tmp/x", lane: "internal",
+    author: { runtime: "claude", model: "default" }, checker: { runtime: "codex", model: "default" }, createdAt: new Date().toISOString() };
+  await page.route("**/workspace/projects", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([long]) }));
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto("/inbox");
+  await page.waitForTimeout(500);
+  const controls = [page.getByRole("button", { name: /^All / }), page.getByRole("button", { name: /Northfield/ }), page.getByRole("button", { name: "New project" })];
+  for (const c of controls) {
+    await expect(c).toBeVisible();
+    const box = (await c.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
 test("case view interactive with 1,000 events", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium" || !process.env.PHASE3_BIG);
   const t0 = Date.now();

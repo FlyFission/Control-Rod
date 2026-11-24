@@ -22,6 +22,7 @@ import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
 import { ShortcutHelp } from "./ShortcutHelp.js";
 import { OPEN_MODAL, singleKeysOn } from "../lib/singleKeys.js";
+import { anyRealScram } from "../features/office/plant-instruments.js";
 import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 import { useFirstRunSetup } from "../lib/firstRun.js";
@@ -87,6 +88,22 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     enabled: Boolean(projectUser),
     retry: false,
   });
+  // The trip styling needs only whether a real SCRAM is active, so the shell makes the redacted
+  // (presenting) read, which keeps scope and the drill flag and leaves out every reason.
+  const scramsQuery = useQuery({
+    queryKey: ["scrams", true],
+    queryFn: () => api.scrams(true),
+    retry: false,
+    staleTime: 10_000,
+  });
+  const scramActive = anyRealScram(scramsQuery.data?.scrams);
+  // The trip pulses stop while the tab is hidden, as the plant's own motion does (OfficeStage useVisible).
+  const [tabHidden, setTabHidden] = useState(() => document.visibilityState === "hidden");
+  useEffect(() => {
+    const on = () => setTabHidden(document.visibilityState === "hidden");
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
   useEffect(() => {
     if (serverProjects.data) {
       hydrateServerProjects(projectUser, serverProjects.data);
@@ -184,7 +201,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
 
   return (
-    <div className="shell" data-look={look} data-mode={mode}>
+    <div className="shell" data-look={look} data-mode={mode} data-scram={scramActive ? "active" : undefined} data-tab-hidden={tabHidden ? "" : undefined}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -316,6 +333,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         <AgentUpdates />
         <header className="topbar">
           <div className="top-left">
+            <span className="console-live-dot" aria-hidden="true" />
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>
             <details
               className="workspace-options"
@@ -384,7 +402,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
               <kbd>{shortcut}</kbd>
             </button>
 
-            <Link to="/office" className="btn small danger">
+            <Link to="/office" className="btn small danger topbar-scram">
               SCRAM
             </Link>
           </div>

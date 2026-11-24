@@ -79,6 +79,14 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
   return (
     <main className="signin">
       <div className="signin-card">
+        <span className="signin-corner signin-corner-tl" aria-hidden="true" />
+        <span className="signin-corner signin-corner-tr" aria-hidden="true" />
+        <span className="signin-corner signin-corner-bl" aria-hidden="true" />
+        <span className="signin-corner signin-corner-br" aria-hidden="true" />
+        <div className="signin-kicker mono" aria-hidden="true">
+          <span className="signin-kicker-dot" />
+          <span>CONTROL ROOM ACCESS // PASSKEY AUTH</span>
+        </div>
         <div className="brand">
           <BrandMark />
           <span>Control Rod</span>

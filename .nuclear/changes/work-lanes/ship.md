@@ -1,6 +1,6 @@
 # Ship: work lanes
 
-Release decision: **not authorized.** The `spec/` change is a trust-surface edit and its signature is pending (see Signature). No release is authorized by this record.
+Release decision: **authorized for the diff at head `cbabfdf8`** by the owner's recorded yes in the Signature table. The independent different-vendor check was not run on this diff; that residual risk is accepted by the same yes. No earlier release was authorized by this record.
 
 - Rollback: revert the merge. The `work_lanes` field on a project body can stay; nothing older reads it. Migration 027 only allows that field to change.
 - Merge order: after the Plant redesign commits already on this pull request.
@@ -10,11 +10,11 @@ Release decision: **not authorized.** The `spec/` change is a trust-surface edit
 
 | Field | Entry |
 |---|---|
-| Decision | **Pending.** To be asked once the diff is final. |
-| Question | Not yet asked. It must name pull request #167 as it stands and say it touches a trust surface (`spec/`). |
-| Answer | None yet. |
-| When and where | Not yet given. |
-| Head when asked | Not yet asked. |
+| Decision | **Approved.** Merge pull request #167 at head `cbabfdf8` once CI is green on that diff. |
+| Question | "Do you approve merging #167 at head cbabfdf8, which touches the trust surface spec/ (additive work-lanes fields in spec/tenancy.tsp, spec/api.tsp, regenerated contracts, migration 027) plus the visual board work and the merge fixes (board e2e mock contract, nav toggle target-size, tenancy/workbench migration teardown)?" |
+| Answer | "Yes — approve merging #167 at cbabfdf8 on green CI" (2026-11-24 sign-off form). |
+| When and where | 2026-11-24, Claude Code session sign-off form. |
+| Head when asked | `cbabfdf8`. Any push of feature work after this head re-opens the question; only this signature-recording commit may follow it. |
 | Not the signature | The owner's tap on 2026-11-24 16:34 UTC ("Yes, presets plus custom lanes") is recorded in [basis](basis.md#owner-decisions) as decision D1. It approved the direction, not this diff. |
 
 ## Required links

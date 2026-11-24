@@ -7,10 +7,11 @@ Release decision: **draft PR pending blind checker, Ben's product decisions on s
 - **Known limits (out of scope for R1.8, tracked separately):**
   - The Linux checker sandbox leaves non-home paths readable, mirroring [sandbox.ts](../../../services/api/src/sandbox.ts); restricting non-home OS-level egress belongs to rows R3.10 and R3.11.
   - Claude Code vendor telemetry in `daemon/internal/runner/adapter_claude.go` pre-dates R1.8 and is tracked separately.
-- **Open product questions for Ben:**
-  1. What a standalone `controlrod check` / GitHub Action receipt may claim when no person has accepted the change and no inclusion proof exists for `pnpm cr verify`.
-  2. How an author identity the caller declared via `--author-runtime` (and nobody verified) should be labelled (`caller-declared, unverified` vs dropping the author line or requiring attested author runs).
-  3. Which external trust anchors should identify a person's key when verifying offline bundles (`pnpm cr verify` / `pnpm cr receipt`): e.g. enrolled `key_digest`s exported from Control Rod org state, an owner-signed keyring / Sigstore-style identity mapping, or requiring inclusion of the per-decision WebAuthn assertion?
+- **Owner decision (Ben, 2026-11-24 sign-off form):** merge #136 on green CI, with E-04 still open — the live blind-checker run and his direct review were not performed before this merge; that residual risk is accepted by his recorded selection.
+- **Product answers below are the implementing agent's recommendations, shown in the sign-off question and not countermanded; they are not Ben's recorded product decisions and each may be reopened:**
+  1. A standalone `controlrod check` / GitHub Action receipt carries explicit "no human acceptance; unverified author" wording whenever no person has accepted the change and no inclusion proof exists for `pnpm cr verify`; it never presents as accepted work.
+  2. A caller-declared `--author-runtime` is labelled `caller-declared, unverified` on the receipt and verdict; attested author runs remain the only way to drop the qualifier.
+  3. Offline bundle verification identifies a person's key by an owner-signed keyring exported from Control Rod org state (enrolled `key_digest`s); bundle-supplied keys alone prove nothing about the person.
 - **Next steps needing the owner's yes (trust surfaces):** wiring `packages/check-action/` into `.github/workflows/` when ready; integrating `formatPrReceipt` into Control Rod's `Create PR` workflow (R2.5).
 
 Rollback: revert the branch commit(s). No database migrations, `spec/` changes, or kernel changes are included.

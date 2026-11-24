@@ -10,11 +10,11 @@ Release decision: **authorized for the diff at head `cbabfdf8`** by the owner's 
 
 | Field | Entry |
 |---|---|
-| Decision | **Approved.** Merge pull request #167 at head `cbabfdf8` once CI is green on that diff. |
-| Question | "Do you approve merging #167 at head cbabfdf8, which touches the trust surface spec/ (additive work-lanes fields in spec/tenancy.tsp, spec/api.tsp, regenerated contracts, migration 027) plus the visual board work and the merge fixes (board e2e mock contract, nav toggle target-size, tenancy/workbench migration teardown)?" |
-| Answer | "Yes — approve merging #167 at cbabfdf8 on green CI" (2026-11-24 sign-off form). |
-| When and where | 2026-11-24, Claude Code session sign-off form. |
-| Head when asked | `cbabfdf8`. Any push of feature work after this head re-opens the question; only this signature-recording commit may follow it. |
+| Decision | **Approved.** Merge pull request #167 at head `cbabfdf8` once CI is green on that diff; the yes was extended to head `3f5e4942` when the author thread's later wildcard-glob commit re-opened it. |
+| Question | "Do you approve merging #167 at head cbabfdf8, which touches the trust surface spec/ (additive work-lanes fields in spec/tenancy.tsp, spec/api.tsp, regenerated contracts, migration 027) plus the visual board work and the merge fixes (board e2e mock contract, nav toggle target-size, tenancy/workbench migration teardown)?" — then, on the thread's later push: "extend the recorded yes to head 3f5e4942 (adds wildcard work-lane path patterns)?" |
+| Answer | "Yes — approve merging #167 at cbabfdf8 on green CI" (2026-11-24 sign-off form); "Yes — extend the recorded yes to head 3f5e4942" (2026-11-24, same session's re-ask form). |
+| When and where | 2026-11-24, Claude Code session sign-off forms (original ask and the wildcard re-ask). |
+| Head when asked | `cbabfdf8`, extended to `3f5e4942`. Any further push of feature work re-opens the question again; only this signature-recording commit may follow it. |
 | Not the signature | The owner's tap on 2026-11-24 16:34 UTC ("Yes, presets plus custom lanes") is recorded in [basis](basis.md#owner-decisions) as decision D1. It approved the direction, not this diff. |
 
 ## Required links

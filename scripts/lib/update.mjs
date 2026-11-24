@@ -266,6 +266,18 @@ export async function update(root, opts, deps) {
             if (!st.isDirectory()) break;
           }
         }
+        // Anything git does not track (ignored files included) at or inside a changed path would be
+        // replaced or removed when a folder there turns back into a file.
+        const changed = listed.out.split("\0").filter(Boolean);
+        for (let i = 0; i < changed.length; i += 200) {
+          const others = git(["ls-files", "--others", "-z", "--", ...changed.slice(i, i + 200).map((c) => `:(literal)${c}`)]);
+          if (!others.ok) {
+            writeState({ pending: head, from: good });
+            log("Not going back automatically: could not list what that would change. Run `controlrod update` again.");
+            return 1;
+          }
+          for (const o of others.out.split("\0").filter(Boolean)) kept.add(o);
+        }
         if (kept.size) {
           writeState({ pending: head, from: good });
           log(
@@ -276,7 +288,8 @@ export async function update(root, opts, deps) {
           return 1;
         }
       }
-      const reset = head === good ? { ok: true } : git(["reset", "--keep", good]);
+      const resetArgs = ["reset", "--keep", good];
+      const reset = head === good ? { ok: true } : git.async ? await git.async(resetArgs) : git(resetArgs);
       if (!reset.ok) log(reset.err);
       const rebuilt = reset.ok && (await deps.install()) && (await deps.build());
       if (!rebuilt) {
@@ -295,7 +308,9 @@ export async function update(root, opts, deps) {
     // 3. Move forward, then install and build with the new code.
     if (!resume) {
       // --no-overwrite-ignore: a file the person keeps that git ignores is never replaced.
-      const ff = git(["merge", "--ff-only", "--no-overwrite-ignore", "--quiet", target]);
+      // Without blocking: a merge can run the person's own git hooks, and the lock must stay fresh meanwhile.
+      const mergeArgs = ["merge", "--ff-only", "--no-overwrite-ignore", "--quiet", target];
+      const ff = git.async ? await git.async(mergeArgs) : git(mergeArgs);
       if (!ff.ok) {
         log(ff.err);
         return backOnGood(`moving to the new version (git said: ${ff.err.split("\n")[0]})`);

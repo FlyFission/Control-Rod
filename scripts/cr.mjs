@@ -15,27 +15,48 @@ import { commandPath, link, ownerOf, refresh, unlink } from "./lib/link.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
-// The command's own dependencies (package.json "dependencies") must be installed before anything
-// imports them; an update stopped between moving the code and installing leaves them missing, and
-// the command then installs them first instead of failing to load.
+// The command's own dependencies (package.json "dependencies") must load before anything imports
+// them; an update stopped between moving the code and installing leaves them missing or half
+// installed, and the command then installs them first instead of failing to load. Never while an
+// update is running: that update installs them itself.
 {
   const deps = Object.keys(JSON.parse(readFileSync(join(root, "package.json"), "utf8")).dependencies ?? {});
-  const missing = deps.filter((d) => {
-    try {
-      import.meta.resolve(d);
-      return false;
-    } catch {
-      return true;
+  const missingDeps = async () => {
+    const out = [];
+    for (const d of deps) {
+      try {
+        await import(d);
+      } catch (e) {
+        if (!["ERR_MODULE_NOT_FOUND", "MODULE_NOT_FOUND"].includes(e?.code)) throw e;
+        out.push(d);
+      }
     }
-  });
+    return out;
+  };
+  const missing = await missingDeps();
   if (missing.length) {
-    console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
-    const r = spawnSync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, stdio: "inherit" });
-    if (r.status !== 0) {
-      console.error(`Could not install them. In ${root}, run: pnpm install --frozen-lockfile`);
+    const gd = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: root, encoding: "utf8" }).stdout?.trim();
+    if (gd && existsSync(join(gd, "controlrod-update.lock"))) {
+      console.error("`controlrod update` is installing a new version right now. Try again when it has finished.");
       process.exit(1);
     }
+    // A plain install first; pnpm trusts a half-installed node_modules, so the second try forces a
+    // reinstall. Each try runs this command again in a fresh process, since a module that failed to
+    // load stays failed in this one.
+    const attempt = Number(process.env.CONTROLROD_DEPS_ATTEMPT ?? 0);
+    if (attempt >= 2) {
+      console.error(`Could not install ${missing.join(", ")}. In ${root}, run: pnpm install --frozen-lockfile --force`);
+      process.exit(1);
+    }
+    console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
+    spawnSync("pnpm", ["install", "--frozen-lockfile", ...(attempt ? ["--force"] : [])], { cwd: root, stdio: "inherit" });
+    const again = spawnSync(process.execPath, process.argv.slice(1), {
+      stdio: "inherit",
+      env: { ...process.env, CONTROLROD_DEPS_ATTEMPT: String(attempt + 1) },
+    });
+    process.exit(again.status ?? 1);
   }
+  delete process.env.CONTROLROD_DEPS_ATTEMPT;
 }
 const { alive, claimRecord, clearRecord, findRunning, freeOrphanedSegments, healthy, orphanedSegments, readRecord, segmentUse, stopLauncher } =
   await import("./lib/instance.mjs");

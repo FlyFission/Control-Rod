@@ -16,7 +16,8 @@ Rollback: revert the commit. `~/.local/bin/controlrod` then points at a `cr.mjs`
 | 1 | f443ba9 | Codex HOLD: 5 P1, 7 P2, 1 P3 | 72e86c4, 7fa9ba1, except as noted below |
 | 2 | 1e36fd9 | Codex HOLD: 4 P1, 9 P2, 1 P3 | cdc8d5a, except as noted below |
 | 3 | 829ddec | Codex HOLD: 2 P1, 3 P2, 2 P3 | e0f47ac, except as noted below |
-| 4 | e0f47ac | Codex HOLD: 2 P1, 4 P2, 1 P3 | the round 4 commit, except as noted below |
+| 4 | e0f47ac | Codex HOLD: 2 P1, 4 P2, 1 P3 | e6954cb, except as noted below |
+| 5 | e6954cb | Codex HOLD: 1 P1, 2 P2, 1 P3 | the round 5 commit |
 
 Round 1 dispositions:
 - P1 process identity: fixed with pid plus start time plus an exact `scripts/cr.mjs start` command line, and no second signal to a pid whose start time changed. A separate authenticated shutdown channel was not added: the same signal as Ctrl+C keeps one stop path.
@@ -49,6 +50,12 @@ Round 4 dispositions:
 - P2 Linux shared memory advice: no `ipcrm` advice; it names `ipcs -m` and a restart only.
 - P3 tracked folder treated as kept: every folder holding a tracked file counts as git's own (test).
 - P2 declined: a lock file left by an earlier updater. Only unreleased versions of this pull request wrote one; main never had an updater.
+
+Round 5 dispositions:
+- P1 rollback removing an ignored file inside a folder that turns back into a file: rollback also lists everything git does not track (ignored files included) at or inside each changed path, and stops if there is any (test, mutation 10).
+- P2 a slow git hook during the merge: the merge and the rollback reset run without blocking, like the fetch.
+- P2 dependency repair during an update: the command does not install while an update holds the lock; it says an update is running.
+- P3 half-installed dependencies: each dependency is loaded, not only resolved; a plain install is tried, then a forced reinstall (pnpm trusts a half-installed folder), each in a fresh process (checked as an ordinary user with a transitive dependency removed).
 
 ## Signature
 

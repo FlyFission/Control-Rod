@@ -35,3 +35,4 @@ not ok 26 - going back never writes over an ignored file the person keeps; it st
 not ok 3 - link never replaces a controlrod it did not write; unlink removes only its own
 # pass 32
 # fail 1
+10. round 5: skip the ls-files --others check in rollback -> 'going back never removes an ignored file inside a folder' fails

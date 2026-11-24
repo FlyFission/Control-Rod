@@ -398,6 +398,26 @@ test("going back over a tracked folder that replaced a tracked file is not block
   assert.equal(readFileSync(join(f.root, "config"), "utf8"), "file\n");
 });
 
+test("going back never removes an ignored file inside a folder that turns back into a file", async () => {
+  const f = fixture();
+  commit(f.origin, "config", "file\n", "A: config file");
+  await update(f.root, {}, { ...f.deps, stop: async () => ({ wasRunning: false }) });
+  gitIn(f.origin, "rm", "-q", "config");
+  mkdirSync(join(f.origin, "config"));
+  writeFileSync(join(f.origin, "config", "item"), "x\n");
+  commit(f.origin, ".gitignore", "config/local.env\n", "B: config folder, local.env ignored");
+  gitIn(f.origin, "add", "config/item");
+  gitIn(f.origin, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--amend", "--no-edit");
+  f.deps.build = () => false;
+  const run = update(f.root, {}, { ...f.deps, stop: async () => ({ wasRunning: false }), install: () => {
+    writeFileSync(join(f.root, "config", "local.env"), "SECRET=mine\n");
+    return true;
+  } });
+  assert.equal(await run, 1);
+  assert.equal(readFileSync(join(f.root, "config", "local.env"), "utf8"), "SECRET=mine\n");
+  assert.match(f.logs(), /Not going back automatically.*config\/local\.env/s);
+});
+
 test("offline, an unfinished update of the checkout as it stands is finished", async () => {
   const f = fixture();
   writeFileSync(join(f.root, ".git", "controlrod-update.json"), JSON.stringify({ pending: f.first, from: f.first }));

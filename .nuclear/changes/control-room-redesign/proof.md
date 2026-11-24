@@ -39,6 +39,16 @@ At opening, the change is the plan only. Results per step are added here as each
 | `git diff --check`, `tools/check_originality.py` | pass |
 | Screenshots (Playwright, 1440x900 at 2x and 390x844 at 2x): Today busy and calm, Inbox list, Inbox signing drawer, Inbox empty, four sign-in states, Setup, roster; no horizontal scroll at 390 | `/mnt/project-files/control-rod/step4-5/` (script `shoot.cjs`, API mocked in the browser) |
 
+## Step 3 (Shell and Board)
+
+| Check | Result |
+|---|---|
+| `cd apps/web && pnpm -s vitest run` | 78 files, 823 tests pass |
+| New tests | `lib/diff.test.ts` (parser: git and plain diffs, hunk counts, dashed removals, no-newline note, CRLF, non-diff), `components/diff-view.test.tsx` (sign, class, both line numbers, plain-text fallback, long-patch cap), `features/board/cockpit.test.tsx` (no tabs; status, run log, outputs, decision order; decision bar outside the scrolling body; criteria disclosure; diff chosen first; Escape; running line, elapsed text, runtimes, card icons and progress cue), `components/shell-phone.test.tsx` (bottom bar, project switcher, New, rod gauge, SCRAM, More dialog and focus return, desktop unchanged) |
+| `pnpm -s tsc --noEmit` | no errors in these files; four existing errors in `NewWorkModal.tsx` and `newwork.test.tsx` (`checkout`) are not from this step |
+| contrast and type-scale tests | extended to `components/shell.css`; pass |
+| Screenshots (Playwright, API mocked in the browser) 1440x900 at 2x and 390x844 at 2x: Board, open drawer with a diff output, phone More sheet | `/mnt/project-files/control-rod/step3/` (`board-1440.png`, `drawer-diff-1440.png`, `board-390.png`, `drawer-diff-390.png`, `more-390.png`) |
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).

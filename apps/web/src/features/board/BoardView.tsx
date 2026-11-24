@@ -544,6 +544,8 @@ export function BoardView() {
               column={x.column}
               stream={data.status}
               runRunning={x.runRunning === true}
+              {...(x.author ? { author: x.author } : {})}
+              {...(x.checker ? { checker: x.checker } : {})}
               lastKnown={x.lastKnown}
               nuclear={x.nuclear}
               selected={selectedId === x.pkg.id}

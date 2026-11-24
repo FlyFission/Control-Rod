@@ -1,7 +1,39 @@
 import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, Run, WorkPackage } from "../api/types.js";
 import { blockUnverifiedAccept, boardColumn, isVerified, preCheckState } from "./board.js";
 
-export type NextLine = { tone: "needs" | "wait" | "block" | "ok"; text: string; command?: string };
+export type NextLine = {
+  tone: "needs" | "wait" | "block" | "ok";
+  text: string;
+  command?: string;
+  /** Set on the line of a run that is executing now: when it started, so the card can show the elapsed time. */
+  since?: string;
+};
+
+const RUN_ROLE_WORD: Record<Run["role"], string> = {
+  intake: "Intake",
+  author: "Author",
+  "pre-check": "Pre-check",
+  "requirements-preparer": "Requirements preparation",
+  "technical-preparer": "Technical preparation",
+};
+
+/** The run a card's status line speaks for: one that is running, else the first queued. */
+export function activeRun(runs: readonly Run[] | undefined): Run | undefined {
+  return runs?.find((r) => r.status === "running") ?? runs?.find((r) => r.status === "queued");
+}
+
+/**
+ * "Writing tests" from the run's label (written by the runner, never raw model text), or
+ * "Author running" when it has none; "Author queued" while it only waits for a runtime.
+ */
+export function runLine(run: Run | undefined): NextLine {
+  if (!run) return { tone: "wait", text: "Author running" };
+  const label = run.label?.trim();
+  if (run.status === "running") {
+    return { tone: "wait", text: label && label.length > 0 ? label : `${RUN_ROLE_WORD[run.role]} running`, ...(run.started_at ? { since: run.started_at } : {}) };
+  }
+  return { tone: "wait", text: label && label.length > 0 ? label : `${RUN_ROLE_WORD[run.role]} queued` };
+}
 
 export type NextInput = {
   pkg: WorkPackage;
@@ -79,7 +111,7 @@ export function nextLine(i: NextInput): NextLine {
   if (column === "person-verifies") return { tone: "wait", text: "Waiting on a person verification" };
   if (preCheckState(pkg, i.office) === "disputed") return { tone: "block", text: "The agent pre-check disputes this work" };
   if (hasExplicitHold) return { tone: "wait", text: holdReason ? `Held: ${holdReason}` : `Held: ${holdCause}` };
-  if (i.runActive) return { tone: "wait", text: "An agent is working on it" };
+  if (i.runActive) return runLine(activeRun(i.runs));
 
   const refused = offered.find((a) => !a.allowed);
   return { tone: "wait", text: refused ? refusalText(refused) : "Nothing to do yet" };

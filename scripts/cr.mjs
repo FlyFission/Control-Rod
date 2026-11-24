@@ -236,7 +236,9 @@ async function start() {
     daemon.once("exit", exit);
     daemon.kill("SIGTERM");
   };
-  const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], { env, stdio: "inherit" });
+  // Each child runs in its own process group, so a Ctrl+C in the terminal reaches only this launcher,
+  // which then stops them in order: the daemon first, then the control plane.
+  const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], { env, stdio: "inherit", detached: true });
   api.on("exit", (code, signal) => {
     apiExited = true;
     apiExitCode = code ?? (signal ? 1 : 0);
@@ -264,6 +266,7 @@ async function start() {
   daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
     env: daemonEnv,
     stdio: "inherit",
+    detached: true,
   });
   daemon.on("exit", (code, signal) => {
     daemonExited = true;
@@ -293,6 +296,13 @@ async function start() {
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
+  // Closing the terminal stops everything the same way; detached children would not hear it themselves.
+  process.on("SIGHUP", stop);
+  // If the launcher exits any other way (an error), take the children with it.
+  process.on("exit", () => {
+    if (daemon && !daemonExited) daemon.kill("SIGTERM");
+    if (!apiExited) api.kill("SIGTERM");
+  });
 }
 
 /**

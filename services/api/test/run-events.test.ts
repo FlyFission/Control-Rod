@@ -73,6 +73,7 @@ describe("run stories", () => {
     // run_events.origin is a PostgreSQL int: the last origin of this batch would be one past its largest value.
     const big = 2147483647;
     expect((await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [msg("a"), msg("b")], events_from: big })).statusCode).toBe(400);
+    expect((await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [], events_from: big + 1 })).statusCode).toBe(400);
     expect((await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [msg("a")], events_from: big })).statusCode).toBe(200);
     const done = { status: "failed", error: "x", outputs: [], idempotency_key: "events-key-big", events: [msg("b"), msg("c")], events_from: big + 1 };
     const res = await daemon(`/runner/runs/${job.run.id}/complete`, done);

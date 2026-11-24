@@ -1599,7 +1599,8 @@ async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown
   if (from !== undefined && !(Number.isInteger(from) && (from as number) >= 0)) throw new Refusal(400, "invalid", "events_from must be a whole number");
   // run_events.origin is a PostgreSQL int (migration 014): every origin this batch writes must fit,
   // or the insert fails inside the command's transaction. Every refusal here comes before any query.
-  if (from !== undefined && (from as number) + raw.length - 1 > PG_INT_MAX) throw new Refusal(400, "invalid", "events_from is out of range");
+  // events_from itself must fit too: an empty batch can still write a dropped marker at it.
+  if (from !== undefined && (from as number) + Math.max(raw.length, 1) - 1 > PG_INT_MAX) throw new Refusal(400, "invalid", "events_from is out of range");
   const last = (await c.query<{ n: number; o: number | null }>(
     "select coalesce(max(seq), 0)::int as n, max(origin)::int as o from run_events where run_id = $1", [row.id])).rows[0]!;
   let seq = last.n;

@@ -121,9 +121,13 @@ test("keyboard: skip link, every place, palette open, choose and return", async 
   await page.goto("/inbox");
   await page.waitForTimeout(500);
   // Expand any collapsed nav groups so all places participate in sequential Tab traversal.
+  // The live locator shrinks after each click, so open the first collapsed group until none is left.
   const collapsedGroups = page.locator('.places-group-toggle[aria-expanded="false"]');
-  const count = await collapsedGroups.count();
-  for (let i = 0; i < count; i++) await collapsedGroups.nth(i).click();
+  while ((await collapsedGroups.count()) > 0) await collapsedGroups.first().click();
+  // The clicks moved focus. The open groups are remembered, so loading the page again starts Tab from the top.
+  await page.goto("about:blank");
+  await page.goto("/inbox");
+  await page.waitForTimeout(500);
   await page.keyboard.press("Tab");
   const first = await page.evaluate(() => document.activeElement?.textContent?.trim());
   const stops: string[] = [first ?? ""];

@@ -129,7 +129,7 @@ def build_evidence_board_svg(data: dict) -> str:
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-labelledby="eb-t eb-d">',
         '<title id="eb-t">Published Empirical Evidence Behind Control Rod</title>',
-        '<desc id="eb-d">Four published failure modes mapped to Control Rod controls: multi-turn instruction drop, self-verification collapse, self-preference and sycophancy, and test-passing PRs rejected by maintainers.</desc>',
+        '<desc id="eb-d">Four published failure modes mapped to Control Rod controls: multi-turn instruction drop, self-verification collapse, self-preference and conceding when challenged, and test-passing PRs maintainers would not merge.</desc>',
         f'<rect width="{W}" height="{H}" rx="12" fill="{GROUND}" stroke="{LINE}" stroke-width="1.5"/>',
         f'<rect x="16" y="16" width="{W - 32}" height="{H - 32}" rx="8" fill="{SURFACE}" stroke="{LINE}"/>',
         corner_ticks(16, 16, W - 32, H - 32, 12, LINE_2),
@@ -201,12 +201,12 @@ def build_evidence_board_svg(data: dict) -> str:
             "h": 184,
             "tag": "04 // HUMAN PASSKEY GATE",
             "tag_color": NEEDS,
-            "stat": f'~1/2 of {f["metr_prs_reviewed"]["value"]} PRs',
+            "stat": "~1/2 not mergeable",
             "stat_color": DONE,
             "headline": "Passing automated tests != ready to merge",
             "lines": [
                 (f'Maintainers of scikit-learn, Sphinx, and pytest reviewed {f["metr_prs_reviewed"]["value"]} AI pull', TEXT_2),
-                ("requests from SWE-bench Verified that passed automated tests (METR, 2026).", TEXT_2),
+                ("requests written by agents on SWE-bench Verified tasks (METR, 2026).", TEXT_2),
                 (f'Estimate: {f["metr_not_merged"]["value"]} of test-passing PRs would not have been merged,', MUTED),
                 ("even after adjusting for noise in maintainer merge decisions.", MUTED),
             ],

@@ -9,13 +9,13 @@
 
 [Why Control Rod](#why-builders-use-control-rod) · [30s Standalone Check](#try-the-blind-checker-in-30-seconds) · [Empirical Evidence](#the-evidence-behind-it) · [Council & Workflows](#the-council--dynamic-workflows) · [Workspace Tour](#inside-the-control-room) · [Compare](#how-control-rod-compares) · [Install](#install-the-full-workspace)
 
-**Control Rod** is a free, open-source multi-agent harness that runs on your own machine. Bring the command-line subscriptions you already pay for (**Claude Code** and **Codex** today, with zero API keys and zero cloud account), drop in what you want built, and let one agent work inside an isolated git worktree while a **different vendor's agent** checks only the diff and test evidence behind a blind wall. A deterministic **Rust/WASM kernel** holds every state transition until your passkey signs off—and exports a tamper-evident **PR receipt** anyone can verify offline.
+**Control Rod** is a free, open-source multi-agent harness that runs on your own machine. Bring the command-line subscriptions you already pay for (**Claude Code** and **Codex** today, with zero API keys and zero cloud account), drop in what you want built, and let one agent work inside an isolated git worktree while a **different vendor's agent** checks only the diff and test evidence behind a blind wall. A deterministic **Rust/WASM kernel** decides every state transition, your passkey signs at release and at acceptance, and each accepted change exports a tamper-evident **PR receipt** anyone can verify offline.
 
 ![The Control Rod Board: cards move from Ready through Implementing, CI / Agent check, Peer review, and Needs signature to Accepted, with warm amber reserved only for cards waiting on you.](docs/assets/readme/app/board.png)
 
 ![Control Rod multi-agent council loop: your passkey release feeds an isolated author worktree, crosses a blind wall that strips author reasoning, enters a cross-vendor blind checker, and seals an offline-verifiable PR receipt under Rust/WASM kernel custody.](docs/assets/readme/council-loop.svg)
 
-> **Pre-alpha, built in the open.** Works end to end on one machine for one person. Every public claim in this repository is checked by script against shipped code. Read [what works today and what is stubbed](docs/status.md), or explore the [200-perspective front-door due diligence](docs/research/outside-perspectives-2026-11/README.md).
+> **Pre-alpha, built in the open.** Works end to end on one machine for one person. Public wording is linted by script for unqualified claims, and every research figure is read from recorded inputs. Read [what works today and what is stubbed](docs/status.md), or explore the [200-perspective front-door review](docs/research/outside-perspectives-2026-11/README.md) (a scripted rubric over modeled personas, not real user interviews).
 
 ---
 
@@ -26,7 +26,7 @@
 - **Dynamic council routing & logged stand-in failover.** View your active council as a live block flow diagram or decision matrix (`/workflow`). When an author CLI is signed out or missing at dispatch, a seated stand-in can take the author role on the record (`Fallback: ran as …`), while checker seats never fail over to shop for a pass.
 - **Per-card skill workflows (`Superpowers`, `Matt Pocock`, `Nuclear`).** Run a card on the plain Playbook, Jesse Vincent's **Superpowers**, **Matt Pocock's** skill stages, or their **Pocock Superpowers** hybrid—generated from pinned MIT commits and SHA-256 locked—paired independently with **Light** or **Nuclear** context depth.
 - **You choose where you step in.** Today your passkey (Touch ID, Windows Hello, or a hardware security key) signs twice: when releasing work and when accepting a result. Next ([ADR 0024](docs/adr/0024-council-first.md), *planned*), choose check-in presets from *at the start* to *at every step*—while **SCRAM**, checker disputes, and tripped limits always stop for you.
-- **A shareable PR receipt anyone can verify offline.** Export a signed provenance receipt (`pnpm cr receipt`) and verify it anywhere without a server via `pnpm cr verify`—or run the standalone blind checker on any git branch in 30 seconds.
+- **A shareable PR receipt anyone can verify offline.** Export a provenance receipt (`pnpm cr receipt`) and check it against its sealed inclusion proof anywhere, without a server, via `pnpm cr verify`—or run the standalone blind checker on any git branch in 30 seconds.
 
 ---
 
@@ -35,15 +35,16 @@
 Not ready to spin up the full board yet? Run Control Rod's cross-vendor blind checker standalone on **any git branch or GitHub pull request** with [`controlrod check`](docs/quickstart-check.md) or the reusable [`packages/check-action`](packages/check-action/README.md):
 
 ```sh
-# 1. Build the standalone CLI once (requires Go 1.24+ and signed-in claude + codex CLIs)
-cd daemon && go build -o ~/.local/bin/controlrod ./cmd/controlrod
+# 1. Build the standalone CLI once from the repo root (Go 1.24+; the checker CLI must be signed in)
+go -C daemon build -o ~/.local/bin/controlrod ./cmd/controlrod
 
-# 2. Check any branch diff against base-branch criteria using a distinct vendor family
+# 2. In any git repo: check this branch's diff with a checker from a different vendor family
 controlrod check \
   --author-runtime claude \
   --checker codex \
   --base main --head HEAD \
-  --criteria docs/acceptance.md \
+  --criteria-text "1. Callback rejects missing or mismatched PKCE state.
+2. No test assertions were weakened or skipped." \
   --output markdown
 ```
 
@@ -57,14 +58,14 @@ Full quickstart, exit codes (`0` pass, `1` fail/inconclusive, `2` refused), GitH
 
 Control Rod's architecture—**one locked brief**, **a blind cross-vendor checker with real test evidence**, and **human passkey acceptance**—answers specific failure modes measured across published research:
 
-![Empirical basis panel generated from docs/research/second-checker/inputs.json: -39% multi-turn instruction drop (Laban 2025), 16% to 2% self-check collapse vs 38% outside checker on graph coloring (Stechly 2024), 98% sycophancy and r=0.84 correlated judge mistakes (Sharma 2023, Goel 2025), and roughly half of 296 test-passing PRs rejected by maintainers (METR 2026).](docs/assets/readme/evidence-board.svg)
+![Empirical basis panel generated from docs/research/second-checker/inputs.json: a 39% average performance drop when instructions arrive across turns (Laban 2025), 16% to 2% when GPT-4 checked itself vs 38% with an outside checker on graph coloring (Stechly 2024), Claude 1.3 conceding a correct answer 98% of the time when challenged and r=0.84 correlated judge mistakes (Sharma 2023, Goel 2025), and roughly half of test-passing AI PRs that maintainers would not merge (METR 2026).](docs/assets/readme/evidence-board.svg)
 
 ![Bar chart from Stechly et al. 2024, Table 1. Graph coloring: single pass 16%, GPT-4 checks itself 2%, sound outside checker 38%. Game of 24: 5%, 3%, 36%. Blocksworld planning: 40%, 55%, 60%.](docs/assets/readme/second-checker.svg)
 
 1. **Why briefs are locked before an agent starts:** Giving the same instructions piece by piece across turns instead of in one complete brief cut performance by an average of **39%** across 15 LLMs and six tasks ([Laban et al., 2025](https://arxiv.org/abs/2505.06120)). Improving agent role specifications alone raised ChatDev's ProgramDev success rate by **+9.4 percentage points** on the same GPT-4o model ([Cemri et al., 2025](https://arxiv.org/abs/2503.13657)).
 2. **Why self-checking without external feedback breaks down:** On graph coloring, GPT-4 solved **16%** alone, **2%** when checking itself, and **38%** with a sound external checker; on Game of 24, **5% -> 3% vs. 36%**; on Blocksworld planning self-checking rose **40% -> 55%**, with the outside checker at **60%** ([Stechly et al., 2024](https://arxiv.org/abs/2402.08115), Table 1). Intrinsic self-correction also dropped GPT-4 on GSM8K from **95.5% to 89.0%** and GPT-3.5 on CommonsenseQA from **75.8% to 38.1%** ([Huang et al., 2024](https://arxiv.org/abs/2310.01798); survey: [Kamoi et al., 2024](https://arxiv.org/abs/2406.01297)).
 3. **Why the checker is blind and from another vendor:** GPT-4 distinguished its own generations **73.5%** of the time, and stronger self-recognition tracked stronger self-preference ([Panickssery et al., 2024](https://arxiv.org/abs/2404.13076)). Challenged on a right answer, Claude 1.3 wrongly admitted error **98%** of the time and suggestive pushback cut LLaMA 2 accuracy by up to **27%** ([Sharma et al., 2023](https://arxiv.org/abs/2310.13548)). AI judge scores correlate strongly with overlap in mistakes (average Pearson **r = 0.84**, [Goel et al., 2025](https://arxiv.org/abs/2502.04313)).
-4. **Why a human still signs off:** Maintainers of `scikit-learn`, `Sphinx`, and `pytest` reviewed **296** test-passing AI pull requests from SWE-bench Verified; roughly **half** would not have been merged even after adjusting for maintainer noise ([METR, 2026](https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/)).
+4. **Why a human still signs off:** Maintainers of `scikit-learn`, `Sphinx`, and `pytest` reviewed **296** AI-generated pull requests from SWE-bench Verified tasks; roughly **half** of the ones that passed the tests would not have been merged even after adjusting for maintainer noise ([METR, 2026](https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/)).
 
 > **Honesty on what is and isn't measured yet:** The outside checker in Stechly et al. (2024) is an exact program verifier, not a second LLM, and none of these papers measures one vendor's coding CLI reviewing another vendor's code. To measure that directly in the open at $0 API spend, Control Rod includes a frozen, repeatable SWE-bench evaluation harness: **[`pnpm cr bench`](bench/cross-check/README.md)**. Every figure above and the script that draws the SVGs live in [`docs/research/second-checker/`](docs/research/second-checker/).
 

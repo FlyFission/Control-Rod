@@ -13,13 +13,14 @@ pnpm cr start         # opens the Control Rod workspace at http://localhost:7300
     },
     cli: {
       code: `# Build once, then run blind cross-vendor verification on any git branch:
-cd daemon && go build -o ~/.local/bin/controlrod ./cmd/controlrod
+go -C daemon build -o ~/.local/bin/controlrod ./cmd/controlrod   # Go 1.24+
 
 controlrod check \\
   --author-runtime claude \\
   --checker codex \\
   --base main --head HEAD \\
-  --criteria docs/acceptance.md --output markdown`,
+  --criteria-text "1. Callback rejects missing or mismatched PKCE state." \\
+  --output markdown`,
       note: "Zero Postgres or web server needed. Enforces distinct vendor families (exit 0 pass, 1 fail/inconclusive, 2 refused).",
     },
     action: {
@@ -31,8 +32,8 @@ controlrod check \\
   with:
     author-runtime: claude
     checker-runtime: codex
-    criteria: docs/acceptance.md`,
-      note: "Strips secrets from agent env, diffs against merge-base, and writes a structured receipt to the GitHub Actions summary.",
+    criteria: docs/acceptance.md   # your own criteria file`,
+      note: "Diffs against merge-base, strips secrets from the agent env, and writes a receipt to the job summary. The runner needs the checker CLI installed and signed in.",
     },
   };
 
@@ -342,7 +343,7 @@ bytes of the diff and test output alone.`;
     } else {
       verifyBox.className = "verify-box";
       verifyBox.innerHTML = `<div>$ pnpm cr verify --receipt pr-receipt.md inclusion-proof.json</div>
-        <div style="margin-top: 6px; font-weight: 700;">✓ VERIFIED OFFLINE: authenticated seal, human passkey decision, rev 1 &amp; diff_sha256 match.</div>`;
+        <div style="margin-top: 6px; font-weight: 700;">✓ VERIFIED OFFLINE (sample): receipt matches the sealed bundle, rev 1 &amp; diff_sha256.</div>`;
     }
   }
 

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 560" width="1120" height="560" role="img" aria-labelledby="eb-t eb-d">
 <title id="eb-t">Published Empirical Evidence Behind Control Rod</title>
-<desc id="eb-d">Four published failure modes mapped to Control Rod controls: multi-turn instruction drop, self-verification collapse, self-preference and sycophancy, and test-passing PRs rejected by maintainers.</desc>
+<desc id="eb-d">Four published failure modes mapped to Control Rod controls: multi-turn instruction drop, self-verification collapse, self-preference and conceding when challenged, and test-passing PRs maintainers would not merge.</desc>
 <rect width="1120" height="560" rx="12" fill="#06090f" stroke="#1a2739" stroke-width="1.5"/>
 <rect x="16" y="16" width="1088" height="528" rx="8" fill="#0b111b" stroke="#1a2739"/>
 <path d="M16,28 V16 H28" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
@@ -61,11 +61,11 @@
 <path d="M570,495 V502 H577" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
 <path d="M1073,502 H1080 V495" fill="none" stroke="#2b3f59" stroke-width="1.5"/>
 <text x="588" y="342" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#ffb020">04 // HUMAN PASSKEY GATE</text>
-<text x="1062" y="346" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="700" fill="#22f59e">~1/2 of 296 PRs</text>
+<text x="1062" y="346" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="700" fill="#22f59e">~1/2 not mergeable</text>
 <text x="588" y="370" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="16" font-weight="700" fill="#edf4fc">Passing automated tests != ready to merge</text>
 <line x1="588" x2="1062" y1="382" y2="382" stroke="#1a2739"/>
 <text x="588" y="402" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">Maintainers of scikit-learn, Sphinx, and pytest reviewed 296 AI pull</text>
-<text x="588" y="419" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">requests from SWE-bench Verified that passed automated tests (METR, 2026).</text>
+<text x="588" y="419" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#c8d6e5">requests written by agents on SWE-bench Verified tasks (METR, 2026).</text>
 <text x="588" y="436" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">Estimate: roughly half of test-passing PRs would not have been merged,</text>
 <text x="588" y="453" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-size="12" fill="#9eb0c4">even after adjusting for noise in maintainer merge decisions.</text>
 <rect x="584" y="472" width="482" height="22" rx="4" fill="#0b111b" stroke="#1a2739"/>

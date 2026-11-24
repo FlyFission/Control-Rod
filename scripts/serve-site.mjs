@@ -5,11 +5,11 @@
  * with zero external requests.
  */
 import { createServer } from "node:http";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { extname, normalize, resolve, sep } from "node:path";
 import { buildSite } from "./build-site.mjs";
 
-const DIST = buildSite();
+const DIST = realpathSync(buildSite());
 const PORT = Number(process.env.SITE_PORT || 7310);
 // Loopback by default: a local preview should not be reachable from the network.
 const HOST = process.env.SITE_HOST || "127.0.0.1";
@@ -51,13 +51,28 @@ const server = createServer((req, res) => {
     res.end("Not found");
     return;
   }
+  // Follow any link and confirm the real file is still inside dist.
+  const realFile = realpathSync(filePath);
+  if (!realFile.startsWith(DIST + sep)) {
+    res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Forbidden");
+    return;
+  }
+  let body;
+  try {
+    body = readFileSync(realFile);
+  } catch {
+    res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Read error");
+    return;
+  }
   const ext = extname(filePath).toLowerCase();
   res.writeHead(200, {
     "Content-Type": MIME[ext] || "application/octet-stream",
     "Cache-Control": "no-cache",
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'self'",
   });
-  res.end(readFileSync(filePath));
+  res.end(body);
 });
 
 server.listen(PORT, HOST, () => {

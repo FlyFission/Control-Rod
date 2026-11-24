@@ -10,17 +10,20 @@ You do not have to adopt the full board or set up a local database to see what C
 
 - **Zero API keys, zero cloud account:** uses your existing `claude` and `codex` CLI logins.
 - **Enforced vendor separation:** if `claude` (Anthropic) wrote the branch, `controlrod check` requires a distinct vendor family such as `codex` (OpenAI) to check it—and refuses same-vendor self-checking (`exit 2`).
-- **Blind by construction:** the checker receives only the resolved `base..head` diff and the acceptance criteria (read from `--criteria-ref` on the base branch so an author branch cannot weaken its own rubric), inside a read-only source mount with native CLI sandbox confinement (`bubblewrap` on Linux / WSL2, `sandbox-exec` on macOS). It never sees the author's prompt or chain-of-thought.
+- **Blind by construction:** the checker receives only the resolved `base..head` diff and the acceptance criteria, inside a read-only source mount with native CLI sandbox confinement (`bubblewrap` on Linux / WSL2, `sandbox-exec` on macOS). It never sees the author's prompt or chain-of-thought.
+- **Protect the rubric:** pass `--criteria <file> --criteria-ref <trusted-base-ref>` to read the criteria from the base branch, so an author branch cannot weaken its own checklist. The GitHub Action does this by default for criteria files; the CLI does it only when you pass `--criteria-ref`.
 
 ---
 
 ## Option 1: Run locally on any git branch
 
-Build the CLI once from this repository (requires Go `1.24+` or `mise install`, plus signed-in `claude` and `codex` CLIs):
+Build the CLI once from the root of this repository (requires Go `1.24+`, or `mise install`). Only the checker's CLI (here `codex`) has to be installed and signed in; the author runtime is just declared:
 
 ```sh
-cd daemon && go build -o ~/.local/bin/controlrod ./cmd/controlrod
+go -C daemon build -o ~/.local/bin/controlrod ./cmd/controlrod
 ```
+
+If `~/.local/bin` is not on your `PATH`, run it as `~/.local/bin/controlrod`.
 
 Then, inside **any git repository** where an agent just wrote changes on a branch:
 
@@ -67,7 +70,7 @@ jobs:
           post-comment: "false"
 ```
 
-See [`packages/check-action/README.md`](../packages/check-action/README.md) for the full security model and inputs.
+The action builds or finds `controlrod`, but it does not install the checker CLI or sign it in: use a runner where the checker CLI (for example `codex`) is installed and authenticated, and where its native sandbox can run. See [`packages/check-action/README.md`](../packages/check-action/README.md) for the full security model and inputs.
 
 ---
 
@@ -88,5 +91,7 @@ pnpm cr verify --receipt pr-receipt.md inclusion-proof.json
 ```
 
 If a single character of the verdict, author, accepting person, revision, or `diff_sha256` in `pr-receipt.md` was edited after signing, `pnpm cr verify` fails closed.
+
+What this proves: the receipt matches the sealed event bundle. The seal is checked against the public key carried in the bundle, so on its own it does not prove who owns that key or re-check each passkey assertion; the receipt says so with an **UNVERIFIED SEAL KEY** line (the offline CLI does not take a pinned trusted key yet).
 
 > **Honesty note on standalone vs. governed receipts:** A standalone `controlrod check` run has no Control Rod control plane or passkey ceremony behind it, so its output marks `--author-runtime` as `(caller-declared, unverified)` and never claims verified human passkey acceptance. Full governed receipts come from `pnpm cr receipt <inclusion-proof.json>`.

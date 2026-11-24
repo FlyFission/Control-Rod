@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'self'" />
   <title>Control Rod — Seat Your Coding Agents at One Table. Blind Cross-Vendor Check on Every Diff.</title>
   <meta
     name="description"
@@ -154,7 +155,7 @@ pnpm cr start         # opens the Control Rod workspace at http://localhost:7300
           <div class="readout-cell">
             <div class="readout-label">Published SWE-bench Reality</div>
             <div class="readout-val amber">~1/2 Rejected</div>
-            <p class="readout-sub">Roughly half of 296 test-passing AI PRs reviewed by maintainers would not be merged (METR, 2026). You sign the call.</p>
+            <p class="readout-sub">Maintainers reviewed 296 AI PRs; roughly half of those that passed the tests would not be merged (METR, 2026). You sign the call.</p>
           </div>
           <div class="readout-cell">
             <div class="readout-label">Portable Custody</div>
@@ -386,7 +387,7 @@ pnpm cr start         # opens the Control Rod workspace at http://localhost:7300
           <p class="section-kicker">PORTABLE PROOF // VERIFIABLE PULL REQUEST RECEIPTS</p>
           <h2>Every accepted change produces a receipt anyone can verify offline</h2>
           <p>
-            Inspect what gets stripped at the Blind Wall on a real bugfix (<code class="mono">WP-0042</code>), what the second vendor actually reviews, and how <code class="mono">pnpm cr verify --receipt</code> catches even a one-character edit without needing a Control Rod server.
+            A simulated walkthrough on a sample bugfix (<code class="mono">WP-0042</code>): what gets stripped at the Blind Wall, what the second vendor actually reviews, and how <code class="mono">pnpm cr verify --receipt</code> catches a one-character edit against the sealed bundle without needing a Control Rod server.
           </p>
         </div>
 
@@ -460,7 +461,7 @@ pnpm cr start         # opens the Control Rod workspace at http://localhost:7300
             src="./assets/readme/evidence-board.svg"
             width="1120"
             height="560"
-            alt="Four published failure modes: -39% multi-turn instruction drop (Laban 2025), 16% to 2% self-check collapse vs 38% outside checker on graph coloring (Stechly 2024), 98% sycophancy and r=0.84 correlated judge mistakes (Sharma 2023, Goel 2025), and roughly half of 296 test-passing PRs rejected by maintainers (METR 2026)."
+            alt="Four published failure modes: a 39% average performance drop when instructions arrive across turns (Laban 2025), 16% to 2% when GPT-4 checked itself vs 38% with an outside checker on graph coloring (Stechly 2024), Claude 1.3 conceding a correct answer 98% of the time when challenged and r=0.84 correlated judge mistakes (Sharma 2023, Goel 2025), and roughly half of test-passing AI PRs that maintainers would not merge (METR 2026)."
           />
         </div>
 

@@ -476,6 +476,9 @@ test("readme shots", async ({ page, browserName }) => {
 
   await page.addInitScript(() => {
     window.localStorage.setItem("cr.lastSeenSeq:ben", "100");
+    // Headless Chromium reports notifications as denied, which would print a
+    // "blocked in the browser's settings" line on the Inbox shot. Hide the toggle.
+    Object.defineProperty(window, "Notification", { value: undefined, configurable: true });
     class OpenSource {
       listeners = new Map<string, ((e: Event) => void)[]>();
       constructor() {

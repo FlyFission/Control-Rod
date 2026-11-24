@@ -38,7 +38,8 @@ export function buildSite() {
       throw new Error(`Missing asset directory required for site build: ${from}`);
     }
     mkdirSync(dirname(to), { recursive: true });
-    cpSync(from, to, { recursive: true });
+    // Copy file contents, not links, so nothing in dist points outside it.
+    cpSync(from, to, { recursive: true, dereference: true });
   }
 
   return DIST;

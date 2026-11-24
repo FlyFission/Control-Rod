@@ -76,9 +76,9 @@ export const MODE_COPY: Record<EngineeringMode, ModeCopy> = {
     newCta: "New change",
     modalTitle: "New change request",
     projectPlaceholder: "e.g., control-rod / auth-kernel",
-    objectiveLabel: "Scope & acceptance criteria",
+    objectiveLabel: "What do you want done?",
     objectivePlaceholder:
-      "Describe what you are building end-to-end — goals, architecture, deliverables, constraints, and how completion is verified…",
+      "For example: Add a dark mode switch to Settings. Done when the choice is remembered after a reload.",
     columns: {
       ready: "Ready",
       in_work: "Implementing",

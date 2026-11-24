@@ -17,6 +17,10 @@ A "Get your first change done" panel at the top of the board, modelled on the se
 
 The walkthrough found that the scripted intake used by the live suites (`tests/e2e/fake/intake.sh`) always drafted Capital Projects packages, so a card added on the Software board vanished from it after intake, and the `@functional` lifecycle test failed on main. The script now reads the `[mode:...]` tag as the real intake role does (`packs/general/roles/intake.md`). The real intake already did; this fixes the test stand-in only.
 
+## Also: the new-change dialog in plain words
+
+"Capture work for intake" becomes "An agent turns this into a plan. Nothing runs until you approve it."; "Scope & acceptance criteria" becomes "What do you want done?" with a one-line example; "Capture settings" becomes "More settings"; the submit button says "Add change" (or deliverable, packet). With no repository chosen in Software mode it says so: "No repository chosen, so this ends in documents, not a pull request. Pick one under More settings."
+
 ## Out of scope
 
 `spec/`, `services/`, `daemon/`, `kernel/`, `policies/`, `.github/`: untouched. No new route or stored record: the hidden flag is browser storage.

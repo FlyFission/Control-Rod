@@ -28,7 +28,7 @@ function mockDialogMethods() {
   }
 }
 async function openCaptureSettings(user: ReturnType<typeof userEvent.setup>) {
-  const disclosure = screen.getByRole("button", { name: "Capture settings" });
+  const disclosure = screen.getByRole("button", { name: "More settings" });
   if (disclosure.getAttribute("aria-expanded") !== "true") await user.click(disclosure);
 }
 
@@ -254,7 +254,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.queryByLabelText("CLI Ecosystem")).toBeNull();
     expect(screen.queryByLabelText("Repository")).toBeNull();
 
-    const disclosure = screen.getByRole("button", { name: "Capture settings" });
+    const disclosure = screen.getByRole("button", { name: "More settings" });
     disclosure.focus();
     await user.keyboard("[Space]");
     expect(disclosure.getAttribute("aria-expanded")).toBe("true");
@@ -271,9 +271,9 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(disclosure.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(disclosure);
 
-    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Write release notes");
+    await user.type(screen.getByLabelText("What do you want done?"), "Write release notes");
     expect(summary.textContent).toContain("cr/write-release-notes");
-    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    await user.click(screen.getByRole("button", { name: "Add change" }));
     await waitFor(() => expect(captures).toHaveLength(1));
     expect(captures[0]!.lane).toBe("client-confidential");
     expect(captures[0]!.text).toContain("[project-id:proj-launcher]");
@@ -334,7 +334,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.getByRole("heading", { name: "New engineering deliverable" })).toBeTruthy();
     expect(screen.queryByText(/4-choice clarifications/i)).toBeNull();
 
-    expect(screen.getByRole("button", { name: "Capture settings" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "More settings" }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByLabelText("Data lane")).toBeTruthy();
     expect(screen.queryByLabelText("Repository")).toBeNull();
     expect(screen.queryByLabelText("Grade")).toBeNull();
@@ -388,9 +388,9 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.getByText(/Saved defaults for Capital Projects mode/i)).toBeTruthy();
 
     // Closing settings preserves the capture fields and the prepared branch
-    await user.click(screen.getByRole("button", { name: "Capture settings" }));
+    await user.click(screen.getByRole("button", { name: "More settings" }));
     expect(screen.queryByLabelText("CLI Ecosystem")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Capture deliverable" }));
+    await user.click(screen.getByRole("button", { name: "Add deliverable" }));
     await waitFor(() => expect(capturedBody).not.toBeNull());
     expect(capturedBody!.text).toContain("[mode:capital-projects]");
     expect(capturedBody!.text).toContain("[repo:FlyFission/Control-Rod]");
@@ -427,20 +427,20 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.click(screen.getByRole("button", { name: "Capture settings" }));
+    await user.click(screen.getByRole("button", { name: "More settings" }));
     const select = screen.getByLabelText("Workflow") as HTMLSelectElement;
     expect(select.value).toBe("");
     expect(Array.from(select.options).map((o) => o.textContent)).toEqual(["Project default", "Playbook", "Superpowers", "Pocock", "Pocock Superpowers"]);
-    await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry to the sync job.");
-    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    await user.type(screen.getByLabelText(/What do you want done|Design basis/i), "Add a retry to the sync job.");
+    await user.click(screen.getByRole("button", { name: /^Add (change|deliverable|packet)$/ }));
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0]).not.toContain("[workflow:");
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.click(screen.getByRole("button", { name: "Capture settings" }));
+    await user.click(screen.getByRole("button", { name: "More settings" }));
     await user.selectOptions(screen.getByLabelText("Workflow"), "pocock");
-    await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry to the sync job.");
-    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    await user.type(screen.getByLabelText(/What do you want done|Design basis/i), "Add a retry to the sync job.");
+    await user.click(screen.getByRole("button", { name: /^Add (change|deliverable|packet)$/ }));
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies[1]).toContain("[workflow:pocock]");
   });
@@ -462,10 +462,10 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await renderPage(<Shell session={ben}><p>app</p></Shell>);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.click(screen.getByRole("button", { name: "Capture settings" }));
+    await user.click(screen.getByRole("button", { name: "More settings" }));
     await user.type(screen.getByLabelText("Project / Workstream"), "Plant] [[workflow:pocock");
-    await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry.");
-    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    await user.type(screen.getByLabelText(/What do you want done|Design basis/i), "Add a retry.");
+    await user.click(screen.getByRole("button", { name: /^Add (change|deliverable|packet)$/ }));
     expect(await screen.findByText("A project name can't contain [ or ].")).toBeTruthy();
     expect(bodies).toEqual([]);
   });
@@ -494,11 +494,11 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await renderPage(<Shell session={ben}><p>app</p></Shell>);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
-    await user.click(screen.getByRole("button", { name: "Capture settings" }));
+    await user.type(screen.getByLabelText("What do you want done?"), "Add a retry.");
+    await user.click(screen.getByRole("button", { name: "More settings" }));
     await user.selectOptions(await screen.findByLabelText("Repository"), "Control-Rod");
     await user.type(screen.getByLabelText("Branch name"), "cr/x] [[workflow:pocock");
-    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    await user.click(screen.getByRole("button", { name: /^Add (change|deliverable|packet)$/ }));
     expect(await screen.findByText("A branch name can't contain [ or ].")).toBeTruthy();
     expect(bodies).toEqual([]);
   });
@@ -528,10 +528,10 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await renderPage(<Shell session={ben}><p>app</p></Shell>);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
-    await user.click(screen.getByRole("button", { name: "Capture settings" }));
+    await user.type(screen.getByLabelText("What do you want done?"), "Add a retry.");
+    await user.click(screen.getByRole("button", { name: "More settings" }));
     await user.selectOptions(await screen.findByLabelText("Repository"), name);
-    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    await user.click(screen.getByRole("button", { name: /^Add (change|deliverable|packet)$/ }));
     expect(await screen.findByText(/This repository's name contains \[ or \]/)).toBeTruthy();
     expect(bodies).toEqual([]);
   });
@@ -571,12 +571,12 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await renderPage(<Shell session={ben}><p>app</p></Shell>);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
-    await user.click(screen.getByRole("button", { name: "Capture settings" }));
+    await user.type(screen.getByLabelText("What do you want done?"), "Add a retry.");
+    await user.click(screen.getByRole("button", { name: "More settings" }));
     await user.selectOptions(await screen.findByLabelText("Repository"), "Control-Rod");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(await screen.findByText(/Local checkout prepared:/i)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    await user.click(screen.getByRole("button", { name: /^Add (change|deliverable|packet)$/ }));
     expect(await screen.findByText(/This workspace's path contains \[ or \]/)).toBeTruthy();
     expect(bodies).toEqual([]);
   });
@@ -734,7 +734,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    const objectiveBox = screen.getByLabelText("Scope & acceptance criteria");
+    const objectiveBox = screen.getByLabelText("What do you want done?");
     await user.type(objectiveBox, "Initial task");
 
     await openCaptureSettings(user);
@@ -748,7 +748,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await user.type(objectiveBox, " with extra details");
     expect(screen.getByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-initial-task/i)).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    await user.click(screen.getByRole("button", { name: "Add change" }));
     await waitFor(() => expect(capturedBody).not.toBeNull());
     expect(capturedBody!.text).toContain("[branch:cr/initial-task]");
     expect(capturedBody!.checkout).toEqual({
@@ -760,7 +760,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     // Re-open, prepare again, then change explicit branch in capture settings -> clears preparedPath
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Second task");
+    await user.type(screen.getByLabelText("What do you want done?"), "Second task");
     await openCaptureSettings(user);
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-second-task/i)).toBeTruthy();
@@ -970,7 +970,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.getByText(/Saved defaults for Software mode/i)).toBeTruthy();
 
     // Trigger validation error
-    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    await user.click(screen.getByRole("button", { name: "Add change" }));
     expect(screen.getByRole("alert").textContent).toContain("Enter an objective or scope before capturing.");
 
     // Close via Cancel and reopen -> stale preparedPath, defaultsNotice, and error are cleared
@@ -1053,7 +1053,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Fix bug");
+    await user.type(screen.getByLabelText("What do you want done?"), "Fix bug");
     await openCaptureSettings(user);
     const repoSelect = await screen.findByLabelText("Repository");
     await user.selectOptions(repoSelect, "Control-Rod");
@@ -1065,7 +1065,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("git worktree add failed");
     expect(screen.queryByText(/Local checkout prepared:/i)).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    await user.click(screen.getByRole("button", { name: "Add change" }));
     await waitFor(() => expect(capturedBody).not.toBeNull());
     expect(capturedBody!.text).not.toContain("[workspace:");
     expect(capturedBody!.text).toContain("[branch:cr/fix-bug]");
@@ -1234,22 +1234,22 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    const objectiveBox = screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement;
+    const objectiveBox = screen.getByLabelText("What do you want done?") as HTMLTextAreaElement;
     await user.type(objectiveBox, "First pending objective");
-    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    await user.click(screen.getByRole("button", { name: "Add change" }));
 
-    expect(screen.getByRole("button", { name: "Capturing…" })).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Capturing…" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Adding…" })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Adding…" }) as HTMLButtonElement).disabled).toBe(true);
 
     // Close modal while capture is in flight, then reopen and start typing a new objective
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
 
     // Reopened modal's submit button must NOT be stuck disabled
-    const submitBtn = screen.getByRole("button", { name: "Capture change" }) as HTMLButtonElement;
+    const submitBtn = screen.getByRole("button", { name: "Add change" }) as HTMLButtonElement;
     expect(submitBtn.disabled).toBe(false);
 
-    const reopenedBox = screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement;
+    const reopenedBox = screen.getByLabelText("What do you want done?") as HTMLTextAreaElement;
     await user.clear(reopenedBox);
     await user.type(reopenedBox, "Brand new objective");
 
@@ -1271,7 +1271,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     // Reopened modal stays open, new objective is preserved, and no stale error is shown
     const dialog = document.querySelector("dialog.cr-modal");
     expect(dialog?.hasAttribute("open")).toBe(true);
-    expect((screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement).value).toBe("Brand new objective");
+    expect((screen.getByLabelText("What do you want done?") as HTMLTextAreaElement).value).toBe("Brand new objective");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -1306,18 +1306,18 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Failing objective");
-    await user.click(screen.getByRole("button", { name: "Capture change" }));
-    expect(screen.getByRole("button", { name: "Capturing…" })).toBeTruthy();
+    await user.type(screen.getByLabelText("What do you want done?"), "Failing objective");
+    await user.click(screen.getByRole("button", { name: "Add change" }));
+    expect(screen.getByRole("button", { name: "Adding…" })).toBeTruthy();
 
     // Close via Esc while capture is in flight, then reopen and enter a fresh objective
     await user.click(screen.getByRole("button", { name: "Esc" }));
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
 
-    const submitBtn = screen.getByRole("button", { name: "Capture change" }) as HTMLButtonElement;
+    const submitBtn = screen.getByRole("button", { name: "Add change" }) as HTMLButtonElement;
     expect(submitBtn.disabled).toBe(false);
 
-    const reopenedBox = screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement;
+    const reopenedBox = screen.getByLabelText("What do you want done?") as HTMLTextAreaElement;
     await user.clear(reopenedBox);
     await user.type(reopenedBox, "Recovered objective");
 
@@ -1330,9 +1330,9 @@ describe("engineering mode toggle and NewWorkModal", () => {
     // Reopened modal stays open, objective preserved, and no stale error alert appears
     const dialog = document.querySelector("dialog.cr-modal");
     expect(dialog?.hasAttribute("open")).toBe(true);
-    expect((screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement).value).toBe("Recovered objective");
+    expect((screen.getByLabelText("What do you want done?") as HTMLTextAreaElement).value).toBe("Recovered objective");
     expect(screen.queryByRole("alert")).toBeNull();
-    expect((screen.getByRole("button", { name: "Capture change" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Add change" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("refuses submission and retains draft when composed header + objective exceeds CAPTURE_LIMIT", async () => {
@@ -1365,18 +1365,18 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    const objectiveBox = screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement;
+    const objectiveBox = screen.getByLabelText("What do you want done?") as HTMLTextAreaElement;
     // Objective itself is under CAPTURE_LIMIT, but the composed metadata header pushes body.length over CAPTURE_LIMIT.
     const longObjective = "a".repeat(CAPTURE_LIMIT - 20);
     fireEvent.change(objectiveBox, { target: { value: longObjective } });
 
-    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    await user.click(screen.getByRole("button", { name: "Add change" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain(CAPTURE_LIMIT.toLocaleString());
     expect(alert.textContent).toMatch(/too long/i);
     expect(captureCalled).toBe(false);
-    expect((screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement).value).toBe(longObjective);
+    expect((screen.getByLabelText("What do you want done?") as HTMLTextAreaElement).value).toBe(longObjective);
   });
 
   it("resets stale project defaults when switching from an active project back to All Software", async () => {

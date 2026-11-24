@@ -4,6 +4,7 @@
 - E-02: `vitest run` over `apps/web/src/{features/board,lib,components,pages}`: 582 pass, 6 new; one board test updated for the new empty state.
 - E-03: live stack (built control plane, embedded PostgreSQL, Go daemon with the fake runtime only, release web build, Chromium): a new owner's board shows the guide at 0 of 5 with "Choose agents" ([1440](evidence/guide-1440.png), [390](evidence/guide-390.png)).
 - E-04: live `lifecycle.spec.ts` (chromium): fails on main at the "intake drafted" step (card not on the Software board); passes with the intake script change.
+- E-05: the new-change dialog on the live stack ([1440](evidence/new-change-1440.png)); vitest over components, features, pages and lib: 812 pass after the label updates in `newwork.test.tsx` and `shell-scram.test.tsx`.
 - Blind check: pending.
 
 ## Evidence custody and coupling

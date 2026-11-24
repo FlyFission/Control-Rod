@@ -2,7 +2,7 @@
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | `go test ./...` in the daemon: the same 16 tests fail before and after the change, all needing bubblewrap or the Linux checker sandbox this cloud container lacks; every other test passes. `go vet` for darwin/arm64, build for windows, gofmt clean. | `evidence/go-test.log` |
+| E-01 | pass | `go test ./...` in the daemon with bubblewrap installed: every test passes, including the Linux checker-sandbox login tests (`TestCheckerCannotRewriteLoginInstructions`, `TestCheckerMountKeepsTheLoginDirectoryReadOnly...`), except `TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun`, which fails the same way on main because this cloud container sets its own HTTPS_PROXY. `go vet` for darwin/arm64, build for windows, gofmt clean. macOS Seatbelt tests are not run here. | `evidence/go-test.log` |
 | E-02 | pass | `TestRunRefusedBeforeStartReportsNoProcess` fails with the daemon fix reverted and passes with it. | `evidence/go-test.log` |
 | E-03 | pending | Codex blind review on the owner's Mac. | PR thread |
 

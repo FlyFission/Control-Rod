@@ -1,11 +1,11 @@
-# Benchmark design v3 (for final agreement)
+# Benchmark design v3.1 (for final agreement)
 
 Status: **proposed**. This version folds in two rounds of independent review by Antigravity on Gemini 4 Neon (`gemini-4-neon-high`) and Codex on Astra (`gpt-6.2-astra`, medium effort).
 
 - Round 1, of v1 at `d1ef5e7a`: both answered agree with changes.
 - Round 2, of v2 at `3ef17753`: both answered agree with changes in every section. Their section-by-section rewrites are adopted here. Where the two rewrites differ, the stricter one is used, unless the point is listed under **Open, for the owner**.
 
-Code changes and paid calls wait until both reviewers agree with this text, with the owner's choices filled in, and the owner says go. All margins and planning numbers here are policy choices or reviewer estimates. None of them is a measurement.
+Code changes and runs wait until both reviewers agree with this text, with the owner's choices (end of file) filled in, and the owner says go. All margins and planning numbers here are policy choices or reviewer estimates. None of them is a measurement.
 
 ## 1. What a run claims
 
@@ -199,16 +199,10 @@ The run reports both author directions and their **equal-author-weight mean**. T
   - the feasibility-pilot label where it applies.
 - **After a major product update**, the old tasks become a regression set, and claims about new work use a fresh holdout.
 
-## Open, for the owner
+## Owner decisions (2026-11-24, Control Rod project thread)
 
-1. **Margins and ceiling.** Both reviewers propose a catch gain of **δ_catch = +15 percentage points**. They differ on the rest:
-   - **False-rejection cap δ_FR:** Codex Astra proposes +5 points. Neon proposes +10, or +7.5 for a tighter cap.
-   - **Ceiling, both phases, API-equivalent:** Astra proposes up to $4,000. Neon proposes $1,200 to $1,800 plus about $75 to $100 for calibration.
-   - **Neon's planning estimate** at +15 points is about 125 to 145 eligible bad patches, or roughly 200 to 360 harder tasks depending on q. That is its own simulation and unchecked.
-   - **Below the size the script requires**, the run is a feasibility pilot.
-2. **Defect adjudication scope.** Both reviewers want blind human adjudication, and both reject a third model as ground truth (a third model is acceptable only as a check validated against humans). They differ on scope:
-   - **Astra:** adjudicate every explicit rejection used for a substantiated-catch claim, including those where both checkers rejected.
-   - **Neon:** adjudicate only the discordant rejections, about 30 to 60 patches and about 1 to 2 hours by its estimate, because they alone decide the paired difference. Score 25% twice if a second person is available.
-
-   Without adjudication, "defects caught" is dropped and the run is still publishable on its other metrics.
-3. **People.** Control Rod has one maintainer. The hidden-test auditor, the A4 reviewer and the defect adjudicator must be different people, or else A4 is omitted. Neon allows one person to adjudicate only after A4 is finished and locked, or omitted, with the full table published. The choice is who fills which role, or whether to omit A4.
+1. **$0 extra spend.** The run uses only the owner's existing Claude and ChatGPT subscriptions, signed in to the CLIs. It pauses at a usage limit and resumes when the limit resets. There is no API billing. Preflight refuses to start if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or any other billing key is set for an agent process. API-equivalent cost is still computed from tokens, but **for disclosure only**. It is never a budget. The §9 reservation ledger enforces the call cap and a usage cap expressed in tokens.
+   - **Sizing under §2:** `power.py` still computes the required task count. Phase 1 uses that count if the plan limits allow it within the frozen calendar window. Otherwise phase 1 uses the largest count they allow, frozen before phase 1, and is labelled a **feasibility pilot** with no effectiveness claim. The window is set from phase 0's measured throughput per quota window.
+   - **Margins:** δ_catch = +15 percentage points, which both reviewers proposed. The owner did not choose δ_FR. Round 3 is asked to agree one value between +5 (Astra) and +10 (Neon).
+2. **Adjudication: discordant rejections only.** Only the patches where one checker explicitly failed and the other passed are adjudicated, using the §7 protocol. That is enough for the paired difference. It does not support an absolute "substantiated catch rate". Concordant rejections are reported as explicit rejections only.
+3. **A4 is omitted from this run.** The owner is the only maintainer. He audits the hidden tests before the run (§3) and adjudicates the discordant rejections after all checks finish and are hashed and locked. Because he saw the hidden tests during the audit, the adjudication cannot be blind to them. **This is disclosed** in `report.md` and `share.md`, and the full adjudication table is published. The adjudicator is still blind to vendor, to same-model or cross-vendor status, and to the other verdict.

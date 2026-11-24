@@ -134,7 +134,7 @@ describe("office view", () => {
     expect(within(screen.getByRole("region", { name: "Reactor building" })).getByText("1 agent working")).toBeTruthy();
     const office = screen.getByRole("region", { name: /^Your office, Main control room:/ });
     expect(office).toBeTruthy();
-    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept. Marks: a gate decision waits, Safety grade. Status lens: Needs you." });
+    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Line sizing. Pre-check passed. Review and accept. Marks: a gate decision waits, Safety grade. Status lens: Needs you." });
     await userEvent.click(needs);
     const card = screen.getByRole("complementary", { name: "Selected agent" });
     expect(within(card).getByText("Pre-check passed. Review and accept.")).toBeTruthy();
@@ -246,7 +246,7 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
     await userEvent.click(screen.getByRole("radio", { name: "List" }));
     expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Show everyone" })).toBeNull();
-    expect(within(screen.getByLabelText("Every agent, by place")).getByRole("button", { name: /^Working WP-W0: Working/ })).toBeTruthy();
+    expect(within(screen.getByLabelText("Every agent, by place")).getByRole("button", { name: /^WP-W0: Working/ })).toBeTruthy();
     await userEvent.click(screen.getByRole("radio", { name: /^(Plant|Floor)$/ }));
     await userEvent.click(screen.getByRole("button", { name: "Show everyone" }));
     expect(screen.getByRole("button", { name: /^WP-W0: Working/ })).toBeTruthy();
@@ -271,9 +271,12 @@ describe("the Plant and the archived office themes", () => {
   it("opens on the Plant, with its site drawing and no theme picker in the header", async () => {
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().length).toBe(14);
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
-    expect(document.querySelector('[data-site]')).toBeTruthy();
+    // The Plant is the painted scene (application art under /plant), not a theme: no theme art loads.
+    expect(art().length).toBe(0);
+    expect(document.querySelector(".plant-scene")).toBeTruthy();
+    expect([...document.querySelectorAll<HTMLImageElement>(".plant-scene [data-hero]")].every((i) => (i.getAttribute("src") ?? "").startsWith("/plant/"))).toBe(true);
+    // The rod gauge lives in the shell's top bar now, so the Plant's own header carries none.
+    expect(screen.queryByRole("img", { name: /Control rods/ })).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
     expect(screen.getByRole("heading", { name: "Plant" })).toBeTruthy();
   });
@@ -302,25 +305,25 @@ describe("the Plant and the archived office themes", () => {
     await screen.findByRole("button", { name: /^WP-0001/ });
     await waitFor(() => expect(art().every((src) => src.startsWith("/office-themes/orbital-shipyard/"))).toBe(true));
     await userEvent.click(screen.getByRole("button", { name: "Back to the Plant" }));
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(art().length === 0 && Boolean(document.querySelector(".plant-scene"))).toBe(true);
     again.unmount();
     // Another member signing in on this browser gets their own choice, not the last member's.
     member = "dora";
     await renderPage(<OfficeView drafts />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(art().length === 0 && Boolean(document.querySelector(".plant-scene"))).toBe(true);
   });
 
   it("lands everyone on the Plant once: the old office theme choice is not read, and a choice this build does not offer falls back", async () => {
     localStorage.setItem("controlrod.office.theme.ben", "orbital-shipyard");
     const first = await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(art().length === 0 && Boolean(document.querySelector(".plant-scene"))).toBe(true);
     first.unmount();
     localStorage.setItem("controlrod.plant.view.ben", "harness-bright");
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(art().every((src) => src.startsWith("/office-themes/plant/"))).toBe(true);
+    expect(art().length === 0 && Boolean(document.querySelector(".plant-scene"))).toBe(true);
   });
 
   it("lists every agent by zone and place, and opens the same card from the list", async () => {
@@ -335,7 +338,7 @@ describe("the Plant and the archived office themes", () => {
     await user.click(screen.getByRole("radio", { name: "List" }));
     const site = screen.getByRole("region", { name: "Site" });
     expect(within(site).getByText("Quarantine, Hold yard")).toBeTruthy();
-    await user.click(within(site).getByRole("button", { name: /WP-Q: Stuck\. Held by SCRAM/ }));
+    await user.click(within(site).getByRole("button", { name: /WP-Q: Stuck\..*Held by SCRAM/ }));
     expect(within(screen.getByRole("complementary", { name: "Selected agent" })).getByText("Held by SCRAM")).toBeTruthy();
     expect(within(screen.getByRole("region", { name: "Auxiliary building" })).getByRole("button", { name: /WP-0001: Working/ })).toBeTruthy();
   });
@@ -380,6 +383,8 @@ describe("the Plant and the archived office themes", () => {
       expect(screen.getByRole("radio", { name: "List" }).getAttribute("aria-checked")).toBe("true");
       expect(plant().disabled).toBe(true);
       expect(screen.getByLabelText("Every agent, by place")).toBeTruthy();
+      // The scene is not dropped on a phone or tablet: a compact one shows above the list.
+      expect(document.querySelector(".plant-scene")).toBeTruthy();
       // Wide again: the pick returns.
       resize(1024);
       expect(plant().getAttribute("aria-checked")).toBe("true");
@@ -387,6 +392,21 @@ describe("the Plant and the archived office themes", () => {
     } finally {
       globalThis.ResizeObserver = real;
     }
+  });
+
+  it("opens a room's every agent from its +N stack, over the same buttons as the overflow list", async () => {
+    const five = ["A", "B", "C", "D", "E"].map((x, i) => figure({ id: `R-${x}`, package_id: `WP-${x}`, title: `Job ${x}`, place: "process", since: new Date(Date.now() - (9 - i) * 60e3).toISOString() }));
+    server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: five, needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })));
+    await renderPage(<OfficeView drafts={false} />);
+    const stack = await screen.findByRole("button", { name: /^Process: \d+ more agents?\. Show them/ });
+    // The "+N more" stack is the way to every figure the rooms cannot seat, so the Plant has no second list under the drawing.
+    expect(screen.queryByRole("heading", { name: "More than the rooms hold" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Process: every agent" })).toBeNull();
+    await userEvent.click(stack);
+    const open = screen.getByRole("region", { name: "Process: every agent" });
+    expect(within(open).getAllByRole("button", { name: /^WP-[A-E]: Working/ })).toHaveLength(5);
+    await userEvent.click(within(open).getByRole("button", { name: /^WP-C: Working/ }));
+    expect(screen.getByRole("complementary", { name: "Selected agent" })).toBeTruthy();
   });
 
   it("never draws the core as dark, or the rods as withdrawn, when it could not read them", async () => {

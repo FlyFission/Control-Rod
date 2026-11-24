@@ -2,7 +2,8 @@
 // check-contrast script and the Vitest guard. No ratio is typed by hand; every
 // number comes from the hex values in tokens.css.
 
-export const LOOKS = ["a", "b", "c"];
+/** The looks in force. Look a is :root; a further look is a [data-look="x"] block and one more entry here. Looks b and c are retired. */
+export const LOOKS = ["a"];
 export const SURFACE_TOKENS = ["--ground", "--surface", "--panel", "--line"];
 export const TEXT_TOKENS = [
   "--text",
@@ -37,14 +38,12 @@ function declarations(body) {
   return out;
 }
 
-/** Token maps per look; looks b and c inherit anything they do not override from :root. */
+/** Token maps per look; any look after a inherits what it does not override from :root. */
 export function parseLooks(css) {
   const root = declarations(blockBody(css, ":root"));
-  return {
-    a: root,
-    b: { ...root, ...declarations(blockBody(css, '[data-look="b"]')) },
-    c: { ...root, ...declarations(blockBody(css, '[data-look="c"]')) },
-  };
+  const out = { a: root };
+  for (const look of LOOKS) if (look !== "a") out[look] = { ...root, ...declarations(blockBody(css, `[data-look="${look}"]`)) };
+  return out;
 }
 
 function channel(v) {

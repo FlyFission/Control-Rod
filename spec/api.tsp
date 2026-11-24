@@ -109,6 +109,9 @@ namespace WorkspaceProjects {
     author: RuntimeSelection;
     checker: RuntimeSelection;
     laneAgents?: Record<string>;
+
+    /** The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset). */
+    work_lanes?: ControlRod.Records.WorkLaneSet;
     createdAt: utcDateTime;
   }
 
@@ -122,6 +125,9 @@ namespace WorkspaceProjects {
 
     /** Null clears the configured lane overrides. */
     laneAgents?: Record<string> | null;
+
+    /** Sets the project's work lanes. On create, absent means the preset proposed from the repository. */
+    work_lanes?: ControlRod.Records.WorkLaneChoice;
   }
 
   model CreateProjectPayload {
@@ -184,6 +190,14 @@ namespace Captures {
     text: string;
 
     source?: "web" | "cli" | "voice" | "chat";
+
+    /** An explicitly prepared checkout. The API validates it and records its Git identity. */
+    checkout?: {
+      repo: string;
+      local_path: string;
+      branch: string;
+      workspace_root?: string;
+    };
 
     /** Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
     lane?: ControlRod.Records.DataLane;
@@ -631,7 +645,11 @@ op metrics(): Metrics;
 @get
 op office(): OfficeItem[];
 
-/** Where a figure stands in the office (specification 13): a discipline's cube set, or a room. */
+/**
+ * Where a figure stands in the office (specification 13): a work bay or a room. The six bay ids are
+ * positions (WorkBaySlot); a project's work lanes say what each is called. Under the capital-project
+ * preset they are the six disciplines, as before.
+ */
 union FigurePlace {
   "process", "mechanical", "electrical", "civil", "assurance", "project-controls",
   "review", "interface", "verification", "your-office", "document-control", "bench", "quarantine",
@@ -713,6 +731,12 @@ model AgentFigure {
   /** The project that owns the work, for the portfolio rollup; absent for organization level work. */
   project_id?: string;
 
+  /** The id of the project work lane that placed this figure's bay, absent outside a work bay. */
+  lane?: string;
+
+  /** That lane's name, so a card reads right even when the Plant's bays follow another project's lanes. */
+  lane_name?: string;
+
   /** The run's own status, so the card offers stop exactly when the command layer would take it. */
   run_status: RunStatus;
 
@@ -739,6 +763,9 @@ op officeFigures(@query presenting?: boolean): {
 
   /** Figures left out because presenting mode hides lanes above internal. */
   hidden: int32;
+
+  /** The work lanes of each project that has a figure, so bay names follow the project. */
+  lane_sets?: { project_id: string; work_lanes: WorkLaneSet }[];
 
   generated_at: utcDateTime;
 } | ApiError;
@@ -1598,6 +1625,9 @@ namespace Runner {
     runtimes: string[];
 
     runtime_status?: RuntimeStatus[];
+
+    /** Required to claim an author run with a checkout binding; omitted means unsupported. */
+    supports_checkouts?: boolean;
 
     /** Provider CLI probes for Settings. Output of a status command is not included. */
     subscription_report?: ControlRod.Api.SubscriptionReport;

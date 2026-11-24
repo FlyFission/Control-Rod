@@ -4,6 +4,10 @@ import { appendEvent } from "./events.js";
 import type { Caller } from "./admin.js";
 import { checkSchema, createProject, type DataLane } from "./tenancy.js";
 import { Refusal } from "./refusal.js";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+import { isContainedIn, isSafeRepoIdentifier, resolveSafeWorkspaceRoot } from "./repos.js";
+import { type WorkLaneSet, laneSetOf, proposePreset, resolveChoice } from "./work-lanes.js";
 
 const projectIdFor = () => `prj_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
@@ -38,6 +42,8 @@ export interface WorkspaceProjectView {
   author: AgentRuntimeSelection;
   checker: AgentRuntimeSelection;
   laneAgents?: Record<string, string>;
+  /** The work lanes the Plant's bays follow. An old project reads as the capital-project preset. */
+  work_lanes: WorkLaneSet;
   createdAt: string;
 }
 
@@ -127,6 +133,23 @@ function resolveWorkspaceMode(body: Record<string, unknown>): EngineeringMode {
   return modeRaw === "capital-projects" ? "capital-projects" : "software";
 }
 
+/**
+ * The names at the top of a local clone, to propose a work-lane preset from. Names only: no file is read.
+ * A GitHub name, an unsafe name, a clone that is not inside the workspace root or one that is unreadable
+ * gives no entries, and the proposal then falls back to the project's mode.
+ */
+export function repoRootEntries(repo: string, workspaceRoot: string): string[] {
+  try {
+    if (!repo || repo.includes("/") || !isSafeRepoIdentifier(repo)) return [];
+    const root = resolveSafeWorkspaceRoot(workspaceRoot || undefined);
+    const dir = join(root, repo);
+    if (!isContainedIn(root, dir)) return [];
+    return readdirSync(dir).slice(0, 500);
+  } catch {
+    return [];
+  }
+}
+
 function mergePrefs(raw?: Partial<ProjectWorkspacePrefs>): ProjectWorkspacePrefs {
   const laneAgents = cleanLaneAgents(raw?.laneAgents);
   return {
@@ -192,6 +215,7 @@ export async function listWorkspaceProjects(db: Db, orgId: string): Promise<Work
       mode,
       status: String(r.body.status ?? "active"),
       ...prefs,
+      work_lanes: laneSetOf(r.body.work_lanes),
       createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     };
   });
@@ -218,6 +242,11 @@ export async function createWorkspaceProject(
     ...(input.laneAgents !== undefined ? { laneAgents: input.laneAgents as Record<string, string> } : {}),
   });
   assertO6Independence(prefs);
+  // The lanes the person chose, or the preset the repository and mode propose. Either way they are the
+  // project's setting from the start and its setting changes them.
+  const lanes = input.work_lanes !== undefined
+    ? resolveChoice(input.work_lanes)
+    : resolveChoice({ preset: proposePreset({ entries: repoRootEntries(prefs.repo, prefs.workspaceRoot), mode }).preset });
   const actor = { kind: "human" as const, id: caller.userName };
   const id = projectIdFor();
   await createProject(c, {
@@ -231,6 +260,7 @@ export async function createWorkspaceProject(
     qa_overlays: mode === "nuclear-grade" ? ["nuclear-grade"] : [],
     autonomy_level: 0,
     status: "active",
+    work_lanes: lanes,
   }, actor);
   const map = await readPrefsMap(c, caller.orgId);
   map[id] = prefs;
@@ -249,6 +279,7 @@ export async function createWorkspaceProject(
     mode,
     status: "active",
     ...prefs,
+    work_lanes: lanes,
     createdAt: new Date().toISOString(),
   };
 }
@@ -289,6 +320,15 @@ export async function updateWorkspaceProject(
     ...(nextLaneAgents !== undefined ? { laneAgents: nextLaneAgents } : {}),
   });
   assertO6Independence(next);
+  // Work lanes live on the project record, beside its other settings, and are checked against the spec.
+  const body = r.rows[0].body;
+  let lanes = laneSetOf(body.work_lanes);
+  if (patch.work_lanes !== undefined) {
+    lanes = resolveChoice(patch.work_lanes);
+    const nextBody = { ...body, work_lanes: lanes };
+    checkSchema("Project.json", nextBody);
+    await c.query("update projects set body = $2 where id = $1", [projectId, nextBody]);
+  }
   map[projectId] = next;
   await writePrefsMap(c, caller.orgId, map);
   await appendEvent(c, "project.workspace-updated", projectId, actor, {
@@ -298,6 +338,7 @@ export async function updateWorkspaceProject(
     author: next.author.ecosystem,
     checker: next.checker.ecosystem,
     ...(next.laneAgents ? { lane_agents: next.laneAgents } : {}),
+    ...(patch.work_lanes !== undefined ? { work_lanes: lanes.preset } : {}),
   });
   return {
     id: projectId,
@@ -305,6 +346,7 @@ export async function updateWorkspaceProject(
     mode: resolveWorkspaceMode(r.rows[0].body),
     status: String(r.rows[0].body.status ?? "active"),
     ...next,
+    work_lanes: lanes,
     createdAt: r.rows[0].created_at instanceof Date ? r.rows[0].created_at.toISOString() : String(r.rows[0].created_at),
   };
 }

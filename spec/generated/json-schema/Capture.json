@@ -35,6 +35,10 @@
                 }
             ]
         },
+        "checkout": {
+            "$ref": "CheckoutBinding.json",
+            "description": "Validated structured input; capture text cannot grant checkout access."
+        },
         "created_at": {
             "type": "string",
             "format": "date-time"

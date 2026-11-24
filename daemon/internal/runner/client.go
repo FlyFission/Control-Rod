@@ -120,6 +120,7 @@ func statusError(path string, resp *http.Response) error {
 // for every runtime found, and the longest a run lasts in this daemon (its timeout plus the graceful
 // stop ladder), from which the control plane sizes budget reservations.
 type ClaimRequest struct {
+	SupportsCheckouts  bool                `json:"supports_checkouts"`
 	Runtimes           []string            `json:"runtimes"`
 	RuntimeStatus      []RuntimeStatus     `json:"runtime_status,omitempty"`
 	RunCeilingSeconds  int                 `json:"run_ceiling_seconds,omitempty"`
@@ -143,7 +144,7 @@ func (c *Client) ClaimWithUsage(ctx context.Context, runtimes []string, status [
 	if runtimes == nil {
 		runtimes = []string{}
 	}
-	req := ClaimRequest{Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report, UsageLimits: usage}
+	req := ClaimRequest{SupportsCheckouts: checkoutCustodySupported(), Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report, UsageLimits: usage}
 	if len(updates) > 0 {
 		list := append([]AgentUpdate{}, updates[0].List...)
 		req.AgentUpdates = &list

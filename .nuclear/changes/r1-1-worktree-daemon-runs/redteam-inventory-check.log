@@ -1,0 +1,4 @@
+python3 tools/check_redteam.py
+26 red-team cases (2 active, 24 pending)
+
+Exit: 0

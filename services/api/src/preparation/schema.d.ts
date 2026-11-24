@@ -1540,6 +1540,10 @@ export interface components {
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];
             /** @description The project that owns the work, for the portfolio rollup; absent for organization level work. */
             project_id?: string;
+            /** @description The id of the project work lane that placed this figure's bay, absent outside a work bay. */
+            lane?: string;
+            /** @description That lane's name, so a card reads right even when the Plant's bays follow another project's lanes. */
+            lane_name?: string;
             /** @description The run's own status, so the card offers stop exactly when the command layer would take it. */
             run_status: components["schemas"]["ControlRod.Records.RunStatus"];
             /** @description A stop was asked for and the daemon has not yet confirmed it. */
@@ -1661,6 +1665,8 @@ export interface components {
             text: string;
             /** @enum {string} */
             source: "web" | "cli" | "voice" | "chat";
+            /** @description Validated structured input; capture text cannot grant checkout access. */
+            checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
             /** Format: date-time */
             created_at: string;
             /**
@@ -1699,6 +1705,13 @@ export interface components {
             text: string;
             /** @enum {string} */
             source?: "web" | "cli" | "voice" | "chat";
+            /** @description An explicitly prepared checkout. The API validates it and records its Git identity. */
+            checkout?: {
+                repo: string;
+                local_path: string;
+                branch: string;
+                workspace_root?: string;
+            };
             /** @description Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
             lane?: components["schemas"]["ControlRod.Records.DataLane"];
         };
@@ -2106,6 +2119,8 @@ export interface components {
             text: string;
             /** @enum {string} */
             source: "web" | "cli" | "voice" | "chat";
+            /** @description Validated structured input; capture text cannot grant checkout access. */
+            checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
             /** Format: date-time */
             created_at: string;
             /**
@@ -2228,6 +2243,21 @@ export interface components {
          * @enum {string}
          */
         "ControlRod.Records.CheckerAttemptOutcome": "pass" | "fail" | "inconclusive" | "timeout" | "error" | "quota" | "cancelled";
+        /** @description A host-validated checkout selection. Only author runs may use it as their working directory. */
+        "ControlRod.Records.CheckoutBinding": {
+            repo: string;
+            root: string;
+            path: string;
+            branch: string;
+            head: string;
+            git_dir: string;
+            common_dir: string;
+        };
+        /** @description What the daemon read from a bound checkout after its run, not what was requested. */
+        "ControlRod.Records.CheckoutObserved": {
+            branch: string;
+            head: string;
+        };
         "ControlRod.Records.CodeOrStandard": {
             code: string;
             edition: string;
@@ -2362,6 +2392,10 @@ export interface components {
              *     before plan Phase 6 carry the request they made then ("workspace-write" and the like).
              */
             sandbox?: string;
+            /** @description Verified repository checkout selected for this execution, when bound. */
+            checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
+            /** @description The branch and commit the daemon read from that checkout after the run ended, when bound. */
+            checkout_final?: components["schemas"]["ControlRod.Records.CheckoutObserved"];
         };
         "ControlRod.Records.Finding": {
             id: string;
@@ -2603,6 +2637,8 @@ export interface components {
              * @enum {string}
              */
             default_workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
+            /** @description The work lanes the Plant's bays follow. Absent means the capital-project preset. */
+            work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneSet"];
             lanes: components["schemas"]["ControlRod.Records.DataLane"][];
             qa_overlays: string[];
             /**
@@ -2683,6 +2719,8 @@ export interface components {
             role: components["schemas"]["ControlRod.Records.RunRole"];
             agent_baseline: string;
             runtime: components["schemas"]["ControlRod.Records.RuntimeRef"];
+            /** @description Frozen when queued, for an author only. A daemon must refuse an unavailable or changed checkout. */
+            checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
             /**
              * Format: int32
              * @description Author and pre-check rounds start at 1; round 3 escalates a dispute to a person.
@@ -3010,6 +3048,48 @@ export interface components {
              */
             attestation_verified?: boolean;
         };
+        /**
+         * @description One work lane: one work bay on the Plant. Its position in its set is its bay (the first lane is the
+         *     first slot of WorkBaySlot, and so on). Not a data lane (DataLane), which classifies information.
+         */
+        "ControlRod.Records.WorkLane": {
+            /** @description Stable, lowercase, used by a card's lane tag. */
+            id: string;
+            /** @description The name on the bay's plate. Short enough for a plate at minimum zoom. */
+            name: string;
+            /** @description What happens in this lane, for screen readers and the legend. */
+            purpose: string;
+            /** @description Whole words (or word runs) in a card's discipline that place it here. Matched on word boundaries, never inside a word. */
+            keywords?: string[];
+            /** @description Repository paths that place work here: a directory prefix ("apps/web/"), an exact path, or a glob (`*` within a segment, `**` across segments). */
+            paths?: string[];
+        };
+        /**
+         * @description A request to set a project's work lanes. `lanes` is required (one to six) for the custom preset and
+         *     ignored for the others, whose lanes the control plane supplies.
+         */
+        "ControlRod.Records.WorkLaneChoice": {
+            preset: components["schemas"]["ControlRod.Records.WorkLanePreset"];
+            lanes?: components["schemas"]["ControlRod.Records.WorkLane"][];
+            /** @description The id of the lane that takes work no tag, path or keyword places. Absent means the preset's own default (the first lane for custom). */
+            default_lane?: string;
+        };
+        /**
+         * @description Which set of work lanes a project uses.
+         * @enum {string}
+         */
+        "ControlRod.Records.WorkLanePreset": "capital-project" | "software" | "custom";
+        /**
+         * @description A project's work lanes as stored and returned: the preset, its one to six lanes, and the lane that
+         *     takes work nothing else places. Work is placed by, in order: the card's lane tag (its discipline
+         *     equal to a lane id or name), the repository paths its recorded outputs touch, whole-word keywords,
+         *     then the default lane. A project without one reads as the capital-project preset.
+         */
+        "ControlRod.Records.WorkLaneSet": {
+            preset: components["schemas"]["ControlRod.Records.WorkLanePreset"];
+            lanes: components["schemas"]["ControlRod.Records.WorkLane"][];
+            default_lane: string;
+        };
         /** @description The only unit of work an agent may start. */
         "ControlRod.Records.WorkPackage": {
             /** @enum {string} */
@@ -3072,7 +3152,9 @@ export interface components {
             count: number;
         };
         /**
-         * @description Where a figure stands in the office (specification 13): a discipline's cube set, or a room.
+         * @description Where a figure stands in the office (specification 13): a work bay or a room. The six bay ids are
+         *     positions (WorkBaySlot); a project's work lanes say what each is called. Under the capital-project
+         *     preset they are the six disciplines, as before.
          * @enum {string}
          */
         FigurePlace: "process" | "mechanical" | "electrical" | "civil" | "assurance" | "project-controls" | "review" | "interface" | "verification" | "your-office" | "document-control" | "bench" | "quarantine";
@@ -3740,6 +3822,8 @@ export interface components {
             lane?: components["schemas"]["ControlRod.Records.DataLane"];
             author?: components["schemas"]["WorkspaceProjects.RuntimeSelection"];
             checker?: components["schemas"]["WorkspaceProjects.RuntimeSelection"];
+            /** @description Sets the project's work lanes. On create, absent means the preset proposed from the repository. */
+            work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneChoice"];
             laneAgents?: {
                 [key: string]: string;
             };
@@ -3775,6 +3859,8 @@ export interface components {
             laneAgents?: {
                 [key: string]: string;
             } | null;
+            /** @description Sets the project's work lanes. On create, absent means the preset proposed from the repository. */
+            work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneChoice"];
         };
         "WorkspaceProjects.UpdateProjectPayload": {
             project_id: string;
@@ -3796,6 +3882,8 @@ export interface components {
             laneAgents?: {
                 [key: string]: string;
             };
+            /** @description The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset). */
+            work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneSet"];
             /** Format: date-time */
             createdAt: string;
         };
@@ -4830,6 +4918,11 @@ export interface operations {
                          * @description Figures left out because presenting mode hides lanes above internal.
                          */
                         hidden: number;
+                        /** @description The work lanes of each project that has a figure, so bay names follow the project. */
+                        lane_sets?: {
+                            project_id: string;
+                            work_lanes: components["schemas"]["ControlRod.Records.WorkLaneSet"];
+                        }[];
                         /** Format: date-time */
                         generated_at: string;
                     } | components["schemas"]["ApiError"];
@@ -8207,6 +8300,8 @@ export interface operations {
                     /** @description Runtimes ready for work. The control plane picks only from these. */
                     runtimes: string[];
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
+                    /** @description Required to claim an author run with a checkout binding; omitted means unsupported. */
+                    supports_checkouts?: boolean;
                     /** @description Provider CLI probes for Settings. Output of a status command is not included. */
                     subscription_report?: components["schemas"]["SubscriptionReport"];
                     /** @description Usage-limit readings the agent CLIs reported. No token is read to get them. */

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+
+import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { DataLane, WorkspaceProject } from "../api/types.js";
+import type { DataLane, NewCapture, WorkspaceProject } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
 import { WORKFLOWS, WORKFLOW_DESCRIPTION, WORKFLOW_LABEL, type Workflow } from "../lib/workflow.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
-import { projectCaptureTag, useActiveProject } from "../lib/projects.js";
+import { projectCaptureTag, useActiveProject, useProjects } from "../lib/projects.js";
 import {
   CLI_ECOSYSTEMS,
   defaultAuthorSelection,
@@ -41,6 +43,15 @@ function suggestBranchName(text: string): string {
   return slug ? `cr/${slug}` : "cr/work-package";
 }
 
+const STRATEGY_NOTE: Record<RepoOutfallStrategy, string> = {
+  worktree:
+    "Selected strategy (worktree) prepares an isolated checkout for author runs.",
+  "fresh-clone":
+    "Selected strategy (fresh-clone) prepares a fresh checkout for author runs.",
+  branch:
+    "Selected strategy (branch in base clone) prepares the local checkout for author runs.",
+};
+
 interface PrepareSnapshot {
   seq: number;
   repo: string;
@@ -67,8 +78,10 @@ interface NewWorkModalProps {
  * Capture uses resolved defaults, with repository and runtime overrides in one disclosure.
  */
 export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
+  // A SCRAM in force for the organization or this project stops new work being captured (section 6.6).
   const copy = MODE_COPY[mode];
   const activeProject = useActiveProject();
+  const allProjects = useProjects();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const objectiveRef = useRef<HTMLTextAreaElement>(null);
   const qc = useQueryClient();
@@ -93,6 +106,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [pendingCaptureSession, setPendingCaptureSession] = useState<number | null>(null);
   const [workflow, setWorkflow] = useState<Workflow | "">("");
   const [pinnedFields, setPinnedFields] = useState(false);
+  // Lock on the project this capture will really target (the editable field), not the sidebar's.
+  const targetProject = project.trim();
+  const targetEntry = allProjects.find((p) => p.name.toLowerCase() === targetProject.toLowerCase());
+  const scramLock = useActionLock(targetEntry ? targetEntry.id : targetProject || null);
 
   const [objective, setObjective] = useState("");
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
@@ -281,8 +298,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   }, [open]);
 
   const send = useMutation({
-    mutationFn: ({ body, lane: submittedLane }: { body: string; lane: DataLane; session: number }) =>
-      api.capture({ text: body, source: "web", lane: submittedLane }),
+    mutationFn: ({ body, lane: submittedLane, checkout }: { body: string; lane: DataLane; session: number; checkout?: NewCapture["checkout"] }) =>
+      api.capture({ text: body, source: "web", lane: submittedLane, ...(checkout ? { checkout } : {}) }),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["captures"] });
       if (vars.session !== modalSessionRef.current) return;
@@ -356,7 +373,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (pendingCaptureSession !== null) return;
+    if (pendingCaptureSession !== null || scramLock.locked) return;
     const trimmed = objective.trim();
     if (!trimmed) {
       setError("Enter an objective or scope before capturing.");
@@ -386,7 +403,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       repo ? `[repo:${repo}]` : null,
       repo ? `[branch:${captureBranch}]` : null,
       repo ? `[outfall:${repoStrategy}]` : null,
-      preparedPath ? `[workspace:${preparedPath}]` : null,
       workflow ? `[workflow:${workflow}]` : null,
       `[stage:${stage}]`,
       `[purpose:${purpose}]`,
@@ -407,7 +423,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     }
     const session = modalSessionRef.current;
     setPendingCaptureSession(session);
-    send.mutate({ body, lane, session });
+    send.mutate({ body, lane, session, ...(preparedPath ? { checkout: {
+      repo, local_path: preparedPath, branch: captureBranch,
+      ...(activeWorkspaceRoot ? { workspace_root: activeWorkspaceRoot } : {}),
+    } } : {}) });
   }
 
   const independent = isIndependentCustody(author, checker);
@@ -595,11 +614,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                     </button>
                   </div>
                 )}
-                {repo && (
-                  <p className="small muted" style={{ margin: "8px 0 0" }}>
-                    Prepare a local checkout for manual use; agent runs still use an isolated package workspace until Cycle 2 repo binding lands.
-                  </p>
-                )}
+          <p className="small muted" style={{ margin: "8px 0 0" }}>
+            {repo
+              ? STRATEGY_NOTE[repoStrategy]
+              : "Prepare a repository to use its local checkout for the author run."}
+          </p>
               </fieldset>
 
               <div className="cr-form-grid">
@@ -757,7 +776,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           <button type="button" className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn primary" disabled={isCapturing}>
+          <button type="submit" className="btn primary" disabled={isCapturing || scramLock.locked} title={scramLock.why}>
             {isCapturing
               ? "Capturing…"
               : mode === "nuclear-grade"

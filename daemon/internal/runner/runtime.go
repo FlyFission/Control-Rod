@@ -183,6 +183,9 @@ func CodexArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) (
 		args = append(args, "-m", model)
 	}
 	prompt := Prompt
+	if ws != nil && ws.Checkout != nil {
+		prompt = checkoutPrompt(ws)
+	}
 	if ws != nil && ws.Checker {
 		prompt = CheckerPrompt
 	}
@@ -197,6 +200,9 @@ func CodexArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) (
 // refusal; it is not an approval channel).
 func ClaudeArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) []string {
 	prompt := Prompt
+	if ws != nil && ws.Checkout != nil {
+		prompt = checkoutPrompt(ws)
+	}
 	if ws != nil && ws.Checker {
 		prompt = CheckerPrompt
 	}

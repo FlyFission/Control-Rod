@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -35,13 +35,14 @@ const asDaemon = async (url: string, payload: unknown): Promise<DaemonReply> => 
 };
 
 interface Job {
+  capture?: Record<string, unknown>;
   run: { id: string; role: string; package_id: string; round: number; agent_baseline: string; runtime: { provider: string; model: string } };
   inputs: { name: string; content_base64: string }[];
   claim: { token: string; lease_expires_at: string; heartbeat_seconds: number };
 }
 
-async function claim(runtimes = ["fake"], runtimeStatus?: { runtime: string; ready: boolean; models: string[] }[]): Promise<Job | null> {
-  const r = await asDaemon("/runner/claim", { runtimes, runtime_status: runtimeStatus });
+async function claim(runtimes = ["fake"], supportsCheckouts = false, runtimeStatus?: { runtime: string; ready: boolean; models: string[] }[]): Promise<Job | null> {
+  const r = await asDaemon("/runner/claim", { runtimes, ...(supportsCheckouts ? { supports_checkouts: true } : {}), ...(runtimeStatus ? { runtime_status: runtimeStatus } : {}) });
   if (r.statusCode === 204) return null;
   const job = r.json() as Job;
   claims.set(job.run.id, job.claim.token);
@@ -85,12 +86,19 @@ async function decide(id: string, kind: string, revision: number, reason?: strin
   return asOwner("POST", `/packages/${id}/decisions`, { kind, package_revision: revision, ...(reason ? { reason } : {}), assertion });
 }
 
+type CheckoutSelection = { repo: string; branch: string; local_path: string; workspace_root: string };
+
 /** Captures a request, lets intake draft one package with the given role, and releases it. */
-async function releasedPackage(key: string, role = "general-author"): Promise<string> {
-  const c = await asOwner("POST", "/captures", { lane: "internal", text: `Make ${key}` });
+async function releasedPackage(key: string, role = "general-author", checkout?: CheckoutSelection): Promise<string> {
+  const c = await asOwner("POST", "/captures", { lane: "internal", text: `Make ${key}`, ...(checkout ? { checkout } : {}) });
   expect(c.statusCode, c.body).toBe(201);
   const job = await claim();
   if (!job) throw new Error("no intake job");
+  if (checkout) {
+    expect(job.run).not.toHaveProperty("checkout");
+    expect(job.capture).toBeDefined();
+    expect(job.capture).not.toHaveProperty("checkout");
+  }
   const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
     status: "succeeded",
     outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(draft(key, role))) }],
@@ -103,7 +111,159 @@ async function releasedPackage(key: string, role = "general-author"): Promise<st
   return id;
 }
 
+const complete = (job: Job, body: Record<string, unknown>) => asDaemon(`/runner/runs/${job.run.id}/complete`, body);
+const runRow = async (id: string) =>
+  (await h.db.query<{ status: string; body: Record<string, any> }>("select status, body from runs where id = $1", [id])).rows[0];
+
 describe("launch inputs", () => {
+  it("dispatches a bound checkout only to a capable author daemon", async () => {
+    // The capture route requires an explicit workspace root beneath the current home.
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-run-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      const id = await releasedPackage("CHECKOUT", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+      expect(await claim()).toBeNull();
+      // Skipped for this daemon, but held with a visible reason rather than silently.
+      const held = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'author'", [id])).rows[0]!.body;
+      expect(held).toMatchObject({ waiting_cause: "sandbox", waiting_key: "checkout-daemon" });
+      expect(held.waiting_reason).toMatch(/custody/);
+      const author = await claim(["fake"], true);
+      const started = (await h.db.query<{ body: Record<string, any> }>("select body from runs where id = $1", [author!.run.id])).rows[0]!.body;
+      expect(started.waiting_cause).toBeUndefined();
+      expect(author?.run).toMatchObject({
+        role: "author", package_id: id,
+        checkout: { repo: "demo", root, path, branch: "topic", head: git(path, "rev-parse", "HEAD"),
+          git_dir: git(path, "rev-parse", "--absolute-git-dir"), common_dir: git(path, "rev-parse", "--path-format=absolute", "--git-common-dir") },
+      });
+      const frozenCheckout = (author!.run as unknown as { checkout: object }).checkout;
+      const completed = await asDaemon(`/runner/runs/${author!.run.id}/complete`, { status: "succeeded", trace: trace(author!, { checkout: frozenCheckout, checkout_final: { branch: "topic", head: (frozenCheckout as { head: string }).head } }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+      expect(completed.statusCode, completed.body).toBeLessThan(300);
+      const checker = await claim(["codex"], true);
+      expect(checker?.run).toMatchObject({ role: "pre-check", package_id: id });
+      expect(checker?.run).not.toHaveProperty("checkout");
+      const checked = await asDaemon(`/runner/runs/${checker!.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+      expect(checked.statusCode, checked.body).toBeLessThan(300);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a completion whose trace names a different checkout than the one frozen into the run", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-trace-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      await releasedPackage("TRACECO", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+      const author = (await claim(["fake"], true)) as Job;
+      const frozen = (author.run as unknown as { checkout: Record<string, string> }).checkout;
+      const other = { ...frozen, path: join(root, "elsewhere"), head: "0".repeat(40) };
+      const r = await complete(author, { status: "succeeded", trace: trace(author, { checkout: other }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+      expect(r.json().refusal.code).toBe("invalid-trace");
+      expect(String(r.json().refusal.message ?? "")).toMatch(/checkout/);
+      expect((await runRow(author.run.id))?.status).toBe("failed");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a bound run's success that carries no execution trace", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-notrace-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      await releasedPackage("NOTRACE", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+      const author = (await claim(["fake"], true)) as Job;
+      const r = await complete(author, { status: "succeeded", outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+      expect(r.json().refusal.code).toBe("invalid-trace");
+      expect((await runRow(author.run.id))?.status).toBe("failed");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a bound success whose trace lacks the checkout found afterwards or found it on another branch", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-final-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      for (const [key, finalOf] of [["FINALNONE", () => undefined], ["FINALOTHER", (h: string) => ({ branch: "other", head: h })]] as const) {
+        await releasedPackage(key, "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+        const author = (await claim(["fake"], true)) as Job;
+        const frozen = (author.run as unknown as { checkout: { head: string } }).checkout;
+        const fin = finalOf(frozen.head);
+        const r = await complete(author, { status: "succeeded", trace: trace(author, { checkout: frozen, ...(fin ? { checkout_final: fin } : {}) }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+        expect(r.json().refusal.code, key).toBe("invalid-trace");
+        expect((await runRow(author.run.id))?.status).toBe("failed");
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("binds a revision round to the commit the previous author round ended on", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-round-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "user.name=Test", "-c", "user.email=test@example.test", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      const id = await releasedPackage("ROUNDS", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+      const one = (await claim(["fake"], true)) as Job;
+      const frozen = (one.run as unknown as { checkout: Record<string, string> }).checkout;
+      const a = frozen.head;
+      git(path, "commit", "--allow-empty", "-m", "Round one work");
+      const b = git(path, "rev-parse", "HEAD");
+      expect(b).not.toBe(a);
+      const done = await complete(one, { status: "succeeded", trace: trace(one, { checkout: frozen, checkout_final: { branch: "topic", head: b } }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+      expect(done.statusCode, done.body).toBeLessThan(300);
+      const check = (await claim(["codex"], true)) as Job;
+      expect(check.run.role).toBe("pre-check");
+      const failed = await complete(check, { status: "succeeded", outputs: [], verification: { outcome: "fail", findings: [{ id: "F-001", severity: "major", text: "Needs more" }] } });
+      expect(failed.statusCode, failed.body).toBeLessThan(300);
+      const two = (await claim(["fake"], true)) as Job;
+      expect(two.run).toMatchObject({ role: "author", round: 2, package_id: id });
+      expect((two.run as unknown as { checkout: Record<string, string> }).checkout).toEqual({ ...frozen, head: b });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a trace that claims a checkout for a run that had none", async () => {
+    await releasedPackage("TRACENONE");
+    const job = (await claim()) as Job;
+    const r = await complete(job, { status: "succeeded", trace: trace(job, { checkout: { repo: "demo", root: "/r", path: "/r/p", branch: "b", head: "h", git_dir: "/r/g", common_dir: "/r/c" } }), outputs: [{ name: "r.md", content_base64: b64("ok") }] });
+    expect(r.json().refusal.code).toBe("invalid-trace");
+  });
+
   it("holds a role that needs named hosts when only Codex is offered, saying why, and dispatches it once a runtime can limit them", async () => {
     const id = await releasedPackage("HOSTS", "pump-survey");
     expect(await claim(["codex"])).toBeNull();
@@ -604,7 +764,7 @@ describe("pre-check independence", () => {
     const id = await releasedPackage("INDEP2");
     const author = (await claim()) as Job;
     await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] });
-    const check = (await claim(["fake", "codex"], [
+    const check = (await claim(["fake", "codex"], false, [
       { runtime: "codex", ready: true, models: ["default", "gpt-5-codex"] },
     ])) as Job;
     expect(check.run.runtime).toMatchObject({ provider: "codex", model: "gpt-5-codex" });

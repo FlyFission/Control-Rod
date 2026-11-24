@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent } from "react";
+import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { DataLane } from "../api/types.js";
@@ -9,6 +10,8 @@ import { FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "
 export const CAPTURE_LIMIT = 20000;
 
 export function CaptureBox() {
+  // A capture carries no project, so only an organization SCRAM locks it, never the sidebar's project.
+  const scramLock = useActionLock(null);
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<Attached[]>([]);
@@ -51,7 +54,7 @@ export function CaptureBox() {
 
   function submit() {
     setError(null);
-    if (empty) return;
+    if (empty || scramLock.locked) return;
     if (tooLong) {
       setError(`Too long for one capture (${typed.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters).`);
       return;
@@ -127,7 +130,7 @@ export function CaptureBox() {
         <span className={tooLong ? "count error" : "count muted"} aria-live="polite">
           {typed.length.toLocaleString()} / {CAPTURE_LIMIT.toLocaleString()}
         </span>
-        <button type="button" className="btn primary" onClick={submit} disabled={send.isPending || empty}>
+        <button type="button" className="btn primary" onClick={submit} disabled={send.isPending || empty || scramLock.locked} title={scramLock.why}>
           {send.isPending ? "Sending" : "Send"}
         </button>
       </div>

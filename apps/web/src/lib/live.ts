@@ -2,6 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { CrEvent } from "../api/types.js";
+import { isScramEvent, markScram } from "./scramTiming.js";
 export const LIVE_GAP_EVENT = "cr:live-gap";
 
 /**
@@ -172,6 +173,8 @@ export function useLiveEvents(enabled: boolean): void {
       alive(msg);
       try {
         const ev = JSON.parse(msg.data) as CrEvent;
+        // The 1 s SCRAM budget starts here (dev builds log it; see lib/scramTiming.ts).
+        if (isScramEvent(ev.type)) markScram("received");
         if (typeof ev.subject === "string")
           subjects.add(ev.subject.split("/")[0] ?? ev.subject);
         // Run events name the run as their subject and carry the package in their data.

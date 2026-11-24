@@ -14,6 +14,11 @@ export function seatFigures(figures: readonly AgentFigure[], tint: (f: AgentFigu
   const overflow: AgentFigure[] = [];
   for (const [place, list] of byPlace) {
     const region = layout.region[place];
+    // A place the layout does not have (a room newer than this build) has no seat: the view lists it.
+    if (!region) {
+      overflow.push(...list);
+      continue;
+    }
     const points: readonly Point[] = [...region.seats, ...region.queue];
     const ordered = [...list].sort((a, b) => Date.parse(a.since) - Date.parse(b.since) || a.package_id.localeCompare(b.package_id));
     ordered.forEach((f, i) => {
@@ -22,7 +27,9 @@ export function seatFigures(figures: readonly AgentFigure[], tint: (f: AgentFigu
         overflow.push(f);
         return;
       }
-      seated.push({ id: f.id, code: shortCode(f.package_id), state: f.state, cause: f.cause, region: place, at, ...(i >= region.seats.length ? { queued: true } : {}), body: bodyIndex(f.id), tint: tint(f), name: f.package_id,
+      seated.push({ id: f.id, code: shortCode(f.package_id), state: f.state, cause: f.cause, region: place, at, ...(i >= region.seats.length ? { queued: true } : {}), body: bodyIndex(f.id), tint: tint(f), name: f.package_id, title: f.title, role: f.role,
+        // AgentFigure carries no runtime until spec/ adds it (plan 6.7); read it when it does, so the badge needs no change then.
+        ...(runtimeOf(f) ? { runtime: runtimeOf(f)! } : {}),
         marks: { gate: f.marks.gate, changed: Boolean(f.marks.changed_input), ...(f.marks.loop ? { loop: f.marks.loop } : {}), safety: f.marks.safety },
         ...(lens ? { lensNote: `${lens.label} lens: ${lens.value(f)}` } : {}) });
     });
@@ -43,4 +50,10 @@ function bodyIndex(id: string): number {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return h;
+}
+
+/** The provider a figure's run used, when the API records it (plan 6.7: an additive field). */
+function runtimeOf(f: AgentFigure): string | undefined {
+  const r = (f as AgentFigure & { runtime?: string | { provider?: string } }).runtime;
+  return typeof r === "string" ? r : r?.provider;
 }

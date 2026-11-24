@@ -8,7 +8,7 @@ import { STATE_INFO, StateMark } from "../../components/StateMark.js";
 import { VendorBadge } from "../../components/VendorBadge.js";
 import { COLUMNS, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, verificationRead } from "../../lib/board.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../../lib/format.js";
-import { REGION } from "./layout.js";
+import { useBayNames } from "./lanes.js";
 
 /**
  * The agent card (specification 13; OV-06, OV-08, OV-10, OV-11): what the agent is doing and why,
@@ -49,6 +49,7 @@ export function AgentCard({ figure: f, lens }: { figure: AgentFigure | undefined
 
 function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
   const now = Date.now();
+  const bay = useBayNames().name(f.place);
   const isPackage = f.href.to === "/packages/$id";
   const view = useQuery({ queryKey: ["package", f.package_id], queryFn: () => api.packageView(f.package_id), enabled: isPackage });
   const actions = useQuery({ queryKey: ["actions", f.package_id], queryFn: () => api.packageActions(f.package_id), enabled: isPackage });
@@ -77,8 +78,9 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
       <p>{f.cause}</p>
       {f.waiting_on && <p>Waiting on {f.waiting_on}.</p>}
       <p className="muted small">
-        {REGION[f.place].name}
-        {f.place_defaulted ? ": shown here because the package names no discipline this office recognises" : ""}
+        {bay}
+        {f.lane_name && f.lane_name !== bay ? ` (this project's ${f.lane_name} lane)` : ""}
+        {f.place_defaulted ? ": shown here because no lane tag, repository path or discipline word places the work, so it stands in the project's general lane" : ""}
       </p>
       {marks.length > 0 && (
         <ul className="office-marks" aria-label="Marks">

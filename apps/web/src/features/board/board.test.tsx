@@ -516,13 +516,13 @@ describe("BoardView", () => {
     await waitFor(() => expect(one.querySelector(".bd-next")!.textContent).toContain("Accept"));
   });
 
-  it("carries the chosen look on the board container only", async () => {
+  it("carries the look on the board container only, and a retired stored look reads as a", async () => {
     window.localStorage.setItem("cr.look", "c");
     try {
       api({ packages: [pkg({ id: "WP-1", title: "One" })] });
       await renderPage(<Page />);
       await screen.findByText("One");
-      expect(document.querySelector(".bd")!.getAttribute("data-look")).toBe("c");
+      expect(document.querySelector(".bd")!.getAttribute("data-look")).toBe("a");
       expect(document.documentElement.dataset["look"]).toBeUndefined();
     } finally {
       window.localStorage.removeItem("cr.look");

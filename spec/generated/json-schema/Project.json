@@ -52,6 +52,10 @@
             ],
             "description": "The workflow packages carry when they name none. Absent means the playbook."
         },
+        "work_lanes": {
+            "$ref": "WorkLaneSet.json",
+            "description": "The work lanes the Plant's bays follow. Absent means the capital-project preset."
+        },
         "lanes": {
             "type": "array",
             "items": {

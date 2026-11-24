@@ -1,0 +1,266 @@
+diff --git a/.github/ISSUE_TEMPLATE/change.yml b/.github/ISSUE_TEMPLATE/change.yml
+index 5463a7b..9c54260 100644
+--- a/.github/ISSUE_TEMPLATE/change.yml
++++ b/.github/ISSUE_TEMPLATE/change.yml
+@@ -42,7 +42,7 @@ body:
+     id: trust
+     attributes:
+       label: Touches a trust surface?
+-      description: policies/, tests/redteam/, .github/workflows/, spec/ major versions or kernel decision functions. These need a maintainer who did not author the change, or the sole maintainer's recorded yes (docs/collaboration.md).
++      description: policies/, tests/redteam/, anything under .github/, spec/ major versions, kernel decision functions or docs/adr/. These need a maintainer who did not author the change, or the sole maintainer's recorded yes (docs/collaboration.md).
+       options:
+         - No
+         - Yes
+diff --git a/.github/pull_request_template.md b/.github/pull_request_template.md
+index 8ce4ff2..e2605dc 100644
+--- a/.github/pull_request_template.md
++++ b/.github/pull_request_template.md
+@@ -7,7 +7,7 @@
+ ## Trust surfaces touched
+ 
+ - [ ] None
+-- [ ] `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major version, or kernel decision functions (needs a maintainer who did not author this change, or the sole maintainer's recorded yes: see `docs/collaboration.md`)
++- [ ] `policies/`, `tests/redteam/`, anything under `.github/`, `spec/` major version, kernel decision functions, or `docs/adr/` (needs a maintainer who did not author this change, or the sole maintainer's recorded yes: see `docs/collaboration.md`)
+ 
+ ## Evidence
+ 
+diff --git a/.nuclear/changes/readme-shots-lockdown/basis.md b/.nuclear/changes/readme-shots-lockdown/basis.md
+index 6252d76..d449b52 100644
+--- a/.nuclear/changes/readme-shots-lockdown/basis.md
++++ b/.nuclear/changes/readme-shots-lockdown/basis.md
+@@ -48,7 +48,7 @@ Review on #94 after merge (Copilot comment 4622578535) found that the `commit` j
+ 
+ ## Exit criteria
+ 
+-RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the signature for the screenshot workflow is left for a maintainer. Nothing here is presented as signed.
++RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the owner's recorded yes to each revision is in [ship](ship.md) under the sole-maintainer rule, with no independent review.
+ 
+ ## Source-lineage note
+ 
+diff --git a/.nuclear/changes/readme-shots-lockdown/plan.md b/.nuclear/changes/readme-shots-lockdown/plan.md
+index 7a1599a..9788202 100644
+--- a/.nuclear/changes/readme-shots-lockdown/plan.md
++++ b/.nuclear/changes/readme-shots-lockdown/plan.md
+@@ -25,7 +25,7 @@ Revert the workflow commit; the record stays. To stop the workflow pushing at al
+ 
+ ## Exit criteria
+ 
+-RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the signature for the screenshot workflow is left for a maintainer. Nothing here is presented as signed.
++RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the owner's recorded yes to each revision is in [ship](ship.md) under the sole-maintainer rule, with no independent review.
+ 
+ ## Source-lineage note
+ 
+diff --git a/.nuclear/changes/readme-shots-lockdown/risk.md b/.nuclear/changes/readme-shots-lockdown/risk.md
+index a1eba4d..b4c4ea2 100644
+--- a/.nuclear/changes/readme-shots-lockdown/risk.md
++++ b/.nuclear/changes/readme-shots-lockdown/risk.md
+@@ -34,7 +34,7 @@
+ 
+ ## Exit criteria
+ 
+-RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the signature for the screenshot workflow is left for a maintainer. Nothing here is presented as signed.
++RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the owner's recorded yes to each revision is in [ship](ship.md) under the sole-maintainer rule, with no independent review.
+ 
+ ## Source-lineage note
+ 
+diff --git a/.nuclear/changes/readme-shots-lockdown/ship.md b/.nuclear/changes/readme-shots-lockdown/ship.md
+index 62291b1..c745d07 100644
+--- a/.nuclear/changes/readme-shots-lockdown/ship.md
++++ b/.nuclear/changes/readme-shots-lockdown/ship.md
+@@ -1,34 +1,22 @@
+ # Ship: lock down the README screenshot workflow
+ 
+-Release decision: **draft pull request for a maintainer's signature; no merge or release is authorized by this record.**
++Release decision: **both revisions merged on the owner's recorded yes (see Signature); no release is authorized by this record.**
+ 
+-- **Proposed:** merge the split workflow and this record to `main` once a maintainer who did not author the change has reviewed and signed. The signature also covers keeping the screenshot workflow at all, which #93 added unsigned.
+-- **Not claimed:** that the PNG check proves a file is only an image; an independent signature.
+-- **Decisions requested from the maintainers:**
+-  1. Who signs (see risk R-06).
+-  2. Whether the workflow should push to pull request branches at all, or keep the pictures as an artifact only (delete the `commit` job).
++- **Merged:** the split workflow (#94) and the trusted push (#95). The owner's yes to each also covers keeping the screenshot workflow at all, which #93 added unsigned.
++- **Not claimed:** that the PNG check proves a file is only an image; an independent review.
++- **Decisions:** who signs (risk R-06) is settled by the sole-maintainer rule. Still open for the owner: whether the workflow should push to pull request branches at all, or keep the pictures as an artifact only.
+ 
+ ## Signature
+ 
+-| Field | Entry |
+-|---|---|
+-| Decision | not yet signed: approve, approve with changes, or reject |
+-| Signed by | not yet signed: a maintainer other than the person who prompted the agent |
+-| Date | not yet signed |
+-| Basis | not yet signed: the PR review that approves `readme-shots.yml` as it stands |
++Signed under the sole-maintainer rule ([docs/collaboration.md](../../../docs/collaboration.md#sole-maintainer-sign-off), [ADR 0024](../../../docs/adr/0024-sole-maintainer-sign-off.md)). Ben Huffer is the only maintainer in CODEOWNERS and prompted this change, so these are his own recorded approvals, not an independent review. Both were given in the Claude chat before the rule existed; each question named the pull request and the trust surface it changes (the live workflows on `main`), and no trust-surface file changed after either yes.
+ 
+-No signature has been given. This table stays empty until a maintainer fills it in themselves.
+-
+-## Recorded owner approval (not a signature)
+-
+-| Field | Entry |
+-|---|---|
+-| Revision | 1, PR #94 (squash-merged as 410eec8) |
+-| Approval | Ben Huffer, project owner, answered "Yes" in the Claude chat at 2026-11-18 7:01 PM ET (2026-11-19 00:01 UTC) to the question "Should I merge PR 94? It changes the live workflow on main." |
+-| Recorded by | The implementing agent, from the chat message; Ben Huffer did not write this entry |
+-| Independence | Not independent: Ben Huffer prompted the change (`docs/collaboration.md`) |
+-| Revision 2 | PR #95 (squash-merged as 1fe7cf8). Ben Huffer answered "Yes" in the Claude chat at 2026-11-18 8:52 PM ET (2026-11-19 01:52 UTC) to the question "Should I merge PR 95? It changes the live workflows on main." Recorded by the implementing agent from the chat message. |
+-| Standing | Both approvals were given before the sole-maintainer rule existed. Once that rule is on `main` (change record `sole-maintainer-signoff`), they meet its conditions as written: the owner's own words, to a question naming the pull request and the workflow it changes, with no trust-surface change after the yes. The `Signature` table above is left as it was, since it was written under the earlier rule. |
++| Field | Revision 1 | Revision 2 |
++|---|---|---|
++| Decision | Approve: merge #94 (squash-merged as 410eec8) | Approve: merge #95 (squash-merged as 1fe7cf8) |
++| Question | "Should I merge PR 94? It changes the live workflow on main." | "Should I merge PR 95? It changes the live workflows on main." |
++| Answer | "Yes" | "Yes" |
++| Given | 2026-11-18 7:01 PM ET (2026-11-19 00:01 UTC), Claude chat | 2026-11-18 8:52 PM ET (2026-11-19 01:52 UTC), Claude chat |
++| Recorded by | The implementing agent, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him. | Same |
+ 
+ ## Rollback and monitoring
+ 
+@@ -40,7 +28,7 @@ Rollback: revert the workflow commit. Monitoring: any `readme-shots` run started
+ 
+ ## Exit criteria
+ 
+-RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the signature for the screenshot workflow is left for a maintainer. Nothing here is presented as signed.
++RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the owner's recorded yes to each revision is in [ship](ship.md) under the sole-maintainer rule, with no independent review.
+ 
+ ## Source-lineage note
+ 
+diff --git a/.nuclear/changes/readme-shots-lockdown/trace.md b/.nuclear/changes/readme-shots-lockdown/trace.md
+index c6b8277..77474f4 100644
+--- a/.nuclear/changes/readme-shots-lockdown/trace.md
++++ b/.nuclear/changes/readme-shots-lockdown/trace.md
+@@ -17,7 +17,7 @@
+ 
+ ## Exit criteria
+ 
+-RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the signature for the screenshot workflow is left for a maintainer. Nothing here is presented as signed.
++RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the owner's recorded yes to each revision is in [ship](ship.md) under the sole-maintainer rule, with no independent review.
+ 
+ ## Source-lineage note
+ 
+diff --git a/.nuclear/changes/readme-shots-lockdown/verification.md b/.nuclear/changes/readme-shots-lockdown/verification.md
+index 4e93170..2540314 100644
+--- a/.nuclear/changes/readme-shots-lockdown/verification.md
++++ b/.nuclear/changes/readme-shots-lockdown/verification.md
+@@ -42,7 +42,7 @@ No independent review was done by an agent. The only independent check is the ma
+ 
+ ## Exit criteria
+ 
+-RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the signature for the screenshot workflow is left for a maintainer. Nothing here is presented as signed.
++RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the owner's recorded yes to each revision is in [ship](ship.md) under the sole-maintainer rule, with no independent review.
+ 
+ ## Source-lineage note
+ 
+diff --git a/.nuclear/changes/sole-maintainer-signoff/ship.md b/.nuclear/changes/sole-maintainer-signoff/ship.md
+index a1717e8..96cf6ed 100644
+--- a/.nuclear/changes/sole-maintainer-signoff/ship.md
++++ b/.nuclear/changes/sole-maintainer-signoff/ship.md
+@@ -15,6 +15,7 @@ Release decision: **approved by the owner's recorded yes (see Signature) to merg
+ | Question | "Should I merge PR 97? It changes the repo's trust rules." Asked in the Claude chat at 2026-11-18 9:53 PM ET (2026-11-19 02:53 UTC), with a link to #97 |
+ | Answer | "yes", Ben Huffer, project owner and sole maintainer, in the same Claude chat thread at 2026-11-19 6:21 AM ET (11:21 UTC) |
+ | Head when asked | 49e2853 (CI green); the only file changed after the yes is this `ship.md`, which is not a trust surface |
++| Limit | The question named "the repo's trust rules" but not the `.github/` template and CODEOWNERS edits by path. The follow-up `sole-maintainer-review-fixes` asks the owner to confirm them by name. |
+ | Recorded by | The implementing agent, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him |
+ 
+ This change creates the sole-maintainer rule, so its own sign-off is the owner's yes to merge it, recorded here by the implementing agent as `docs/collaboration.md` says, with no signature or initials typed for the owner.
+diff --git a/.nuclear/changes/sole-maintainer-signoff/verification.md b/.nuclear/changes/sole-maintainer-signoff/verification.md
+index 0643c7c..fca16ea 100644
+--- a/.nuclear/changes/sole-maintainer-signoff/verification.md
++++ b/.nuclear/changes/sole-maintainer-signoff/verification.md
+@@ -1,13 +1,13 @@
+ # Verification: sole-maintainer sign-off for trust surfaces
+ 
+-Evidence status: **pass** for RS-01 to RS-03 locally; CI on the pull request is E-04.
++Evidence status: **pass** for RS-01 to RS-03, locally and in CI (E-04).
+ 
+ | Evidence ID | Status | Claim and limit | Artifact |
+ |---|---|---|---|
+ | E-01 | pass | The rule text, template wording and screenshot-record entry, as a diff against `main` at 1fe7cf8. Wording reviewed by the implementing agent only. | `evidence/rule-diff.patch` |
+ | E-02 | pass | Every tracked statement of the signer rule outside change records and plans: the current rule files (`AGENTS.md`, `CONTRIBUTING.md`, `docs/collaboration.md`, both templates, CODEOWNERS) name the exception. `policies/README.md` and ADR 0001 still state the default rule and are left as they are (see ship). Text search only. | `evidence/signer-rule-grep.txt` |
+ | E-03 | pass | This record and `readme-shots-lockdown` validate with the pinned validator under `--strict-custody`. | `evidence/validate.log` |
+-| E-04 | pending | CI on the pull request. | the pull request's checks |
++| E-04 | pass | `ci`, all seven jobs, green on the pull request at 49e2853 (run 44447178509) and aa6617e (run 44514223831), and on `main` after the merge at 608c189 (run 44514692185). CI checks records and code, not the rule's wording. | GitHub Actions runs 44447178509, 44514223831, 44514692185 |
+ 
+ ## Evidence custody and coupling
+ 
+@@ -16,7 +16,7 @@ Evidence status: **pass** for RS-01 to RS-03 locally; CI on the pull request is
+ | E-01 | RS-01 | yes | evidence/rule-diff.patch | Implementing agent | git diff | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
+ | E-02 | RS-02 | yes | evidence/signer-rule-grep.txt | Implementing agent | git grep | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
+ | E-03 | RS-03 | yes | evidence/validate.log | Implementing agent | ng.py | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
+-| E-04 | RS-01 | no | pull request checks | Implementing agent | GitHub Actions | Implementing agent | Implementing agent | GitHub-hosted runner | GitHub | Implementing agent | Self-check |
++| E-04 | RS-01 | no | GitHub Actions runs 44447178509, 44514223831, 44514692185 | Implementing agent | GitHub Actions | Implementing agent | Implementing agent | GitHub-hosted runner | GitHub | Implementing agent | Self-check |
+ 
+ | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
+ |---|---|---|---|---|---|---|---|
+diff --git a/AGENTS.md b/AGENTS.md
+index 65f3295..4f73860 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -5,7 +5,7 @@ This file is the short brief for any agent or person working here. Details live
+ ## Rules
+ 
+ 1. Start from a change record. Every change has one under `.nuclear/changes/<slug>/`; read it and the files it names before touching anything else.
+-2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major versions, and kernel decision functions in `kernel/`. While CODEOWNERS names a single maintainer, that maintainer's recorded yes is the signature, under the conditions in [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off).
++2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, everything under `.github/` (workflows, templates and CODEOWNERS), `spec/` major versions, kernel decision functions in `kernel/`, and `docs/adr/`. While CODEOWNERS names a single maintainer, that maintainer's recorded yes is the signature, under the conditions in [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off).
+ 3. Contracts in `spec/` are the source of truth. Regenerate; never hand-edit generated code.
+ 4. Shipped code uses permissive licenses only. Do not copy code from AGPL, GPL, SSPL, BSL, Elastic or source-available projects; port ideas from pattern notes instead.
+ 5. No engineering number is typed by a model. Values come from scripts or tools with recorded inputs, outputs and digests.
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 463a85b..ef980b0 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -16,7 +16,7 @@ Control Rod is built under its own discipline from the first commit.
+ 
+ 1. **Every change has a change record** under `.nuclear/changes/`, following [nuclear-grade context engineering](https://github.com/FlyFission/nuclear-grade-context-engineering). Small administrative changes may use the commit message as the record.
+ 2. **Contracts come first.** Records and APIs are defined in TypeSpec under `spec/`, and every language generates from them. Do not hand-edit generated code.
+-3. **Trust surfaces need a human signature.** Changes to `policies/`, `tests/redteam/`, CI workflows, and the kernel's decision functions require review by a maintainer who did not author them. While only one maintainer is listed, that maintainer's recorded yes stands in, as [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off) sets out.
++3. **Trust surfaces need a human signature.** Changes to `policies/`, `tests/redteam/`, anything under `.github/`, the kernel's decision functions, `spec/` major versions and `docs/adr/` require review by a maintainer who did not author them. While only one maintainer is listed, that maintainer's recorded yes stands in, as [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off) sets out.
+ 4. **Red-team tests are first-class.** Every known way around a control becomes a test that must keep failing.
+ 5. **Licenses are checked.** Shipped code may depend only on permissive licenses (MIT, Apache-2.0, BSD, ISC, MPL-2.0). Code ported from another project keeps its notice and is listed in `THIRD_PARTY_NOTICES.md`.
+ 
+diff --git a/docs/adr/0001-record-decisions.md b/docs/adr/0001-record-decisions.md
+index cbf89ee..718f2f3 100644
+--- a/docs/adr/0001-record-decisions.md
++++ b/docs/adr/0001-record-decisions.md
+@@ -2,6 +2,7 @@
+ 
+ - Status: Accepted
+ - Date: 2026-10-22
++- Amended by: [ADR 0024](0024-sole-maintainer-sign-off.md), for the case where only one maintainer exists
+ 
+ ## Context
+ Control Rod must be qualifiable as quality-affecting software, so every design choice needs a traceable rationale.
+diff --git a/docs/adr/0024-sole-maintainer-sign-off.md b/docs/adr/0024-sole-maintainer-sign-off.md
+new file mode 100644
+index 0000000..97bcc86
+--- /dev/null
++++ b/docs/adr/0024-sole-maintainer-sign-off.md
+@@ -0,0 +1,17 @@
++# ADR 0024: Sole-maintainer sign-off for trust surfaces
++
++- Status: Accepted when merged; the sign-off is recorded in `.nuclear/changes/sole-maintainer-review-fixes/ship.md`
++- Date: 2026-11-19
++- Amends: [ADR 0001](0001-record-decisions.md), "accepted only by a signed commit from a maintainer who did not author it", and `AGENTS.md` rule 2, for the case where only one maintainer exists
++
++## Context
++ADR 0001, `AGENTS.md` rule 2 and `docs/collaboration.md` require a maintainer who did not author a trust-surface change to sign it, and count the person who prompted an agent as its author. CODEOWNERS names one maintainer, `@FlyFission`, who prompts the agents. Under those rules no trust-surface change, and no ADR, could ever be signed. The rule text was added in #97; this record makes it a decision, as ADR 0001 asks.
++
++## Decision
++While CODEOWNERS names a single maintainer, that maintainer's own recorded yes is the human signature for a trust-surface change or an ADR, on the five conditions in [docs/collaboration.md](../collaboration.md#sole-maintainer-sign-off): the maintainer's own words to a question naming the pull request and each trust surface it changes; covering the pull request as asked; recorded by the agent in the change record's `Signature` table, never signed or initialled for the maintainer; nothing else waived; lapsing when a second maintainer is added.
++
++## Consequences
++- Trust-surface work can merge again, with a human yes on every change and an exact record of it.
++- There is still no independent review. An agent's mistake reaches `main` if the maintainer misses it, so the conditions keep CI, review threads and record validation in force.
++- GitHub shows no approving review from a second account; the record in `ship.md` is the evidence.
++- When a second maintainer is added, this record is superseded by the independent rule, and sign-offs already recorded stand.
+diff --git a/docs/collaboration.md b/docs/collaboration.md
+index ef713b4..12a7cb2 100644
+--- a/docs/collaboration.md
++++ b/docs/collaboration.md
+@@ -21,7 +21,7 @@ The same rule works as a team habit: with two people building, each reviews the
+ 
+ While [CODEOWNERS](../.github/CODEOWNERS) names a single maintainer, there is nobody else who could review, so that maintainer's own recorded yes is the human signature for a trust-surface change, including one they prompted an agent to make. It holds only on these conditions:
+ 
+-1. **The yes is the maintainer's own words.** It is given in the maintainer's chat with the agent or in a comment on the pull request, in reply to a question that names the pull request and says it touches a trust surface. A reaction, a relayed summary, an automated reviewer or a second model never counts.
++1. **The yes is the maintainer's own words.** It is given in the maintainer's chat with the agent or in a comment on the pull request, in reply to a question that names the pull request and each trust surface it changes (a path such as `.github/workflows/`, or plain words such as "the live workflows on main"). A reaction, a relayed summary, an automated reviewer or a second model never counts.
+ 2. **It covers the pull request as it stood when asked.** If a trust-surface file changes after the yes, ask again.
+ 3. **It is recorded, not signed for.** The agent fills the change record's `Signature` table in `ship.md` with the decision, the question and the answer word for word, the date and time with its time zone, and where it was given, and marks the entry as recorded by the agent. The agent never types the maintainer's signature or initials.
+ 4. **Nothing else is waived.** CI is green, every review thread is answered, and the change record validates, as for any other change.

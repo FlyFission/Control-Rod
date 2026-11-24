@@ -5,7 +5,7 @@ This file is the short brief for any agent or person working here. Details live 
 ## Rules
 
 1. Start from a change record. Every change has one under `.nuclear/changes/<slug>/`; read it and the files it names before touching anything else.
-2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major versions, and kernel decision functions in `kernel/`. While CODEOWNERS names a single maintainer, that maintainer's recorded yes is the signature, under the conditions in [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off).
+2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, everything under `.github/` (workflows, templates and CODEOWNERS), `spec/` major versions, kernel decision functions in `kernel/`, and `docs/adr/`. While CODEOWNERS names a single maintainer, that maintainer's recorded yes is the signature, under the conditions in [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off).
 3. Contracts in `spec/` are the source of truth. Regenerate; never hand-edit generated code.
 4. Shipped code uses permissive licenses only. Do not copy code from AGPL, GPL, SSPL, BSL, Elastic or source-available projects; port ideas from pattern notes instead.
 5. No engineering number is typed by a model. Values come from scripts or tools with recorded inputs, outputs and digests.
@@ -15,5 +15,6 @@ This file is the short brief for any agent or person working here. Details live 
 
 - Decisions: `docs/adr/`
 - Threat model: `docs/threat-model.md`
+- Visual references and the per-screen visual bar: `design/references/` (read before any visual change)
 - Software quality assurance: `docs/sqa/`
 - The plan and architecture: the Control Rod Platform Plan (linked from `docs/README.md`)

@@ -1,0 +1,19 @@
+{
+  "name": "fixture",
+  "cohort": {"population": "offline fixtures: one Python function, four patch shapes, stub agents", "historical": false},
+  "snapshot": {"kind": "fixture", "path": "fixtures", "expected_rows": 8},
+  "selection": {"seed": 20261124, "calibration_n": 4, "reserve": 0, "max_per_repo": null},
+  "authors": ["stub-a", "stub-b"],
+  "margins": {"delta_catch": 0.15, "delta_fr": 0.05, "alpha": 0.05, "power": 0.8},
+  "nuisance": {"p_d": [0.30, 0.35], "rho": [0.20, 0.30]},
+  "lower_bound": "wilson80",
+  "caps": {"calendar_days": 14, "calibration_max_calls": 60, "max_calls": 200, "max_tokens": 1000000,
+           "author_timeout_s": 60, "checker_timeout_s": 60, "max_retries": 2, "quota_reset_hours": 5,
+           "max_diff_chars": 60000, "min_disk_gb": 0},
+  "evaluation": {"kind": "fixture"},
+  "test_path_rule": ["test_*.py", "*/test_*.py", "*_test.py", "*/tests/*", "tests/*", "conftest.py", "*/conftest.py",
+                     "tests.py", "*/tests.py", "test/*", "*/test/*", "testing/*", "*/testing/*"],
+  "stability": {"rule": "min(n, max(12, ceil(0.10 n)))"},
+  "stats": {"bootstrap_B": 500},
+  "prices": null
+}

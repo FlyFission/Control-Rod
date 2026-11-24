@@ -120,19 +120,15 @@ describe("shell and palette", () => {
     expect(screen.getByRole("link", { name: "Registers" }).getAttribute("aria-current")).toBe("page");
   });
 
-  it("switches the board look and keeps it, leaving the rest of the app in look A", async () => {
+  it("offers no look picker: the control room look is the only look, and the app stays off the root", async () => {
     apiFor();
     delete document.documentElement.dataset["look"];
     await renderShell();
     const user = userEvent.setup();
     await user.click(screen.getByLabelText(/workspace options/i));
-    await user.click(screen.getByRole("button", { name: /B Drafting table/ }));
-    expect(screen.getByRole("button", { name: /B Drafting table/ }).getAttribute("aria-pressed")).toBe("true");
-    expect(window.localStorage.getItem("cr.look")).toBe("b");
-    // Only the board container carries the look (M1 ruling 10); other pages still use look A colours.
+    expect(screen.queryByRole("group", { name: "Board look" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Drafting table|Instrument panel/ })).toBeNull();
     expect(document.documentElement.dataset["look"]).toBeUndefined();
-    await user.click(screen.getByRole("button", { name: /A Control room/ }));
-    expect(window.localStorage.getItem("cr.look")).toBe("a");
   });
 
   it("forgets the event stream state on sign out", async () => {

@@ -114,6 +114,8 @@ export interface OfficeFloor {
   needs_me: number;
   inbox_items: number;
   hidden: number;
+  /** The work lanes of each project with work on the floor, so the Plant names its bays by the project. */
+  lane_sets?: { project_id: string; work_lanes: WorkLaneSet }[];
   generated_at: string;
 }
 export type CrEvent = S["ControlRod.Records.Event"];
@@ -126,6 +128,9 @@ export type ApiErrorBody = S["ApiError"];
 export type RuntimeStatus = S["Runner.RuntimeStatus"];
 export type AgentUpdate = S["Runner.AgentUpdate"];
 export type WorkspaceProject = S["WorkspaceProjects.WorkspaceProject"];
+export type WorkLaneSet = S["ControlRod.Records.WorkLaneSet"];
+export type WorkLane = S["ControlRod.Records.WorkLane"];
+export type WorkLaneChoice = S["ControlRod.Records.WorkLaneChoice"];
 export type WorkspaceProjectCreatePayload = S["WorkspaceProjects.CreateProjectPayload"];
 export type WorkspaceProjectUpdatePayload = S["WorkspaceProjects.UpdateProjectPayload"];
 export type WorkspaceProjectArchivePayload = S["WorkspaceProjects.ArchiveProjectPayload"];

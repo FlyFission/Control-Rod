@@ -17,11 +17,11 @@ export function kindsOf(pkg: WorkPackage): Kind[] {
   return kinds;
 }
 
-/** The three visual looks: a dark (default), b warm paper, c bright. */
-export type Look = "a" | "b" | "c";
+/** The looks in force: a, the dark control room. Warm paper (b) and bright (c) are retired. To add one, extend this list and tokens.css. */
+export const LOOKS = ["a"] as const;
+export type Look = (typeof LOOKS)[number];
 
 const LOOK_KEY = "cr.look";
-const LOOKS: readonly Look[] = ["a", "b", "c"];
 
 export function loadLook(): Look {
   const v = readString(LOOK_KEY);
@@ -32,6 +32,8 @@ const lookListeners = new Set<() => void>();
 
 /** Keeps the viewer's look and tells every screen that shows it. */
 export function saveLook(look: Look): void {
+  // A look that is not in force (a retired one a caller still names) is never stored.
+  if (!LOOKS.includes(look)) return;
   writeString(LOOK_KEY, look);
   for (const fn of lookListeners) fn();
 }

@@ -1,0 +1,592 @@
+{
+ "schema": 1,
+ "scale": 2.0,
+ "scale_note": "tile px per plate px; a tile is drawn at 2x the plate so it can be painted with more detail",
+ "frame": {
+  "max_d": 160,
+  "max_h": 120,
+  "margin": 10
+ },
+ "placement": "tile top-left on the 2400x1500 plate = pad - pad_anchor / scale; draw it at 1/scale of its pixel size; seat feet = top-left + seat / scale",
+ "tiles": {
+  "archive-L": {
+   "file": "archive-L.png",
+   "front": "archive-L-front.png",
+   "archetype": "archive",
+   "size": "L",
+   "canvas": [
+    713,
+    640
+   ],
+   "scale": 2.0,
+   "pad_anchor": [
+    287.13,
+    250.0
+   ],
+   "footprint": {
+    "w": 240,
+    "d": 140,
+    "wall_height": 40
+   },
+   "footprint_px": [
+    [
+     287.13,
+     250.0
+    ],
+    [
+     702.82,
+     490.0
+    ],
+    [
+     460.33,
+     630.0
+    ],
+    [
+     44.64,
+     390.0
+    ]
+   ],
+   "seats": [
+    {
+     "local": 1,
+     "x": 284.53,
+     "y": 332.5
+    },
+    {
+     "local": 2,
+     "x": 376.33,
+     "y": 385.5
+    },
+    {
+     "local": 3,
+     "x": 468.13,
+     "y": 438.5
+    },
+    {
+     "local": 4,
+     "x": 559.93,
+     "y": 491.5
+    },
+    {
+     "local": 5,
+     "x": 187.54,
+     "y": 388.5
+    },
+    {
+     "local": 6,
+     "x": 279.33,
+     "y": 441.5
+    },
+    {
+     "local": 7,
+     "x": 371.13,
+     "y": 494.5
+    },
+    {
+     "local": 8,
+     "x": 462.93,
+     "y": 547.5
+    }
+   ],
+   "used_by": [
+    "document-control"
+   ]
+  },
+  "briefing-S": {
+   "file": "briefing-S.png",
+   "front": "briefing-S-front.png",
+   "archetype": "briefing",
+   "size": "S",
+   "canvas": [
+    575,
+    550
+   ],
+   "scale": 2.0,
+   "pad_anchor": [
+    287.13,
+    250.0
+   ],
+   "footprint": {
+    "w": 160,
+    "d": 130,
+    "wall_height": 80
+   },
+   "footprint_px": [
+    [
+     287.13,
+     250.0
+    ],
+    [
+     564.26,
+     410.0
+    ],
+    [
+     339.09,
+     540.0
+    ],
+    [
+     61.96,
+     380.0
+    ]
+   ],
+   "seats": [
+    {
+     "local": 1,
+     "x": 300.12,
+     "y": 336.5
+    },
+    {
+     "local": 2,
+     "x": 414.43,
+     "y": 402.5
+    },
+    {
+     "local": 3,
+     "x": 211.78,
+     "y": 387.5
+    },
+    {
+     "local": 4,
+     "x": 326.1,
+     "y": 453.5
+    }
+   ],
+   "used_by": [
+    "review"
+   ]
+  },
+  "control-room-S": {
+   "file": "control-room-S.png",
+   "front": "control-room-S-front.png",
+   "archetype": "control-room",
+   "size": "S",
+   "canvas": [
+    575,
+    550
+   ],
+   "scale": 2.0,
+   "pad_anchor": [
+    287.13,
+    250.0
+   ],
+   "footprint": {
+    "w": 160,
+    "d": 130,
+    "wall_height": 80
+   },
+   "footprint_px": [
+    [
+     287.13,
+     250.0
+    ],
+    [
+     564.26,
+     410.0
+    ],
+    [
+     339.09,
+     540.0
+    ],
+    [
+     61.96,
+     380.0
+    ]
+   ],
+   "seats": [
+    {
+     "local": 1,
+     "x": 300.12,
+     "y": 336.5
+    },
+    {
+     "local": 2,
+     "x": 414.43,
+     "y": 402.5
+    },
+    {
+     "local": 3,
+     "x": 211.78,
+     "y": 387.5
+    },
+    {
+     "local": 4,
+     "x": 326.1,
+     "y": 453.5
+    }
+   ],
+   "used_by": [
+    "your-office"
+   ]
+  },
+  "inspection-S": {
+   "file": "inspection-S.png",
+   "front": "inspection-S-front.png",
+   "archetype": "inspection",
+   "size": "S",
+   "canvas": [
+    575,
+    550
+   ],
+   "scale": 2.0,
+   "pad_anchor": [
+    287.13,
+    250.0
+   ],
+   "footprint": {
+    "w": 160,
+    "d": 130,
+    "wall_height": 80
+   },
+   "footprint_px": [
+    [
+     287.13,
+     250.0
+    ],
+    [
+     564.26,
+     410.0
+    ],
+    [
+     339.09,
+     540.0
+    ],
+    [
+     61.96,
+     380.0
+    ]
+   ],
+   "seats": [
+    {
+     "local": 1,
+     "x": 300.12,
+     "y": 336.5
+    },
+    {
+     "local": 2,
+     "x": 414.43,
+     "y": 402.5
+    },
+    {
+     "local": 3,
+     "x": 211.78,
+     "y": 387.5
+    },
+    {
+     "local": 4,
+     "x": 326.1,
+     "y": 453.5
+    }
+   ],
+   "used_by": [
+    "verification"
+   ]
+  },
+  "interface-S": {
+   "file": "interface-S.png",
+   "front": "interface-S-front.png",
+   "archetype": "interface",
+   "size": "S",
+   "canvas": [
+    575,
+    550
+   ],
+   "scale": 2.0,
+   "pad_anchor": [
+    287.13,
+    250.0
+   ],
+   "footprint": {
+    "w": 160,
+    "d": 130,
+    "wall_height": 80
+   },
+   "footprint_px": [
+    [
+     287.13,
+     250.0
+    ],
+    [
+     564.26,
+     410.0
+    ],
+    [
+     339.09,
+     540.0
+    ],
+    [
+     61.96,
+     380.0
+    ]
+   ],
+   "seats": [
+    {
+     "local": 1,
+     "x": 300.12,
+     "y": 336.5
+    },
+    {
+     "local": 2,
+     "x": 414.43,
+     "y": 402.5
+    },
+    {
+     "local": 3,
+     "x": 211.78,
+     "y": 387.5
+    },
+    {
+     "local": 4,
+     "x": 326.1,
+     "y": 453.5
+    }
+   ],
+   "used_by": [
+    "interface"
+   ]
+  },
+  "lab-L": {
+   "file": "lab-L.png",
+   "front": "lab-L-front.png",
+   "archetype": "lab",
+   "size": "L",
+   "canvas": [
+    713,
+    640
+   ],
+   "scale": 2.0,
+   "pad_anchor": [
+    287.13,
+    250.0
+   ],
+   "footprint": {
+    "w": 240,
+    "d": 140,
+    "wall_height": 40
+   },
+   "footprint_px": [
+    [
+     287.13,
+     250.0
+    ],
+    [
+     702.82,
+     490.0
+    ],
+    [
+     460.33,
+     630.0
+    ],
+    [
+     44.64,
+     390.0
+    ]
+   ],
+   "seats": [
+    {
+     "local": 1,
+     "x": 284.53,
+     "y": 332.5
+    },
+    {
+     "local": 2,
+     "x": 376.33,
+     "y": 385.5
+    },
+    {
+     "local": 3,
+     "x": 468.13,
+     "y": 438.5
+    },
+    {
+     "local": 4,
+     "x": 559.93,
+     "y": 491.5
+    },
+    {
+     "local": 5,
+     "x": 187.54,
+     "y": 388.5
+    },
+    {
+     "local": 6,
+     "x": 279.33,
+     "y": 441.5
+    },
+    {
+     "local": 7,
+     "x": 371.13,
+     "y": 494.5
+    },
+    {
+     "local": 8,
+     "x": 462.93,
+     "y": 547.5
+    }
+   ],
+   "used_by": [
+    "bench"
+   ]
+  },
+  "work-bay-M": {
+   "file": "work-bay-M.png",
+   "front": "work-bay-M-front.png",
+   "archetype": "work-bay",
+   "size": "M",
+   "canvas": [
+    592,
+    560
+   ],
+   "scale": 2.0,
+   "pad_anchor": [
+    287.13,
+    250.0
+   ],
+   "footprint": {
+    "w": 170,
+    "d": 130,
+    "wall_height": 90
+   },
+   "footprint_px": [
+    [
+     287.13,
+     250.0
+    ],
+    [
+     581.58,
+     420.0
+    ],
+    [
+     356.41,
+     550.0
+    ],
+    [
+     61.96,
+     380.0
+    ]
+   ],
+   "seats": [
+    {
+     "local": 1,
+     "x": 283.96,
+     "y": 327.17
+    },
+    {
+     "local": 2,
+     "x": 365.94,
+     "y": 374.5
+    },
+    {
+     "local": 3,
+     "x": 447.91,
+     "y": 421.83
+    },
+    {
+     "local": 4,
+     "x": 195.62,
+     "y": 378.17
+    },
+    {
+     "local": 5,
+     "x": 277.6,
+     "y": 425.5
+    },
+    {
+     "local": 6,
+     "x": 359.58,
+     "y": 472.83
+    }
+   ],
+   "used_by": [
+    "process",
+    "mechanical",
+    "electrical",
+    "civil",
+    "assurance",
+    "project-controls"
+   ]
+  },
+  "yard-L": {
+   "file": "yard-L.png",
+   "front": "yard-L-front.png",
+   "archetype": "yard",
+   "size": "L",
+   "canvas": [
+    713,
+    640
+   ],
+   "scale": 2.0,
+   "pad_anchor": [
+    287.13,
+    250.0
+   ],
+   "footprint": {
+    "w": 240,
+    "d": 140,
+    "wall_height": 40
+   },
+   "footprint_px": [
+    [
+     287.13,
+     250.0
+    ],
+    [
+     702.82,
+     490.0
+    ],
+    [
+     460.33,
+     630.0
+    ],
+    [
+     44.64,
+     390.0
+    ]
+   ],
+   "seats": [
+    {
+     "local": 1,
+     "x": 284.53,
+     "y": 332.5
+    },
+    {
+     "local": 2,
+     "x": 376.33,
+     "y": 385.5
+    },
+    {
+     "local": 3,
+     "x": 468.13,
+     "y": 438.5
+    },
+    {
+     "local": 4,
+     "x": 559.93,
+     "y": 491.5
+    },
+    {
+     "local": 5,
+     "x": 187.54,
+     "y": 388.5
+    },
+    {
+     "local": 6,
+     "x": 279.33,
+     "y": 441.5
+    },
+    {
+     "local": 7,
+     "x": 371.13,
+     "y": 494.5
+    },
+    {
+     "local": 8,
+     "x": 462.93,
+     "y": 547.5
+    }
+   ],
+   "used_by": [
+    "quarantine"
+   ]
+  }
+ }
+}

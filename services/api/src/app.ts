@@ -372,10 +372,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const caller = await callerFor(db, await person(req));
     return listCaptures(db, caller.orgId);
   });
-  app.post<{ Body: { text?: string; source?: string; lane?: string } }>("/captures", async (req, reply) => {
+  app.post<{ Body: { text?: string; source?: string; lane?: string; checkout?: unknown } }>("/captures", async (req, reply) => {
     const user = await person(req);
     const source = ["web", "cli", "voice", "chat"].includes(String(req.body?.source)) ? String(req.body?.source) : "web";
-    const capture = await createCapture(db, cfg, user, String(req.body?.text ?? ""), source, req.body?.lane);
+    const capture = await createCapture(db, cfg, user, String(req.body?.text ?? ""), source, req.body?.lane, req.body?.checkout);
     return reply.code(201).send(capture);
   });
   app.post<{ Params: { id: string }; Body: { lane?: string } }>("/captures/:id/classify", async (req) => {
@@ -854,7 +854,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
     if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
@@ -873,6 +873,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const reportedModels = new Map(status.filter((s) => s.ready && s.models).map((s) => [s.runtime, s.models!]));
     const job = await claim(
       db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined, reportedModels,
+      req.body?.supports_checkouts === true,
     );
     if (!job) return reply.code(204).send();
     return job;

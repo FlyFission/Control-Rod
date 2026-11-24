@@ -1,0 +1,8 @@
+=== RUN   TestCheckoutAuthorLaunchAndCustody
+--- PASS: TestCheckoutAuthorLaunchAndCustody (0.32s)
+=== RUN   TestCheckoutRefusesChangedAndUnsafePaths
+--- PASS: TestCheckoutRefusesChangedAndUnsafePaths (0.20s)
+=== RUN   TestCheckoutRefusesExistingRunDirectoryAndReleasesCustody
+--- PASS: TestCheckoutRefusesExistingRunDirectoryAndReleasesCustody (0.35s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	1.118s

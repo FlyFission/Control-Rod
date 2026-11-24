@@ -53,7 +53,7 @@ async function mockBoardApi(page: Page, look: string) {
   });
   await page.route("**/inbox**", (r) => r.fulfill({ json: { items: [], since: [] } }));
   await page.route("**/office", (r) => r.fulfill({ json: [{ id: "o1", kind: "accept", package_id: "WP-1", package_revision: 0 }] }));
-  await page.route("**/admin", (r) => r.fulfill({ json: { members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [] } } }));
+  await page.route("**/admin", (r) => r.fulfill({ json: { bootstrap: false, actions: [], members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [] } } }));
   await page.route("**/packages", (r) => r.fulfill({ json: packages }));
   await page.route("**/packages/*", (r) => {
     const id = new URL(r.request().url()).pathname.split("/")[2];
@@ -83,7 +83,8 @@ const scan = async (page: Page) => {
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
 };
 
-for (const look of ["a", "b", "c"]) {
+// Looks b and c are retired; a stored one reads as a. Add a look here when one is added to tokens.css.
+for (const look of ["a"]) {
   test(`the board has no axe violations in look ${look}, live, with a blocked O6 card, and with the stream unknown`, async ({ page }) => {
     await mockBoardApi(page, look);
     await page.goto("/");
@@ -141,7 +142,8 @@ for (const look of ["a", "b", "c"]) {
   });
 }
 
-for (const look of ["a", "b", "c"]) {
+// Looks b and c are retired; a stored one reads as a. Add a look here when one is added to tokens.css.
+for (const look of ["a"]) {
   test(`the review drawer's agent panel has no axe violations in look ${look}`, async ({ page }) => {
     await mockBoardApi(page, look);
     await page.goto("/");

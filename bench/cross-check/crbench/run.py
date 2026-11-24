@@ -101,7 +101,6 @@ class Runner:
                 raise Refused("§4 §6 §9", f"{what} for {self.phase}: {why}")
         versions_unchanged(self.study)
         live_billing_check(self.study)
-        ctr.reconcile(self.label)  # containers a crash or an interrupt left behind
         if self.phase == "main":
             sz = load_sizing(self.study)
             if sz is None:
@@ -292,7 +291,8 @@ class Runner:
             changed = "\n".join(f"{c['status']}\t{' -> '.join(c['paths'])}" for c in sub["changes"])
             prompt = render(self.prompts["checker.md"], issue=task["problem_statement"].strip(),
                             diff=truncate_diff(patch.decode(errors="replace"), self.cfg["caps"].get("max_diff_chars", 60000)),
-                            changed=changed, scratch=str(scratch))
+                            changed=changed,
+                            scratch=ctr.SCRATCH if self.agents[name]["kind"] != "stub" else str(scratch))
             d, lid, agent = self.launch(base, name, "checker", attempt)
             rec = self.call_agent(agent, "checker", prompt, repo, scratch, d, {})
             rec["patch_sha256"] = sub["sha256"]
@@ -325,6 +325,8 @@ class Runner:
             return {"status": "planned", "plan": plan}
         status = "complete"
         with self.ledger.run_lock():
+            if ctr.settings(self.cfg):  # containers a crash or an interrupt left behind; only under the lock
+                ctr.reconcile(self.label)
             try:
                 for t in self.manifest["block_order"]:
                     self.block(t)

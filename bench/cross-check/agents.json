@@ -9,8 +9,7 @@
     "login_store": {
       "mode": "token_file",
       "source": "~/.config/cr-bench/claude-oauth-token",
-      "env": "CLAUDE_CODE_OAUTH_TOKEN",
-      "readable_by_own_tools": true
+      "config_env": "CLAUDE_CONFIG_DIR"
     },
     "auth_status": {
       "argv": [
@@ -74,11 +73,12 @@
     "effort": null,
     "login_store": {
       "mode": "files",
-      "source": "~/.codex",
+      "source": "~/.config/cr-bench/codex",
       "files": [
         "auth.json"
       ],
-      "env": "CODEX_HOME"
+      "env": "CODEX_HOME",
+      "write_back": true
     },
     "auth_status": {
       "argv": [

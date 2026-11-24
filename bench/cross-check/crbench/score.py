@@ -17,6 +17,34 @@ ARMS = {"A1": "hidden tests only (PASS_TO_PASS)", "A2": "A1 plus same-model chec
         "A3": "A1 plus cross-vendor checker"}
 
 
+
+def _container_summary(box: dict | None) -> dict | None:
+    """What the record keeps about the container boundary: identities, never paths."""
+    if not box or box.get("not_needed"):
+        return None
+    img = box.get("image") or {}
+    rt = box.get("runtime") or {}
+    return {"image_id": img.get("id"), "image_arch": img.get("arch"), "inputs_key": img.get("inputs_key"),
+            "versions": img.get("versions"), "runtime": {k: rt.get(k) for k in ("server", "kernel", "arch", "os")},
+            "profile": box.get("agent_container_profile")}
+
+
+def disclosures(box: dict | None) -> list[str]:
+    """Residual risks of the agent boundary, stated in every report and release."""
+    if not box:
+        return ["Agent calls were stubs: no agent boundary was exercised."]
+    return [f"Every agent call ran in its own container from image `{(box.get('image_id') or '')[:19]}` "
+            f"({box.get('image_arch')}), confined by {box.get('profile')}, on {box['runtime'].get('os')} "
+            f"kernel {box['runtime'].get('kernel')}.",
+            "Residual risk: the CLI process itself holds its own sign-in. Its tool processes are denied the sign-in "
+            "files, every credential variable and all network (checked before any call with sentinels, without a "
+            "model call).",
+            "Residual risk: network egress is limited to the vendor's exact hosts by resolved address and the initial "
+            "TLS server name; traffic inside an allowed TLS connection is not inspected.",
+            "Residual risk: agent containers for Claude Code run with Docker's system-path masking off (its sandbox "
+            "needs a fresh /proc); AppArmor's /proc and /sys denials still apply.",
+            "Agents ran on the host's architecture; SWE-bench grader images are x86_64 and may run emulated on arm64."]
+
 def rate(k: int, n: int) -> dict:
     return {"k": k, "n": n, "rate": k / n if n else None, "ci95": wilson(k, n)}
 
@@ -195,6 +223,7 @@ def score(study: Study, phase: str) -> dict:
            "models_resolved": read_json(study.dir / "models.json") if (study.dir / "models.json").exists() else {},
            "environment": {"cli": read_json(pf)["identities"] if pf.exists() else {},
                            "host": read_json(pf)["host"] if pf.exists() else {},
+                           "container": _container_summary(read_json(pf).get("container")) if pf.exists() else None,
                            "grader_images": ev.get("images", []), "snapshot": ev.get("snapshot")},
            "margins": cfg["margins"], "cohort": cfg["cohort"],
            "counts": {"pairs": len(rows), "eligible": len(el),
@@ -508,13 +537,8 @@ def report(res: dict, cfg: dict) -> str:
     h = res["environment"]["host"]
     if h:
         L.append(f"- Host: {h.get('system')} {h.get('arch')}, Python {h.get('python')}, confinement {h.get('confinement')}")
-        L.append("- Residual risk: a CLI's own tool shell can read that CLI's own sign-in, as under the product "
-                 "daemon; it cannot read the other vendor's.")
-        if h.get("system") == "Darwin":
-            L.append("- Residual risk: on macOS, agent calls run inside each CLI's own sandbox only, because Seatbelt "
-                     "cannot nest; the harness's outer Seatbelt layer confines the grader and the harness probes. The "
-                     "probes check, per agent, that credentials, other workspaces and the source tree stay unreadable "
-                     "or unwritable as designed.")
+    for line in disclosures(res["environment"].get("container")):
+        L.append(f"- {line}")
     for im in res["environment"]["grader_images"]:
         L.append(f"- Grader image {im.get('Repository')}:{im.get('Tag')} {im.get('Digest')}")
     L.append("")

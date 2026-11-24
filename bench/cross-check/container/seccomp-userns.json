@@ -1252,10 +1252,8 @@
       "comment": "cr-bench: unprivileged bubblewrap namespaces (DESIGN-v3.4-proposal.md)",
       "names": [
         "clone",
-        "clone3",
         "mount",
         "pivot_root",
-        "setns",
         "umount2",
         "unshare"
       ]

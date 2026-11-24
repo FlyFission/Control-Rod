@@ -10,7 +10,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE / "moby-seccomp-default.json"
 SOURCE_SHA256 = "3320527d4568265ac97a077609b1bfd4cfd0d789eeb9239b7e094b1526675406"
-ADDED = ["clone", "clone3", "mount", "pivot_root", "setns", "umount2", "unshare"]
+# clone3 is not here: Docker's profile answers it with ENOSYS so that glibc falls back to clone,
+# whose namespace flags this rule allows. setns is not needed: bwrap only creates namespaces.
+ADDED = ["clone", "mount", "pivot_root", "umount2", "unshare"]
 
 
 def build() -> bytes:

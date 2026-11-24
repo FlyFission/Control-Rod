@@ -5,6 +5,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import random
+import re
 from pathlib import Path
 
 from .common import HERE, Refused, Study, digest, git_dirty, git_head, harness_digest, load_sizing, now, read_json, sha256_file, write_json
@@ -16,6 +17,10 @@ PROMPTS = ("author.md", "checker.md")
 
 # ------------------------------------------------------------------ protocol
 
+
+
+# a DNS name with at least one dot and a letter in its last label: never an IP literal or a port
+HOST_NAME = re.compile(r"(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?")
 
 def validate_config(cfg: dict) -> None:
     """Refuse a protocol that leaves a frozen choice open."""
@@ -80,8 +85,9 @@ def init_study(study: Study, config_path: Path, agents_path: Path = HERE / "agen
             if not (cfg.get("container") or {}).get("image"):
                 raise Refused("§4 container", "real agents run only in the per-call container; set container.image")
             hosts = agents[a].get("egress")
-            if not hosts or any("*" in h or not h or h != h.lower() for h in hosts):
-                raise Refused("§4 network", f"{a}: egress must list exact lower-case host names, no wildcards")
+            if not hosts or not all(isinstance(h, str) and HOST_NAME.fullmatch(h) for h in hosts):
+                raise Refused("§4 network", f"{a}: egress must list exact lower-case host names: no wildcards, "
+                                            "IP addresses, ports or spaces")
     frozen = {
         "config": cfg,
         "agents": {a: agents[a] for a in cfg["authors"]},

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import shutil
 import signal
 import subprocess
@@ -26,7 +27,10 @@ BILLING_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"
                "CODEX_API_KEY", "AZURE_OPENAI_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
                "CLAUDE_CODE_USE_FOUNDRY", "AWS_BEARER_TOKEN_BEDROCK")
 KEEP_ENV = ("PATH", "LANG", "LC_ALL", "TERM", "USER", "LOGNAME")
-LOCAL_KEYS = {"config", "login_store", "bin", "read_allow"}
+CREDENTIAL_ENV = ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY",
+                  "CODEX_API_KEY")
+LOCAL_KEYS = {"config", "login_store"}
+LOCAL_LOGIN_KEYS = {"source"}
 QUOTA = [r"usage limit", r"limit reached", r"rate.?limit", r"\b429\b", r"too many requests", r"quota"]
 AUTH = re.compile(r"not (signed|logged) in|log ?in required|please (run )?(/)?login|unauthori[sz]ed|\b401\b|"
                   r"invalid (api key|token|bearer)|token (has )?expired|authentication_error|oauth token", re.I)
@@ -38,19 +42,21 @@ OUTPUT_CAP = 64 * 1024 * 1024
 
 
 def load_local(name: str, agent: dict | None = None) -> dict:
-    """agents.local.json: sign-in store, CLI path, extra readable install dirs and allowlisted
-    transport values only. Never model, effort, tools or sandbox (§9)."""
+    """agents.local.json: where the sign-in store lives and allowlisted transport values only.
+    Never the store's mode, model, effort, tools, sandbox or CLI binary (the CLI is in the pinned
+    image) (§9)."""
     p = HERE / "agents.local.json"
     if not p.exists():
         return {}
     extra = read_json(p).get(name, {})
     bad = set(extra) - LOCAL_KEYS
+    bad |= {f"login_store.{k}" for k in set(extra.get("login_store", {})) - LOCAL_LOGIN_KEYS}
     allow = (agent or {}).get("transport_allow", {})
     for k, v in extra.get("config", {}).items():
         if k not in allow or v not in allow[k]:
             bad.add(f"config.{k}={v}")
     if bad:
-        raise SystemExit(f"agents.local.json may set only sign-in, CLI path and allowlisted transport for {name} "
+        raise SystemExit(f"agents.local.json may set only the sign-in source and allowlisted transport for {name} "
                          f"(§9); refused: {sorted(bad)}")
     return extra
 
@@ -59,9 +65,8 @@ def effective(agent: dict, name: str) -> dict:
     """The frozen spec plus its local sign-in, binary and readable install dirs."""
     ex = load_local(name, agent)
     out = dict(agent)
-    for k in ("login_store", "bin", "read_allow"):
-        if k in ex:
-            out[k] = ex[k]
+    if "login_store" in ex:
+        out["login_store"] = {**(agent.get("login_store") or {}), **ex["login_store"]}
     out["_local_config"] = ex.get("config", {})
     out["_name"] = name
     return out
@@ -71,8 +76,8 @@ def local_record(name: str, agent: dict | None = None) -> dict:
     """What the record keeps from agents.local.json: allowlisted transport values and the sign-in
     mode; never paths or secrets."""
     ex = load_local(name, agent)
-    return {"config": ex.get("config", {}), "login_mode": ex.get("login_store", {}).get("mode"),
-            "custom_bin": "bin" in ex, "extra_read_dirs": len(ex.get("read_allow", []))}
+    return {"config": ex.get("config", {}), "login_mode": (agent or {}).get("login_store", {}).get("mode"),
+            "custom_sign_in_source": "source" in ex.get("login_store", {})}
 
 
 def resolve_bin(agent: dict) -> str | None:
@@ -91,6 +96,86 @@ def clean_env(extra: dict) -> dict:
     for k in BILLING_ENV:
         keep.pop(k, None)
     return keep
+
+
+TOKEN_PREFIX = "sk-ant-oat"  # a subscription OAuth token; an API key starts "sk-ant-api"
+
+
+def read_token_file(src: Path) -> str:
+    if src.is_symlink() or not src.is_file() or src.stat().st_mode & 0o077:
+        raise SystemExit(f"{src} must be a regular file readable by its owner only (chmod 600)")
+    tok = src.read_text().strip()
+    if not tok.startswith(TOKEN_PREFIX) or any(c.isspace() for c in tok):
+        raise SystemExit(f"{src} does not hold a subscription token from `claude setup-token`")
+    return tok
+
+
+def write_claude_credentials(cdir: Path, tok: str) -> Path:
+    """Claude Code's own credentials file (`.credentials.json` in its config directory), holding
+    the long-lived setup token as the access token. No refresh token: nothing rotates."""
+    cdir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    f = cdir / ".credentials.json"
+    body = {"claudeAiOauth": {"accessToken": tok, "refreshToken": None,
+                              "expiresAt": int((time.time() + 300 * 86400) * 1000), "scopes": ["user:inference"]}}
+    fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump(body, fh)
+    return f
+
+
+def synthetic_login(agent: dict, private: Path, sentinel: str) -> dict:
+    """The same layout as login_store, holding a sentinel instead of a credential: admission and
+    the boundary probes never copy a real sign-in."""
+    ls = agent.get("login_store") or {}
+    home, tmp = private / "home", private / "tmp"
+    home.mkdir(parents=True, exist_ok=True)
+    tmp.mkdir(parents=True, exist_ok=True)
+    env = {"HOME": str(home), "TMPDIR": str(tmp)}
+    if ls.get("mode") == "files":
+        dst = private / "login"
+        dst.mkdir(parents=True)
+        for f in ls["files"]:
+            (dst / f).write_text(json.dumps({"sentinel": sentinel}))
+        return {**env, ls["env"]: str(dst)}
+    if ls.get("mode") == "token_file":
+        cdir = private / "claude"
+        write_claude_credentials(cdir, sentinel)
+        return {**env, ls["config_env"]: str(cdir)}
+    return env
+
+
+def write_back_login(agent: dict, private: Path) -> bool:
+    """A CLI may refresh its sign-in during a call (Codex rotates its refresh token). For a store
+    marked write_back (the benchmark's own sign-in, never the owner's everyday one), the refreshed
+    copy replaces the store atomically after the container is gone, so the next call starts from
+    the live token. Returns True if the store was updated."""
+    ls = agent.get("login_store") or {}
+    if ls.get("mode") != "files" or not ls.get("write_back"):
+        return False
+    src = Path(os.path.expanduser(ls["source"]))
+    changed = False
+    for f in ls["files"]:
+        new, old = private / "login" / f, src / f
+        if not new.is_file() or new.is_symlink():
+            continue
+        data = new.read_bytes()
+        if data == old.read_bytes():
+            continue
+        try:
+            j = json.loads(data)
+        except json.JSONDecodeError:
+            continue  # a half-written or foreign file never replaces a working sign-in
+        if not isinstance(j, dict) or not j.get("tokens"):
+            continue
+        tmp = src / f".{f}.{secrets.token_hex(4)}"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, old)
+        changed = True
+    return changed
 
 
 def login_store(agent: dict, private: Path) -> dict:
@@ -113,9 +198,13 @@ def login_store(agent: dict, private: Path) -> dict:
             os.chmod(dst / f, 0o600)
         return {**env, ls["env"]: str(dst)}
     if ls["mode"] == "token_file":  # a `claude setup-token` subscription token in a 0600 file
-        if src.is_symlink() or src.stat().st_mode & 0o077:
-            raise SystemExit(f"{src} must be a regular file readable by its owner only (chmod 600)")
-        return {**env, ls["env"]: src.read_text().strip()}
+        tok = read_token_file(src)
+        # The token goes into a credentials file in the CLI's own config directory, never into the
+        # environment: every tool process inherits the environment, and the CLI's sandbox denies
+        # this directory to tool processes (preflight admission proves it with a sentinel).
+        cdir = private / "claude"
+        write_claude_credentials(cdir, tok)
+        return {**env, ls["config_env"]: str(cdir)}
     raise SystemExit(f"unknown login_store mode {ls['mode']!r}")
 
 
@@ -442,11 +531,11 @@ def run_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, time
 IMAGE_PATH = "/usr/local/bin:/usr/bin:/bin"
 
 
-def container_env(agent: dict, priv: Path) -> dict:
+def container_env(agent: dict, priv: Path, sentinel: str | None = None) -> dict:
     """The call's environment inside its container: built from nothing, never from the host's.
     The sign-in copy and HOME live under /work/private, which each CLI's own sandbox denies to
     tool processes; TMPDIR is the container's tmpfs."""
-    host = login_store(agent, priv)
+    host = synthetic_login(agent, priv, sentinel) if sentinel is not None else login_store(agent, priv)
     env = {"PATH": IMAGE_PATH, "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": "/tmp"}
     for k, v in host.items():
         if k == "TMPDIR":
@@ -455,6 +544,9 @@ def container_env(agent: dict, priv: Path) -> dict:
     env.update(agent.get("isolation", {}).get("env", {}))
     for k in BILLING_ENV:
         env.pop(k, None)
+    for k, v in env.items():  # no credential ever travels in the environment: every tool inherits it
+        if k in CREDENTIAL_ENV or str(v).startswith("sk-"):
+            raise Refused("§4 sign-in", f"a credential would reach the call's environment as {k}")
     return env
 
 
@@ -481,10 +573,11 @@ def _container_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Pat
     args = container_args(agent, role, bool(ws.get("scratch")))
     (call_dir / "argv.json").write_text(json.dumps(args[1:], indent=1))
     so, se = call_dir / "stdout.jsonl", call_dir / "stderr.txt"
+    env_file = Path(cx["root"]) / f"env-{cx['lid']}"  # read by the docker client only, never mounted
     with ctr.Call(cx["cfg"], cx["image"], cx["lid"], cx["label"], call_dir, agent.get("egress") or [],
-                  cx["root"]) as c:
+                  cx["root"], systempaths=agent["kind"] == "claude") as c:
         env.update(c.proxy_env())
-        env_file = ctr.write_env_file(priv / ".env", env)
+        ctr.write_env_file(env_file, env)
         argv = c.argv(role, ws, env_file, args)
         try:
             code, stop = run_proc(argv, call_dir, prompt, timeout, ctr.docker_env(), so, se, pid_file=call_dir / "pgid")
@@ -494,7 +587,9 @@ def _container_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Pat
     conf = {"mechanism": "container", "image": cx["image"], "apparmor": ctr.APPARMOR,
             "egress": {"allowed": sorted({e["host"] for e in log if e.get("decision") == "allowed"}),
                        "denied": sorted({f"{e.get('host')}: {e.get('reason')}" for e in log
-                                         if e.get("decision") != "allowed"})}}
+                                         if e.get("decision") in ("denied", "error", "log_cap")})}}
+    env_file.unlink(missing_ok=True)
+    conf["sign_in_refreshed"] = write_back_login(agent, priv)  # the container is gone: nothing else writes
     return finish_real(agent, role, timeout, priv / "last-message.txt", so, se, code, stop, conf)
 
 

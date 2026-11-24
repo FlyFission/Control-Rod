@@ -93,16 +93,26 @@ def inputs_digest() -> dict:
 
 def build_image(tag: str) -> dict:
     """Build the agent image from container/ and record what it holds."""
-    dk(["build", "-f", str(CONTAINER_DIR / "Dockerfile"), "-t", tag, str(HERE)], timeout=3600)
+    dk(["build", "-f", str(CONTAINER_DIR / "Dockerfile"), "-t", tag, "--label",
+        f"cr-bench.inputs={inputs_key()}", str(HERE)], timeout=3600)
     return image_record(tag)
+
+
+def inputs_key() -> str:
+    return hashlib.sha256(json.dumps(inputs_digest(), sort_keys=True).encode()).hexdigest()
 
 
 def image_record(ref: str) -> dict:
     iid = image_id(ref)
     if not iid:
         raise Refused("§4 container", f"image {ref} is not present; build it with `bench.py image`")
-    r = dk(["image", "inspect", "--format", "{{.Architecture}} {{.Os}}", ref])
-    arch, osn = r.stdout.decode().split()
+    r = dk(["image", "inspect", "--format", "{{.Architecture}} {{.Os}} {{index .Config.Labels \"cr-bench.inputs\"}}", ref])
+    parts = r.stdout.decode().split()
+    arch, osn = parts[0], parts[1]
+    built_from = parts[2] if len(parts) > 2 else None
+    if built_from != inputs_key():  # the build stamps the digest of the inputs it was built from
+        raise Refused("§9 versions", f"image {ref} was not built from the current container/ inputs; "
+                                     "rebuild it with `bench.py image`")
     script = ("for b in claude codex srt bwrap python3 git; do p=$(readlink -f \"$(command -v $b)\"); "
               "printf '%s %s ' \"$b\" \"$p\"; sha256sum \"$p\" | cut -d' ' -f1; done; "
               "claude --version 2>&1 | head -1; codex --version 2>&1 | head -1")
@@ -119,7 +129,7 @@ def image_record(ref: str) -> dict:
         if not any(cli in v.lower() for v in versions):
             raise Refused("§9 versions", f"image {ref} did not report a {cli} version: {versions}")
     return {"ref": ref, "id": iid, "arch": arch, "os": osn, "binaries": bins, "versions": versions,
-            "inputs": inputs_digest()}
+            "inputs": inputs_digest(), "inputs_key": built_from}
 
 
 # ------------------------------------------------------------------ per-call launch
@@ -129,13 +139,20 @@ def names(lid: str) -> dict:
     return {"agent": f"crb-{lid}", "proxy": f"crb-{lid}-px", "net": f"crb-{lid}-net"}
 
 
-def hardening(s: dict) -> list[str]:
-    """The flags every container gets. Never weakened to make something inside start."""
+def hardening(s: dict, sandbox: bool = True, systempaths: bool = False) -> list[str]:
+    """The flags every container gets. `sandbox`: the agent container, whose CLI starts its own
+    bubblewrap sandbox, gets the two profiles in container/ that allow exactly that; any other
+    container (the proxy) keeps Docker's default seccomp and AppArmor profiles. `systempaths`:
+    the one disclosed exception, only for the CLI that needs it (Claude's sandbox mounts a fresh
+    /proc; feasibility check, Nov 24). AppArmor's /proc and /sys denials still apply."""
     flags = ["--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--read-only", "--init",
-             "--security-opt", f"seccomp={SECCOMP}", "--security-opt", f"apparmor={APPARMOR}",
              "--pids-limit", str(s["pids"]), "--memory", str(s["memory"]), "--cpus", str(s["cpus"]),
              "--tmpfs", f"/tmp:rw,exec,nosuid,nodev,size={s['tmp_size']}"]
-    if s.get("systempaths_unconfined"):  # Claude's sandbox mounts a fresh /proc (feasibility check, Nov 24)
+    if sandbox:
+        flags += ["--security-opt", f"seccomp={SECCOMP}", "--security-opt", f"apparmor={APPARMOR}"]
+    else:
+        flags += ["--security-opt", "apparmor=docker-default"]
+    if sandbox and systempaths and s.get("systempaths_unconfined"):
         flags += ["--security-opt", "systempaths=unconfined"]
     return flags
 
@@ -147,11 +164,11 @@ def mount(src: Path, dst: str, ro: bool) -> list[str]:
 
 
 def agent_argv(s: dict, image: str, lid: str, study_label: str, role: str, ws: dict, env_file: Path,
-               cmd: list[str], network: str, dns_off: bool = True) -> list[str]:
+               cmd: list[str], network: str, dns_off: bool = True, systempaths: bool = False) -> list[str]:
     n = names(lid)
     argv = ["run", "-i", "--name", n["agent"], "--hostname", "sandbox", "--label", f"cr-bench.study={study_label}",
             "--label", f"cr-bench.launch={lid}", "--network", network, "--user", f"{os.getuid()}:{os.getgid()}",
-            "--env-file", str(env_file), "-w", REPO, *hardening(s)]
+            "--env-file", str(env_file), "-w", REPO, *hardening(s, systempaths=systempaths)]
     if dns_off:
         argv += ["--dns", "127.0.0.1"]  # nothing listens there: the container has no resolver
     argv += mount(Path(ws["workspace"]), REPO, ro=role == "checker")
@@ -162,15 +179,19 @@ def agent_argv(s: dict, image: str, lid: str, study_label: str, role: str, ws: d
 
 
 def proxy_argv(s: dict, image: str, lid: str, study_label: str, log_dir: Path, allow: list[str],
-               deny_nets: list[str]) -> list[str]:
+               deny_nets: list[str], listen_net: str) -> list[str]:
+    """`docker create` for the proxy: created on the call network, connected to the bridge before it
+    starts, listening only on its call-network address."""
     n = names(lid)
-    args = ["run", "-d", "--name", n["proxy"], "--hostname", "egress", "--label", f"cr-bench.study={study_label}",
-            "--label", f"cr-bench.launch={lid}", "--network", "bridge", "--user", f"{os.getuid()}:{os.getgid()}",
-            *hardening({**s, "systempaths_unconfined": False}), *mount(log_dir, "/log", ro=False),
+    args = ["create", "--name", n["proxy"], "--hostname", "egress", "--label", f"cr-bench.study={study_label}",
+            "--label", f"cr-bench.launch={lid}", "--network", n["net"], "--user", f"{os.getuid()}:{os.getgid()}",
+            *hardening(s, sandbox=False), *mount(log_dir, "/log", ro=False),
             "--entrypoint", "python3", image, "-I", "/opt/cr-bench/egress.py", str(PROXY_PORT), lid,
-            "/log/egress.jsonl", *allow]
+            "/log/egress.jsonl", *allow, "--listen-net", listen_net]
     for d in deny_nets:
         args += ["--deny-net", d]
+    if s.get("egress_cap_bytes"):
+        args += ["--max-bytes", str(int(s["egress_cap_bytes"]))]
     return args
 
 
@@ -180,7 +201,7 @@ class Call:
     removal is waited for."""
 
     def __init__(self, cfg: dict, image: str, lid: str, study_label: str, call_dir: Path, allow: list[str] | None,
-                 root: Path):
+                 root: Path, systempaths: bool = False):
         self.s = settings(cfg)
         if self.s is None:
             raise Refused("§4 container", "the study config has no container settings")
@@ -189,9 +210,18 @@ class Call:
         self.root = Path(root)  # the workspace root: on macOS the only host directory the VM shares
         self.log_dir: Path | None = None
         self.proxy_ip: str | None = None
+        self.systempaths = systempaths
 
     def __enter__(self) -> "Call":
         (self.dir / "container.json").write_text(json.dumps({"launch": self.lid, **self.n}))
+        try:
+            self._setup()
+        except BaseException:
+            self.__exit__(None, None, None)  # a half-built launch is torn down like a finished one
+            raise
+        return self
+
+    def _setup(self) -> None:
         dk(["network", "create", "--internal", "--label", f"cr-bench.study={self.label}",
             "--label", f"cr-bench.launch={self.lid}", self.n["net"]])
         if self.allow is not None:
@@ -199,12 +229,15 @@ class Call:
             # visible inside the VM); it is moved into the call directory once the proxy is gone.
             self.log_dir = self.root / ("egress-" + self.lid)
             self.log_dir.mkdir(mode=0o700)
-            deny = [x for x in (subnet("bridge"), subnet(self.n["net"])) if x]
-            dk(proxy_argv(self.s, self.image, self.lid, self.label, self.log_dir, self.allow, deny))
-            dk(["network", "connect", self.n["net"], self.n["proxy"]])
+            internal = subnet(self.n["net"])
+            if not internal:
+                raise Refused("§4 container", "the call network has no subnet")
+            deny = [x for x in (subnet("bridge"), internal) if x]
+            dk(proxy_argv(self.s, self.image, self.lid, self.label, self.log_dir, self.allow, deny, internal))
+            dk(["network", "connect", "bridge", self.n["proxy"]])
+            dk(["start", self.n["proxy"]])
             self.proxy_ip = container_ip(self.n["proxy"], self.n["net"])
             wait_ready(self.n["proxy"])
-        return self
 
     def proxy_env(self) -> dict:
         if not self.proxy_ip:
@@ -215,7 +248,7 @@ class Call:
 
     def argv(self, role: str, ws: dict, env_file: Path, cmd: list[str]) -> list[str]:
         return [docker_bin(), *agent_argv(self.s, self.image, self.lid, self.label, role, ws, env_file, cmd,
-                                          self.n["net"])]
+                                          self.n["net"], systempaths=self.systempaths)]
 
     def __exit__(self, *exc) -> None:
         remove(self.lid)
@@ -256,19 +289,34 @@ def wait_ready(name: str, timeout: float = 30) -> None:
     raise Refused("§4 container", "egress proxy did not start")
 
 
+def _left(lid: str) -> list[str]:
+    """IDs of this launch's containers still present. Raises if the runtime cannot answer: an
+    unanswered question is never read as "gone"."""
+    r = dk(["ps", "-aq", "--filter", f"label=cr-bench.launch={lid}"], check=False)
+    if r.returncode != 0:
+        raise Refused("§4 container", f"cannot confirm that launch {lid} is gone: the runtime did not answer")
+    return [x.decode() for x in r.stdout.split()]
+
+
 def remove(lid: str) -> None:
-    """Remove one launch's containers and network, and wait until they are gone."""
+    """Remove one launch's containers and network, and confirm they are gone. The agent goes first;
+    the proxy is then stopped with a grace period so its log is complete; then the network."""
     n = names(lid)
-    dk(["rm", "-f", n["agent"], n["proxy"]], check=False, timeout=120)
+    dk(["rm", "-f", n["agent"]], check=False, timeout=120)
+    dk(["stop", "-t", "5", n["proxy"]], check=False, timeout=60)
+    dk(["rm", "-f", n["proxy"]], check=False, timeout=120)
     for _ in range(50):
-        left = dk(["ps", "-aq", "--filter", f"label=cr-bench.launch={lid}"], check=False).stdout.split()
+        left = _left(lid)
         if not left:
             break
-        dk(["rm", "-f", *[x.decode() for x in left]], check=False, timeout=120)
+        dk(["rm", "-f", *left], check=False, timeout=120)
         time.sleep(0.2)
     else:
         raise Refused("§4 container", f"containers of launch {lid} could not be removed")
     dk(["network", "rm", n["net"]], check=False)
+    r = dk(["network", "ls", "-q", "--filter", f"label=cr-bench.launch={lid}"], check=False)
+    if r.returncode != 0 or r.stdout.strip():
+        raise Refused("§4 container", f"network of launch {lid} could not be confirmed removed")
 
 
 def reconcile(study_label: str) -> list[str]:
@@ -278,6 +326,8 @@ def reconcile(study_label: str) -> list[str]:
         return []
     r = dk(["ps", "-aq", "--filter", f"label=cr-bench.study={study_label}", "--format", "{{.Label \"cr-bench.launch\"}}"],
            check=False)
+    if r.returncode != 0:
+        raise Refused("§4 container", "cannot list this study's containers: the runtime did not answer")
     lids = sorted({x.decode() for x in r.stdout.split()})
     for lid in lids:
         remove(lid)

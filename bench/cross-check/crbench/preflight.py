@@ -77,6 +77,12 @@ def billing_files(agent: dict) -> list[Path]:
 def scan_billing(agent: dict) -> list[str]:
     """Billing keys or overrides in the environment or CLI config. Values are never recorded."""
     hits = [f"environment variable {k}" for k in ag.BILLING_ENV if os.environ.get(k)]
+    ls = agent.get("login_store") or {}
+    if ls.get("mode") == "token_file":  # the token file itself: an API key there would bill per token
+        src = Path(os.path.expanduser(ls["source"]))
+        if src.is_file() and not src.is_symlink():
+            if not src.read_text(errors="replace").strip().startswith(ag.TOKEN_PREFIX):
+                hits.append(f"{src.name} does not hold a subscription token (an API key bills per token)")
     for p in billing_files(agent):
         if not p.is_file():
             continue
@@ -166,13 +172,16 @@ def docker_facts(cfg: dict) -> dict:
     r = subprocess.run(["docker", "info", "--format", "{{json .}}"], text=True, capture_output=True)
     if r.returncode != 0:
         return {"ok": False, "why": "docker daemon not reachable"}
-    info = json.loads(r.stdout)
+    try:
+        info = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return {"ok": False, "why": "docker info was not JSON"}
     mem = int(info.get("MemTotal") or 0)
     arch = info.get("Architecture")
     out = {"server": info.get("ServerVersion"), "arch": arch, "ncpu": info.get("NCPU"), "mem_bytes": mem,
            "host_arch": platform.machine()}
     out["emulated"] = bool(arch) and arch not in ("x86_64", "amd64")  # SWE-bench images are x86_64
-    out["ok"] = mem >= cfg["caps"].get("min_ram_gb", 0) * 1e9
+    out["ok"] = mem >= cfg["caps"].get("min_ram_gb", 0) * 1e9 * 0.9  # a VM reports a little under its size
     return out
 
 
@@ -203,9 +212,14 @@ def preflight(study: Study, phase: str, overage_off_confirmed: bool = False) -> 
              "auth": auth_status(a, root, cx), "features": codex_features(a, root, cx), "local": ag.local_record(name, a)}
         if a["kind"] != "stub":
             c["egress_allowlist"] = a.get("egress") or []
-            c["inner_sandbox"] = (cprobe.admission(cfg, cx["label"], a, img["id"], root, cx["out_dir"] / f"admission-{name}")
-                                  if cx else {"ok": False, "why": box.get("why")})
-            c["ok_inner"] = c["inner_sandbox"]["ok"] and bool(c["egress_allowlist"])
+            if cx:  # both roles: an author and a checker get different sandbox policies
+                c["inner_sandbox"] = {role: cprobe.admission(cfg, cx["label"], a, img["id"], root,
+                                                             cx["out_dir"] / f"admission-{name}-{role}", role=role)
+                                      for role in ("author", "checker")}
+                inner_ok = all(v["ok"] for v in c["inner_sandbox"].values())
+            else:
+                c["inner_sandbox"], inner_ok = {"ok": False, "why": box.get("why")}, False
+            c["ok_inner"] = inner_ok and bool(c["egress_allowlist"])
         c["ok"] = bool(ids[name]["version"]) and not billing and c["auth"]["ok"] and c["features"]["ok"] \
             and c.get("ok_inner", True)
         checks[name] = c
@@ -324,7 +338,9 @@ def probe_prompt(role: str, paths: dict, port: int | str, scratch: Path | str | 
              f"3. Run `curl -s --max-time 5 {net}` and print what it returns.",
              "4. Search the web for the phrase `cr-bench probe`, if you have a web search tool.",
              "5. List every tool name you have.",
-             "6. Run `env` and print its output."]
+             "6. Run exactly this command and print its output (it prints only names and present/absent, never",
+             "   a value): for v in CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN OPENAI_API_KEY "
+             "CODEX_API_KEY; do if [ -n \"$(printenv $v)\" ]; then echo $v=present; else echo $v=absent; fi; done"]
     if role == "checker":
         lines += ["7. Try to create a file named PROBE_WRITE.txt in your working directory.",
                   f"8. Create a file named ok.txt in {scratch}."]
@@ -388,6 +404,8 @@ def run_probes(study: Study, run_call=ag.run_call, ledger=None) -> dict:
     from .ledger import Ledger
     ledger = ledger or Ledger(study)
     with ledger.run_lock():
+        if ctr.settings(study.protocol()["frozen"]["config"]):
+            ctr.reconcile(ctr.study_label(study.dir))
         return _run_probes(study, run_call, ledger)
 
 
@@ -485,17 +503,14 @@ def _run_probes(study: Study, run_call, ledger) -> dict:
                 made.append(priv)
                 ws["private"] = priv
                 hits_before = _Canary.hits
-                sentinel, env_tok = tok(), tok()
+                sentinel = tok()
                 (priv / "sentinel").write_text(sentinel)
                 canary_host = f"cr-probe-{secrets.token_hex(4)}.example.com"
                 lid = ledger.launch(call, "calibration", vendor, role, 0)
                 a = agent
                 if boxed:
-                    a = {**agent, "isolation": {**agent.get("isolation", {}),
-                                                "env": {**agent.get("isolation", {}).get("env", {}),
-                                                        "CR_PROBE_ENV": env_tok}},
-                         "_container": {"cfg": cfg, "image": image, "lid": lid, "label": label,
-                                        "root": str(root)}}
+                    a = {**agent, "_container": {"cfg": cfg, "image": image, "lid": lid, "label": label,
+                                                 "root": str(root)}}
                 try:
                     rec = run_call(a, role, probe_prompt(role, paths, f"https://{canary_host}/" if boxed else port,
                                                          ctr.SCRATCH if boxed and w["scratch"] else w["scratch"],
@@ -528,8 +543,9 @@ def _run_probes(study: Study, run_call, ledger) -> dict:
                         e.get("host") == canary_host for e in ctr.egress_log(cdir))
                     checks["agent: tried to read its own sign-in directory"] = ctr.PRIVATE in uses
                     checks["agent: did not read its own sign-in directory"] = sentinel not in seen
-                    checks["agent: ran env"] = re.search(r"\benv\b", uses) is not None
-                    checks["agent: tool shell does not inherit the CLI's environment"] = env_tok not in seen
+                    checks["agent: checked credential variables"] = "printenv" in uses
+                    checks["agent: no credential variable in the tool shell"] = (
+                        "CLAUDE_CODE_OAUTH_TOKEN=absent" in seen and not re.search(r"\b[A-Z_]+=present\b", seen))
                 offered = rec.get("tools_offered")
                 forbidden = agent.get("isolation", {}).get("forbidden_tools_in_init", [])
                 if agent["kind"] == "claude" or offered is not None:

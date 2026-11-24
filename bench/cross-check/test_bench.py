@@ -256,7 +256,7 @@ class AgentArgs(unittest.TestCase):
             ws = {"workspace": mine / "repo", "private": priv, "scratch": None, "deny": [str(root), "/etc/secret"]}
             deny = ag.cli_denies(ws)
             self.assertIn(confine.canonical(other), deny)
-            self.assertIn("/etc/secret", deny)
+            self.assertIn(confine.canonical("/etc/secret"), deny)
             self.assertNotIn(confine.canonical(root), deny)  # it contains the call's own dirs
             self.assertNotIn(confine.canonical(mine), deny)
 
@@ -719,7 +719,7 @@ class Egress(unittest.TestCase):
 
     def test_decisions(self):
         px = egress.Proxy(["chatgpt.com"], "L", io.StringIO(), resolver=lambda h, p: ["104.18.32.47"])
-        self.assertEqual(px.decide("chatgpt.com", 443), ("104.18.32.47", ""))
+        self.assertEqual(px.decide("chatgpt.com", 443), (["104.18.32.47"], ""))
         self.assertEqual(px.decide("chatgpt.com", 80)[1], "port")
         self.assertEqual(px.decide("evil.chatgpt.com", 443)[1], "not on allowlist")
         self.assertEqual(px.decide("1.1.1.1", 443)[1], "ip literal")
@@ -755,7 +755,7 @@ class Egress(unittest.TestCase):
         reply, got, log = self._session(b"CONNECT chatgpt.com:443 HTTP/1.1\r\n\r\n", hello)
         self.assertTrue(reply.startswith(b"HTTP/1.1 200"))
         self.assertEqual(got, hello)
-        self.assertEqual(log[-1]["decision"], "allowed")
+        self.assertEqual([(e["decision"], e["reason"]) for e in log], [("allowed", "opened"), ("allowed", "closed")])
         self.assertEqual(set(log[-1]), {"at", "launch", "host", "port", "decision", "reason", "up", "down"})
 
     def test_fronted_server_name_never_reaches_upstream(self):
@@ -764,6 +764,46 @@ class Egress(unittest.TestCase):
         self.assertIn("server name differs", log[-1]["reason"])
         reply, got, log = self._session(b"CONNECT chatgpt.com:443 HTTP/1.1\r\n\r\n", b"plain bytes")
         self.assertEqual((got, log[-1]["reason"]), (b"", "no TLS ClientHello"))
+
+    def test_fragmented_or_malformed_hellos_are_refused(self):
+        h = client_hello("api.anthropic.com")
+        rec_len = int.from_bytes(h[3:5], "big")
+        body = h[5:5 + rec_len]
+        # the same hello split across two TLS records: the first record holds a partial handshake
+        cut = 60
+        frag = h[:3] + cut.to_bytes(2, "big") + body[:cut] + h[:3] + (len(body) - cut).to_bytes(2, "big") + body[cut:]
+        self.assertIsNone(egress.sni_of(frag))
+        self.assertIsNone(egress.sni_of(h[:-10]))  # truncated record
+        self.assertIsNone(egress.sni_of(h[:5] + body[:-1]))
+        # a name longer than its bytes: a declared length past the end is refused, never clipped
+        i = body.find(b"api.anthropic.com")
+        nl = int.from_bytes(body[i - 2:i], "big")
+        bad = body[:i - 2] + (nl + 9).to_bytes(2, "big") + body[i:]
+        self.assertIsNone(egress.sni_of(h[:5] + bad))
+        self.assertEqual(egress.sni_of(h), "api.anthropic.com")
+
+    def test_peers_outside_the_call_network_and_caps(self):
+        import ipaddress
+        import socket
+        log = io.StringIO()
+        px = egress.Proxy(["chatgpt.com"], "L", log, peers=[ipaddress.ip_network("10.99.0.0/24")])
+        a, b = socket.socketpair()  # a Unix socket peer is outside any network: refused
+        px.handle(b)
+        a.close()
+        self.assertEqual(json.loads(log.getvalue().splitlines()[-1])["reason"], "peer outside the call network")
+        log2 = io.StringIO()
+        px2 = egress.Proxy(["chatgpt.com"], "L", log2, max_conns=1, max_log_lines=2)
+        self.assertTrue(px2.slots.acquire(blocking=False))
+        c, d = socket.socketpair()
+        px2.handle(d)
+        c.close()
+        self.assertEqual(json.loads(log2.getvalue().splitlines()[-1])["reason"], "connection cap")
+        for _ in range(5):
+            px2.record(host="x" * 400 + "\n", decision="denied")
+        rows = [json.loads(x) for x in log2.getvalue().splitlines()]
+        self.assertEqual(rows[-1]["decision"], "log_cap")
+        self.assertEqual(len(rows), 3)
+        self.assertLessEqual(len(rows[1]["host"]), 253)
 
     def test_off_list_and_non_connect_are_refused(self):
         reply, _, log = self._session(b"CONNECT example.com:443 HTTP/1.1\r\n\r\n", b"")
@@ -788,8 +828,9 @@ class Containers(Tmp):
                      "seccomp=", "--pids-limit", "--memory", "--cpus", "--tmpfs /tmp:"):
             self.assertIn(flag, f)
         self.assertNotIn("privileged", f)
-        self.assertNotIn("unconfined", " ".join(container.hardening({**container.settings(self.CFG),
-                                                                     "systempaths_unconfined": False})))
+        self.assertNotIn("unconfined", f)  # only for the CLI that needs it
+        self.assertIn("systempaths=unconfined", " ".join(container.hardening(container.settings(self.CFG),
+                                                                              systempaths=True)))
 
     def test_agent_argv_mounts_only_its_own_dirs_with_opaque_names(self):
         ws = self.ws()
@@ -813,10 +854,14 @@ class Containers(Tmp):
         n = container.names("abc")
         self.assertEqual(set(n.values()), {"crb-abc", "crb-abc-px", "crb-abc-net"})
         a = " ".join(container.proxy_argv(container.settings(self.CFG), "img", "abc", "lbl", self.d,
-                                          ["chatgpt.com"], ["172.17.0.0/16"]))
-        self.assertIn("egress.py 3128 abc /log/egress.jsonl chatgpt.com --deny-net 172.17.0.0/16", a)
+                                          ["chatgpt.com"], ["172.17.0.0/16"], "10.9.0.0/24"))
+        self.assertIn("egress.py 3128 abc /log/egress.jsonl chatgpt.com --listen-net 10.9.0.0/24 "
+                      "--deny-net 172.17.0.0/16", a)
+        self.assertTrue(a.startswith("create ") and "--network crb-abc-net" in a)
         self.assertIn("--cap-drop ALL", a)
-        self.assertNotIn("systempaths", a)
+        for loosened in ("systempaths", "seccomp=", "cr-bench-bwrap"):  # the proxy keeps Docker's defaults
+            self.assertNotIn(loosened, a)
+        self.assertIn("apparmor=docker-default", a)
 
     def test_env_file_holds_no_host_environment(self):
         priv = self.d / "priv"
@@ -845,6 +890,135 @@ class Containers(Tmp):
         self.assertEqual(st["sandbox"]["filesystem"]["denyRead"], ["/work/private"])
         self.assertEqual(st["sandbox"]["network"]["allowedDomains"], [])
         self.assertTrue(st["sandbox"]["failIfUnavailable"])
+
+    def test_claude_token_goes_to_a_credentials_file_never_the_environment(self):
+        agents = read_json(HERE / "agents.json")
+        tokf = self.d / "tok"
+        tokf.write_text("sk-ant-oat01-abc\n")
+        os.chmod(tokf, 0o600)
+        a = ag.effective(agents["claude"], "claude")
+        a["login_store"] = {**a["login_store"], "source": str(tokf)}
+        priv = self.d / "priv"
+        priv.mkdir()
+        env = ag.container_env(a, priv)
+        self.assertNotIn("sk-ant-oat01-abc", json.dumps(env))
+        self.assertEqual(env["CLAUDE_CONFIG_DIR"], "/work/private/claude")
+        cred = json.loads((priv / "claude" / ".credentials.json").read_text())
+        self.assertEqual(cred["claudeAiOauth"]["accessToken"], "sk-ant-oat01-abc")
+        self.assertEqual((priv / "claude" / ".credentials.json").stat().st_mode & 0o077, 0)
+        tokf.write_text("sk-ant-api03-paid\n")
+        with self.assertRaises(SystemExit):
+            ag.container_env(a, self.d)
+        self.assertTrue(preflight.scan_billing(a))
+        with self.assertRaises(Refused):  # a credential in the environment is refused outright
+            ag.container_env({"kind": "stub", "isolation": {"env": {"CLAUDE_CODE_OAUTH_TOKEN": "x"}}}, priv)
+
+    def test_sentinel_login_has_the_real_layout_and_no_secret(self):
+        agents = read_json(HERE / "agents.json")
+        for name in ("claude", "codex"):
+            priv = self.d / f"p-{name}"
+            priv.mkdir()
+            env = ag.container_env(ag.effective(agents[name], name), priv, sentinel="SENTINEL-1")
+            blob = b"".join(f.read_bytes() for f in priv.rglob("*") if f.is_file())
+            self.assertIn(b"SENTINEL-1", blob)
+            self.assertNotIn("SENTINEL-1", json.dumps(env))
+
+    def test_refreshed_codex_sign_in_is_written_back_only_to_its_own_store(self):
+        agents = read_json(HERE / "agents.json")
+        store = self.d / "codex-store"
+        store.mkdir()
+        (store / "auth.json").write_text(json.dumps({"tokens": {"refresh_token": "r1"}}))
+        a = ag.effective(agents["codex"], "codex")
+        a["login_store"] = {**a["login_store"], "source": str(store)}
+        priv = self.d / "priv"
+        priv.mkdir()
+        ag.login_store(a, priv)
+        self.assertFalse(ag.write_back_login(a, priv))  # unchanged
+        (priv / "login" / "auth.json").write_text("{half")
+        self.assertFalse(ag.write_back_login(a, priv))  # never a broken file
+        (priv / "login" / "auth.json").write_text(json.dumps({"tokens": {"refresh_token": "r2"}}))
+        self.assertTrue(ag.write_back_login(a, priv))
+        self.assertIn("r2", (store / "auth.json").read_text())
+        self.assertEqual((store / "auth.json").stat().st_mode & 0o077, 0)
+        self.assertFalse(ag.write_back_login({**a, "login_store": {**a["login_store"], "write_back": False}}, priv))
+
+    def test_local_file_may_move_the_sign_in_only(self):
+        agents = read_json(HERE / "agents.json")
+        lp = HERE / "agents.local.json"
+        if lp.exists():
+            self.skipTest("a real agents.local.json is present")
+        try:
+            write_json(lp, {"codex": {"login_store": {"source": "/x"}}})
+            e = ag.effective(agents["codex"], "codex")
+            self.assertEqual((e["login_store"]["source"], e["login_store"]["mode"]), ("/x", "files"))
+            for bad in ({"bin": "/evil"}, {"login_store": {"mode": "none"}}, {"read_allow": ["/"]}):
+                write_json(lp, {"codex": bad})
+                with self.assertRaises(SystemExit):
+                    ag.effective(agents["codex"], "codex")
+        finally:
+            lp.unlink(missing_ok=True)
+
+    def test_admission_fails_closed(self):
+        agent = ag.effective(read_json(HERE / "agents.json")["codex"], "codex")
+
+        def run_with(stdout, egress_rows, code=0):
+            def fake(*a, **kw):
+                done = [x for x in kw.get("script", a[5] if len(a) > 5 else "").split("; ") if "DONE-" in x]
+                tag = done[0].split("echo ")[-1].split("'")[0] if done else "DONE-x"
+                return {"code": code, "stdout": stdout.replace("<DONE>", tag), "stderr": "", "egress": egress_rows}
+            with mock.patch.object(cprobe, "in_container", side_effect=fake):
+                return cprobe.admission({}, "l", agent, "img", self.d, self.d / "o", role="checker")
+        good = ("CTRL=200x\nPOS=read\nSECRET=unread\nENV=clean\nNET=000x\nPXTCP=refused\nRAWTCP=refused\n"
+                "WRITE=no\n<DONE>\nPTY=ok\n")
+        log = [{"decision": "start"}, {"host": "chatgpt.com", "decision": "allowed", "reason": "opened"},
+               {"host": "chatgpt.com", "decision": "allowed", "reason": "closed"}]
+        self.assertTrue(run_with(good, log)["ok"], run_with(good, log))
+        self.assertFalse(run_with("", log)["ok"])  # nothing printed is never a denial
+        self.assertFalse(run_with(good.replace("<DONE>\n", ""), log)["ok"])  # cut short
+        self.assertFalse(run_with(good, [])["ok"])  # no proxy log
+        self.assertFalse(run_with(good.replace("CTRL=200x", "CTRL=000x"), log)["ok"])  # no positive control
+        self.assertFalse(run_with(good, log + [{"host": "chatgpt.com", "decision": "denied", "reason": "x"}])["ok"])
+        self.assertFalse(run_with(good.replace("PXTCP=refused", "PXTCP=open"), log)["ok"])
+        self.assertFalse(run_with(good, log, code=1)["ok"])
+
+    def test_removal_never_reads_an_unanswered_runtime_as_gone(self):
+        def fake(args, **kw):
+            rc = 1 if args[0] == "ps" else 0
+            return subprocess.CompletedProcess(args, rc, b"", b"daemon down")
+        with mock.patch.object(container, "dk", side_effect=fake):
+            with self.assertRaises(Refused):
+                container.remove("abc")
+            with self.assertRaises(Refused):
+                container.reconcile("lbl")
+
+    def test_a_half_built_launch_is_torn_down(self):
+        calls = []
+
+        def fake(args, **kw):
+            calls.append(args[0])
+            if args[0] == "create":
+                raise Refused("§4 container", "create failed")
+            out = b"10.9.0.0/24" if args[:2] == ["network", "inspect"] else b""
+            return subprocess.CompletedProcess(args, 0, out, b"")
+        with mock.patch.object(container, "dk", side_effect=fake):
+            with self.assertRaises(Refused):
+                with container.Call(self.CFG, "img", "abc", "lbl", self.d, ["chatgpt.com"], self.d):
+                    pass
+        self.assertIn("rm", calls)
+        self.assertEqual(list(self.d.glob("egress-*")), [])
+
+    def test_egress_hosts_must_be_plain_names(self):
+        cfg = read_json(HERE / "configs" / "fixture.json")
+        agents = read_json(HERE / "agents.json")
+        cfg["authors"] = ["claude", "codex"]
+        cfg["container"] = {"image": "cr-bench-agent:1"}
+        for bad in (["1.1.1.1"], ["chatgpt.com:443"], ["chat gpt.com"], ["localhost"]):
+            agents["codex"]["egress"] = bad
+            cp, ap = self.d / "c.json", self.d / "a.json"
+            write_json(cp, cfg)
+            write_json(ap, agents)
+            with self.assertRaises(Refused):
+                manifest.init_study(Study(self.d / f"s{len(bad[0])}"), cp, ap)
 
     def test_real_agents_need_the_container(self):
         with self.assertRaises(Refused):
@@ -928,6 +1102,10 @@ class Grading(Tmp):
         self.assertTrue(grading.collection_failed(log))
         log.write_text("1 passed in 0.1s\n")
         self.assertFalse(grading.collection_failed(log))
+        task = {"FAIL_TO_PASS": ["f"], "PASS_TO_PASS": ["p"]}
+        g = grading.judge_collection_failure(task, None)
+        self.assertEqual((g["status"], g["a1_pass"], g["f2p_failed"], g["p2p_failed"]), ("graded", False, [], []))
+        self.assertEqual(grading.judge_collection_failure(task, {"p": "passed"})["status"], "infra_error")
 
     def test_known_bad_target_must_be_a_plain_file_inside(self):
         repo = self.d / "repo"

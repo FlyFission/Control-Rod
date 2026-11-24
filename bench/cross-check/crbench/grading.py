@@ -72,10 +72,16 @@ def collection_failed(log: Path) -> bool:
         return False
 
 
-def judge_collection_failure(task: dict) -> dict:
-    f2p, p2p = list(task["FAIL_TO_PASS"]), list(task["PASS_TO_PASS"])
-    return {"status": "graded", "a1_pass": False, "resolved": False, "skipped": [], "p2p_failed": sorted(p2p),
-            "f2p_failed": sorted(f2p), "why": "the test suite failed to import the patched code"}
+def judge_collection_failure(task: dict, outcomes: dict | None) -> dict:
+    """A suite that died collecting, before any required test ran, fails A1 as its own outcome. No
+    per-test result is invented: the failed-test lists stay empty, so a collection error can never
+    stand in for a failing test (the known-bad control needs real per-test failures). If some
+    required tests ran and others are missing, the evidence is incomplete: infra_error."""
+    req = list(task["FAIL_TO_PASS"]) + list(task["PASS_TO_PASS"])
+    if outcomes and any(t in outcomes for t in req):
+        return {"status": "infra_error", "why": "collection error after some required tests ran"}
+    return {"status": "graded", "a1_pass": False, "resolved": False, "collection_error": True, "skipped": [],
+            "p2p_failed": [], "f2p_failed": [], "why": "the test suite failed to collect before any required test ran"}
 
 
 def judge(task: dict, outcomes: dict | None) -> dict:
@@ -214,7 +220,7 @@ def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple
         outcomes = executed_map(ev, snapshot, tid, log)
         g = judge(tasks[tid], outcomes)
         if g["status"] == "infra_error" and log.exists() and collection_failed(log):
-            g = judge_collection_failure(tasks[tid])
+            g = judge_collection_failure(tasks[tid], outcomes)
             if rep["resolved"]:
                 g = {"status": "infra_error", "why": "report says resolved but the suite failed to import"}
         elif g["status"] == "graded" and g["resolved"] != rep["resolved"]:

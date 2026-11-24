@@ -21,6 +21,7 @@ import tarfile
 from pathlib import Path
 
 from .adjudicate import verify_lock
+from .score import disclosures
 from .common import ROOT, Refused, Study, now, read_json, sha256_bytes, sha256_file, write_json
 from .workspace import trusted_git, workspace_root_path
 
@@ -41,9 +42,9 @@ def host_identifiers() -> dict[str, re.Pattern]:
     """What would identify the machine or its owner. Open-source maintainers' emails in task
     repositories are not on this list; only this host's user, home, host name and git email are."""
     ids = {}
-    home = str(Path.home())
-    if len(home) > 1:
-        ids["home directory"] = re.compile(re.escape(home.encode()))
+    homes = _forms(Path.home())
+    if homes:
+        ids["home directory"] = re.compile(b"|".join(re.escape(h.encode()) for h in homes))
     user = getpass.getuser()
     if user:
         u = re.escape(user.encode())
@@ -67,6 +68,9 @@ def scan(data: bytes, ids: dict) -> list[str]:
 def _forms(p: str | Path) -> list[str]:
     """A path as written and as resolved (macOS: /var is /private/var), longest first."""
     s = {str(p), os.path.realpath(p)}
+    for x in list(s):  # and the /var form of a /private/var path, which resolution hides
+        if x.startswith(("/private/var/", "/private/tmp/", "/private/etc/")):
+            s.add(x[len("/private"):])
     return sorted((x for x in s if len(x) > 1), key=len, reverse=True)
 
 
@@ -247,7 +251,8 @@ def share(out: Path) -> str:
     L += ["", "Limits:",
           "- The benchmark calls the Claude Code and Codex CLIs directly, not through Control Rod's daemon.",
           "- \"Rejection\" is an explicit fail verdict, not a confirmed defect. Hidden tests are the reference.",
-          "- Human sign-off (A4) was omitted from this run, so it says nothing about human time saved."]
+          "- Human sign-off (A4) was omitted from this run, so it says nothing about human time saved.",
+          *[f"- {line}" for line in disclosures(res.get("environment", {}).get("container"))]]
     if adj.get("status") == "complete":
         L.append(f"- Discordant rejections were adjudicated by one person, the owner, who {adj['disclosure'].split('the owner, who ')[-1]}.")
     else:

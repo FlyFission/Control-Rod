@@ -34,7 +34,6 @@ profile cr-bench-bwrap flags=(attach_disconnected,mediate_deleted) {
   mount fstype=proc -> /{,**},
   mount fstype=tmpfs -> /{,**},
   mount fstype=devpts -> /{,**},
-  mount fstype=mqueue -> /{,**},
   pivot_root,
 
   # docker-default deny rules, unchanged (except "deny mount," which is replaced above)

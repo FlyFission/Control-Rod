@@ -1,0 +1,47 @@
+{
+ "canvas": [
+  2400,
+  1500
+ ],
+ "core_area_px": 945691,
+ "core_share": 0.2627,
+ "total_seats": 76,
+ "seats_per_room": {
+  "process": 6,
+  "mechanical": 6,
+  "electrical": 6,
+  "civil": 6,
+  "assurance": 6,
+  "project-controls": 6,
+  "review": 4,
+  "interface": 4,
+  "verification": 4,
+  "your-office": 4,
+  "document-control": 8,
+  "bench": 8,
+  "quarantine": 8
+ },
+ "min_seat_anchor_distance_px": 47.32,
+ "sha256": {
+  "design/art/layout.json": "f4ab75f4f0eb75d16ab603680f2c43f8d364228d360be2902ef0d15c16561680",
+  "design/art/blockout/blockout-2400x1500.png": "4760a5f2de4ffb9e0f3d6f34d7a45f5354d55717c70e0756e142211dab510865",
+  "design/art/blockout/blockout-back.png": "88252c01a04b0c6bd780de2136a045a3cc49673a873571a4b9d711bd9f977e14",
+  "design/art/blockout/blockout-front.png": "2d1702537986c708179a9d4a3a32043db425369dc4018094f1b1203f0e4b713a",
+  "design/art/blockout/blockout-390.png": "ffc3b7cb9a7c449d2e274c09f3f1b7433de9110c8c38ea1274a67f21ef88e4ed",
+  "design/art/blockout/anchors.json": "ed619c2d75e4cc7eb6d62d45d00f6814bf1f95f7d1fad07d5be5a7aad5239d5e",
+  "design/art/blockout/room-masks/process.png": "02688f616843c181c5136c1c8843c3e187a069479930f454bc5c3cbd44ee785f",
+  "design/art/blockout/room-masks/mechanical.png": "74ca6c1fa87d593e93080dbdb1e01a61a19c4ecdd9306db6692760f1b1f1f44e",
+  "design/art/blockout/room-masks/electrical.png": "02688f616843c181c5136c1c8843c3e187a069479930f454bc5c3cbd44ee785f",
+  "design/art/blockout/room-masks/civil.png": "d2978f3c72034db82756946d3831be4d3b81175174554fe6fd25f696f623930f",
+  "design/art/blockout/room-masks/assurance.png": "595bf23751831711fbce1b1c22ff02a2744d54fd55ffd6e18c0224ac24058891",
+  "design/art/blockout/room-masks/project-controls.png": "d2978f3c72034db82756946d3831be4d3b81175174554fe6fd25f696f623930f",
+  "design/art/blockout/room-masks/review.png": "3ef415c650ec1347685b3e47b8ca1802936bc1505b646f8b48bd774ae742bfdc",
+  "design/art/blockout/room-masks/interface.png": "93cdfc67c64a6d47d7024b07081579567dff7c1cfbbb177e26251a679858c736",
+  "design/art/blockout/room-masks/verification.png": "3ef415c650ec1347685b3e47b8ca1802936bc1505b646f8b48bd774ae742bfdc",
+  "design/art/blockout/room-masks/your-office.png": "3ef415c650ec1347685b3e47b8ca1802936bc1505b646f8b48bd774ae742bfdc",
+  "design/art/blockout/room-masks/document-control.png": "c1300933f03829ce5c135ebfb0da6b7640f09a3d35f53387da16bb3120b6219a",
+  "design/art/blockout/room-masks/bench.png": "7f8d5575a1e6d22b2c76069dbcba61f806ca3c9117f58a6812e112144f86e777",
+  "design/art/blockout/room-masks/quarantine.png": "7f8d5575a1e6d22b2c76069dbcba61f806ca3c9117f58a6812e112144f86e777",
+  "design/art/blockout/room-masks/core.png": "a5d81eeb80d623564932717cdbe4169392f059603f3213847eac923d19ec1cce"
+ }
+}

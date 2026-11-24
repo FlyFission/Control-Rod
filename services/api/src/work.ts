@@ -196,6 +196,15 @@ function pendingIntake(capture: Json): boolean {
 /** Dismisses an owned capture and stops its intake. */
 export async function dismissCapture(db: Db, cfg: WorkConfig, { userName: user, orgId }: { userName: string; orgId: string }, id: string) {
   return command(db, "capture.dismiss", async (c) => {
+    // Lock order matches the intake claim: the queued or running intake runs first, then the
+    // capture. The claim takes the run row and then a share lock on the capture, so taking the
+    // capture first here could deadlock against a claim of the same capture.
+    const runs = await c.query<RunRow>(
+      `select r.* from runs r
+         join object_owners o on o.object_kind = 'run' and o.object_id = r.id and o.org_id = $2
+        where r.package_id = $1 and r.role = 'intake' and r.status in ('queued', 'running')
+        order by r.id
+        for update of r`, [id, orgId]);
     const r = await c.query<{ body: Json }>(
       `select c.body from captures c
          join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $2
@@ -206,11 +215,6 @@ export async function dismissCapture(db: Db, cfg: WorkConfig, { userName: user, 
     const next = { ...cap, disposition: "answered", answer: `Dismissed by ${user}.` };
     validate(cfg, "Capture.json", next);
     await c.query("update captures set body = $2 where id = $1", [id, next]);
-    const runs = await c.query<RunRow>(
-      `select r.* from runs r
-         join object_owners o on o.object_kind = 'run' and o.object_id = r.id and o.org_id = $2
-        where r.package_id = $1 and r.role = 'intake' and r.status in ('queued', 'running')
-        for update of r`, [id, orgId]);
     for (const run of runs.rows) {
       if (run.status === "queued") await stopQueuedRun(c, cfg, run, `Stopped because the capture was dismissed by ${user}.`);
       else await requestRunningStop(c, cfg, user, run);
@@ -340,8 +344,8 @@ async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; 
   if (key) held.waiting_key = key;
   else delete held.waiting_key;
   validate(cfg, "Run.json", held);
-  await c.query("update runs set body = $2 where id = $1", [row.id, held]);
-  await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
+  const res = await c.query("update runs set body = $2 where id = $1 and status = 'queued'", [row.id, held]);
+  if (res.rowCount) await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
 }
 
 /* ---------- packages ---------- */
@@ -512,7 +516,9 @@ export async function packageOutput(db: Db, id: string, name: string) {
   const pkg = await currentPackage(db, id);
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
   const author = await latestAuthorRun(db, id, pkg.revision);
-  if (!author) throw new Refusal(404, "not-found", "No output yet");
+  if (!author || author.status !== "succeeded" || author.body?.scram_id) {
+    throw new Refusal(404, "not-found", "No output yet");
+  }
   const r = await db.query<{ bytes: Buffer; sha256: string }>("select bytes, sha256 from outputs where run_id = $1 and name = $2", [
     author.id,
     name,
@@ -1178,7 +1184,9 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
     const capture = cap.rows[0]?.body;
     const workflow = await workflowContext(c, cfg, run, undefined);
-    const isNuclearCapture = typeof capture?.text === "string" && /\[mode:nuclear-grade\]/i.test(capture.text);
+    const isNuclearCapture = (captureTags(capture?.text) ?? []).some(
+      (t) => t.key === "mode" && t.value.toLowerCase() === "nuclear-grade",
+    );
     const brief = [
       header,
       findRole(cfg, "intake") ?? "",
@@ -1466,6 +1474,10 @@ export async function claim(
           return started;
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
+        // Lock the queued run first so hold/stop decisions serialize with concurrent claims or dismissals.
+        const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
+        if(!locked.rows[0]) continue;row=locked.rows[0];
+        if(!legacyRun(row)) continue;
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
         const capture = (await c.query<{ body: Json }>("select body from captures where id = $1 for share", [row.package_id])).rows[0]?.body;
         if (!pendingIntake(capture)) {
@@ -1491,9 +1503,6 @@ export async function claim(
         }
         const runtime = pickRuntime(netIntake.offer);
         if (!runtime) continue;
-        const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
-        if(!locked.rows[0]) continue;row=locked.rows[0];
-          if(!legacyRun(row)) continue;
         // An intake run whose capture is tagged for a workflow needs that pack, or it fails here.
         if (await blockedByWorkflowPack(c, cfg, row, undefined)) continue;
         const budget = await reserveForRun(c, row, `intake-${runtime}`, ceiling);
@@ -1575,6 +1584,9 @@ async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id:
 /** The most normalized events one run keeps; past it a single dropped marker records the overflow. */
 export const MAX_RUN_EVENTS = 20000;
 
+/** The largest PostgreSQL int (int4), the type of run_events.origin. */
+const PG_INT_MAX = 2147483647;
+
 /**
  * Stores a log post's normalized events in order (specification 20). A permission request becomes
  * a run.waiting event naming the tool and the digest of its input (plan task 2.9), and a breaker
@@ -1585,6 +1597,10 @@ async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown
   if (raw.length > 500) throw new Refusal(400, "too-many-lines", "Send at most 500 events per batch");
   for (const e of raw) validate(cfg, "NormalizedEvent.json", e);
   if (from !== undefined && !(Number.isInteger(from) && (from as number) >= 0)) throw new Refusal(400, "invalid", "events_from must be a whole number");
+  // run_events.origin is a PostgreSQL int (migration 014): every origin this batch writes must fit,
+  // or the insert fails inside the command's transaction. Every refusal here comes before any query.
+  // events_from itself must fit too: an empty batch can still write a dropped marker at it.
+  if (from !== undefined && (from as number) + Math.max(raw.length, 1) - 1 > PG_INT_MAX) throw new Refusal(400, "invalid", "events_from is out of range");
   const last = (await c.query<{ n: number; o: number | null }>(
     "select coalesce(max(seq), 0)::int as n, max(origin)::int as o from run_events where run_id = $1", [row.id])).rows[0]!;
   let seq = last.n;
@@ -2542,7 +2558,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   if (body.trace) finished.trace = body.trace;
   takeReceipt(cfg, row, finished, body);
   const counting = body.verification != null || body.criterion_results !== undefined;
-  if (row.role === "pre-check" && countedProvider(row.body?.runtime?.provider) && counting) {
+  if (row.role === "pre-check" && countedProvider(row.body?.runtime?.provider) && counting && !row.body.stop_requested_at) {
     const pkg = await currentPackage(c, row.package_id, true);
     const pinned = (await c.query<{ deliverable_digest: string }>(
       "select deliverable_digest from checker_queued_digests where run_id = $1", [runId])).rows[0]?.deliverable_digest;
@@ -2661,7 +2677,16 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     finished.status=status;
     if (refusal.code === "scram-quarantined") finished.label = "Quarantined";
     holdIfUnproven(row, finished, body);
-    if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
+    if (body.events !== undefined) {
+      try {
+        await recordRunEvents(c, cfg, row, body.events, body.events_from);
+      } catch (e) {
+        // The malformed completion is quarantined below; never let invalid trailing events strand the run running.
+        // recordRunEvents refuses before it writes anything, so a refusal leaves the transaction usable. Any other
+        // error came from the database, which has aborted the transaction: no write below could succeed, so rethrow.
+        if (!(e instanceof Refusal)) throw e;
+      }
+    }
     await quarantineCompletion(c,runId,key,body,refusal.code);
     if (adopted.associated) await quarantineScramCompletion(c, runId, key, body);
     const receipt = receiptOf(runId, key, status, [], refusal);
@@ -2760,7 +2785,9 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     );
     if (!project.rowCount) throw new Refusal(409, "wrong-state", "The selected workspace project is unavailable for this capture");
   }
-  const captureIsNuclear = /\[mode:nuclear-grade\]/i.test(String(capture.text ?? ""));
+  const captureIsNuclear = (captureTags(capture.text) ?? []).some(
+    (t) => t.key === "mode" && t.value.toLowerCase() === "nuclear-grade",
+  );
   for (const d of ordered) {
     const rawMode = String(d.mode ?? "");
     const isNuclearDraft = rawMode === "nuclear-grade" || captureIsNuclear;

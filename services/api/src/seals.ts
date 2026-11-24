@@ -99,16 +99,19 @@ export interface SealEvidence {
 
 /** Checks a seal's subject and signature from the seal and its evidence alone. */
 export async function checkSealSignature(seal: Json, ev: SealEvidence): Promise<"valid" | "subject-mismatch" | "signature-invalid"> {
-  const p = seal.payload;
-  const request: SealRequest = { head_seq: p.head_seq, head_digest: p.head_digest.value, purpose: p.purpose, sealed_at: p.sealed_at };
-  if (sealSubject(p.signer_id, p.org_id, request) !== seal.subject_digest.value) return "subject-mismatch";
+  const p = seal?.payload;
+  const hd = p?.head_digest?.value;
+  const sd = seal?.subject_digest?.value;
+  if (!p || typeof hd !== "string" || typeof sd !== "string" || !seal?.assertion) return "signature-invalid";
+  const request: SealRequest = { head_seq: p.head_seq, head_digest: hd, purpose: p.purpose, sealed_at: p.sealed_at };
+  if (sealSubject(p.signer_id, p.org_id, request) !== sd) return "subject-mismatch";
   try {
     const r = await verifyAuthenticationResponse({
       response: {
         id: seal.assertion.credential_id, rawId: seal.assertion.credential_id, type: "public-key", clientExtensionResults: {},
         response: { authenticatorData: seal.assertion.authenticator_data, clientDataJSON: seal.assertion.client_data_json, signature: seal.assertion.signature },
       },
-      expectedChallenge: sealChallenge(seal.subject_digest.value, seal.nonce),
+      expectedChallenge: sealChallenge(sd, seal.nonce),
       expectedOrigin: ev.origins,
       expectedRPID: ev.rp_id,
       requireUserVerification: true,
@@ -235,7 +238,7 @@ function packageRuns(segment: EventRecord[], packageId: string): { runs: Set<str
   return { runs: new Set([...owner].filter(([, p]) => p === packageId).map(([r]) => r)) };
 }
 
-/** The package's events in a segment: its own, and its runs'. Derived from the chain, never from a list. */
+/** The package's events in a segment: its own, and its runs'. Computed from the chain, never from a list. */
 export function packageEvents(segment: EventRecord[], packageId: string): { events: number[]; problem?: string } {
   const { runs, conflict } = packageRuns(segment, packageId);
   if (conflict) return { events: [], problem: conflict };
@@ -323,6 +326,9 @@ function segmentLinks(segment: EventRecord[]): string | null {
   if (!Array.isArray(segment) || !segment.length) return "the segment is empty";
   let prev: string | undefined;
   for (const [i, e] of segment.entries()) {
+    if (!e || typeof e !== "object" || !e.digest || typeof e.digest.value !== "string") {
+      return `event ${i + 1} is malformed`;
+    }
     const { digest: d, ...rest } = e;
     if (e.seq !== i + 1) return `event ${i + 1} is missing from the segment`;
     if (eventDigest(rest) !== d.value) return `event ${e.seq} does not match its digest`;
@@ -343,11 +349,17 @@ async function checkCovering(b: Covering, last: number, what: string): Promise<{
     if (!b.head || tail.seq !== b.head.seq || tail.digest.value !== b.head.digest) return { authenticated: false, problem: "the segment does not end at the head the bundle states" };
     return { authenticated: false };
   }
-  const head = b.segment[b.seal.payload.head_seq - 1];
-  if (!head || head.digest.value !== b.seal.payload.head_digest.value) return { authenticated: false, problem: "the seal's head is not in the segment as it signed it" };
-  if (last > b.seal.payload.head_seq) return { authenticated: false, problem: `the seal does not cover ${what}` };
-  if (!b.seal_evidence) return { authenticated: false, problem: "the bundle does not carry what checking the seal's signature needs" };
-  const record = b.segment.find((e) => e.seq > b.seal.payload.head_seq && e.type === "chain.sealed" && e.subject === b.seal.id);
+  const sealPayload = b.seal?.payload;
+  const headSeq = sealPayload?.head_seq;
+  const headDigest = sealPayload?.head_digest?.value;
+  if (!Number.isInteger(headSeq) || headSeq < 1 || typeof headDigest !== "string") {
+    return { authenticated: false, problem: "the seal payload is malformed" };
+  }
+  const head = b.segment[headSeq - 1];
+  if (!head || head.digest.value !== headDigest) return { authenticated: false, problem: "the seal's head is not in the segment as it signed it" };
+  if (last > headSeq) return { authenticated: false, problem: `the seal does not cover ${what}` };
+  if (!b.seal_evidence || typeof b.seal_evidence.public_key !== "string") return { authenticated: false, problem: "the bundle does not carry what checking the seal's signature needs" };
+  const record = b.segment.find((e) => e.seq > headSeq && e.type === "chain.sealed" && e.subject === b.seal.id);
   if (!record || record.data?.seal_digest !== digest(b.seal)) return { authenticated: false, problem: "the segment does not record this seal as it stands" };
   // Nothing after the seal's recording event: entries there would ride along under a seal that never covered them.
   if (record.seq !== tail.seq) return { authenticated: false, problem: "the segment runs past the event that records its seal" };

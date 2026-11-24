@@ -79,9 +79,16 @@ function databaseOk() {
  * and Claude Code's network proxy needs socat, so say what is missing before setup instead of after.
  * Returns one line per problem, or an empty list when agent runs can start here.
  */
+function nodeVersionOk() {
+  const [maj, min] = process.versions.node.split(".").map(Number);
+  return maj > 22 || (maj === 22 && min >= 12);
+}
+
 function agentRunProblems() {
   const os = platform();
-  if (os === "darwin") return [];
+  if (os === "darwin") {
+    return which("sandbox-exec") ? [] : ["Seatbelt (sandbox-exec) was not found on PATH"];
+  }
   if (os !== "linux") return [`agent runs are not qualified on ${os} yet; use WSL2 on Windows`];
   const problems = [];
   if (!which("bwrap")) problems.push("bubblewrap is missing: sudo apt install bubblewrap");
@@ -112,16 +119,22 @@ function doctor({ agents = false } = {}) {
     );
     return false;
   }
+  const nodeFound = version("node");
   const rows = [
-    ["node 22+", version("node"), true],
+    ["node 22.12+", nodeFound && nodeVersionOk() ? nodeFound : null, true],
     ["pnpm", version("pnpm"), true],
     ["go", version("go", ["version"]), true],
-    ["uv (Python tools)", version("uv"), true],
+    ["uv (optional, for Python SDK and contributor checks)", version("uv"), false],
     ["claude (Claude Code, your login)", which("claude") && version("claude"), false],
     ["codex (optional, for an independent pre-check runtime)", which("codex") && version("codex"), false],
   ];
   let ok = true;
   for (const [name, found, required] of rows) {
+    if (name.startsWith("node ") && nodeFound && !found) {
+      console.log(`MISSING  ${name}: found ${nodeFound}, need >= v22.12.0`);
+      ok = false;
+      continue;
+    }
     console.log(`${found ? "ok  " : required ? "MISSING" : "--  "}  ${name}${found ? `: ${found}` : ""}`);
     if (!found && required) ok = false;
   }
@@ -193,19 +206,6 @@ function setup() {
   run("go", ["build", "-o", join(bin, "controlrod"), "./cmd/controlrod"], { cwd: join(root, "daemon") });
 }
 
-async function waitForHealth() {
-  for (let i = 0; i < 120; i++) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/health`);
-      if (r.ok) return;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  throw new Error("The control plane did not start");
-}
-
 async function start() {
   if (!doctor()) process.exit(1);
   setup();
@@ -223,27 +223,101 @@ async function start() {
   }
   env.PATH = [bin, env.PATH].filter(Boolean).join(delimiter);
 
-  const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], { env, stdio: "inherit" });
-  await waitForHealth();
+  let apiExited = false;
+  let apiExitCode = 0;
+  let stopping = false;
+  // One Ctrl+C can arrive twice (from the terminal and relayed by pnpm), so only a press at least a
+  // second after the first counts as the second press that skips the drain.
+  let stopAt = 0;
+  /** @type {import("node:child_process").ChildProcess | undefined} */
+  let daemon;
+  let daemonExited = false;
+  // Exit only after the daemon has stopped: it lets running work finish and saves completions to its
+  // outbox, and the daemon bounds that wait itself (its grace, stop ladder and final drain).
+  const afterDaemon = (exit) => {
+    if (!daemon || daemonExited) return exit();
+    daemon.once("exit", exit);
+    daemon.kill("SIGTERM");
+  };
+  // The daemon shares the terminal, so a Ctrl+C reaches it directly and it starts its own graceful
+  // stop. The control plane, and the embedded PostgreSQL it starts, run in their own process group
+  // where a Ctrl+C does not reach them: this launcher stops them only after the daemon has exited,
+  // so the daemon's final completions still have somewhere to go. The control plane also stops by
+  // itself if this launcher disappears (CONTROLROD_LAUNCHER_PID).
+  const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], {
+    env: { ...env, CONTROLROD_LAUNCHER_PID: String(process.pid) },
+    stdio: "inherit",
+    detached: true,
+  });
+  api.on("exit", (code, signal) => {
+    apiExited = true;
+    apiExitCode = code ?? (signal ? 1 : 0);
+    if (!stopping) {
+      stopping = true;
+      stopAt = performance.now();
+      console.error(`\nThe control plane exited unexpectedly (code=${code ?? signal}). Stopping the run daemon first.`);
+      afterDaemon(() => process.exit(apiExitCode || 1));
+    }
+  });
+  const stop = () => {
+    if (stopping) {
+      if (performance.now() - stopAt < 1000) return;
+      // A second Ctrl+C does not wait: stop both now. Unsaved completions stay in the daemon's outbox.
+      console.error("\nStopping now.");
+      if (daemon && !daemonExited) daemon.kill("SIGKILL");
+      if (!apiExited) api.kill("SIGTERM");
+      process.exit(130);
+    }
+    stopping = true;
+    stopAt = performance.now();
+    console.log("\nStopping: running work finishes and its results are saved first (Ctrl+C again to stop now).");
+    // The daemon stops first, while the control plane is still up to take its final completions.
+    afterDaemon(() => {
+      if (apiExited) process.exit(apiExitCode);
+      const hardExit = setTimeout(() => process.exit(0), 5000);
+      hardExit.unref();
+      api.once("exit", () => process.exit(0));
+      api.kill("SIGTERM");
+    });
+  };
+  // Installed before the health wait, so a Ctrl+C during startup also stops the control plane.
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
+  process.on("SIGHUP", stop);
+  // If the launcher exits any other way (an error such as a failed start), take the children with it.
+  process.on("exit", () => {
+    if (daemon && !daemonExited) daemon.kill("SIGTERM");
+    if (!apiExited) api.kill("SIGTERM");
+  });
+  for (let i = 0; i < 120; i++) {
+    if (stopping) return;
+    if (apiExited) throw new Error(`The control plane exited before becoming healthy (code=${apiExitCode})`);
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/health`);
+      if (r.ok) break;
+    } catch {
+      /* not up yet */
+    }
+    if (i === 119) throw new Error("The control plane did not start");
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  // Shutdown began during startup: never start the daemon.
+  if (stopping) return;
   // The daemon reads its token from CONTROLROD_HOME/daemon.token, and reads it again if the control
   // plane restarts and writes a new one; passing it in the environment would pin the old token.
-  const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}` };
+  const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}`, CONTROLROD_LAUNCHER_PID: String(process.pid) };
   delete daemonEnv.CONTROLROD_DAEMON_TOKEN;
-  const daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
+  daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
     env: daemonEnv,
     stdio: "inherit",
   });
-  console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);
-  const stop = () => {
-    daemon.kill("SIGTERM");
-    api.kill("SIGTERM");
-  };
-  process.on("SIGINT", stop);
-  process.on("SIGTERM", stop);
-  api.on("exit", (code) => {
-    daemon.kill("SIGTERM");
-    process.exit(code ?? 0);
+  daemon.on("exit", (code, signal) => {
+    daemonExited = true;
+    if (!stopping) {
+      console.error(`\nThe run daemon exited (code=${code ?? signal}); runs will wait until it is restarted.`);
+    }
   });
+  console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);
 }
 
 /**

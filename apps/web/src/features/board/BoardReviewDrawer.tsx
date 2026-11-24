@@ -20,6 +20,7 @@ interface BoardReviewDrawerProps {
   packageId: string;
   initialPkg?: WorkPackage;
   mode: EngineeringMode;
+  autoFocus?: boolean;
   onClose: () => void;
 }
 
@@ -27,7 +28,7 @@ interface BoardReviewDrawerProps {
  * Non-obscuring split review drawer for the Board. Preserves Board scroll, filters, and context
  * while offering full evidence summary, custody chain, direct Full case link, and kernel-gated DecisionBar.
  */
-export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: BoardReviewDrawerProps) {
+export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = true, onClose }: BoardReviewDrawerProps) {
   const projects = useProjects();
   const copy = MODE_COPY[mode];
   const asideRef = useRef<HTMLElement>(null);
@@ -39,8 +40,8 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
   const admin = useQuery({ queryKey: ["admin"], queryFn: api.admin });
   useEffect(() => {
     setTab("overview");
-    asideRef.current?.focus();
-  }, [packageId]);
+    if (autoFocus) asideRef.current?.focus();
+  }, [packageId, autoFocus]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

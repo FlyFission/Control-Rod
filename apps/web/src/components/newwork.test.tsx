@@ -1363,4 +1363,47 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(captureCalled).toBe(false);
     expect((screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement).value).toBe(longObjective);
   });
+
+  it("resets stale project defaults when switching from an active project back to All Software", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    const proj: WorkspaceProject = {
+      id: "proj-alpha",
+      name: "Alpha Project",
+      mode: "software",
+      status: "active",
+      repo: "alpha-repo",
+      repoStrategy: "fresh-clone",
+      workspaceRoot: "/tmp/alpha-root",
+      lane: "internal",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+      createdAt: "2026-11-22T00:00:00Z",
+    };
+    hydrateServerProjects("ben", [proj]);
+    selectProject("ben", "proj-alpha");
+
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/workspace/projects", () => HttpResponse.json([proj])),
+      http.get("*/runtimes", () => HttpResponse.json({ runtimes: [], pins: [] })),
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/tmp/alpha-root", local: [], github: [], github_error: null })),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
+    expect((screen.getByLabelText("Repository") as HTMLSelectElement).value).toBe("alpha-repo");
+
+    await user.click(screen.getByRole("button", { name: "Esc" }));
+    await user.click(screen.getByRole("button", { name: /All Software/i }));
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
+    expect((screen.getByLabelText("Repository") as HTMLSelectElement).value).toBe("");
+  });
 });

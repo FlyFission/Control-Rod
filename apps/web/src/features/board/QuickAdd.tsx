@@ -55,7 +55,7 @@ export function QuickAdd() {
   // `c` anywhere on the board, outside a field and with no modifier, opens the field.
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== "c" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (e.key.toLowerCase() !== "c" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       if (!singleKeysOn()) return;
       if (inTypingContext(e.target)) return;
       if (document.querySelector(OPEN_MODAL)) return;
@@ -67,17 +67,18 @@ export function QuickAdd() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const capturePrefix = `[mode:${mode}]${
+    activeProject
+      ? ` [project-id:${activeProject.id}]${activeProject.repo ? ` [repo:${activeProject.repo}]` : ""}`
+      : ""
+  }\n\n`;
+
   const send = useMutation({
     mutationFn: async (titles: string[]) => {
       batchProgress.current = { titles, sent: 0 };
-      const prefix = `[mode:${mode}]${
-        activeProject
-          ? ` [project-id:${activeProject.id}]${activeProject.repo ? ` [repo:${activeProject.repo}]` : ""}`
-          : ""
-      }\n\n`;
       // Cards are posted in the order typed, one request at a time, so a failure says which one stopped.
       for (const t of titles) {
-        await api.capture({ text: `${prefix}${t}`, source: "web" });
+        await api.capture({ text: `${capturePrefix}${t}`, source: "web" });
         batchProgress.current.sent += 1;
       }
     },
@@ -125,10 +126,11 @@ export function QuickAdd() {
   }
 
   function validateMany(titles: string[]): string | null {
-    const over = titles.find((t) => t.length > CAPTURE_LIMIT);
+    const maxTitle = Math.max(0, CAPTURE_LIMIT - capturePrefix.length);
+    const over = titles.find((t) => capturePrefix.length + t.length > CAPTURE_LIMIT);
     return over === undefined
       ? null
-      : `Too long for one card (${over.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters).`;
+      : `Too long for one card (${over.length.toLocaleString()} of ${maxTitle.toLocaleString()} available characters).`;
   }
 
   function submitMany() {
@@ -145,8 +147,9 @@ export function QuickAdd() {
   function submitOne() {
     const title = text.trim();
     if (title.length === 0 || send.isPending) return;
-    if (title.length > CAPTURE_LIMIT) {
-      setError(`Too long for one card (${title.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters).`);
+    const maxTitle = Math.max(0, CAPTURE_LIMIT - capturePrefix.length);
+    if (capturePrefix.length + title.length > CAPTURE_LIMIT) {
+      setError(`Too long for one card (${title.length.toLocaleString()} of ${maxTitle.toLocaleString()} available characters).`);
       return;
     }
     setError(null);

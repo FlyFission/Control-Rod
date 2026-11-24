@@ -164,7 +164,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       if (e.defaultPrevented) return;
       // Every key below is a single character: none fires when the person turned them off.
       if (!singleKeysOn()) return;
-      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
+      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-add-form") !== null;
       const hasOpenOverlay = document.querySelector(OPEN_MODAL) !== null;
       // `?` opens the shortcut list only when nothing modal is open: inside New Work or the palette
       // the list would open behind it. The list closes itself on `?` and Escape from its own handler.

@@ -15,6 +15,7 @@ Release decision: **approved by the owner's recorded yes (see Signature) to merg
 | Question | "Should I merge PR 97? It changes the repo's trust rules." Asked in the Claude chat at 2026-11-18 9:53 PM ET (2026-11-19 02:53 UTC), with a link to #97 |
 | Answer | "yes", Ben Huffer, project owner and sole maintainer, in the same Claude chat thread at 2026-11-19 6:21 AM ET (11:21 UTC) |
 | Head when asked | 49e2853 (CI green); the only file changed after the yes is this `ship.md`, which is not a trust surface |
+| Limit | The question named "the repo's trust rules" but not the `.github/` template and CODEOWNERS edits by path. The follow-up `sole-maintainer-review-fixes` asks the owner to confirm them by name. |
 | Recorded by | The implementing agent, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him |
 
 This change creates the sole-maintainer rule, so its own sign-off is the owner's yes to merge it, recorded here by the implementing agent as `docs/collaboration.md` says, with no signature or initials typed for the owner.

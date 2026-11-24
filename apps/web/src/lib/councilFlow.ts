@@ -9,22 +9,23 @@ import type { AgentRow } from "./agents.js";
  * It is drawn from what the dispatcher does today (services/api/src/work.ts pickRuntime and
  * pickChecker): the planner and author are the first seated agent that is ready, in the built-in order;
  * the checker is the next ready, seated agent from another vendor, never the author's own; a failed
- * check goes back to the author with its findings, up to three rounds, and then to the person. Steps
+ * check goes back to the author with its findings at most twice, and the third failure comes to the person. Steps
  * the person chose that are not built yet are marked "coming", never drawn as if they ran. It is a
  * preview, as the setup read-back is: a card's lane, pins and sandbox can still change who takes a job.
  */
 
-/** How many failed checks go back to the author before the card comes to the person (work.ts MAX_ROUNDS). */
-export const SEND_BACK_ROUNDS = 3;
+/** Checks a card gets before a failure comes to the person (work.ts MAX_ROUNDS; the first attempt is round 1). */
+export const CHECK_ROUNDS = 3;
+/** So a failed check goes back to the author at most this many times. */
+export const SEND_BACKS = CHECK_ROUNDS - 1;
 
 export type StepKind = "start" | "agent" | "you" | "decision" | "end";
 export type SeatRole = "planner" | "author" | "fallback" | "checker";
 /**
  * Whether a person step stops the card. "on": it stops today. "always": it stops and cannot be turned
- * off. "coming": the person chose it, and it starts when check-in points are built. "skipped": the
- * person's choice skips it once check-in points are built; today it still stops.
+ * off. "coming": the person chose it, and it starts when check-in points are built.
  */
-export type StopState = "on" | "always" | "coming" | "skipped";
+export type StopState = "on" | "always" | "coming";
 
 export interface Seat {
   id: string;
@@ -57,7 +58,7 @@ export interface FlowEdge {
 
 export interface MatrixRow {
   step: string;
-  who: Seat | "you" | "nobody";
+  who: Seat | "you" | "nobody" | "control-rod";
   /** What the step decides or produces. */
   does: string;
   stopsForYou: StopState | "no";
@@ -104,19 +105,25 @@ export function councilOf(rows: AgentRow[]): Council {
   };
 }
 
-/** Where the person's answer puts each optional stop. Plan approval is a passkey today in every answer. */
-function stops(checkIn: CheckIn): { afterAuthor: StopState | null; afterCheck: StopState | null; merge: StopState } {
+/** Where the person's answer puts each optional stop. Plan approval and sign-off stay on in every answer today. */
+function stops(checkIn: CheckIn): { afterAuthor: StopState | null; afterCheck: StopState | null } {
   return {
     afterAuthor: checkIn === "every-step" ? "coming" : null,
     afterCheck: checkIn === "every-step" ? "coming" : null,
-    merge: checkIn === "start" ? "skipped" : "on",
   };
 }
 
 export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: string): CouncilFlow {
   const council = councilOf(rows);
   const { author, checker } = council;
-  const fallback = council.fallbacks[0];
+  const fallback = author ? council.fallbacks[0] : undefined;
+  // pickChecker for the stand-in's work: a ready, seated agent from another vendor than the stand-in,
+  // never the author it stood in for (that author is out, which is why the stand-in has the work).
+  const fallbackChecker = fallback
+    ? rows
+        .filter((r) => r.info.runnable && r.seated && r.state === "ready" && r.info.vendor !== fallback.vendor && r.info.id !== author?.id)
+        .map(seatOf)[0]
+    : undefined;
   const s = stops(checkIn);
   const steps: FlowStep[] = [];
   const edges: FlowEdge[] = [];
@@ -153,22 +160,19 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       role: "fallback",
       seat: fallback,
       title: "Steps in as author",
-      detail:
-        `If ${author?.name ?? "the first author"} is out of quota, signed out or missing. Flagged on the card.`,
+      detail: `If ${author!.name} is signed out or missing when the work starts`,
     });
     edge("approve", "fallback", "fallback");
   }
+  // The stand-in's work goes to the same checker only when that checker is independent of it.
+  const sameCheck = fallback && fallbackChecker && fallbackChecker.id === checker?.id;
 
   let last = "author";
-  const tail = (id: string, kind: EdgeKind = "flow", label?: string) => {
-    edge(last, id, kind, label);
-    if (fallback && last === "author") edge("fallback", id, kind === "baton" ? "baton" : "flow");
-    last = id;
-  };
-
   if (s.afterAuthor) {
     steps.push({ id: "see-work", kind: "you", stop: s.afterAuthor, title: "You see the work", detail: "Before it goes to the checker" });
-    tail("see-work");
+    edge("author", "see-work", "flow");
+    if (sameCheck) edge("fallback", "see-work", "flow");
+    last = "see-work";
   }
   steps.push({
     id: "check",
@@ -180,19 +184,36 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       ? "Sees the plan and the result, never how it was written"
       : "Waits for a second vendor, unless you sign an override",
   });
-  tail("check", s.afterAuthor ? "flow" : "baton");
+  edge(last, "check", last === "author" ? "baton" : "flow");
+  if (sameCheck && last === "author") edge("fallback", "check", "baton");
 
   steps.push({ id: "verdict", kind: "decision", title: "Pass?", detail: "The checker's verdict, with evidence" });
   edge("check", "verdict", "flow");
-  edge("verdict", "author", "send-back", `No: back to the author with findings (up to ${SEND_BACK_ROUNDS} rounds)`);
+
+  if (fallback && !sameCheck) {
+    steps.push({
+      id: "fallback-check",
+      kind: "agent",
+      role: "checker",
+      ...(fallbackChecker ? { seat: fallbackChecker } : {}),
+      title: "Check the stand-in's work",
+      detail: fallbackChecker
+        ? `Never ${fallback.name}'s own vendor`
+        : `Waits for a vendor other than ${fallback.vendor}, unless you sign an override`,
+    });
+    edge("fallback", "fallback-check", "baton");
+    edge("fallback-check", "verdict", "flow");
+  }
+
+  edge("verdict", "author", "send-back", `No: back to the author with findings (at most ${SEND_BACKS} times)`);
   steps.push({
     id: "dispute",
     kind: "you",
     stop: "always",
     title: "You settle the dispute",
-    detail: `After ${SEND_BACK_ROUNDS} failed rounds: accept with findings, return to planning or reject`,
+    detail: `After ${CHECK_ROUNDS} failed checks: accept with findings, return to planning or reject`,
   });
-  edge("verdict", "dispute", "no", `${SEND_BACK_ROUNDS} fails`);
+  edge("verdict", "dispute", "no", `after ${CHECK_ROUNDS} fails`);
   last = "verdict";
 
   if (s.afterCheck) {
@@ -203,9 +224,12 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
   steps.push({
     id: "merge",
     kind: "you",
-    stop: s.merge,
+    stop: "on",
     title: "You sign off",
-    detail: s.merge === "skipped" ? "Your choice skips this once check-in points arrive" : "Before anything merges or ships",
+    detail:
+      checkIn === "start"
+        ? "Stays on: skipping it needs a signed standing acceptance, not built yet"
+        : "Before anything merges or ships",
   });
   edge(last, "merge", last === "verdict" ? "yes" : "flow", last === "verdict" ? "yes" : undefined);
   steps.push({ id: "ship", kind: "end", title: "Merged", detail: "With the record of who wrote, who checked and who signed" });
@@ -221,8 +245,9 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       does: "Produces the deliverable in its own worktree",
       stopsForYou: s.afterAuthor ?? "no",
       ifItFails: fallback
-        ? `${fallback.name} steps in; the switch is logged and flagged on the card` +
-          (checker && fallback.vendor === checker.vendor ? `. Its check then waits for a vendor other than ${fallback.vendor}.` : "")
+        ? `If ${author!.name} is signed out or missing, ${fallback.name} takes the work` +
+          (fallbackChecker ? "" : `, and its check waits for a vendor other than ${fallback.vendor}`) +
+          ". Logged, flagged fall-over when a run hits its limit is coming."
         : "The card waits; no other author is seated",
     },
     {
@@ -230,31 +255,38 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       who: who(checker),
       does: "Passes or fails it with evidence, without seeing how it was written",
       stopsForYou: s.afterCheck ?? "no",
-      ifItFails: `Back to the author with its findings, up to ${SEND_BACK_ROUNDS} rounds. The checker never switches.`,
+      ifItFails: `Back to the author with its findings, at most ${SEND_BACKS} times. The checker never switches.`,
     },
     {
       step: "Settle a dispute",
       who: "you",
-      does: `Decides after ${SEND_BACK_ROUNDS} failed rounds`,
+      does: `Decides after ${CHECK_ROUNDS} failed checks`,
       stopsForYou: "always",
       ifItFails: "Accept with findings, return to planning or reject",
     },
-    { step: "Sign off and merge", who: "you", does: "Accepts the work before it ships", stopsForYou: s.merge, ifItFails: "Return it with a note, or reject it" },
+    {
+      step: "Sign off and merge",
+      who: "you",
+      does: "Accepts the work before it ships",
+      stopsForYou: "on",
+      ifItFails: checkIn === "start" ? "Return it or reject it. Skipping this stop needs a signed standing acceptance, which is coming." : "Return it with a note, or reject it",
+    },
     {
       step: "After a fall-back",
       who: "you",
       does: "Sees that another author stepped in",
       stopsForYou: "coming",
-      ifItFails: "Today the switch shows on the card and you still sign off before merge",
+      ifItFails: "Until then you still sign off before merge",
     },
-    { step: "SCRAM, interlock or spend limit", who: "you", does: "Stops every affected run at once", stopsForYou: "always", ifItFails: "Nothing restarts until you reset it" },
+    { step: "SCRAM or a tripped interlock", who: "you", does: "Stops the affected work", stopsForYou: "always", ifItFails: "Nothing restarts until you reset it" },
+    { step: "Spend limit", who: "control-rod", does: "Holds new work once the limit is reached; work already running goes on", stopsForYou: "no", ifItFails: "New work starts again when budget frees up or you raise the limit" },
   ];
 
   const summary = !author
     ? "No agent at the table is ready yet, so new cards wait after you ask."
-    : `You ask, ${author.name} plans, you approve, ${author.name} writes${fallback ? ` (${fallback.name} steps in if it is out)` : ""}, ${
+    : `You ask, ${author.name} plans, you approve, ${author.name} writes${fallback ? ` (${fallback.name} steps in if it is signed out or missing)` : ""}, ${
         checker ? `${checker.name} checks it blind` : "the check waits for a second vendor"
-      }, failed checks go back up to ${SEND_BACK_ROUNDS} times, and you sign off before it merges.`;
+      }. A failed check goes back to the author at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} failed checks you settle it. You sign off before it merges.`;
 
   return { council, steps, edges, matrix, summary };
 }

@@ -293,15 +293,13 @@
   color: var(--needs);
   font-weight: 600;
 }
-.wf-stop-coming,
-.wf-stop-skipped {
+.wf-stop-coming {
   border-style: dashed;
   border-color: rgb(255 176 32 / 0.35);
   box-shadow: inset 3px 0 0 rgb(255 176 32 / 0.4);
   background: #0d131b;
 }
-.wf-stop-coming .wf-you-badge,
-.wf-stop-skipped .wf-you-badge {
+.wf-stop-coming .wf-you-badge {
   color: rgb(255 176 32 / 0.7);
 }
 
@@ -459,8 +457,7 @@
 .wf-pill-always {
   font-weight: 600;
 }
-.wf-pill-coming,
-.wf-pill-skipped {
+.wf-pill-coming {
   border-style: dashed;
   white-space: normal;
 }
@@ -493,4 +490,11 @@
 .wf-terminal .react-flow__handle,
 .wf-decision .react-flow__handle {
   position: absolute;
+}
+.wf-canvas.wf-scrolls:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.wf-who-system {
+  color: var(--text-2);
 }

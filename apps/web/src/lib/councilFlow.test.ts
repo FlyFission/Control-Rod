@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type AgentRow, agentRows } from "./agents.js";
-import { buildCouncilFlow, councilOf, SEND_BACK_ROUNDS } from "./councilFlow.js";
+import { buildCouncilFlow, CHECK_ROUNDS, councilOf, SEND_BACKS } from "./councilFlow.js";
 import { layoutFlow, spineOf } from "./councilLayout.js";
 
 const AT = "2026-11-24T17:00:00Z";
@@ -45,10 +45,22 @@ describe("flow", () => {
     expect(kinds["author->check"]).toBe("baton");
     expect(kinds["approve->fallback"]).toBe("fallback");
     expect(kinds["verdict->author"]).toBe("send-back");
-    // The checker never falls back: no edge leaves the stand-in for any seat but the check.
-    expect(f.edges.filter((e) => e.from === "fallback").map((e) => e.to)).toEqual(["check"]);
-    expect(f.edges.some((e) => e.to === "check" && e.kind === "fallback")).toBe(false);
-    expect(f.summary).toContain(`up to ${SEND_BACK_ROUNDS} times`);
+    expect(f.summary).toContain(`at most ${SEND_BACKS} times`);
+    expect(f.summary).toContain(`after ${CHECK_ROUNDS} failed checks`);
+    expect(SEND_BACKS).toBe(2);
+  });
+
+  it("never sends the stand-in's work to its own vendor or to the author it replaced", () => {
+    const f = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge");
+    // Codex stands in for Claude; Codex cannot check Codex, and Claude is out, so that check waits.
+    expect(f.edges.filter((e) => e.from === "fallback").map((e) => e.to)).toEqual(["fallback-check"]);
+    const hold = f.steps.find((s) => s.id === "fallback-check")!;
+    expect(hold.seat).toBeUndefined();
+    expect(hold.detail).toMatch(/Waits for a vendor other than OpenAI/);
+    // The main check stays with Codex, which is independent of the author, Claude.
+    expect(f.steps.find((s) => s.id === "check")?.seat?.id).toBe("codex");
+    // No checker step is reached by a fallback edge: checkers never fall over.
+    expect(f.edges.some((e) => e.kind === "fallback" && f.steps.find((s) => s.id === e.to)?.role === "checker")).toBe(false);
   });
 
   it("marks stops the person chose but that are not built as coming, never as on", () => {
@@ -56,10 +68,14 @@ describe("flow", () => {
     const stop = (id: string) => every.steps.find((s) => s.id === id)?.stop;
     expect(stop("see-work")).toBe("coming");
     expect(stop("see-check")).toBe("coming");
-    expect(stop("merge")).toBe("on");
     const start = buildCouncilFlow(rows({ claude: true, codex: true }), "start");
-    expect(start.steps.find((s) => s.id === "merge")?.stop).toBe("skipped");
     expect(start.steps.some((s) => s.id === "see-work")).toBe(false);
+    // Sign-off stays on in every answer: skipping it needs a signed standing acceptance (ADR 0024 d7).
+    for (const answer of ["start", "start-and-merge", "every-step"] as const) {
+      const f = buildCouncilFlow(rows({ claude: true, codex: true }), answer);
+      expect(f.steps.find((s) => s.id === "merge")?.stop).toBe("on");
+      expect(f.matrix.find((r) => r.step === "Sign off and merge")?.stopsForYou).toBe("on");
+    }
   });
 
   it("says plainly when nobody can work yet", () => {
@@ -67,12 +83,27 @@ describe("flow", () => {
     expect(f.council.author).toBeUndefined();
     expect(f.steps.find((s) => s.id === "author")?.seat).toBeUndefined();
     expect(f.summary).toMatch(/No agent at the table is ready yet/);
+    // Nobody to stand in for, so no stand-in branch naming an offline agent.
+    expect(f.steps.some((s) => s.id === "fallback")).toBe(false);
+  });
+
+  it("shows a seated agent that is not ready as the stand-in, not as the checker", () => {
+    const f = buildCouncilFlow(rows({ claude: true, codex: false }), "start-and-merge");
+    expect(f.steps.find((s) => s.id === "fallback")?.seat).toMatchObject({ id: "codex", ready: false });
+    expect(f.steps.find((s) => s.id === "check")?.seat).toBeUndefined();
+  });
+
+  it("gives the spend limit its own row, holding new work only", () => {
+    const m = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge").matrix;
+    expect(m.find((r) => r.step === "Spend limit")).toMatchObject({ who: "control-rod", stopsForYou: "no" });
+    expect(m.find((r) => r.step.startsWith("SCRAM"))?.step).not.toMatch(/spend/i);
   });
 
   it("keeps the SCRAM, dispute and plan stops in the matrix whatever the answer", () => {
     for (const answer of ["start", "start-and-merge", "every-step"] as const) {
       const m = buildCouncilFlow(rows({ claude: true, codex: true }), answer).matrix;
       expect(m.find((r) => r.step.startsWith("SCRAM"))?.stopsForYou).toBe("always");
+      expect(m.find((r) => r.step === "Sign off and merge")?.stopsForYou).toBe("on");
       expect(m.find((r) => r.step === "Settle a dispute")?.stopsForYou).toBe("always");
       expect(m.find((r) => r.step === "Approve the plan")?.stopsForYou).toBe("on");
     }
@@ -80,24 +111,29 @@ describe("flow", () => {
 });
 
 describe("layout", () => {
-  for (const dir of ["LR", "TB"] as const) {
-    it(`keeps the main line straight and branches off it (${dir})`, () => {
-      const f = buildCouncilFlow(rows({ claude: true, codex: true }), "every-step");
-      const l = layoutFlow(f.steps, f.edges, dir);
-      expect(l.spine).toEqual(spineOf(f.steps, f.edges));
-      expect(l.spine).not.toContain("fallback");
-      expect(l.spine).not.toContain("dispute");
-      const centre = (id: string) => {
-        const p = l.placed.get(id)!;
-        return dir === "LR" ? p.y + p.height / 2 : p.x + p.width / 2;
-      };
-      const line = new Set(l.spine.map((id) => Math.round(centre(id))));
-      expect(line.size).toBe(1);
-      // No two blocks overlap.
-      const all = [...l.placed.values()];
-      for (const a of all)
-        for (const b of all)
-          if (a !== b) expect(a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height).toBe(false);
-    });
-  }
+  const rosters = {
+    "both ready": rows({ claude: true, codex: true }),
+    "one ready, one offline": rows({ claude: true, codex: false }),
+    "one ready, one benched": rows({ claude: true, codex: true }, [{ runtime: "codex", seated: false }]),
+    "nobody ready": rows({ claude: false, codex: false }),
+  };
+  for (const dir of ["LR", "TB"] as const)
+    for (const [name, r] of Object.entries(rosters))
+      for (const answer of ["start", "start-and-merge", "every-step"] as const)
+        it(`keeps the main line straight with no overlaps (${dir}, ${name}, ${answer})`, () => {
+          const f = buildCouncilFlow(r, answer);
+          const l = layoutFlow(f.steps, f.edges, dir);
+          expect(l.spine).toEqual(spineOf(f.steps, f.edges));
+          for (const branch of ["fallback", "fallback-check", "dispute"]) expect(l.spine).not.toContain(branch);
+          const centre = (id: string) => {
+            const p = l.placed.get(id)!;
+            return dir === "LR" ? p.y + p.height / 2 : p.x + p.width / 2;
+          };
+          expect(new Set(l.spine.map((id) => Math.round(centre(id)))).size).toBe(1);
+          const all = [...l.placed.values()];
+          for (const a of all)
+            for (const b of all)
+              if (a !== b) expect(a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height).toBe(false);
+          for (const p of all) expect(p.x >= 0 && p.y >= 0 && p.x + p.width <= l.width + 0.5 && p.y + p.height <= l.height + 0.5).toBe(true);
+        });
 });

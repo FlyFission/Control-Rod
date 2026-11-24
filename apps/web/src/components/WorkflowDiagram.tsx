@@ -19,6 +19,7 @@ function Who({ who }: { who: MatrixRow["who"] }) {
       </span>
     );
   if (who === "nobody") return <span className="wf-who muted">Nobody ready yet</span>;
+  if (who === "control-rod") return <span className="wf-who wf-who-system">Control Rod</span>;
   return (
     <span className="wf-who">
       <AgentMark id={who.id} name={who.name} size={22} />
@@ -104,6 +105,26 @@ export function CouncilStrip({ flow }: { flow: CouncilFlow }) {
   );
 }
 
+/** The flow as text, for screen readers: every step, who takes it, whether it stops, and where it can go next. */
+function StepList({ flow }: { flow: CouncilFlow }) {
+  const title = (id: string) => flow.steps.find((s) => s.id === id)?.title ?? id;
+  return (
+    <ol className="sr-only" aria-label="Workflow steps">
+      {flow.steps.map((s) => {
+        const next = flow.edges.filter((e) => e.from === s.id);
+        return (
+          <li key={s.id}>
+            {s.title}
+            {s.seat ? `, ${s.seat.name}` : s.kind === "agent" ? ", nobody ready yet" : ""}
+            {s.stop ? `, ${STOP_LABEL[s.stop].toLowerCase()}` : ""}. {s.detail}.
+            {next.length > 0 && ` Next: ${next.map((e) => (e.label ? `${e.label}, ${title(e.to)}` : title(e.to))).join("; or ")}.`}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export type WorkflowView = "flow" | "matrix";
 
 /** The council, then the flow or the matrix, with a switch between them. */
@@ -123,6 +144,7 @@ export function WorkflowDiagram({ flow, initialView = "flow" }: { flow: CouncilF
         </div>
       </div>
       <p className="sr-only">{flow.summary}</p>
+      {view === "flow" && <StepList flow={flow} />}
       {view === "flow" ? (
         <>
           <Suspense fallback={<div className="wf-canvas wf-loading" style={{ height: 360 }} aria-hidden="true" />}>

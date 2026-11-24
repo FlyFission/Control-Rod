@@ -136,6 +136,12 @@ export default function FlowDiagram({ flow }: { flow: CouncilFlow }) {
   const scale = scrolls ? MIN_SCALE : fit;
   const height = Math.ceil((layout.height + loopTop) * scale) + 28;
   const inner = scrolls ? Math.ceil((layout.width + loopRight) * scale) + 24 : width;
+  // On a phone the main line runs down the right and the branches sit to its left, so a flow too wide
+  // for the screen opens scrolled to the main line.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && scrolls) el.scrollLeft = direction === "TB" ? el.scrollWidth : 0;
+  }, [ref, scrolls, direction, inner]);
   const offsetX = Math.max(12, (inner - (layout.width + loopRight) * scale) / 2);
 
   const nodes: StepNode[] = flow.steps.map((step) => {
@@ -171,11 +177,18 @@ export default function FlowDiagram({ flow }: { flow: CouncilFlow }) {
   });
 
   return (
-    <div ref={ref} className={`wf-canvas${scrolls ? " wf-scrolls" : ""}`} style={{ height: height + (scrolls ? 12 : 0) }} aria-hidden="true">
+    // When the flow is wider than its frame, the frame is a labelled, focusable region so a keyboard can
+    // scroll it; the drawing itself is hidden from assistive technology, which reads the step list instead.
+    <div
+      ref={ref}
+      className={`wf-canvas${scrolls ? " wf-scrolls" : ""}`}
+      style={{ height: height + (scrolls ? 12 : 0) }}
+      {...(scrolls ? { role: "region", "aria-label": "Workflow diagram, scrolls sideways", tabIndex: 0 } : {})}
+    >
       {width > 0 && (
-        <div className="wf-inner" style={{ width: inner, height }}>
+        <div className="wf-inner" style={{ width: inner, height }} aria-hidden="true">
         <ReactFlow
-          key={`${direction}-${Math.round(width)}`}
+          key={`${direction}-${Math.round(width)}-${layout.width}x${layout.height}-${flow.steps.length}`}
           nodes={nodes}
           edges={edges}
           nodeTypes={NODE_TYPES}

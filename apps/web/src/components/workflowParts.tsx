@@ -4,7 +4,6 @@ export const STOP_LABEL: Record<StopState | "no", string> = {
   on: "Stops for you",
   always: "Always stops",
   coming: "Coming soon",
-  skipped: "Stops today; your choice skips it later",
   no: "No",
 };
 

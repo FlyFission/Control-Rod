@@ -2,9 +2,9 @@
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web: all tests, `tsc` clean, build, license gate. | `evidence/web.log` |
+| E-01 | pass | Web: all tests (862), `tsc` clean, build, license gate. | `evidence/web.log` |
 | E-02 | pass | Screenshots from the dev server with a mocked API: Workflow at 1440 (flow, matrix, every-step with Codex not ready), Setup read-back at 1440, phone at 390. | `evidence/*.jpg` |
-| E-03 | pending | Blind review by another vendor (Codex) before merge. | PR thread |
+| E-03 | done | Blind review by Codex (gpt-6.2-sol, read-only) on the owner's machine at 7f8fb48: NO-MERGE with 3 P1 and 7 P2. Fixed at the next commit: sign-off shown on in every answer (skipping needs a signed standing acceptance); the stand-in's work goes to its own check node that never uses the stand-in's vendor or the author it replaced, and waits when nobody qualifies; no stand-in when nobody is ready; fall-over wording limited to what the dispatcher does (signed out or missing; flagged fall-over is "coming"); Lobe Icons' full MIT license served beside the marks; preferred-agent caveat on the page; send-back count corrected to 2 (MAX_ROUNDS counts the first attempt); spend limit split from SCRAM as a hold on new work; the canvas remounts when the layout changes; a too-wide canvas is a labelled focusable region and opens scrolled to the main line on a phone; a screen-reader step list covers branches and stops; tests for every answer, no one ready, offline and benched alternatives, and layout across 24 roster/answer/direction cases. Not changed: the owner chose real marks (basis 5); React Flow and dagre notices follow the repo's dependency policy (lockfile and the release SBOM). | PR thread |
 
 ## Evidence custody and coupling
 

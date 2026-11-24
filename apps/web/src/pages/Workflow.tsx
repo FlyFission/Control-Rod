@@ -33,7 +33,8 @@ export function Workflow() {
         <section className="panel" aria-label="Workflow">
           <WorkflowDiagram flow={flow} />
           <p className="muted small wf-note">
-            A preview of what Control Rod does today: a card's lane, pins and sandbox can still change who takes a job. Product names and
+            A preview of what Control Rod does today for a card with no preferred agents. A project or card that names a preferred author or
+            checker, and a card's lane, pins and sandbox, can change who takes a job. Product names and
             logos belong to their owners; Control Rod is not affiliated with them.
           </p>
         </section>

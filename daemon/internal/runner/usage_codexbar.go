@@ -13,15 +13,14 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 	"unicode/utf8"
 )
 
 // CodexBar as the usage engine for harnesses that have no token-free source (owner decision
 // 2026-11-24). CodexBar (MIT, github.com/steipete/CodexBar) is installed and signed in by the
 // person; it does its own sign-in work. Control Rod runs its `codexbar usage --format json`
-// command and keeps only percentages, window lengths, reset times, window labels and the fetch
-// time. It never reads a token, and it drops every other field the command prints (account,
+// command and keeps only percentages, window lengths, reset times and the fetch
+// time. Upstream window labels are dropped; the web derives labels from window ids. It never reads a token, and it drops every other field the command prints (account,
 // email, identity, diagnostic, error text, credits, dashboards, status).
 //
 // JSON shape relied on (CodexBar docs/cli.md; Sources/CodexBarCLI/CLIPayloads.swift ProviderPayload;
@@ -39,6 +38,7 @@ const (
 	codexbarEnv           = "CONTROLROD_CODEXBAR"
 	codexbarMaxOutput     = 2 << 20
 	codexbarRunTimeout    = 60 * time.Second
+	codexbarProbeTimeout  = 20 * time.Second
 	codexbarVersionLimit  = 10 * time.Second
 	codexbarInterval      = 5 * time.Minute
 	codexbarInitialDelay  = 5 * time.Second
@@ -51,7 +51,10 @@ var (
 		"/usr/local/bin/codexbar",
 		"/Applications/CodexBar.app/Contents/Helpers/CodexBarCLI",
 	}
-	codexbarVersionRE = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,32}$`)
+	// Only `CodexBar <major>.<minor>.<patch>` from a zero-exit --version is accepted, and only the
+	// captured digits are kept.
+	codexbarVersionOutRE = regexp.MustCompile(`^CodexBar (\d+\.\d+\.\d+)$`)
+	codexbarVersionRE    = regexp.MustCompile(`^\d{1,6}\.\d{1,6}\.\d{1,6}$`)
 )
 
 // codexbarIDs maps CodexBar provider ids to ours. Ids not listed are not reported.
@@ -82,34 +85,7 @@ type cbEntry struct {
 		Tertiary  *cbWindow       `json:"tertiary"`
 		UpdatedAt json.RawMessage `json:"updatedAt"`
 	} `json:"usage"`
-	Labels *struct {
-		Primary   *string `json:"primary"`
-		Secondary *string `json:"secondary"`
-		Tertiary  *string `json:"tertiary"`
-	} `json:"rateWindowLabels"`
 	Error json.RawMessage `json:"error"`
-}
-
-// sanitizeUsageLabel reduces an engine label to the contract's pattern
-// ^[A-Za-z0-9 ()/.,+-]{1,40}$. Other characters are dropped. An empty result gives "".
-func sanitizeUsageLabel(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		switch {
-		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-		case unicode.IsSpace(r):
-			r = ' '
-		case strings.ContainsRune("()/.,+-", r):
-		default:
-			continue
-		}
-		b.WriteRune(r)
-	}
-	out := strings.Join(strings.Fields(b.String()), " ")
-	if len(out) > 40 {
-		out = strings.TrimSpace(out[:40])
-	}
-	return out
 }
 
 func parseCBTime(raw string) string {
@@ -151,13 +127,9 @@ func parseCodexbarEntry(raw []byte, fetched time.Time) (UsageProvider, bool) {
 	p := UsageProvider{ID: id, Source: usageSourceCodexbar, Windows: []UsageWindow{}}
 	used := map[string]bool{}
 	slots := []struct {
-		name  string
-		w     *cbWindow
-		label *string
-	}{{"primary", e.Usage.Primary, nil}, {"secondary", e.Usage.Secondary, nil}, {"tertiary", e.Usage.Tertiary, nil}}
-	if e.Labels != nil {
-		slots[0].label, slots[1].label, slots[2].label = e.Labels.Primary, e.Labels.Secondary, e.Labels.Tertiary
-	}
+		name string
+		w    *cbWindow
+	}{{"primary", e.Usage.Primary}, {"secondary", e.Usage.Secondary}, {"tertiary", e.Usage.Tertiary}}
 	for _, s := range slots {
 		w := s.w
 		if w == nil || w.UsedPercent == nil || w.Placeholder || math.IsNaN(*w.UsedPercent) || math.IsInf(*w.UsedPercent, 0) {
@@ -173,9 +145,6 @@ func parseCodexbarEntry(raw []byte, fetched time.Time) (UsageProvider, bool) {
 		}
 		used[out.ID] = true
 		out.ResetsAt = parseCBTime(w.ResetsAt)
-		if s.label != nil {
-			out.Label = sanitizeUsageLabel(*s.label)
-		}
 		p.Windows = append(p.Windows, out)
 	}
 	if len(p.Windows) == 0 {
@@ -222,29 +191,60 @@ func parseCodexbarUsage(out []byte, fetched time.Time) []UsageProvider {
 // ---- running ----
 
 // capWriter keeps at most max bytes and fails the write past that, which ends the child's output.
+// over is closed on the first overflow so the runner can stop at once.
 type capWriter struct {
 	buf      bytes.Buffer
 	max      int
 	overflow bool
+	over     chan struct{}
 }
 
 func (c *capWriter) Write(p []byte) (int, error) {
 	if c.buf.Len()+len(p) > c.max {
-		c.overflow = true
+		if !c.overflow {
+			c.overflow = true
+			close(c.over)
+		}
 		return 0, errors.New("output cap reached")
 	}
 	return c.buf.Write(p)
 }
 
-// runCodexbar runs path with args and returns stdout, capped. The process runs in its own
-// process group, which is killed on timeout. Stdin is /dev/null and stderr is discarded.
-// CODEXBAR_DISABLE_KEYCHAIN_ACCESS=1 blocks CodexBar's own Keychain operations on macOS.
+// codexbarEnvKeys are the only inherited variables the child gets. CodexBar needs HOME and the XDG
+// directories to find its own configuration; no other variable (tokens, API keys, proxies) passes.
+var codexbarEnvKeys = []string{
+	"HOME", "PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR",
+	"XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "CODEXBAR_CONFIG",
+}
+
+// codexbarChildEnv builds the child's environment from the allowlist, then fixes the two
+// variables Control Rod sets. A listed variable that is unset or empty is left out.
+func codexbarChildEnv(getenv func(string) string) []string {
+	var env []string
+	for _, k := range codexbarEnvKeys {
+		if v := getenv(k); v != "" {
+			env = append(env, k+"="+v)
+		}
+	}
+	return append(env, "NO_COLOR=1", "CODEXBAR_DISABLE_KEYCHAIN_ACCESS=1")
+}
+
+// runCodexbar runs path with args and returns stdout, capped.
 func runCodexbar(path string, timeout time.Duration, limit int, args ...string) ([]byte, error) {
+	return runCodexbarCtx(context.Background(), path, timeout, limit, args...)
+}
+
+// runCodexbarCtx runs path in its own process group with an allowlisted environment. Stdin is
+// /dev/null and stderr is discarded. CODEXBAR_DISABLE_KEYCHAIN_ACCESS=1 blocks CodexBar's own
+// Keychain operations on macOS. However the run ends (success, error, output over the cap,
+// timeout, ctx cancelled) the process group is killed and the child is waited for, so nothing it
+// started outlives the call.
+func runCodexbarCtx(ctx context.Context, path string, timeout time.Duration, limit int, args ...string) ([]byte, error) {
 	cmd := exec.Command(path, args...)
-	cmd.Env = append(os.Environ(), "CODEXBAR_DISABLE_KEYCHAIN_ACCESS=1", "NO_COLOR=1")
+	cmd.Env = codexbarChildEnv(os.Getenv)
 	setProcessGroup(cmd)
 	cmd.WaitDelay = codexbarKillWaitDelay
-	w := &capWriter{max: limit}
+	w := &capWriter{max: limit, over: make(chan struct{})}
 	cmd.Stdout = w
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -253,29 +253,42 @@ func runCodexbar(path string, timeout time.Duration, limit int, args ...string) 
 	go func() { done <- cmd.Wait() }()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
+	var (
+		err      error
+		finished bool
+	)
 	select {
-	case err := <-done:
-		if w.overflow {
-			return nil, errors.New("codexbar output over the cap")
-		}
-		if err != nil {
-			return nil, err
-		}
-		return w.buf.Bytes(), nil
+	case err = <-done:
+		finished = true
+	case <-w.over:
+		err = errors.New("codexbar output over the cap")
 	case <-timer.C:
-		killProcessGroup(cmd)
-		<-done
-		return nil, context.DeadlineExceeded
+		err = context.DeadlineExceeded
+	case <-ctx.Done():
+		err = ctx.Err()
 	}
+	// The group is killed after every run, so a helper the child started cannot outlive it. The
+	// leader is this process's own child; an emptied group makes the signal a no-op.
+	killProcessGroup(cmd)
+	if !finished {
+		<-done
+	}
+	if err == nil && w.overflow {
+		err = errors.New("codexbar output over the cap")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return w.buf.Bytes(), nil
 }
 
+// parseCodexbarVersion accepts only `CodexBar <major>.<minor>.<patch>` and returns the digits.
 func parseCodexbarVersion(out []byte) string {
 	if !utf8.Valid(out) {
 		return ""
 	}
-	f := strings.Fields(string(out))
-	if len(f) >= 2 && f[0] == "CodexBar" && codexbarVersionRE.MatchString(f[1]) {
-		return f[1]
+	if m := codexbarVersionOutRE.FindStringSubmatch(strings.TrimSpace(string(out))); m != nil && codexbarVersionRE.MatchString(m[1]) {
+		return m[1]
 	}
 	return ""
 }
@@ -289,11 +302,14 @@ type codexbarEngine struct {
 	lookPath func(string) (string, error)
 	fixed    []string
 
-	timeout      time.Duration
+	ctx          context.Context // ends a run in progress; nil means never
+	timeout      time.Duration   // one deadline for a whole refresh
+	probeTimeout time.Duration   // each usage call, also bounded by what is left of timeout
 	interval     time.Duration
 	initialDelay time.Duration
 	now          func() time.Time
 
+	rot       int // where the next refresh starts in the provider order
 	mu        sync.Mutex
 	located   bool
 	disabled  bool
@@ -306,7 +322,7 @@ type codexbarEngine struct {
 func newCodexbarEngine() *codexbarEngine {
 	return &codexbarEngine{
 		getenv: os.Getenv, lookPath: exec.LookPath, fixed: codexbarFixedPaths,
-		timeout: codexbarRunTimeout, interval: codexbarInterval, initialDelay: codexbarInitialDelay,
+		timeout: codexbarRunTimeout, probeTimeout: codexbarProbeTimeout, interval: codexbarInterval, initialDelay: codexbarInitialDelay,
 		now: time.Now,
 	}
 }
@@ -351,14 +367,14 @@ const (
 // Keychain prompt.
 var codexbarNeverFetch = map[string]bool{"claude": true, "codex": true}
 
-// listCodexbarEnabled returns the raw CodexBar ids to fetch: enabled in its config, mapped to one
+// listEnabled returns the raw CodexBar ids to fetch: enabled in its config, mapped to one
 // of ours, and not in codexbarNeverFetch. It runs `config providers --format json`, which
 // (docs/cli.md "config providers lists providers and their configured enablement without
 // fetching usage"; CLIConfigCommand.runConfigProviders) reads no credentials, starts no login and
 // contacts no provider. Output is a top-level array of {provider, displayName, enabled,
 // defaultEnabled, authentication, setup}; only provider and enabled are decoded here.
-func listCodexbarEnabled(path string) ([]string, error) {
-	out, err := runCodexbar(path, codexbarListTimeout, codexbarListMax, "config", "providers", "--format", "json")
+func (e *codexbarEngine) listEnabled(deadline time.Time, path string) ([]string, error) {
+	out, err := e.run(deadline, codexbarListTimeout, path, codexbarListMax, "config", "providers", "--format", "json")
 	if err != nil {
 		return nil, err
 	}
@@ -384,12 +400,33 @@ func listCodexbarEnabled(path string) ([]string, error) {
 	return ids, nil
 }
 
+// run is runCodexbarCtx under the refresh's deadline: the call gets at most limit, and never more
+// than what is left. It fails at once when nothing is left.
+func (e *codexbarEngine) run(deadline time.Time, limit time.Duration, path string, max int, args ...string) ([]byte, error) {
+	left := time.Until(deadline)
+	if left <= 0 {
+		return nil, context.DeadlineExceeded
+	}
+	if left < limit {
+		limit = left
+	}
+	ctx := e.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return runCodexbarCtx(ctx, path, limit, max, args...)
+}
+
 // refresh locates the binary and, when found, reads its version (once per path), lists the
 // enabled providers and fetches each allowed one with its own `usage --provider <id>` call: the
-// command takes one provider per call (the last --provider wins; no list form). Calls share one
-// deadline of e.timeout. If listing fails, nothing is fetched and the cache is cleared; there is
-// no unfiltered fallback. A provider whose fetch fails keeps its previous reading this round.
+// command takes one provider per call (the last --provider wins; no list form). One deadline of
+// e.timeout, counted from the start of the refresh, covers every call; each usage call also has
+// its own shorter limit, and the start of the provider order rotates every refresh so a hung
+// provider cannot starve the same later ones. If listing fails, nothing is fetched and the cache
+// is cleared; there is no unfiltered fallback. A provider whose fetch fails keeps its previous
+// reading this round.
 func (e *codexbarEngine) refresh() {
+	deadline := time.Now().Add(e.timeout)
 	path, found, disabled := e.locate()
 	e.mu.Lock()
 	e.located, e.disabled, e.found = true, disabled, found
@@ -406,14 +443,14 @@ func (e *codexbarEngine) refresh() {
 	e.mu.Unlock()
 
 	if needVersion {
-		if out, err := runCodexbar(path, codexbarVersionLimit, 4<<10, "--version"); err == nil {
+		if out, err := e.run(deadline, codexbarVersionLimit, path, 4<<10, "--version"); err == nil {
 			v := parseCodexbarVersion(out)
 			e.mu.Lock()
 			e.version = v
 			e.mu.Unlock()
 		}
 	}
-	ids, err := listCodexbarEnabled(path)
+	ids, err := e.listEnabled(deadline, path)
 	if err != nil {
 		e.mu.Lock()
 		e.providers = nil
@@ -425,27 +462,35 @@ func (e *codexbarEngine) refresh() {
 	for _, p := range e.providers {
 		prev[p.ID] = p
 	}
+	start := 0
+	if len(ids) > 0 {
+		start = e.rot % len(ids)
+		e.rot = (start + 1) % len(ids)
+	}
 	e.mu.Unlock()
 
-	deadline := time.Now().Add(e.timeout)
+	got := map[string]*UsageProvider{}
+	for i := range ids {
+		raw := ids[(start+i)%len(ids)]
+		ours := codexbarIDs[raw]
+		out, err := e.run(deadline, e.probeTimeout, path, codexbarMaxOutput, "usage", "--provider", raw, "--format", "json")
+		if err != nil {
+			continue
+		}
+		for _, p := range parseCodexbarUsage(out, e.now()) {
+			// Only the asked-for provider is kept, and never claude or codex.
+			if p.ID == ours && !codexbarNeverFetch[p.ID] {
+				p := p
+				got[ours] = &p
+			}
+		}
+	}
 	var provs []UsageProvider
 	for _, raw := range ids {
 		ours := codexbarIDs[raw]
-		var got *UsageProvider
-		if left := time.Until(deadline); left > 0 {
-			if out, err := runCodexbar(path, left, codexbarMaxOutput, "usage", "--provider", raw, "--format", "json"); err == nil {
-				for _, p := range parseCodexbarUsage(out, e.now()) {
-					// Only the asked-for provider is kept, and never claude or codex.
-					if p.ID == ours && !codexbarNeverFetch[p.ID] {
-						p := p
-						got = &p
-					}
-				}
-			}
-		}
 		switch {
-		case got != nil:
-			provs = append(provs, *got)
+		case got[ours] != nil:
+			provs = append(provs, *got[ours])
 		case prevHas(prev, ours):
 			provs = append(provs, prev[ours])
 		}

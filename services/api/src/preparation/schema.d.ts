@@ -3692,15 +3692,14 @@ export interface components {
              * @description When the CLI recorded the reading.
              */
             observed_at?: string;
-            plan?: string;
+            /** @enum {string} */
+            plan?: "free" | "go" | "plus" | "pro" | "max" | "team" | "business" | "enterprise" | "edu";
             windows: components["schemas"]["UsageWindow"][];
         };
         /** @description One limit window of one subscription. */
         UsageWindow: {
             /** @enum {string} */
             id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "daily" | "weekly" | "monthly" | "primary" | "secondary" | "tertiary";
-            /** @description The usage engine's own display label for the window, e.g. "Weekly (Opus)". */
-            label?: string;
             /** Format: int32 */
             window_minutes?: number;
             /** Format: double */

@@ -51,8 +51,8 @@ function resetText(r: Reading): string {
   return r.resetsInMs === null ? "reset time not reported" : `resets in ${shortDuration(r.resetsInMs)}`;
 }
 
-function Meter({ provider, w, now }: { provider: UsageProvider; w: UsageWindow; now: number }) {
-  const r = readWindow(w, now);
+function Meter({ provider, w, now, readAt }: { provider: UsageProvider; w: UsageWindow; now: number; readAt: string | undefined }) {
+  const r = readWindow(w, now, provider.observed_at ?? readAt);
   const label = windowLabel(w);
   const early = runsOutBefore(w, r);
   const paceAhead = early !== null;
@@ -99,7 +99,7 @@ function Meter({ provider, w, now }: { provider: UsageProvider; w: UsageWindow; 
   );
 }
 
-function ProviderGroup({ p, now }: { p: UsageProvider; now: number }) {
+function ProviderGroup({ p, now, readAt }: { p: UsageProvider; now: number; readAt: string | undefined }) {
   const name = providerName(p.id);
   const when = p.observed_at ? ago(p.observed_at, now) : null;
   const fresh = p.source === "codexbar" && !when ? "from CodexBar" : `${when ? `as of ${when}, ` : ""}from ${sourceWords(p)}`;
@@ -114,7 +114,7 @@ function ProviderGroup({ p, now }: { p: UsageProvider; now: number }) {
       {p.windows.length === 0 ? (
         <p className="muted small">No windows reported.</p>
       ) : (
-        p.windows.map((w, i) => <Meter key={`${w.id}-${i}`} provider={p} w={w} now={now} />)
+        p.windows.map((w, i) => <Meter key={`${w.id}-${i}`} provider={p} w={w} now={now} readAt={readAt} />)
       )}
     </section>
   );
@@ -165,14 +165,14 @@ export function UsageLimits() {
         <>
           <p className={`cr-summary${warm ? " warm" : ""}`}>
             {lowest && warm
-              ? `Lowest reserve: ${providerName(lowest.provider.id)} ${(lowest.window.label?.trim() ? lowest.window.label.trim() : lowerFirst(windowLabel(lowest.window)))}, ${readoutWords(lowest.reading)}${
+              ? `Lowest reserve: ${providerName(lowest.provider.id)} ${lowerFirst(windowLabel(lowest.window))}, ${readoutWords(lowest.reading)}${
                   lowest.reading.resetsInMs === null ? "" : `, resets in ${shortDuration(lowest.reading.resetsInMs)}`
                 }`
               : "All reserves above 20%"}
           </p>
           <div className="cr-providers">
             {reporting.map((p) => (
-              <ProviderGroup key={p.id} p={p} now={now} />
+              <ProviderGroup key={p.id} p={p} now={now} readAt={q.data.read_at} />
             ))}
           </div>
           <p className="muted small cr-key">Bar: reserve left. Line: share of the window still to come.</p>

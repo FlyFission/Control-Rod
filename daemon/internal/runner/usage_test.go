@@ -1,10 +1,13 @@
 package runner
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -158,6 +161,7 @@ func TestUsageReport(t *testing.T) {
 		rl("2025-11-24T01:30:00Z", "12.0", "plus"))
 	u := newUsageSources(ctl)
 	now := time.Date(2025, 11, 24, 12, 0, 0, 0, time.UTC)
+	u.refreshLogs(home, func(string) string { return "" })
 	u.store.record(RuntimeClaude, UsageWindow{ID: "five_hour", WindowMinutes: 300, UsedPercent: 30, ResetsAt: "2025-11-24T15:00:00Z"}, now)
 	u.store.record(RuntimeClaude, UsageWindow{ID: "seven_day", WindowMinutes: 10080, UsedPercent: 70, ResetsAt: "2025-11-24T11:00:00Z"}, now) // already reset
 	rep := u.Report(now, home, func(string) string { return "" })
@@ -195,19 +199,194 @@ func TestUsageReport(t *testing.T) {
 	if p, ok := u2.store.provider(RuntimeClaude, now); !ok || p.Windows[0].UsedPercent != 30 {
 		t.Fatalf("reload %+v %v", p, ok)
 	}
-	// Codex's log is read at most once per cache interval.
+	// A claim never reads the log: a new rollout shows only after the background refresh runs.
 	writeRollout(t, root, "2025/11/24", "rollout-2025-11-24T09-00-00-c.jsonl", rl("2025-11-24T09:00:00Z", "40.0", "plus"))
 	rep2 := u.Report(now.Add(10*time.Second), home, func(string) string { return "" })
 	for _, p := range rep2.Providers {
 		if p.ID == "codex" && p.Windows[0].UsedPercent != 12 {
-			t.Fatal("cache not used")
+			t.Fatal("Report read the log in the claim path")
 		}
 	}
+	u.refreshLogs(home, func(string) string { return "" })
 	rep3 := u.Report(now.Add(2*time.Minute), home, func(string) string { return "" })
 	for _, p := range rep3.Providers {
 		if p.ID == "codex" && p.Windows[0].UsedPercent != 40 {
-			t.Fatalf("cache not refreshed: %+v", p)
+			t.Fatalf("snapshot not refreshed: %+v", p)
 		}
+	}
+}
+
+// M5: startLogs reads once at start, then on its interval, in the background.
+func TestUsageStartLogsBackground(t *testing.T) {
+	home := t.TempDir()
+	root := filepath.Join(home, ".codex", "sessions")
+	writeRollout(t, root, "2025/11/24", "rollout-2025-11-24T01-00-00-b.jsonl", rl("2025-11-24T01:00:00Z", "11.0", "plus"))
+	u := newUsageSources("")
+	u.logEvery = 50 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	u.startLogs(ctx, home, func(string) string { return "" })
+	codexPct := func() float64 {
+		for _, p := range u.Report(time.Now(), home, nil).Providers {
+			if p.ID == "codex" && len(p.Windows) > 0 {
+				return p.Windows[0].UsedPercent
+			}
+		}
+		return -1
+	}
+	waitFor := func(want float64) {
+		t.Helper()
+		for end := time.Now().Add(5 * time.Second); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+			if codexPct() == want {
+				return
+			}
+		}
+		t.Fatalf("codex never reached %v (now %v)", want, codexPct())
+	}
+	waitFor(11)
+	writeRollout(t, root, "2025/11/25", "rollout-2025-11-25T01-00-00-b.jsonl", rl("2025-11-25T01:00:00Z", "60.0", "plus"))
+	waitFor(60)
+}
+
+// B2: plan is one of the contract's values, exact lowercase after trimming, else omitted.
+func TestUsagePlanClosedSet(t *testing.T) {
+	for in, want := range map[string]string{
+		"free": "free", "go": "go", "plus": "plus", "pro": "pro", "max": "max", "team": "team",
+		"business": "business", "enterprise": "enterprise", "edu": "edu", " plus\n": "plus",
+		"Plus": "", "PRO": "", "prolite": "", "promax": "", "edu_plus": "", "self_serve_business_prolite": "",
+		"ent26": "", "enterprise_cbp_usage_based": "", "sci": "", "unknown": "", "abc": "", "": "", "pro max": "",
+	} {
+		if got := usagePlan(in); got != want {
+			t.Fatalf("%q -> %q, want %q", in, got, want)
+		}
+	}
+	line := strings.Replace(rl("2025-11-24T01:00:00Z", "5", "x"), `"plan_type":"x"`, `"plan_type":"prolite"`, 1)
+	if p, ok := parseCodexLine([]byte(line)); !ok || p.Plan != "" {
+		t.Fatalf("%+v %v", p, ok)
+	}
+}
+
+// M2, M3: the state file is read through the nofollow open with a hard cap, and its windows are
+// rebuilt from the validated id, the clamped percent and the parsed time only.
+func TestUsageStateFileHardening(t *testing.T) {
+	now := time.Date(2025, 11, 24, 12, 0, 0, 0, time.UTC)
+	read := func(dir string) (UsageProvider, bool) {
+		u := &usageStore{path: filepath.Join(dir, usageStateFile)}
+		return u.provider(RuntimeClaude, now)
+	}
+	good := `{"claude":{"five_hour":{"window":{"id":"five_hour","label":"PLANTED-LABEL","window_minutes":99999,"used_percent":250,"resets_at":"2025-11-24T15:00:00+02:00","status":"PLANTED","extra":"x"},"observed_at":"2025-11-24T11:00:00Z"},` +
+		`"made_up":{"window":{"id":"made_up","used_percent":5,"resets_at":"2025-11-24T15:00:00Z"},"observed_at":"2025-11-24T11:00:00Z"},` +
+		`"seven_day":{"window":{"id":"five_hour","used_percent":5,"resets_at":"2025-11-24T15:00:00Z"},"observed_at":"2025-11-24T11:00:00Z"},` +
+		`"seven_day_opus":{"window":{"id":"seven_day_opus","used_percent":5,"resets_at":"PLANTED-TIME"},"observed_at":"not a time"}},` +
+		`"not-a-provider":{"five_hour":{"window":{"id":"five_hour","used_percent":5},"observed_at":"2025-11-24T11:00:00Z"}}}`
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, usageStateFile), []byte(good), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p, ok := read(dir)
+	if !ok || len(p.Windows) != 1 {
+		t.Fatalf("%+v %v", p, ok)
+	}
+	w := p.Windows[0]
+	if w.ID != "five_hour" || w.WindowMinutes != 300 || w.UsedPercent != 100 || w.ResetsAt != "2025-11-24T13:00:00Z" || w.Status != "" {
+		t.Fatalf("%+v", w)
+	}
+	if b, _ := json.Marshal(p); strings.Contains(string(b), "PLANTED") || strings.Contains(string(b), "label") {
+		t.Fatalf("%s", b)
+	}
+
+	// A symlink to a good file is not followed.
+	dir2 := t.TempDir()
+	if err := os.Symlink(filepath.Join(dir, usageStateFile), filepath.Join(dir2, usageStateFile)); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := read(dir2); ok && syscallNoFollow != 0 {
+		t.Fatal("state file symlink followed")
+	}
+	// A file over the cap is refused, read or not.
+	dir3 := t.TempDir()
+	big := good + strings.Repeat(" ", usageStateMax)
+	if err := os.WriteFile(filepath.Join(dir3, usageStateFile), []byte(big), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := read(dir3); ok {
+		t.Fatal("oversize state file read")
+	}
+	// A FIFO neither blocks nor reads.
+	dir4 := t.TempDir()
+	if err := syscall.Mkfifo(filepath.Join(dir4, usageStateFile), 0o600); err != nil {
+		t.Skip("no mkfifo:", err)
+	}
+	done := make(chan bool, 1)
+	go func() { _, ok := read(dir4); done <- ok }()
+	select {
+	case ok := <-done:
+		if ok {
+			t.Fatal("fifo read")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("reading a FIFO blocked")
+	}
+}
+
+// M4: the state file is written through a random temp file, mode 0600, with no fixed .tmp name.
+func TestUsageStateAtomicWrite(t *testing.T) {
+	dir := t.TempDir()
+	// A planted symlink at the old fixed temp path must not be written through.
+	victim := filepath.Join(t.TempDir(), "victim")
+	if err := os.WriteFile(victim, []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(victim, filepath.Join(dir, usageStateFile+".tmp")); err != nil {
+		t.Fatal(err)
+	}
+	u := newUsageSources(dir)
+	now := time.Date(2025, 11, 24, 12, 0, 0, 0, time.UTC)
+	u.store.record(RuntimeClaude, UsageWindow{ID: "five_hour", WindowMinutes: 300, UsedPercent: 30, ResetsAt: "2025-11-24T15:00:00Z"}, now)
+	if b, _ := os.ReadFile(victim); string(b) != "keep" {
+		t.Fatalf("wrote through the planted link: %q", b)
+	}
+	st, err := os.Stat(filepath.Join(dir, usageStateFile))
+	if err != nil || st.Mode().Perm() != 0o600 {
+		t.Fatalf("%v %v", st, err)
+	}
+	ents, _ := os.ReadDir(dir)
+	for _, e := range ents {
+		if e.Name() != usageStateFile && e.Name() != usageStateFile+".tmp" {
+			t.Fatalf("temp file left behind: %s", e.Name())
+		}
+	}
+	if p, ok := newUsageSources(dir).store.provider(RuntimeClaude, now); !ok || p.Windows[0].UsedPercent != 30 {
+		t.Fatalf("%+v %v", p, ok)
+	}
+}
+
+// M5: a directory with many entries is read in bounded chunks, newest name first among those
+// examined, and the walk still finds the newest date.
+func TestUsageDirEntryCap(t *testing.T) {
+	root := t.TempDir()
+	for i := 0; i < usageMaxDirEntries+500; i++ {
+		if err := os.WriteFile(filepath.Join(root, fmt.Sprintf("rollout-%05d.jsonl", i)), nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := sortedNames(root, false, func(s string) bool { return strings.HasPrefix(s, "rollout-") })
+	if len(names) != usageMaxDirEntries {
+		t.Fatalf("examined %d entries, want the cap %d", len(names), usageMaxDirEntries)
+	}
+	for i := 1; i < len(names); i++ {
+		if names[i-1] < names[i] {
+			t.Fatal("not newest first")
+		}
+	}
+	// Date directories sort lexically: 2025/12/01 comes before 2025/11/30 and 2024/12/31.
+	r2 := t.TempDir()
+	for _, d := range []string{"2024/12/31", "2025/11/30", "2025/12/01", "2025/12/02"} {
+		writeRollout(t, r2, d, "rollout-"+strings.ReplaceAll(d, "/", "-")+"T00-00-00-a.jsonl", rl(d[:4]+"-"+d[5:7]+"-"+d[8:]+"T00:00:00Z", "1", "pro"))
+	}
+	got := newestRollouts(r2, 3)
+	if len(got) != 3 || !strings.Contains(got[0], "2025/12/02") || !strings.Contains(got[1], "2025/12/01") || !strings.Contains(got[2], "2025/11/30") {
+		t.Fatalf("%v", got)
 	}
 }
 

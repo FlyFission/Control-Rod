@@ -25,6 +25,8 @@ Evidence status: **pass** for the daemon usage tests, the API usage tests and th
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: vitest and jsdom | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a desktop browser [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: implementation session | partially separated: not executed | separated: owner retains merge decision | coupled: local machine | self-check | Live run not done [Ship limits](ship.md) |
 
+Codex (gpt-6.2-astra) blind review round 1 on head 62a0b653 asked for changes: 3 privacy blockers (free-text label, plan and version fields), 8 majors (child environment, cache file handling, Codex log reading on the claim path, process-group cleanup, provider deadline and starvation, a malformed report replacing a good one) and 2 minors (reorder without drag, pace time). All 13 were fixed with regression tests; labels were removed from the contract, plan is a closed list and version a numeric pattern.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

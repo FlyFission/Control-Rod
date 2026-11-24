@@ -575,6 +575,7 @@ func (d *Daemon) usageReport() *UsageLimitsReport {
 	}
 	d.usage.startEngine(ctx)
 	home, _ := os.UserHomeDir()
+	d.usage.startLogs(ctx, home, os.Getenv) // reads the CLI logs in the background; Report reads the last snapshot
 	return d.usage.Report(time.Now(), home, os.Getenv)
 }
 

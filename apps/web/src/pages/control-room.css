@@ -74,6 +74,7 @@
   min-width: 0;
 }
 .cr-grip,
+.cr-nudge,
 .cr-fold {
   font: inherit;
   color: var(--muted);
@@ -100,7 +101,22 @@
   padding: 6px 8px;
   min-height: 32px;
 }
+.cr-nudges {
+  display: inline-flex;
+  gap: 2px;
+}
+.cr-nudge {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+.cr-nudge:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 .cr-grip:hover,
+.cr-nudge:hover:not(:disabled),
 .cr-fold:hover {
   color: var(--text);
   border-color: var(--line-2);

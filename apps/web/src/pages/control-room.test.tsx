@@ -120,11 +120,11 @@ describe("control room: usage limits", () => {
     expect(within(row("Codex 7-day window")).getByText("Running low")).toBeTruthy();
     expect(row("Codex Monthly").className).toContain("tone-stuck");
     expect(within(row("Codex Monthly")).getByText("Almost out")).toBeTruthy();
-    const refused = row("Codex Primary");
+    const refused = row("Codex Primary window");
     expect(refused.className).toContain("tone-stuck");
     expect(within(refused).getByText("limit reached")).toBeTruthy();
     expect(within(refused).getByText("resets in 1h 5m")).toBeTruthy();
-    expect(screen.getByText(/Lowest reserve: Codex primary, limit reached, resets in 1h 5m/).className).toContain("warm");
+    expect(screen.getByText(/Lowest reserve: Codex primary window, limit reached, resets in 1h 5m/).className).toContain("warm");
   });
 
   it("names the lowest reserve, and stays calm when all are above 20%", async () => {
@@ -221,15 +221,15 @@ describe("control room: many harnesses and CodexBar", () => {
     expect(heads).toEqual(["Warp", "Cursor", "Amp", "Zed", "Kiro", "Devin"]);
   });
 
-  it("prefers the engine's label for a window and says the numbers are from CodexBar", async () => {
-    serve(view({ providers: [bar("grok", 91, { id: "weekly", label: "SuperGrok weekly" })] }));
+  it("ignores any label sent for a window, names it from its id, and says the numbers are from CodexBar", async () => {
+    serve(view({ providers: [bar("grok", 91, { id: "weekly", label: "SuperGrok weekly" } as never)] }));
     await renderPage(<ControlRoom />);
-    expect(await screen.findByRole("meter", { name: "Grok CLI SuperGrok weekly" })).toBeTruthy();
-    expect(screen.getByText("SuperGrok weekly")).toBeTruthy();
+    expect(await screen.findByRole("meter", { name: "Grok CLI Weekly" })).toBeTruthy();
+    expect(screen.queryByText("SuperGrok weekly")).toBeNull();
     expect(screen.getByText("from CodexBar")).toBeTruthy();
   });
 
-  it("falls back to our word for the window when no label is sent", async () => {
+  it("names the window from its id", async () => {
     serve(view({ providers: [bar("gemini", 30, { id: "daily" })] }));
     await renderPage(<ControlRoom />);
     expect(await screen.findByRole("meter", { name: "Gemini CLI Daily" })).toBeTruthy();
@@ -268,14 +268,35 @@ describe("control room: arranging modules", () => {
     await renderPage(<ControlRoom />);
     await screen.findByRole("meter", { name: "Codex 5-hour window" });
     expect(titles()).toEqual(["Usage limits", "Is it earning its place?"]);
-    const grip = screen.getByRole("button", { name: /^Move Usage limits/ });
+    const grip = screen.getByRole("button", { name: /^Move Usage limits\./ });
     grip.focus();
     fireEvent.keyDown(grip, { key: "ArrowDown" });
     expect(titles()).toEqual(["Is it earning its place?", "Usage limits"]);
     expect(screen.getByRole("status").textContent).toBe("Usage limits moved to position 2 of 2");
     expect(JSON.parse(window.localStorage.getItem(LAYOUT_KEY) ?? "{}").order).toEqual(["earning-its-place", "usage-limits"]);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Move Usage limits/ }));
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Move Usage limits/ }), { key: "ArrowUp", altKey: true });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Move Usage limits\./ }));
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Move Usage limits\./ }), { key: "ArrowUp", altKey: true });
+    expect(titles()).toEqual(["Usage limits", "Is it earning its place?"]);
+    expect(screen.getByRole("status").textContent).toBe("Usage limits moved to position 1 of 2");
+  });
+
+  it("moves a module with the earlier and later buttons, keeps focus and announces it", async () => {
+    serve(view());
+    await renderPage(<ControlRoom />);
+    await screen.findByRole("meter", { name: "Codex 5-hour window" });
+    const earlier = () => screen.getByRole("button", { name: "Move Usage limits earlier" }) as HTMLButtonElement;
+    const later = () => screen.getByRole("button", { name: "Move Usage limits later" }) as HTMLButtonElement;
+    expect(earlier().disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Move Is it earning its place? later" }) as HTMLButtonElement).disabled).toBe(true);
+    later().focus();
+    fireEvent.click(later());
+    expect(titles()).toEqual(["Is it earning its place?", "Usage limits"]);
+    expect(screen.getByRole("status").textContent).toBe("Usage limits moved to position 2 of 2");
+    expect(later().disabled).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Move Usage limits\./ }));
+    expect(earlier().disabled).toBe(false);
+    earlier().focus();
+    fireEvent.click(earlier());
     expect(titles()).toEqual(["Usage limits", "Is it earning its place?"]);
     expect(screen.getByRole("status").textContent).toBe("Usage limits moved to position 1 of 2");
   });

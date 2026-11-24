@@ -14723,7 +14723,7 @@
           },
           "version": {
             "type": "string",
-            "pattern": "^[0-9A-Za-z.+-]{1,32}$"
+            "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
           }
         }
       },
@@ -14807,7 +14807,17 @@
           },
           "plan": {
             "type": "string",
-            "pattern": "^[a-z0-9_-]{1,24}$"
+            "enum": [
+              "free",
+              "go",
+              "plus",
+              "pro",
+              "max",
+              "team",
+              "business",
+              "enterprise",
+              "edu"
+            ]
           },
           "windows": {
             "type": "array",
@@ -14840,11 +14850,6 @@
               "secondary",
               "tertiary"
             ]
-          },
-          "label": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9 ()/.,+-]{1,40}$",
-            "description": "The usage engine's own display label for the window, e.g. \"Weekly (Opus)\"."
           },
           "window_minutes": {
             "type": "integer",

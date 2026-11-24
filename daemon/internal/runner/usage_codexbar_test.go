@@ -71,21 +71,21 @@ func TestCodexbarParse(t *testing.T) {
 		t.Fatalf("claude %+v", c)
 	}
 	w := c.Windows[0]
-	if w.ID != "five_hour" || w.WindowMinutes != 300 || w.UsedPercent != 42.5 || w.ResetsAt != "2026-11-24T15:00:00Z" || w.Label != "Session" {
+	if w.ID != "five_hour" || w.WindowMinutes != 300 || w.UsedPercent != 42.5 || w.ResetsAt != "2026-11-24T15:00:00Z" {
 		t.Fatalf("window %+v", w)
 	}
 	// Two windows of 10080 minutes: the first is seven_day, the second keeps its slot name.
-	if c.Windows[1].ID != "seven_day" || c.Windows[2].ID != "tertiary" || c.Windows[2].Label != "Weekly (Opus)" {
+	if c.Windows[1].ID != "seven_day" || c.Windows[2].ID != "tertiary" {
 		t.Fatalf("windows %+v", c.Windows)
 	}
 	a := by["agy"]
-	if a.Windows[0].ID != "daily" || a.ObservedAt != "2026-11-24T12:01:00Z" || a.Windows[0].Label != "Daily bpro/b" {
+	if a.Windows[0].ID != "daily" || a.ObservedAt != "2026-11-24T12:01:00Z" {
 		t.Fatalf("agy %+v", a)
 	}
 	if o := by["opencode-go"]; o.Windows[0].ID != "monthly" || o.Windows[0].UsedPercent != 100 || o.ObservedAt != "2026-11-24T12:05:00Z" {
 		t.Fatalf("opencode-go %+v", o)
 	}
-	if g := by["grok"]; g.Windows[0].ID != "primary" || g.Windows[0].WindowMinutes != 777 || g.Windows[0].Label != "" {
+	if g := by["grok"]; g.Windows[0].ID != "primary" || g.Windows[0].WindowMinutes != 777 {
 		t.Fatalf("grok %+v", g)
 	}
 }
@@ -139,25 +139,13 @@ func TestCodexbarWindowIDs(t *testing.T) {
 	}
 }
 
-func TestSanitizeUsageLabel(t *testing.T) {
-	long := strings.Repeat("ab ", 30)
-	tests := map[string]string{
-		"Weekly (Opus)":         "Weekly (Opus)",
-		"  Session\n\t5h  ":     "Session 5h",
-		"<script>x</script>":    "scriptx/script",
-		"Pro+ 1/2, v1.0-beta":   "Pro+ 1/2, v1.0-beta",
-		"é中文":                   "",
-		"":                      "",
-		"a\x00b":                "ab",
-		"sk-ant-oat01-LEAK@x.y": "sk-ant-oat01-LEAKx.y",
-	}
-	for in, want := range tests {
-		if got := sanitizeUsageLabel(in); got != want {
-			t.Fatalf("%q -> %q, want %q", in, got, want)
+// B1: upstream label text never reaches the report, even when the engine prints one.
+func TestCodexbarDropsLabels(t *testing.T) {
+	b, _ := json.Marshal(parseCodexbarUsage([]byte(cbFixture), cbFetched))
+	for _, bad := range []string{"label", "Session", "Weekly", "Opus", "<b>"} {
+		if strings.Contains(string(b), bad) {
+			t.Fatalf("%q in %s", bad, b)
 		}
-	}
-	if got := sanitizeUsageLabel(long); len(got) > 40 || got == "" || got != strings.TrimSpace(got) {
-		t.Fatalf("long label %q", got)
 	}
 }
 
@@ -180,12 +168,60 @@ func TestCodexbarParseJunk(t *testing.T) {
 
 func TestParseCodexbarVersion(t *testing.T) {
 	for in, want := range map[string]string{
-		"CodexBar 0.85.1\n": "0.85.1", "CodexBar 1.0.0-beta+7": "1.0.0-beta+7", "CodexBar\n": "",
-		"Other 1.0": "", "CodexBar bad/ver": "", "CodexBar " + strings.Repeat("1", 40): "", "": "",
+		"CodexBar 0.85.1\n": "0.85.1", "CodexBar 1.0.0": "1.0.0", "CodexBar 1.0.0-beta+7": "", "CodexBar\n": "",
+		"Other 1.0.0": "", "CodexBar 1.0": "", "CodexBar bad/ver": "", "CodexBar 1.0.0 extra": "",
+		"CodexBar 1.0.0\nPLANTED-TEXT": "", "x CodexBar 1.0.0": "", "CodexBar 1.0.0\x00": "", "": "",
+		"CodexBar " + strings.Repeat("1", 40) + ".0.0": "",
 	} {
 		if got := parseCodexbarVersion([]byte(in)); got != want {
 			t.Fatalf("%q -> %q, want %q", in, got, want)
 		}
+	}
+}
+
+// B3: a --version that exits non-zero gives no version even if its output looks right.
+func TestCodexbarVersionNeedsZeroExit(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "codexbar")
+	script := "#!/bin/sh\ncase \"$1\" in\n--version) echo 'CodexBar 9.9.9'; exit 1;;\nconfig) echo '[]';;\nesac\n"
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	e := testEngine(map[string]string{codexbarEnv: bin})
+	e.refresh()
+	if eng, _ := e.snapshot(); eng == nil || !eng.Found || eng.Version != "" {
+		t.Fatalf("%+v", eng)
+	}
+}
+
+// M1: the child gets the allowlist only; a planted token variable does not pass.
+func TestCodexbarChildEnvAllowlist(t *testing.T) {
+	env := map[string]string{
+		"HOME": "/h", "PATH": "/bin", "USER": "u", "LANG": "C", "XDG_CONFIG_HOME": "/x", "CODEXBAR_CONFIG": "/c",
+		"FOO_TOKEN": "PLANTED", "ANTHROPIC_API_KEY": "PLANTED", "NO_COLOR": "0", "CODEXBAR_DISABLE_KEYCHAIN_ACCESS": "0",
+	}
+	got := codexbarChildEnv(func(k string) string { return env[k] })
+	joined := strings.Join(got, "\n")
+	for _, want := range []string{"HOME=/h", "PATH=/bin", "USER=u", "LANG=C", "XDG_CONFIG_HOME=/x", "CODEXBAR_CONFIG=/c", "NO_COLOR=1", "CODEXBAR_DISABLE_KEYCHAIN_ACCESS=1"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("%q missing from %v", want, got)
+		}
+	}
+	for _, bad := range []string{"PLANTED", "FOO_TOKEN", "ANTHROPIC", "NO_COLOR=0", "KEYCHAIN_ACCESS=0"} {
+		if strings.Contains(joined, bad) {
+			t.Fatalf("%q in %v", bad, got)
+		}
+	}
+	// End to end: a real child does not see the planted variable.
+	t.Setenv("FOO_TOKEN", "PLANTED")
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "codexbar")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\nenv\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCodexbar(bin, 10*time.Second, 64<<10, "x")
+	if err != nil || strings.Contains(string(out), "FOO_TOKEN") || !strings.Contains(string(out), "CODEXBAR_DISABLE_KEYCHAIN_ACCESS=1") {
+		t.Fatalf("%v %q", err, out)
 	}
 }
 
@@ -645,5 +681,123 @@ func TestCodexbarMergeCaps(t *testing.T) {
 	_, merged := mergeCodexbar(built, e)
 	if len(merged) != usageMaxProviders {
 		t.Fatalf("%d providers", len(merged))
+	}
+}
+
+func pidGone(t *testing.T, pidFile string) {
+	t.Helper()
+	var pid int
+	deadline := time.Now().Add(3 * time.Second)
+	for pid <= 0 {
+		b, _ := os.ReadFile(pidFile)
+		fmt.Sscan(strings.TrimSpace(string(b)), &pid)
+		if time.Now().After(deadline) {
+			t.Fatal("no pid recorded")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	for {
+		p, _ := os.FindProcess(pid)
+		if p.Signal(syscall.Signal(0)) != nil {
+			return
+		}
+		if st, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil && strings.Contains(string(st), ") Z ") {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("process %d still running", pid)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// M6: the process group is killed after a successful run, after an overflow and on cancel.
+func TestCodexbarKillsGroupAfterEveryRun(t *testing.T) {
+	mk := func(body string) (string, string) {
+		dir := t.TempDir()
+		pid := filepath.Join(dir, "child.pid")
+		bin := filepath.Join(dir, "codexbar")
+		if err := os.WriteFile(bin, []byte("#!/bin/sh\nsleep 60 >/dev/null 2>&1 </dev/null &\necho $! > '"+pid+"'\n"+body), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		return bin, pid
+	}
+	bin, pid := mk("echo ok\n")
+	if out, err := runCodexbar(bin, 10*time.Second, 1<<10); err != nil || strings.TrimSpace(string(out)) != "ok" {
+		t.Fatalf("%v %q", err, out)
+	}
+	pidGone(t, pid)
+
+	bin, pid = mk("yes xxxxxxxxxxxxxxxx\n")
+	start := time.Now()
+	if out, err := runCodexbar(bin, 30*time.Second, 1<<10); err == nil || out != nil {
+		t.Fatalf("%v %q", err, out)
+	}
+	if time.Since(start) > 10*time.Second {
+		t.Fatal("overflow did not stop the run")
+	}
+	pidGone(t, pid)
+
+	bin, pid = mk("sleep 60\n")
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(300 * time.Millisecond); cancel() }()
+	start = time.Now()
+	if _, err := runCodexbarCtx(ctx, bin, 30*time.Second, 1<<10); err != context.Canceled {
+		t.Fatalf("%v", err)
+	}
+	if time.Since(start) > 10*time.Second {
+		t.Fatal("cancel did not stop the run")
+	}
+	pidGone(t, pid)
+}
+
+// M7: one deadline covers the whole refresh, and a provider that hangs does not starve the same
+// later providers: the start of the order rotates.
+func TestCodexbarRotatesAfterHungProvider(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "codexbar")
+	script := "#!/bin/sh\ncase \"$1\" in\n--version) echo 'CodexBar 1.2.3';;\n" +
+		"config) echo '[{\"provider\":\"cursor\",\"enabled\":true},{\"provider\":\"warp\",\"enabled\":true}]';;\n" +
+		"usage) if [ \"$3\" = cursor ]; then exec sleep 30; fi; echo '[{\"provider\":\"warp\",\"usage\":{\"primary\":{\"usedPercent\":7}}}]';;\nesac\n"
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	e := testEngine(map[string]string{codexbarEnv: bin})
+	e.timeout = 2 * time.Second
+	e.probeTimeout = 2 * time.Second // the hung call uses the whole deadline
+	start := time.Now()
+	e.refresh()
+	if d := time.Since(start); d > 6*time.Second {
+		t.Fatalf("refresh took %s, over the one deadline", d)
+	}
+	if _, p := e.snapshot(); len(p) != 0 {
+		t.Fatalf("starved provider read in round 1: %+v", p)
+	}
+	e.refresh() // starts at warp now
+	if _, p := e.snapshot(); len(p) != 1 || p[0].ID != "warp" {
+		t.Fatalf("round 2: %+v", p)
+	}
+}
+
+// M7: a single probe is bounded by its own limit, not by what is left of the whole deadline.
+func TestCodexbarProbeHasOwnDeadline(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "codexbar")
+	script := "#!/bin/sh\ncase \"$1\" in\n--version) echo 'CodexBar 1.2.3';;\n" +
+		"config) echo '[{\"provider\":\"cursor\",\"enabled\":true},{\"provider\":\"warp\",\"enabled\":true}]';;\n" +
+		"usage) if [ \"$3\" = cursor ]; then exec sleep 30; fi; echo '[{\"provider\":\"warp\",\"usage\":{\"primary\":{\"usedPercent\":7}}}]';;\nesac\n"
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	e := testEngine(map[string]string{codexbarEnv: bin})
+	e.timeout = 20 * time.Second
+	e.probeTimeout = 300 * time.Millisecond
+	start := time.Now()
+	e.refresh()
+	if d := time.Since(start); d > 5*time.Second {
+		t.Fatalf("hung probe held the refresh for %s", d)
+	}
+	if _, p := e.snapshot(); len(p) != 1 || p[0].ID != "warp" {
+		t.Fatalf("%+v", p)
 	}
 }

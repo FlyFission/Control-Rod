@@ -27,3 +27,21 @@ Environment  jsdom was created 65 times · 31.12s total, 31% of tracked time
 
  Test Files  65 passed (65)
       Tests  846 passed (846)
+== review fixes 2026-11-24T16:53:40Z
+
+> @control-rod/web@0.0.0 gen:api /home/claude/Control-Rod/apps/web
+> openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [258.1ms]
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/pages/control-room.test.tsx > control room: usage limits > turns amber at 20% left and red at 5% left, and the words change with the colour
+ Test Files  1 failed | 65 passed (66)
+      Tests  1 failed | 849 passed (850)
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @control-rod/web@0.0.0 test: `pnpm gen:api && vitest run`
+== review fixes rerun 2026-11-24T16:54:43Z
+
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [244.1ms]
+ Test Files  66 passed (66)
+      Tests  850 passed (850)

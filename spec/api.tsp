@@ -920,10 +920,6 @@ op usageLimits(): UsageLimitsView;
 model UsageWindow {
   id: "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "daily" | "weekly" | "monthly" | "primary" | "secondary" | "tertiary";
 
-  /** The usage engine's own display label for the window, e.g. "Weekly (Opus)". */
-  @pattern("^[A-Za-z0-9 ()/.,+-]{1,40}$")
-  label?: string;
-
   @minValue(1) @maxValue(60000)
   window_minutes?: int32;
 
@@ -952,8 +948,7 @@ model UsageProvider {
   /** When the CLI recorded the reading. */
   observed_at?: utcDateTime;
 
-  @pattern("^[a-z0-9_-]{1,24}$")
-  plan?: string;
+  plan?: "free" | "go" | "plus" | "pro" | "max" | "team" | "business" | "enterprise" | "edu";
 
   @maxItems(8)
   windows: UsageWindow[];
@@ -976,7 +971,7 @@ model UsageEngine {
   id: "codexbar";
   found: boolean;
 
-  @pattern("^[0-9A-Za-z.+-]{1,32}$")
+  @pattern("^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$")
   version?: string;
 }
 

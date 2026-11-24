@@ -2,12 +2,12 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"math"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -44,12 +44,28 @@ var usageProviderIDs = map[string]bool{
 
 const usageMaxProviders = 24
 
-var usagePlanRE = regexp.MustCompile(`^[a-z0-9_-]{1,24}$`)
+// usagePlans is the contract's plan enum (spec/api.tsp UsageProvider.plan). A plan value is
+// reported only on an exact lowercase match after trimming; anything else is omitted. Codex's own
+// PlanType (openai/codex codex-rs/protocol/src/account.rs) also has prolite, promax, ent26,
+// self_serve_business_prolite, self_serve_business_usage_based, enterprise_cbp_automation,
+// enterprise_cbp_usage_based, edu_plus, edu_pro, sci and sci_plus; those are not in the contract's
+// set and are not reported. Claude Code's stream carries no plan.
+var usagePlans = map[string]bool{
+	"free": true, "go": true, "plus": true, "pro": true, "max": true, "team": true,
+	"business": true, "enterprise": true, "edu": true,
+}
+
+func usagePlan(s string) string {
+	s = strings.TrimSpace(s)
+	if usagePlans[s] {
+		return s
+	}
+	return ""
+}
 
 // UsageWindow is one limit window. Fields mirror spec/api.tsp UsageWindow.
 type UsageWindow struct {
 	ID            string  `json:"id"`
-	Label         string  `json:"label,omitempty"`
 	WindowMinutes int     `json:"window_minutes,omitempty"`
 	UsedPercent   float64 `json:"used_percent"`
 	ResetsAt      string  `json:"resets_at,omitempty"`
@@ -182,26 +198,41 @@ func parseCodexLine(line []byte) (UsageProvider, bool) {
 	if t, err := time.Parse(time.RFC3339Nano, l.Timestamp); err == nil {
 		p.ObservedAt = t.UTC().Format(time.RFC3339)
 	}
-	if usagePlanRE.MatchString(l.Payload.RateLimits.PlanType) {
-		p.Plan = l.Payload.RateLimits.PlanType
-	}
+	p.Plan = usagePlan(l.Payload.RateLimits.PlanType)
 	return p, true
 }
+
+// usageMaxDirEntries bounds how many entries of one directory are examined. The log tree is the
+// CLI's own, but a runaway directory must not stall the reader. Date directories sort lexically
+// (YYYY, MM, DD), so within the examined entries the newest name still comes first; past the cap the
+// rest of that directory is not looked at.
+const usageMaxDirEntries = 4096
 
 // sortedNames lists a directory's entries of one kind, newest name first. A symlink is not a
 // directory or regular file here, so the walk never leaves the sessions directory.
 func sortedNames(dir string, wantDir bool, ok func(string) bool) []string {
-	ents, err := os.ReadDir(dir)
+	f, err := os.Open(dir)
 	if err != nil {
 		return nil
 	}
+	defer f.Close()
 	var names []string
-	for _, e := range ents {
-		t := e.Type()
-		if wantDir && !t.IsDir() || !wantDir && !t.IsRegular() || !ok(e.Name()) {
-			continue
+	for seen := 0; seen < usageMaxDirEntries; {
+		ents, err := f.ReadDir(256)
+		for _, e := range ents {
+			seen++
+			t := e.Type()
+			if wantDir && !t.IsDir() || !wantDir && !t.IsRegular() || !ok(e.Name()) {
+				continue
+			}
+			names = append(names, e.Name())
+			if seen >= usageMaxDirEntries {
+				break
+			}
 		}
-		names = append(names, e.Name())
+		if err != nil || len(ents) == 0 {
+			break
+		}
 	}
 	sort.Sort(sort.Reverse(sort.StringSlice(names)))
 	return names
@@ -367,8 +398,8 @@ func (s *usageStore) load() {
 	if s.path == "" {
 		return
 	}
-	b, err := os.ReadFile(s.path)
-	if err != nil || len(b) > 64<<10 {
+	b, err := readCappedFile(s.path, usageStateMax)
+	if err != nil {
 		return
 	}
 	var m map[string]map[string]usageStamped
@@ -380,14 +411,69 @@ func (s *usageStore) load() {
 			continue
 		}
 		for id, st := range ws {
-			if st.Window.ID == id && st.Window.UsedPercent >= 0 && st.Window.UsedPercent <= 100 {
-				if s.byProv[prov] == nil {
-					s.byProv[prov] = map[string]usageStamped{}
-				}
-				s.byProv[prov][id] = st
+			w, ok := rebuildStreamWindow(id, st.Window)
+			obs, err := time.Parse(time.RFC3339, st.ObservedAt)
+			if !ok || err != nil {
+				continue
 			}
+			if s.byProv[prov] == nil {
+				s.byProv[prov] = map[string]usageStamped{}
+			}
+			s.byProv[prov][id] = usageStamped{Window: w, ObservedAt: obs.UTC().Format(time.RFC3339)}
 		}
 	}
+}
+
+// usageStateMax is the hard cap on the state file read.
+const usageStateMax = 64 << 10
+
+// readCappedFile reads a regular file without following a symlink or blocking on a FIFO. The file
+// is opened first and checked with fstat, then read through a hard cap; a file over max is refused.
+func readCappedFile(path string, max int64) ([]byte, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscallNoFollow|syscallNonblock, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || !st.Mode().IsRegular() || st.Size() > max {
+		return nil, os.ErrInvalid
+	}
+	b, err := io.ReadAll(io.LimitReader(f, max+1))
+	if err != nil || int64(len(b)) > max {
+		return nil, os.ErrInvalid
+	}
+	return b, nil
+}
+
+// streamWindowMinutes is the window length of each id a Claude stream window may carry.
+func streamWindowMinutes(id string) (int, bool) {
+	switch id {
+	case "five_hour":
+		return 300, true
+	case "seven_day", "seven_day_opus", "seven_day_sonnet":
+		return 10080, true
+	}
+	return 0, false
+}
+
+// rebuildStreamWindow builds a window from the validated id, the clamped percent and the parsed
+// reset time only, so nothing else in a state file's window object reaches the report. A status is
+// kept only when it is one of the contract's values.
+func rebuildStreamWindow(id string, in UsageWindow) (UsageWindow, bool) {
+	mins, ok := streamWindowMinutes(id)
+	if !ok || in.ID != id || math.IsNaN(in.UsedPercent) || math.IsInf(in.UsedPercent, 0) {
+		return UsageWindow{}, false
+	}
+	out := UsageWindow{ID: id, WindowMinutes: mins, UsedPercent: clampPercent(in.UsedPercent)}
+	if t, err := time.Parse(time.RFC3339, in.ResetsAt); err == nil {
+		out.ResetsAt = t.UTC().Format(time.RFC3339)
+	}
+	switch in.Status {
+	case "allowed", "warning", "rejected":
+		out.Status = in.Status
+	}
+	return out, true
 }
 
 func (s *usageStore) record(provider string, w UsageWindow, now time.Time) {
@@ -402,11 +488,45 @@ func (s *usageStore) record(provider string, w UsageWindow, now time.Time) {
 		return
 	}
 	if b, err := json.Marshal(s.byProv); err == nil {
-		tmp := s.path + ".tmp"
-		if os.WriteFile(tmp, b, 0o600) == nil {
-			_ = os.Rename(tmp, s.path)
-		}
+		_ = writeFileAtomic(s.path, b)
 	}
+}
+
+// writeFileAtomic writes through a random temporary file in the same directory (mode 0600), syncs
+// it and renames it over path, so a reader never sees a partial file and no fixed temp name can be
+// planted.
+func writeFileAtomic(path string, b []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	ok := false
+	defer func() {
+		if !ok {
+			_ = os.Remove(tmp)
+		}
+	}()
+	if err := f.Chmod(0o600); err != nil {
+		f.Close()
+		return err
+	}
+	if _, err := f.Write(b); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	ok = true
+	return nil
 }
 
 // provider returns the stored windows whose reset time has not passed, or false when none remain.
@@ -433,13 +553,15 @@ func (s *usageStore) provider(id string, now time.Time) (UsageProvider, bool) {
 	return p, true
 }
 
-// usageSources builds the report. Codex's log is read at most once per usageCodexCacheTTL.
+// usageSources builds the report. Codex's log is read by a background refresher (startLogs), never
+// in the claim path: Report only reads the last snapshot.
 type usageSources struct {
 	store usageStore
 
 	mu       sync.Mutex
-	logAt    map[string]time.Time
 	logCache map[string]*UsageProvider
+	logEvery time.Duration
+	logOnce  sync.Once
 
 	// cb is the CodexBar engine's cache, set by startEngine. Report only reads it.
 	cb         atomic.Pointer[codexbarEngine]
@@ -447,26 +569,57 @@ type usageSources struct {
 }
 
 func newUsageSources(home string) *usageSources {
-	u := &usageSources{logAt: map[string]time.Time{}, logCache: map[string]*UsageProvider{}}
+	u := &usageSources{logCache: map[string]*UsageProvider{}, logEvery: usageCodexCacheTTL}
 	if home != "" {
 		u.store.path = filepath.Join(home, usageStateFile)
 	}
 	return u
 }
 
-func (u *usageSources) fromLog(a Adapter, r usageLogReader, userHome string, getenv func(string) string, now time.Time) (UsageProvider, bool) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if at, ok := u.logAt[a.ID()]; !ok || now.Sub(at) >= usageCodexCacheTTL || now.Before(at) {
-		u.logAt[a.ID()] = now
-		u.logCache[a.ID()] = nil
+// refreshLogs reads every log-reading adapter's newest snapshot and replaces the cache.
+func (u *usageSources) refreshLogs(userHome string, getenv func(string) string) {
+	for _, a := range RegisteredAdapters() {
+		r, ok := a.(usageLogReader)
+		if !ok || !listsSubscription(a) || !usageProviderIDs[a.ID()] {
+			continue
+		}
+		var got *UsageProvider
 		if dir := r.UsageLogDir(userHome, getenv); dir != "" {
 			if p, ok := ReadCodexUsage(dir); ok {
 				p.ID = a.ID()
-				u.logCache[a.ID()] = &p
+				got = &p
 			}
 		}
+		u.mu.Lock()
+		u.logCache[a.ID()] = got
+		u.mu.Unlock()
 	}
+}
+
+// startLogs starts the background log reader once: it reads at once, then at most every minute,
+// until ctx ends.
+func (u *usageSources) startLogs(ctx context.Context, userHome string, getenv func(string) string) {
+	u.logOnce.Do(func() {
+		go func() {
+			t := time.NewTimer(0)
+			defer t.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-t.C:
+				}
+				u.refreshLogs(userHome, getenv)
+				t.Reset(u.logEvery)
+			}
+		}()
+	})
+}
+
+// fromLog returns the last snapshot the refresher stored. It touches no file.
+func (u *usageSources) fromLog(a Adapter) (UsageProvider, bool) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	if p := u.logCache[a.ID()]; p != nil {
 		return *p, true
 	}
@@ -475,7 +628,7 @@ func (u *usageSources) fromLog(a Adapter, r usageLogReader, userHome string, get
 
 // Report builds usage_limits for the registered subscription CLIs. A CLI with no source gets
 // source "none" and no windows, never a zero.
-func (u *usageSources) Report(now time.Time, userHome string, getenv func(string) string) *UsageLimitsReport {
+func (u *usageSources) Report(now time.Time, _ string, _ func(string) string) *UsageLimitsReport {
 	rep := &UsageLimitsReport{ReadAt: now.UTC().Format(time.RFC3339), Providers: []UsageProvider{}}
 	for _, a := range RegisteredAdapters() {
 		if !listsSubscription(a) || !usageProviderIDs[a.ID()] {
@@ -483,8 +636,8 @@ func (u *usageSources) Report(now time.Time, userHome string, getenv func(string
 		}
 		var p UsageProvider
 		got := false
-		if r, ok := a.(usageLogReader); ok {
-			p, got = u.fromLog(a, r, userHome, getenv, now)
+		if _, ok := a.(usageLogReader); ok {
+			p, got = u.fromLog(a)
 		}
 		if !got {
 			if _, ok := a.(usageStreamParser); ok {

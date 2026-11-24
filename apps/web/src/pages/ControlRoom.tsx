@@ -47,14 +47,18 @@ export function ControlRoom() {
   const [dragging, setDragging] = useState<string | null>(null);
   const els = useRef(new Map<string, HTMLElement>());
   const grips = useRef(new Map<string, HTMLButtonElement>());
-  const refocus = useRef<string | null>(null);
+  const nudges = useRef(new Map<string, HTMLButtonElement>());
+  const refocus = useRef<{ id: string; target: "grip" | "earlier" | "later" } | null>(null);
 
   useEffect(() => saveLayout(layout), [layout]);
 
-  // Moving a node in the DOM can drop focus in some browsers; put it back on the grip that moved.
+  // Moving a node in the DOM can drop focus in some browsers; put it back on the control that moved it.
   useLayoutEffect(() => {
     if (refocus.current) {
-      grips.current.get(refocus.current)?.focus();
+      const { id, target } = refocus.current;
+      const btn = target === "grip" ? grips.current.get(id) : nudges.current.get(`${id}:${target}`);
+      // A button that is now disabled (moved to an end) cannot hold focus; fall back to the grip.
+      (btn && !btn.disabled ? btn : grips.current.get(id))?.focus();
       refocus.current = null;
     }
   }, [layout.order]);
@@ -78,8 +82,13 @@ export function ControlRoom() {
       setAnnounce(`${byId.get(id)?.title} is already ${dir < 0 ? "first" : "last"}`);
       return;
     }
-    refocus.current = id;
+    refocus.current = { id, target: "grip" };
     move(id, to);
+  };
+
+  const nudge = (id: string, dir: -1 | 1) => () => {
+    refocus.current = { id, target: dir < 0 ? "earlier" : "later" };
+    move(id, layout.order.indexOf(id) + dir);
   };
 
   const onDown = (id: string) => (e: PointerEvent<HTMLButtonElement>) => {
@@ -138,6 +147,36 @@ export function ControlRoom() {
                   onUp={onUp}
                 />
                 <h2 id={`cr-${id}-title`}>{m.title}</h2>
+                <span className="cr-nudges">
+                  <button
+                    type="button"
+                    className="cr-nudge"
+                    ref={(el) => {
+                      if (el) nudges.current.set(`${id}:earlier`, el);
+                      else nudges.current.delete(`${id}:earlier`);
+                    }}
+                    aria-label={`Move ${m.title} earlier`}
+                    title="Move earlier"
+                    disabled={layout.order.indexOf(id) === 0}
+                    onClick={nudge(id, -1)}
+                  >
+                    <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2 8 L6 4 L10 8" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    className="cr-nudge"
+                    ref={(el) => {
+                      if (el) nudges.current.set(`${id}:later`, el);
+                      else nudges.current.delete(`${id}:later`);
+                    }}
+                    aria-label={`Move ${m.title} later`}
+                    title="Move later"
+                    disabled={layout.order.indexOf(id) === layout.order.length - 1}
+                    onClick={nudge(id, 1)}
+                  >
+                    <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>
+                  </button>
+                </span>
                 <span className="cr-caption" aria-hidden="true">{m.caption}</span>
                 <button type="button" className="cr-fold" aria-expanded={!closed} aria-controls={`cr-${id}-body`} aria-label={`${closed ? "Expand" : "Collapse"} ${m.title}`} onClick={() => toggle(id)}>
                   {closed ? "Expand" : "Collapse"}

@@ -46,7 +46,7 @@ describe("usage limits", () => {
         read_at: "2026-11-24T15:05:00Z",
         providers: [
           { ...codex, token: secret, windows: [...codex.windows, { id: "five_hour", used_percent: 50 }, { id: "weird", used_percent: 1 }, { id: "monthly", used_percent: 140 }, { id: "primary", used_percent: 5, note: secret }] },
-          { id: "claude", source: "cli-stream", plan: secret, windows: [{ id: "seven_day_opus", used_percent: 93, status: "rejected", resets_at: "not a time" }] },
+          { id: "claude", source: "cli-stream", plan: "enterprise-gold", windows: [{ id: "seven_day_opus", used_percent: 93, status: "rejected", resets_at: "not a time" }] },
           { id: "grok", source: "none", windows: [{ id: "five_hour", used_percent: 3 }] },
           { id: "not-a-harness", source: "cli-log", windows: [] },
           { id: "codex", source: "cli-log", windows: [] },
@@ -69,21 +69,22 @@ describe("usage limits", () => {
     expect(JSON.stringify(body)).not.toContain(secret);
   });
 
-  it("keeps CodexBar readings for allowlisted harnesses, their labels and the engine record", async () => {
+  it("keeps CodexBar readings for allowlisted harnesses, and the engine record", async () => {
     await claim({
       runtimes: [],
       usage_limits: {
         read_at: "2026-11-24T16:30:00Z",
         engine: { id: "codexbar", found: true, version: "0.81.0", path: "/secret" },
         providers: [
-          { id: "cursor", source: "codexbar", windows: [{ id: "monthly", label: "Monthly", used_percent: 40 }, { id: "primary", label: secret, used_percent: 2 }] },
+          { id: "cursor", source: "codexbar", windows: [{ id: "monthly", label: "Weekly (Opus)", used_percent: 40 }, { id: "primary", label: secret, used_percent: 2 }] },
           { id: "made-up", source: "codexbar", windows: [] },
         ],
       },
     });
     const body = (await get()).json();
     expect(body.engine).toEqual({ id: "codexbar", found: true, version: "0.81.0" });
-    expect(body.providers).toEqual([{ id: "cursor", source: "codexbar", windows: [{ id: "monthly", label: "Monthly", used_percent: 40 }, { id: "primary", used_percent: 2 }] }]);
+    expect(body.providers).toEqual([{ id: "cursor", source: "codexbar", windows: [{ id: "monthly", used_percent: 40 }, { id: "primary", used_percent: 2 }] }]);
+    expect(JSON.stringify(body)).not.toContain("label");
     expect(JSON.stringify(body)).not.toContain(secret);
   });
 
@@ -91,5 +92,25 @@ describe("usage limits", () => {
     await claim({ runtimes: [], usage_limits: { read_at: "2026-11-24T16:00:00Z", providers: [{ id: "claude", source: "cli-stream", windows: [{ id: "five_hour", used_percent: 22 }] }] } });
     const body = (await get()).json();
     expect(body.providers).toEqual([{ id: "claude", source: "cli-stream", windows: [{ id: "five_hour", used_percent: 22 }] }]);
+  });
+
+  it("keeps only known plan names and numeric engine versions", async () => {
+    await claim({ runtimes: [], usage_limits: { read_at: "2026-11-24T16:40:00Z", engine: { id: "codexbar", found: true, version: "Unauthorized" }, providers: [
+      { id: "claude", source: "cli-stream", plan: "max", windows: [] },
+      { id: "codex", source: "cli-log", plan: "pro-plus-extra", windows: [] },
+      { id: "grok", source: "cli-log", plan: "Max", windows: [] },
+    ] } });
+    const body = (await get()).json();
+    expect(body.engine).toEqual({ id: "codexbar", found: true });
+    expect(body.providers.map((p: { plan?: string }) => p.plan)).toEqual(["max", undefined, undefined]);
+  });
+
+  it("a malformed report leaves the previous one untouched", async () => {
+    await claim({ runtimes: [], usage_limits: { read_at: "2026-11-24T17:00:00Z", providers: [{ id: "claude", source: "cli-stream", windows: [{ id: "five_hour", used_percent: 30 }] }] } });
+    const before = (await get()).json();
+    for (const bad of [{}, { providers: [] }, { read_at: "2026-11-24T17:05:00Z" }, { read_at: "yesterday", providers: [] }, { read_at: "2026-11-24T17:05:00Z", providers: "x" }]) {
+      await claim({ runtimes: [], usage_limits: bad });
+      expect((await get()).json()).toEqual(before);
+    }
   });
 });

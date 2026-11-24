@@ -32,15 +32,15 @@ export const WINDOW_LABELS: Record<UsageWindow["id"], string> = {
   seven_day_opus: "7-day, Opus",
   seven_day_sonnet: "7-day, Sonnet",
   monthly: "Monthly",
-  primary: "Primary",
-  secondary: "Secondary",
-  tertiary: "Tertiary",
+  primary: "Primary window",
+  secondary: "Secondary window",
+  tertiary: "Third window",
   daily: "Daily",
   weekly: "Weekly",
 };
 
-/** The row label: the engine's own label when it sent one, else our words for the window id. */
-export const windowLabel = (w: UsageWindow): string => w.label?.trim() || WINDOW_LABELS[w.id];
+/** The row label: our words for the window id. The API carries no free-text label. */
+export const windowLabel = (w: UsageWindow): string => WINDOW_LABELS[w.id];
 
 export const LOW_AT = 20;
 export const CRITICAL_AT = 5;
@@ -54,27 +54,36 @@ export interface Reading {
   stale: boolean;
   /** Milliseconds until reset; null when unknown. Never negative. */
   resetsInMs: number | null;
-  /** Share of the window still to come (0..1); null when the window length or reset time is unknown. */
+  /** Share of the window still to come (0..1) at the moment of the reading; null when the window length or reset time is unknown. */
   timeLeft: number | null;
+  /** Milliseconds from the reading to the reset, for pace; null when unknown. Never negative. */
+  paceLeftMs: number | null;
   state: "allowed" | "low" | "critical" | "rejected" | "stale";
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
-export function readWindow(w: UsageWindow, now: number): Reading {
+/**
+ * `observedAt` is when the CLI recorded the reading (its observed_at, else the report's read_at).
+ * Pace is judged at that moment, since used_percent is as of then; the countdown to reset uses `now`.
+ */
+export function readWindow(w: UsageWindow, now: number, observedAt?: string | null): Reading {
   const left = clamp(Math.round(100 - w.used_percent), 0, 100);
   const resetMs = w.resets_at ? Date.parse(w.resets_at) : NaN;
   const known = Number.isFinite(resetMs);
   const stale = known && resetMs <= now;
   const resetsInMs = known ? Math.max(0, resetMs - now) : null;
-  const timeLeft = known && w.window_minutes ? clamp((resetMs - now) / (w.window_minutes * 60_000), 0, 1) : null;
+  const seen = observedAt ? Date.parse(observedAt) : NaN;
+  const paceAt = Number.isFinite(seen) ? Math.min(seen, now) : now;
+  const paceLeftMs = known ? Math.max(0, resetMs - paceAt) : null;
+  const timeLeft = known && w.window_minutes ? clamp((resetMs - paceAt) / (w.window_minutes * 60_000), 0, 1) : null;
   let state: Reading["state"] = "allowed";
   if (stale) state = "stale";
   else if (w.status === "rejected") state = "rejected";
   else if (left <= CRITICAL_AT) state = "critical";
   else if (left <= LOW_AT || w.status === "warning") state = "low";
   const tone: Tone = state === "rejected" || state === "critical" ? "stuck" : state === "low" ? "needs" : "ok";
-  return { left, tone, stale, resetsInMs, timeLeft, state };
+  return { left, tone, stale, resetsInMs, timeLeft, paceLeftMs, state };
 }
 
 /** <1h -> "43m", <24h -> "2h 11m", else "4d 3h". */
@@ -121,12 +130,12 @@ export function sourceWords(p: UsageProvider): string {
  * nothing is used yet, or the reserve outlasts the window.
  */
 export function runsOutBefore(w: UsageWindow, r: Reading): number | null {
-  if (r.stale || r.timeLeft === null || r.resetsInMs === null || !w.window_minutes) return null;
+  if (r.stale || r.timeLeft === null || r.paceLeftMs === null || !w.window_minutes) return null;
   const windowMs = w.window_minutes * 60_000;
-  const elapsed = windowMs - r.resetsInMs;
+  const elapsed = windowMs - r.paceLeftMs;
   if (elapsed < windowMs * 0.05 || w.used_percent <= 0 || r.left <= 0) return null;
   const outAfter = (r.left / w.used_percent) * elapsed;
-  const early = r.resetsInMs - outAfter;
+  const early = r.paceLeftMs - outAfter;
   return early >= 60_000 ? early : null;
 }
 

@@ -268,6 +268,12 @@ model PackageView {
    */
   check_warning?: ControlRod.Records.CheckWarning;
 
+  /**
+   * Set when the author's latest rework round changed files outside the scope the previous
+   * check's findings named. A report, not a refusal.
+   */
+  scope_drift?: ControlRod.Records.ScopeDrift;
+
   decisions: Decision[];
 
   /** Digest a decision on this revision must be bound to. */

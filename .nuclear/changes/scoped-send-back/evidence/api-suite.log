@@ -1,0 +1,77 @@
+
+> @control-rod/api@0.0.0 test /home/claude/Control-Rod/services/api
+> node ../../tools/test-api.mjs
+
+
+ RUN  v5.1.0 /home/claude/Control-Rod/services/api
+
+Switched to a new branch 'side'
+Switched to branch 'main'
+Cloning into '/tmp/cr-repos-test-46Dh7e/projects/sample-repo/sub'...
+done.
+Cloning into '/tmp/cr-repos-test-6yM7ZX/projects/sample-repo/sub'...
+done.
+Cloning into '/tmp/cr-repos-test-6yM7ZX/projects/.worktrees/sample-repo/feat-lfs-sub-guard/sub'...
+done.
+Preparing worktree (new branch 'feat/wt-idx')
+Preparing worktree (new branch 'feat/wt-rm')
+Preparing worktree (new branch 'feat/wt-stale')
+Preparing worktree (new branch 'feat/wt-other-missing')
+Preparing worktree (new branch 'feat/wt-locked-missing')
+ ❯ test/command-boundary.test.ts (33 tests | 2 failed | 1 skipped) 2536ms
+   ❯ database logins (8)
+     × SEC-01: the reader cannot switch to the writer or the owner, by any spelling 13ms
+     × SEC-03: a command's client is unusable after the command and cannot control its transaction 5ms
+HEAD is now at ddf76eb Fixture
+(node:3003) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[control-rod] the database dropped an idle reader connection (terminating connection due to administrator command); a new one opens on next use
+[control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/command-boundary.test.ts > database logins > SEC-01: the reader cannot switch to the writer or the owner, by any spelling
+AssertionError: expected [Function] to throw error matching /permission denied to set role/ but got 'role "controlrod" does not exist'
+
+- Expected:
+/permission denied to set role/
+
++ Received:
+"role \"controlrod\" does not exist"
+
+ ❯ test/command-boundary.test.ts:110:51
+    108|       await expect(c.query("select set_config('role', 'controlrod_writ…
+    109|       await expect(c.query("set role controlrod_writer")).rejects.toTh…
+    110|       await expect(c.query("set role controlrod")).rejects.toThrow(/pe…
+       |                                                   ^
+    111|       await expect(c.query("set session authorization controlrod_write…
+    112|       await c.query("reset role");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/command-boundary.test.ts > database logins > SEC-03: a command's client is unusable after the command and cannot control its transaction
+AssertionError: expected [Function] to throw error matching /permission denied to set role/ but got 'role "controlrod" does not exist'
+
+- Expected:
+/permission denied to set role/
+
++ Received:
+"role \"controlrod\" does not exist"
+
+ ❯ test/command-boundary.test.ts:150:123
+    148|     await expect(command(h.db, "runtime.report-status", (c) => c.query…
+    149|     // Role changes are refused by the database: the writer login belo…
+    150|     await expect(command(h.db, "runtime.report-status", (c) => c.query…
+       |                                                                                                                           ^
+    151|     await expect(command(h.db, "runtime.report-status", async (c) => (…
+    152|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 79 passed | 1 skipped (81)
+      Tests  2 failed | 938 passed | 2 skipped (942)
+   Start at  02:36:10
+   Duration  59.84s (tests 83%, import 16%, transform 1%)
+
+ ELIFECYCLE  Test failed. See above for more details.

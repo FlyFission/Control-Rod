@@ -2348,7 +2348,26 @@ export interface components {
             severity: "info" | "minor" | "major" | "critical";
             text: string;
             resolution?: string;
+            /** @description What was expected and what was seen, for example "expected 302, got 200". */
+            evidence?: string;
+            /** @description Where the problem is in the deliverable. */
+            location?: components["schemas"]["ControlRod.Records.FindingLocation"];
+            /**
+             * @description The files a fix may change. The author's next round is told to change only these, and
+             *     changes outside them are reported as scope drift.
+             */
+            scope_paths?: components["schemas"]["ControlRod.Records.FindingPath"][];
         };
+        "ControlRod.Records.FindingLocation": {
+            path: components["schemas"]["ControlRod.Records.FindingPath"];
+            /** Format: int32 */
+            line?: number;
+        };
+        /**
+         * @description A relative path inside the deliverable: no leading slash, no empty or `..` segment, no backslash.
+         *     Written without lookaheads so Go's RE2-based schema validator in the daemon can compile it.
+         */
+        "ControlRod.Records.FindingPath": string;
         "ControlRod.Records.InterfaceConsume": {
             parameter: string;
             from: string;
@@ -2848,6 +2867,16 @@ export interface components {
             version: number;
             digest: components["schemas"]["ControlRod.Records.Digest"];
         };
+        /**
+         * @description Files an author's rework round changed outside the scope the previous check's findings named.
+         *     Reported, not refused.
+         */
+        "ControlRod.Records.ScopeDrift": {
+            /** Format: int32 */
+            round: number;
+            scope_paths: components["schemas"]["ControlRod.Records.FindingPath"][];
+            outside: components["schemas"]["ControlRod.Records.FindingPath"][];
+        };
         /** @description Who pulled SCRAM, where, why, and what was stopped. (A) */
         "ControlRod.Records.ScramEvent": {
             id: components["schemas"]["ControlRod.Records.TenancyId"];
@@ -3125,6 +3154,11 @@ export interface components {
              *     another check is still allowed.
              */
             check_warning?: components["schemas"]["ControlRod.Records.CheckWarning"];
+            /**
+             * @description Set when the author's latest rework round changed files outside the scope the previous
+             *     check's findings named. A report, not a refusal.
+             */
+            scope_drift?: components["schemas"]["ControlRod.Records.ScopeDrift"];
             decisions: components["schemas"]["ControlRod.Records.Decision"][];
             /** @description Digest a decision on this revision must be bound to. */
             subject_digest: components["schemas"]["ControlRod.Records.Digest"];

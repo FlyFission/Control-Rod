@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ScopeDrift.json",
+    "type": "object",
+    "properties": {
+        "round": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 2147483647
+        },
+        "scope_paths": {
+            "type": "array",
+            "items": {
+                "$ref": "FindingPath.json"
+            }
+        },
+        "outside": {
+            "type": "array",
+            "items": {
+                "$ref": "FindingPath.json"
+            }
+        }
+    },
+    "required": [
+        "round",
+        "scope_paths",
+        "outside"
+    ],
+    "description": "Files an author's rework round changed outside the scope the previous check's findings named.\nReported, not refused.",
+    "unevaluatedProperties": false
+}

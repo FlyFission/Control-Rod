@@ -15,6 +15,7 @@ import { MODE_COPY, type EngineeringMode } from "../../lib/mode.js";
 import { ContextSwitch } from "./ContextSwitch.js";
 import { WorkflowSwitch } from "./WorkflowSwitch.js";
 import { projectWorkflowDefault } from "../../lib/workflow.js";
+import { FindingDetail, ScopeDriftNote } from "../../components/FindingDetail";
 
 interface BoardReviewDrawerProps {
   packageId: string;
@@ -212,12 +213,14 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
                         by {view.pre_check.verifier} · {view.pre_check.method}
                       </span>
                     </p>
+                    <ScopeDriftNote drift={view.scope_drift} />
                     {view.pre_check.findings.length > 0 ? (
                       <ul className="bd-drawer-list">
                         {view.pre_check.findings.map((f) => (
                           <li key={f.id} className="small">
                             <span className={`tag sev-${f.severity}`}>{f.severity}</span>{" "}
                             <span className="mono">{f.id}</span> {f.text}
+                            <FindingDetail finding={f} />
                             {f.resolution !== undefined && <span className="muted"> · Resolution: {f.resolution}</span>}
                           </li>
                         ))}

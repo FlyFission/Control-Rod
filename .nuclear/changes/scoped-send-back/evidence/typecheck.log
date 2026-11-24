@@ -1,0 +1,18 @@
+$ (cd services/api && npx tsc --noEmit -p .)
+exit 0
+$ (cd apps/web && npx tsc --noEmit -p .)
+exit 0
+$ pnpm spec
+
+Embedded 55 TypeSpec-generated runner schemas
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → ../../services/api/src/preparation/schema.d.ts [262ms]
+$ git status --short spec/generated daemon/internal/wire/schemas (after regenerating)
+ M daemon/internal/wire/schemas/Finding.json
+ M spec/generated/json-schema/Finding.json
+ M spec/generated/openapi/openapi.json
+?? daemon/internal/wire/schemas/FindingLocation.json
+?? daemon/internal/wire/schemas/FindingPath.json
+?? spec/generated/json-schema/FindingLocation.json
+?? spec/generated/json-schema/FindingPath.json
+?? spec/generated/json-schema/ScopeDrift.json

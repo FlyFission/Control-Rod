@@ -19,6 +19,7 @@ import { PackageLoadError } from "../components/PackageLoadError.js";
 import { recentRuns, rememberRun } from "../lib/runPreferences.js";
 import { isVisible } from "../lib/live.js";
 import { DaemonNotice } from "../components/DaemonNotice.js";
+import { FindingDetail, ScopeDriftNote } from "../components/FindingDetail";
 
 const RUNGS: WorkPackage["status"][] = ["draft", "released", "in-work", "in-verification", "accepted"];
 
@@ -194,6 +195,7 @@ export function PackagePage({ id }: { id: string }) {
             </ul>
           </section>
           <PreCheck record={view.pre_check} />
+          <ScopeDriftNote drift={view.scope_drift} />
           <CheckerHistory blocked={view.check_blocked} warning={view.check_warning} attempts={view.checker_attempts} overrides={view.recheck_overrides} />
           <CriterionCoverage view={view} />
           <Decisions view={view} />
@@ -348,6 +350,7 @@ function PreCheck({ record }: { record: VerificationRecord | undefined }) {
               {record.findings.map((f) => (
                 <li key={f.id}>
                   <span className={`tag sev-${f.severity}`}>{f.severity}</span> <span className="mono small">{f.id}</span> {f.text}
+                  <FindingDetail finding={f} />
                   {f.resolution !== undefined && <p className="muted small">Resolution: {f.resolution}</p>}
                 </li>
               ))}

@@ -24,6 +24,7 @@ export type DecisionKind = S["ControlRod.Records.DecisionKind"];
 export type DecisionRequest = S["Packages.DecisionRequest"];
 export type VerificationRecord = S["ControlRod.Records.VerificationRecord"];
 export type Finding = S["ControlRod.Records.Finding"];
+export type ScopeDrift = S["ControlRod.Records.ScopeDrift"];
 export type OfficeItem = S["OfficeItem"];
 export type AgentFigure = S["AgentFigure"];
 export type ScramEvent = S["ControlRod.Records.ScramEvent"];

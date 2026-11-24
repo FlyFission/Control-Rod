@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { FloorData, FloorPage, FloorEntity, StationId } from "./types.js";
 import type { ThemePackV1 } from "./themes/types.js";
 import { loadTheme, getThemeEntry } from "./themes/registry.js";
@@ -162,9 +162,9 @@ export function FloorWorkbench({
             task.
           </p>
         </div>
-        <a className="floor-office-link" href="/office">
+        <Link className="floor-office-link" to="/office">
           Your office <span aria-hidden="true">↗</span>
-        </a>
+        </Link>
       </div>
       {sample && (
         <p className="floor-sample-notice">

@@ -1204,3 +1204,32 @@
   transform: translateX(-50%) scale(1.04);
   border-style: solid;
 }
+
+/* The N key's note when nothing on the view is marked Needs you or Blocked (pattern AW3). */
+.bd-jump-note {
+  margin: 0 0 10px;
+}
+
+/* A run that is executing now turns this ring; queued or held runs do not (boardOrder.ts). */
+.bd-spin {
+  flex: none;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--line-2);
+  border-top-color: var(--accent);
+  margin-right: 6px;
+  vertical-align: -1px;
+  animation: bd-spin 0.9s linear infinite;
+}
+@keyframes bd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bd-spin {
+    animation: none;
+  }
+}

@@ -95,7 +95,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-const PLACES = ["inbox", "office", "packages", "registers", "explore", "roster", "usage", "records", "policies", "packages/WP-0007/case"];
+const PLACES = ["inbox", "office", "packages", "registers", "snapshots", "roster", "usage", "records", "policies", "packages/WP-0007/case"];
 test("accessibility: no WCAG 2.2 AA violations on any place, the case view or the open palette", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium");
   await page.addInitScript(() => window.localStorage.setItem("cr.lastSeenSeq:ben", "100"));
@@ -120,10 +120,18 @@ test("keyboard: skip link, every place, palette open, choose and return", async 
   test.skip(browserName !== "chromium");
   await page.goto("/inbox");
   await page.waitForTimeout(500);
+  // Expand any collapsed nav groups so all places participate in sequential Tab traversal.
+  // The live locator shrinks after each click, so open the first collapsed group until none is left.
+  const collapsedGroups = page.locator('.places-group-toggle[aria-expanded="false"]');
+  while ((await collapsedGroups.count()) > 0) await collapsedGroups.first().click();
+  // The clicks moved focus. The open groups are remembered, so loading the page again starts Tab from the top.
+  await page.goto("about:blank");
+  await page.goto("/inbox");
+  await page.waitForTimeout(500);
   await page.keyboard.press("Tab");
   const first = await page.evaluate(() => document.activeElement?.textContent?.trim());
   const stops: string[] = [first ?? ""];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 35; i++) {
     await page.keyboard.press("Tab");
     stops.push(await page.evaluate(() => (document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent || "").trim().slice(0, 30)));
   }
@@ -152,6 +160,25 @@ test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page
   }
   console.log("REFLOW " + (bad.length ? bad.join(" ") : "all fit"));
   expect(bad).toEqual([]);
+});
+
+test("phone: project switching and New project stay in view at 320 CSS px, even with a long project name", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium");
+  const long = { id: "p-long", name: "Northfield substation relay coordination and protection study, phase two", mode: "software", status: "active",
+    repo: "org/northfield-substation-relay-coordination-study", repoStrategy: "worktree", workspaceRoot: "/tmp/x", lane: "internal",
+    author: { runtime: "claude", model: "default" }, checker: { runtime: "codex", model: "default" }, createdAt: new Date().toISOString() };
+  await page.route("**/workspace/projects", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([long]) }));
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto("/inbox");
+  await page.waitForTimeout(500);
+  const controls = [page.getByRole("button", { name: /^All / }), page.getByRole("button", { name: /Northfield/ }), page.getByRole("button", { name: "New project" })];
+  for (const c of controls) {
+    await expect(c).toBeVisible();
+    const box = (await c.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 });
 
 test("case view interactive with 1,000 events", async ({ page, browserName }) => {

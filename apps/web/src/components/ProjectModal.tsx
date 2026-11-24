@@ -197,6 +197,12 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
                 </optgroup>
               )}
             </select>
+            {reposQuery.isError && (
+              <span className="small error">{explain(reposQuery.error, "Could not list repositories.")}</span>
+            )}
+            {reposQuery.data?.github_error && (
+              <span className="small muted">{reposQuery.data.github_error}</span>
+            )}
           </label>
           <label className="field">
             <span>Default outfall strategy</span>

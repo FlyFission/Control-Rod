@@ -6136,6 +6136,22 @@
                     "format": "int32",
                     "minimum": 1,
                     "description": "The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations."
+                  },
+                  "agent_updates": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Runner.AgentUpdate"
+                    },
+                    "maxItems": 10,
+                    "description": "Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current."
+                  },
+                  "agent_updates_unchecked": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Runner.UncheckedAgent"
+                    },
+                    "maxItems": 10,
+                    "description": "Agents found whose check could not finish (the registry did not answer, or the CLI gave no\nstrict version). Sent with `agent_updates`; the control plane keeps its earlier row for each\nonly while the installed version is unchanged."
                   }
                 },
                 "required": [
@@ -6848,6 +6864,13 @@
                         "$ref": "#/components/schemas/ControlRod.Records.RuntimePin"
                       },
                       "description": "The active pins, per runtime and role."
+                    },
+                    "agent_updates": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Runner.AgentUpdate"
+                      },
+                      "description": "Agent CLIs with a newer version, as the daemon found when it started. The app shows the npm\ncommand, built from fixed parts, for the person to run in a terminal; nothing installs from the browser."
                     }
                   },
                   "required": [
@@ -11027,8 +11050,47 @@
           },
           "resolution": {
             "type": "string"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "What was expected and what was seen, for example \"expected 302, got 200\"."
+          },
+          "location": {
+            "$ref": "#/components/schemas/ControlRod.Records.FindingLocation",
+            "description": "Where the problem is in the deliverable."
+          },
+          "scope_paths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.FindingPath"
+            },
+            "maxItems": 50,
+            "description": "The files a fix may change. The author's next round is told to change only these, and\nchanges outside them are reported as scope drift."
           }
         }
+      },
+      "ControlRod.Records.FindingLocation": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "$ref": "#/components/schemas/ControlRod.Records.FindingPath"
+          },
+          "line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          }
+        }
+      },
+      "ControlRod.Records.FindingPath": {
+        "type": "string",
+        "maxLength": 512,
+        "pattern": "^(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+)(?:/(?:[^/\\\\.][^/\\\\]*|\\.|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+))*/?$",
+        "description": "A relative path inside the deliverable: no leading slash, no empty or `..` segment, no backslash.\nWritten without lookaheads so Go's RE2-based schema validator in the daemon can compile it."
       },
       "ControlRod.Records.InterfaceConsume": {
         "type": "object",
@@ -12307,6 +12369,34 @@
         },
         "description": "One version of a sandbox policy, as a run cites it."
       },
+      "ControlRod.Records.ScopeDrift": {
+        "type": "object",
+        "required": [
+          "round",
+          "scope_paths",
+          "outside"
+        ],
+        "properties": {
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 2
+          },
+          "scope_paths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.FindingPath"
+            }
+          },
+          "outside": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.FindingPath"
+            }
+          }
+        },
+        "description": "Files an author's rework round changed outside the scope the previous check's findings named.\nReported, not refused."
+      },
       "ControlRod.Records.ScramEvent": {
         "type": "object",
         "required": [
@@ -13133,6 +13223,10 @@
             "$ref": "#/components/schemas/ControlRod.Records.CheckWarning",
             "description": "Set when several checks of the current digest were inconclusive. A warning only:\nanother check is still allowed."
           },
+          "scope_drift": {
+            "$ref": "#/components/schemas/ControlRod.Records.ScopeDrift",
+            "description": "Set when the author's latest rework round changed files outside the scope the previous\ncheck's findings named. A report, not a refusal."
+          },
           "decisions": {
             "type": "array",
             "items": {
@@ -13808,6 +13902,60 @@
         },
         "description": "An integrity-checked, bounded UTF-8 preview. Render its content as plain text."
       },
+      "Runner.AgentId": {
+        "type": "string",
+        "enum": [
+          "claude",
+          "codex",
+          "agy",
+          "opencode",
+          "grok"
+        ],
+        "description": "A built-in agent CLI the daemon can check for a newer version."
+      },
+      "Runner.AgentUpdate": {
+        "type": "object",
+        "required": [
+          "agent",
+          "name",
+          "installed",
+          "latest"
+        ],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/Runner.AgentId"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "installed": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$",
+            "description": "The installed version: strict SemVer 2.0 without build metadata; `latest` is newer."
+          },
+          "latest": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$",
+            "description": "The latest published version: strict SemVer 2.0 without build metadata."
+          },
+          "npm_global": {
+            "type": "boolean",
+            "description": "True when the installed executable is npm's global copy of the agent's package, so\n`npm install --global <package>@<latest>` updates it. The app builds that command itself from\na fixed package per agent and `latest`; no command text is reported or shown from the daemon."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why no command is offered, in a sentence."
+          }
+        },
+        "unevaluatedProperties": {
+          "not": {}
+        },
+        "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The app shows the npm command for the person to run\nin a terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it."
+      },
       "Runner.Completion": {
         "type": "object",
         "required": [
@@ -14107,6 +14255,26 @@
           }
         },
         "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."
+      },
+      "Runner.UncheckedAgent": {
+        "type": "object",
+        "required": [
+          "agent"
+        ],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/Runner.AgentId"
+          },
+          "installed": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$"
+          }
+        },
+        "unevaluatedProperties": {
+          "not": {}
+        },
+        "description": "An agent found whose update check could not finish, with the installed version the daemon read\n(strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent\nonly while that row's installed version is this one, so a CLI updated since is never offered\nan older version."
       },
       "ScramPresented": {
         "type": "object",

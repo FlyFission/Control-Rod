@@ -42,7 +42,7 @@ function Page() {
 
 const accept: ActionDescriptor = { command: "accept", label: "Accept", allowed: true, signature: "direct" };
 
-type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded" | "stopping"> };
+type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded" | "stopping" | "queued" | "held"> };
 function api(s: Setup) {
   const pkgs = s.packages.map((p) => ({ ...p, mode: "software" as const }));
   server.use(
@@ -60,7 +60,13 @@ function api(s: Setup) {
       return HttpResponse.json({
         ...view({}, p),
         originators: s.originators?.[id] ?? ["ben"],
-        runs: run ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: run === "stopping" ? "running" : run, ...(run === "stopping" ? { stop_requested_at: "2026-11-21T10:00:00Z" } : {}) }] : [],
+        runs: run
+          ? [
+              run === "held"
+                ? { id: "R-1", package_id: id, package_revision: 0, role: "pre-check", status: "queued", waiting_reason: "Waiting for an independent runtime" }
+                : { id: "R-1", package_id: id, package_revision: 0, role: "author", status: run === "stopping" ? "running" : run, ...(run === "stopping" ? { stop_requested_at: "2026-11-21T10:00:00Z" } : {}) },
+            ]
+          : [],
       });
     }),
   );
@@ -222,6 +228,48 @@ describe("BoardView", () => {
     expect(within(screen.getByRole("menu", { name: "Move to, Running one" })).getByRole("menuitem", { name: "Stop run" })).toBeTruthy();
     const stopping = screen.getByText("Stopping one").closest("article")!;
     expect(within(stopping).queryByRole("button", { name: /Move to/ })).toBeNull();
+  });
+
+  it("turns the run spinner only for a run that is running, never for a queued or held one", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-R", title: "Running one", status: "in-work" }),
+        pkg({ id: "WP-Q", title: "Queued one", status: "in-work" }),
+        pkg({ id: "WP-H", title: "Held one", status: "in-work" }),
+      ],
+      actions: { "WP-R": [], "WP-Q": [], "WP-H": [] },
+      runs: { "WP-R": "running", "WP-Q": "queued", "WP-H": "held" },
+    });
+    await renderPage(<Page />);
+    const running = (await screen.findByText("Running one")).closest("article")!;
+    await waitFor(() => expect(within(running).getByRole("img", { name: "Agent running" })).toBeTruthy());
+    const queued = screen.getByText("Queued one").closest("article")!;
+    const held = screen.getByText("Held one").closest("article")!;
+    // Wait until both cards are drawn from their own reads, so a spinner could have shown.
+    await waitFor(() => {
+      expect(queued.dataset["tone"]).not.toBe("unknown");
+      expect(held.dataset["tone"]).not.toBe("unknown");
+    });
+    expect(within(queued).queryByRole("img", { name: "Agent running" })).toBeNull();
+    expect(within(held).queryByRole("img", { name: "Agent running" })).toBeNull();
+  });
+
+  it("puts cards that need you at the top of their column, keeping order otherwise", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "First quiet", status: "in-verification" }),
+        pkg({ id: "WP-2", title: "Needs a yes", status: "in-verification" }),
+        pkg({ id: "WP-3", title: "Second quiet", status: "in-verification" }),
+      ],
+      actions: { "WP-1": [], "WP-2": [accept], "WP-3": [] },
+    });
+    await renderPage(<Page />);
+    const needs = (await screen.findByText("Needs a yes")).closest("article")!;
+    await waitFor(() => expect(needs.dataset["tone"]).toBe("needs"));
+    const col = needs.closest("section")!;
+    const titles = within(col).getAllByRole("button").filter((b) => b.classList.contains("bd-title")).map((b) => b.textContent);
+    expect(titles.indexOf("Needs a yes")).toBeLessThan(titles.indexOf("First quiet"));
+    expect(titles.indexOf("First quiet")).toBeLessThan(titles.indexOf("Second quiet"));
   });
 
   it("does not tag a General service package", async () => {
@@ -671,6 +719,109 @@ describe("BoardView", () => {
     expect(document.activeElement).toBe(firstBtn);
     await user.keyboard("k");
     expect(document.activeElement).toBe(captureBtn);
+  });
+
+  it("N skips a capture whose latest read failed, though the stream stays live", async () => {
+    api({ packages: [] });
+    server.use(
+      http.get("*/captures", () =>
+        HttpResponse.json([
+          { schema_version: "0.1.0", id: "C-1", text: "Unclassified capture", source: "web", created_at: "2026-11-08T10:00:00Z" },
+        ]),
+      ),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const captureBtn = await screen.findByRole("button", { name: "Unclassified capture" });
+    const tone = captureBtn.closest("article")?.getAttribute("data-tone");
+    expect(tone === "needs" || tone === "block").toBe(true);
+    await user.keyboard("n");
+    expect(document.activeElement).toBe(captureBtn);
+    captureBtn.blur();
+
+    // Someone resolves it elsewhere; the event refreshes captures, and that read fails.
+    server.use(http.get("*/captures", () => HttpResponse.json({ code: "unavailable" }, { status: 503 })));
+    act(() => FakeSource.last!.emit("event", { subject: "C-1" }));
+    await screen.findByText(/Could not read the captures/);
+    await user.keyboard("n");
+    expect(document.activeElement).not.toBe(captureBtn);
+  });
+
+  it("N jumps to the next card marked Needs you, in board order, and wraps", async () => {
+    const release: ActionDescriptor = { command: "release", label: "Release", allowed: true, signature: "direct" };
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "Quiet one" }),
+        pkg({ id: "WP-2", title: "Wants a release" }),
+        pkg({ id: "WP-3", title: "Quiet two" }),
+        pkg({ id: "WP-4", title: "Wants another release" }),
+      ],
+      actions: { "WP-2": [release], "WP-4": [release] },
+    });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const two = await screen.findByRole("button", { name: "Wants a release" });
+    const four = await screen.findByRole("button", { name: "Wants another release" });
+    await waitFor(() => {
+      expect(two.closest("article")?.getAttribute("data-tone")).toBe("needs");
+      expect(four.closest("article")?.getAttribute("data-tone")).toBe("needs");
+    });
+
+    await user.keyboard("n");
+    expect(document.activeElement).toBe(two);
+    await user.keyboard("n");
+    expect(document.activeElement).toBe(four);
+    await user.keyboard("n");
+    expect(document.activeElement).toBe(two);
+  });
+
+  it("N continues from the card that holds focus, even when a button other than its title has it", async () => {
+    const release: ActionDescriptor = { command: "release", label: "Release", allowed: true, signature: "direct" };
+    api({
+      packages: [pkg({ id: "WP-2", title: "Wants a release" }), pkg({ id: "WP-4", title: "Wants another release" })],
+      actions: { "WP-2": [release], "WP-4": [release] },
+    });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const two = await screen.findByRole("button", { name: "Wants a release" });
+    const four = await screen.findByRole("button", { name: "Wants another release" });
+    await waitFor(() => {
+      expect(two.closest("article")?.getAttribute("data-tone")).toBe("needs");
+      expect(four.closest("article")?.getAttribute("data-tone")).toBe("needs");
+    });
+    const other = Array.from(two.closest("article")!.querySelectorAll("button")).find((b) => b !== two);
+    expect(other).toBeTruthy();
+    other!.focus();
+    await user.keyboard("n");
+    expect(document.activeElement).toBe(four);
+  });
+
+  it("N does not jump while the stream is down, since no tone on screen is current", async () => {
+    const release: ActionDescriptor = { command: "release", label: "Release", allowed: true, signature: "direct" };
+    api({ packages: [pkg({ id: "WP-2", title: "Wants a release" })], actions: { "WP-2": [release] } });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const two = await screen.findByRole("button", { name: "Wants a release" });
+    await waitFor(() => expect(two.closest("article")?.getAttribute("data-tone")).toBe("needs"));
+    act(() => FakeSource.last!.emit("error"));
+    await screen.findByText(/What you see may be out of date/);
+    await user.keyboard("n");
+    expect(document.activeElement).not.toBe(two);
+    expect(screen.getAllByRole("status").some((s) => s.textContent?.startsWith("N works while the board is live"))).toBe(true);
+  });
+
+  it("N says so when no card on the view is marked Needs you or Blocked", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "Quiet one" })] });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const quiet = await screen.findByRole("button", { name: "Quiet one" });
+    await waitFor(() => expect(quiet.closest("article")?.getAttribute("data-tone")).toBe("wait"));
+    await user.keyboard("n");
+    // Screen readers hear it from a status region; everyone else sees the same words under the header.
+    expect(screen.getAllByRole("status").some((s) => s.textContent === "No card on this view is currently marked Needs you or Blocked.")).toBe(true);
+    expect(document.activeElement).not.toBe(quiet);
+    await user.keyboard("j");
+    expect(screen.queryAllByText("No card on this view is currently marked Needs you or Blocked.")).toHaveLength(0);
   });
 
   it("stays loading while captures are pending even after packages arrive", async () => {

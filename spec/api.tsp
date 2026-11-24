@@ -268,6 +268,12 @@ model PackageView {
    */
   check_warning?: ControlRod.Records.CheckWarning;
 
+  /**
+   * Set when the author's latest rework round changed files outside the scope the previous
+   * check's findings named. A report, not a refusal.
+   */
+  scope_drift?: ControlRod.Records.ScopeDrift;
+
   decisions: Decision[];
 
   /** Digest a decision on this revision must be bound to. */
@@ -746,6 +752,12 @@ op runtimes(): {
 
   /** The active pins, per runtime and role. */
   pins: RuntimePin[];
+
+  /**
+   * Agent CLIs with a newer version, as the daemon found when it started. The app shows the npm
+   * command, built from fixed parts, for the person to run in a terminal; nothing installs from the browser.
+   */
+  agent_updates?: Runner.AgentUpdate[];
 };
 
 /**
@@ -1437,6 +1449,47 @@ namespace Runner {
     models?: RuntimeModel[];
   }
 
+  /** A built-in agent CLI the daemon can check for a newer version. */
+  union AgentId { "claude", "codex", "agy", "opencode", "grok" }
+
+  /**
+   * An agent CLI with a newer published version, as the daemon's startup check found it. The check
+   * runs when the daemon starts, never on a timer. The app shows the npm command for the person to run
+   * in a terminal (`controlrod agents update` runs the same one after asking); the daemon never runs it.
+   */
+  @extension("unevaluatedProperties", false)
+  model AgentUpdate {
+    agent: AgentId;
+    @maxLength(60) name: string;
+    /** The installed version: strict SemVer 2.0 without build metadata; `latest` is newer. */
+    @maxLength(64) @pattern("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$") installed: string;
+    /** The latest published version: strict SemVer 2.0 without build metadata. */
+    @maxLength(64) @pattern("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$") latest: string;
+
+    /**
+     * True when the installed executable is npm's global copy of the agent's package, so
+     * `npm install --global <package>@<latest>` updates it. The app builds that command itself from
+     * a fixed package per agent and `latest`; no command text is reported or shown from the daemon.
+     */
+    npm_global?: boolean;
+
+    /** Why no command is offered, in a sentence. */
+    @maxLength(300) note?: string;
+    ...Record<never>;
+  }
+
+  /**
+   * An agent found whose update check could not finish, with the installed version the daemon read
+   * (strict SemVer, left out when unknown). The control plane keeps its earlier row for the agent
+   * only while that row's installed version is this one, so a CLI updated since is never offered
+   * an older version.
+   */
+  model UncheckedAgent {
+    agent: AgentId;
+    @maxLength(64) @pattern("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})(-(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?$") installed?: string;
+
+    ...Record<never>;
+  }
   @minLength(1)
   @maxLength(100)
   @pattern("^[a-zA-Z0-9._:/@-]+$")
@@ -1472,6 +1525,16 @@ namespace Runner {
 
     /** The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations. */
     @minValue(1) run_ceiling_seconds?: int32;
+
+    /** Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
+    @maxItems(10) agent_updates?: AgentUpdate[];
+
+    /**
+     * Agents found whose check could not finish (the registry did not answer, or the CLI gave no
+     * strict version). Sent with `agent_updates`; the control plane keeps its earlier row for each
+     * only while the installed version is unchanged.
+     */
+    @maxItems(10) agent_updates_unchecked?: UncheckedAgent[];
   }): Job | {
     @statusCode _: 204;
   } | Refused;

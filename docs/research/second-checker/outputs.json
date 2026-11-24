@@ -1,0 +1,78 @@
+{
+  "inputs_sha256": "8bf1e19b3a9cd61da41ec7d3dd4f8177e6887118d8fb0e830a9e1e9295d330e2",
+  "svg": "docs/assets/readme/second-checker.svg",
+  "svg_sha256": "38f54b68b8697360a6fb1735cf7931183e63c9313064e541d757a4ad80cfefe4",
+  "chart_values": {
+    "Graph coloring": {
+      "Answers alone": 16,
+      "GPT-4 checks itself": 2,
+      "Outside checker": 38
+    },
+    "Game of 24": {
+      "Answers alone": 5,
+      "GPT-4 checks itself": 3,
+      "Outside checker": 36
+    }
+  },
+  "facts": {
+    "huang_gpt4_gsm8k": {
+      "source": "huang2024",
+      "standard": 95.5,
+      "self_correct_round_2": 89.0,
+      "unit": "% accuracy"
+    },
+    "huang_gpt35_csqa": {
+      "source": "huang2024",
+      "standard": 75.8,
+      "self_correct_round_1": 38.1,
+      "unit": "% accuracy"
+    },
+    "panickssery_gpt4_self_recognition": {
+      "source": "panickssery2024",
+      "value": 73.5,
+      "unit": "% accuracy"
+    },
+    "goel_judge_similarity_r": {
+      "source": "goel2025",
+      "value": 0.84,
+      "unit": "average Pearson r"
+    },
+    "metr_prs_reviewed": {
+      "source": "metr2026",
+      "value": 296,
+      "unit": "AI-generated pull requests"
+    },
+    "metr_not_merged": {
+      "source": "metr2026",
+      "value": "roughly half",
+      "unit": "share of test-passing PRs maintainers would not merge, golden-adjusted"
+    },
+    "laban_multi_turn_drop": {
+      "source": "laban2025",
+      "value": 39,
+      "unit": "% average performance drop, 15 LLMs, six tasks"
+    },
+    "cemri_role_spec_gain": {
+      "source": "cemri2025",
+      "value": 9.4,
+      "unit": "percentage points, ChatDev success rate on ProgramDev, GPT-4o"
+    },
+    "sharma_claude13_false_admit": {
+      "source": "sharma2023",
+      "value": 98,
+      "unit": "% of questions"
+    },
+    "sharma_llama2_accuracy_drop": {
+      "source": "sharma2023",
+      "value": 27,
+      "unit": "% maximum accuracy reduction"
+    },
+    "stechly_blocksworld": {
+      "source": "stechly2024",
+      "standard": 40,
+      "self_check": 55,
+      "outside_checker_binary": 60,
+      "unit": "% of 100 problems solved"
+    }
+  }
+}

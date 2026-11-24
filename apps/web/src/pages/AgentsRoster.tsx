@@ -1,4 +1,5 @@
-import { Link } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { AgentList } from "../components/AgentList.js";
 import { CHECK_IN_CHOICES, readBack } from "../lib/agents.js";
 import type { Passkeys } from "../lib/decide.js";
@@ -13,6 +14,17 @@ import { ProviderDetails } from "./Subscriptions.js";
  */
 export function AgentsRoster({ passkeys }: { passkeys?: Passkeys } = {}) {
   const agents = useAgents();
+  const hash = useRouterState({ select: (st) => st.location.hash });
+  const advancedRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const clean = hash.replace(/^#/, "");
+    if (clean === "advanced" || clean === "roster") {
+      if (advancedRef.current) {
+        advancedRef.current.open = true;
+        advancedRef.current.scrollIntoView?.({ block: "nearest" });
+      }
+    }
+  }, [hash]);
   const checkIn = CHECK_IN_CHOICES.find((c) => c.id === (agents.setup?.check_in ?? "start-and-merge"))!;
   return (
     <div className="place">
@@ -61,7 +73,7 @@ export function AgentsRoster({ passkeys }: { passkeys?: Passkeys } = {}) {
           </p>
         )}
       </section>
-      <details className="advanced">
+      <details ref={advancedRef} id="advanced" className="advanced">
         <summary>Advanced: versions, pins, sandbox and probe details</summary>
         <RosterDetails {...(passkeys ? { passkeys } : {})} />
         <ProviderDetails />

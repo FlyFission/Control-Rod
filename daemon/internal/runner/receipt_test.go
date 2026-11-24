@@ -470,7 +470,7 @@ func TestOneDaemonPerHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer unlock()
-	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "already running") {
+	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "may already be running") {
 		t.Fatalf("a second daemon on the same home must refuse: %v", err)
 	}
 }

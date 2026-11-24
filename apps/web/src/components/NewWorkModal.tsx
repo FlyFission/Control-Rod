@@ -100,6 +100,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const prepareSeqRef = useRef(0);
   const modalSessionRef = useRef(0);
   const prevModeRef = useRef(mode);
+  const prevOpenRef = useRef(false);
+  const appliedProjectIdRef = useRef<string | null>(null);
 
   function invalidatePrepared() {
     prepareSeqRef.current += 1;
@@ -143,17 +145,30 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   useEffect(() => {
     if (prevModeRef.current === mode) return;
     prevModeRef.current = mode;
+    appliedProjectIdRef.current = null;
     applyDefaults(loadWorkDefaults(mode));
     setSettingsOpen(false);
     setError(null);
     setDefaultsNotice(null);
   }, [mode]);
 
-  // Apply active project defaults (name, bound repo, outfall strategy, lane, author/checker) whenever opened inside a project.
+  // Apply active project defaults (name, bound repo, outfall strategy, lane, author/checker) on open or active project switch,
+  // and reset back to global defaults when leaving a project for "All Software".
   useEffect(() => {
-    if (!open || !activeProject || activeProject.mode !== mode) return;
-    applyProjectPreferences(activeProject, loadWorkDefaults(mode).workspaceRoot);
-    invalidatePrepared();
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (!open) return;
+    const activeProjectId = activeProject?.id ?? null;
+    if (wasOpen && activeProjectId === appliedProjectIdRef.current) return;
+    const defaults = loadWorkDefaults(mode);
+    if (activeProject && activeProject.mode === mode) {
+      applyProjectPreferences(activeProject, defaults.workspaceRoot);
+      invalidatePrepared();
+      appliedProjectIdRef.current = activeProject.id;
+    } else if (!activeProject && appliedProjectIdRef.current !== null) {
+      applyDefaults(defaults);
+      appliedProjectIdRef.current = null;
+    }
   }, [open, activeProject, mode]);
 
   const trimmedWorkspaceRoot = workspaceRoot.trim();
@@ -582,7 +597,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                 )}
                 {repo && (
                   <p className="small muted" style={{ margin: "8px 0 0" }}>
-                    Prepare a local checkout for manual use. Intake receives the checkout details.
+                    Prepare a local checkout for manual use; agent runs still use an isolated package workspace until Cycle 2 repo binding lands.
                   </p>
                 )}
               </fieldset>

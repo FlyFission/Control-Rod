@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "./api/client.js";
+import { api, setUnauthorizedHandler } from "./api/client.js";
 import { Shell } from "./components/Shell.js";
 import { useLiveEvents } from "./lib/live.js";
 import { sessionIdentity, watchSessionIdentity } from "./lib/session.js";
@@ -40,16 +40,25 @@ import { Setup } from "./pages/Setup.js";
 export function SessionGate({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   useEffect(() => watchSessionIdentity(qc), [qc]);
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      void qc.invalidateQueries({ queryKey: ["session"] });
+    });
+    return () => setUnauthorizedHandler(undefined);
+  }, [qc]);
   const session = useQuery({ queryKey: ["session"], queryFn: api.session });
   const signedIn = session.data?.signed_in === true;
   useLiveEvents(signedIn);
-  if (session.isLoading) return <p className="muted center">Loading</p>;
-  if (session.isError || session.data === undefined) {
+  if (session.isLoading && session.data === undefined) return <p className="muted center">Loading</p>;
+  if (session.data === undefined) {
     return (
       <main className="signin">
         <p role="alert" className="error">
           The control plane is not reachable. Start it with pnpm cr start, then reload.
         </p>
+        <button type="button" className="btn" onClick={() => void session.refetch()}>
+          Retry
+        </button>
       </main>
     );
   }
@@ -72,11 +81,13 @@ function Root() {
 
 const rootRoute = createRootRoute({ component: Root });
 
-/** The places (specification 12). "/" is the board; "/board" is its old address. The Inbox stays at /inbox. */
+/** The places (specification 12). "/" is the board; "/board" is its old address. The Inbox stays at /inbox. "/office" is the Plant's old address. */
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: Board }),
   createRoute({ getParentRoute: () => rootRoute, path: "/inbox", component: Inbox }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/office", component: () => <OfficePlace view="office" /> }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/plant", component: () => <OfficePlace view="office" /> }),
+  // The office became the Plant; its old address (the shell's SCRAM banner and the floor link to it) still arrives.
+  createRoute({ getParentRoute: () => rootRoute, path: "/office", beforeLoad: () => { throw redirect({ to: "/plant" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/floor", component: () => <OfficePlace view="floor" /> }),
   createRoute({ getParentRoute: () => rootRoute, path: "/board", beforeLoad: () => { throw redirect({ to: "/" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/packages", component: Packages }),
@@ -130,7 +141,20 @@ export function PlaceError({ error, reset }: { error: unknown; reset: () => void
   );
 }
 
-export const router = createRouter({ routeTree, defaultErrorComponent: PlaceError });
+function PlaceNotFound() {
+  return (
+    <div className="place">
+      <h1>Page not found</h1>
+      <p className="muted">That route does not exist in Control Rod.</p>
+    </div>
+  );
+}
+
+export const router = createRouter({
+  routeTree,
+  defaultErrorComponent: PlaceError,
+  defaultNotFoundComponent: PlaceNotFound,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

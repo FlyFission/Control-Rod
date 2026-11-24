@@ -146,15 +146,28 @@ echo '{"type":"result","subtype":"success"}'
 }
 
 func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
-	t.Run("disabled when env unset", func(t *testing.T) {
+	t.Run("enabled by default for real runtime when env unset", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "")
+		cmd := exec.Command("true")
+		ef, err := wireAuthorEgressFilter(RuntimeClaude, cmd, &Workspace{}, testPolicy())
+		if err != nil || ef == nil {
+			t.Fatalf("expected active filter by default, got ef=%v err=%v", ef, err)
+		}
+		defer ef.Close()
+		if v := envValue(cmd.Env, "HTTP_PROXY"); v != "http://"+ef.Addr() {
+			t.Fatalf("HTTP_PROXY=%q want %q", v, "http://"+ef.Addr())
+		}
+	})
+
+	t.Run("disabled when CONTROLROD_EGRESS_FILTER=0", func(t *testing.T) {
+		t.Setenv("CONTROLROD_EGRESS_FILTER", "0")
 		cmd := exec.Command("true")
 		ef, err := wireAuthorEgressFilter(RuntimeClaude, cmd, &Workspace{}, testPolicy())
 		if err != nil || ef != nil {
 			t.Fatalf("expected nil filter, got ef=%v err=%v", ef, err)
 		}
 		if v := envValue(cmd.Env, "HTTP_PROXY"); v != "" {
-			t.Fatalf("HTTP_PROXY injected when CONTROLROD_EGRESS_FILTER is unset: %q", v)
+			t.Fatalf("HTTP_PROXY injected when CONTROLROD_EGRESS_FILTER=0: %q", v)
 		}
 	})
 
@@ -186,7 +199,7 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 	t.Run("sandbox empty AllowedHosts with no provider hosts denies all outbound CONNECT", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "1")
 		cmd := exec.Command("true")
-		cmd.Env = []string{"http_proxy=http://old:1", "NO_PROXY=*", "no_proxy=localhost", "KEEP=1"}
+		cmd.Env = []string{"http_proxy=http://old:1", "ALL_PROXY=socks5://old:1", "all_proxy=socks5://old:1", "NO_PROXY=*", "no_proxy=localhost", "KEEP=1"}
 		p := testPolicy()
 		p.AllowedHosts = []string{}
 		ef, err := wireAuthorEgressFilter("", cmd, &Workspace{}, p)
@@ -201,7 +214,7 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 				t.Fatalf("%s=%q want %q", k, got, want)
 			}
 		}
-		for _, k := range []string{"NO_PROXY", "no_proxy"} {
+		for _, k := range []string{"ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy"} {
 			if got := envValue(cmd.Env, k); got != "" {
 				t.Fatalf("%s=%q was not stripped", k, got)
 			}
@@ -222,11 +235,12 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 	t.Run("sandbox empty AllowedHosts still includes runtime provider host without mutating policy", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "1")
 		for _, tc := range []struct {
-			runtime  string
-			wantHost string
+			runtime   string
+			wantHosts []string
 		}{
-			{runtime: RuntimeClaude, wantHost: "api.anthropic.com:443"},
-			{runtime: RuntimeCodex, wantHost: "api.openai.com:443"},
+			{runtime: RuntimeClaude, wantHosts: []string{"api.anthropic.com:443"}},
+			// Codex also carries its ChatGPT sign-in hosts (harnessSignInHosts).
+			{runtime: RuntimeCodex, wantHosts: []string{"api.openai.com:443", "chatgpt.com:443", "auth.openai.com:443"}},
 		} {
 			t.Run(tc.runtime, func(t *testing.T) {
 				var gotHosts []string
@@ -246,8 +260,8 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 				}
 				defer ef.Close()
 
-				if !slices.Equal(gotHosts, []string{tc.wantHost}) {
-					t.Fatalf("hosts=%v want [%s]", gotHosts, tc.wantHost)
+				if !slices.Equal(gotHosts, tc.wantHosts) {
+					t.Fatalf("hosts=%v want %v", gotHosts, tc.wantHosts)
 				}
 				if len(p.AllowedHosts) != 0 {
 					t.Fatalf("sandbox.AllowedHosts was mutated: %v", p.AllowedHosts)
@@ -365,5 +379,31 @@ func TestCheckerExecuteNeverStartsAuthorEgressProxy(t *testing.T) {
 		strings.Contains(comp.Error, "not available") ||
 		strings.Contains(comp.Error, "sandbox policy") {
 		t.Fatalf("checker run aborted before reaching egress wiring point: %+v", comp)
+	}
+}
+
+// A ChatGPT-signed-in Codex talks to chatgpt.com and refreshes at auth.openai.com. The
+// default-on author egress filter must let both through, or Codex fails on its first run.
+func TestAuthorEgressHostsAllowCodexChatGPTSignIn(t *testing.T) {
+	for _, sandbox := range []*SandboxPolicy{nil, {AllowedHosts: []string{"github.com"}}} {
+		hosts := authorEgressHosts("codex", sandbox)
+		ef, err := StartEgressFilter(hosts)
+		if err != nil {
+			t.Fatalf("start egress filter: %v", err)
+		}
+		for _, h := range []string{"api.openai.com:443", "chatgpt.com:443", "auth.openai.com:443"} {
+			if !ef.isAllowed(h) {
+				t.Errorf("sandbox=%v: %s blocked; allowlist %v", sandbox != nil, h, hosts)
+			}
+		}
+		if ef.isAllowed("example.com:443") {
+			t.Errorf("sandbox=%v: example.com allowed; allowlist %v", sandbox != nil, hosts)
+		}
+		_ = ef.Close()
+	}
+	for _, h := range authorEgressHosts("claude", nil) {
+		if strings.HasPrefix(h, "chatgpt.com") || strings.HasPrefix(h, "auth.openai.com") {
+			t.Errorf("claude allowlist carries Codex sign-in host %s", h)
+		}
 	}
 }

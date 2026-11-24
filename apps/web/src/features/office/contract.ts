@@ -1,4 +1,5 @@
-import { REGION, REGION_IDS, type RegionId } from "./layout.js";
+import { OFFICE_LAYOUT, REGION_IDS, type RegionId, type StageLayout } from "./layout.js";
+import { PLANT_LAYOUT } from "./plant-layout.js";
 
 /**
  * The office theme contract (specification 18; plan task 4.2). A theme is inert scene data: a few
@@ -35,6 +36,13 @@ export interface OfficeThemeV1 {
   /** Figure body styles, drawn inside the silhouette the semantic layer outlines. */
   bodies: readonly ThemeAsset[];
   motionProfile: "shared-v1";
+  /**
+   * The layout the theme is drawn for. Absent means the office; "plant" means the plant view
+   * (plant-layout.ts), whose region art is sized from that layout instead.
+   */
+  layout?: "plant";
+  /** One inert SVG exactly the layout's canvas size, drawn behind the region art. */
+  site?: ThemeAsset;
   /** What the theme's own accessibility review found; the harness evidence is recorded separately. */
   accessibility: { notes: string };
   credits: readonly string[];
@@ -145,6 +153,9 @@ export function validateSvg(text: string, size: { width: number; height: number 
   return problems;
 }
 
+/** The layout a theme is drawn on. */
+export const layoutOf = (theme: Pick<OfficeThemeV1, "layout">): StageLayout => (theme.layout === "plant" ? PLANT_LAYOUT : OFFICE_LAYOUT);
+
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isString = (v: unknown): v is string => typeof v === "string";
 const isText = (v: unknown, max: number): v is string => isString(v) && v.trim().length > 0 && v.length <= max;
@@ -160,7 +171,9 @@ export async function validateTheme(theme: OfficeThemeV1, read?: (path: string) 
   const problems: string[] = [];
   if (!isRecord(theme)) return ["the theme is not an object"];
   const t = theme as unknown as Record<string, unknown>;
-  const allowedKeys = new Set(["schemaVersion", "id", "version", "title", "description", "availability", "tokens", "regions", "bodies", "motionProfile", "accessibility", "credits"]);
+  const allowedKeys = new Set(["schemaVersion", "id", "version", "title", "description", "availability", "tokens", "regions", "bodies", "motionProfile", "accessibility", "credits", "layout", "site"]);
+  if (t.layout !== undefined && t.layout !== "plant") problems.push("the theme layout must be plant or absent");
+  const layout = t.layout === "plant" ? PLANT_LAYOUT : OFFICE_LAYOUT;
   for (const k of Object.keys(t)) if (!allowedKeys.has(k)) problems.push(`the theme has an unknown field ${k}`);
   if (t.schemaVersion !== 1) problems.push("the theme is not schema version 1");
   if (!isString(t.id) || !/^[a-z][a-z0-9-]{1,40}$/.test(t.id)) problems.push("the theme id is not a short lowercase name");
@@ -190,13 +203,22 @@ export async function validateTheme(theme: OfficeThemeV1, read?: (path: string) 
     if (keys.length) problems.push(`${id} carries ${keys.join(", ")}; a region holds only a label and art`);
     if (!isText(r.label, 32)) problems.push(`${id} needs a themed label of at most 32 characters`);
     if (r.art !== null) {
-      const region = REGION[id];
+      const region = layout.region[id];
       if (!isRecord(r.art)) problems.push(`${id} art must be an asset or null`);
       else {
         const art = r.art as unknown as ThemeAsset;
         if (art.width !== region.w || art.height !== region.h) problems.push(`${id} art is ${art.width} by ${art.height}, not the region's ${region.w} by ${region.h}`);
         assets.push({ asset: art, size: { width: region.w, height: region.h }, where: `${id} art` });
       }
+    }
+  }
+  if (t.site !== undefined) {
+    if (!isRecord(t.site)) problems.push("the site art must be an asset");
+    else {
+      const art = t.site as unknown as ThemeAsset;
+      const { width, height } = layout.canvas;
+      if (art.width !== width || art.height !== height) problems.push(`the site art is ${art.width} by ${art.height}, not the canvas's ${width} by ${height}`);
+      assets.push({ asset: art, size: { width, height }, where: "site art" });
     }
   }
   const bodies = Array.isArray(t.bodies) ? t.bodies : [];

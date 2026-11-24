@@ -410,6 +410,81 @@ async function latestVerification(q: Db | Tx, id: string, rev: number, round?: n
   return r.rows[0] ?? null;
 }
 
+/** A finding path a fix may name: relative, no `..` segment, no backslash or control character. */
+function findingPath(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const p = v.trim();
+  if (!p || p.length > 512 || p.startsWith("/") || /[\\\u0000-\u001f]/.test(p)) return undefined;
+  if (p.split("/").some((seg) => seg === "..")) return undefined;
+  return p;
+}
+
+/** The optional evidence, location and scope a checker may add to a finding. Bad values are dropped. */
+function findingDetail(f: Json): Json {
+  const out: Json = {};
+  if (typeof f.evidence === "string" && f.evidence.trim()) out.evidence = f.evidence.slice(0, 4000);
+  const loc = f.location && typeof f.location === "object" ? f.location : undefined;
+  const locPath = findingPath(loc?.path);
+  if (locPath) {
+    out.location = { path: locPath };
+    if (Number.isInteger(loc.line) && loc.line >= 1) out.location.line = loc.line;
+  }
+  if (Array.isArray(f.scope_paths)) {
+    const scope = [...new Set(f.scope_paths.map(findingPath).filter((x: string | undefined): x is string => x !== undefined))].slice(0, 50);
+    if (scope.length) out.scope_paths = scope;
+  }
+  return out;
+}
+
+/** The union of the files a fix may change, from the findings that name any. Sorted. */
+export function fixScope(findings: Json[] | undefined): string[] {
+  const all = new Set<string>();
+  for (const f of findings ?? []) for (const p of Array.isArray(f.scope_paths) ? f.scope_paths : []) all.add(String(p));
+  return [...all].sort();
+}
+
+/** True when a changed path is one of the scope paths or sits under one as a folder. */
+function inScope(path: string, scope: string[]): boolean {
+  return scope.some((s) => path === s || path.startsWith(s.endsWith("/") ? s : `${s}/`));
+}
+
+/** Paths whose bytes differ between two output sets, including ones added or removed. Sorted. */
+export function changedPaths(before: { name: string; sha256: string }[], after: { name: string; sha256: string }[]): string[] {
+  const a = new Map(before.map((o) => [o.name, o.sha256]));
+  const b = new Map(after.map((o) => [o.name, o.sha256]));
+  const names = new Set([...a.keys(), ...b.keys()]);
+  return [...names].filter((n) => a.get(n) !== b.get(n)).sort();
+}
+
+/** Changed paths that fall outside the scope. An empty scope reports nothing: no scope was set. */
+export function outsideScope(changed: string[], scope: string[]): string[] {
+  return scope.length ? changed.filter((p) => !inScope(p, scope)) : [];
+}
+
+async function succeededAuthorRun(q: Db | Tx, id: string, rev: number, round: number) {
+  const r = await q.query<{ id: string }>(
+    "select id from runs where package_id = $1 and package_revision = $2 and role = 'author' and round = $3 and status = 'succeeded' order by created_at desc, id desc limit 1",
+    [id, rev, round],
+  );
+  return r.rows[0] ?? null;
+}
+
+/**
+ * Scope drift for an author round: files it changed, against the round before, that the previous
+ * check's findings did not name. Null for a first round, or when no finding named a scope.
+ */
+async function scopeDrift(q: Db | Tx, id: string, rev: number, round: number, authorRunId?: string) {
+  if (round < 2) return null;
+  const prevVer = await latestVerification(q, id, rev, round - 1);
+  const scope = fixScope(prevVer?.body.findings);
+  if (!scope.length) return null;
+  const prev = await succeededAuthorRun(q, id, rev, round - 1);
+  const cur = authorRunId ? { id: authorRunId } : await succeededAuthorRun(q, id, rev, round);
+  if (!prev || !cur) return null;
+  const outside = outsideScope(changedPaths(await outputDigestsOf(q, prev.id), await outputDigestsOf(q, cur.id)), scope);
+  return { round, scope_paths: scope, outside };
+}
+
 /** What a person reviews before deciding: the revision, its current output and its pre-check. */
 export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
   const author = await latestAuthorRun(q, pkg.id, pkg.revision);
@@ -467,6 +542,8 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
   const current = await currentDeliverable(db, id, pkg.revision);
   const warning = current ? await checkWarning(db, id, current.digest) : null;
   const lane = await liveLane(db, id, pkg.body.data_lane, cfg);
+  const drift =
+    s.author && s.author.status === "succeeded" ? await scopeDrift(db, id, pkg.revision, Number(s.author.round), s.author.id) : null;
   return {
     ...(pkg.status === "draft" ? { draft_etag: draftEtag(pkg.body) } : {}),
     ...(lane ? { effective_lane: lane } : {}),
@@ -478,6 +555,7 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     recheck_overrides: await listRecheckOverrides(db, id),
     ...(blocked ? { check_blocked: blocked } : {}),
     ...(warning ? { check_warning: warning } : {}),
+    ...(drift?.outside.length ? { scope_drift: drift } : {}),
     decisions: decisions.rows.map((d) => d.body),
     subject_digest: { algorithm: "sha256", value: s.digest },
     // What a signature on this revision binds, in words; for statuses with a gate decision.
@@ -1236,11 +1314,23 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   if (run.role === "pre-check") {
     const author = await latestAuthorRun(c, pkg.id, pkg.revision);
     for (const o of author ? await outputsOf(c, author.id) : []) inputs.push(file(`deliverables/${o.name}`, o.bytes));
+    const drift = author && author.status === "succeeded" ? await scopeDrift(c, pkg.id, pkg.revision, Number(author.round), author.id) : null;
+    if (drift?.outside.length) {
+      inputs.push(file("scope-drift.json", Buffer.from(JSON.stringify(drift, null, 2))));
+      extra.push(
+        `## Changes outside the fix scope\n\nThe previous check limited this fix to ${drift.scope_paths.map((p) => `\`${p}\``).join(", ")}. This round also changed ${drift.outside.map((p) => `\`${p}\``).join(", ")} (inputs/scope-drift.json). Check that each of those changes was needed, and say so in a finding if not.\n`,
+      );
+    }
   } else {
     if (run.round > 1) {
       const prevVer = await latestVerification(c, pkg.id, pkg.revision, run.round - 1);
       findings = prevVer?.body.findings ?? [];
       extra.push(`## Findings to fix from the pre-check\n\n${JSON.stringify(findings, null, 2)}\n`);
+      const scope = fixScope(findings);
+      if (scope.length)
+        extra.push(
+          `## Scope of this fix\n\nChange only these files:\n\n${scope.map((p) => `- \`${p}\``).join("\n")}\n\nKeep every other file as it is in previous/. If the fix truly needs another file, change it and say why. Control Rod reports any file changed outside this list to the checker and on the card.\n`,
+        );
       const prev = await c.query<{ id: string }>(
         "select id from runs where package_id = $1 and package_revision = $2 and role = 'author' and round = $3 and status = 'succeeded' order by created_at desc, id desc limit 1",
         [pkg.id, pkg.revision, run.round - 1],
@@ -2840,6 +2930,8 @@ async function finishAuthor(c: Tx, cfg: WorkConfig, row: Json, agent: Actor) {
   const next = kernel(decide({ status: pkg.status, action: "submit-output", actor_kind: "agent", actor_id: agent.id, ...(preparation?{preparation}:{}) }), "submit output");
   await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
   await appendEvent(c, "package.output", pkg.id, agent, { revision: pkg.revision, round: row.round, status: next });
+  const drift = await scopeDrift(c, pkg.id, pkg.revision, Number(row.round), row.id);
+  if (drift?.outside.length) await appendEvent(c, "package.scope-drift", pkg.id, agent, { revision: pkg.revision, ...drift });
   await queueRun(c, cfg, pkg.id, pkg.revision, "pre-check", row.round);
 }
 
@@ -2911,6 +3003,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       id: String(f.id ?? `F-${String(i + 1).padStart(3, "0")}`).slice(0, 20),
       severity: ["info", "minor", "major", "critical"].includes(f.severity) ? f.severity : "major",
       text: String(f.text ?? "").slice(0, 4000) || "(no text)",
+      ...(f && typeof f === "object" ? findingDetail(f) : {}),
     })),
     outcome: raw.outcome,
     independence: {
@@ -3210,7 +3303,7 @@ export async function office(db: Db, orgId: string) {
           package_id: p.id,
           package_revision: p.revision,
           title,
-          detail: `Pre-check ${ver.body.outcome} after ${author.round} rounds with ${ver.body.findings.length} findings`,
+          detail: `Pre-check ${ver.body.outcome} after ${author.round} rounds with ${ver.body.findings.length} findings. Three failed rounds usually mean the plan needs another look: Return sends it back to planning.`,
           since: ver.created_at.toISOString(),
         });
       }

@@ -1,0 +1,14 @@
+
+ RUN  v5.1.0 /home/claude/Control-Rod/services/api
+
+ ✓ test/scoped-send-back.test.ts > fix scope helpers > unions and sorts the scope paths of the findings that name any 2ms
+ ✓ test/scoped-send-back.test.ts > fix scope helpers > lists added, removed and changed paths 0ms
+ ✓ test/scoped-send-back.test.ts > fix scope helpers > treats a scope path as a file or a folder, and reports nothing without a scope 0ms
+ ✓ test/scoped-send-back.test.ts > a failed check sends back a scoped fix > keeps a finding's evidence, location and scope, and drops unsafe paths 311ms
+ ✓ test/scoped-send-back.test.ts > a failed check sends back a scoped fix > tells the author the scope, then reports a change outside it to the checker and the card 79ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  02:39:24
+   Duration  1.50s (tests 66%, import 24%, transform 10%)
+

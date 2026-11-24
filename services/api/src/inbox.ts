@@ -247,6 +247,7 @@ const CHANGE_TYPES: Record<string, string> = {
   "package.revising": "sent back for revision",
   "package.output": "with new output",
   "package.pre-checked": "pre-checked",
+  "package.scope-drift": "with files changed outside the fix scope",
   "preparation.edited": "with requirements edited",
 };
 /** Signed acts by people, in words: one, and many. */

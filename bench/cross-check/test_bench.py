@@ -642,7 +642,10 @@ class Preflight(Tmp):
                 self.assertNotIn("/h/.ssh", script)
                 self.assertEqual(script.count("cat "), 1)  # only its own PROBE_OK.txt
                 self.assertEqual("PRIVATE=" in script, own)
-                self.assertNotIn(done, script)
+                for line in (done, "SOURCE=denied", "SOURCE=written", "SCRATCH=ok", "PRIVATE=denied",
+                             "PRIVATE=readable", "COUNT=1", "TOKEN=absent"):
+                    self.assertNotIn(line, script)  # a model that reads the script first cannot quote a result
+                self.assertNotRegex(script, r"\b[A-Z_]+=(present|absent)\b")
 
     def test_probes_need_a_matching_preflight(self):
         s = self.study()

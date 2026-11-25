@@ -462,6 +462,15 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	if got.Root != "" {
 		exeSum = got.exeSum
 	}
+	if pin == nil {
+		// Unpinned, the probe that qualified this exact file is its registration: a check by it
+		// counts, as it would with a pin naming the same digest.
+		if a, ok := AdapterFor(runtimeName); ok && a.SandboxRequired() {
+			harnessMu.Lock()
+			harnessByDigest[digest.Value] = a.ID()
+			harnessMu.Unlock()
+		}
+	}
 	return &VerifiedLaunch{File: f, Path: got.Path, Digest: digest, Env: got.Env, exeSum: exeSum, leased: leased, guardedAt: guardedAt}, nil
 }
 

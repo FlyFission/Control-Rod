@@ -7,7 +7,7 @@
 | AG-03 File tools stay inside the workspace. | `AgySettings`, `agyOutsideDenies`, run root outside home | unit fence tests; qualification `view-home`, `view-peer`, `write-outside` | implemented, live check |
 | AG-04 User configuration and hook files never reach a run. | per-run home (`PrepareRunHome`); refusal near `.agents`, `GEMINI.md`, `AGENTS.md` | `TestAgyRefusesWorkspaceConfigurationItWouldLoad`; run-home tests | implemented and tested |
 | AG-05 Tools that act outside the sandbox are refused. | global PreToolUse gate in the run home | gate tests; qualification `web-search`, `subagent` | implemented, live check |
-| AG-06 A checker cannot change what it checks. | plan mode, scratch-only writes, write commands denied, tree hash | checker settings tests; qualification `checker` | implemented, live check |
+| AG-06 A checker cannot change what it checks. | default mode, scratch-only writes, immutable inputs, write commands denied, tree hash | checker settings tests; qualification `checker` | implemented, live check |
 | AG-07 Only Gemini models count. | `models.json` agy entries | API `wave2-assurance.test.ts` | implemented and tested |
 | AG-08 Refused and failed runs read as failures. | `parseAgy`, `agyResult.failed`, `turnFailure` after a clean exit | `TestAgyCapturedStream`, `TestTurnFailureOverridesACleanExit` | implemented and tested |
 | AG-10 Antigravity runs on one machine never overlap. | `SerializeRuns`, `lockFileWait`; pre-checks in their own run folder | `TestAgyRunsAreSerialized`, `TestAgyPreCheckGetsItsOwnRunFolder` | implemented and tested |

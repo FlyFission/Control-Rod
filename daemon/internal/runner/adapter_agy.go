@@ -94,8 +94,8 @@ func (a agyAdapter) Probe(ctx context.Context, _ string, run CommandRunner) Runt
 }
 
 // agyQualifiedVersions are the Antigravity builds whose confinement was qualified live (change
-// record agy-seat): the tool names the seat gate refuses, the field a sandbox-bypass request
-// carries and plan mode were measured on these exact builds. Any other build, a patch or
+// record agy-seat): the tool names the seat gate refuses and the field a sandbox-bypass request
+// carries were measured on these exact builds. Any other build, a patch or
 // prerelease of the same series too, is listed but not seated until it is qualified.
 var agyQualifiedVersions = []string{"1.5.16"}
 
@@ -259,7 +259,7 @@ var agyCommandDenies = []string{
 
 // agyCheckerCommands are the commands a checker runs without asking. Antigravity's allow list is
 // not closed (it keeps a built-in list of commands it treats as safe, and sends others to its own
-// reviewers), so the checker also denies the common writing commands by name, runs in plan mode,
+// reviewers), so the checker also denies the common writing commands by name, has immutable inputs,
 // and is voided by any change outside scratch/.
 var agyCheckerCommands = []string{
 	"ls", "cat", "head", "tail", "grep", "wc", "diff", "stat", "file", "test",
@@ -340,18 +340,12 @@ func AgyArgs(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]strin
 	if ws.Checker {
 		prompt = CheckerPrompt
 	}
-	args := []string{"-p", prompt + agyToolNote, "--output-format", "stream-json", "--sandbox", "--settings", settings}
-	if ws.Checker {
-		// Plan mode: a write or command that would need approval ends the run instead of being
-		// cleared by Antigravity's own model reviewers (measured: in default mode an unlisted
-		// command is reviewed and may run). Plan mode has no effect while slash commands are
-		// disabled (measured with agy 1.5.16: it warns and runs in default mode), so a checker
-		// keeps slash commands: the run home has no user commands and a workspace that could
-		// hold some is refused (upwardInstructionHits).
-		args = append(args, "--mode", "plan")
-	} else {
-		args = append(args, "--disable-slash-commands")
-	}
+	// A checker runs in Antigravity's default mode. Plan mode in print mode only plans: the run
+	// ends after the plan, asking for approval, so the verdict is never written (measured with agy
+	// 1.5.16, also with artifactReviewPolicy always-proceed). A checker is held instead by the deny
+	// rules, the scratch-only file writes, immutable inputs and the before-and-after tree hash.
+	args := []string{"-p", prompt + agyToolNote, "--output-format", "stream-json", "--sandbox",
+		"--settings", settings, "--disable-slash-commands"}
 	if m := RequestedModel(run); m != "" {
 		args = append(args, "--model", m)
 	}
@@ -373,26 +367,6 @@ func AgySettings(ws *Workspace, p *SandboxPolicy, at SandboxPaths) (string, erro
 	outside, err := agyOutsideDenies(dir)
 	if err != nil {
 		return "", err
-	}
-	// A checker's plan mode writes its plan into the run home (.gemini/antigravity-cli/brain), and a
-	// run whose first write is refused stops without checking (measured with agy 1.5.16). So for a
-	// checker the run home is not denied whole: only the seat gate, its configuration and the
-	// Keychain link are. The run home is this run's own and is removed with it; what loads from it
-	// is read when Antigravity starts, before the agent can write anything.
-	var runHomeAllow []string
-	if ws.Checker && ws.RunHome != "" {
-		home, err := canonicalPath(ws.RunHome)
-		if err != nil {
-			return "", err
-		}
-		kept := outside[:0]
-		for _, d := range outside {
-			if d != home {
-				kept = append(kept, d)
-			}
-		}
-		outside = append(kept, agyRunHomeDenies(home)...)
-		runHomeAllow = []string{"write_file(" + filepath.Join(home, ".gemini", "antigravity-cli") + ")"}
 	}
 	var reads []string
 	for _, d := range append(denied, outside...) {
@@ -421,7 +395,6 @@ func AgySettings(ws *Workspace, p *SandboxPolicy, at SandboxPaths) (string, erro
 			deny = append(deny, "command("+c+")")
 		}
 		allow = append(allow, "write_file("+filepath.Join(dir, "scratch")+")")
-		allow = append(allow, runHomeAllow...)
 		deny = append(deny, "write_file("+filepath.Join(dir, "out")+")")
 		for _, c := range agyCheckerCommands {
 			allow = append(allow, "command("+c+")")
@@ -452,15 +425,6 @@ const agyAnyCommand = "command(*)"
 var agySystemPaths = []string{
 	"/Applications", "/Library", "/System", "/bin", "/dev", "/etc", "/opt", "/sbin", "/tmp", "/usr", "/var",
 	"/private/etc", "/private/tmp", "/private/var/db", "/private/var/run", "/private/var/select",
-}
-
-// agyRunHomeDenies are the parts of a run home no agent may read or write: the seat gate's
-// scripts, its configuration (hooks.json) and the link to the Keychain folder.
-func agyRunHomeDenies(home string) []string {
-	return []string{
-		filepath.Join(home, ".controlrod-gate.sh"), filepath.Join(home, ".controlrod-nobypass.sh"),
-		filepath.Join(home, ".gemini", "config"), filepath.Join(home, "Library"),
-	}
 }
 
 func agyOutsideDenies(dir string) ([]string, error) {

@@ -32,8 +32,16 @@ export async function quickCapture(text: string, title: string, project: Workspa
       ...(root ? { workspace_root: root } : {}),
     });
     checkout = { repo: project.repo, local_path: made.local_path, branch: made.branch, ...(root ? { workspace_root: root } : {}) };
+    try {
+      await api.capture({ text, source: "web", lane: project.lane, checkout });
+    } catch (e) {
+      // The capture was refused, so nothing owns the worktree just made for it: take it away again.
+      if (made.repo_path) await api.removeRepo({ worktree_path: made.local_path, repo_path: made.repo_path, ...(root ? { workspace_root: root } : {}) }).catch(() => undefined);
+      throw e;
+    }
+    return;
   }
-  await api.capture({ text, source: "web", lane: project.lane, ...(checkout ? { checkout } : {}) });
+  await api.capture({ text, source: "web", lane: project.lane });
 }
 
 /** The lines of a paste, one card each: trimmed, empty lines dropped. */

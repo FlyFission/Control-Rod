@@ -156,6 +156,40 @@ describe("QuickAdd on the board", () => {
     }
   });
 
+  it("takes the worktree away again when the card itself is refused", async () => {
+    api();
+    const removed: unknown[] = [];
+    server.use(
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/u/Code", local: [], github: [] })),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ ok: true, strategy: "worktree", repo: body.repo, branch: body.branch, local_path: "/home/u/Code/.worktrees/app/x", repo_path: "/home/u/Code/app" });
+      }),
+      http.post("*/captures", () => HttpResponse.json({ code: "invalid", message: "No" }, { status: 400 })),
+      http.post("*/repos/remove", async ({ request }) => {
+        removed.push(await request.json());
+        return HttpResponse.json({ ok: true, removed: "/home/u/Code/.worktrees/app/x" });
+      }),
+    );
+    const principal = "repo-refused";
+    hydrateServerProjects(principal, [{
+      id: "prj_repo2", name: "App", mode: "capital-projects", status: "active", repo: "acme/app", repoStrategy: "worktree",
+      workspaceRoot: "", lane: "public", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    }]);
+    selectProject(principal, "prj_repo2");
+    try {
+      await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
+      await user.type(screen.getByLabelText("Card title"), "Fix it{Enter}");
+      await waitFor(() => expect(removed).toEqual([{ worktree_path: "/home/u/Code/.worktrees/app/x", repo_path: "/home/u/Code/app", workspace_root: "/home/u/Code" }]));
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
+  });
+
   it("gives a card in a repository project its own worktree and branch, so it can finish as a pull request", async () => {
     const { posted } = api();
     const made: Record<string, unknown>[] = [];

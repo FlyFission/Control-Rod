@@ -40,7 +40,7 @@ beforeEach(() => {
   const bin = join(tmp, "bin");
   mkdirSync(bin);
   ghLog = join(tmp, "gh.log");
-  writeFileSync(join(bin, "gh"), `#!/bin/sh\necho "GH_HOST=$GH_HOST" >> "${ghLog}"\nprintf '%s\\n' "$@" >> "${ghLog}"\nif [ "$2" = "list" ]; then cat "${ghLog}.existing" 2>/dev/null; exit 0; fi\necho https://github.com/acme/app/pull/7\n`);
+  writeFileSync(join(bin, "gh"), `#!/bin/sh\necho "GH_HOST=$GH_HOST" >> "${ghLog}"\nprintf '%s\\n' "$@" >> "${ghLog}"\nif [ "$2" = "list" ]; then cat "${ghLog}.existing" 2>/dev/null || echo "[]"; exit 0; fi\necho https://github.com/acme/app/pull/7\n`);
   chmodSync(join(bin, "gh"), 0o755);
   process.env.PATH = `${bin}:${saved.PATH ?? ""}`;
 });
@@ -51,67 +51,95 @@ afterEach(() => {
 /** The worktree's changes as the author's patch output, and the inputs the publisher takes. */
 function accepted(extra: Partial<Parameters<typeof publishCheckout>[0]> = {}) {
   const patch = Buffer.from(execFileSync("git", ["diff", "--binary", "HEAD"], { cwd: worktree }));
-  return { repo: "acme/app", root, path: worktree, boundHead: base, finalHead: g(worktree, "rev-parse", "HEAD"), patch, publishBranch: "controlrod/WP-1-r0", title: "Add x", body: "Because", acceptedAt: "2026-11-25T03:00:00Z", ...extra };
+  return {
+    repo: "acme/app", root, path: worktree, boundHead: base, finalHead: g(worktree, "rev-parse", "HEAD"), patch,
+    publishBranch: "controlrod/WP-1-r0", title: "Add x", body: "Because", acceptedAt: "2026-11-25T03:00:00Z", stillAllowed: async () => true, ...extra,
+  };
 }
+const onGitHub = { pushUrl: "", remoteHas: async () => true, defaultBranch: "main" };
+const t = () => ({ ...onGitHub, pushUrl: bare });
 const pushed = (ref = "controlrod/WP-1-r0") => execFileSync("git", ["--git-dir", bare, "ls-tree", "-r", "--name-only", ref], { encoding: "utf8" });
+const remoteBranches = () => execFileSync("git", ["--git-dir", bare, "branch", "--list"], { encoding: "utf8" });
 
 describe("publishCheckout", () => {
-  it("pushes exactly the accepted patch to a branch of its own and opens a draft, pinned to github.com", async () => {
+  it("pushes exactly the accepted patch to a branch of its own and opens a draft against the default branch", async () => {
     writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
     const input = accepted();
     // Edits made after the check never go out.
     writeFileSync(join(worktree, "late.ts"), "export const late = 1;\n");
-    const r = await publishCheckout(input, { pushUrl: bare });
+    const r = await publishCheckout(input, t());
     expect(r).toMatchObject({ opened: true, url: "https://github.com/acme/app/pull/7", branch: "controlrod/WP-1-r0", reused: false });
     expect(pushed()).not.toContain("late.ts");
     expect(execFileSync("git", ["--git-dir", bare, "show", "controlrod/WP-1-r0:README.md"], { encoding: "utf8" })).toContain("changed");
-    // The bound branch on the remote is untouched.
-    expect(execFileSync("git", ["--git-dir", bare, "branch", "--list"], { encoding: "utf8" })).not.toContain("cr/card");
+    expect(remoteBranches()).not.toContain("cr/card");
     const log = readFileSync(ghLog, "utf8");
     expect(log).toContain("GH_HOST=github.com");
-    expect(log.split("\n")).toEqual(expect.arrayContaining(["create", "--repo", "github.com/acme/app", "--head", "controlrod/WP-1-r0", "--draft"]));
+    expect(log.split("\n")).toEqual(expect.arrayContaining(["create", "--repo", "github.com/acme/app", "--head", "controlrod/WP-1-r0", "--base", "main", "--draft"]));
   });
 
-  it("finds the branch and pull request it already made on a retry", async () => {
+  it("rebuilds the same commit on a retry and finds the pull request it already opened", async () => {
     writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
     const input = accepted();
-    expect((await publishCheckout(input, { pushUrl: bare })).opened).toBe(true);
-    // A retry a moment later rebuilds the very same commit.
+    const first = await publishCheckout(input, t());
+    expect(first.opened).toBe(true);
     await new Promise((r) => setTimeout(r, 1100));
-    writeFileSync(`${ghLog}.existing`, "https://github.com/acme/app/pull/7\n");
-    expect(await publishCheckout(input, { pushUrl: bare })).toMatchObject({ opened: true, reused: true, url: "https://github.com/acme/app/pull/7" });
+    writeFileSync(`${ghLog}.existing`, JSON.stringify([{ url: "https://github.com/acme/app/pull/7", headRefOid: (first as { head: string }).head, isDraft: true }]));
+    expect(await publishCheckout(input, t())).toMatchObject({ opened: true, reused: true, url: "https://github.com/acme/app/pull/7" });
+    expect(readFileSync(ghLog, "utf8").split("\n").filter((l) => l === "create")).toHaveLength(1);
   });
 
   it("refuses a branch that already holds other work", async () => {
     writeFileSync(join(worktree, "README.md"), "# app\none\n");
-    expect((await publishCheckout(accepted(), { pushUrl: bare })).opened).toBe(true);
+    expect((await publishCheckout(accepted(), t())).opened).toBe(true);
     writeFileSync(join(worktree, "README.md"), "# app\ntwo\n");
-    expect(await publishCheckout(accepted(), { pushUrl: bare })).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/already exists on GitHub with other work/) });
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/already exists on GitHub with other work/) });
   });
 
-  it("never sends a run folder, from the patch or from a commit", async () => {
+  it("never sends anything under a run folder", async () => {
     mkdirSync(join(worktree, ".controlrod-run-1"));
     writeFileSync(join(worktree, ".controlrod-run-1", "log"), "private\n");
     g(worktree, "add", "-f", ".controlrod-run-1/log");
-    expect(await publishCheckout(accepted(), { pushUrl: bare })).toMatchObject({ opened: false, detail: expect.stringMatching(/controlrod-run/) });
-    g(worktree, "commit", "-q", "-m", "oops");
-    expect(await publishCheckout(accepted({ patch: null }), { pushUrl: bare })).toMatchObject({ opened: false, detail: expect.stringMatching(/controlrod-run/) });
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, detail: expect.stringMatching(/controlrod-run/) });
+    expect(remoteBranches()).toBe("");
+  });
+
+  it("refuses work the author committed past the bound commit, since the check reviewed the patch", async () => {
+    writeFileSync(join(worktree, "x.ts"), "1");
+    g(worktree, "add", "x.ts");
+    g(worktree, "commit", "-q", "-m", "direct");
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, detail: expect.stringMatching(/author committed/) });
+  });
+
+  it("refuses when the starting commit is not on GitHub, so no unreviewed commit rides along", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    expect(await publishCheckout(accepted(), { ...t(), remoteHas: async () => false })).toMatchObject({ opened: false, detail: expect.stringMatching(/not on GitHub yet/) });
+    expect(remoteBranches()).toBe("");
+  });
+
+  it("sends nothing once the lane is raised", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    expect(await publishCheckout(accepted({ stillAllowed: async () => false }), t())).toMatchObject({ opened: false, reason: "lane" });
+    expect(remoteBranches()).toBe("");
   });
 
   it("opens nothing when the accepted work changes nothing", async () => {
-    expect(await publishCheckout(accepted(), { pushUrl: bare })).toMatchObject({ opened: false, reason: "no-changes" });
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "no-changes" });
   });
 
   it("opens nothing for a repository that is not on GitHub", async () => {
-    expect(await publishCheckout(accepted({ repo: "app" }), { pushUrl: bare })).toMatchObject({ opened: false, reason: "not-github" });
+    expect(await publishCheckout(accepted({ repo: "app" }), t())).toMatchObject({ opened: false, reason: "not-github" });
   });
 
-  it("refuses to push when the repository's own config could redirect it", async () => {
+  it("refuses when the repository's own config could change what the push sends", async () => {
     writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    g(worktree, "config", "push.followTags", "true");
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/push\.followtags/i) });
+    g(worktree, "config", "--unset", "push.followTags");
     g(worktree, "config", "url.https://evil.example/.insteadOf", "https://github.com/");
-    expect(await publishCheckout(accepted(), { pushUrl: bare })).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/could redirect a push/) });
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/could change what a push sends/) });
   });
 });
+
 describe("the pull request's description", () => {
   it("names the card, its criteria and who checked it", () => {
     const text = prBody(

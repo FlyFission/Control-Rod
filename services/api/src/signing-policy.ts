@@ -99,8 +99,9 @@ export async function routinePackage(q: Db | Tx, pkg: { id: string; body: Record
   const origin = await captureOf(q, pkg.id);
   if ((captureTags(origin?.text) ?? []).some((t) => t.key === "mode" && t.value.toLowerCase() === "nuclear-grade")) return false;
   // ...and so can intake's own judgement, recorded on the package.drafted event.
-  const drafted = await q.query("select 1 from events where body->>'type' = 'package.drafted' and body->>'subject' = $1 and (body->'data'->>'nuclear')::boolean limit 1", [pkg.id]);
-  if (drafted.rowCount) return false;
+  // A draft from before intake recorded that judgement (no nuclear key at all) is never covered.
+  const drafted = (await q.query<{ nuclear: string | null }>("select body->'data'->>'nuclear' as nuclear from events where body->>'type' = 'package.drafted' and body->>'subject' = $1 order by seq limit 1", [pkg.id])).rows[0];
+  if (!drafted || drafted.nuclear !== "false") return false;
   if (projectBody && resolveWorkspaceMode(projectBody) === "nuclear-grade") return false;
   if (highConsequence(needsOf(pkg.body as { grade?: unknown; discipline?: unknown }))) return false;
   const lane = await laneOf(q, "package", pkg.id, pkg.body.data_lane);

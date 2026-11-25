@@ -1834,6 +1834,8 @@ namespace Repos {
     repo: string;
     branch: string;
     local_path: string;
+    /** The base clone the worktree belongs to, which removing the worktree names. */
+    repo_path?: string;
     scaffolded_dirs?: string[];
   }
 

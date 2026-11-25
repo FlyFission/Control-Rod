@@ -2986,7 +2986,7 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
       .catch((e) => { throw dependencyRefusal(e); });
     await markObject(c, "package", String(pkg.id), pkg.data_lane, `drafted by intake from capture ${capture.id}`, await packageInputs(c, pkg, capture.id));
     // Nuclear-grade, as intake judged it, is recorded where no draft edit reaches: the signing floor reads it.
-    await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id, ...(isNuclearDraft ? { nuclear: true } : {}) });
+    await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id, nuclear: isNuclearDraft });
     if(cfg.guidedPreparation) await enrollPreparationTx(c,cfg,SYSTEM,pkg.id as string,{package_revision:0,idempotency_key:`intake-${capture.id}-${pkg.id}`});
     created.push(pkg.id as string);
   }
@@ -3709,7 +3709,7 @@ const PR_CLAIM_MS = 15 * 60_000;
  * the push sees the raise. A failed attempt (or one that never reported in 15 minutes) may be
  * tried again; the publisher then finds the branch and pull request it already made.
  */
-export async function publishAccepted(db: Db, id: string, revision: number): Promise<void> {
+export async function publishAccepted(db: Db, id: string, revision: number, atStart = false): Promise<void> {
   const r = await db.query<{ body: Json; status: string; capture_id: string | null; checkout: Json | null }>(
     `select p.body, p.status, p.capture_id, c.body->'checkout' as checkout from packages p join captures c on c.id = p.capture_id
       where p.id = $1 and p.revision = $2`, [id, revision]);
@@ -3723,7 +3723,8 @@ export async function publishAccepted(db: Db, id: string, revision: number): Pro
          and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision])).rows[0]?.body;
     if (last?.type === "package.pr-opened") return false;
     if (last?.type === "package.pr-not-opened" && PR_FINAL.has(String(last.data?.reason))) return false;
-    if (last?.type === "package.pr-started" && Date.now() - new Date(String(last.at)).getTime() < PR_CLAIM_MS) return false;
+    // At start no attempt from before can still be running, so its claim does not hold.
+    if (!atStart && last?.type === "package.pr-started" && Date.now() - new Date(String(last.at)).getTime() < PR_CLAIM_MS) return false;
     await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: publishBranchOf(id, revision) });
     return true;
   });
@@ -3761,20 +3762,23 @@ export async function publishAccepted(db: Db, id: string, revision: number): Pro
     await verifyRecordedOutput(db, { packageId: id, revision, runId: s.author.id, path: patches[0].name }, out);
     patch = out.bytes;
   }
-  const result = await command(db, "package.publish-pr", async (c) => {
-    // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
-    const lane = await laneOf(c, "package", id, pkg.body.data_lane);
-    if (lane !== "public" && lane !== "internal") return { lane };
-    return publishCheckout({
-      repo: String(checkout.repo ?? ""), root: String(checkout.root ?? ""), path: String(checkout.path ?? ""),
-      boundHead: String(checkout.head ?? ""), finalHead, patch, publishBranch: publishBranchOf(id, revision),
-      title: String(pkg.body.title ?? id), body: prBody(pkg.body, s.verification ?? undefined), acceptedAt: String(accepted.decided_at),
-    });
-  });
-  if ("lane" in result) {
-    await notOpened("lane", `This work is on the ${String(result.lane ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.`);
+  // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
+  // The lane is read now and again right before each step that sends anything. No lock is held
+  // across the network: a stalled push must never hold up other work, SCRAM included.
+  const routine = async () => {
+    const lane = await laneOf(db, "package", id, pkg.body.data_lane);
+    return lane === "public" || lane === "internal";
+  };
+  if (!(await routine())) {
+    await notOpened("lane", `This work is on the ${String(await laneOf(db, "package", id, pkg.body.data_lane) ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.`);
     return;
   }
+  const result = await publishCheckout({
+    repo: String(checkout.repo ?? ""), root: String(checkout.root ?? ""), path: String(checkout.path ?? ""),
+    boundHead: String(checkout.head ?? ""), finalHead, patch, publishBranch: publishBranchOf(id, revision),
+    title: String(pkg.body.title ?? id), body: prBody(pkg.body, s.verification ?? undefined), acceptedAt: String(accepted.decided_at),
+    stillAllowed: routine,
+  });
   await command(db, "package.open-pr", async (c) => {
     if (result.opened) {
       await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, reused: result.reused });
@@ -3797,7 +3801,7 @@ export async function resumePublishing(db: Db): Promise<void> {
   const r = await db.query<{ id: string; revision: number }>(
     `select distinct on (p.id) p.id, p.revision from packages p join captures c on c.id = p.capture_id
       where c.body ? 'checkout' order by p.id, p.revision desc`);
-  for (const p of r.rows) await publishAccepted(db, p.id, p.revision).catch(() => undefined);
+  for (const p of r.rows) await publishAccepted(db, p.id, p.revision, true).catch(() => undefined);
 }
 
 /** The pull request's description: what the card asked for, and who checked it. */

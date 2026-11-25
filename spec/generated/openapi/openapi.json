@@ -14156,6 +14156,10 @@
           "local_path": {
             "type": "string"
           },
+          "repo_path": {
+            "type": "string",
+            "description": "The base clone the worktree belongs to, which removing the worktree names."
+          },
           "scaffolded_dirs": {
             "type": "array",
             "items": {

@@ -46,6 +46,12 @@ OK    WP-0001: 6 entries (3, 4, 9, 10, 11, 14) recompute and link through the ch
 ```
 
 A bundle that does not hold names the first problem it finds, for example `FAIL  WP-0001: event 9 does not match its digest.`, and the command exits with status 1. It exits with 2 for a file that isn't a bundle.
+## Checking a change record's evidence
+
+`pnpm cr verify <record-directory>` reads `evidence/manifest.json` when the argument is a change-record directory rather than an inclusion proof. Git keeps the digest and the manifest row. The payload may still be in the record, or in the store the manifest names. `CONTROLROD_EVIDENCE_STORE`, when set, is a local directory of files named by their SHA-256.
+
+Missing payload bytes print `INCOMPLETE`, name the manifest row, and name the store to restore from. The command does not say verified. Bytes whose digest matches the row print `VERIFIED`. Bytes whose digest does not match print `TAMPERED`, and that run does not say verified either.
+
 
 ## What the records cannot prove yet
 

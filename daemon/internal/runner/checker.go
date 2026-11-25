@@ -56,6 +56,9 @@ var reservedInstructionNames = map[string]bool{
 	"agents.override.md": true, "claude.local.md": true,
 	".claude": true, ".codex": true, ".agents": true,
 	".grok": true, ".opencode": true, ".mcp.json": true,
+	// Antigravity also loads these folders' rules, skills and hooks, and runs those hooks outside
+	// its sandbox (measured with agy 1.5.16).
+	".agent": true, "_agents": true, "_agent": true,
 	"hooks": true,
 }
 
@@ -99,7 +102,27 @@ func prepareWorkspace(root string, job *Job, a Adapter) (*Workspace, error) {
 	if job != nil && job.Run.Checkout != nil && job.Run.Role != "author" {
 		return nil, errors.New("only an author run may carry a checkout binding")
 	}
-	if job != nil && job.Run.Role == "pre-check" && a != nil && a.SandboxRequired() {
+	checker := job != nil && job.Run.Role == "pre-check" && a != nil && a.SandboxRequired()
+	if r, ok := a.(workspaceRooter); ok && job != nil && job.Run.Checkout == nil {
+		// Every role, a pre-check too, in a fresh folder of the runtime's own.
+		own, err := r.WorkspaceRoot(root)
+		if err != nil {
+			return nil, err
+		}
+		var ws *Workspace
+		if checker {
+			ws, err = prepareCheckerIn(own, job)
+		} else {
+			ws, err = Prepare(own, job)
+		}
+		if err != nil {
+			removeRunRoot(own)
+			return nil, err
+		}
+		ws.RunRoot = own
+		return ws, nil
+	}
+	if checker {
 		return PrepareChecker(root, job)
 	}
 	return Prepare(root, job)
@@ -115,6 +138,11 @@ func PrepareChecker(root string, job *Job) (*Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
+	return prepareCheckerIn(base, job)
+}
+
+// prepareCheckerIn is PrepareChecker under a base folder that has already been checked.
+func prepareCheckerIn(base string, job *Job) (*Workspace, error) {
 	dir, err := WorkspaceDir(base, job.Run)
 	if err != nil {
 		return nil, err
@@ -974,7 +1002,7 @@ func makeCheckerRunTmp(ws *Workspace) (string, error) {
 // protectedLoginNames stay read-only inside the active CLI's login directory.
 // They are the instruction, hook, skill, and settings names those CLIs load.
 var protectedLoginNames = []string{
-	"settings.json", "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "AGENTS.override.md",
+	"settings.json", "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "AGENTS.override.md", "GEMINI.md",
 	"config.toml", "hooks", "skills", "agents", "commands", "plugins", "rules",
 }
 
@@ -1464,6 +1492,11 @@ func sbplString(s string) string {
 func applyCheckerMount(cmd *exec.Cmd, ws *Workspace) error {
 	if ws == nil || ws.Deliverables == "" {
 		return errors.New("the checker has no deliverable tree to mount read-only, so the check cannot count")
+	}
+	if a, ok := AdapterFor(ws.CheckerRuntime); ok && selfConfined(a) {
+		// Its own launch carries the checker's limits (selfConfinedChecker); the deliverable
+		// tree and the workspace are still compared before and after.
+		return nil
 	}
 	argv, err := checkerMountArgv(cmd, ws)
 	if err != nil {

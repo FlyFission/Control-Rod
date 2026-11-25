@@ -311,17 +311,42 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		}
 	}
 
+	uncontained := false
+	if s, ok := a.(runSerializer); ok {
+		unlock, lerr := s.SerializeRuns(ctx)
+		if lerr != nil {
+			return CheckResult{}, fmt.Errorf("wait for this runtime's other run on this machine: %w", lerr)
+		}
+		// Kept while the run's processes are not confirmed gone, as in the daemon.
+		defer func() {
+			if uncontained {
+				keepUncontained(unlock)
+				return
+			}
+			unlock()
+		}()
+	}
 	ws, err := prepareWorkspace(homeDir, job, a)
 	if err != nil {
 		return CheckResult{}, fmt.Errorf("prepare checker workspace: %w", err)
 	}
 	defer os.RemoveAll(ws.Dir)
+	if ws.RunRoot != "" {
+		defer func() {
+			if !uncontained {
+				removeRunRoot(ws.RunRoot)
+			}
+		}()
+	}
 
 	sp, err := buildSandboxPaths(homeDir, ws)
 	if err != nil && a.SandboxRequired() {
 		return CheckResult{}, fmt.Errorf("%w: %v", ErrCheckUsage, err)
 	}
 	cmd, err := Command(checkerID, job.Run, ws, sandbox, sp)
+	if ws.RunHome != "" {
+		defer os.RemoveAll(ws.RunHome)
+	}
 	if err != nil {
 		return CheckResult{}, fmt.Errorf("%w: %v", ErrCheckUsage, err)
 	}
@@ -444,6 +469,10 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 			},
 		}
 		execErr = Execute(runCtx, cmd, buf.add, hooks)
+		uncontained = errors.Is(execErr, ErrUncontained)
+		if execErr == nil {
+			execErr = turnFailure(a, buf)
+		}
 		if !errors.Is(execErr, ErrUncontained) && spawned != nil {
 			receipts.Remove(job.Run.ID)
 		}

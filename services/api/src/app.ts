@@ -33,6 +33,7 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
+import { RUNNABLE } from "./runtimes.js";
 import { recordUsageLimits, usageLimitsView } from "./usage-limits.js";
 import { recordSeat, recordSetup, setupView } from "./setup.js";
 import { listWorkspaceProjects } from "./workspace-projects.js";
@@ -894,7 +895,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])
       .map(String)
-      .filter((r) => ["claude", "codex", "fake"].includes(r) && !notReady.has(r));
+      .filter((r) => [...RUNNABLE, "fake"].includes(r) && !notReady.has(r));
     await sweep();
     // The daemon's run ceiling sizes budget reservations; one it did not report is never guessed.
     const ceiling = req.body?.run_ceiling_seconds;

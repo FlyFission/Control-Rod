@@ -160,6 +160,11 @@ describe("spoofed checks", () => {
     // until someone reads it, rather than being compared with itself.
     expect(loadModelRegistry().models.map((m) => m.id).sort()).toEqual([
       "claude-haiku-4-5", "claude-opus-4-5", "claude-opus-4-6", "claude-sonnet-4-5", "claude-sonnet-4-6", "claude-sonnet-5-5",
+      "gemini-3.8-flash-high", "gemini-3.8-flash-low", "gemini-3.8-flash-medium",
+      "gemini-4-argon-high", "gemini-4-argon-low", "gemini-4-argon-medium",
+      "gemini-4-carbon-high", "gemini-4-carbon-low", "gemini-4-carbon-medium",
+      "gemini-4-hydrogen-high", "gemini-4-hydrogen-low", "gemini-4-hydrogen-medium", "gemini-4-hydrogen-xhigh",
+      "gemini-4-neon-high", "gemini-4-neon-low", "gemini-4-neon-medium", "gemini-4-neon-xhigh",
       "gpt-5-codex", "gpt-5.6-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol",
     ]);
   });

@@ -16,10 +16,26 @@ import { getObject, recordObject, transition } from "./workbench.js";
 
 const ROLES = ["intake", "author", "pre-check"] as const;
 /**
- * Runtimes an organization can pin. Grok CLI, OpenCode, Antigravity and Ollama join this list when
- * the daemon can confine them; until then the daemon lists them as not ready and starts none.
+ * Runtimes an organization can pin. Grok CLI, OpenCode and Ollama join this list when the daemon
+ * can confine them; until then the daemon lists them as not ready and starts none. Antigravity
+ * joined with its confinement on macOS (change record agy-seat).
  */
-export const PINNABLE = ["claude", "codex"];
+export const PINNABLE = ["claude", "codex", "agy"];
+
+/**
+ * Runtimes the daemon can start confined, in the order an unspecified author seat is filled. The
+ * claim offers no other runtime a daemon lists. The fake runtime is added where tests use it.
+ */
+export const RUNNABLE = ["claude", "codex", "agy"];
+
+/** Order for an unspecified checker seat. */
+export const CHECKER_ORDER = ["codex", "claude", "agy"];
+
+/**
+ * Runtimes that can author in a repository checkout. Antigravity cannot yet: its file tools can
+ * only be fenced for a workspace outside the home folder (change record agy-seat).
+ */
+export const CHECKOUT_AUTHORS = ["claude", "codex", "fake"];
 
 /**
  * The model vendor each runtime always reaches. OpenCode and Ollama are absent on purpose: either can
@@ -122,7 +138,7 @@ async function setPins(c: Tx, orgId: string, runtime: string, roles: string[], v
  */
 export async function pinRuntime(c: Tx, orgId: string, p: Json, actor: Actor) {
   const runtime = String(p.runtime ?? "");
-  if (!PINNABLE.includes(runtime)) throw new Refusal(400, "invalid", "runtime must be claude or codex");
+  if (!PINNABLE.includes(runtime)) throw new Refusal(400, "invalid", `runtime must be one of ${PINNABLE.join(", ")}`);
   const digest = String(p.artifact_digest ?? "");
   if (!/^[0-9a-f]{64}$/.test(digest)) throw new Refusal(400, "invalid", "artifact_digest must be a SHA-256 in hex");
   const roles = rolesFor(p.role);
@@ -156,7 +172,7 @@ export async function rollbackTarget(q: Db | Tx, runtime: string, role: string, 
  */
 export async function rollbackRuntime(c: Tx, orgId: string, p: Json, actor: Actor) {
   const runtime = String(p.runtime ?? "");
-  if (!PINNABLE.includes(runtime)) throw new Refusal(400, "invalid", "runtime must be claude or codex");
+  if (!PINNABLE.includes(runtime)) throw new Refusal(400, "invalid", `runtime must be one of ${PINNABLE.join(", ")}`);
   const roles = Array.isArray(p.roles) ? p.roles : [];
   const hex = (v: unknown) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
   if (!roles.length || roles.some((r: Json) => !r || !hex(r.current) || !hex(r.restore)))

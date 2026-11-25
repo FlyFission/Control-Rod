@@ -302,6 +302,24 @@ describe("signing policy on a project", () => {
     expect(runs.filter((r: Json) => r.status === "queued")).toHaveLength(0);
   });
 
+  it("under Light, lets Claude check Claude's work when the owner picked it, and the record says the runtime was shared", async () => {
+    expect((await asOwner("POST", "/captures", { lane: "internal", text: `[project-id:${project}] [author:claude/sonnet] [checker:claude/haiku]\n\nDraft SAME` })).statusCode).toBe(201);
+    const intake = await claimFor("intake");
+    await asDaemon(`/runner/runs/${intake.run.id}/complete`, { status: "succeeded", outputs: [{ name: "packages/SAME.json", content_base64: b64(JSON.stringify(draft("SAME"))) }] });
+    const id = (await asOwner("GET", "/packages")).json().find((p: { id: string }) => p.id.endsWith("-SAME")).id;
+    const author = await claimFor("author", ["claude", "codex"], id);
+    expect(author.run.runtime.provider).toBe("claude");
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "report.md", content_base64: b64("done") }] });
+    // Codex is offered too, but the owner picked Claude to check: the pick stands.
+    const check = await claimFor("pre-check", ["claude", "codex"], id);
+    expect(check.run.runtime.provider).toBe("claude");
+    const done = await asDaemon(`/runner/runs/${check.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+    expect(done.statusCode, done.body).toBe(200);
+    const v = await view(id);
+    expect(v.package.status).toBe("accepted");
+    expect(v.pre_check.independence.runtime).toBe("shared");
+  });
+
   it("refuses a press made on a card that changed since it was shown", async () => {
     const id = await drafted("CHANGED");
     const r = await asOwner("POST", `/packages/${id}/decisions`, {

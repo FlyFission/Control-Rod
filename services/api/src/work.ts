@@ -841,9 +841,11 @@ function pickRuntime(have: string[], preferred?: string): string | null {
  * Honors a project checker preference when it is offered and independent of the author's runtime.
  * Nothing falls back to the author's runtime on its own.
  */
-function pickChecker(have: string[], authorRuntime: string, override: boolean, preferred?: string): string | null {
+function pickChecker(have: string[], authorRuntime: string, override: boolean, preferred?: string, sameAllowed = false): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && pref !== authorRuntime && have.includes(pref)) return pref;
+  // The owner picked the author's own agent to check, under a signed policy: honour it as picked.
+  if (pref && pref === authorRuntime && sameAllowed && have.includes(pref)) return pref;
   const other = [...CHECKER_ORDER, "fake"].find((r) => have.includes(r) && r !== authorRuntime);
   if (other) return other;
   return override && have.includes(authorRuntime) ? authorRuntime : null;
@@ -1576,7 +1578,8 @@ export async function claim(
             const authorRuntime = runtimeName(a?.body.runtime?.provider);
             const preferredChecker =
               capPrefs.checker?.ecosystem ?? projPrefs?.laneAgents?.["agent-check"] ?? projPrefs?.checker;
-            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body), preferredChecker);
+            const samePicked = Boolean(preferredChecker) && runtimeName(preferredChecker) === authorRuntime && (await policySameAgentCheck(c, pkg)) !== null;
+            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body), preferredChecker, samePicked);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.checker, projPrefs?.checker, projPrefs?.checkerModel);
             }
@@ -2339,6 +2342,19 @@ async function requeueChecks(c: Tx, row: RunRow, packageId: string, unknownSettl
  * for a person. A run whose outcome is unknown is settled first, with the policy as the reason: a
  * checker works read-only in its sandbox. A second failure stops for the person as before.
  */
+/**
+ * The signing policy under which one agent may check work its own vendor wrote: the owner picked it
+ * for the column and signed a policy that takes cards through on its own (release "auto"). Never for
+ * high-consequence work, which keeps its independent check or a signed per-run override.
+ */
+async function policySameAgentCheck(c: Tx, pkg: Json): Promise<SigningPolicy | null> {
+  if (highConsequence(needsOf(pkg.body ?? pkg))) return null;
+  const policy = await governingPolicy(c, pkg);
+  if (!policy || modeFor(policy, "release") !== "auto") return null;
+  const cred = await currentCredential(c, policy.assertion.credential_id);
+  return cred && !cred.revoked ? policy : null;
+}
+
 async function retryFailedCheck(c: Tx, cfg: WorkConfig, runId: string): Promise<void> {
   const row = (await c.query<RunRow>("select * from runs where id = $1", [runId])).rows[0];
   if (!row || row.role !== "pre-check" || row.status !== "failed") return;
@@ -3167,6 +3183,9 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   const checkerRuntime = identityOf(row.body, body.trace);
   const sharedRuntime = mayBeSameRuntime(authorRuntime, checkerRuntime);
   const override = verifiedOverride(row.body) ? row.body.independence_override : undefined;
+  // One agent checking its own vendor's work stands only where the owner's signed policy covers the
+  // card; the record still says the runtime was shared, and names the policy.
+  const samePolicy = sharedRuntime && !override ? await policySameAgentCheck(c, pkg) : null;
   const asRef = (r: Json, id: RuntimeIdentity): NonNullable<VerificationRecord["independence"]>["author_runtime"] => {
     const kind=String(r?.runtime?.kind ?? "local");
     if(kind!=="local" && kind!=="subscription" && kind!=="account") throw new Refusal(400,"invalid-runtime","Unknown runtime kind");
@@ -3228,7 +3247,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       checker_baseline: agent.id,
       author_runtime: authorRuntime,
       checker_runtime: checkerRuntime,
-      owner_override_verified: Boolean(override),
+      owner_override_verified: Boolean(override) || samePolicy !== null,
       ...(preparation?{preparation}:{}),
     }),
     "pre-check",
@@ -3245,6 +3264,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
     findings: record.findings.length,
     shared_runtime: sharedRuntime,
     owner_override: Boolean(sharedRuntime && override),
+    ...(samePolicy ? { shared_runtime_policy: policyRef(samePolicy) } : {}),
   });
   if (record.outcome !== "pass" && row.round < MAX_ROUNDS) {
     const next = kernel(

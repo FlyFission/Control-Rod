@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -690,5 +691,29 @@ func TestCodex0171FeaturesAreQualified(t *testing.T) {
 		if !safe[f] {
 			t.Errorf("%s is not in CodexSafeFeatures", f)
 		}
+	}
+}
+
+// A macOS Codex checker runs under Codex's own permission profile alone (SelfConfinedChecker), so
+// that profile must carry the checker's limits: read-only except scratch, the home folder and the
+// daemon's home unreadable, no network for commands.
+func TestCodexCheckerProfileCarriesTheCheckersLimits(t *testing.T) {
+	home, work := t.TempDir(), t.TempDir()
+	ws := &Workspace{Dir: work, Scratch: filepath.Join(work, "scratch"), Checker: true}
+	args, err := CodexArgs(ws, "", testPolicy(), SandboxPaths{Home: home, DaemonHome: filepath.Join(home, ".controlrod"), Workspace: work})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(args, "\n")
+	for _, want := range []string{
+		`":root"="read"`, strconv.Quote(work) + `="read"`, strconv.Quote(ws.Scratch) + `="write"`,
+		strconv.Quote(home) + `="deny"`, "permissions.control-rod.network.enabled=false", `approval_policy="never"`,
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("checker profile lacks %s:\n%s", want, joined)
+		}
+	}
+	if strings.Contains(joined, `extends=":workspace"`) {
+		t.Error("a checker must not extend the writable workspace profile")
 	}
 }

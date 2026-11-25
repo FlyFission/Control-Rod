@@ -190,21 +190,21 @@ echo pwn > "$LOGIN/settings.json"; echo write:$? >> scratch/evidence/reads`
 
 func TestSeatbeltCheckerSessionSymlinkDoesNotGrantHomeWrites(t *testing.T) {
 	home := t.TempDir()
-	codexDir := filepath.Join(home, ".codex")
-	if err := os.MkdirAll(codexDir, 0o700); err != nil {
+	claudeDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(claudeDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(home, filepath.Join(codexDir, "sessions")); err != nil {
+	if err := os.Symlink(home, filepath.Join(claudeDir, "projects")); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CODEX_HOME", codexDir)
+	t.Setenv("CLAUDE_CONFIG_DIR", claudeDir)
 	ws := seatbeltFixture(t)
-	ws.CheckerRuntime = RuntimeCodex
-	script := `echo pwn > "$CODEX_HOME/sessions/pwned"; echo S:$? > scratch/evidence/s
+	ws.CheckerRuntime = RuntimeClaude
+	script := `echo pwn > "$CLAUDE_CONFIG_DIR/projects/pwned"; echo S:$? > scratch/evidence/s
 printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 	cmd := exec.Command("/bin/sh", "-c", script)
 	cmd.Dir = ws.Dir
-	cmd.Env = append(os.Environ(), "CODEX_HOME="+codexDir)
+	cmd.Env = append(os.Environ(), "CLAUDE_CONFIG_DIR="+claudeDir)
 	if err := applyCheckerMount(cmd, ws); err != nil {
 		t.Fatal(err)
 	}
@@ -213,6 +213,20 @@ printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 	}
 	if _, err := os.Lstat(filepath.Join(home, "pwned")); !os.IsNotExist(err) {
 		t.Fatalf("symlink granted a write in the home directory: %v", err)
+	}
+}
+
+// Codex's own Seatbelt helper cannot start inside another Seatbelt profile, so a macOS Codex
+// checker is not wrapped; its own permission profile carries the limits.
+func TestSeatbeltCodexCheckerIsSelfConfined(t *testing.T) {
+	ws := seatbeltFixture(t)
+	ws.CheckerRuntime = RuntimeCodex
+	cmd := exec.Command("/bin/echo", "ok")
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if len(cmd.Args) != 2 || cmd.Args[0] != "/bin/echo" {
+		t.Fatalf("a Codex checker was wrapped: %q", cmd.Args)
 	}
 }
 
@@ -236,50 +250,5 @@ func TestSeatbeltPreparedCheckerSettles(t *testing.T) {
 	}
 	if string(res.Verification) != `{"outcome":"pass","findings":[]}` {
 		t.Fatalf("verification %s", res.Verification)
-	}
-}
-
-// Codex writes runtime state under its home (an in-process app-server, PATH aliases) before it
-// reads the brief. A macOS checker gets a home of its own with a copy of the sign-in; the real
-// login folder is not written, and a refreshed sign-in is saved back after the run.
-func TestSeatbeltCodexCheckerGetsAWritableHomeOfItsOwn(t *testing.T) {
-	home := t.TempDir()
-	codexDir := filepath.Join(home, ".codex")
-	if err := os.MkdirAll(codexDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(codexDir, "auth.json"), []byte(`{"token":"old"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("CODEX_HOME", codexDir)
-	ws := seatbeltFixture(t)
-	ws.CheckerRuntime = RuntimeCodex
-	script := `mkdir -p "$CODEX_HOME/app-server-control" && echo A:$? > scratch/evidence/a
-echo x > "` + codexDir + `/written"; echo R:$? >> scratch/evidence/a
-grep -q old "$CODEX_HOME/auth.json"; echo C:$? >> scratch/evidence/a
-printf '%s' '{"token":"new"}' > "$CODEX_HOME/auth.json"
-printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
-	cmd := exec.Command("/bin/sh", "-c", script)
-	cmd.Dir = ws.Dir
-	cmd.Env = append(os.Environ(), "CODEX_HOME="+codexDir)
-	if err := applyCheckerMount(cmd, ws); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(ws.CheckerTmp)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("%v: %s", err, out)
-	}
-	got, _ := os.ReadFile(filepath.Join(ws.Scratch, "evidence", "a"))
-	if string(got) != "A:0\nR:1\nC:0\n" {
-		t.Fatalf("own home writable, real login read-only, sign-in copied: got %q", got)
-	}
-	if _, err := os.Lstat(filepath.Join(codexDir, "written")); !os.IsNotExist(err) {
-		t.Fatalf("the real login folder was written: %v", err)
-	}
-	if err := ws.SaveRefreshedCredential(); err != nil {
-		t.Fatal(err)
-	}
-	if b, _ := os.ReadFile(filepath.Join(codexDir, "auth.json")); string(b) != `{"token":"new"}` {
-		t.Fatalf("refreshed sign-in not saved back: %q", b)
 	}
 }

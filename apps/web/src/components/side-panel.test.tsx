@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SidePanel, SidePanelProvider, SidePanelSlot, useSidePanelHost } from "./SidePanel.js";
+import { PanelFullToggle, SidePanel, SidePanelProvider, SidePanelSlot, useSidePanelHost } from "./SidePanel.js";
 import { SIDE_DEFAULT_PX, SIDE_MAX_PX, SIDE_MIN_PX, clampSideWidth, loadSideWidth, saveSideWidth, sidePanelKey } from "../lib/sidePanelLayout.js";
 
 /** A stand-in shell: the page, and the panel's slot either docked beside it or over it. */
@@ -14,12 +14,17 @@ function Host({ docked, children }: { docked: boolean; children: React.ReactNode
         <button type="button">elsewhere</button>
       </div>
       <p data-testid="state">{side.open ? "open" : "closed"}</p>
-      {side.open && docked && (
+      {side.full && docked && (
+        <div data-testid="full">
+          <SidePanelSlot slot={side.slot} full />
+        </div>
+      )}
+      {side.open && docked && !side.full && (
         <div data-testid="dock">
           <SidePanelSlot slot={side.slot} />
         </div>
       )}
-      {side.open && !docked && <SidePanelSlot slot={side.slot} overlay />}
+      {side.open && !docked && <SidePanelSlot slot={side.slot} overlay full={side.full} />}
     </SidePanelProvider>
   );
 }
@@ -28,6 +33,7 @@ function Detail({ onClose }: { onClose: () => void }) {
   return (
     <SidePanel label="Card details" onClose={onClose}>
       <aside aria-label="Card details">
+        <PanelFullToggle />
         <label>
           Note <textarea />
         </label>
@@ -252,4 +258,37 @@ describe("a reused drawer with a new selection", () => {
     expect(screen.getByRole("complementary", { name: "WP-2" }).closest(".side-panel")?.hasAttribute("hidden")).toBe(false);
     expect(screen.getByRole("complementary", { name: "run panel", hidden: true }).closest(".side-panel")?.hasAttribute("hidden")).toBe(true);
   });
+});
+
+describe("full width", () => {
+  it("moves the panel over the whole workspace and back, keeping typed text, and ends when closed", () => {
+    render(<Page docked />);
+    fireEvent.click(screen.getByText("open"));
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "long note" } });
+    fireEvent.click(screen.getByRole("button", { name: "Use the full width" }));
+    expect(screen.getByTestId("full").contains(box)).toBe(true);
+    expect(box.value).toBe("long note");
+    // Covering everything, a click on the page around it does not close it.
+    fireEvent.pointerDown(screen.getByText("elsewhere"));
+    expect(screen.getByTestId("state").textContent).toBe("open");
+    fireEvent.click(screen.getByRole("button", { name: "Show beside the page" }));
+    expect(screen.queryByTestId("full")).toBeNull();
+    expect(screen.getByTestId("dock").contains(box)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Use the full width" }));
+    fireEvent.click(screen.getByText("hide"));
+    fireEvent.click(screen.getByText("open"));
+    // A new open starts beside the page again.
+    expect(screen.queryByTestId("full")).toBeNull();
+  });
+});
+
+it("on a narrow window, full width widens the overlay to the whole window", () => {
+  render(<Page docked={false} />);
+  fireEvent.click(screen.getByText("open"));
+  fireEvent.click(screen.getByRole("button", { name: "Use the full width" }));
+  const overlay = document.querySelector(".side-panel-overlay");
+  expect(overlay?.hasAttribute("data-full")).toBe(true);
+  fireEvent.pointerDown(screen.getByText("elsewhere"));
+  expect(screen.getByTestId("state").textContent).toBe("open");
 });

@@ -9,6 +9,7 @@
 | E-05 | done | Codex automatic review round 1 at bc70be2: 2 P2. Fixed: the new page group and its panels keep the browser's touch gestures (pinch zoom, scrolling) on touchscreens; content mounts only after the slot is on the page and the panel moves focus into it on first open. Rendered check covers both. | PR thread |
 | E-06 | done | Codex automatic review round 2 at cdb6795 (last allowed round): 3 P2. Fixed: a drawer under another one stays mounted and hidden, so its typed text survives; only the visible one answers Esc and outside clicks (Esc now lives in SidePanel); the license gate parses SPDX grouping (AND before OR, parentheses) and fails closed on anything else (tools/spdx.mjs, `node --test tools/spdx.test.mjs`, evidence/spdx-test.log). Unit test "two owners at once"; vitest 1030 pass; rendered check rerun (evidence/side-check.log). | PR thread, evidence/spdx-test.log, evidence/side-check.log |
 | E-07 | done | Automatic Codex run on ce2bd75 (after the two-round limit): 2 P2, both confirmed in code. Fixed: a page drawer reused for a new selection comes back on top of a panel opened over it (SidePanel promotes on a new label); Markdown blocks with no language keep a <pre>. Tests "a reused drawer with a new selection" and "MarkdownView code blocks"; vitest 1032 pass. Not re-reviewed. | PR thread |
+| E-08 | done | Owner ask (2026-11-25, room for long text): long-text check in Chromium at 1440 and 1024 (evidence/long-text-check.js, long-text-*.log, long-*.jpg). Prose in a file went from 37 px to 20 px side margins with no second box; Back and the file links stay pinned while scrolling (was scrolled away); full-width button covers the workspace (1191 px at 1440, whole window at 1024; 112 characters per prose line, logs 122 per line); narrow-window file view widens to 959 px (was 559). Plain code blocks scroll sideways in a frame. vitest 1034 pass; side-check rerun, all passed. | evidence/long-text-1440.log, evidence/long-text-1024.log, evidence/side-check.log |
 
 ## Evidence custody and coupling
 
@@ -21,6 +22,7 @@
 | E-05 | SP-02, SP-03 | yes | PR thread | Implementing agent | Codex automatic review | Repository workflow | Implementing agent | GitHub | GitHub | Implementing agent | Independent reviewer |
 | E-06 | SP-02, SP-03 | yes | PR thread | Implementing agent | Codex automatic review | Repository workflow | Implementing agent | GitHub | GitHub | Implementing agent | Independent reviewer |
 | E-07 | SP-02, SP-03 | yes | PR thread | Implementing agent | Codex automatic review | Repository workflow | Implementing agent | GitHub | GitHub | Implementing agent | Independent reviewer |
+| E-08 | SP-02, SP-03 | yes | evidence/long-text-1440.log | Implementing agent | Playwright Chromium | Local dev server, mocked API | Implementing agent | Container | Container | Implementing agent | Implementing agent |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
@@ -31,6 +33,7 @@
 | E-05 | separated: Codex | separated: GitHub review | separated: independent model | separated: owner retains merge decision | separated: hosted | diverse verification | findings fixed [Ship limits](ship.md) |
 | E-06 | separated: Codex | separated: GitHub review | separated: independent model | separated: owner retains merge decision | separated: hosted | diverse verification | findings fixed; fixes not re-reviewed (two-round limit) [Ship limits](ship.md) |
 | E-07 | separated: Codex | separated: GitHub review | separated: independent model | separated: owner retains merge decision | separated: hosted | diverse verification | findings fixed; fixes not re-reviewed (two-round limit) [Ship limits](ship.md) |
+| E-08 | coupled: implementing agent | coupled: implementation session | separated: real browser geometry | separated: owner retains merge decision | coupled: local machine | self-check | macOS Safari not checked [Ship limits](ship.md) |
 
 Not done here: macOS Safari, Firefox and touch hardware; the Board page in a browser (unit tests only).
 

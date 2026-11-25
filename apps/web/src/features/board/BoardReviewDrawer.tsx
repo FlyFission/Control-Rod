@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { CloseX } from "../../components/CloseX.js";
-import { SidePanel } from "../../components/SidePanel.js";
+import { PanelFullToggle, SidePanel } from "../../components/SidePanel.js";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
@@ -195,6 +195,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
             </>
           )}
         </div>
+        <PanelFullToggle />
         <CloseX onClose={onClose} label="Close review drawer" />
       </div>
 

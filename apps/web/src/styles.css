@@ -2782,6 +2782,17 @@ select {
   padding: 4px 8px;
   text-align: left;
 }
+/* A block with no language: the same frame as a coloured one, scrolling sideways rather than spilling. */
+.file-markdown > pre {
+  margin: 8px 0;
+  padding: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ground);
+  font-size: var(--fs-small);
+  line-height: var(--lh-mono);
+}
 .file-markdown .code-view {
   max-height: none;
 }

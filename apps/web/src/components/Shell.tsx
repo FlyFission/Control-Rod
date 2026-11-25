@@ -356,7 +356,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   // A file open in the panel widens it as far as the page allows; closing the file returns the
   // person's own width. Neither is saved: only their drags are.
   useEffect(() => {
-    if (!side.open || !sideDocked) return;
+    if (!side.open || !sideDocked || side.full) return;
     const frame = window.requestAnimationFrame(() => {
       const p = sidePanel.current;
       const group = document.querySelector<HTMLElement>(".work-panes");
@@ -372,7 +372,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     });
     return () => window.cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [side.wide]);
+  }, [side.wide, side.full]);
   function persistSideSoon(chosen: boolean) {
     if (!chosen) return;
     // As with the rail, the panel's own size reads the new value on the next task.
@@ -878,14 +878,16 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
             remounts the page (its scroll, filters and drafts stay). */}
         <Group orientation="horizontal" className="work-panes" onLayoutChanged={(_layout, meta) => persistSideSoon(meta.isUserInteraction)}>
           <Panel id="page" className="page-panel" minSize={`${PAGE_MIN_PX}px`}>
-            <main id="main" className="content" tabIndex={-1}>
+            <main id="main" className="content" tabIndex={-1} inert={(side.full && sideDocked) || undefined}>
               {children}
             </main>
+            {/* Full width: the panel covers the page, which stays mounted (scroll, filters, drafts) under it. */}
+            {side.full && sideDocked && <SidePanelSlot slot={side.slot} full />}
           </Panel>
-          {side.open && sideDocked && (
+          {side.open && sideDocked && !side.full && (
             <Separator className="side-sep" aria-label="Side panel width" title="Drag to resize the side panel." />
           )}
-          {side.open && sideDocked && (
+          {side.open && sideDocked && !side.full && (
             <Panel
               id="side"
               className="side-pane"
@@ -899,7 +901,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
             </Panel>
           )}
         </Group>
-        {side.open && !sideDocked && <SidePanelSlot slot={side.slot} overlay />}
+        {side.open && !sideDocked && <SidePanelSlot slot={side.slot} overlay wide={side.wide} full={side.full} />}
         {phone && (
           <PhoneBar
             needs={needs}

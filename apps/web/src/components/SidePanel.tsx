@@ -32,6 +32,10 @@ interface Host {
   markAttached: () => void;
   /** Asks for the panel's widest size while true (a file being read), and the person's own width after. */
   setWide: (wide: boolean) => void;
+  /** Whether the panel covers the whole workspace (owner, 2026-11-25: "large and big workflows with
+   * high context"). The page stays mounted under it; closing the panel ends it. */
+  full: boolean;
+  setFull: (full: boolean) => void;
 }
 
 const HostCtx = createContext<Host | null>(null);
@@ -52,9 +56,11 @@ export function useSidePanelHost(docked: boolean) {
   const [owners, setOwners] = useState<readonly symbol[]>([]);
   const [wide, setWide] = useState(false);
   const [attached, setAttached] = useState(false);
+  const [full, setFull] = useState(false);
   const open = owners.length > 0;
-  // A closed panel's slot is off the page: the next open waits for it again.
+  // A closed panel's slot is off the page: the next open waits for it again, at its usual width.
   if (!open && attached) setAttached(false);
+  if (!open && full) setFull(false);
   const slot = useMemo(() => {
     const el = document.createElement("div");
     el.className = "side-panel-slot";
@@ -63,7 +69,10 @@ export function useSidePanelHost(docked: boolean) {
   const host = useMemo<Host>(
     () => ({
       slot,
-      docked,
+      // Covering the whole workspace, there is no page beside it to click: it stays open like a pane.
+      docked: docked || full,
+      full,
+      setFull,
       register: (o) => setOwners((prev) => (prev.includes(o) ? prev : [...prev, o])),
       unregister: (o) => setOwners((prev) => prev.filter((x) => x !== o)),
       promote: (o) =>
@@ -73,9 +82,9 @@ export function useSidePanelHost(docked: boolean) {
       attached,
       markAttached: () => setAttached(true),
     }),
-    [slot, docked, owners, attached],
+    [slot, docked, owners, attached, full],
   );
-  return { host, open, slot, wide: open && wide };
+  return { host, open, slot, wide: open && wide, full: open && full };
 }
 
 export function SidePanelProvider({ host, children }: { host: Host; children: ReactNode }) {
@@ -83,7 +92,7 @@ export function SidePanelProvider({ host, children }: { host: Host; children: Re
 }
 
 /** Puts the shell's stable slot element inside whatever renders this (the docked pane or the overlay). */
-export function SidePanelSlot({ slot, overlay = false }: { slot: HTMLElement; overlay?: boolean }) {
+export function SidePanelSlot({ slot, overlay = false, full = false, wide = false }: { slot: HTMLElement; overlay?: boolean; full?: boolean; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const host = useContext(HostCtx);
   const markAttached = host?.markAttached;
@@ -98,13 +107,16 @@ export function SidePanelSlot({ slot, overlay = false }: { slot: HTMLElement; ov
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot]);
-  return overlay ? <OverlayFrame frameRef={ref} /> : <div ref={ref} className="side-panel-dock" />;
+  // Over the page (narrow windows) full width is the whole window; beside it, the whole workspace pane.
+  if (overlay) return <OverlayFrame frameRef={ref} wide={wide} full={full} />;
+  return full ? <div ref={ref} className="side-panel-full" /> : <div ref={ref} className="side-panel-dock" />;
 }
 
-function OverlayFrame({ frameRef }: { frameRef: React.RefObject<HTMLDivElement | null> }) {
+function OverlayFrame({ frameRef, wide, full }: { frameRef: React.RefObject<HTMLDivElement | null>; wide: boolean; full: boolean }) {
   // Below the top bar and any SCRAM banner, as the drawers always were, so neither is covered.
   useDockTop(frameRef);
-  return <div ref={frameRef} className="side-panel-overlay" />;
+  // A file or log being read takes more of the window, as the docked pane does.
+  return <div ref={frameRef} className="side-panel-overlay" data-wide={wide ? "" : undefined} data-full={full ? "" : undefined} />;
 }
 
 /**
@@ -183,4 +195,19 @@ export function useWidePanel(): void {
     return () => host.setWide(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host?.slot, active]);
+}
+
+/**
+ * Switches the panel between its place beside the page and the whole workspace, for long files, logs
+ * and cards with a lot to read. Nothing renders outside a shell.
+ */
+export function PanelFullToggle() {
+  const host = useContext(HostCtx);
+  if (!host) return null;
+  const label = host.full ? "Show beside the page" : "Use the full width";
+  return (
+    <button type="button" className="close-x panel-full-x" onClick={() => host.setFull(!host.full)} aria-label={label} title={label} aria-pressed={host.full}>
+      <span aria-hidden="true">{host.full ? "\u2921" : "\u2922"}</span>
+    </button>
+  );
 }

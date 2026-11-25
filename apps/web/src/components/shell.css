@@ -621,3 +621,33 @@
 .shell .work-panes > [data-panel] {
   touch-action: auto !important;
 }
+
+/* Full width (PanelFullToggle): the panel covers the page inside its own pane; the page stays mounted. */
+.shell .page-panel {
+  position: relative;
+}
+.side-panel-full {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: var(--surface);
+}
+.side-panel-full > .side-panel-slot {
+  height: 100%;
+}
+.panel-full-x {
+  font-size: 18px;
+}
+/* The overlay on a phone is already the whole screen. */
+.shell[data-phone] .panel-full-x {
+  display: none;
+}
+.side-panel-overlay[data-wide] {
+  width: min(960px, calc(100vw - 48px));
+}
+.shell[data-phone] .side-panel-overlay[data-wide] {
+  width: 100vw;
+}
+.side-panel-overlay[data-full] {
+  width: 100vw;
+}

@@ -311,12 +311,18 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		}
 	}
 
+	uncontained := false
 	if s, ok := a.(runSerializer); ok {
 		unlock, lerr := s.SerializeRuns(ctx)
 		if lerr != nil {
 			return CheckResult{}, fmt.Errorf("wait for this runtime's other run on this machine: %w", lerr)
 		}
-		defer unlock()
+		// Kept while the run's processes are not confirmed gone, as in the daemon.
+		defer func() {
+			if !uncontained {
+				unlock()
+			}
+		}()
 	}
 	ws, err := prepareWorkspace(homeDir, job, a)
 	if err != nil {
@@ -324,7 +330,11 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 	}
 	defer os.RemoveAll(ws.Dir)
 	if ws.RunRoot != "" {
-		defer removeRunRoot(ws.RunRoot)
+		defer func() {
+			if !uncontained {
+				removeRunRoot(ws.RunRoot)
+			}
+		}()
 	}
 
 	sp, err := buildSandboxPaths(homeDir, ws)
@@ -457,6 +467,7 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 			},
 		}
 		execErr = Execute(runCtx, cmd, buf.add, hooks)
+		uncontained = errors.Is(execErr, ErrUncontained)
 		if execErr == nil {
 			execErr = turnFailure(a, buf)
 		}

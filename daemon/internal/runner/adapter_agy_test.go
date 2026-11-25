@@ -612,3 +612,26 @@ func TestAgyPreCheckGetsItsOwnRunFolder(t *testing.T) {
 		t.Fatalf("the shared checker folder is not denied: %v", deny)
 	}
 }
+
+// Antigravity's work is recorded as Google's, so only Gemini models run: another vendor's model is
+// refused at launch, and a run whose stream reports one fails.
+func TestAgyRunsOnlyGeminiModels(t *testing.T) {
+	ws := workspaceWithTools(t, "")
+	run := testRun("r", "author")
+	run.Runtime = RuntimeRef{Kind: "subscription", Provider: RuntimeAgy, Model: "claude-opus-5-5-thinking"}
+	if _, err := AgyArgs(run, ws, testPolicy(), testPaths(ws)); err == nil || !strings.Contains(err.Error(), "Gemini") {
+		t.Fatalf("a Claude model was launched on Antigravity: %v", err)
+	}
+	buf := &logBuffer{adapt: agyAdapter{}}
+	buf.add(`{"event":"init","init":{"model":"claude-opus-5-5-thinking"}}`)
+	buf.add(`{"event":"result","result":{"status":"SUCCESS","response":"ok"}}`)
+	if err := turnFailure(agyAdapter{}, buf); err == nil {
+		t.Fatal("a run on a Claude model counted")
+	}
+	ok := &logBuffer{adapt: agyAdapter{}}
+	ok.add(`{"event":"init","init":{"model":"gemini-4-neon-high"}}`)
+	ok.add(`{"event":"result","result":{"status":"SUCCESS","response":"ok"}}`)
+	if err := turnFailure(agyAdapter{}, ok); err != nil {
+		t.Fatalf("a Gemini run failed: %v", err)
+	}
+}

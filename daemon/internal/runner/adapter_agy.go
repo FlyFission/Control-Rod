@@ -347,6 +347,9 @@ func AgyArgs(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]strin
 	args := []string{"-p", prompt + agyToolNote, "--output-format", "stream-json", "--sandbox",
 		"--settings", settings, "--disable-slash-commands"}
 	if m := RequestedModel(run); m != "" {
+		if !agyGoogleModel(m) {
+			return nil, refuse("Antigravity runs here only on Gemini models, so its work counts as Google's; %q is another vendor's model.", m)
+		}
 		args = append(args, "--model", m)
 	}
 	return args, nil
@@ -512,6 +515,13 @@ func (agyAdapter) SelfConfinedChecker() bool { return true }
 // ExitStatusUntrusted: Antigravity exits 0 when it stops a run at a refused tool, so the daemon
 // decides from its result line (status SUCCESS with no finish reason), and a run without one fails.
 func (agyAdapter) ExitStatusUntrusted() bool { return true }
+
+// agyGoogleModel: Antigravity also serves other vendors' models (Claude, GPT), but its runs are
+// recorded as the Google family, so only Gemini models may run. A run whose stream reports any
+// other model fails (turnFailure), including one started without --model.
+func agyGoogleModel(m string) bool { return strings.HasPrefix(m, "gemini-") }
+
+func (agyAdapter) ModelAllowed(m string) bool { return agyGoogleModel(m) }
 
 func (agyAdapter) LaunchInfo(run Run, ws *Workspace, p *SandboxPolicy) Launch {
 	l := baseLaunch(run)

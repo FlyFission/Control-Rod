@@ -809,6 +809,10 @@ func (b *logBuffer) ended() <-chan struct{} {
 // own result line can say the turn succeeded.
 type exitStatusUntrusted interface{ ExitStatusUntrusted() bool }
 
+// modelFilter is a runtime that may run only some of the models it offers: a run its stream
+// reports on any other model fails.
+type modelFilter interface{ ModelAllowed(model string) bool }
+
 // errTurnFailed is a run whose process exited cleanly but whose runtime reported a failed turn,
 // or, for a runtime whose exit status is untrusted, reported no result at all.
 var errTurnFailed = errors.New("the runtime reported that its turn failed")
@@ -819,9 +823,20 @@ var errTurnFailed = errors.New("the runtime reported that its turn failed")
 func turnFailure(a Adapter, buf *logBuffer) error {
 	buf.mu.Lock()
 	over, failed := buf.turnOver, buf.turnFailed
+	models := make([]string, 0, len(buf.models))
+	for m := range buf.models {
+		models = append(models, m)
+	}
 	buf.mu.Unlock()
 	if failed {
 		return errTurnFailed
+	}
+	if f, ok := a.(modelFilter); ok {
+		for _, m := range models {
+			if !f.ModelAllowed(m) {
+				return fmt.Errorf("%w: it ran on %s, a model this runtime may not run here", errTurnFailed, m)
+			}
+		}
 	}
 	if u, ok := a.(exitStatusUntrusted); ok && u.ExitStatusUntrusted() && !over {
 		return fmt.Errorf("%w: it ended without a result", errTurnFailed)
@@ -1439,7 +1454,13 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		if lerr != nil {
 			return fail("wait for this runtime's other run on this machine: " + lerr.Error()), nil
 		}
-		defer unlock()
+		// Kept while the run's processes are not confirmed gone (ErrUncontained): a surviving agent
+		// must not see another run's folder made after its fence was computed.
+		defer func() {
+			if !errors.Is(resultErr, ErrUncontained) {
+				unlock()
+			}
+		}()
 	}
 	ws, err := prepareWorkspace(d.cfg.Home, job, a)
 	if err != nil {
@@ -1447,8 +1468,14 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	}
 	if ws.RunRoot != "" {
 		// The outputs are read into the completion before this returns. Deferred after the lock,
-		// so the folder is gone before the next run of this runtime starts.
-		defer removeRunRoot(ws.RunRoot)
+		// so the folder is gone before the next run of this runtime starts, and kept, like the
+		// lock, while the run's processes are not confirmed gone.
+		root := ws.RunRoot
+		defer func() {
+			if !errors.Is(resultErr, ErrUncontained) {
+				removeRunRoot(root)
+			}
+		}()
 	}
 	if ws.releaseCheckout != nil {
 		// Custody ends when the run's processes are confirmed gone. When they could not be

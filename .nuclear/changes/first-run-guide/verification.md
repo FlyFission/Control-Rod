@@ -5,7 +5,7 @@
 - E-03: live stack (built control plane, embedded PostgreSQL, Go daemon with the fake runtime only, release web build, Chromium): a new owner's board shows the guide at 0 of 5 with "Choose agents" ([1440](evidence/guide-1440.png), [390](evidence/guide-390.png)).
 - E-04: live `lifecycle.spec.ts` (chromium): fails on main at the "intake drafted" step (card not on the Software board); passes with the intake script change.
 - E-05: the new-change dialog on the live stack ([1440](evidence/new-change-1440.png)); vitest over components, features, pages and lib: 812 pass after the label updates in `newwork.test.tsx` and `shell-scram.test.tsx`.
-- Blind check: pending.
+- Blind check (Codex gpt-6.2-sol, read-only, on the owner's Mac, 2026-11-24), six findings, all fixed: the scripted intake now reads the mode tag from the request section only (the role text holds an example tag; checked with a brief carrying both); the change steps read the board's own scope so the button always reaches the card it names; a card blocked by an earlier failed check links to the package's checks (history and override), not to a run log that would offer a refused retry; the guide closes once any change is accepted, repository or not; "Open the work" also reaches a card in Person verifies; "Describe a change" is shut with the reason while a SCRAM holds new work. vitest: 942 pass; live lifecycle passes.
 
 ## Evidence custody and coupling
 

@@ -242,13 +242,15 @@ export function BoardView() {
   const guide: GuideState = {
     agentReady: agents.rows.some((r) => r.seated && r.state === "ready"),
     hasRepoProject: projects.some((p) => (p.repo ?? "").trim().length > 0),
-    hasCard: data.cards.length > 0 || data.captures.length > 0,
-    released: data.cards.some((c) => c.pkg.status !== "draft"),
+    // The change steps read this board's scope, so the button can always reach the card they name.
+    hasCard: scopedCards.length > 0 || scopedCaptures.length > 0,
+    released: scopedCards.some((c) => c.pkg.status !== "draft"),
+    // Any accepted change anywhere means the person has done the whole loop once.
     accepted: data.cards.some((c) => c.pkg.status === "accepted"),
   };
   const showGuide = !data.loading && data.problems.length === 0 && !agents.loading && data.me !== "" && guideOpen(guide, guideHidden);
   const guideCard = guide.released
-    ? scopedCards.find((c) => c.column === "needs-signature")
+    ? scopedCards.find((c) => c.column === "needs-signature" || c.column === "person-verifies")
     : scopedCards.find((c) => c.pkg.status === "draft");
   const openNewChange = () => {
     const cta = document.querySelector<HTMLButtonElement>(".places-cta");
@@ -848,6 +850,7 @@ export function BoardView() {
           mode={mode}
           onNewChange={openNewChange}
           onHide={hideGuide}
+          newChangeLocked={scramLock.locked ? (scramLock.why ?? "Held by a SCRAM") : undefined}
           onOpenCard={guideCard ? () => setSelectedId(guideCard.pkg.id) : undefined}
         />
       )}

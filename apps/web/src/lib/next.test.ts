@@ -104,7 +104,7 @@ describe("a run that ended without a result", () => {
   });
   it("does not offer Run again when an earlier failed check blocks another check of the same work", () => {
     const line = nextLine(input({ status: "in-verification", runs: [run({})], checkBlocked: { reason: "A check of this deliverable already failed." } }));
-    expect(line.command).toBe("open-run-log");
+    expect(line.command).toBe("open-checks");
     expect(line.text).toMatch(/earlier check of this work failed/);
   });
   it("puts a stalled run before the verification lines, so an earlier pass cannot hide it", () => {

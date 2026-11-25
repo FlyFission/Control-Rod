@@ -39,7 +39,7 @@ export function stalledLine(run: Run, checkBlocked?: { reason?: string }): NextL
     return {
       tone: "needs",
       text: `${what}, and an earlier check of this work failed. Revise it, or sign an override to check it again`,
-      command: "open-run-log",
+      command: "open-checks",
       runId: run.id,
       ...(detail ? { detail: detail.length > 160 ? `${detail.slice(0, 157)}...` : detail } : {}),
     };

@@ -12,9 +12,8 @@ describe("guideSteps", () => {
     expect(steps.map((s) => s.id)).toEqual(["agents", "project", "card", "release", "accept"]);
     expect(steps.filter((s) => s.done).map((s) => s.id)).toEqual(["agents", "project"]);
   });
-  it("closes once a change is accepted or the person hides it", () => {
-    const all = { agentReady: true, hasRepoProject: true, hasCard: true, released: true, accepted: true };
-    expect(guideOpen(all, false)).toBe(false);
+  it("closes once a change is accepted, even without a repository, or when the person hides it", () => {
+    expect(guideOpen({ ...none, hasCard: true, released: true, accepted: true }, false)).toBe(false);
     expect(guideOpen(none, true)).toBe(false);
     expect(guideOpen(none, false)).toBe(true);
   });
@@ -40,6 +39,10 @@ describe("FirstRunGuide", () => {
     await renderPage(<FirstRunGuide state={{ ...none, agentReady: true, hasRepoProject: true, hasCard: true }} mode="software" onNewChange={() => {}} onOpenCard={onOpenCard} onHide={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "Open the plan" }));
     expect(onOpenCard).toHaveBeenCalledOnce();
+  });
+  it("shuts Describe a change while a SCRAM holds new work", async () => {
+    await renderPage(<FirstRunGuide state={{ ...none, agentReady: true, hasRepoProject: true }} mode="software" onNewChange={() => {}} onHide={() => {}} newChangeLocked="SCRAM in force" />);
+    expect((screen.getByRole("button", { name: "Describe a change" }) as HTMLButtonElement).disabled).toBe(true);
   });
   it("can be hidden", async () => {
     const onHide = vi.fn();

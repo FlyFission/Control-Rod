@@ -5,8 +5,9 @@ set -euo pipefail
 mkdir -p out/packages
 if ! grep -qi "scope of work" inputs/BRIEF.md; then echo "A short direct answer." > out/answer.md; exit 0; fi
 att=$(ls inputs/attachments 2>/dev/null | head -1 || true)
-# As the real intake role does (packs/general/roles/intake.md): the board's [mode:...] tag wins.
-mode=$(grep -o '\[mode:[a-z-]*\]' inputs/BRIEF.md | head -1 | sed 's/\[mode:\(.*\)\]/\1/' || true)
+# As the real intake role does (packs/general/roles/intake.md): the board's [mode:...] tag wins. Read it
+# from the request section only: the role text before it holds an example tag.
+mode=$(awk '/^## The request/{on=1; next} on && /^## /{exit} on' inputs/BRIEF.md | grep -o '\[mode:[a-z-]*\]' | head -1 | sed 's/\[mode:\(.*\)\]/\1/' || true)
 case "$mode" in software|capital-projects) ;; nuclear-grade) mode=software ;; *) mode=capital-projects ;; esac
 pkg() { # id role title objective deliverable-json inputs-json criteria-json rigor depends-json
   cat > "out/packages/$1.json" <<JSON

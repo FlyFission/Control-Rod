@@ -36,7 +36,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
 
   if (card.offered === undefined || card.digest === undefined) return null;
   const base = menuItems(card.offered, card.activeRunId !== undefined);
-  if (base.length === 0 && card.requeueRunId === undefined && card.settleRunId === undefined) return null;
+  if (base.length === 0 && card.requeueRunId === undefined && card.settleRunId === undefined && !card.openChecks) return null;
   // Under a SCRAM or drill every decision is held, so each is shown refused with the lock's reason; Stop stays open.
   const items: MenuItem[] = scramLock.locked ? base.map((i) => (i.id === "stop" ? i : { ...i, enabled: false, ...(scramLock.why ? { reason: scramLock.why } : {}) })) : base;
   const primary = primaryItem(base);
@@ -148,7 +148,12 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
             Open run log
           </Link>
         )}
-        {primary && card.requeueRunId === undefined && card.settleRunId === undefined && (
+        {card.openChecks && (
+          <Link to="/packages/$id" params={{ id: pkg.id }} className="btn small primary">
+            Open checks
+          </Link>
+        )}
+        {primary && card.requeueRunId === undefined && card.settleRunId === undefined && !card.openChecks && (
           <button type="button" className="btn small primary" disabled={busy || scramLock.locked} title={scramLock.why} onClick={() => choose(primary)}>
             {primary.label}
           </button>

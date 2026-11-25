@@ -51,8 +51,8 @@ export function useGuideHidden(user: string): [boolean, () => void] {
   }];
 }
 
-/** The guide shows until every step is done or the person hides it. */
-export const guideOpen = (s: GuideState, hidden: boolean) => !hidden && guideSteps(s).some((x) => !x.done);
+/** The guide shows until a change is accepted or the person hides it. */
+export const guideOpen = (s: GuideState, hidden: boolean) => !hidden && !s.accepted;
 
 /**
  * A short guided first run on the board (Linear and Vercel style): five steps, each ticked from real
@@ -65,6 +65,7 @@ export function FirstRunGuide({
   onNewChange,
   onOpenCard,
   onHide,
+  newChangeLocked,
 }: {
   state: GuideState;
   mode: EngineeringMode;
@@ -73,6 +74,8 @@ export function FirstRunGuide({
   /** Opens the first card waiting on the step, when there is one. */
   onOpenCard?: (() => void) | undefined;
   onHide: () => void;
+  /** Why adding a change is shut now (a SCRAM), if it is. */
+  newChangeLocked?: string | undefined;
 }) {
   const [projectOpen, setProjectOpen] = useState(false);
   const steps = guideSteps(state);
@@ -96,7 +99,7 @@ export function FirstRunGuide({
         );
       case "card":
         return (
-          <button type="button" className="btn primary" onClick={onNewChange}>
+          <button type="button" className="btn primary" onClick={onNewChange} disabled={newChangeLocked !== undefined} title={newChangeLocked}>
             Describe a change
           </button>
         );

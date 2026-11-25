@@ -4,6 +4,8 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PRESETS, parseSteps } from "../src/signing-policy.js";
+import { command } from "../src/commands/executor.js";
+import { appendEvent } from "../src/events.js";
 import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
@@ -217,6 +219,23 @@ describe("signing policy on a project", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it("holds a lane raise back while the card's pull request is being opened (the lane barrier)", async () => {
+    const id = await drafted("BARRIER");
+    const cap = (await h.db.query<{ capture_id: string }>("select capture_id from packages where id = $1 limit 1", [id])).rows[0]!.capture_id;
+    const SYSTEM = { kind: "system" as const, id: "control-rod" };
+    await command(h.db, "package.open-pr", (c) => appendEvent(c, "package.pr-started", id, SYSTEM, { revision: 0, branch: "controlrod/x-r0", claim: "new" }));
+    const held = await asOwner("POST", `/captures/${cap}/classify`, { lane: "proprietary" });
+    expect(held.statusCode, held.body).toBe(409);
+    expect(held.json()).toMatchObject({ code: "publishing" });
+    // An older attempt finishing does not release this one's barrier.
+    await command(h.db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision: 0, reason: "failed", detail: "x", claim: "old" }));
+    expect((await asOwner("POST", `/captures/${cap}/classify`, { lane: "proprietary" })).statusCode).toBe(409);
+    // Once this attempt has its own outcome the raise goes through.
+    await command(h.db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision: 0, reason: "failed", detail: "x", claim: "new" }));
+    const raised = await asOwner("POST", `/captures/${cap}/classify`, { lane: "proprietary" });
+    expect(raised.statusCode, raised.body).toBe(200);
   });
 
   it("never accepts a failed check on its own, and lets a person return it with a press", async () => {

@@ -465,7 +465,7 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	return &VerifiedLaunch{File: f, Path: got.Path, Digest: digest, Env: got.Env, exeSum: exeSum, leased: leased, guardedAt: guardedAt}, nil
 }
 
-// Apply points cmd at the verified executable. On Linux it runs the open descriptor (passed as the
+// Apply points cmd at the verified executable (for the Grok bridge, the program it starts). On Linux it runs the open descriptor (passed as the
 // child's first extra file) as /proc/self/fd/N; elsewhere it runs the verified path.
 func (l *VerifiedLaunch) Apply(cmd *exec.Cmd) {
 	target := l.Path
@@ -473,7 +473,13 @@ func (l *VerifiedLaunch) Apply(cmd *exec.Cmd) {
 		cmd.ExtraFiles = append(cmd.ExtraFiles, l.File)
 		target = fmt.Sprintf("/proc/self/fd/%d", 2+len(cmd.ExtraFiles))
 	}
-	cmd.Path, cmd.Args[0] = target, target
+	if i := bridgeExeIndex(cmd.Args); i > 0 {
+		// The Grok bridge starts the runtime itself, under its own fence: the verified path goes
+		// where the bridge reads its program, and the bridge stays the process that is started.
+		cmd.Args[i] = target
+	} else {
+		cmd.Path, cmd.Args[0] = target, target
+	}
 	cmd.Env = append(cmd.Env, l.Env...)
 }
 

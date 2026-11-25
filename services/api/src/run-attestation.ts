@@ -55,10 +55,10 @@ export function harnessName(provider: string): string {
 
 export function countedProvider(provider: unknown): boolean {
   const n = harnessName(String(provider ?? ""));
-  // Grok CLI, OpenCode and Ollama are named above but not counted: they have no registered models
-  // and the daemon does not start them yet, so a pre-check on one cannot count. Antigravity counts
-  // with the Gemini models models.json registers for it (change record agy-seat).
-  return n === "claude" || n === "codex" || n === "agy";
+  // OpenCode and Ollama are named above but not counted: they have no registered models and the
+  // daemon does not start them yet, so a pre-check on one cannot count. Antigravity and Grok CLI
+  // count with the models models.json registers for them (change records agy-seat, grok-seat).
+  return n === "claude" || n === "codex" || n === "agy" || n === "grok";
 }
 
 /** A probe can order eligible checker models. The registry remains the admission authority. */

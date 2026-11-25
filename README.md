@@ -82,7 +82,8 @@ Seat the CLIs on your machine once on **Setup**; Control Rod shows your exact ro
 | **Claude Code** | Anthropic | **Runnable** — plans, authors in git worktrees, and checks blind |
 | **Codex CLI** | OpenAI | **Runnable** — plans, authors in git worktrees, and checks blind |
 | **Antigravity** | Google | **Runnable on macOS** — checks blind and writes work outside a git checkout, inside its own sandbox |
-| **Grok CLI, OpenCode, Ollama** | xAI, OpenCode, Local | **Detected & listed** — held switched off until each adapter is qualified to run inside its own sandbox |
+| **Grok CLI** | xAI | **Runnable on macOS** — checks blind and writes work outside a git checkout, through Control Rod's fenced bridge |
+| **OpenCode, Ollama** | OpenCode, Local | **Detected & listed** — held switched off until each adapter is qualified to run inside its own sandbox |
 | **Custom local or hosted endpoints** | User-named | **Planned** ([ADR 0024](docs/adr/0024-council-first.md)) |
 
 ![Three orthogonal controls per card: Workflow Pack (Playbook, Superpowers, Matt Pocock, Pocock Superpowers), Context Depth (Light vs Nuclear), and Check-In Points.](docs/assets/readme/workflow-modes.svg)

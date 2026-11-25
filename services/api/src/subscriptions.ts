@@ -14,7 +14,7 @@ import { command } from "./commands/executor.js";
 const now = () => new Date().toISOString();
 
 /** Provider CLIs the daemon registers today. Anything else is not stored. */
-const PROVIDERS = ["claude", "codex", "agy"] as const;
+const PROVIDERS = ["claude", "codex", "agy", "grok"] as const;
 
 const AUTH = ["signed-in", "signed-out", "unknown"] as const;
 

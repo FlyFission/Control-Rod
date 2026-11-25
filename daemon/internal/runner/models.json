@@ -247,6 +247,38 @@
       "hosts": ["daily-cloudcode-pa.googleapis.com"],
       "deciding": false,
       "local": false
+    },
+    {
+      "id": "grok-4.7",
+      "harness": "grok",
+      "names": ["grok-4.7"],
+      "hosts": ["grok.com", "cli-chat-proxy.grok.com", "api.x.ai"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "grok-4.7-build-fast",
+      "harness": "grok",
+      "names": ["grok-4.7-build-fast"],
+      "hosts": ["grok.com", "cli-chat-proxy.grok.com", "api.x.ai"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "grok-4.6",
+      "harness": "grok",
+      "names": ["grok-4.6"],
+      "hosts": ["grok.com", "cli-chat-proxy.grok.com", "api.x.ai"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "grok-4.5",
+      "harness": "grok",
+      "names": ["grok-4.5"],
+      "hosts": ["grok.com", "cli-chat-proxy.grok.com", "api.x.ai"],
+      "deciding": true,
+      "local": false
     }
   ]
 }

@@ -16,24 +16,25 @@ import { getObject, recordObject, transition } from "./workbench.js";
 
 const ROLES = ["intake", "author", "pre-check"] as const;
 /**
- * Runtimes an organization can pin. Grok CLI, OpenCode and Ollama join this list when the daemon
- * can confine them; until then the daemon lists them as not ready and starts none. Antigravity
- * joined with its confinement on macOS (change record agy-seat).
+ * Runtimes an organization can pin. OpenCode and Ollama join this list when the daemon can confine
+ * them; until then the daemon lists them as not ready and starts none. Antigravity and Grok CLI
+ * joined with their confinement on macOS (change records agy-seat, grok-seat).
  */
-export const PINNABLE = ["claude", "codex", "agy"];
+export const PINNABLE = ["claude", "codex", "agy", "grok"];
 
 /**
  * Runtimes the daemon can start confined, in the order an unspecified author seat is filled. The
  * claim offers no other runtime a daemon lists. The fake runtime is added where tests use it.
  */
-export const RUNNABLE = ["claude", "codex", "agy"];
+export const RUNNABLE = ["claude", "codex", "agy", "grok"];
 
 /** Order for an unspecified checker seat. */
-export const CHECKER_ORDER = ["codex", "claude", "agy"];
+export const CHECKER_ORDER = ["codex", "claude", "agy", "grok"];
 
 /**
  * Runtimes that can author in a repository checkout. Antigravity cannot yet: its file tools can
- * only be fenced for a workspace outside the home folder (change record agy-seat).
+ * only be fenced for a workspace outside the home folder (change record agy-seat). Grok CLI cannot
+ * yet either: its commands are fenced to the workspace folder (change record grok-seat).
  */
 export const CHECKOUT_AUTHORS = ["claude", "codex", "fake"];
 

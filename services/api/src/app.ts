@@ -111,10 +111,7 @@ export interface AppOptions {
   sweepSeconds?: number;
   /** The most missed events the stream replays on reconnect. Default STREAM_REPLAY_MAX. */
   streamReplayMax?: number;
-  /**
-   * Open a draft pull request when work bound to a repository checkout is accepted. Off unless set
-   * here or by CONTROLROD_PUBLISH_PULL_REQUESTS=1, until the publishing review is closed.
-   */
+  /** Open a draft pull request when work bound to a repository checkout is accepted. Default on; CONTROLROD_PUBLISH_PULL_REQUESTS=0 turns it off. */
   publishPullRequests?: boolean;
 }
 
@@ -145,7 +142,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
   const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.preparationLanes?{preparationLanes:opts.preparationLanes}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   // Accepted work bound to a repository checkout opens its draft pull request after the accept commits.
-  const resumePullRequests = opts.publishPullRequests ?? process.env.CONTROLROD_PUBLISH_PULL_REQUESTS === "1";
+  const resumePullRequests = opts.publishPullRequests ?? process.env.CONTROLROD_PUBLISH_PULL_REQUESTS !== "0";
   if (resumePullRequests) cfg.publish = (id, revision) => void publishAccepted(db, id, revision).catch((e) => console.error("[control-rod] pull request:", e));
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });

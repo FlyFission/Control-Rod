@@ -12,6 +12,7 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
+import { PR_CLAIM_MS, PUBLISH_SEND_BY_MS } from "./publish-claim.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramOfHold, scramRunEnded } from "./scram.js";
@@ -807,6 +808,7 @@ function runtimeName(provider: unknown): string {
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
   if (p === "agy" || p === "antigravity" || p === "gemini-cli") return "agy";
+  if (p === "grok" || p === "xai" || p === "grok-cli") return "grok";
   return p;
 }
 
@@ -3715,8 +3717,6 @@ export async function runtimeStatus(db: Db, orgId: string): Promise<{ reported_a
 
 /** Outcomes after which this revision never tries again. A failed attempt may be retried. */
 const PR_FINAL = new Set(["no-changes", "not-github", "lane", "shared", "changed", "no-checkout"]);
-/** How long an attempt that never reported holds the claim before another may try. */
-const PR_CLAIM_MS = 15 * 60_000;
 /** When this server started: a claim made before it cannot belong to an attempt that is still running. */
 const STARTED_AT = Date.now();
 
@@ -3725,9 +3725,9 @@ const STARTED_AT = Date.now();
  * checkout, and records what happened as events on the package. Runs after the accept commits,
  * outside the decision's transaction. What goes out is exactly what was accepted: the subject is
  * recomputed and must match the accept decision's digest, and the commit is built from the
- * accepted author run's recorded commit and patch output, never from the live tree. The lane is
- * read again right before the push and before the pull request; no lock is held across the
- * network. A failed attempt (or one that never reported in 15 minutes) may be
+ * accepted author run's recorded commit and patch output, never from the live tree. The claim is
+ * the lane barrier (publish-claim.ts): no lock is held across the network, yet no raise can land
+ * while the attempt may still send. A failed attempt (or one that never reported in 15 minutes) may be
  * tried again; the publisher then finds the branch and pull request it already made.
  */
 export async function publishAccepted(db: Db, id: string, revision: number, atStart = false): Promise<void> {
@@ -3737,26 +3737,43 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
   const row = r.rows[0];
   if (!row || row.status !== "accepted" || !row.checkout) return;
   const checkout = row.checkout;
+  // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
+  const routine = async (q: Db | Tx = db) => {
+    const lane = await laneOf(q, "package", id, row.body.data_lane);
+    return { ok: lane === "public" || lane === "internal", lane };
+  };
+  // The claim is taken under the shared marking lock and only on a routine lane, and while it holds
+  // no marking can raise the card (markings.ts): a raise lands before the claim, and is seen here,
+  // or waits until the attempt is over.
   const first = await command(db, "package.open-pr", async (c) => {
     await c.query("lock table events in exclusive mode");
     const last = (await c.query<{ body: Json }>(
       `select body from events where body->>'subject' = $1 and body->>'type' in ('package.pr-started', 'package.pr-opened', 'package.pr-not-opened')
          and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision])).rows[0]?.body;
-    if (last?.type === "package.pr-opened") return false;
-    if (last?.type === "package.pr-not-opened" && PR_FINAL.has(String(last.data?.reason))) return false;
+    if (last?.type === "package.pr-opened") return null;
+    if (last?.type === "package.pr-not-opened" && PR_FINAL.has(String(last.data?.reason))) return null;
     // At start a claim from before this server started cannot still be running, so it does not hold;
     // a claim this server made (an accept during the startup pass) always does, for its 15 minutes.
     if (last?.type === "package.pr-started") {
       const at = new Date(String(last.at)).getTime();
       const stale = atStart ? at < STARTED_AT : false;
-      if (!stale && Date.now() - at < PR_CLAIM_MS) return false;
+      if (!stale && Date.now() - at < PR_CLAIM_MS) return null;
     }
-    await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: publishBranchOf(id, revision) });
-    return true;
+    const now = await routine(c);
+    if (!now.ok) {
+      await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: "lane", detail: `This work is on the ${String(now.lane ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.` });
+      return null;
+    }
+    const claim = randomUUID();
+    const started = await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: publishBranchOf(id, revision), claim });
+    return { claim, at: started.at };
   });
   if (!first) return;
+  const { claim } = first;
+  // The send budget counts from the claim's own time, the same clock the barrier measures.
+  const sendBy = new Date(first.at).getTime() + PUBLISH_SEND_BY_MS;
   const notOpened = (reason: string, detail: string) =>
-    command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason, detail }));
+    command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason, detail, claim }));
   // Cards drafted from one request share its checkout, so one card's pull request could carry another's unaccepted work.
   const siblings = (await db.query<{ n: number }>("select count(distinct id)::int as n from packages where capture_id = $1", [row.capture_id])).rows[0]?.n ?? 0;
   if (siblings > 1) {
@@ -3788,31 +3805,20 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
     await verifyRecordedOutput(db, { packageId: id, revision, runId: s.author.id, path: patches[0].name }, out);
     patch = out.bytes;
   }
-  // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
-  // The lane is read now and again right before each step that sends anything. No lock is held
-  // across the network: a stalled push must never hold up other work, SCRAM included.
-  const routine = async () => {
-    const lane = await laneOf(db, "package", id, pkg.body.data_lane);
-    return lane === "public" || lane === "internal";
-  };
-  if (!(await routine())) {
-    await notOpened("lane", `This work is on the ${String(await laneOf(db, "package", id, pkg.body.data_lane) ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.`);
-    return;
-  }
   const result = await publishCheckout({
     repo: String(checkout.repo ?? ""), root: String(checkout.root ?? ""), path: String(checkout.path ?? ""),
     boundHead: String(checkout.head ?? ""), finalHead, patch, publishBranch: publishBranchOf(id, revision),
     title: String(pkg.body.title ?? id), body: prBody(pkg.body, s.verification ?? undefined), acceptedAt: String(accepted.decided_at),
-    stillAllowed: routine,
+    stillAllowed: async () => (await routine()).ok, deadline: sendBy,
   });
   await command(db, "package.open-pr", async (c) => {
     // A late failure from an overlapping attempt never hides a pull request already opened.
     const opened = await c.query("select 1 from events where body->>'subject' = $1 and body->>'type' = 'package.pr-opened' and (body->'data'->>'revision')::int = $2 limit 1", [id, revision]);
     if (!result.opened && opened.rowCount) return;
     if (result.opened) {
-      await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, reused: result.reused });
+      await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, reused: result.reused, claim });
     } else {
-      await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: result.reason, detail: result.detail });
+      await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: result.reason, detail: result.detail, claim });
     }
   });
 }

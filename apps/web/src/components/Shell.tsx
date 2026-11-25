@@ -350,19 +350,18 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
   // The library reports a finished layout before the panel's own size reads the new value: read it on
   // the next task, once it does.
-  // Hiding or showing (by any route: the toggle, `[`, Enter on the handle, a drag past the minimum)
-  // saves visibility only; a rail reopened in a narrow window may be squeezed, and that squeeze is not
-  // the person's choice. Only a resize of an open rail that stays open saves a new width.
-  const railSavedCollapsed = useRef(railStart.collapsed);
+  // Hiding or showing with the toggle, `[` or Enter on the handle saves visibility only: a rail
+  // reopened in a narrow window may be squeezed, and that squeeze is not the person's choice. A drag
+  // (including one that drags a hidden rail open) saves the width it ends at.
   function persistRailSoon(chosen: boolean) {
     if (!chosen) return;
     window.setTimeout(() => {
       const panel = railPanel.current;
       if (!panel) return;
       const collapsed = panel.isCollapsed();
-      const wasCollapsed = railSavedCollapsed.current;
-      if (!collapsed && !wasCollapsed) railWidth.current = panel.getSize().inPixels;
-      railSavedCollapsed.current = collapsed;
+      // Drags and arrow keys are the only user-driven layout changes left here (the toggle, `[` and
+      // Enter on the handle go through toggleRail): the width they leave open is the chosen one.
+      if (!collapsed) railWidth.current = panel.getSize().inPixels;
       saveRailLayout(railUser, { width: railWidth.current, collapsed });
     }, 0);
   }
@@ -384,7 +383,6 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     window.setTimeout(() => {
       const p = railPanel.current;
       if (!p) return;
-      railSavedCollapsed.current = p.isCollapsed();
       saveRailLayout(railUser, { width: railWidth.current, collapsed: p.isCollapsed() });
     }, 0);
   }
@@ -394,7 +392,6 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     if (phone) return;
     const saved = loadRailLayout(railUser);
     railWidth.current = saved.width;
-    railSavedCollapsed.current = saved.collapsed;
     let frame = 0;
     let tries = 0;
     const apply = () => {
@@ -446,7 +443,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       if (e.key !== "Enter" || !(e.target instanceof Element) || !e.target.classList.contains("rail-sep")) return;
       e.preventDefault();
       e.stopPropagation();
-      toggleRailRef.current();
+      if (!e.repeat) toggleRailRef.current();
     };
     el.addEventListener("keydown", onKey, true);
     groupCleanup.current = () => el.removeEventListener("keydown", onKey, true);

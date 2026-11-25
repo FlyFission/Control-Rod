@@ -164,6 +164,15 @@ const truncated = (page) => page.evaluate(() => [...document.querySelectorAll('.
   await hsep.focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
   const enterFocus = await page.evaluate(() => document.activeElement?.getAttribute('role'));
   check((await railW(page)) === 450 && enterFocus === 'separator', `hidden at 450, loaded at 830, widened, Enter reopens at 450 with focus on the handle (got ${await railW(page)}, focus ${enterFocus})`);
+  // Hidden, then dragged open to a new width in one gesture: that width is saved.
+  await page.getByRole('button', { name: 'Hide navigation' }).click(); await page.waitForTimeout(250);
+  { const bx = await hsep.boundingBox(); await page.mouse.move(bx.x + bx.width / 2, 400); await page.mouse.down(); await page.mouse.move(bx.x + 300, 400, { steps: 10 }); await page.mouse.up(); await page.waitForTimeout(300); }
+  const dragged = await railW(page);
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
+  check(dragged > 0 && dragged !== 450 && Math.abs((await railW(page)) - dragged) <= 1, `dragging a hidden rail open to ${dragged} px saves that width (after reload ${await railW(page)})`);
+  // Touch: the workspace keeps browser gestures on a wide screen; only the handle claims touch.
+  const touch = await page.evaluate(() => ({ group: getComputedStyle(document.querySelector('.shell-panes')).touchAction, panel: getComputedStyle(document.querySelector('.shell-panes > [data-panel]')).touchAction, sep: getComputedStyle(document.querySelector('.rail-sep')).touchAction }));
+  check(touch.group === 'auto' && touch.panel === 'auto' && touch.sep === 'none', `wide screen touch-action: group ${touch.group}, panel ${touch.panel}, handle ${touch.sep}`);
   // A focused project row shows its repository even on a narrow rail.
   { const bx = await hsep.boundingBox(); await page.mouse.dblclick(bx.x + bx.width / 2, 400); await page.waitForTimeout(300); }
   await page.locator('.rail-proj-btn[title^="Hanford"]').focus(); await page.waitForTimeout(100);

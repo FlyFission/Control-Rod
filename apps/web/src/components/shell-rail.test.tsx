@@ -119,6 +119,9 @@ describe("the navigation rail", () => {
     expect(document.activeElement).toBe(sep);
     fireEvent.keyDown(sep, { key: "Enter" });
     expect(rail().hasAttribute("inert")).toBe(true);
+    // A held Enter does not keep toggling.
+    fireEvent.keyDown(sep, { key: "Enter", repeat: true });
+    expect(rail().hasAttribute("inert")).toBe(true);
   });
 
   it("ignores an auto-repeated [ from a held key", async () => {

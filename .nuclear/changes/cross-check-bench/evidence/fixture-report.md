@@ -1,6 +1,6 @@
 # Cross-vendor checking benchmark: fixture, calibration
 
-Designation: **calibration (never published as findings)**. Scored 2026-11-24T19:42:21Z. Study digest `bd86d4128e1c`, harness `515f3cc0d867`, manifest `62bbd6377a7e`.
+Designation: **calibration (never published as findings)**. Scored 2026-11-25T23:28:09Z. Study digest `657fa9c92bf1`, harness `1fad9663f1f6`, manifest `4c936a328c00`.
 
 The benchmark calls the Claude Code and Codex CLIs directly, not through Control Rod's daemon.
 "Rejection" means an explicit fail verdict, not a confirmed defect. Hidden tests measure whether

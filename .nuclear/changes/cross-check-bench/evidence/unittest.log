@@ -62,13 +62,16 @@ test_release_refuses_private_data (bench.cross-check.test_bench.EndToEnd.test_re
 test_report_cells_cannot_break_the_table (bench.cross-check.test_bench.EndToEnd.test_report_cells_cannot_break_the_table) ... ok
 test_sizing_is_frozen_and_signed (bench.cross-check.test_bench.EndToEnd.test_sizing_is_frozen_and_signed) ... ok
 test_a_broken_patch_is_patch_invalid (bench.cross-check.test_bench.Grading.test_a_broken_patch_is_patch_invalid) ... ok
+test_a_suite_that_dies_importing_is_not_a_failed_apply (bench.cross-check.test_bench.Grading.test_a_suite_that_dies_importing_is_not_a_failed_apply) ... ok
 test_collection_errors_are_failures (bench.cross-check.test_bench.Grading.test_collection_errors_are_failures) ... ok
 test_controls_pass_on_fixtures (bench.cross-check.test_bench.Grading.test_controls_pass_on_fixtures) ... ok
 test_grader_check_needs_every_flag_and_complete_rows (bench.cross-check.test_bench.Grading.test_grader_check_needs_every_flag_and_complete_rows) ... ok
 test_grader_images_are_pulled_for_their_own_platform (bench.cross-check.test_bench.Grading.test_grader_images_are_pulled_for_their_own_platform) ... ok
 test_judge (bench.cross-check.test_bench.Grading.test_judge) ... ok
 test_known_bad_target_must_be_a_plain_file_inside (bench.cross-check.test_bench.Grading.test_known_bad_target_must_be_a_plain_file_inside) ... ok
+test_known_bad_that_breaks_import_is_a_detected_failure (bench.cross-check.test_bench.Grading.test_known_bad_that_breaks_import_is_a_detected_failure) ... ok
 test_labels_are_safe_directory_names (bench.cross-check.test_bench.Grading.test_labels_are_safe_directory_names) ... ok
+test_required_ids_match_the_way_the_pinned_harness_does (bench.cross-check.test_bench.Grading.test_required_ids_match_the_way_the_pinned_harness_does) ... ok
 test_submission_statuses_pass_through (bench.cross-check.test_bench.Grading.test_submission_statuses_pass_through) ... ok
 test_swebench_report_parsing (bench.cross-check.test_bench.Grading.test_swebench_report_parsing) ... ok
 test_a_later_success_clears_a_pause (bench.cross-check.test_bench.LedgerRules.test_a_later_success_clears_a_pause) ... ok
@@ -118,7 +121,7 @@ test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 116 tests in 69.821s
+Ran 119 tests in 66.658s
 
 OK (skipped=1)
 # python3.9 --version: Python 3.9.25
@@ -185,13 +188,16 @@ test_release_refuses_private_data (bench.cross-check.test_bench.EndToEnd) ... ok
 test_report_cells_cannot_break_the_table (bench.cross-check.test_bench.EndToEnd) ... ok
 test_sizing_is_frozen_and_signed (bench.cross-check.test_bench.EndToEnd) ... ok
 test_a_broken_patch_is_patch_invalid (bench.cross-check.test_bench.Grading) ... ok
+test_a_suite_that_dies_importing_is_not_a_failed_apply (bench.cross-check.test_bench.Grading) ... ok
 test_collection_errors_are_failures (bench.cross-check.test_bench.Grading) ... ok
 test_controls_pass_on_fixtures (bench.cross-check.test_bench.Grading) ... ok
 test_grader_check_needs_every_flag_and_complete_rows (bench.cross-check.test_bench.Grading) ... ok
 test_grader_images_are_pulled_for_their_own_platform (bench.cross-check.test_bench.Grading) ... ok
 test_judge (bench.cross-check.test_bench.Grading) ... ok
 test_known_bad_target_must_be_a_plain_file_inside (bench.cross-check.test_bench.Grading) ... ok
+test_known_bad_that_breaks_import_is_a_detected_failure (bench.cross-check.test_bench.Grading) ... ok
 test_labels_are_safe_directory_names (bench.cross-check.test_bench.Grading) ... ok
+test_required_ids_match_the_way_the_pinned_harness_does (bench.cross-check.test_bench.Grading) ... ok
 test_submission_statuses_pass_through (bench.cross-check.test_bench.Grading) ... ok
 test_swebench_report_parsing (bench.cross-check.test_bench.Grading) ... ok
 test_a_later_success_clears_a_pause (bench.cross-check.test_bench.LedgerRules) ... ok
@@ -241,6 +247,6 @@ test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 116 tests in 81.295s
+Ran 119 tests in 69.412s
 
 OK (skipped=1)

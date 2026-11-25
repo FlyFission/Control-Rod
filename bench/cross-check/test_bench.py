@@ -1363,6 +1363,73 @@ class Grading(Tmp):
         self.assertEqual(grading.judge_collection_failure(task, None)["status"], "infra_error")  # map unavailable
         self.assertEqual(grading.judge_collection_failure(task, {"p": "passed"})["status"], "infra_error")
 
+    def test_required_ids_match_the_way_the_pinned_harness_does(self):
+        # swebench 5's _resolve_case: an ID the dataset truncated mid-parameter (pytest's log line
+        # splits at the space) matches the key it prefixes, only when those keys agree on the outcome
+        trunc = "t.py::test_units[kwargs0-Unit 'deg' \\(angle\\) could"
+        out = {"t.py::test_units[kwargs0-Unit": "passed", trunc[:-6] + "x]": "passed"}
+        self.assertEqual(grading.resolve_case("t.py::test_units[kwargs0-Unit", out), "t.py::test_units[kwargs0-Unit")
+        self.assertIsNone(grading.resolve_case(trunc, out))  # nothing it prefixes
+        out = {"a[x-1]": "passed", "a[x-2]": "passed", "b[y-1]": "passed", "b[y-2]": "failed"}
+        self.assertEqual(grading.resolve_case("a[x", out), "a[x-1]")
+        self.assertIsNone(grading.resolve_case("b[y", out))  # keys disagree: ambiguous, so missing
+        self.assertIsNone(grading.resolve_case("a", out))  # balanced brackets: exact match only
+        task = {"instance_id": "x", "FAIL_TO_PASS": ["a[x"], "PASS_TO_PASS": ["p"]}
+        g = grading.judge(task, {"a[x-1]": "passed", "p": "passed"})
+        self.assertEqual((g["status"], g["resolved"]), ("graded", True))
+        g = grading.judge({**task, "FAIL_TO_PASS": ["zz", "a[x"]}, {"a[x-1]": "passed", "p": "passed"})
+        self.assertEqual((g["status"], g["missing"], g["missing_count"]), ("infra_error", ["zz"], 1))
+
+    def test_a_suite_that_dies_importing_is_not_a_failed_apply(self):
+        # swebench 5 reports patch_successfully_applied=false for a complete log that parsed no test
+        run_log = self.d / "run_instance.log"
+        run_log.write_text("Checking patch a.py...\n>>>>> Applied Patch:\nApplied patch a.py cleanly.\n")
+        self.assertTrue(grading.patch_applied(run_log))
+        run_log.write_text(">>>>> Applied Patch:\n>>>>> Patch Apply Failed:\n")
+        self.assertFalse(grading.patch_applied(run_log))
+        self.assertFalse(grading.patch_applied(self.d / "absent.log"))
+        ev, log = {"python": "3.11", "harness": "swebench==5.0.2"}, self.d / "test_output.txt"
+        log.write_text("x")
+        def mapped(j):
+            return mock.patch.object(grading.subprocess, "run", return_value=mock.Mock(returncode=0, stdout=json.dumps(j)))
+        with mapped({"found": False, "status": {}, "complete_empty": True}):
+            self.assertEqual(grading.executed_map(ev, self.d, "x", log), {})
+        with mapped({"found": False, "status": {}, "complete_empty": False}):
+            self.assertIsNone(grading.executed_map(ev, self.d, "x", log))  # incomplete log stays unavailable
+        with mapped({"found": False, "status": {"p": "PASSED"}, "complete_empty": True}):
+            self.assertIsNone(grading.executed_map(ev, self.d, "x", log))
+        with mapped({"found": True, "status": {"a[x-1 y]": "PASSED"}, "resolved": {"a[x": "a[x-1 y]", "b[": "zz"}}):
+            self.assertEqual(grading.executed_map(ev, self.d, "x", log), {"a[x-1 y]": "passed", "a[x": "passed"})
+
+    def _swe(self, applied: bool, run_log: str, mapped):
+        snap = self.d / "snap.jsonl"
+        snap.write_text("{}\n")
+        cfg = {"evaluation": {"python": "3.11", "harness": "swebench==5.0.2"}, "snapshot": {"path": str(snap)}}
+        task = {"instance_id": "x", "FAIL_TO_PASS": ["f"], "PASS_TO_PASS": ["p"], "image": "i"}
+        def run(args, cwd, *a, **k):
+            rid = args[args.index("--run_id") + 1]
+            d = Path(cwd) / "logs" / "run_evaluation" / rid / "candidate" / "x"
+            d.mkdir(parents=True)
+            (d / "report.json").write_text(json.dumps({"x": {"patch_successfully_applied": applied, "resolved": False}}))
+            (d / "run_instance.log").write_text(run_log)
+            (d / "test_output.txt").write_text(">>>>> Start Test Output\nImportError: cannot import name 'Rel'\n"
+                                               ">>>>> End Test Output\nTest Exit Code: 1\n")
+            return 0, None
+        with mock.patch.object(grading, "ensure_image", return_value={"ok": True}), \
+                mock.patch.object(grading, "run_proc", side_effect=run), \
+                mock.patch.object(grading, "executed_map", side_effect=mapped), \
+                mock.patch.object(grading, "docker_images", return_value=[]):
+            return grading.grade_swebench(cfg, None, [("kb", "x", b"p")], {"x": task}, self.d / "ev")["kb"]
+
+    def test_known_bad_that_breaks_import_is_a_detected_failure(self):
+        g = self._swe(False, ">>>>> Applied Patch:\nApplied patch a.py cleanly.\n", lambda *a: {})
+        self.assertEqual((g["status"], g["collection_error"], g["resolved"]), ("graded", True, False))
+        self.assertTrue(g["report_said_not_applied"])
+        g = self._swe(False, ">>>>> Patch Apply Failed:\n", lambda *a: {})
+        self.assertEqual(g["status"], "patch_invalid")  # the run log itself says the apply failed
+        g = self._swe(False, ">>>>> Applied Patch:\n", lambda *a: None)
+        self.assertEqual(g["status"], "patch_invalid")  # no complete, empty test log: not a verdict
+
     def test_known_bad_target_must_be_a_plain_file_inside(self):
         repo = self.d / "repo"
         (repo / "pkg").mkdir(parents=True)

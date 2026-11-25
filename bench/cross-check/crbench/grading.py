@@ -56,8 +56,27 @@ except ImportError:  # swebench 4
     from swebench.harness.test_spec.test_spec import make_test_spec
 snapshot, tid, log = sys.argv[1], sys.argv[2], sys.argv[3]
 row = next(json.loads(l) for l in open(snapshot) if l.strip() and json.loads(l)["instance_id"] == tid)
-status, found = get_logs_eval(make_test_spec(row), log)
-print(json.dumps({"found": bool(found), "status": status}))
+spec = make_test_spec(row)
+status, found = get_logs_eval(spec, log)
+try:  # name each required ID the way the harness's own grading resolves it (truncated IDs)
+    from swebench.harness.grading import _resolve_case
+except ImportError:
+    _resolve_case = None
+resolved = {}
+if _resolve_case and found:
+    for case in list(spec.FAIL_TO_PASS) + list(spec.PASS_TO_PASS):
+        key = _resolve_case(case, status)
+        if key is not None and key != case:
+            resolved[case] = key
+# swebench 5 also returns found=False for a complete log that parsed no test result (for example a
+# suite that died importing the candidate's code). Say which case this is, so it is not read as a
+# failed apply: both markers present, no harness failure marker, and nothing parsed.
+text = open(log, errors="replace").read()
+from swebench.harness import constants as C
+bad = [getattr(C, n) for n in ("APPLY_PATCH_FAIL", "RESET_FAILED", "TESTS_ERROR", "TESTS_TIMEOUT") if hasattr(C, n)]
+complete = C.START_TEST_OUTPUT in text and C.END_TEST_OUTPUT in text and not any(b in text for b in bad)
+print(json.dumps({"found": bool(found), "status": status, "resolved": resolved,
+                  "complete_empty": bool(not found and not status and complete)}))
 '''
 # XFAIL counts as a pass because the pinned harness's own grading counts it so (test_passed).
 SWE_STATUS = {"PASSED": "passed", "XFAIL": "passed", "FAILED": "failed", "ERROR": "error", "SKIPPED": "skipped"}
@@ -98,7 +117,7 @@ def judge_collection_failure(task: dict, outcomes: dict | None) -> dict:
     req = list(task["FAIL_TO_PASS"]) + list(task["PASS_TO_PASS"])
     if outcomes is None:
         return {"status": "infra_error", "why": "collection error, but the executed-test map is unavailable"}
-    if any(t in outcomes for t in req):
+    if any(resolve_case(t, outcomes) for t in req):
         return {"status": "infra_error", "why": "collection error after some required tests ran"}
     return {"status": "graded", "a1_pass": False, "resolved": False, "collection_error": True, "skipped": [],
             "p2p_failed": [], "f2p_failed": [], "why": "the test suite failed to collect before any required test ran"}
@@ -111,15 +130,18 @@ def judge(task: dict, outcomes: dict | None) -> dict:
         raise Refused("§6 A1", f"{task['instance_id']} has an empty expected test-ID set")
     if outcomes is None:
         return {"status": "infra_error", "why": "no report"}
-    missing = [t for t in f2p + p2p if t not in outcomes]
+    keys = {t: resolve_case(t, outcomes) for t in f2p + p2p}
+    missing = [t for t, k in keys.items() if k is None]
     if missing:
-        return {"status": "infra_error", "why": f"{len(missing)} required test IDs did not run", "missing": missing[:20]}
-    a1 = all(outcomes[t] == "passed" for t in p2p)
-    f2p_ok = all(outcomes[t] == "passed" for t in f2p)
+        return {"status": "infra_error", "why": f"{len(missing)} required test IDs did not run",
+                "missing": missing[:20], "missing_count": len(missing)}
+    got = {t: outcomes[k] for t, k in keys.items()}
+    a1 = all(got[t] == "passed" for t in p2p)
+    f2p_ok = all(got[t] == "passed" for t in f2p)
     return {"status": "graded", "a1_pass": a1, "resolved": a1 and f2p_ok,
-            "skipped": sorted(t for t in f2p + p2p if outcomes[t] == "skipped"),
-            "p2p_failed": sorted(t for t in p2p if outcomes[t] != "passed"),
-            "f2p_failed": sorted(t for t in f2p if outcomes[t] != "passed")}
+            "skipped": sorted(t for t in f2p + p2p if got[t] == "skipped"),
+            "p2p_failed": sorted(t for t in p2p if got[t] != "passed"),
+            "f2p_failed": sorted(t for t in f2p if got[t] != "passed")}
 
 
 def label_dir(label: str) -> str:
@@ -242,9 +264,41 @@ def executed_map(ev: dict, snapshot: Path, tid: str, log: Path) -> dict | None:
         j = json.loads(r.stdout.strip().splitlines()[-1])
     except (json.JSONDecodeError, IndexError):
         return None
+    if j.get("found") is not True and j.get("complete_empty") is True and j.get("status") == {}:
+        return {}  # a complete log with no test result: only this can support a collection error
     if j.get("found") is not True or not isinstance(j.get("status"), dict):
         return None  # found=false is the harness's own "incomplete log" (timeout, crash, failed apply)
-    return {k: SWE_STATUS.get(v, "error") for k, v in j["status"].items()}
+    out = {k: SWE_STATUS.get(v, "error") for k, v in j["status"].items()}
+    for case, key in (j.get("resolved") or {}).items():  # the harness's own name for a truncated ID
+        if key in out and case not in out:
+            out[case] = out[key]
+    return out
+
+
+APPLIED = (b">>>>> Applied Patch",)
+APPLY_FAILED = (b">>>>> Patch Apply Failed", b">>>>> Error applying patch")
+
+
+def patch_applied(run_log: Path) -> bool:
+    """The harness's own run log says the candidate patch applied, and never that it failed."""
+    try:
+        data = run_log.read_bytes()[:64 * 1024 * 1024]
+    except OSError:
+        return False
+    return any(m in data for m in APPLIED) and not any(m in data for m in APPLY_FAILED)
+
+
+def resolve_case(case: str, outcomes: dict) -> str | None:
+    """The outcome key for a required ID, as the pinned harness matches it (_resolve_case in
+    swebench 5): exact, or for an ID the dataset truncated mid-parameter (more "[" than "]"), the
+    first key it prefixes when all such keys agree on pass versus fail."""
+    if case in outcomes:
+        return case
+    if case.count("[") > case.count("]"):
+        hits = [k for k in outcomes if k.startswith(case)]
+        if hits and len({outcomes[k] == "passed" for k in hits}) == 1:
+            return hits[0]
+    return None
 
 
 def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple[str, str, bytes]], tasks: dict,
@@ -285,11 +339,18 @@ def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple
         if rep is None:
             out[label] = {**base, "status": "infra_error", "why": "missing or malformed report"}
             continue
-        if not rep["applied"]:
-            out[label] = {**base, "status": "patch_invalid", "why": "the harness could not apply the patch"}
-            continue
         log = found.parent / "test_output.txt"
-        outcomes = executed_map(ev, snapshot, tid, log)
+        outcomes = None
+        if not rep["applied"]:
+            # swebench 5 also reports "not applied" for a suite that ran and parsed nothing. Only the
+            # run log's own apply marker plus a complete, empty test log turns that into a verdict.
+            outcomes = executed_map(ev, snapshot, tid, log) if patch_applied(found.parent / "run_instance.log") else None
+            if outcomes != {}:
+                out[label] = {**base, "status": "patch_invalid", "why": "the harness could not apply the patch"}
+                continue
+            base["report_said_not_applied"] = True
+        else:
+            outcomes = executed_map(ev, snapshot, tid, log)
         g = judge(tasks[tid], outcomes)
         if g["status"] == "infra_error" and log.exists() and collection_failed(log):
             g = judge_collection_failure(tasks[tid], outcomes)

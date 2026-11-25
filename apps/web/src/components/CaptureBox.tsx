@@ -3,7 +3,8 @@ import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { DataLane } from "../api/types.js";
-import { LanePicker } from "./LanePicker.js";
+import { useActiveProject } from "../lib/projects.js";
+import { LanePicker, defaultLaneFor } from "./LanePicker.js";
 import { FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "../lib/attachments.js";
 
 /** The capture contract caps what a person types at 20,000 characters. Files ride as attachments. */
@@ -17,7 +18,8 @@ export function CaptureBox() {
   const [files, setFiles] = useState<Attached[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
-  const [lane, setLane] = useState<DataLane>("internal");
+  const activeProject = useActiveProject();
+  const [lane, setLane] = useState<DataLane>(defaultLaneFor(activeProject));
   const input = useRef<HTMLInputElement>(null);
 
   const send = useMutation({

@@ -7,7 +7,7 @@ import { api } from "../api/client.js";
 import type { CaptureView, DataLane } from "../api/types.js";
 import { splitAttachments } from "../lib/attachments.js";
 import { time } from "../lib/format.js";
-import { LanePicker } from "./LanePicker.js";
+import { LanePicker, useCaptureDefaultLane } from "./LanePicker.js";
 
 /** The newest captures, with their intake state and what each became. */
 export function RecentCaptures() {
@@ -31,9 +31,9 @@ export function RecentCaptures() {
 }
 
 /** An unclassified capture: no AI runtime sees it until a person with lane authority picks its lane. */
-function Classify({ id }: { id: string }) {
+function Classify({ id, text }: { id: string; text: string | undefined }) {
   const qc = useQueryClient();
-  const [lane, setLane] = useState<DataLane>("internal");
+  const [lane, setLane] = useState<DataLane>(useCaptureDefaultLane(text));
   const save = useMutation({
     mutationFn: () => api.classifyCapture(id, lane),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["captures"] }),
@@ -76,7 +76,7 @@ function CaptureRow({ c }: { c: CaptureView }) {
         <span className="muted small">{time(c.created_at)}</span>
       </div>
       {shown.text.length > 0 && <p className="capture-text">{shown.text}</p>}
-      {!c.lane && <Classify id={c.id} />}
+      {!c.lane && <Classify id={c.id} text={c.text} />}
       {disposition === "pending" && intake !== undefined && RETRYABLE.has(intake.status) && (
         <div className="capture-intake" role="alert">
           <span>

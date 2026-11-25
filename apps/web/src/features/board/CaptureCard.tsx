@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { CaptureView, DataLane } from "../../api/types.js";
-import { LanePicker } from "../../components/LanePicker.js";
+import { LanePicker, useCaptureDefaultLane } from "../../components/LanePicker.js";
 import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
 
@@ -17,6 +17,7 @@ export function captureLine(c: CaptureView): CaptureLine {
   const intake = c.intake;
   if (intake === undefined) return { tone: "wait", text: "Waiting for intake" };
   if (RETRYABLE.has(intake.status)) return { tone: "block", text: `Intake ${intake.status}${intake.error ? `: ${intake.error}` : ""}` };
+  if (intake.status === "queued") return { tone: "wait", text: "Intake queued" };
   return { tone: "wait", text: "Intake drafting" };
 }
 
@@ -60,7 +61,7 @@ export function CaptureCard({
   const displayTitle = captureSummaryText(shown.text);
   const line = captureLine(capture);
   const titleId = `bd-capture-${capture.id}`;
-  const [lane, setLane] = useState<DataLane>("internal");
+  const [lane, setLane] = useState<DataLane>(useCaptureDefaultLane(capture.text));
   const [showErrorDetail, setShowErrorDetail] = useState(false);
   const self = useRef<HTMLElement>(null);
   const classify = useMutation({

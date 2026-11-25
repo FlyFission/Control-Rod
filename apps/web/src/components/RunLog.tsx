@@ -98,13 +98,13 @@ function Reconcile({ packageId, run, passkeys }: { packageId: string; run: Run; 
     <div className="run-hold">
       <p className="small">
         Outcome unknown: the daemon stopped answering before this run finished, so its process may still be running. Restart the daemon and it
-        reports what happened on its own. If the daemon will never come back, say why and sign.
+        reports what happened on its own. If the daemon will never come back, sign to settle it.
       </p>
       <label className="small" htmlFor={`reconcile-${run.id}`}>
         Why will this run never report?
       </label>
-      <textarea id={`reconcile-${run.id}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
-      <button type="button" className="btn small" disabled={reason.trim().length === 0 || go.isPending || scramLock.locked} title={scramLock.why} onClick={() => go.mutate()}>
+      <textarea id={`reconcile-${run.id}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder="Optional" />
+      <button type="button" className="btn small" disabled={go.isPending || scramLock.locked} title={scramLock.why} onClick={() => go.mutate()}>
         Sign with passkey and reconcile
       </button>
       {go.isError && (
@@ -135,8 +135,8 @@ function IndependenceOverride({ packageId, run, passkeys }: { packageId: string;
       <label className="small" htmlFor={`why-${run.id}`}>
         Why may this pre-check run on the author&apos;s runtime?
       </label>
-      <textarea id={`why-${run.id}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
-      <button type="button" className="btn small" disabled={reason.trim().length === 0 || go.isPending} onClick={() => go.mutate()}>
+      <textarea id={`why-${run.id}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder="Optional" />
+      <button type="button" className="btn small" disabled={go.isPending} onClick={() => go.mutate()}>
         Sign with passkey and proceed
       </button>
       {go.isError && (

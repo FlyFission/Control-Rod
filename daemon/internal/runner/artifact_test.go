@@ -134,6 +134,11 @@ func TestLaunchIsRefusedWhenTheExecutableIsNotTheExpectedArtifact(t *testing.T) 
 		t.Fatalf("unpinned, the probed artifact launches: %v", err)
 	}
 	l.Close()
+	// Unpinned, the probed file is its registration, so a check by it can count.
+	defer UnregisterHarnessForTest(sum)
+	if h, ok := HarnessForDigest(sum, nil); !ok || h != "claude" {
+		t.Fatalf("the probed, launched artifact must be a registered harness: %q %v", h, ok)
+	}
 
 	// The digest is taken from the opened file, not from what resolution reported.
 	writeFile(t, path, append(append([]byte{}, elf...), "swapped"...), 0o755)

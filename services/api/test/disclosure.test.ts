@@ -92,6 +92,26 @@ describe("captures", () => {
     expect((await post(`/captures/${c.id}/classify`, { lane: "nonsense" })).statusCode).toBe(400);
   });
 
+  it("raises a capture to its project's default lane when the page sent a lower one", async () => {
+    await h.admin.query("insert into projects (body) values ($1)", [{ id: "prj_lane_floor", org_id: "org_local", name: "Restricted work", status: "active" }]);
+    await h.admin.query(
+      "insert into settings (key, value) values ('workspace_project_prefs:org_local', $1) on conflict (key) do update set value = excluded.value",
+      [JSON.stringify({ prj_lane_floor: { lane: "restricted" } })],
+    );
+    // A page holding a stale default sends internal; the project says restricted, so restricted wins.
+    const c = (await post("/captures", { text: "[mode:software] [project-id:prj_lane_floor]\n\nSensitive work", lane: "internal" })).json();
+    expect(c.lane).toBe("restricted");
+    const later = (await post("/captures", { text: "[project-id:prj_lane_floor]\n\nClassify me later" })).json();
+    expect((await post(`/captures/${later.id}/classify`, { lane: "public" })).json().lane).toBe("restricted");
+    // Archiving the project keeps its floor for a page that still holds the old default.
+    await h.admin.query("update projects set body = body || '{\"status\":\"retired\"}' where id = 'prj_lane_floor'");
+    expect((await post("/captures", { text: "[project-id:prj_lane_floor]\n\nAfter archive", lane: "internal" })).json().lane).toBe("restricted");
+    // A higher lane than the project's stays as sent.
+    await h.admin.query("update settings set value = $1 where key = 'workspace_project_prefs:org_local'", [JSON.stringify({ prj_lane_floor: { lane: "proprietary" } })]);
+    expect((await post("/captures", { text: "[project-id:prj_lane_floor]\n\nMore", lane: "restricted" })).json().lane).toBe("restricted");
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+  });
+
   it("holds a proprietary capture from the subscription CLIs, with the reason recorded, and gives it to a local runtime", async () => {
     await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
     const c = (await post("/captures", { text: "Client drawings attached", lane: "proprietary" })).json();

@@ -73,19 +73,19 @@ describe("SCRAM", () => {
     await user.click(within(dialog).getByText("Which runs"));
     expect(within(dialog).getByText("R-old (running)")).toBeTruthy();
     const sign = within(dialog).getByRole("button", { name: "Stop now" }) as HTMLButtonElement;
-    // The reason starts filled in, so an emergency stop is one press; with no reason, no stop, and the dialog says why.
-    expect(within(dialog).getByRole("textbox", { name: "Why (required)" })).toHaveProperty("value", "Emergency stop.");
+    // The reason starts filled in, so an emergency stop is one press; cleared, it still stops, with a plain note.
+    expect(within(dialog).getByRole("textbox", { name: "Why (optional)" })).toHaveProperty("value", "Emergency stop.");
     expect(sign.disabled).toBe(false);
-    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
-    expect(sign.disabled).toBe(true);
-    expect(within(dialog).getByText("Say why in one line.")).toBeTruthy();
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (optional)" }));
+    expect(sign.disabled).toBe(false);
+    expect(within(dialog).queryByText("Say why in one line.")).toBeNull();
     await user.click(within(dialog).getByRole("radio", { name: "One project" }));
     expect(within(dialog).getByText("Choose the project to see what this stops.")).toBeTruthy();
     await user.selectOptions(within(dialog).getByRole("combobox"), "p1");
     expect(await within(dialog).findByText(/in the project Plant A where it stands\. Counted at .+: 1 run running now stops, and 1 queued run is held\./)).toBeTruthy();
     expect(asked).toContain("scope=project&project_id=p1");
-    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
-    await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (optional)" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Why (optional)" }), "Bad prompt shipped");
     await user.click(sign);
     await waitFor(() => expect(sent.map((s) => s.name)).toEqual(["scram.pull"]));
     const payload = { scope: "project", project_id: "p1", reason: "Bad prompt shipped" };
@@ -146,14 +146,14 @@ describe("SCRAM", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
-    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
-    await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (optional)" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Why (optional)" }), "Bad prompt shipped");
     await user.click(await within(dialog).findByRole("button", { name: "Stop now" }));
     const cancel = (await within(dialog).findByRole("button", { name: "Cancel" })) as HTMLButtonElement;
     await waitFor(() => expect(cancel.disabled).toBe(true));
     // The payload is fixed once it is in flight, so the form that states it cannot change either.
     for (const radio of within(dialog).getAllByRole("radio")) expect(radio.matches(":disabled")).toBe(true);
-    expect((within(dialog).getByRole("textbox", { name: "Why (required)" }) as HTMLTextAreaElement).disabled).toBe(true);
+    expect((within(dialog).getByRole("textbox", { name: "Why (optional)" }) as HTMLTextAreaElement).disabled).toBe(true);
     expect(within(dialog).getByRole("button", { name: "Stopping…" })).toBeTruthy();
     await user.keyboard("{Escape}");
     expect(screen.getByRole("dialog", { name: "Pull SCRAM" })).toBeTruthy();
@@ -170,8 +170,8 @@ describe("SCRAM", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
-    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
-    await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (optional)" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Why (optional)" }), "Bad prompt shipped");
     const sign = within(dialog).getByRole("button", { name: "Stop now" }) as HTMLButtonElement;
     expect(await within(dialog).findByText(/How many could not be counted just now\./, {}, { timeout: 5000 })).toBeTruthy();
     expect(sign.disabled).toBe(true);
@@ -195,8 +195,8 @@ describe("SCRAM", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
-    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
-    await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (optional)" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Why (optional)" }), "Bad prompt shipped");
     const sign = within(dialog).getByRole("button", { name: "Stop now" }) as HTMLButtonElement;
     // While it is still counting, nothing fires.
     expect(within(dialog).getByText("Counting what this stops…")).toBeTruthy();
@@ -269,7 +269,7 @@ describe("SCRAM", () => {
     expect(within(reported).getByText(/calc\.md/)).toBeTruthy();
     // The reviewer starts writing; then a second report lands.
     await user.click(screen.getByRole("radio", { name: "Keep it as reference only, never applied" }));
-    await user.type(screen.getByRole("textbox", { name: "What the review found (required)" }), "Calc is reference only");
+    await user.type(screen.getByRole("textbox", { name: "What the review found (optional)" }), "Calc is reference only");
     batches = [...batches, batch(2, [{ name: "patch.diff", sha256: digest("b") }])];
     await qc.invalidateQueries({ queryKey: ["scram"] });
     const alert = await screen.findByRole("alert");
@@ -278,16 +278,16 @@ describe("SCRAM", () => {
     // The draft cannot be signed over material it never showed.
     expect((screen.getByRole("button", { name: "Sign the review of reports 1 to 1" }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole("button", { name: "Start over with every report" }));
-    expect((screen.getByRole("textbox", { name: "What the review found (required)" }) as HTMLTextAreaElement).value).toBe("");
+    expect((screen.getByRole("textbox", { name: "What the review found (optional)" }) as HTMLTextAreaElement).value).toBe("");
     expect((screen.getByRole("radio", { name: "Discard the partial work" }) as HTMLInputElement).checked).toBe(true);
     expect(within(screen.getByRole("list", { name: "What R-1 reported" })).getByText(`sha256:${digest("b")}`)).toBeTruthy();
-    await user.type(screen.getByRole("textbox", { name: "What the review found (required)" }), "Both reports discarded");
+    await user.type(screen.getByRole("textbox", { name: "What the review found (optional)" }), "Both reports discarded");
     // While the review is being signed, what it says cannot change under it.
     let release: (v: Record<string, unknown>) => void = () => {};
     slow.get = () => new Promise((r) => (release = r));
     await user.click(screen.getByRole("button", { name: "Sign the review of reports 1 to 2" }));
     await waitFor(() => expect(screen.getByRole("radio", { name: "Discard the partial work" }).matches(":disabled")).toBe(true));
-    expect(screen.getByRole("textbox", { name: "What the review found (required)" }).matches(":disabled")).toBe(true);
+    expect(screen.getByRole("textbox", { name: "What the review found (optional)" }).matches(":disabled")).toBe(true);
     release({ signed: true });
     await waitFor(() => expect(sent.find((s) => s.name === "scram.review")?.body.payload).toEqual({ scram_id: "scr_1", run_id: "R-1", disposition: "discard", reason: "Both reports discarded", covers_batch: 2 }));
   });
@@ -317,7 +317,7 @@ describe("SCRAM", () => {
     expect(screen.queryByRole("textbox", { name: "Package" })).toBeNull();
     await user.selectOptions(pkg, "WP-1");
     expect(screen.getByText("This restarts package Line sizing (WP-1) only, and the 1 run the SCRAM stopped on it.")).toBeTruthy();
-    const why = () => screen.getByRole("textbox", { name: "Why it is safe to restart (required)" }) as HTMLTextAreaElement;
+    const why = () => screen.getByRole("textbox", { name: "Why it is safe to restart (optional)" }) as HTMLTextAreaElement;
     await user.type(why(), "Prompt reverted");
     // A broader scope is a different restart: the target and the reason are cleared.
     await user.click(screen.getByRole("radio", { name: "One discipline" }));
@@ -328,7 +328,7 @@ describe("SCRAM", () => {
     const restart = screen.getByRole("button", { name: "Sign and restart" }) as HTMLButtonElement;
     await user.selectOptions(discipline, "process");
     expect(screen.getByText("This restarts the process discipline: WP-1, WP-2, and the 1 run the SCRAM stopped on them.")).toBeTruthy();
-    expect(restart.disabled).toBe(true);
+    expect(restart.disabled).toBe(false);
     await user.type(why(), "Prompt reverted for process");
     await user.click(restart);
     expect(await screen.findByText("Not yet: R-2 has an unknown outcome")).toBeTruthy();

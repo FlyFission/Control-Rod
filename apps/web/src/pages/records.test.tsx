@@ -65,8 +65,9 @@ describe("Records", () => {
     expect(await within(region).findByText(/This seals the chain through entry/)).toBeTruthy();
     expect(region.textContent).toContain(`entry 41, digest ${"b".repeat(64)}`);
     const sign = within(region).getByRole("button", { name: "Sign with your passkey and seal" }) as HTMLButtonElement;
-    expect(sign.disabled).toBe(true);
-    await user.type(within(region).getByRole("textbox", { name: "Purpose (required)" }), " Before the design review ");
+    // The purpose is optional, so the seal is one press away from the start.
+    expect(sign.disabled).toBe(false);
+    await user.type(within(region).getByRole("textbox", { name: "Purpose (optional)" }), " Before the design review ");
     // Once the seal records itself the chain head moves on; the refreshed head shows that.
     server.use(http.get("*/records/head", () => HttpResponse.json({ head: { head_seq: 43, head_digest: D("d"), at: new Date().toISOString() } })));
     await user.click(sign);

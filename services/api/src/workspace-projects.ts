@@ -108,25 +108,6 @@ function cleanLaneAgents(v: unknown): Record<string, string> | undefined {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-function ecosystemOf(selection: string): string {
-  return selection.split("/")[0]!.trim().toLowerCase();
-}
-
-function assertO6Independence(prefs: ProjectWorkspacePrefs): void {
-  if (prefs.author.ecosystem === prefs.checker.ecosystem) {
-    throw new Refusal(409, "o6-independence", "Default Author and Checker must use distinct CLI ecosystems (O6 independence)");
-  }
-  const draftingEco = prefs.laneAgents?.drafting
-    ? ecosystemOf(prefs.laneAgents.drafting)
-    : prefs.author.ecosystem.toLowerCase();
-  const checkEco = prefs.laneAgents?.["agent-check"]
-    ? ecosystemOf(prefs.laneAgents["agent-check"])
-    : prefs.checker.ecosystem.toLowerCase();
-  if (draftingEco === checkEco) {
-    throw new Refusal(409, "o6-independence", "Drafting and Agent-check lanes must use distinct CLI ecosystems (O6 independence)");
-  }
-}
-
 export function resolveWorkspaceMode(body: Record<string, unknown>): EngineeringMode {
   if (Array.isArray(body.qa_overlays) && body.qa_overlays.includes("nuclear-grade")) {
     return "nuclear-grade";
@@ -202,6 +183,18 @@ export async function projectRuntimePrefs(
   };
 }
 
+/**
+ * The data lane a workspace project sets for its new cards, read from the server's own record, or
+ * undefined when the capture names no active project of this organization. A capture is never
+ * classified below it, whatever lane a browser with a stale copy of the project sends.
+ */
+export async function projectDefaultLane(q: { query: Db["query"] }, orgId: string, projectId: string): Promise<DataLane | undefined> {
+  // An archived project keeps its floor: a stale tab must not lower the lane of work tagged to it.
+  const r = await q.query("select 1 from projects where id = $1 and org_id = $2", [projectId, orgId]);
+  if (!r.rowCount) return undefined;
+  return mergePrefs((await readPrefsMap(q, orgId))[projectId]).lane;
+}
+
 /** Lists active projects for the caller's organization with their workspace defaults. */
 export async function listWorkspaceProjects(db: Db, orgId: string): Promise<WorkspaceProjectView[]> {
   const rows = await db.query<{ id: string; body: Record<string, unknown>; created_at: Date }>(
@@ -246,7 +239,8 @@ export async function createWorkspaceProject(
     ...(input.checker !== undefined ? { checker: input.checker as AgentRuntimeSelection } : {}),
     ...(input.laneAgents !== undefined ? { laneAgents: input.laneAgents as Record<string, string> } : {}),
   });
-  assertO6Independence(prefs);
+  // A shared author and checker CLI is allowed here; the pre-check holds for an independent runtime
+  // or the owner's override before acceptance, so the protection sits where it matters.
   // The lanes the person chose, or the preset the repository and mode propose. Either way they are the
   // project's setting from the start and its setting changes them.
   const lanes = input.work_lanes !== undefined
@@ -332,7 +326,6 @@ export async function updateWorkspaceProject(
     ...(patch.checker !== undefined ? { checker: patch.checker as AgentRuntimeSelection } : {}),
     ...(nextLaneAgents !== undefined ? { laneAgents: nextLaneAgents } : {}),
   });
-  assertO6Independence(next);
   // Work lanes live on the project record, beside its other settings, and are checked against the spec.
   const body = r.rows[0].body;
   let lanes = laneSetOf(body.work_lanes);

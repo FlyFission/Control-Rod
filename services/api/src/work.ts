@@ -29,7 +29,7 @@ import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, loc
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
 import { benchedRuntimes } from "./setup.js";
-import { projectRuntimePrefs } from "./workspace-projects.js";
+import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
 import { currentCredential, ownerOf } from "./tenancy.js";
 import { governingPolicy, modeFor, policyRef } from "./signing-policy.js";
 import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
@@ -116,7 +116,8 @@ function safeName(name: string): string {
   return base;
 }
 
-export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, lane?: unknown, checkoutSelection?: unknown) {
+export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, sent?: unknown, checkoutSelection?: unknown) {
+  let lane: DataLane | undefined = isLane(sent) ? sent : undefined;
   const checkout = checkoutSelection === undefined ? undefined : await bindCheckout(checkoutSelection);
   const files: { name: string; bytes: Buffer }[] = [];
   const names = new Set<string>();
@@ -144,7 +145,9 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
   return command(db, "capture.create", async (c) => {
     // The disclosure gate: only a classified capture goes on to intake, and only a person with lane
     // authority classifies. Anyone else's capture waits, unclassified, for someone who can.
-    const classified = isLane(lane) && (await hasLaneAuthority(c, user));
+    const classified = lane !== undefined && (await hasLaneAuthority(c, user));
+    // Never below the lane the named project sets for new cards, read here rather than from the browser.
+    if (classified) lane = await atLeastProjectLane(c, user, visible, lane!);
     const body: Json = classified ? { ...capture, lane, classified_by: user, classified_at: capture.created_at } : capture;
     validate(cfg, "Capture.json", body);
     await c.query("insert into captures (id, body, created_at) values ($1, $2, $3)", [capture.id, body, capture.created_at]);
@@ -157,7 +160,7 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
       ]);
     }
     if (classified) {
-      await markObject(c, "capture", capture.id, lane, `classified at capture by ${user}`);
+      await markObject(c, "capture", capture.id, lane!, `classified at capture by ${user}`);
       await queueRun(c, cfg, capture.id, 0, "intake", 1);
     }
     await appendEvent(c, "capture.created", capture.id, { kind: "human", id: user }, {
@@ -168,13 +171,25 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
   });
 }
 
+/** The lane, raised to the default lane of the workspace project the capture's header names, if any. */
+async function atLeastProjectLane(c: Tx, user: string, text: string, lane: DataLane): Promise<DataLane> {
+  const projectId = (captureTags(text) ?? []).find((t) => t.key === "project-id")?.value.trim();
+  if (!projectId) return lane;
+  const org = await c.query<{ org_id: string }>("select org_id from members where user_name = $1", [user]);
+  const orgId = org.rows[0]?.org_id;
+  if (!orgId) return lane;
+  const floor = await projectDefaultLane(c, orgId, projectId);
+  return floor ? mostSensitive([lane, floor]) : lane;
+}
+
 /**
  * Classifies a capture's data lane (specification 10.2 "Classify lane"). Needs lane authority. A
  * first classification releases the capture to intake; a later one may only raise the lane, since
  * lowering it is a declassification that needs a signed change request.
  */
-export async function classifyCapture(db: Db, cfg: WorkConfig, { userName: user, orgId }: { userName: string; orgId: string }, id: string, lane: unknown) {
-  if (!isLane(lane)) throw new Refusal(400, "invalid", "Choose a data lane");
+export async function classifyCapture(db: Db, cfg: WorkConfig, { userName: user, orgId }: { userName: string; orgId: string }, id: string, chosen: unknown) {
+  if (!isLane(chosen)) throw new Refusal(400, "invalid", "Choose a data lane");
+  let lane: DataLane = chosen;
   return command(db, "capture.classify", async (c) => {
     if (!(await hasLaneAuthority(c, user))) throw new Refusal(403, "authority-missing", "Classifying a data lane needs lane authority");
     const r = await c.query<{ body: Json }>(
@@ -187,6 +202,8 @@ export async function classifyCapture(db: Db, cfg: WorkConfig, { userName: user,
     const current = await laneOf(c, "capture", id, cap.lane);
     if (current !== undefined && !raises(current, lane))
       throw new Refusal(409, "lowering-needs-change-request", "Lowering a data lane is a declassification; it needs a signed change request");
+    // A first classification is never below the capture's project lane either.
+    if (cap.lane === undefined) lane = await atLeastProjectLane(c, user, String(cap.text ?? ""), lane);
     const next = { ...cap, lane, classified_by: user, classified_at: now() };
     validate(cfg, "Capture.json", next);
     await c.query("update captures set body = $2 where id = $1", [id, next]);
@@ -1355,7 +1372,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   if(run.preparation_manifest_digest && run.role==="pre-check") {
     inputs.push(...criterionResultSchemaInputs(cfg.root));
     const paths = preparedCheckerOutputPaths(runtime);
-    extra.push(`## Controlled criterion results\n\nWrite ${paths.criterion} using inputs/schemas/CriterionResultSubmission.json. Use the exact package, revision and manifest digest from inputs/PREPARATION.json. Record every current criterion and mapped check once. ${paths.evidence} Do not reference ${paths.verdictRef} or ${paths.criterionRef} as decisive evidence. Claim JSON is not decisive evidence. Open/deferred checks must be reported honestly; required checks cannot be waived at acceptance. Also write ${paths.verdict} with the ordinary outcome and findings.`);
+    extra.push(`## Controlled criterion results\n\nCopy inputs/criterion-results.template.json to ${paths.criterion} and fill it in. It already has the exact package, revision, manifest digest and every current criterion and mapped check; keep those, keep its field names, and add no other fields. For each criterion set outcome (pass, fail, inconclusive, open or deferred) and list the ids of your findings about it in finding_refs. For each check set outcome and list its evidence in evidence_refs; a pass, fail or inconclusive check needs at least one. The full schema is inputs/schemas/CriterionResultSubmission.json. ${paths.evidence} Do not reference ${paths.verdictRef} or ${paths.criterionRef} as decisive evidence. Claim JSON is not decisive evidence. Open/deferred checks must be reported honestly; required checks cannot be waived at acceptance. Also write ${paths.verdict} with the ordinary outcome and findings.`);
   }
   let findings: Json[] | undefined;
   if (run.role === "pre-check") {

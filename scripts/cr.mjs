@@ -790,6 +790,20 @@ const runAsync = (cmd, args, opts) =>
     child.on("exit", (code) => done(code === 0));
   });
 
+async function cardsCommand(run) {
+  const m = await import("./lib/cards.mjs");
+  try {
+    await run(m.client({ home, port }), m);
+    return 0;
+  } catch (e) {
+    if (e instanceof m.CardError) {
+      console.error(e.message);
+      return 1;
+    }
+    throw e;
+  }
+}
+
 async function updateCommand(flags) {
   const pnpmCmd = which("pnpm");
   try {
@@ -936,6 +950,20 @@ program.command("update").alias("upgrade").description("update to the latest ver
   .option("--check", "only say what is new")
   .option("--no-restart", "do not start it again afterwards")
   .action(async (o) => exit(await updateCommand(o)));
+const card = program.command("card").description("add a card from this terminal, no browser or passkey needed");
+card.command("add").description("add a card, as the board's quick add does")
+  .argument("<text...>", "what needs doing")
+  .option("-p, --project <name>", "the project's name or id (needed when there is more than one)")
+  .action(async (words, o) => exit(await cardsCommand(async (call, m) => {
+    const { capture, project } = await m.addCard(call, words.join(" "), { project: o.project });
+    console.log(`Added ${capture.id}${project ? ` to ${project.name}` : ""}. Watch it with \`${me} cards\`.`);
+  })));
+program.command("cards").description("list cards and where each one is")
+  .option("-p, --project <name>", "only this project (name or id)")
+  .action(async (o) => exit(await cardsCommand(async (call, m) => {
+    const lines = await m.listCards(call, { project: o.project });
+    console.log(lines.length ? lines.join("\n") : "No cards yet.");
+  })));
 program.command("version").description("show which version this is").action(() => console.log(versionLine()));
 program.command("doctor").description("check this machine and say what to fix")
   .option("--fix", "free shared memory left behind by stopped databases (macOS)")

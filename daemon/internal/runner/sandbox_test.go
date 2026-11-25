@@ -357,13 +357,24 @@ func TestStagedRuntimesAreCopiedOutsideHomeAndRechecked(t *testing.T) {
 	if b, _ := os.ReadFile(again.Path); string(b) != "\x7fELF codex" {
 		t.Fatalf("tampered copy kept: %q", b)
 	}
-	// A stage folder others can read is refused.
+	// A stage folder of ours that others can read is made private, then used.
 	open := filepath.Join(t.TempDir(), "open")
 	if err := os.MkdirAll(open, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := StageArtifact(a, open); err == nil {
-		t.Fatal("staged into a folder others can read")
+	if _, err := StageArtifact(a, open); err != nil {
+		t.Fatalf("loose stage folder not fixed: %v", err)
+	}
+	if fi, _ := os.Stat(open); fi.Mode().Perm() != 0o700 {
+		t.Errorf("loose stage folder left at %v", fi.Mode().Perm())
+	}
+	// A stage folder that is a link is still refused.
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(open, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := StageArtifact(a, link); err == nil {
+		t.Fatal("staged through a link")
 	}
 }
 

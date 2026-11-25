@@ -128,6 +128,9 @@ function refusalText(a: ActionDescriptor): string {
  * The one line on a card that says what happens next: the first allowed action, or why the card waits,
  * or that it is blocked for want of a second qualified person (spec 6.2, O6).
  */
+/** Decisions a person may always take on live work; they never make the card's next line. */
+const ESCAPE_HATCHES: ReadonlySet<string> = new Set(["return", "reject"]);
+
 export function nextLine(i: NextInput): NextLine {
   const { pkg } = i;
   if (pkg.status === "accepted") return { tone: "ok", text: "Accepted" };
@@ -167,7 +170,10 @@ export function nextLine(i: NextInput): NextLine {
 
   // Ruling 16: the verification outranks an allowed accept (screen-only until D-4; see blockUnverifiedAccept).
   const offered = blockUnverifiedAccept(pkg, i.actions, verified);
-  const first = offered.find((a) => a.allowed);
+  // Only a step that moves the work forward makes a card read "Needs you". Return and Reject are
+  // always open on live work (with a reason), so naming them would mark every card in work as
+  // waiting on a person when nothing is asked of anyone.
+  const first = offered.find((a) => a.allowed && !ESCAPE_HATCHES.has(a.command));
   if (first) return { tone: "needs", text: first.label, command: first.command };
 
   if (column === "person-verifies") return { tone: "wait", text: "Waiting on a person verification" };

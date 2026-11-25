@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { api, explain } from "../../api/client.js";
 import type { CaptureView, DataLane } from "../../api/types.js";
-import { LanePicker } from "../../components/LanePicker.js";
+import { LanePicker, laneEffect, laneLabel, laneRank, useCaptureDefaultLane } from "../../components/LanePicker.js";
 import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
 import { captureLine, captureSummaryText } from "./CaptureCard.js";
@@ -26,7 +26,13 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
   const summary = captureSummaryText(shown.text) || shown.files.join(", ");
   const line = captureLine(capture);
   const scramLock = useActionLock();
-  const [lane, setLane] = useState<DataLane>(capture.lane ?? "internal");
+  const fallback = useCaptureDefaultLane(capture.text);
+  const current = capture.effective_lane ?? capture.lane;
+  const [lane, setLane] = useState<DataLane>(current ?? fallback);
+  // A refresh can raise the lane under an open drawer; never leave the pick below it.
+  useEffect(() => {
+    if (current) setLane((picked) => (laneRank(picked) < laneRank(current) ? current : picked));
+  }, [current]);
 
   useEffect(() => {
     asideRef.current?.focus();
@@ -133,6 +139,41 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
                 </p>
               )}
             </div>
+          </section>
+        )}
+
+        {capture.lane && current && (
+          <section className="bd-drawer-sec">
+            <h3>Data Lane</h3>
+            <p className="small" style={{ margin: "0 0 8px" }}>
+              {laneLabel(current)}. {laneEffect(current)}
+              {capture.intake && " Work already sent to an agent is not called back by raising the lane."}
+            </p>
+            {current !== "restricted" && (
+              <div className="bd-capture-classify">
+                <LanePicker
+                  id={`drawer-raise-${capture.id}`}
+                  label="Raise to"
+                  atLeast={current}
+                  value={lane}
+                  onChange={setLane}
+                />
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={laneRank(lane) <= laneRank(current) || classify.isPending || scramLock.locked}
+                  title={scramLock.why}
+                  onClick={() => classify.mutate()}
+                >
+                  {classify.isPending ? "Raising…" : "Raise lane"}
+                </button>
+                {classify.isError && (
+                  <p role="alert" className="error small">
+                    {explain(classify.error, "Could not raise the lane.")}
+                  </p>
+                )}
+              </div>
+            )}
           </section>
         )}
 

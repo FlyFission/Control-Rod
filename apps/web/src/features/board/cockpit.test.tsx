@@ -188,7 +188,7 @@ describe("the drawer, calm", () => {
     await user.click(screen.getByRole("button", { name: "Send back with a note" }));
     const box = screen.getByRole("textbox", { name: "What should change in the next revision?" });
     expect(document.activeElement).toBe(box);
-    expect(screen.getByRole("button", { name: "Sign: Return with direction" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Sign: Return with direction" })).toHaveProperty("disabled", false);
   });
 
   it("says when person verifications could not be read, with a retry, instead of asking for one", async () => {

@@ -25,6 +25,11 @@ describe("nextLine", () => {
     expect(line.text).toMatch(/Pre-check held/);
     expect(line.command).toBeUndefined();
   });
+  it("does not mark work in progress as Needs you just because Return is open", () => {
+    const acts = [refused("release"), refused("accept"), allowed("return", "Return for revision"), allowed("reject", "Reject")];
+    expect(nextLine(input({ status: "in-work", actions: acts, runActive: true })).tone).not.toBe("needs");
+    expect(nextLine(input({ status: "in-work", actions: acts })).text).not.toMatch(/Return for revision/);
+  });
   it("names the first allowed decision as the next line", () => {
     expect(nextLine(input({ actions: [refused("accept"), allowed("release", "Release")] }))).toEqual({ tone: "needs", text: "Release", command: "release" });
   });
@@ -48,8 +53,8 @@ describe("nextLine", () => {
     expect(nextLine(input({ column: "person-verifies", actions: acts }))).toEqual({ tone: "wait", text: "Waiting on a person verification" });
     // Unknown verification state is not a pass either.
     expect(nextLine(input({ column: "person-verifies", actions: acts, verified: null })).text).not.toMatch(/^Accept/);
-    // Other allowed actions still show.
-    expect(nextLine(input({ column: "person-verifies", actions: [...acts, allowed("return", "Return")] })).text).toBe("Return");
+    // Return and Reject are always open; they never make the card read Needs you.
+    expect(nextLine(input({ column: "person-verifies", actions: [...acts, allowed("return", "Return")] })).text).toBe("Waiting on a person verification");
   });
   it("is not blocked once the work is verified", () => {
     const v = [{ package_revision: 0, outcome: "pass", covers_current_subject: true }] as PersonVerificationEntry[];

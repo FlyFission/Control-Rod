@@ -262,11 +262,27 @@ func codexHomesRoot() (string, error) {
 	return codexHomesRootIn("/tmp")
 }
 
-func codexHomesRootIn(tmp string) (string, error) {
+// codexHomesRootPath is where codexHomesRootIn makes the folder, with the temporary folder's
+// links resolved (/tmp is /private/tmp on macOS).
+func codexHomesRootPath(tmp string) string {
 	if real, err := filepath.EvalSymlinks(tmp); err == nil {
 		tmp = real
 	}
-	root := filepath.Join(tmp, fmt.Sprintf("controlrod-codexhomes-%d", os.Getuid()))
+	return filepath.Join(tmp, fmt.Sprintf("controlrod-codexhomes-%d", os.Getuid()))
+}
+
+// LoginCopyLocations are the folders of per-run login copies that exist on this machine, for
+// SandboxPaths.LoginCopies: every agent, author or checker, is denied them.
+func LoginCopyLocations() []string {
+	root := codexHomesRootPath("/tmp")
+	if _, err := os.Lstat(root); err != nil {
+		return nil
+	}
+	return []string{root}
+}
+
+func codexHomesRootIn(tmp string) (string, error) {
+	root := codexHomesRootPath(tmp)
 	if err := os.Mkdir(root, 0o700); err != nil && !os.IsExist(err) {
 		return "", err
 	}

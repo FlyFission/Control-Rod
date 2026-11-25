@@ -1069,10 +1069,11 @@ func buildSandboxPaths(daemonHome string, ws *Workspace) (SandboxPaths, error) {
 		dh = daemonHome
 	}
 	return SandboxPaths{
-		Home:       home,
-		DaemonHome: dh,
-		Workspace:  ws.Dir,
-		Logins:     LoginLocations(os.Getenv, home),
+		Home:        home,
+		DaemonHome:  dh,
+		Workspace:   ws.Dir,
+		Logins:      LoginLocations(os.Getenv, home),
+		LoginCopies: LoginCopyLocations(),
 	}, nil
 }
 

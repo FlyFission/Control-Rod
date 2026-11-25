@@ -230,3 +230,21 @@ func TestCodexHomesRootIsPrivate(t *testing.T) {
 		t.Fatalf("mode = %v", st.Mode().Perm())
 	}
 }
+
+func TestEveryAgentIsDeniedTheDisposableLoginHomes(t *testing.T) {
+	root, err := codexHomesRoot()
+	if err != nil {
+		t.Skipf("cannot make the homes folder here: %v", err)
+	}
+	if !slices.Contains(LoginCopyLocations(), root) {
+		t.Fatalf("the homes folder is not listed: %v", LoginCopyLocations())
+	}
+	at := SandboxPaths{Home: t.TempDir(), Workspace: t.TempDir(), LoginCopies: LoginCopyLocations()}
+	denied, err := testPolicy().DeniedChecked(at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(denied, root) {
+		t.Fatalf("an author run can read other runs' login copies: %v", denied)
+	}
+}

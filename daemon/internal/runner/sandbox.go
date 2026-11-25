@@ -96,6 +96,9 @@ type SandboxPaths struct {
 	// Logins are where the CLIs keep their logins when moved out of the home folder
 	// (CODEX_HOME, CLAUDE_CONFIG_DIR), resolved; each is denied like the home folder's own.
 	Logins []string
+	// LoginCopies are folders holding per-run copies of a login (the disposable Codex homes),
+	// denied to every agent like a login.
+	LoginCopies []string
 }
 
 // Denied expands the policy's denied reads for this host: `~` is the home folder, and the
@@ -133,6 +136,9 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 		add(at.DaemonHome)
 	}
 	for _, l := range at.Logins {
+		add(l)
+	}
+	for _, l := range at.LoginCopies {
 		add(l)
 	}
 	// A named credential store that is a link, or that holds links, is denied at the real paths

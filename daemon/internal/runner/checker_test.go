@@ -84,7 +84,19 @@ func TestCheckerStagesInstructionsOutOfDiscovery(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
 	t.Setenv("CLAUDE_CODE_OAUTH_TOKEN", "oauth-test")
 	t.Setenv("OPENAI_API_KEY", "sk-openai-test")
+	// A fake Codex login, so a macOS Codex checker's disposable home copies this and never the
+	// real sign-in; the copy is removed when the test ends.
+	codexHome := t.TempDir()
+	if err := os.WriteFile(filepath.Join(codexHome, "auth.json"), []byte(`{"fake":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CODEX_HOME", codexHome)
 	ws, _ := prepareCheckerFixture(t)
+	t.Cleanup(func() {
+		if ws.IsolatedLoginHome != "" {
+			os.RemoveAll(ws.IsolatedLoginHome)
+		}
+	})
 	marker := os.Getenv("CHECKER_HOOK_MARKER")
 
 	for _, name := range []string{"AGENTS.md", "CLAUDE.md", "GEMINI.md", ".claude", ".codex", ".agents", ".grok", ".opencode", ".mcp.json", "hooks"} {

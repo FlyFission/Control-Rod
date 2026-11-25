@@ -387,7 +387,7 @@ func (d *Daemon) sandboxPathsFor(home, workspace string) SandboxPaths {
 	}
 	// The deny list names the daemon home as it really resolves, so an alias cannot dodge it.
 	dh = resolveOrClean(dh)
-	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: workspace, Logins: LoginLocations(os.Getenv, home)}
+	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: workspace, Logins: LoginLocations(os.Getenv, home), LoginCopies: LoginCopyLocations()}
 }
 
 // preflight checks that this host can run rt under its sandbox (plan task 6.3), and returns the

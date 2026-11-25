@@ -6,14 +6,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+// PackageStatus (spec/generated/json-schema/PackageStatus.json) in the board's words.
 const STATUS = {
-  draft: "Ready",
+  draft: "Draft",
   released: "Ready",
-  in_work: "Agent working",
-  pre_check: "Being checked",
-  awaiting_acceptance: "Needs a reviewer",
+  "in-work": "Agent working",
+  "in-verification": "Being checked",
   accepted: "Accepted",
-  blocked: "Blocked",
+  closed: "Closed",
 };
 
 /** A branch name from what the card asks for, as the board makes it (apps/web/src/lib/branch.ts). */
@@ -102,11 +102,11 @@ export async function listCards(call, { project: wanted } = {}) {
     if (c.disposition !== "pending") continue;
     if (project && !String(c.text).includes(`[project-id:${project.id}]`)) continue;
     const words = String(c.text).replace(/\[[a-z-]+:[^\]]*\]/g, "").trim().split("\n")[0];
-    lines.push(`New            ${c.id}  ${words}`);
+    lines.push(`${"New".padEnd(15)}  ${c.id}  ${words}`);
   }
   for (const p of packages) {
     if (project && p.project !== project.id) continue;
-    lines.push(`${(STATUS[p.status] ?? p.status).padEnd(15)}${p.id}  ${p.title ?? ""}`);
+    lines.push(`${(STATUS[p.status] ?? p.status).padEnd(15)}  ${p.id}  ${p.title ?? ""}`);
   }
   return lines;
 }

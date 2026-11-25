@@ -1855,7 +1855,7 @@ export interface PublishInput {
 }
 
 /** Any path inside one of Control Rod's reserved run folders. */
-const RUN_DIR_PATH = /(^|\/)\.controlrod-run-[^/]*(\/|$)/;
+const RUN_DIR_PATH = /(^|\/)\.controlrod-run-[^/]*(\/|$)/i;
 
 /**
  * Opens a draft pull request for accepted work.
@@ -1903,7 +1903,8 @@ export async function publishCheckout(input: PublishInput, testing: { pushUrl?: 
     writeFileSync(patchFile, input.patch, { mode: 0o600 });
     const env = { ...clean, GIT_DIR: repo, GIT_INDEX_FILE: index };
     const opts = { cwd: scratch, workspaceRoot: scratch, timeout: 60_000, extraEnv: env };
-    const pinned = ["-c", "push.followTags=false", "-c", "push.recurseSubmodules=no", "-c", "push.gpgSign=false"];
+    // No redirects (a renamed repository must not take the push elsewhere), TLS always verified.
+    const pinned = ["-c", "push.followTags=false", "-c", "push.recurseSubmodules=no", "-c", "push.gpgSign=false", "-c", "http.followRedirects=false", "-c", "http.sslVerify=true"];
     await git(["cat-file", "-e", `${input.boundHead}^{commit}`], opts);
     // Build the candidate: the bound commit plus the accepted patch, in a private index.
     await git(["read-tree", input.boundHead], opts);
@@ -1938,20 +1939,35 @@ export async function publishCheckout(input: PublishInput, testing: { pushUrl?: 
     const remote = await git([...pinned, ...cred, "ls-remote", target, `refs/heads/${branch}`], opts);
     const there = remote.split(/\s+/)[0] ?? "";
     if (there && there !== head) return { opened: false, reason: "failed", detail: `The branch ${branch} already exists on GitHub with other work; nothing was pushed.` };
+    // Before anything is sent: the lane first, then the deadline, so a slow lane read cannot outlast the claim.
+    const gate = async (what: string): Promise<PublishResult | null> => {
+      if (!(await input.stillAllowed())) return { opened: false, reason: "lane", detail: `The work's lane was raised, so ${what}.` };
+      if (late()) return { opened: false, reason: "failed", detail: `Opening the pull request took too long, so ${what}; it is tried again later.` };
+      return null;
+    };
     if (!there) {
-      if (late()) return { opened: false, reason: "failed", detail: "Opening the pull request took too long, so nothing was pushed; it is tried again later." };
-      if (!(await input.stillAllowed())) return { opened: false, reason: "lane", detail: "The work's lane was raised, so nothing was pushed." };
+      const stop = await gate("nothing was pushed");
+      if (stop) return stop;
       await git([...pinned, ...cred, "push", "--no-follow-tags", "--no-recurse-submodules", "--no-verify", `--force-with-lease=refs/heads/${branch}:`, target, `${head}:refs/heads/${branch}`], { ...opts, timeout: 90_000 });
     }
+    // The base may have moved while the push ran: it must still be the default branch, with the bound commit in its history.
+    const baseNow = testing.defaultBranch ?? (await gh(["repo", "view", repoArg, "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], ghOpts)).trim();
+    if (baseNow !== base || !(await onBase(input.boundHead, base))) return { opened: false, reason: "failed", detail: `The default branch changed while the work was pushed, so no pull request was opened; the branch ${branch} is on GitHub. It is tried again later.` };
     // Only an open draft from this repository's own branch, at exactly this head and base, is this card's.
     const listing = await gh(["pr", "list", "--repo", repoArg, "--head", branch, "--base", base, "--state", "open", "--json", "url,headRefOid,isDraft,isCrossRepository,headRepositoryOwner,headRefName"], ghOpts);
     const ownerLogin = owner.split("/")[0]!.toLowerCase();
     const found = (JSON.parse(listing || "[]") as { url: string; headRefOid: string; isDraft?: boolean; isCrossRepository?: boolean; headRepositoryOwner?: { login?: string }; headRefName?: string }[])
       .find((p) => p.headRefOid === head && p.isDraft === true && p.isCrossRepository === false && p.headRefName === branch && String(p.headRepositoryOwner?.login ?? "").toLowerCase() === ownerLogin);
-    if (!(await input.stillAllowed())) return { opened: false, reason: "lane", detail: "The work's lane was raised after the push; no pull request was opened. Delete the branch on GitHub if it must not stay there." };
+    const stop = await gate(`no pull request was opened (the branch ${branch} is on GitHub; delete it there if it must not stay)`);
+    if (stop) return stop;
     const url = found?.url ?? (await gh(["pr", "create", "--repo", repoArg, "--head", branch, "--base", base, "--draft", "--title", input.title.slice(0, 250), "--body", input.body.slice(0, 60_000)], ghOpts));
     const link = url.split("\n").reverse().find((l) => new RegExp(`^https://github\\.com/${owner.replace(/[.]/g, "\\.")}/pull/\\d+$`, "i").test(l.trim()))?.trim();
     if (!link) return { opened: false, reason: "failed", detail: "gh did not return a pull request link for this repository." };
+    // The receipt is what GitHub holds, not what was asked for: this exact commit, on this base, as a draft from this repository.
+    const pr = JSON.parse(await gh(["pr", "view", link, "--json", "headRefOid,baseRefName,isDraft,isCrossRepository,headRefName"], ghOpts)) as { headRefOid?: string; baseRefName?: string; isDraft?: boolean; isCrossRepository?: boolean; headRefName?: string };
+    if (pr.headRefOid !== head || pr.baseRefName !== base || pr.isDraft !== true || pr.isCrossRepository !== false || pr.headRefName !== branch) {
+      return { opened: false, reason: "failed", detail: `The pull request ${link} does not hold exactly the accepted commit as a draft against ${base}; it is not recorded as this card's.` };
+    }
     return { opened: true, url: link, branch, head, reused: Boolean(there || found) };
   } catch (e) {
     const msg = (e as { stderr?: string }).stderr || (e as Error).message || String(e);

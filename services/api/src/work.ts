@@ -3730,27 +3730,30 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
     const last = (await c.query<{ body: Json }>(
       `select body from events where body->>'subject' = $1 and body->>'type' in ('package.pr-started', 'package.pr-opened', 'package.pr-not-opened')
          and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision])).rows[0]?.body;
-    if (last?.type === "package.pr-opened") return false;
-    if (last?.type === "package.pr-not-opened" && PR_FINAL.has(String(last.data?.reason))) return false;
+    if (last?.type === "package.pr-opened") return null;
+    if (last?.type === "package.pr-not-opened" && PR_FINAL.has(String(last.data?.reason))) return null;
     // At start a claim from before this server started cannot still be running, so it does not hold;
     // a claim this server made (an accept during the startup pass) always does, for its 15 minutes.
     if (last?.type === "package.pr-started") {
       const at = new Date(String(last.at)).getTime();
       const stale = atStart ? at < STARTED_AT : false;
-      if (!stale && Date.now() - at < PR_CLAIM_MS) return false;
+      if (!stale && Date.now() - at < PR_CLAIM_MS) return null;
     }
     const now = await routine(c);
     if (!now.ok) {
       await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: "lane", detail: `This work is on the ${String(now.lane ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.` });
-      return false;
+      return null;
     }
-    await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: publishBranchOf(id, revision) });
-    return true;
+    const claim = randomUUID();
+    const started = await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: publishBranchOf(id, revision), claim });
+    return { claim, at: started.at };
   });
   if (!first) return;
-  const sendBy = Date.now() + PUBLISH_SEND_BY_MS;
+  const { claim } = first;
+  // The send budget counts from the claim's own time, the same clock the barrier measures.
+  const sendBy = new Date(first.at).getTime() + PUBLISH_SEND_BY_MS;
   const notOpened = (reason: string, detail: string) =>
-    command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason, detail }));
+    command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason, detail, claim }));
   // Cards drafted from one request share its checkout, so one card's pull request could carry another's unaccepted work.
   const siblings = (await db.query<{ n: number }>("select count(distinct id)::int as n from packages where capture_id = $1", [row.capture_id])).rows[0]?.n ?? 0;
   if (siblings > 1) {
@@ -3793,9 +3796,9 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
     const opened = await c.query("select 1 from events where body->>'subject' = $1 and body->>'type' = 'package.pr-opened' and (body->'data'->>'revision')::int = $2 limit 1", [id, revision]);
     if (!result.opened && opened.rowCount) return;
     if (result.opened) {
-      await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, reused: result.reused });
+      await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, reused: result.reused, claim });
     } else {
-      await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: result.reason, detail: result.detail });
+      await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: result.reason, detail: result.detail, claim });
     }
   });
 }

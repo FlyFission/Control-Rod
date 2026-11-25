@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -40,7 +40,7 @@ beforeEach(() => {
   const bin = join(tmp, "bin");
   mkdirSync(bin);
   ghLog = join(tmp, "gh.log");
-  writeFileSync(join(bin, "gh"), `#!/bin/sh\necho "GH_HOST=$GH_HOST" >> "${ghLog}"\nprintf '%s\\n' "$@" >> "${ghLog}"\nif [ "$2" = "list" ]; then cat "${ghLog}.existing" 2>/dev/null || echo "[]"; exit 0; fi\necho https://github.com/acme/app/pull/7\n`);
+  writeFileSync(join(bin, "gh"), `#!/bin/sh\necho "GH_HOST=$GH_HOST" >> "${ghLog}"\nprintf '%s\\n' "$@" >> "${ghLog}"\nif [ "$2" = "list" ]; then cat "${ghLog}.existing" 2>/dev/null || echo "[]"; exit 0; fi\nif [ "$2" = "view" ]; then if [ -f "${ghLog}.view" ]; then cat "${ghLog}.view"; exit 0; fi; oid=$(git --git-dir "${bare}" rev-parse refs/heads/controlrod/WP-1-r0); echo "{\\"headRefOid\\":\\"$oid\\",\\"baseRefName\\":\\"main\\",\\"isDraft\\":true,\\"isCrossRepository\\":false,\\"headRefName\\":\\"controlrod/WP-1-r0\\"}"; exit 0; fi\necho https://github.com/acme/app/pull/7\n`);
   chmodSync(join(bin, "gh"), 0o755);
   process.env.PATH = `${bin}:${saved.PATH ?? ""}`;
 });
@@ -106,6 +106,45 @@ describe("publishCheckout", () => {
     const first = await publishCheckout(input, t());
     g(worktree, "config", "user.name", "Someone Else");
     expect(await publishCheckout(input, t())).toMatchObject({ opened: true, head: (first as { head: string }).head });
+  });
+
+  it("never records a pull request whose head, base or draft state is not exactly what was accepted", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    writeFileSync(`${ghLog}.view`, JSON.stringify({ headRefOid: "0".repeat(40), baseRefName: "main", isDraft: true, isCrossRepository: false, headRefName: "controlrod/WP-1-r0" }));
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, detail: expect.stringMatching(/does not hold exactly the accepted commit/) });
+  });
+
+  it("opens no pull request when the base moved during the push", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    let calls = 0;
+    const r = await publishCheckout(accepted(), { ...t(), onBase: async () => ++calls === 1 });
+    expect(r).toMatchObject({ opened: false, detail: expect.stringMatching(/default branch changed/) });
+    expect(existsSync(ghLog) ? readFileSync(ghLog, "utf8") : "").not.toContain("create");
+  });
+
+  it("never sends a run folder spelled in another case", async () => {
+    mkdirSync(join(worktree, ".ControlRod-Run-3"));
+    writeFileSync(join(worktree, ".ControlRod-Run-3", "log"), "private\n");
+    g(worktree, "add", "-f", ".ControlRod-Run-3");
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, detail: expect.stringMatching(/controlrod-run/) });
+    expect(remoteBranches()).toBe("");
+  });
+
+  it("opens no pull request once its claim may have run out, even when the branch is already there", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    expect((await publishCheckout(accepted(), t())).opened).toBe(true);
+    const before = readFileSync(ghLog, "utf8").split("\n").filter((l) => l === "create").length;
+    expect(await publishCheckout(accepted({ deadline: Date.now() - 1 }), t())).toMatchObject({ opened: false, detail: expect.stringMatching(/too long/) });
+    expect(readFileSync(ghLog, "utf8").split("\n").filter((l) => l === "create")).toHaveLength(before);
+  });
+
+  it("checks the lane before the deadline, so a slow lane read cannot outlast the claim", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    let deadline = Date.now() + 60_000;
+    const slow = async () => { deadline = Date.now() - 1; return true; };
+    const input = { ...accepted({ stillAllowed: slow }), get deadline() { return deadline; } };
+    expect(await publishCheckout(input, t())).toMatchObject({ opened: false, detail: expect.stringMatching(/too long/) });
+    expect(remoteBranches()).toBe("");
   });
 
   it("refuses a branch that already holds other work", async () => {

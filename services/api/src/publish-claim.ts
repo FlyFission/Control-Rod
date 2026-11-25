@@ -9,10 +9,17 @@ export const PR_CLAIM_MS = 15 * 60_000;
 /** The publisher's own cut-off inside the claim, leaving room for its last push and pull request. */
 export const PUBLISH_SEND_BY_MS = PR_CLAIM_MS - 5 * 60_000;
 
-/** Whether a pull request attempt for this package is under way: its latest attempt event is a claim still in time. */
+/**
+ * Whether a pull request attempt for this package may still be sending: a claim started within the
+ * window that has no outcome of its own. Each claim carries an id and each outcome names the claim
+ * it ends, so an older attempt finishing never releases a newer one's barrier.
+ */
 export async function publishing(q: Db | Tx, packageId: string): Promise<boolean> {
-  const last = (await q.query<{ type: string; at: string }>(
-    `select body->>'type' as type, body->>'at' as at from events where body->>'subject' = $1
-       and body->>'type' in ('package.pr-started', 'package.pr-opened', 'package.pr-not-opened') order by seq desc limit 1`, [packageId])).rows[0];
-  return last?.type === "package.pr-started" && Date.now() - new Date(last.at).getTime() < PR_CLAIM_MS;
+  const since = new Date(Date.now() - PR_CLAIM_MS).toISOString();
+  const r = await q.query(
+    `select 1 from events s where s.body->>'subject' = $1 and s.body->>'type' = 'package.pr-started' and s.body->>'at' > $2
+       and not exists (select 1 from events o where o.body->>'subject' = $1 and o.body->>'type' in ('package.pr-opened', 'package.pr-not-opened')
+                         and o.body->'data'->>'claim' = s.body->'data'->>'claim')
+     limit 1`, [packageId, since]);
+  return (r.rowCount ?? 0) > 0;
 }

@@ -16,7 +16,7 @@
 
 Claims: PI-01 the push reads no checkout config and sends one commit to one branch; PI-02 the lane barrier; PI-03 on by default.
 
-Blind review: at most two rounds (project rule). Round 1 pending.
+Blind review: at most two rounds (project rule). Round 1 (ff857a27, whole module against the threat model, on the owner's Mac): 4 high, 4 medium across five classes. All fixed in one batch with a test each: redirects off and TLS verified; base and ancestry read again after the push; run folders matched in any case; the lane read before the deadline at every send, including the pull request on a retry; the send budget counted from the claim's own time; claims carry ids so an older attempt cannot release a newer barrier; the pull request read back and checked. Proxy and CA settings are recorded in the threat model as the server's own trusted environment. Round 2 is the last.
 
 ## Required links
 

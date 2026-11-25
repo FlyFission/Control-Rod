@@ -9,7 +9,7 @@ Owner (sole maintainer): not yet recorded.
 ## Known limits
 
 - Another local user or program can write in `/private/var/tmp`, a world-writable folder on the workspace path: a hook file planted there in the moment between Control Rod's check and Antigravity's start would run outside the sandbox, and a folder created there after a run starts is not denied to its file tools. Control Rod's own runs cannot do this to each other (they never overlap). On a single-user Mac this needs local malware already running as another user or as this user.
-- A checker runs in Antigravity's default mode, where its own reviewers can approve a command that is on neither Control Rod's allow nor deny list. Such a command could clear an input's immutable flag and change it for a moment; a change that is still there when the check ends voids it. (Plan mode would stop this, but in print mode it ends the run after the plan, measured.)
+- A checker runs in Antigravity's default mode, where its own reviewers can approve a command that is on neither Control Rod's allow nor deny list. Such a command still runs in the terminal sandbox, where the `write_file(inputs)` deny also applies: measured, an approved `sqlite3 .shell chflags nouchg` on an input failed with Operation not permitted. (Plan mode is not used: in print mode it ends the run after the plan, measured.)
 - Only Antigravity 1.5.16 is seated; any other build waits for a qualification.
 - macOS only. Linux and Windows keep Antigravity listed and switched off.
 - No authoring in a repository checkout yet. Antigravity loads workspace hook files outside its sandbox, so a checkout needs a later mirrored workspace.

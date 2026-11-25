@@ -5,9 +5,9 @@
 
 ## Still the owner's
 
-1. Record a yes naming `docs/adr/` before that file is written. The question will name the pull request and the path.
-2. Confirm the store recommendation, or name another store that stays retrievable if this repository or its GitHub org goes away. GitHub Actions artifacts are disqualified. Record the retention period yourself; this record does not type one.
-3. A separate yes is required before `tools/check_evidence_manifest.py` is added to `.github/workflows/ci.yml`.
+Closed 2026-11-25. The owner said "Payloads stay in git. Stop the ADR here." No store. No retention period. `docs/adr/` stays unwritten. The release-workflow yes for `.github/workflows/release.yml` is a separate open item, not part of this decision.
+
+Wiring `tools/check_evidence_manifest.py` into `.github/workflows/ci.yml` still needs its own yes. It is not required while payloads stay in git.
 
 ## Release decision
 
@@ -23,7 +23,9 @@ The typescript CI job runs `services/api` tests, including the four outcome test
 
 ## Signature
 
-No trust-surface yes is recorded. None was asked for a file this change writes.
+| Decision | Question | Answer | When | Where | Recorded by |
+|---|---|---|---|---|---|
+| Do not write ADR 0026. Payloads stay in git. | Which is true: you already keep a copy outside this GitHub org, you do not and payloads stay in git, or you want a concrete setup spelled out first? | 2. Payloads stay in git. Stop the ADR here. | 2026-11-25T21:32:25Z | this chat | the agent, not signed for the owner |
 
 ## Required links
 

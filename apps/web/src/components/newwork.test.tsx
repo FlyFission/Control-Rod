@@ -364,7 +364,11 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     const cliSelects = screen.getAllByLabelText("CLI Ecosystem");
     const authorCli = cliSelects[0] as HTMLSelectElement;
-    for (const id of ["agy", "opencode", "grok", "cursor", "copilot", "aider", "cline", "ollama"]) {
+    for (const id of ["agy", "grok"]) {
+      const opt = Array.from(authorCli.options).find((o) => o.value === id);
+      expect(opt!.disabled, `${id} enabled`).toBe(false);
+    }
+    for (const id of ["opencode", "cursor", "copilot", "aider", "cline", "ollama"]) {
       const opt = Array.from(authorCli.options).find((o) => o.value === id);
       expect(opt, id).toBeTruthy();
       expect(opt!.disabled, `${id} disabled`).toBe(true);
@@ -667,7 +671,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     localStorage.setItem(
       "cr.work-defaults.software",
       JSON.stringify({
-        author: { ecosystem: "agy", model: "argon", reasoning: "high" },
+        author: { ecosystem: "opencode", model: "default", reasoning: "default" },
         checker: { ecosystem: "codex", model: "bad model with spaces", reasoning: "xhigh" },
       }),
     );

@@ -14,6 +14,8 @@ On the owner's Mac, Codex 0.172.0, Antigravity 1.5.17 and (likely) a newer Grok 
 
 - Codex: a feature a newer Codex turns on that Control Rod has not qualified is switched off for every run (`--disable`) instead of refusing Codex. The preflight lists the features again with it switched off and seats Codex only when Codex reports it off; a launch carries exactly the switches its preflight found for that artifact.
 - Antigravity and Grok: the measured build and every newer one are seated, with a non-blocking "newer than tested" note in the start log and `controlrod runtimes`. Older or unreadable versions are still refused, with a plain fix.
+- The web app still marked Antigravity and Grok "Not yet runnable" (the API has listed them as runnable since #211 and #214); they are now offered, with the registry's deciding models.
+- A confined runtime refused for its version showed as "not supported yet"; it now shows its own reason.
 - Every per-run fence stays as it was, whatever the version.
 
 ## Required links
@@ -22,7 +24,7 @@ On the owner's Mac, Codex 0.172.0, Antigravity 1.5.17 and (likely) a newer Grok 
 
 ## Exit criteria
 
-TU-01 to TU-03 are implemented and tested, and the daemon tests pass apart from the known cloud-only egress test.
+TU-01 to TU-05 are implemented and tested, and the daemon tests pass apart from the known cloud-only egress test.
 
 ## Source-lineage note
 

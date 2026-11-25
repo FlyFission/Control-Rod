@@ -169,7 +169,7 @@ describe("project lane runtime", () => {
     const codex = ecosystemById("codex");
     expect(laneRuntimeSelection(author, "claude")).toBe(author);
     expect(laneRuntimeSelection(author, "unknown")).toBe(author);
-    expect(laneRuntimeSelection(author, "agy")).toBe(author);
+    expect(laneRuntimeSelection(author, "opencode")).toBe(author);
     expect(laneRuntimeSelection(author, "codex")).toEqual({
       ecosystem: "codex", model: codex.defaultModel, reasoning: codex.defaultReasoning,
     });

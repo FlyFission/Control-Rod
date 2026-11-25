@@ -11,7 +11,7 @@
 
 ## Exit criteria
 
-TU-01 to TU-03 are implemented and tested, and the daemon tests pass apart from the known cloud-only egress test.
+TU-01 to TU-05 are implemented and tested, and the daemon tests pass apart from the known cloud-only egress test.
 
 ## Source-lineage note
 

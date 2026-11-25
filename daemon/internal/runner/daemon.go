@@ -513,8 +513,10 @@ func awaitingConfinement(rt string) bool {
 	if !ok {
 		return false
 	}
-	_, waiting := a.(AwaitingConfinement)
-	return waiting
+	// A runtime confined on this platform (an empty gap) is not waiting: a refusal for it, such as
+	// an old version, is reported in its own words, not as "not supported yet".
+	w, waiting := a.(AwaitingConfinement)
+	return waiting && w.ConfinementGap() != ""
 }
 
 func displayName(rt string) string {

@@ -25,8 +25,8 @@ export interface AgentInfo {
 export const AGENTS: readonly AgentInfo[] = [
   { id: "claude", name: "Claude Code", vendor: "Anthropic", runnable: true, install: "npm install -g @anthropic-ai/claude-code", signIn: "claude" },
   { id: "codex", name: "Codex", vendor: "OpenAI", runnable: true, install: "npm install -g @openai/codex", signIn: "codex login" },
-  { id: "agy", name: "Antigravity", vendor: "Google", runnable: false },
-  { id: "grok", name: "Grok CLI", vendor: "xAI", runnable: false },
+  { id: "agy", name: "Antigravity", vendor: "Google", runnable: true, signIn: "agy" },
+  { id: "grok", name: "Grok CLI", vendor: "xAI", runnable: true, install: "npm install -g @xai-official/grok", signIn: "grok" },
   { id: "opencode", name: "OpenCode", vendor: "any provider", runnable: false },
   { id: "ollama", name: "Local model (Ollama)", vendor: "runs on this computer", runnable: false },
 ];

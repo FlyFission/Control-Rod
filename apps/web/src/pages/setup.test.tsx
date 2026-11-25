@@ -69,7 +69,8 @@ describe("agent rows", () => {
     expect(codex.seated).toBe(true);
     expect(codex.status).toBe("Installed and signed in, but Control Rod won't give it work yet. Codex 0.171.0 is not a qualified version.");
     expect(rows.find((r) => r.info.id === "claude")!.state).toBe("ready");
-    expect(rows.find((r) => r.info.id === "grok")!.state).toBe("not-yet");
+    expect(rows.find((r) => r.info.id === "grok")!.state).toBe("not-found");
+    expect(rows.find((r) => r.info.id === "opencode")!.state).toBe("not-yet");
   });
 
   it("does not repeat \"installed\" when the daemon's reason already opens with it", () => {
@@ -81,14 +82,14 @@ describe("agent rows", () => {
   it("reads back who writes and who checks, following the dispatcher", () => {
     const ready = runtimes.runtimes.map((r) => ({ ...r, ready: true }));
     expect(readBack(agentRows(ready, subscriptions as never, fresh as never))).toBe(
-      "As things stand, Claude Code would write the work and Codex would check it without seeing how it was written.",
+      "As things stand, Claude Code would write the work and Codex would check it without seeing how it was written. Antigravity and Grok CLI are seated and will join once they're ready.",
     );
     expect(readBack(agentRows(runtimes.runtimes, subscriptions as never, fresh as never))).toBe(
-      "As things stand, Claude Code would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override. Codex is seated and will join once it's ready.",
+      "As things stand, Claude Code would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override. Codex, Antigravity and Grok CLI are seated and will join once they're ready.",
     );
     const benched = { confirmed: true, seats: [{ runtime: "claude", seated: false }], check_in: "start" };
     expect(readBack(agentRows(ready, subscriptions as never, benched as never))).toBe(
-      "As things stand, Codex would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override.",
+      "As things stand, Codex would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override. Antigravity and Grok CLI are seated and will join once they're ready.",
     );
   });
 
@@ -139,8 +140,9 @@ describe("first-run setup", () => {
     api();
     await renderPage(<Setup />);
     const later = await screen.findByText(/^Coming later:/);
-    for (const name of ["Antigravity", "Grok CLI", "OpenCode"]) expect(later.textContent).toContain(name);
-    expect(screen.queryByText("Antigravity", { selector: "li *" })).toBeNull();
+    for (const name of ["OpenCode", "Local model (Ollama)"]) expect(later.textContent).toContain(name);
+    for (const name of ["Antigravity", "Grok CLI"]) expect(later.textContent).not.toContain(name);
+    expect(screen.queryByText("OpenCode", { selector: "li *" })).toBeNull();
   });
 });
 

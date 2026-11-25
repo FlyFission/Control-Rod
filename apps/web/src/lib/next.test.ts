@@ -83,6 +83,14 @@ describe("nextLine", () => {
 
 const run = (over: Partial<Run>): Run => ({ id: "R-1", role: "pre-check", status: "failed", queued_at: "2026-11-24T18:13:00Z", ...over }) as Run;
 
+describe("a draft", () => {
+  it("asks for the release, not an edit nobody needs, when both are open", () => {
+    const line = nextLine(input({ status: "draft", actions: [allowed("draft.edit", "Edit draft"), allowed("release", "Release")] }));
+    expect(line).toMatchObject({ tone: "needs", text: "Release", command: "release" });
+    expect(nextLine(input({ status: "draft", actions: [allowed("draft.edit", "Edit draft")] })).text).toBe("Edit draft");
+  });
+});
+
 describe("a run that ended without a result", () => {
   const hatches = [allowed("return", "Return for revision"), allowed("reject", "Reject")];
   it("asks the person to run a failed check again, not to return finished work", () => {

@@ -279,6 +279,29 @@ describe("signing policy on a project", () => {
     expect(again.statusCode, again.body).toBe(201);
   });
 
+  it("under Light, runs a check that failed without a verdict again once on its own, then stops for a person", async () => {
+    const id = await drafted("RETRY");
+    const author = await claimFor("author", ["fake"], id);
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "report.md", content_base64: b64("done") }] });
+    const first = await claimFor("pre-check", ["codex"], id);
+    const failed = await asDaemon(`/runner/runs/${first.run.id}/complete`, { status: "failed", error: "verification.json does not match the schema, so the check cannot count", outputs: [], containment: "process-group" });
+    expect(failed.statusCode, failed.body).toBe(200);
+    let runs = (await view(id)).runs.filter((r: Json) => r.role === "pre-check");
+    const old = runs.find((r: Json) => r.id === first.run.id);
+    expect(old.reconciliation).toMatchObject({ disposition: "abandoned", by: { kind: "system", id: expect.stringMatching(/^policy:SP-/) } });
+    expect(old.requeued_as).toBeDefined();
+    expect(runs.find((r: Json) => r.id === old.requeued_as)).toMatchObject({ status: "queued", generation: 2 });
+    // The retry fails too: it stays for the person.
+    const second = await claimFor("pre-check", ["codex"], id);
+    expect(second.run.id).toBe(old.requeued_as);
+    await asDaemon(`/runner/runs/${second.run.id}/complete`, { status: "failed", error: "boom", outputs: [], containment: "process-group" });
+    runs = (await view(id)).runs.filter((r: Json) => r.role === "pre-check");
+    const last = runs.find((r: Json) => r.id === second.run.id);
+    expect(last.requeued_as).toBeUndefined();
+    expect(last.reconciliation).toBeUndefined();
+    expect(runs.filter((r: Json) => r.status === "queued")).toHaveLength(0);
+  });
+
   it("refuses a press made on a card that changed since it was shown", async () => {
     const id = await drafted("CHANGED");
     const r = await asOwner("POST", `/packages/${id}/decisions`, {

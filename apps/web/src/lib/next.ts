@@ -176,7 +176,9 @@ export function nextLine(i: NextInput): NextLine {
   // Only a step that moves the work forward makes a card read "Needs you". Return and Reject are
   // always open on live work (with a reason), so naming them would mark every card in work as
   // waiting on a person when nothing is asked of anyone.
-  const first = offered.find((a) => a.allowed && !ESCAPE_HATCHES.has(a.command));
+  // Editing a draft is optional: when the draft can also be released, the card asks for that.
+  const forward = offered.filter((a) => a.allowed && !ESCAPE_HATCHES.has(a.command));
+  const first = forward.find((a) => a.command !== "draft.edit") ?? forward[0];
   if (first) return { tone: "needs", text: first.label, command: first.command };
 
   if (column === "person-verifies") return { tone: "wait", text: "Waiting on a person verification" };

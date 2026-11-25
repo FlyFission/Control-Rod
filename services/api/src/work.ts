@@ -2264,6 +2264,33 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
   return command(db, "run.requeue", async (c) => {
     await enterScramGate(c);
     const row = await lockRun(c, runId);
+    return requeueTx(c, cfg, { kind: "human", id: user }, row, packageId);
+  });
+}
+
+/** Queues a run again inside the caller's transaction, which holds the SCRAM gate and the run's lock. */
+async function requeueTx(c: Tx, cfg: WorkConfig, by: Actor, row: RunRow, packageId: string): Promise<Json> {
+  const runId = row.id;
+  const settled = await requeueChecks(c, row, packageId, false);
+  if (settled) return settled;
+  {
+    const next = await queueRun(c, cfg, row.package_id, row.package_revision, row.role, row.round, runId, row.role === "pre-check");
+    if (!next) throw new Refusal(409, "sticky-fail", STICKY_FAIL_REASON);
+    const old = { ...row.body, status: row.status, requeued_as: next.id };
+    validate(cfg, "Run.json", old);
+    await c.query("update runs set body = $2 where id = $1", [runId, old]);
+    await appendEvent(c, "run.requeued", runId, by, { package: row.package_id, role: row.role, new_run: next.id });
+    return next;
+  }
+}
+
+/**
+ * Every refusal a requeue can meet, read before anything is written. Returns the run it was already
+ * requeued as, if any. `unknownSettledFirst` leaves out the unknown-outcome refusal, for a caller
+ * that settles the outcome itself once everything else passes.
+ */
+async function requeueChecks(c: Tx, row: RunRow, packageId: string, unknownSettledFirst: boolean): Promise<Json | null> {
+  {
     requireLegacyRun(row);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
     if (row.role === "intake") {
@@ -2278,7 +2305,7 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
     if (!["lost", "failed", "stopped"].includes(row.status)) {
       throw new Refusal(409, "not-requeueable", `A ${row.status} run cannot be requeued`);
     }
-    if (row.body.outcome_unknown && !row.body.reconciliation)
+    if (!unknownSettledFirst && row.body.outcome_unknown && !row.body.reconciliation)
       throw new Refusal(409, "outcome-unknown", "This run's outcome is unknown: its process may still be running. Reconcile it first");
     await refuseIfScrammed(c, await runSubject(c, row));
     if (row.role !== "intake") {
@@ -2301,14 +2328,47 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
         }
       }
     }
-    const next = await queueRun(c, cfg, row.package_id, row.package_revision, row.role, row.round, runId, row.role === "pre-check");
-    if (!next) throw new Refusal(409, "sticky-fail", STICKY_FAIL_REASON);
-    const old = { ...row.body, status: row.status, requeued_as: next.id };
-    validate(cfg, "Run.json", old);
-    await c.query("update runs set body = $2 where id = $1", [runId, old]);
-    await appendEvent(c, "run.requeued", runId, { kind: "human", id: user }, { package: row.package_id, role: row.role, new_run: next.id });
-    return next;
-  });
+    return null;
+  }
+}
+
+/**
+ * A check that failed without a verdict (the checker crashed, or wrote a file Control Rod could not
+ * read) is Control Rod's problem, not the owner's: where the owner's signing policy lets cards start
+ * on their own, the first failed attempt is queued again once, by the policy, instead of stopping
+ * for a person. A run whose outcome is unknown is settled first, with the policy as the reason: a
+ * checker works read-only in its sandbox. A second failure stops for the person as before.
+ */
+async function retryFailedCheck(c: Tx, cfg: WorkConfig, runId: string): Promise<void> {
+  const row = (await c.query<RunRow>("select * from runs where id = $1", [runId])).rows[0];
+  if (!row || row.role !== "pre-check" || row.status !== "failed") return;
+  if ((row.body.generation ?? 1) !== 1 || row.body.requeue_of || row.body.requeued_as || row.body.stop_requested_at) return;
+  const pkg = await currentPackage(c, row.package_id);
+  if (!pkg || pkg.revision !== row.package_revision || pkg.status !== "in-verification") return;
+  const policy = await governingPolicy(c, pkg);
+  if (!policy || modeFor(policy, "release") !== "auto") return;
+  const cred = await currentCredential(c, policy.assertion.credential_id);
+  if (!cred || cred.revoked) return;
+  const by: Actor = { kind: "system", id: `policy:${policy.id}` };
+  // Everything that could refuse is read before anything is written: refused (SCRAM, a standing
+  // fail, the author revising), the run simply stays for the person.
+  try {
+    await requeueChecks(c, row, row.package_id, true);
+  } catch (e) {
+    if (e instanceof Refusal) return;
+    throw e;
+  }
+  if (row.body.outcome_unknown && !row.body.reconciliation) {
+    await reconcileTx(c, cfg, row, "abandoned",
+      `Control Rod ran this failed check again once, under signing policy ${policy.id} v${policy.version}; a checker works read-only in its sandbox.`, by);
+  }
+  const fresh = (await c.query<RunRow>("select * from runs where id = $1", [runId])).rows[0]!;
+  try {
+    await requeueTx(c, cfg, by, fresh, row.package_id);
+  } catch (e) {
+    // queueRun found a standing fail after all: nothing was queued, and the settled run waits for the person.
+    if (!(e instanceof Refusal)) throw e;
+  }
 }
 
 /**
@@ -2864,6 +2924,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     else throw new Refusal(409,"unsupported-run-role","Unsupported completion role");
   }
   await recordCheckerAttempt(c, cfg.ajv, { ...row, status: finished.status, body: finished });
+  if (finished.status === "failed") await retryFailedCheck(c, cfg, runId);
   const receipt = receiptOf(runId, key, finished.status, outputs);
   await c.query("update runs set completion_key = $2, receipt = $3 where id = $1", [runId, key, receipt]);
   return receipt;

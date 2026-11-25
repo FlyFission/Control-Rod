@@ -1,8 +1,8 @@
 # Verification: A failed run on a Mac runs again with one press, not a passkey
 
 - E-01: `pnpm -C services/api typecheck` and `pnpm -C apps/web typecheck` pass.
-- E-02: `vitest run test/signing-policy.test.ts test/supervision.test.ts test/admin.test.ts test/scram.test.ts` (services/api, embedded PostgreSQL 17): all pass, 3 new.
-- E-03: `vitest run src/components/run-reconcile.test.tsx src/lib/next.test.ts` (apps/web): 30 tests pass, 4 new.
+- E-02: `vitest run test/signing-policy.test.ts test/supervision.test.ts test/admin.test.ts test/scram.test.ts test/runs.test.ts test/checker-attempts.test.ts` (services/api, embedded PostgreSQL 17): all pass, 4 new.
+- E-03: `vitest run src/lib src/features/board src/components` (apps/web): 567 tests pass, 5 new.
 
 ## Evidence custody and coupling
 
@@ -24,7 +24,7 @@
 
 ## Exit criteria
 
-On a project whose signing settings send cards back with a press (Light, Balanced), a failed run whose outcome is unknown is settled and run again with one press in its run log, with no passkey; the reason is recorded with the policy it relied on. Where send-backs are signed, or no policy covers the card, it still asks for the passkey. The run log and the card no longer say the daemon stopped answering for a run that reported its end. API and web tests and both typechecks pass.
+On a project whose signing settings send cards back with a press (Light, Balanced), a failed check runs again once on its own, and after that a failed run whose outcome is unknown is settled and run again with one press in its run log, with no passkey; the reason is recorded with the policy it relied on. Where send-backs are signed, or no policy covers the card, it still asks for the passkey. The run log and the card no longer say the daemon stopped answering for a run that reported its end. API and web tests and both typechecks pass.
 
 ## Source-lineage note
 

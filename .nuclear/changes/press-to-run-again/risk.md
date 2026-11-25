@@ -1,6 +1,7 @@
 # Risk: A failed run on a Mac runs again with one press, not a passkey
 
 - A press could requeue a run whose process is still alive, so two copies run. This is the same judgement the signed reconcile asks for, now made by a press under a policy the owner signed. Mitigation: only where the owner's signed policy already lets a card be sent back with a press; never for Nuclear-grade, high-consequence or restricted-lane work; not once the policy's passkey is revoked or its signer lacks reconcile authority. A requeued run is a new attempt (generation fence), so a late report from the old one is retained, never applied.
+- The automatic retry runs a second check while the first checker's stray child processes (if any) could still be alive on macOS. Checkers work read-only in their sandbox and the retry is a new attempt behind the generation fence; it happens once per check, and only under a policy the owner signed that releases cards on its own. The settled run's evidence names the policy. Spec note: Actor.json's description says the system acts only to release or accept; this adds a policy-made retry of a failed check (an event and a reconciliation, never a decision on the package).
 - The press is recorded: the reconciliation evidence names the person, the policy id and version, and the reason.
 - No trust surface is touched.
 
@@ -15,7 +16,7 @@
 
 ## Exit criteria
 
-On a project whose signing settings send cards back with a press (Light, Balanced), a failed run whose outcome is unknown is settled and run again with one press in its run log, with no passkey; the reason is recorded with the policy it relied on. Where send-backs are signed, or no policy covers the card, it still asks for the passkey. The run log and the card no longer say the daemon stopped answering for a run that reported its end. API and web tests and both typechecks pass.
+On a project whose signing settings send cards back with a press (Light, Balanced), a failed check runs again once on its own, and after that a failed run whose outcome is unknown is settled and run again with one press in its run log, with no passkey; the reason is recorded with the policy it relied on. Where send-backs are signed, or no policy covers the card, it still asks for the passkey. The run log and the card no longer say the daemon stopped answering for a run that reported its end. API and web tests and both typechecks pass.
 
 ## Source-lineage note
 

@@ -1190,8 +1190,13 @@ func checkerSeatbeltPaths(plan loginPlan) ([]string, error) {
 // hashProtected covers the login directory and the instruction and settings
 // paths inside it. A missing directory is "absent", so creating it changes the
 // hash. A missing name is part of the hash too. Each existing name records its
-// kind, mode, and contents. One budget spans the protected paths and their
-// descendants. Exceeding a file, total byte, or entry limit fails the hash.
+// kind, mode, and contents. One byte budget spans the protected paths and their
+// descendants. A file over the per-file limit, or past the byte budget, is named
+// by its identity (device, inode, size, and modification and change times) instead
+// of its contents: vendor login directories hold app bundles and binaries far over
+// any content budget (Codex keeps its own CLI under plugins/), and any write,
+// replace, or retime still changes the change time. Where the platform has no such
+// record, those files fail the hash as before. Exceeding the entry limit fails it.
 func hashProtected(root string) (string, error) {
 	if root == "" {
 		return "", nil
@@ -1216,7 +1221,7 @@ func hashProtected(root string) (string, error) {
 	if err := writePrefixed(h, []byte(modeOctal(st.Mode()))); err != nil {
 		return "", err
 	}
-	budget := protectedHashBudget{bytesLeft: MaxOutputTotal, entriesLeft: checkerMaxEntries()}
+	budget := protectedHashBudget{bytesLeft: MaxOutputTotal, entriesLeft: protectedMaxEntries}
 	for _, name := range protectedLoginNames {
 		if err := budget.hashOne(h, name, filepath.Join(root, name)); err != nil {
 			return "", err
@@ -1225,6 +1230,20 @@ func hashProtected(root string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// protectedMaxEntries bounds the protected login walk. It is the existing tree entry cap
+// (MaxOutputTotal / checkerEntryCharge); a variable only so tests can lower it.
+var protectedMaxEntries = checkerMaxEntries()
+
+// coarsestTimestampTick is the coarsest timestamp resolution among the filesystems ownChangeTime
+// admits: HFS+ stores times in whole seconds (Apple Technical Note TN1150, "HFS Plus Dates").
+// The others store nanoseconds and advance by at most a kernel clock tick, far below a second.
+const coarsestTimestampTick = time.Second
+
+// identityQuietPeriod is how long a large protected file must have gone unchanged before its
+// identity stands for its contents: two of the coarsest ticks, so the file's last change and any
+// later rewrite can never share one tick. A variable only so tests can lower it.
+var identityQuietPeriod = 2 * coarsestTimestampTick
+
 type protectedHashBudget struct {
 	bytesLeft   int64
 	entriesLeft int
@@ -1232,7 +1251,7 @@ type protectedHashBudget struct {
 
 func (b *protectedHashBudget) chargeEntries(n int) error {
 	if n > b.entriesLeft {
-		return fmt.Errorf("protected login tree has more than %d entries, so the check cannot count", checkerMaxEntries())
+		return fmt.Errorf("protected login tree has more than %d entries, so the check cannot count", protectedMaxEntries)
 	}
 	b.entriesLeft -= n
 	return nil
@@ -1293,11 +1312,14 @@ func (b *protectedHashBudget) hashLink(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// A link target is at most a path long and is always read in full: it is bounded by the
+	// entry limit, not the content budget, so a tree whose large files used up that budget
+	// still hashes its links.
 	size := int64(len(target))
-	if err := b.checkBytes(path, size); err != nil {
-		return "", err
+	if size > MaxOutputFile {
+		return "", b.checkBytes(path, size)
 	}
-	b.bytesLeft -= size
+	b.bytesLeft = max(b.bytesLeft-size, 0)
 	return sha256Hex([]byte(target)), nil
 }
 
@@ -1315,7 +1337,18 @@ func (b *protectedHashBudget) hashFile(path string) (string, error) {
 		return "", fmt.Errorf("%s is not a regular file", path)
 	}
 	if err := b.checkBytes(path, st.Size()); err != nil {
-		return "", err
+		// Too large to read within the budget: name it by its identity when the platform allows.
+		id, changed, ok := fileIdentity(st)
+		if !ok || !ownChangeTime(path) {
+			return "", err
+		}
+		// Timestamps advance in clock ticks (seconds on some filesystems). A file changed within
+		// the last tick could be rewritten again inside that same tick without moving its change
+		// time, so a recently changed file proves nothing by identity and is refused.
+		if age := time.Since(changed); age < identityQuietPeriod {
+			return "", fmt.Errorf("protected login entry %q is too large to read and changed %s ago, so its identity cannot prove it unchanged and the check cannot count; run the check again in a few seconds", path, max(age, 0).Round(time.Millisecond))
+		}
+		return "identity:" + id, nil
 	}
 	fh := sha256.New()
 	// Recheck the bytes actually read so file growth cannot exhaust the budget.

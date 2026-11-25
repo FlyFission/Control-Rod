@@ -1,6 +1,5 @@
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
 import type { WorkspaceProjectArchivePayload, WorkspaceProjectUpdatePayload } from "../../api/types.js";
 import { useActionLock } from "../../lib/scramLock.js";
@@ -29,8 +28,11 @@ import {
   selectProject,
   switchModeAndSyncProject,
   useActiveProject,
+  useProjects,
   WorkspaceProjectUser,
 } from "../../lib/projects.js";
+import { useAgents } from "../../lib/useAgents.js";
+import { FirstRunGuide, type GuideState, guideOpen, useGuideHidden } from "./FirstRunGuide.js";
 import { sessionGeneration, stillCurrent } from "../../lib/session.js";
 import { BoardListView } from "./BoardListView.js";
 import { BoardReviewDrawer } from "./BoardReviewDrawer.js";
@@ -231,6 +233,28 @@ export function BoardView() {
   const unknown = data.status === "unknown";
   // An empty board is only claimed from a successful, empty read.
   const empty = !data.loading && data.problems.length === 0 && scopedCards.length === 0 && scopedCaptures.length === 0;
+
+  // The guided first run: each step is ticked from what the server and the person's settings say.
+  const agents = useAgents();
+  const projects = useProjects();
+  const [guideHidden, hideGuide] = useGuideHidden(data.me);
+  const guide: GuideState = {
+    agentReady: agents.rows.some((r) => r.seated && r.state === "ready"),
+    hasRepoProject: projects.some((p) => (p.repo ?? "").trim().length > 0),
+    // The change steps read this board's scope, so the button can always reach the card they name.
+    hasCard: scopedCards.length > 0 || scopedCaptures.length > 0,
+    released: scopedCards.some((c) => c.pkg.status !== "draft"),
+    // Any accepted change anywhere means the person has done the whole loop once.
+    accepted: data.cards.some((c) => c.pkg.status === "accepted"),
+  };
+  const showGuide = !data.loading && data.problems.length === 0 && !agents.loading && data.me !== "" && guideOpen(guide, guideHidden);
+  const guideCard = guide.released
+    ? scopedCards.find((c) => c.column === "needs-signature" || c.column === "person-verifies")
+    : scopedCards.find((c) => c.pkg.status === "draft");
+  const openNewChange = () => {
+    const cta = document.querySelector<HTMLButtonElement>(".places-cta");
+    if (cta && !cta.disabled) cta.click();
+  };
   // Counts are facts only after a successful read; after a failed refresh, a drop not yet recovered
   // from, or while the stream is unknown they are what was last read, and before any read they are
   // not shown. Each count also needs every read it is made from (Codex round 3).
@@ -819,7 +843,17 @@ export function BoardView() {
           </button>
         </div>
       )}
-      {empty && (
+      {showGuide && (
+        <FirstRunGuide
+          state={guide}
+          mode={mode}
+          onNewChange={openNewChange}
+          onHide={hideGuide}
+          newChangeLocked={scramLock.locked ? (scramLock.why ?? "Held by a SCRAM") : undefined}
+          onOpenCard={guideCard ? () => setSelectedId(guideCard.pkg.id) : undefined}
+        />
+      )}
+      {empty && !showGuide && (
         <section className="bd-empty-card" aria-label="Getting started">
           <div className="bd-empty-copy">
             <h2>
@@ -830,7 +864,7 @@ export function BoardView() {
                   : "No software changes in flight yet"}
             </h2>
             <p className="small muted">
-              Add a card to capture a task. Choose its data lane before an agent starts drafting.
+              Describe what you want done. An agent drafts a plan, and nothing runs until you approve it.
             </p>
           </div>
           <div className="bd-empty-actions">
@@ -839,16 +873,10 @@ export function BoardView() {
               className="btn primary"
               disabled={scramLock.locked}
               title={scramLock.why}
-              onClick={() => {
-                const cta = document.querySelector<HTMLButtonElement>(".places-cta");
-                if (cta && !cta.disabled) cta.click();
-              }}
+              onClick={openNewChange}
             >
               + {copy.newCta} <kbd>C</kbd>
             </button>
-            <Link to="/packages" className="btn">
-              Open Packages
-            </Link>
           </div>
         </section>
       )}

@@ -1353,8 +1353,9 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 // so the completion must not be sent.
 func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resultErr error) {
 	started := time.Now().UTC()
+	// Every early refusal comes before any process exists, so it says that nothing was started.
 	fail := func(msg string) Completion {
-		return Completion{Status: "failed", Error: msg, Outputs: []NamedFile{}}
+		return Completion{Status: "failed", Error: msg, Outputs: []NamedFile{}, Containment: "none"}
 	}
 	runtime := RuntimeFor(job.Run.Runtime.Provider)
 	if runtime == "" || !slices.Contains(d.cfg.Runtimes, runtime) {
@@ -1697,7 +1698,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
 	var finalEvents []Event
 	switch {
-	case cmd == nil:
+	// No command, or one that never started: exec sets Process only once a process exists, so a
+	// run refused before its start (a failed pre-start check) reports that nothing ran. Without
+	// this, the control plane cannot tell it from a lost process and holds it as outcome unknown.
+	case cmd == nil, cmd.Process == nil:
 		comp.Containment = "none"
 	case spawned != nil:
 		w := spawned.Wire()

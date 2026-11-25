@@ -447,7 +447,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       <div className="cr-modal-head">
         <div>
           <h2 id="new-work-title" className="cr-modal-title">{copy.modalTitle}</h2>
-          <p className="small muted" style={{ margin: 0 }}>Capture work for intake.</p>
+          <p className="small muted" style={{ margin: 0 }}>An agent turns this into a plan. Nothing runs until you approve it.</p>
         </div>
         <button type="button" className="btn small" onClick={onClose}>Esc</button>
       </div>
@@ -484,6 +484,9 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
             </span>
           )}
           {isPreparing && !settingsOpen && <span role="status">Preparing local workspace…</span>}
+          {!repo && mode === "software" && (
+            <span className="cr-warn-text">No repository chosen, so this ends in documents, not a pull request. Pick one under More settings.</span>
+          )}
           {!independent && (
             <p className="cr-warn-text" role="status" style={{ margin: 0 }}>
               O6 Notice: Author and Checker share the {ecosystemById(author.ecosystem).cliCommand} CLI.
@@ -500,7 +503,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
             aria-controls="new-work-settings"
             onClick={() => setSettingsOpen((previous) => !previous)}
           >
-            Capture settings
+            More settings
           </button>
         </div>
         <div id="new-work-settings" hidden={!settingsOpen}>
@@ -778,12 +781,12 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           </button>
           <button type="submit" className="btn primary" disabled={isCapturing || scramLock.locked} title={scramLock.why}>
             {isCapturing
-              ? "Capturing…"
+              ? "Adding…"
               : mode === "nuclear-grade"
-                ? "Capture packet"
+                ? "Add packet"
                 : mode === "software"
-                  ? "Capture change"
-                  : "Capture deliverable"}
+                  ? "Add change"
+                  : "Add deliverable"}
           </button>
         </div>
       </form>

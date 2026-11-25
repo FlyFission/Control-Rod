@@ -12,7 +12,7 @@ export const SURVEY = "Field survey summary";
 export const SOW = "Scope of work";
 
 export async function addCard(page: Page, text: string): Promise<void> {
-  await page.getByRole("button", { name: "+ Add a card" }).click();
+  await page.getByRole("button", { name: "+ Quick add" }).click();
   const field = page.getByPlaceholder("What needs doing? Enter adds it");
   await field.fill(text);
   await field.press("Enter");
@@ -68,7 +68,7 @@ export async function decisionsOf(page: Page, stack: Stack, id: string): Promise
   return ((await r.json()) as { decisions: { kind: string }[] }).decisions;
 }
 
-/** A board column, by its heading ("Ready", "CI / Agent check", "Needs signature", "Accepted", ...). */
+/** A board column, by its heading ("Ready", "Being checked", "Ready to accept", "Accepted", ...). */
 export const column = (page: Page, name: string) => page.getByRole("region", { name, exact: true });
 
 export async function openCase(page: Page, stack: Stack, id: string): Promise<void> {

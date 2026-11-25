@@ -16,6 +16,35 @@ CACHE_EXCLUDES = ["__pycache__/", "*.pyc", "*.pyo", ".pytest_cache/", ".mypy_cac
                   "*.egg-info/", ".tox/", ".coverage", ".DS_Store"]
 
 
+# Names Claude Code's sandbox protects in its working directory (sandbox-runtime DANGEROUS_FILES,
+# its protected directories and settings). For an absent one it makes an empty mount point on the
+# host, and removes it after each command; one left behind (a killed call) is not the author's work.
+SANDBOX_STUB_NAMES = (".gitconfig", ".gitmodules", ".bashrc", ".bash_profile", ".zshrc", ".zprofile", ".profile",
+                      ".ripgreprc", ".mcp.json", ".vscode", ".idea", ".claude")
+
+
+def _all_empty(p: Path) -> bool:
+    """An empty regular file, or a directory holding only empty directories and empty files."""
+    if p.is_symlink():
+        return False
+    if p.is_file():
+        return p.stat().st_size == 0
+    if p.is_dir():
+        return all(_all_empty(c) for c in p.iterdir())
+    return False
+
+
+def drop_sandbox_stubs(tree: Path, base_has) -> list[str]:
+    """Remove top-level sandbox mount-point leftovers that the base does not have. Returns them."""
+    out = []
+    for n in SANDBOX_STUB_NAMES:
+        p = tree / n
+        if (p.exists() or p.is_symlink()) and not base_has(n) and _all_empty(p):
+            remove(p) if p.is_dir() else p.unlink()
+            out.append(n)
+    return out
+
+
 def is_git_name(name: str) -> bool:
     """`.git` in any case: on a case-insensitive Mac volume `.GIT` is the same directory."""
     return name.casefold() == ".git"
@@ -71,15 +100,17 @@ def capture(author_repo: Path, task: dict, root: Path, cache: Path, rule: list[s
         if ident is not None and identity(author_repo) != ident:
             return {"status": "patch_invalid", "why": "the author's tree was replaced during the call", "patch": b"",
                     "sha256": sha256_bytes(b""), "tree_oid": None, "changes": [], "test_paths": [],
-                    "skipped_special_files": [], "lines": 0}
+                    "skipped_special_files": [], "sandbox_stubs_dropped": [], "lines": 0}
     except (OSError, SystemExit) as e:
         return {"status": "patch_invalid", "why": f"the author's tree is not a plain directory: {e}", "patch": b"",
                 "sha256": sha256_bytes(b""), "tree_oid": None, "changes": [], "test_paths": [],
-                "skipped_special_files": [], "lines": 0}
+                "skipped_special_files": [], "sandbox_stubs_dropped": [], "lines": 0}
     trusted = export_base(task, root, cache)
     try:
         base = _git(["rev-parse", "HEAD"], trusted).strip()
         skipped = import_tree(author_repo, trusted)
+        tracked = set(_git(["ls-tree", "--name-only", "HEAD"], trusted).splitlines())
+        stubs = drop_sandbox_stubs(trusted, lambda n: n in tracked)
         (trusted / ".git" / "info").mkdir(parents=True, exist_ok=True)
         (trusted / ".git" / "info" / "exclude").write_text("\n".join(CACHE_EXCLUDES) + "\n")
         _gitb(["add", "-A"], trusted)
@@ -98,7 +129,8 @@ def capture(author_repo: Path, task: dict, root: Path, cache: Path, rule: list[s
     test_hits = sorted({p for c in changes for p in c["paths"] if is_test_path(p, rule)})
     status = "empty" if not patch.strip() else ("patch_invalid" if test_hits else "ok")
     return {"status": status, "patch": patch, "sha256": sha256_bytes(patch), "tree_oid": tree, "changes": changes,
-            "test_paths": test_hits, "skipped_special_files": skipped, "lines": patch.count(b"\n")}
+            "test_paths": test_hits, "skipped_special_files": skipped, "sandbox_stubs_dropped": stubs,
+            "lines": patch.count(b"\n")}
 
 
 def reapply_ok(task: dict, patch: bytes, tree: str, root: Path, cache: Path) -> tuple[bool, str]:

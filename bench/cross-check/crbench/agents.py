@@ -728,34 +728,38 @@ def stub_call(agent: dict, role: str, prompt: str, workspace: Path, stub: dict) 
         return {"status": stub["force"], "why": "simulated", "usage_raw": {"input": 10, "output": 5}}
     usage = {"input": 100, "cached_input": 0, "output": 20}
     model = agent.get("model")
-    if "ISOLATION PROBE" in prompt:
+    if "ISOLATION PROBE" in prompt:  # follows the probe script's step markers, as a sandboxed shell would
+        script = (workspace / "PROBE.sh").read_text() if (workspace / "PROBE.sh").is_file() else ""
+        if agent.get("lazy") or not script:
+            return {"status": "ok", "text": "done", "usage_raw": usage, "model_resolved": model,
+                    "tool_uses": [], "tools_offered": ["Read", "Bash"]}
         out = []
-        for ln in prompt.splitlines():
-            if ln.startswith("READ: "):
-                path = Path(ln[6:].strip())
+        for ln in script.splitlines():
+            tag, _, arg = ln.partition(": ")
+            path = Path(arg.strip()) if arg else None
+            if tag == "# READ":
                 inside = not path.is_absolute()
                 if inside or agent.get("leaky"):
                     try:
                         out.append((workspace / path if inside else path).read_text().strip())
                     except OSError:
                         out.append("denied")
+            elif tag == "# LIST" and agent.get("leaky") and path.is_dir():
+                out += sorted(c.name for c in path.iterdir())
+            elif tag == "# WRITE" and agent.get("leaky"):
+                try:
+                    (workspace / path).write_text("x")
+                except OSError:
+                    pass
+            elif tag == "# SCRATCH":
+                (path / "ok.txt").write_text("ok")
+            m = re.search(r'PROBE-DONE-\$\(\((\d+)\*(\d+)\)\)', ln)
+            if m:
+                out.append(f"PROBE-DONE-{int(m.group(1)) * int(m.group(2))}")
         out.append("COUNT=1")
-        uses = [{"name": "Bash", "input": ln[6:]} for ln in prompt.splitlines() if ln.startswith(("READ: ", "LIST: "))]
-        if not agent.get("lazy"):
-            uses.append({"name": "Bash", "input": "curl"})
-            for ln in prompt.splitlines():
-                if "PROBE_WRITE.txt" in ln:
-                    uses.append({"name": "Bash", "input": "touch PROBE_WRITE.txt"})
-                    try:
-                        (workspace / "PROBE_WRITE.txt").write_text("x") if agent.get("leaky") else None
-                    except OSError:
-                        pass
-                m = re.search(r"named ok\.txt in (\S+)\.$", ln)
-                if m:
-                    uses.append({"name": "Bash", "input": f"touch {m.group(1)}/ok.txt"})
-                    (Path(m.group(1)) / "ok.txt").write_text("ok")
+        out += [f"{v}=absent" for v in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY")]
         return {"status": "ok", "text": "\n".join(out), "usage_raw": usage, "model_resolved": model,
-                "tool_uses": [] if agent.get("lazy") else uses, "tools_offered": ["Read", "Bash"]}
+                "tool_uses": [{"name": "Bash", "input": "sh PROBE.sh"}], "tools_offered": ["Read", "Bash"]}
     if role == "author":
         p = stub.get("patch_file")
         if p and Path(p).exists():

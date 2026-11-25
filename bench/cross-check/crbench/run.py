@@ -252,6 +252,7 @@ class Runner:
                 cap = capture(repo, task, self.root, self.cache, self.cfg["test_path_rule"], ident)
                 sub = {k: cap[k] for k in ("status", "sha256", "tree_oid", "changes", "test_paths", "lines",
                                            "skipped_special_files")}
+                sub["sandbox_stubs_dropped"] = cap.get("sandbox_stubs_dropped", [])
                 if sub["status"] == "ok":
                     ok, got = reapply_ok(task, cap["patch"], cap["tree_oid"], self.root, self.cache)
                     if not ok:
@@ -285,7 +286,8 @@ class Runner:
         sub = read_json(bdir / "submission.json")
         if sha256_bytes(patch) != sub["sha256"]:
             raise Refused("§6 digest", f"{tid}/{author} patch changed after capture")
-        repo, scratch = checker_tree(task, patch, self.root, self.cache)
+        repo, scratch = checker_tree(task, patch, self.root, self.cache,
+                                     keep_root=self.agents[name]["kind"] != "stub")  # container: read-only mount
         try:
             before = tree_hash(repo)
             changed = "\n".join(f"{c['status']}\t{' -> '.join(c['paths'])}" for c in sub["changes"])

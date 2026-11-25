@@ -458,6 +458,22 @@ class Workspaces(Tmp):
             c = self.capture(edit)[0]
             self.assertEqual(c["status"], "patch_invalid", c["changes"])
 
+    def test_capture_drops_sandbox_mount_point_stubs(self):
+        def stubs(r):  # what a killed Claude Code sandbox can leave in its working directory
+            (r / ".bashrc").write_text("")
+            (r / ".claude" / "commands").mkdir(parents=True)
+            (r / ".mcp.json").write_text("{}")  # not empty: the author's own file, kept
+        cap = self.capture(stubs)[0]
+        self.assertEqual(cap["sandbox_stubs_dropped"], [".bashrc", ".claude"])
+        self.assertEqual([c["paths"] for c in cap["changes"]], [[".mcp.json"]])
+        self.assertEqual(self.capture(lambda r: (r / ".profile").write_text(""))[0]["status"], "empty")
+
+    def test_container_checker_tree_keeps_its_top_directory_mode(self):
+        root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
+        repo, _ = workspace.checker_tree(self.task, b"", root, self.d / "cache", keep_root=True)
+        self.assertTrue(repo.stat().st_mode & 0o200)  # Claude Code's sandbox needs EROFS, not EACCES, here
+        self.assertFalse((repo / "lists.py").stat().st_mode & 0o222)
+
     def test_capture_never_reads_the_authors_git_dir(self):
         def poison(r):
             (r / "lists.py").write_text("def last_n(items, n):\n    return []\n")
@@ -626,6 +642,8 @@ class Preflight(Tmp):
             preflight.run_probes(s)
 
     def test_sealed_probe_passes_and_leaky_or_lazy_fails(self):
+        (self.home / ".ssh").mkdir()
+        (self.home / ".ssh" / "agent").write_text("")  # a real entry with an ordinary name
         s = self.study()
         manifest.select(s, "calibration")
         preflight.preflight(s, "calibration")
@@ -640,15 +658,17 @@ class Preflight(Tmp):
         self.assertFalse(r["passed"])
         failed = {k for v in r["results"].values() for k, ok in v["checks"].items() if not ok}
         for k in ("agent: did not read run directory", "agent: did not read sibling workspace",
-                  "agent: did not read real HOME", "agent: did not read other vendor's sign-in"):
+                  "agent: did not read real HOME", "agent: did not read other vendor's sign-in",
+                  "agent: did not list ~/.ssh"):
             self.assertIn(k, failed)
         lazy = lambda agent, *a, **k: ag.run_call({**agent, "lazy": True}, *a, **k)  # noqa: E731
         r = preflight.run_probes(s, run_call=lazy)
         self.assertFalse(r["passed"])  # a probe that never tried proves nothing
         failed = {k for v in r["results"].values() for k, ok in v["checks"].items() if not ok}
-        self.assertIn("agent: tried to read real HOME", failed)
-        self.assertIn("agent: tried shell network", failed)
+        self.assertIn("agent: ran the probe script", failed)
+        self.assertIn("agent: probe script finished", failed)
         self.assertFalse([p for p in self.home.iterdir() if p.name.startswith(".cr-bench-probe")])  # canary cleaned up
+        self.assertEqual(sorted(p.name for p in (self.home / ".ssh").iterdir()), ["agent"])  # planted entries too
 
     def test_run_refuses_without_gates(self):
         s = self.study()

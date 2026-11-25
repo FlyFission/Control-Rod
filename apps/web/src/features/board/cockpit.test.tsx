@@ -74,7 +74,11 @@ describe("the drawer, calm", () => {
     const details = within(drawer).getByRole("region", { name: "Details" });
     for (const name of [/What was asked/, /Check result/, /Outputs/, /Agent runs/, /Who and how/, /Signing record/]) {
       expect(within(details).getByRole("button", { name }).getAttribute("aria-expanded")).toBe("false");
-    }
+    }    // The same words as the board: the column it sits in, versions from 1, agents by name, no "2 of 1 file".
+    expect(within(drawer).getByText(/Ready to accept/)).toBeTruthy();
+    expect(within(details).queryByText(/Revision \d/)).toBeNull();
+    expect(within(details).queryByText(/\d+ of \d+ files?/)).toBeNull();
+    expect(within(details).getByText(/writes, .* checks/)).toBeTruthy();
   });
 
   it("opens one detail at a time, and closes it again", async () => {

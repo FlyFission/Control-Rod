@@ -1,3 +1,4 @@
+import { plainItem } from "../lib/plainError.js";
 import { Link } from "@tanstack/react-router";
 import { CardLink } from "../components/CardPanel.js";
 import { useQuery } from "@tanstack/react-query";
@@ -7,7 +8,7 @@ import { ActiveRunList } from "../components/ActiveRuns.js";
 import { AttentionTarget } from "../components/AttentionTarget.js";
 import { RiskBand } from "../components/RiskBand.js";
 import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
-import { shortDigest, STATUS_LABEL } from "../lib/format.js";
+import { STATUS_LABEL } from "../lib/format.js";
 import { age } from "../lib/office.js";
 import { attentionKey } from "../lib/attention.js";
 import { brief } from "../lib/today.js";
@@ -151,9 +152,8 @@ function NeedRow({ item }: { item: AttentionItem }) {
       <div className="need-main">
         <AttentionTarget item={item} className="need-title" label={item.title} />
         <p className="need-meta small muted">
-          <span className="need-risk">{item.risk.label}</span>
+          <span className="need-risk">{plainItem(item).label}</span>
           <span>waiting {age(item.since)}</span>
-          {item.subject_digest !== undefined && <span className="mono">{shortDigest(item.subject_digest)}</span>}
         </p>
       </div>
     </li>

@@ -1,3 +1,5 @@
+import { plainItem } from "../lib/plainError.js";
+import { AGENTS } from "../lib/agents.js";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
@@ -7,19 +9,13 @@ import { BoardReviewDrawer } from "../features/board/BoardReviewDrawer.js";
 import { useMode } from "../lib/mode.js";
 import { age } from "../lib/office.js";
 import { lastSeenKey, readNumber, writeNumber } from "../lib/storage.js";
-import { ATTENTION_LABEL, attentionKey } from "../lib/attention.js";
+import { attentionKey } from "../lib/attention.js";
 import { NotifyToggle } from "../components/NotifyToggle.js";
 import { AttentionTarget } from "../components/AttentionTarget.js";
 import { RiskBand } from "../components/RiskBand.js";
 import { shortDigest } from "../lib/format.js";
 import "./screens.css";
 
-const KIND_LABEL = ATTENTION_LABEL;
-
-const DECISION_WORDS: Record<string, string> = {
-  confirm: "confirm the requirements",
-  release: "release", accept: "accept", "accept-with-findings": "accept with findings", return: "return", reject: "reject",
-};
 
 /**
  * Inbox (specification 12; plan task 3.3): what waits on you, by gate risk then age, each decision
@@ -92,14 +88,14 @@ export function Inbox() {
         <section className="panel" aria-labelledby="inbox-title">
           <div className="panel-head">
             <h1 id="inbox-title">Inbox</h1>
-            <span className="muted small">Riskiest first: security holds, waiting agents, unknown outcomes, disputes, then decisions by consequence; oldest first within each.</span>
+            <span className="muted small">Most urgent first.</span>
           </div>
           <NotifyToggle user={user} />
           {notReady.length > 0 && (
             <ul className="runtime-alerts" aria-label="Runtimes not ready">
               {notReady.map((r) => (
                 <li key={r.runtime} className="error">
-                  <strong>{r.runtime} is not ready and is not offered for work.</strong> {r.reason ?? "The daemon gave no reason."}
+                  <strong>{agentDisplayName(r.runtime)} can't take work right now.</strong> {r.reason ?? "It did not say why."}
                 </li>
               ))}
             </ul>
@@ -176,43 +172,45 @@ function Item({
   selected?: boolean;
   onInspect?: (() => void) | undefined;
 }) {
-  const decisions = (item.decisions ?? []).map((d) => DECISION_WORDS[d] ?? d);
+  const said = plainItem(item);
   return (
     <li className={`office-item inbox-item${theirs ? " theirs" : ""}${selected ? " inbox-selected" : ""}`}>
       {!theirs && <RiskBand item={item} />}
       <div className="inbox-item-body">
       <div className="office-meta">
         {theirs && <StateMark kind="waiting" title={item.risk.label} />}
-        <span className="tag">{item.risk.label}</span>
-        <span className="muted small">{KIND_LABEL[item.kind]}</span>
-        {item.package_id !== undefined && (
-          <span className="mono small muted">
-            {item.package_id} rev {item.package_revision}
-          </span>
-        )}
+        <span className="tag">{said.label}</span>
         <span className="muted small">waiting {age(item.since)}</span>
-        {item.subject_digest !== undefined && (
-          <span className="mono small inbox-digest" title="The digest a signature would bind">
-            {shortDigest(item.subject_digest)}
-          </span>
-        )}
       </div>
       <p className="office-title">{item.title}</p>
-      <p className="muted">{item.detail}</p>
-      {item.binds !== undefined && <p className="binds small">{item.binds}</p>}
+      <p className="muted">{said.detail}</p>
+      {(item.binds !== undefined || item.package_id !== undefined) && (
+        <details className="inbox-more small">
+          <summary className="muted">Details</summary>
+          {item.package_id !== undefined && (
+            <p className="mono muted">
+              {item.package_id} · version {(item.package_revision ?? 0) + 1}
+              {item.subject_digest !== undefined && <> · {shortDigest(item.subject_digest)}</>}
+            </p>
+          )}
+          {said.raw && <p className="muted">{said.raw}</p>}
+          {item.binds !== undefined && <p className="binds">{item.binds}</p>}
+        </details>
+      )}
       {theirs ? (
         <p className="small">
           Waiting on {item.waiting_on}.{item.reason !== undefined && <span className="muted"> {item.reason}.</span>}
         </p>
       ) : (
         <div className="item-actions">
-          <Target item={item} />
-          {onInspect && (
-            <button type="button" className="btn small" data-inspect-for={item.package_id} onClick={onInspect} aria-pressed={selected}>
-              {selected ? "Inspecting" : "Inspect and sign"}
+          {/* One way in: the card, unless the item points somewhere more exact, such as its runs. */}
+          {onInspect && !item.href?.hash ? (
+            <button type="button" className="btn small primary" data-inspect-for={item.package_id} onClick={onInspect} aria-pressed={selected}>
+              Open
             </button>
+          ) : (
+            <Target item={item} />
           )}
-          {decisions.length > 0 && <span className="muted small">You may {decisions.join(", ")}.</span>}
         </div>
       )}
       </div>
@@ -250,4 +248,10 @@ function Digest({ view, lastSeen, onMarkSeen }: { view: InboxView | undefined; l
       )}
     </section>
   );
+}
+
+export { plainItem };
+
+function agentDisplayName(runtime: string): string {
+  return AGENTS.find((a) => a.id === runtime)?.name ?? runtime;
 }

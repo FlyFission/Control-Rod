@@ -6,7 +6,7 @@ import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import { view } from "../test/fixtures.js";
 import type { AttentionItem, InboxView } from "../api/types.js";
-import { Inbox } from "./Inbox.js";
+import { Inbox, plainItem } from "./Inbox.js";
 import { readNotifyChoice } from "../lib/attention.js";
 
 function attentionItem(over: Partial<AttentionItem> & { package_id: string }): AttentionItem {
@@ -59,7 +59,7 @@ describe("Inbox", () => {
     expect(container.querySelector(".inbox-has-drawer")).toBeNull();
 
     // Inspect and sign opens the drawer for that item; its signing record is one click away under Details.
-    await user.click(screen.getAllByRole("button", { name: "Inspect and sign" })[0]!);
+    await user.click(screen.getAllByRole("button", { name: "Open" })[0]!);
     expect(await screen.findByRole("complementary", { name: "Review WP-0001" })).toBeTruthy();
     expect(container.querySelector(".inbox-has-drawer")).toBeTruthy();
     expect(await screen.findByRole("button", { name: /Signing record/ })).toBeTruthy();
@@ -71,10 +71,10 @@ describe("Inbox", () => {
     });
     expect(container.querySelector(".inbox-has-drawer")).toBeNull();
     // Focus returns to the button that opened the drawer, not the page body.
-    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole("button", { name: "Inspect and sign" })[0]));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole("button", { name: "Open" })[0]));
 
     // Clicking Inspect and sign reopens the drawer for that item
-    const inspectButtons = screen.getAllByRole("button", { name: "Inspect and sign" });
+    const inspectButtons = screen.getAllByRole("button", { name: "Open" });
     await user.click(inspectButtons[1]!);
     expect(await screen.findByRole("complementary", { name: "Review WP-0002" })).toBeTruthy();
     expect(container.querySelector(".inbox-has-drawer")).toBeTruthy();
@@ -99,7 +99,7 @@ describe("Inbox", () => {
 
     await screen.findByText("Second item");
     // Explicitly select WP-0002
-    await user.click(screen.getAllByRole("button", { name: "Inspect and sign" })[1]!);
+    await user.click(screen.getAllByRole("button", { name: "Open" })[1]!);
     expect(await screen.findByRole("complementary", { name: "Review WP-0002" })).toBeTruthy();
 
     // WP-0002 is completed and no longer in inbox on refresh
@@ -113,7 +113,7 @@ describe("Inbox", () => {
     expect(container.querySelector(".inbox-has-drawer")).toBeNull();
 
     // If explicitly dismissed, refreshing inbox with new items keeps the drawer closed
-    await user.click(screen.getByRole("button", { name: "Inspect and sign" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(await screen.findByRole("complementary", { name: "Review WP-0001" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Close review drawer" }));
     await waitFor(() => expect(screen.queryByRole("complementary", { name: /Review / })).toBeNull());
@@ -175,5 +175,20 @@ describe("Inbox notifications opt-in", () => {
     await renderPage(<Inbox />);
     await screen.findByText(/Nothing waits on you/);
     expect(screen.queryByRole("button", { name: "Notify me in this browser" })).toBeNull();
+  });
+});
+
+describe("an inbox item, in plain words", () => {
+  it("never calls a run that did not finish a dispute, and keeps the runner's text under Details", () => {
+    const said = plainItem({
+      kind: "dispute",
+      title: "Fix it",
+      detail: "Run failed: verification.json does not match the schema, so the check cannot count",
+      since: new Date().toISOString(),
+      risk: { rank: 30, label: "Dispute" },
+    } as unknown as Parameters<typeof plainItem>[0]);
+    expect(said.label).toBe("Did not finish");
+    expect(said.detail).toMatch(/^The checker's answer came back in a form Control Rod could not read/);
+    expect(said.raw).toMatch(/verification\.json/);
   });
 });

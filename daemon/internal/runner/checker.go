@@ -1538,6 +1538,15 @@ func (ws *Workspace) SaveRefreshedCredential() error {
 	if err != nil || bytes.Equal(now, c.Original) || !json.Valid(now) {
 		return nil
 	}
+	// One write-back at a time across runs and daemons: the host file is compared and replaced
+	// under the lock, so a later run cannot overwrite a sign-in an earlier one just saved.
+	if root, err := codexHomesRoot(); err == nil {
+		unlock, err := lockFile(filepath.Join(root, "write-back.lock"))
+		if err != nil {
+			return err
+		}
+		defer unlock()
+	}
 	host, err := readCapped(c.Host)
 	if err != nil || !bytes.Equal(host, c.Original) {
 		return nil

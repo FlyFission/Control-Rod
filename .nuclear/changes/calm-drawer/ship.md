@@ -1,10 +1,10 @@
 # Ship: A calm card drawer
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner, 2026-11-25 01:08 UTC.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): Ben Huffer, yes, by decision card "Merge PR 195 (calm card drawer) into main?" in the project thread, 2026-11-25 01:08 UTC. Blind check: Codex gpt-6.2-sol on the owner's Mac, five findings, all fixed as recorded in verification.md.
 
 - Rollback: revert the merge. No data, route or migration.
 - Monitoring: the live drawer test (`e2e/live/drawer.spec.ts`) runs with the live suites; the owner's next stuck card is the field check that the drawer says what to do in one line.

@@ -3,7 +3,7 @@
 **Change slug:** `calm-drawer`
 **Owner:** Ben Huffer
 **Date:** 2026-11-25
-**Status:** Built, for owner review.
+**Status:** Approved by the owner, 2026-11-25.
 
 ## Mission / need
 

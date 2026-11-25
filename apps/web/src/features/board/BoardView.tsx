@@ -672,6 +672,9 @@ export function BoardView() {
         </div>
         {activeProject && (
           <div className="bd-project-bar" role="region" aria-label="Active project settings">
+            {/* Set once and rarely touched: folded away so the board leads with the work. */}
+            <details className="bd-project-settings">
+              <summary className="btn small">Project settings</summary>
             <div className="bd-project-bar-left">
               <span className="tag">{copy.label}</span>
               <label className="bd-project-repo-ctl">
@@ -746,15 +749,6 @@ export function BoardView() {
                   }, "Could not update the Plant bays.")
                 }
               />
-              <span className="mono small muted">
-                {activeProject.laneAgents?.drafting ?? activeProject.author.ecosystem} →{" "}
-                {activeProject.laneAgents?.["agent-check"] ?? activeProject.checker.ecosystem}
-              </span>
-            </div>
-            <div className="bd-project-bar-actions">
-              <button type="button" className="btn small" onClick={() => selectProject(projectUser, null)}>
-                All {copy.label}
-              </button>
               <button
                 type="button"
                 className="btn small"
@@ -765,6 +759,12 @@ export function BoardView() {
                 }, "Could not archive project.")}
               >
                 Archive project
+              </button>
+            </div>
+            </details>
+            <div className="bd-project-bar-actions">
+              <button type="button" className="btn small" onClick={() => selectProject(projectUser, null)}>
+                All {copy.label}
               </button>
             </div>
           </div>
@@ -831,7 +831,8 @@ export function BoardView() {
           </button>
         </div>
       )}
-      {otherModeGroups.length > 0 && hiddenProtected === 0 && (
+      {/* Work in another mode is mentioned only when this view has nothing to show, not on every visit. */}
+      {otherModeGroups.length > 0 && hiddenProtected === 0 && empty && (
         <div className="bd-guard" role="status">
           <span>
             {otherModeGroups

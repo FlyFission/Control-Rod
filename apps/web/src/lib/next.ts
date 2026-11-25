@@ -1,3 +1,4 @@
+import { plainError } from "./plainError.js";
 import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, Run, WorkPackage } from "../api/types.js";
 import { blockUnverifiedAccept, boardColumn, isVerified, preCheckState } from "./board.js";
 
@@ -32,7 +33,8 @@ export function stalledLine(run: Run, checkBlocked?: { reason?: string }): NextL
   const who = run.role === "pre-check" ? "The check" : "The agent";
   const what =
     run.status === "lost" ? `${who} stopped answering` : run.status === "stopped" ? `${who} was stopped` : `${who} could not finish`;
-  const detail = run.error?.trim();
+  // The plain sentence, not the runner's own text: that stays one click away in the run log.
+  const detail = plainError(run.error)?.what;
   // A check of this same deliverable already failed: the server refuses another until the author
   // revises it or the owner signs an override, so Run again would only be refused.
   if (run.role === "pre-check" && checkBlocked) {

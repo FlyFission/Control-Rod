@@ -96,7 +96,7 @@ describe("a run that ended without a result", () => {
   it("asks the person to run a failed check again, not to return finished work", () => {
     const line = nextLine(input({ status: "in-verification", actions: hatches, runs: [run({ error: "protected login entry is over the byte limit, so the check cannot count" })] }));
     expect(line).toMatchObject({ tone: "needs", text: "The check could not finish. Run it again", command: "requeue", runId: "R-1" });
-    expect(line.detail).toMatch(/byte limit/);
+    expect(line.detail).toMatch(/sign-in folder was too large/);
   });
   it("names a lost or stopped author run in plain words", () => {
     expect(nextLine(input({ status: "in-work", runs: [run({ role: "author", status: "lost" })] })).text).toBe("The agent stopped answering. Run it again");
@@ -132,8 +132,10 @@ describe("a run that ended without a result", () => {
     const line = nextLine(input({ column: "person-verifies", originators: ["ben"], otherQualifiedVerifier: false, runs: [run({ status: "lost" })] }));
     expect(line.command).toBe("requeue");
   });
-  it("keeps a long runner error short on the card", () => {
-    expect(nextLine(input({ runs: [run({ error: "x".repeat(400) })] })).detail).toHaveLength(160);
+  it("says a runner error in plain words on the card, never the runner's own text", () => {
+    expect(nextLine(input({ runs: [run({ error: "x".repeat(400) })] })).detail).toBe("Something went wrong while it ran.");
+    const schema = nextLine(input({ runs: [run({ error: "verification.json does not match the schema, so the check cannot count: jsonschema validation failed with 'https://controlrod.test/CheckerFile.json#'" })] }));
+    expect(schema.detail).toBe("The checker's answer came back in a form Control Rod could not read, so the check did not count.");
   });
 });
 

@@ -38,6 +38,13 @@ describe("council", () => {
   });
 });
 
+describe("stand-in", () => {
+  it("shows a ready stand-in before one that is still waiting, as the dispatcher picks", () => {
+    const f = buildCouncilFlow(rows({ claude: true, codex: false, grok: true }), "start-and-merge");
+    expect(f.steps.find((s) => s.id === "fallback")?.seat?.id).toBe("grok");
+  });
+});
+
 describe("flow", () => {
   it("draws the baton pass, the author-only stand-in and the send-back loop", () => {
     const f = buildCouncilFlow(rows({ claude: true, codex: true }), "start-and-merge");

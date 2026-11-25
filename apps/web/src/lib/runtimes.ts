@@ -37,6 +37,12 @@ export interface CliEcosystem {
   modelDefaultReasoning?: Readonly<Record<string, ReasoningLevel>>;
 }
 
+/**
+ * The runtimes that can author in a repository checkout. Antigravity and Grok are fenced to the
+ * workspace folder, so the dispatcher never gives them checkout authoring (daemon docs).
+ */
+export const CHECKOUT_AUTHORS: readonly CliEcosystemId[] = ["claude", "codex"];
+
 export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
   {
     id: "claude",

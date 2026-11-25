@@ -4,6 +4,7 @@ Release decision: **pull request for owner review; no merge or release is author
 
 - **Proposed:** merge to main.
 - **Accepted by owner decision:** newer Antigravity and Grok builds are seated without a live qualification (risk R-03, R-04).
+- **Known (blind check, P2, pre-existing):** the model picker offers models a CLI reports (for example `grok-4.7-build-fast`) to a checker; the API holds a non-deciding checker model rather than running it.
 - **Not claimed:** no live run of a newer Antigravity or Grok; Codex switch-off shown on the Linux build.
 
 Rollback: revert the commit. Exact pins and the Codex refusal return.

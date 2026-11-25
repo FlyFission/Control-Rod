@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 )
@@ -168,8 +170,28 @@ func (a codexAdapter) PreflightSwitches(ctx context.Context, run CommandRunner) 
 	if err != nil {
 		return nil, refuse("Codex did not list its features with %s switched off (%v), so Control Rod cannot tell what an agent could reach.", strings.Join(extra, ", "), err)
 	}
-	if still := unqualifiedCodexFeatures(again); len(still) > 0 {
-		return nil, refuse("This Codex version turns on %s, which Control Rod has not qualified, and Codex did not switch it off when asked.", strings.Join(still, ", "))
+	still := unqualifiedCodexFeatures(again)
+	// Each switched feature must be listed again, and as off: a row that disappeared proves nothing.
+	off := codexFeaturesOff(again)
+	for _, f := range extra {
+		if !off[f] && !slices.Contains(still, f) {
+			still = append(still, f)
+		}
+	}
+	if len(still) > 0 {
+		sort.Strings(still)
+		return nil, refuse("This Codex version turns on %s, which Control Rod has not qualified, and Codex did not report it off when asked to switch it off.", strings.Join(still, ", "))
 	}
 	return extra, nil
+}
+
+// codexFeaturesOff names the features a `codex features list` reports off.
+func codexFeaturesOff(list string) map[string]bool {
+	off := map[string]bool{}
+	for _, line := range strings.Split(list, "\n") {
+		if f := strings.Fields(line); len(f) >= 3 && f[len(f)-1] == "false" {
+			off[f[0]] = true
+		}
+	}
+	return off
 }

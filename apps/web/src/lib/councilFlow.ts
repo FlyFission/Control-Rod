@@ -122,7 +122,8 @@ export const PREPARED_GATE =
 export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: string): CouncilFlow {
   const council = councilOf(rows);
   const { author, checker } = council;
-  const fallback = author ? council.fallbacks[0] : undefined;
+  // The dispatcher takes the first ready stand-in, so a ready one is shown before one still waiting.
+  const fallback = author ? (council.fallbacks.find((s) => s.ready) ?? council.fallbacks[0]) : undefined;
   // pickChecker for the stand-in's work: a ready, seated agent from another vendor than the stand-in.
   // That can be the author it stood in for, once that author is back.
   const fallbackChecker = fallback

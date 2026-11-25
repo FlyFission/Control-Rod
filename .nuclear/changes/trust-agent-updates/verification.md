@@ -6,6 +6,7 @@ Evidence status: **pass** for TU-01 and TU-02 on this host (Linux, Go 1.24.7).
 |---|---|---|---|
 | E-01 | pass | The real Codex 0.172.0 (npm, linux-x64) reports `mcp_lazy_stdio_startup` on with Control Rod's fixed switches and off with `--disable mcp_lazy_stdio_startup`. Linux binary, not the macOS one. | `evidence/codex-0.172.0-switch.log`, `daemon/internal/runner/testdata/codex-0.172.0-features.txt` |
 | E-02 | pass | New and changed unit tests pass; the daemon suite passes except `TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun`, which fails the same way on main in this cloud container (its HTTPS_PROXY). | `evidence/green-go.log` |
+| E-03 | done | Blind review round 1 by Codex (gpt-6.2-sol, read-only) on the owner's Mac at 3cedc8b: 4 P2, 1 P3. Fixed: a second feature listing that drops a switched row no longer passes (each must be listed off); a prerelease after a fourth number ("1.0.92.0-rc.1") no longer seats; Antigravity and Grok are not offered as authors once a checkout is prepared (and submit refuses it); the workflow shows a ready stand-in before a waiting one. Not changed, pre-existing for every runtime: the model picker merges models the CLI reports, so a checker can pick a non-deciding model, which the API then holds. | owner's machine, ~/Code/control-rod-review/pr218-codex-review.md |
 
 ## Evidence custody and coupling
 

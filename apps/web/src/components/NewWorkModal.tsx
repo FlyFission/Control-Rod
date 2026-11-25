@@ -13,6 +13,7 @@ import { WORKFLOWS, WORKFLOW_DESCRIPTION, WORKFLOW_LABEL, type Workflow } from "
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
 import { projectCaptureTag, useActiveProject, useProjects } from "../lib/projects.js";
 import {
+  CHECKOUT_AUTHORS,
   CLI_ECOSYSTEMS,
   defaultAuthorSelection,
   defaultCheckerSelection,
@@ -416,6 +417,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       );
       return;
     }
+    if (preparedPath && !CHECKOUT_AUTHORS.includes(author.ecosystem)) {
+      setError(`${ecosystemById(author.ecosystem).label} can't work in a repository checkout yet. Pick Claude Code or Codex as author.`);
+      return;
+    }
     const session = modalSessionRef.current;
     setPendingCaptureSession(session);
     send.mutate({ body, lane, session, ...(preparedPath ? { checkout: {
@@ -715,6 +720,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                     title={copy.custodyRoles[0]}
                     idPrefix="author"
                     value={author}
+                    checkoutBound={preparedPath !== null}
                     liveModels={liveModelsByEco[author.ecosystem]}
                     onChange={(patch) => updateRuntimeSelection("author", patch)}
                   />
@@ -798,10 +804,12 @@ function RuntimePickerCard({
   value,
   liveModels,
   onChange,
+  checkoutBound = false,
 }: {
   title: string;
   idPrefix: string;
   value: AgentRuntimeSelection;
+  checkoutBound?: boolean;
   liveModels?: readonly string[] | undefined;
   onChange: (patch: RuntimeSelectionPatch) => void;
 }) {
@@ -825,11 +833,14 @@ function RuntimePickerCard({
             onChange({ ecosystem: e.target.value as CliEcosystemId });
           }}
         >
-          {CLI_ECOSYSTEMS.map((c) => (
-            <option key={c.id} value={c.id} disabled={!c.runnable}>
-              {c.label} ({c.cliCommand}){c.runnable ? "" : " — Not yet runnable"}
-            </option>
-          ))}
+          {CLI_ECOSYSTEMS.map((c) => {
+            const noCheckout = checkoutBound && c.runnable && !CHECKOUT_AUTHORS.includes(c.id);
+            return (
+              <option key={c.id} value={c.id} disabled={!c.runnable || noCheckout}>
+                {c.label} ({c.cliCommand}){!c.runnable ? " — Not yet runnable" : noCheckout ? " — Can't work in a checkout yet" : ""}
+              </option>
+            );
+          })}
         </select>
       </label>
       <label className="field">

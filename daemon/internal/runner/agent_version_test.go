@@ -32,6 +32,8 @@ func TestAgentVersionAtLeast(t *testing.T) {
 		{"1.0.92-rc.1", "1.0.92", false, false},
 		{"1.0.93-rc.1", "1.0.92", true, true},
 		{"1.0.92+build", "1.0.92", true, true},
+		{"grok 1.0.92.0-rc.1", "1.0.92", false, false},
+		{"1.0.92+build-7", "1.0.92", false, false},
 		{"10.0.0", "9.99.99", true, true},
 		{"", "1.0.92", false, false},
 	} {

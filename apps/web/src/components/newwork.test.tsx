@@ -364,9 +364,14 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     const cliSelects = screen.getAllByLabelText("CLI Ecosystem");
     const authorCli = cliSelects[0] as HTMLSelectElement;
+    // A checkout is prepared above, and Antigravity and Grok cannot author in one: they are offered
+    // as checkers only.
+    const checkerCli = cliSelects[1] as HTMLSelectElement;
     for (const id of ["agy", "grok"]) {
       const opt = Array.from(authorCli.options).find((o) => o.value === id);
-      expect(opt!.disabled, `${id} enabled`).toBe(false);
+      expect(opt!.disabled, `${id} author in a checkout`).toBe(true);
+      expect(opt!.textContent).toContain("Can't work in a checkout yet");
+      expect(Array.from(checkerCli.options).find((o) => o.value === id)!.disabled, `${id} checker`).toBe(false);
     }
     for (const id of ["opencode", "cursor", "copilot", "aider", "cline", "ollama"]) {
       const opt = Array.from(authorCli.options).find((o) => o.value === id);

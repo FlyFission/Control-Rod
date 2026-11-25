@@ -14,8 +14,9 @@ import (
 // be read, is refused.
 
 // agentVersionAtLeast reports whether the first x.y.z in v (agyVersionRE) is tested or newer. A
-// prerelease ("1.5.17-beta") counts only when its base is newer than tested, since a prerelease of
-// the tested build comes before it; any other suffix ("1.5.16.1", "+build") counts from its base.
+// prerelease ("1.5.17-beta", "1.0.92.0-rc.1") counts only when its x.y.z is newer than tested, since a
+// prerelease of the tested build comes before it; any other suffix ("1.5.16.1", "+build") counts from
+// its x.y.z.
 func agentVersionAtLeast(v, tested string) (ok, newer bool) {
 	m := agyVersionRE.FindStringSubmatch(v)
 	if m == nil {
@@ -27,7 +28,8 @@ func agentVersionAtLeast(v, tested string) (ok, newer bool) {
 		return false, false
 	}
 	c := compareVersion(got, want)
-	if strings.HasPrefix(suffix, "-") {
+	if strings.Contains(suffix, "-") {
+		// Any prerelease marker, also after a fourth number ("1.0.92.0-rc.1"), counts as before its base.
 		return c > 0, c > 0
 	}
 	return c >= 0, c > 0 || suffix != ""

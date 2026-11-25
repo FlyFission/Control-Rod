@@ -50,8 +50,15 @@ func TestCodexSwitchesOffNewFeaturesInsteadOfRefusing(t *testing.T) {
 	}
 
 	refused := map[string]CodexFeatureLister{
-		"did not switch it off": codexLister(list, "zeta_mode"),
-		"cannot read":           codexLister("shell_tool stable true\nTele-Port stable true\n"),
+		"did not report it off": codexLister(list, "zeta_mode"),
+		// A second listing that drops the row proves nothing.
+		"teleport, which": func(_ context.Context, off []string) (string, error) {
+			if len(off) > 0 {
+				return "shell_tool stable true\nzeta_mode stable false\n", nil
+			}
+			return list, nil
+		},
+		"cannot read": codexLister("shell_tool stable true\nTele-Port stable true\n"),
 		"switched off (": func(_ context.Context, off []string) (string, error) {
 			if len(off) > 0 {
 				return "", errors.New("exit 2")

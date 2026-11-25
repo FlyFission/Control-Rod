@@ -263,7 +263,7 @@ describe("decision flow", () => {
     offer(["release", "reject"]);
     await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys(signed)} />);
     await userEvent.setup().click(await screen.findByRole("button", { name: "Reject" }));
-    expect(screen.getByRole("textbox", { name: "Why reject this package" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Why reject this work?" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Sign: Reject" }) as HTMLButtonElement).disabled).toBe(true);
     expect(signed).toEqual([]);
   });
@@ -326,7 +326,7 @@ describe("decision flow", () => {
     const sign = screen.getByRole("button", { name: "Sign: Return with direction" });
     expect((sign as HTMLButtonElement).disabled).toBe(true);
     expect(signed).toEqual([]);
-    await user.type(screen.getByLabelText("Direction for the next revision"), "Use the 100 ft setback.");
+    await user.type(screen.getByLabelText("What should change in the next revision?"), "Use the 100 ft setback.");
     await user.click(sign);
     await waitFor(() =>
       expect(decided).toMatchObject({ kind: "return", package_revision: 0, reason: "Use the 100 ft setback." }),

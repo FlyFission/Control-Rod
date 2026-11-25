@@ -3,6 +3,7 @@ package runner
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -360,5 +361,36 @@ func TestAgyCapturedStream(t *testing.T) {
 	}
 	if l := a.StreamLabel(`{"event":"step_update","step_update":{"step_index":3,"state":"ACTIVE","step_type":"tool","tool_name":"run_command","tool_info":{"name":"run_command","parameters":{"CommandLine":"ls"}}}}`); l == "" {
 		t.Fatal("a running command has no label")
+	}
+}
+
+// A hook file anywhere Antigravity would load it from refuses the launch: in the workspace or in
+// any folder above it (measured: such hooks run outside the sandbox when agy starts).
+func TestAgyRefusesWorkspaceConfigurationItWouldLoad(t *testing.T) {
+	for i, name := range []string{".agents", ".agent", "_agents", "_agent", "GEMINI.md", "AGENTS.md"} {
+		for _, where := range []string{"workspace", "parent"} {
+			ws := workspaceWithTools(t, "")
+			dir := ws.Dir
+			if where == "parent" {
+				parent := filepath.Join(filepath.Dir(ws.Dir), fmt.Sprintf("p-%d", i))
+				if err := os.MkdirAll(parent, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				inner := filepath.Join(parent, "ws")
+				if err := os.Rename(ws.Dir, inner); err != nil {
+					t.Fatal(err)
+				}
+				ws.Dir, ws.Inputs, ws.Out = inner, filepath.Join(inner, "inputs"), filepath.Join(inner, "out")
+				dir = parent
+			}
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := AgyArgs(testRun("r", "author"), ws, testPolicy(), testPaths(ws))
+			var pe *PreflightError
+			if !errors.As(err, &pe) || !strings.Contains(pe.Reason, "outside the sandbox") {
+				t.Fatalf("%s in the %s: %v", name, where, err)
+			}
+		}
 	}
 }

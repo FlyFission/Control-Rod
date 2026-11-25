@@ -262,6 +262,15 @@ func AgyArgs(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]strin
 			return nil, fmt.Errorf("Antigravity cannot run without its %s tool, so it cannot run under this policy", t)
 		}
 	}
+	// Antigravity loads .agents/ (and its spellings), GEMINI.md and AGENTS.md from the workspace and
+	// every folder above it, and runs their hooks outside its sandbox when it starts. Hooks are read
+	// once, at start, so a file the agent writes during a run cannot run in that run (measured); one
+	// planted beside a later workspace is found here and refuses that run.
+	if hits, err := upwardInstructionHits(ws.Dir); err != nil {
+		return nil, err
+	} else if len(hits) > 0 {
+		return nil, refuse("Antigravity would load configuration from %s, and its hooks run outside the sandbox. Remove it to run Antigravity.", strings.Join(hits, ", "))
+	}
 	settings, err := AgySettings(ws, p, at)
 	if err != nil {
 		return nil, err

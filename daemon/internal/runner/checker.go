@@ -56,6 +56,9 @@ var reservedInstructionNames = map[string]bool{
 	"agents.override.md": true, "claude.local.md": true,
 	".claude": true, ".codex": true, ".agents": true,
 	".grok": true, ".opencode": true, ".mcp.json": true,
+	// Antigravity also loads these folders' rules, skills and hooks, and runs those hooks outside
+	// its sandbox (measured with agy 1.5.16).
+	".agent": true, "_agents": true, "_agent": true,
 	"hooks": true,
 }
 

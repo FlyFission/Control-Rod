@@ -1,0 +1,6 @@
+ Test Files  92 passed (92)
+      Tests  1014 passed (1014)
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 419ms

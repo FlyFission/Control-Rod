@@ -35,6 +35,8 @@ import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js
 import { useFirstRunSetup } from "../lib/firstRun.js";
 import { readString, writeString } from "../lib/storage.js";
 import { PHONE_QUERY, useMedia } from "../lib/useMedia.js";
+import { SidePanelProvider, SidePanelSlot, useSidePanelHost } from "./SidePanel.js";
+import { SIDE_MAX_PX, SIDE_MIN_PX, loadSideWidth, saveSideWidth } from "../lib/sidePanelLayout.js";
 import { Group, Panel, Separator, usePanelRef, type PanelSize } from "react-resizable-panels";
 import {
   RAIL_DEFAULT_PX,
@@ -292,6 +294,9 @@ export function Shell({ session, children }: { session: Session; children: React
   );
 }
 
+/** Room for the page and the side panel side by side; narrower, the panel slides over the page. */
+const SIDE_DOCK_QUERY = "(min-width: 1180px)";
+
 function WorkspaceShell({ session, children }: { session: Session; children: ReactNode }) {
   const qc = useQueryClient();
   const projectUser = useContext(WorkspaceProjectUser);
@@ -338,6 +343,20 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
   const [helpOpen, setHelpOpen] = useState(false);
   const phone = useMedia(PHONE_QUERY);
+  // Details open in one side panel (components/SidePanel.tsx): a resizable pane beside the page when
+  // there is room for both, sliding over the page from the right when there is not.
+  const sideDocked = useMedia(SIDE_DOCK_QUERY) && !phone;
+  const side = useSidePanelHost(sideDocked);
+  const sideUser = session.signed_in ? session.user : undefined;
+  const sidePanel = usePanelRef();
+  function persistSideSoon(chosen: boolean) {
+    if (!chosen) return;
+    // As with the rail, the panel's own size reads the new value on the next task.
+    window.setTimeout(() => {
+      const p = sidePanel.current;
+      if (p) saveSideWidth(sideUser, p.getSize().inPixels);
+    }, 0);
+  }
   // The desktop rail: drag its edge to widen or narrow it, or tuck it away with the top bar's button
   // or `[`. Width and tucked state are this person's own, kept in this browser (lib/railLayout.ts).
   const railUser = session.signed_in ? session.user : undefined;
@@ -826,9 +845,32 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         {/* On every screen: a SCRAM locks actions in its scope; a drill locks the same way, since it stops work for real. */}
         <ScramBanner presenting={presenting} />
 
-        <main id="main" className="content" tabIndex={-1}>
-          {children}
-        </main>
+        {/* The page and the side panel. One tree whether the panel is open or not, so opening it never
+            remounts the page (its scroll, filters and drafts stay). */}
+        <Group orientation="horizontal" className="work-panes" onLayoutChanged={(_layout, meta) => persistSideSoon(meta.isUserInteraction)}>
+          <Panel id="page" className="page-panel" minSize="420px">
+            <main id="main" className="content" tabIndex={-1}>
+              {children}
+            </main>
+          </Panel>
+          {side.open && sideDocked && (
+            <Separator className="side-sep" aria-label="Side panel width" title="Drag to resize the side panel." />
+          )}
+          {side.open && sideDocked && (
+            <Panel
+              id="side"
+              className="side-pane"
+              panelRef={sidePanel}
+              defaultSize={`${loadSideWidth(sideUser)}px`}
+              minSize={`${SIDE_MIN_PX}px`}
+              maxSize={`${SIDE_MAX_PX}px`}
+              groupResizeBehavior="preserve-pixel-size"
+            >
+              <SidePanelSlot slot={side.slot} />
+            </Panel>
+          )}
+        </Group>
+        {side.open && !sideDocked && <SidePanelSlot slot={side.slot} overlay />}
         {phone && (
           <PhoneBar
             needs={needs}
@@ -855,6 +897,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
 
   return (
     <ScramLockContext.Provider value={lock}>
+    <SidePanelProvider host={side.host}>
     <div className="shell" ref={shellRef} data-phone={phone ? "" : undefined} data-look={look} data-mode={mode} data-scram={scramKind} data-tab-hidden={tabHidden ? "" : undefined}>
       <a className="skip" href="#main">
         Skip to content
@@ -896,6 +939,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       {newProjectOpen && <ProjectModal open={newProjectOpen} defaultMode={mode} onClose={() => setNewProjectOpen(false)} />}
       <ShortcutHelp open={helpOpen} mac={isMac()} onClose={() => setHelpOpen(false)} />
     </div>
+    </SidePanelProvider>
     </ScramLockContext.Provider>
   );
 }

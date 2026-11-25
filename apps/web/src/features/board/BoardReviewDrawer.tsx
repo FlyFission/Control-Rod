@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { CloseX } from "../../components/CloseX.js";
-import { useOutsideClose } from "../../lib/dismiss.js";
+import { SidePanel } from "../../components/SidePanel.js";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
@@ -10,7 +10,6 @@ import { AgentPanel, pickRun } from "../../components/AgentPanel.js";
 import { Blocked, PasskeyHint, ReasonBox, useDecisionSigner, type DecisionSigner } from "../../components/DecisionBar.js";
 import { PullRequestLine } from "../../components/PullRequestLine.js";
 import { DrawerOutputs } from "./DrawerOutputs.js";
-import { useDockTop } from "./dock.js";
 import { AgentBadge } from "../../components/AgentBadge.js";
 import { RunCard, canStop } from "../../components/RunLog.js";
 import { projectContextDefault } from "../../lib/context-profile.js";
@@ -132,8 +131,6 @@ export function drawerStep(view: PackageView, allowed: readonly DecisionKind[], 
  */
 export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = true, onClose }: BoardReviewDrawerProps) {
   const asideRef = useRef<HTMLElement>(null);
-  useDockTop(asideRef);
-  useOutsideClose(asideRef, onClose);
   // Closing hands focus back to whatever opened the drawer (the card or button), if it is still on the page.
   const opener = useRef<Element | null>(null);
   if (opener.current === null && typeof document !== "undefined") opener.current = document.activeElement;
@@ -166,6 +163,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
   const pkg = view?.package ?? initialPkg;
 
   return (
+    <SidePanel label={`Review ${packageId}`} onClose={onClose}>
     <aside ref={asideRef} tabIndex={-1} className="bd-drawer bd-cockpit bd-calm" aria-label={`Review ${packageId}`}>
       <div className="bd-calm-head">
         <div className="bd-calm-titles">
@@ -196,6 +194,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
         )}
       </div>
     </aside>
+    </SidePanel>
   );
 }
 

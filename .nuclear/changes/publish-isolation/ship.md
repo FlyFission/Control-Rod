@@ -1,12 +1,12 @@
 # Ship: Accepted work opens a draft pull request, safely and by default
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner.**
 
 ## Signature
 
 | Decision | Question | Answer (owner's words) | Given | Where | Recorded by |
 |---|---|---|---|---|---|
-| Pending | deferred | deferred | deferred | deferred | deferred |
+| Merge PR #213 without a second blind-review round | "Merge PR #213 (accepted cards open a draft PR, on by default) without a second Codex round?" | Yes, merge #213 (option chosen on a decision card) | 2026-11-25T12:35:51Z | Project thread "Make cards finish without Ben stepping in", decision cmsg_01JQf1P5cs98pyQ9mZyGHPrK42HCsY7XXXfZAqRQETdq7L | Claude (project thread) |
 
 - Rollback: set CONTROLROD_PUBLISH_PULL_REQUESTS=0, or revert the merge. No migration. Pull requests already opened stay on GitHub as drafts.
 - Monitoring after merge: an accepted card in a GitHub project shows "Draft pull request opened" with a link.

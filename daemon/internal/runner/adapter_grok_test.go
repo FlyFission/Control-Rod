@@ -212,3 +212,29 @@ func TestGrokStreamMissingResultIsAFailure(t *testing.T) {
 		t.Fatal("a Claude-shaped line from elsewhere ended a Grok turn")
 	}
 }
+
+// GROK_HOME can point outside every folder the policy denies; the login is denied anyway, so
+// commands and file reads cannot reach auth.json, and a workspace inside it is refused.
+func TestGrokDeniesARelocatedLogin(t *testing.T) {
+	login := t.TempDir()
+	t.Setenv("GROK_HOME", login)
+	ws := workspaceWithTools(t, "")
+	cmd, err := grokAdapter{}.Command(grokRun("author", ""), ws, testPolicy(), testPaths(ws))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(ws.RunHome) })
+	cfg := bridgeConfigOf(t, cmd.Args)
+	c, _ := canonicalPath(login)
+	if cfg.GrokHome != c || !slices.Contains(cfg.Denied, c) {
+		t.Fatalf("the relocated login %s is not denied: %+v", c, cfg.Denied)
+	}
+	if !strings.Contains(grokCommandProfile(cfg), `(subpath "`+c+`")`) {
+		t.Fatal("the command profile does not deny the login folder")
+	}
+	t.Setenv("GROK_HOME", filepath.Dir(ws.Dir))
+	var pe *PreflightError
+	if _, err := (grokAdapter{}).Command(grokRun("author", ""), ws, testPolicy(), testPaths(ws)); !errors.As(err, &pe) || !strings.Contains(pe.Reason, "overlap") {
+		t.Fatalf("a workspace inside the login folder ran: %v", err)
+	}
+}

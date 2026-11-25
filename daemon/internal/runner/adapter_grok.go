@@ -225,6 +225,22 @@ func grokBridgeFor(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*
 		}
 		deny = append(deny, c)
 	}
+	// The login folder is denied wherever it lives (GROK_HOME can point anywhere): commands and
+	// delegated file reads never see it, and only the Grok process reopens the named files it needs.
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return nil, errors.New("the home folder cannot be resolved, so Grok CLI's login cannot be found")
+	}
+	grokHome, err := canonicalPath(grokAdapter{}.LoginDir(home, os.Getenv))
+	if err != nil {
+		return nil, err
+	}
+	if within(dir, grokHome) || within(grokHome, dir) {
+		return nil, refuse("The workspace and Grok CLI's login folder %s overlap, so the login could not be kept from the run.", grokHome)
+	}
+	if !slices.ContainsFunc(deny, func(d string) bool { return within(grokHome, d) }) {
+		deny = append(deny, grokHome)
+	}
 	slices.Sort(deny)
 	deny = slices.Compact(deny)
 	// Grok loads AGENTS.md, CLAUDE.md and .grok/ from the folders it works in. Any folder the
@@ -241,14 +257,6 @@ func grokBridgeFor(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*
 	}
 	if len(loaded) > 0 {
 		return nil, refuse("Grok CLI would load configuration from %s. Remove it to run Grok.", strings.Join(loaded, ", "))
-	}
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return nil, errors.New("the home folder cannot be resolved, so Grok CLI's login cannot be found")
-	}
-	grokHome, err := canonicalPath(grokAdapter{}.LoginDir(home, os.Getenv))
-	if err != nil {
-		return nil, err
 	}
 	// Other runs' folders in the shared temporary folders (checker workspaces, Antigravity run
 	// folders, checker temporary folders) are unreadable; this run's own workspace is reopened.

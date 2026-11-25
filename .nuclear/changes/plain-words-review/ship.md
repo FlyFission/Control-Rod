@@ -1,10 +1,10 @@
 # Ship: A card, the Inbox and Today say what happened in plain words
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): Ben Huffer chose "Merge 225" on the merge decision card in the project thread, 2026-11-25 22:13 UTC.
 
 - Rollback: revert the merge. Web only; no data, route or migration change.
 - Monitoring after merge: on the owner's Inbox, the failed checks read "Did not finish" with a plain sentence and one Open button.

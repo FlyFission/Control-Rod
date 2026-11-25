@@ -77,6 +77,9 @@ func ResolveArtifact(name string) (RuntimeArtifact, error) {
 		return RuntimeArtifact{}, err
 	}
 	if native {
+		if a, ok, err := codexRelease(entry); ok || err != nil {
+			return a, err
+		}
 		sum, err := fileDigest(entry)
 		if err != nil {
 			return RuntimeArtifact{}, err
@@ -87,6 +90,41 @@ func ResolveArtifact(name string) (RuntimeArtifact, error) {
 		return a, err
 	}
 	return RuntimeArtifact{}, fmt.Errorf("%w: %s starts through the script %s, whose digest does not identify what runs; install %s's native build", ErrUnsupportedLauncher, name, entry, name)
+}
+
+// codexRelease treats a native Codex that ships helper programs beside it as one artifact: its own
+// folder. Codex's standalone install (~/.codex/packages/standalone/releases/<version>/bin) holds
+// codex, codex-code-mode-host and codex-exec-server, and Codex starts the helpers from the folder it
+// runs from; a staged copy of codex alone runs, but every tool call fails closed. The folder counts
+// only when it holds nothing but codex and codex-* files, so a shared bin folder is never taken in.
+func codexRelease(entry string) (RuntimeArtifact, bool, error) {
+	if filepath.Base(entry) != "codex" {
+		return RuntimeArtifact{}, false, nil
+	}
+	dir := filepath.Dir(entry)
+	list, err := os.ReadDir(dir)
+	if err != nil {
+		return RuntimeArtifact{}, false, nil
+	}
+	helpers := 0
+	for _, e := range list {
+		name := e.Name()
+		if name == "codex" {
+			continue
+		}
+		if !strings.HasPrefix(name, "codex-") || !e.Type().IsRegular() {
+			return RuntimeArtifact{}, false, nil
+		}
+		helpers++
+	}
+	if helpers == 0 {
+		return RuntimeArtifact{}, false, nil
+	}
+	sum, files, err := treeDigest(dir)
+	if err != nil {
+		return RuntimeArtifact{}, true, err
+	}
+	return RuntimeArtifact{Path: entry, Root: dir, Digest: Digest{Algorithm: "sha256", Value: sum}, exeSum: files["codex"]}, true, nil
 }
 
 // isNative reports whether a file is a native executable (ELF or Mach-O), not a script.

@@ -99,6 +99,49 @@ func TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree(t *testing.T) {
 	}
 }
 
+func TestStandaloneCodexKeepsItsHelpersWhenStaged(t *testing.T) {
+	dir := realTempDir(t)
+	release := filepath.Join(dir, "releases", "0.172.0", "bin")
+	exe := filepath.Join(release, "codex")
+	writeFile(t, exe, append(append([]byte{}, elf...), "codex"...), 0o755)
+	writeFile(t, filepath.Join(release, "codex-code-mode-host"), append(append([]byte{}, elf...), "host"...), 0o755)
+	writeFile(t, filepath.Join(release, "codex-exec-server"), append(append([]byte{}, elf...), "exec"...), 0o755)
+	bin := filepath.Join(dir, "bin")
+	if err := os.Mkdir(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(exe, filepath.Join(bin, "codex")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	a, err := ResolveArtifact("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Path != exe || a.Root != release || a.exeSum == "" {
+		t.Fatalf("the artifact is codex and the helpers beside it: %+v", a)
+	}
+	got, err := StageArtifact(a, filepath.Join(t.TempDir(), "stage"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range []string{"codex", "codex-code-mode-host", "codex-exec-server"} {
+		if _, err := os.Stat(filepath.Join(filepath.Dir(got.Path), h)); err != nil {
+			t.Fatalf("the staged copy lacks %s, which Codex starts from beside itself: %v", h, err)
+		}
+	}
+	// A changed helper is a changed artifact.
+	writeFile(t, filepath.Join(release, "codex-exec-server"), append(append([]byte{}, elf...), "exec-2"...), 0o755)
+	if b, err := ResolveArtifact("codex"); err != nil || b.Digest.Value == a.Digest.Value {
+		t.Fatalf("replacing a helper must change the digest: %v", err)
+	}
+	// A shared folder with other programs in it stays a single-file artifact.
+	writeFile(t, filepath.Join(release, "git"), append(append([]byte{}, elf...), "git"...), 0o755)
+	if c, err := ResolveArtifact("codex"); err != nil || c.Root != "" {
+		t.Fatalf("a shared bin folder must not be taken in: %+v %v", c, err)
+	}
+}
+
 func TestLaunchIsRefusedWhenTheExecutableIsNotTheExpectedArtifact(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "claude")
 	writeFile(t, path, append(append([]byte{}, elf...), "claude"...), 0o755)

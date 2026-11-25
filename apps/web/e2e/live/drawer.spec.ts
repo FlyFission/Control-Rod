@@ -35,6 +35,19 @@ test.describe("@functional review drawer", () => {
     await d.getByRole("button", { name: /Agent runs/ }).click();
     await d.getByRole("button", { name: "Stop this run" }).first().click();
     await expect.poll(async () => (await runs()).find((r) => r.id === held!.id)?.status, { timeout: 30000 }).toBe("stopped");
+
+    // The run log opens at full size, readable, and Esc closes it without closing the drawer.
+    await d.getByRole("button", { name: "Open full log" }).first().click();
+    const full = page.getByRole("dialog", { name: /log, round/ });
+    await expect(full).toBeVisible();
+    const fb = (await full.boundingBox())!;
+    const vp = page.viewportSize()!;
+    expect(fb.height).toBeGreaterThan(vp.height * 0.85);
+    await expect(full.getByRole("log")).toBeVisible();
+    await journal.step("drawer-full-log");
+    await page.keyboard.press("Escape");
+    await expect(full).toBeHidden();
+    await expect(d).toBeVisible();
     await d.getByRole("button", { name: /Agent runs/ }).click();
     await expect(d.getByText("The check was stopped. Run it again.")).toBeVisible({ timeout: 30000 });
     await journal.step("drawer-stopped");

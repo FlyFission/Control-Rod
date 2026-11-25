@@ -10,6 +10,7 @@ import { plainError } from "../lib/plainError.js";
 import { modelRouting } from "../lib/modelRouting.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 import { VendorBadge } from "./VendorBadge.js";
+import { LogViewer } from "./LogViewer.js";
 
 export function runState(run: Run): StateKind {
   switch (run.status) {
@@ -218,6 +219,7 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
   const lines = frozen ?? latest;
   const waiting = frozen === null ? 0 : Math.max(0, latest.length - frozen.length);
   const routing = modelRouting(run.trace, run.finished_at !== undefined);
+  const [full, setFull] = useState(false);
   return (
     // A run that needs the person (requeue it, or reconcile it first) is shown open, so its buttons are seen.
     <details
@@ -265,8 +267,12 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
           </div>
         )}
         {!readOnly && <RunActions packageId={packageId} run={run} showStop={!focused} />}
-        {(live || frozen !== null) && (
-          <div className="log-bar">
+        <div className="log-bar">
+          <button type="button" className="btn small" onClick={() => setFull(true)}>
+            Open full log
+          </button>
+          {(live || frozen !== null) && (
+            <>
             <button type="button" className="btn ghost small" onClick={() => {
               // Resuming fetches again, so lines that landed after the last poll (a run that just
               // ended stops polling) are not missed.
@@ -280,7 +286,17 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
                 {waiting === 0 ? "Paused: nothing new since you paused." : `Paused: ${waiting} new ${waiting === 1 ? "line" : "lines"} since you paused.`}
               </span>
             )}
-          </div>
+            </>
+          )}
+        </div>
+        {full && (
+          <LogViewer
+            title={`${ROLE_LABEL[run.role]} log, round ${run.round}`}
+            summary={run.error !== undefined ? <RunError raw={run.error} /> : <p>{runStatusText(run)}</p>}
+            lines={latest}
+            live={live}
+            onClose={() => setFull(false)}
+          />
         )}
         <pre className="log" aria-label={`${ROLE_LABEL[run.role]} log`}>
           {lines.length === 0 ? "No log lines yet." : lines.slice(-400).join("\n")}

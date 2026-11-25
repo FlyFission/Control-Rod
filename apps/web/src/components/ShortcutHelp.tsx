@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CloseX } from "./CloseX.js";
 import { SINGLE_KEYS_EVENT, setSingleKeys, singleKeysOn } from "../lib/singleKeys.js";
 
 export type Shortcut = { keys: string[]; what: string; where: string };
@@ -66,9 +67,7 @@ export function ShortcutHelp({ open, mac, onClose }: { open: boolean; mac: boole
       >
         <div className="shortcut-help-head">
           <h2 id="shortcut-help-title">Keyboard shortcuts</h2>
-          <button ref={close} type="button" className="btn small" onClick={onClose}>
-            Close
-          </button>
+          <CloseX buttonRef={close} onClose={onClose} label="Close keyboard shortcuts" />
         </div>
         <table className="shortcut-table">
           <thead>

@@ -47,6 +47,9 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
   const [dismissed, setDismissed] = useState(false);
   const root = useRef<HTMLSpanElement>(null);
   const hovered = useRef(false);
+  // Pressing SCRAM hides the card until focus leaves the button: otherwise it stays up (focused) over
+  // the SCRAM page it just opened and covers the button the person came to press.
+  const pressed = useRef(false);
   // Escape hides the card wherever focus is, but only while the card is open (hovered or focused), so a
   // stray Escape elsewhere never suppresses the next one.
   useEffect(() => {
@@ -80,14 +83,25 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
       }}
       onMouseLeave={() => {
         hovered.current = false;
+        if (!pressed.current) setDismissed(false);
+      }}
+      onBlur={() => {
+        pressed.current = false;
         setDismissed(false);
       }}
-      onBlur={() => setDismissed(false)}
     >
       <span className="scram-lamp" role="img" aria-label={rods.caption ? `${LAMP_WORDS[lamp]}. ${rods.caption}` : LAMP_WORDS[lamp]}>
         <span className="scram-lamp-lens" />
       </span>
-      <Link to="/office" className="btn small danger topbar-scram" aria-describedby={tipId}>
+      <Link
+        to="/office"
+        className="btn small danger topbar-scram"
+        aria-describedby={tipId}
+        onClick={() => {
+          pressed.current = true;
+          setDismissed(true);
+        }}
+      >
         SCRAM
       </Link>
       {held && !presenting && !failed && (

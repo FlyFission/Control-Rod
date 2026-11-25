@@ -984,7 +984,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await openCaptureSettings(user);
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(screen.getByRole("button", { name: "Preparing workspace…" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Esc" }));
+    await user.click(screen.getByRole("button", { name: "Close" }));
 
     resolveSecond(
       HttpResponse.json({
@@ -1311,7 +1311,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.getByRole("button", { name: "Adding…" })).toBeTruthy();
 
     // Close via Esc while capture is in flight, then reopen and enter a fresh objective
-    await user.click(screen.getByRole("button", { name: "Esc" }));
+    await user.click(screen.getByRole("button", { name: "Close" }));
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
 
     const submitBtn = screen.getByRole("button", { name: "Add change" }) as HTMLButtonElement;
@@ -1414,7 +1414,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await openCaptureSettings(user);
     expect((screen.getByLabelText("Repository") as HTMLSelectElement).value).toBe("alpha-repo");
 
-    await user.click(screen.getByRole("button", { name: "Esc" }));
+    await user.click(screen.getByRole("button", { name: "Close" }));
     await user.click(screen.getByRole("button", { name: /All Software/i }));
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));

@@ -1,11 +1,13 @@
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { CloseX } from "../../components/CloseX.js";
+import { backdropClose } from "../../lib/dismiss.js";
 import "./scram-banner.css";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client.js";
 import type { ScramDetail, ScramEvent, ScramSummary } from "../../api/types.js";
 import { type Passkeys, browserPasskeys, signAdmin } from "../../lib/decide.js";
 import { time } from "../../lib/format.js";
-import { projectDisplayName, useProjects } from "../../lib/projects.js";
+import { projectDisplayName, useActiveProject, useProjects } from "../../lib/projects.js";
 import { markScram } from "../../lib/scramTiming.js";
 
 /**
@@ -53,9 +55,12 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
   const dialog = useRef<HTMLDialogElement>(null);
   const firstScope = useRef<HTMLInputElement>(null);
   const admin = useQuery({ queryKey: ["admin"], queryFn: () => api.admin() });
-  const [scope, setScope] = useState<"organization" | "project">("organization");
-  const [project, setProject] = useState("");
-  const [reason, setReason] = useState("");
+  // Starts on the project open in the sidebar, if one is: the usual reason to reach for SCRAM.
+  const active = useActiveProject();
+  const [scope, setScope] = useState<"organization" | "project">(active ? "project" : "organization");
+  const [project, setProject] = useState(active?.id ?? "");
+  // Prefilled so an emergency stop is never held up by typing; the person can say more.
+  const [reason, setReason] = useState("Emergency stop.");
   const [drill, setDrill] = useState(false);
   const [uncounted, setUncounted] = useState(false);
   const chosen = scope === "organization" || project !== "";
@@ -66,7 +71,10 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
     enabled: chosen,
     refetchInterval: 5000,
   });
-  const projects = admin.data?.projects ?? [];
+  // The organization's projects; the workspace list stands in until (or if) that read has none.
+  const workspace = useProjects();
+  const adminProjects = admin.data?.projects ?? [];
+  const projects: { id: string; name: string }[] = adminProjects.length > 0 ? adminProjects : workspace;
   const where = scope === "organization" ? "the whole organization" : `the project ${projects.find((p) => p.id === project)?.name ?? project}`;
   const pull = useMutation({
     mutationFn: () => signAdmin<ScramEvent>("scram.pull", { scope, ...(scope === "project" ? { project_id: project } : {}), reason: reason.trim(), ...(drill ? { drill: true } : {}) }, passkeys),
@@ -89,6 +97,16 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
   const waivable = !preview.isSuccess && (preview.isError || stalled);
   const counted = preview.isSuccess || (waivable && uncounted);
   const ready = reason.trim().length > 0 && chosen && counted;
+  // A disabled button always says why, in one line, next to it.
+  const blocker = !chosen
+    ? "Choose the project to stop, or choose the whole organization."
+    : reason.trim().length === 0
+      ? "Say why in one line."
+      : !counted
+        ? waivable
+          ? "Tick \u201cStop without a count\u201d to stop now."
+          : "Still counting what this stops. It can fire once the count is in."
+        : undefined;
   // Once the signed stop is in flight its payload is fixed, so nothing in the form may change.
   const frozen = pull.isPending;
 
@@ -138,15 +156,21 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
       aria-labelledby={titleId}
       className="office-dialog"
       onKeyDown={onKeyDown}
+      onClick={backdropClose(dismiss, () => pull.isPending)}
       onCancel={(e) => {
         e.preventDefault();
         dismiss();
       }}
     >
-      <p className="office-dialog-eyebrow" aria-hidden="true">
-        Emergency reactor trip
-      </p>
-      <h2 id={titleId}>Pull SCRAM</h2>
+      <div className="office-dialog-head">
+        <div>
+          <p className="office-dialog-eyebrow" aria-hidden="true">
+            Emergency reactor trip
+          </p>
+          <h2 id={titleId}>Pull SCRAM</h2>
+        </div>
+        <CloseX onClose={dismiss} label="Close SCRAM" disabled={pull.isPending} />
+      </div>
       <fieldset disabled={frozen}>
         <legend>Scope</legend>
         <label className="office-choice">
@@ -159,7 +183,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
           <label className="field">
             <span>Project</span>
             <select value={project} onChange={(e) => setProject(e.target.value)}>
-              <option value="">Choose a project</option>
+              <option value="">{projects.length > 0 ? "Choose a project" : "No projects yet: stop the whole organization"}</option>
               {projects.map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.name}
@@ -214,7 +238,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
       </div>
       <label className="field">
         <span>Why (required)</span>
-        <textarea rows={2} value={reason} disabled={frozen} onChange={(e) => setReason(e.target.value)} />
+        <textarea rows={2} value={reason} disabled={frozen} data-prefilled={reason === "Emergency stop." ? "" : undefined} onChange={(e) => setReason(e.target.value)} />
       </label>
       <label className="office-choice">
         <input type="checkbox" checked={drill} disabled={frozen} onChange={(e) => setDrill(e.target.checked)} /> This is a drill (everything still stops for real; the time to stop is recorded as a drill)
@@ -232,6 +256,11 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
           Cancel
         </button>
       </div>
+      {blocker && !pull.isPending && (
+        <p className="small office-scram-blocker" role="status">
+          {blocker}
+        </p>
+      )}
     </dialog>
   );
 }

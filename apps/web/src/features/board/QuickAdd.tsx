@@ -2,7 +2,7 @@ import { type ClipboardEvent, type KeyboardEvent, useEffect, useRef, useState } 
 import { useActionLock } from "../../lib/scramLock.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
-import { api, explain } from "../../api/client.js";
+import { ApiError, api, explain } from "../../api/client.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { useMode } from "../../lib/mode.js";
 import { useActiveProject } from "../../lib/projects.js";
@@ -35,8 +35,10 @@ export async function quickCapture(text: string, title: string, project: Workspa
     try {
       await api.capture({ text, source: "web", lane: project.lane, checkout });
     } catch (e) {
-      // The capture was refused, so nothing owns the worktree just made for it: take it away again.
-      if (made.repo_path) await api.removeRepo({ worktree_path: made.local_path, repo_path: made.repo_path, ...(root ? { workspace_root: root } : {}) }).catch(() => undefined);
+      // Only a clear refusal means nothing owns the worktree just made for it; after a lost reply or a
+      // server error the capture may have been saved, so the worktree stays.
+      const refused = e instanceof ApiError && e.status >= 400 && e.status < 500;
+      if (refused && made.repo_path) await api.removeRepo({ worktree_path: made.local_path, repo_path: made.repo_path, ...(root ? { workspace_root: root } : {}) }).catch(() => undefined);
       throw e;
     }
     return;

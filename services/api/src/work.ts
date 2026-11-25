@@ -3698,6 +3698,8 @@ export async function runtimeStatus(db: Db, orgId: string): Promise<{ reported_a
 const PR_FINAL = new Set(["no-changes", "not-github", "lane", "shared", "changed", "no-checkout"]);
 /** How long an attempt that never reported holds the claim before another may try. */
 const PR_CLAIM_MS = 15 * 60_000;
+/** When this server started: a claim made before it cannot belong to an attempt that is still running. */
+const STARTED_AT = Date.now();
 
 /**
  * Opens the draft pull request for an accepted package whose request was bound to a repository
@@ -3705,8 +3707,8 @@ const PR_CLAIM_MS = 15 * 60_000;
  * outside the decision's transaction. What goes out is exactly what was accepted: the subject is
  * recomputed and must match the accept decision's digest, and the commit is built from the
  * accepted author run's recorded commit and patch output, never from the live tree. The lane is
- * checked and the push made under the shared marking lock, so a lane raise waits for the push or
- * the push sees the raise. A failed attempt (or one that never reported in 15 minutes) may be
+ * read again right before the push and before the pull request; no lock is held across the
+ * network. A failed attempt (or one that never reported in 15 minutes) may be
  * tried again; the publisher then finds the branch and pull request it already made.
  */
 export async function publishAccepted(db: Db, id: string, revision: number, atStart = false): Promise<void> {
@@ -3723,8 +3725,13 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
          and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision])).rows[0]?.body;
     if (last?.type === "package.pr-opened") return false;
     if (last?.type === "package.pr-not-opened" && PR_FINAL.has(String(last.data?.reason))) return false;
-    // At start no attempt from before can still be running, so its claim does not hold.
-    if (!atStart && last?.type === "package.pr-started" && Date.now() - new Date(String(last.at)).getTime() < PR_CLAIM_MS) return false;
+    // At start a claim from before this server started cannot still be running, so it does not hold;
+    // a claim this server made (an accept during the startup pass) always does, for its 15 minutes.
+    if (last?.type === "package.pr-started") {
+      const at = new Date(String(last.at)).getTime();
+      const stale = atStart ? at < STARTED_AT : false;
+      if (!stale && Date.now() - at < PR_CLAIM_MS) return false;
+    }
     await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: publishBranchOf(id, revision) });
     return true;
   });
@@ -3780,6 +3787,9 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
     stillAllowed: routine,
   });
   await command(db, "package.open-pr", async (c) => {
+    // A late failure from an overlapping attempt never hides a pull request already opened.
+    const opened = await c.query("select 1 from events where body->>'subject' = $1 and body->>'type' = 'package.pr-opened' and (body->'data'->>'revision')::int = $2 limit 1", [id, revision]);
+    if (!result.opened && opened.rowCount) return;
     if (result.opened) {
       await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, reused: result.reused });
     } else {

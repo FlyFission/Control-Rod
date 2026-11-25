@@ -86,7 +86,7 @@ export interface Harness {
 
 /** A real Postgres per test file and the real app. Nothing is mocked but the authenticator and the daemon. */
 export async function startHarness(
-  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"|"streamReplayMax"> & { root?: string; trustAnchors?: string[] } = {},
+  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"|"streamReplayMax"|"publishPullRequests"> & { root?: string; trustAnchors?: string[] } = {},
 ): Promise<Harness> {
   const { trustAnchors, ...rest } = given;
   const options = { ...rest, root: rest.root ?? repoRoot };

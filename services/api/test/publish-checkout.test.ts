@@ -56,7 +56,7 @@ function accepted(extra: Partial<Parameters<typeof publishCheckout>[0]> = {}) {
     publishBranch: "controlrod/WP-1-r0", title: "Add x", body: "Because", acceptedAt: "2026-11-25T03:00:00Z", stillAllowed: async () => true, ...extra,
   };
 }
-const onGitHub = { pushUrl: "", remoteHas: async () => true, defaultBranch: "main" };
+const onGitHub = { pushUrl: "", onBase: async () => true, defaultBranch: "main" };
 const t = () => ({ ...onGitHub, pushUrl: bare });
 const pushed = (ref = "controlrod/WP-1-r0") => execFileSync("git", ["--git-dir", bare, "ls-tree", "-r", "--name-only", ref], { encoding: "utf8" });
 const remoteBranches = () => execFileSync("git", ["--git-dir", bare, "branch", "--list"], { encoding: "utf8" });
@@ -83,9 +83,29 @@ describe("publishCheckout", () => {
     const first = await publishCheckout(input, t());
     expect(first.opened).toBe(true);
     await new Promise((r) => setTimeout(r, 1100));
-    writeFileSync(`${ghLog}.existing`, JSON.stringify([{ url: "https://github.com/acme/app/pull/7", headRefOid: (first as { head: string }).head, isDraft: true }]));
+    writeFileSync(`${ghLog}.existing`, JSON.stringify([{ url: "https://github.com/acme/app/pull/7", headRefOid: (first as { head: string }).head, isDraft: true, isCrossRepository: false, headRefName: "controlrod/WP-1-r0", headRepositoryOwner: { login: "acme" } }]));
     expect(await publishCheckout(input, t())).toMatchObject({ opened: true, reused: true, url: "https://github.com/acme/app/pull/7" });
     expect(readFileSync(ghLog, "utf8").split("\n").filter((l) => l === "create")).toHaveLength(1);
+  });
+
+  it("never adopts a pull request from a fork or one that is no longer a draft", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    const first = await publishCheckout(accepted(), t());
+    const head = (first as { head: string }).head;
+    writeFileSync(`${ghLog}.existing`, JSON.stringify([
+      { url: "https://github.com/acme/app/pull/3", headRefOid: head, isDraft: true, isCrossRepository: true, headRefName: "controlrod/WP-1-r0", headRepositoryOwner: { login: "mallory" } },
+      { url: "https://github.com/acme/app/pull/4", headRefOid: head, isDraft: false, isCrossRepository: false, headRefName: "controlrod/WP-1-r0", headRepositoryOwner: { login: "acme" } },
+    ]));
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: true, url: "https://github.com/acme/app/pull/7" });
+    expect(readFileSync(ghLog, "utf8").split("\n").filter((l) => l === "create")).toHaveLength(2);
+  });
+
+  it("builds the same commit whoever the local git user is", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    const input = accepted();
+    const first = await publishCheckout(input, t());
+    g(worktree, "config", "user.name", "Someone Else");
+    expect(await publishCheckout(input, t())).toMatchObject({ opened: true, head: (first as { head: string }).head });
   });
 
   it("refuses a branch that already holds other work", async () => {
@@ -103,6 +123,14 @@ describe("publishCheckout", () => {
     expect(remoteBranches()).toBe("");
   });
 
+  it("finds a run folder even when git would quote the path", async () => {
+    mkdirSync(join(worktree, ".controlrod-run-2"));
+    writeFileSync(join(worktree, ".controlrod-run-2", "a\tb"), "private\n");
+    g(worktree, "add", "-f", ".controlrod-run-2");
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, detail: expect.stringMatching(/controlrod-run/) });
+    expect(remoteBranches()).toBe("");
+  });
+
   it("refuses work the author committed past the bound commit, since the check reviewed the patch", async () => {
     writeFileSync(join(worktree, "x.ts"), "1");
     g(worktree, "add", "x.ts");
@@ -112,7 +140,7 @@ describe("publishCheckout", () => {
 
   it("refuses when the starting commit is not on GitHub, so no unreviewed commit rides along", async () => {
     writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
-    expect(await publishCheckout(accepted(), { ...t(), remoteHas: async () => false })).toMatchObject({ opened: false, detail: expect.stringMatching(/not on GitHub yet/) });
+    expect(await publishCheckout(accepted(), { ...t(), onBase: async () => false })).toMatchObject({ opened: false, detail: expect.stringMatching(/not on main on GitHub/) });
     expect(remoteBranches()).toBe("");
   });
 
@@ -137,6 +165,12 @@ describe("publishCheckout", () => {
     g(worktree, "config", "--unset", "push.followTags");
     g(worktree, "config", "url.https://evil.example/.insteadOf", "https://github.com/");
     expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/could change what a push sends/) });
+    g(worktree, "config", "--remove-section", "url.https://evil.example/");
+    // A remote named like the target, whose pushurl points somewhere else.
+    g(worktree, "config", `remote.${bare}.url`, bare);
+    g(worktree, "config", `remote.${bare}.pushurl`, "https://evil.example/x.git");
+    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/pushurl/) });
+    expect(remoteBranches()).toBe("");
   });
 });
 

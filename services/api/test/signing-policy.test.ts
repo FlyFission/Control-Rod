@@ -30,7 +30,7 @@ const passkey = new VirtualAuthenticator();
 let project = "";
 
 beforeAll(async () => {
-  h = await startHarness();
+  h = await startHarness({ publishPullRequests: true });
   cookie = await signIn(h.app, passkey);
 }, 120_000);
 afterAll(async () => h?.stop());

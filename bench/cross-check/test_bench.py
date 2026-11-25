@@ -662,6 +662,10 @@ class Preflight(Tmp):
                 self.assertNotIn("/h/.ssh", script)
                 self.assertEqual(script.count("cat "), 1)  # only its own PROBE_OK.txt
                 self.assertEqual("PRIVATE=" in script, own)
+                skipped, _ = preflight.probe_script(role, paths, "https://c.example.com/", "/work/scratch", {},
+                                                    boxed=True, skip=("source write",))
+                self.assertNotIn("PROBE_WRITE", skipped)
+                self.assertEqual("SCRATCH=" in skipped, role == "checker")
                 for line in (done, "SOURCE=denied", "SOURCE=written", "SCRATCH=ok", "PRIVATE=denied",
                              "PRIVATE=readable", "COUNT=1", "TOKEN=absent"):
                     self.assertNotIn(line, script)  # a model that reads the script first cannot quote a result

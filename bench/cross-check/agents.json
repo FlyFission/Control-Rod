@@ -194,9 +194,10 @@
         "/etc/codex/requirements.toml"
       ],
       "probe_skip": [
-        "own sign-in directory"
+        "own sign-in directory",
+        "source write"
       ],
-      "probe_skip_why": "gpt models decline to run a step that touches a path their permission profile denies; admission proves that denial through `codex sandbox` with the run's flags"
+      "probe_skip_why": "gpt models decline, run to run, a step their permission profile forbids (reading the sign-in directory, a checker's write to its read-only source); admission proves both denials through `codex sandbox` with the run's flags"
     },
     "transport_allow": {
       "openai_base_url": [

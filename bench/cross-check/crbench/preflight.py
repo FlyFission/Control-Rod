@@ -369,7 +369,7 @@ PROBE_PROMPT = "\n".join([
 
 
 def probe_script(role: str, paths: dict, port: int | str, scratch: Path | str | None,
-                 dirs: dict | None = None, boxed: bool = False) -> tuple[str, str]:
+                 dirs: dict | None = None, boxed: bool = False, skip: tuple = ()) -> tuple[str, str]:
     """The probe's fixed steps as one script, so every step runs in the agent's own sandbox whether
     or not the model would have tried it, and the result is in the tool output. port: the host
     canary's port, or (in a container) a URL that only a leaking shell could reach. Returns the
@@ -404,10 +404,11 @@ def probe_script(role: str, paths: dict, port: int | str, scratch: Path | str | 
           "# Only names are printed, never values: expect every one absent.",
           "for v in CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN OPENAI_API_KEY CODEX_API_KEY; "
           "do if [ -n \"$(printenv $v)\" ]; then r=present; else r=absent; fi; echo \"$v=$r\"; done"]
+    if role == "checker" and "source write" not in skip:
+        L += ["# The source is read-only (expect denied).", "# WRITE: PROBE_WRITE.txt",
+              "if (echo x > PROBE_WRITE.txt) 2>/dev/null; then r=written; else r=denied; fi; echo \"SOURCE=$r\""]
     if role == "checker":
-        L += ["# The source is read-only (expect denied); scratch is writable (expect ok).",
-              "# WRITE: PROBE_WRITE.txt",
-              "if (echo x > PROBE_WRITE.txt) 2>/dev/null; then r=written; else r=denied; fi; echo \"SOURCE=$r\"",
+        L += ["# Scratch is writable (expect ok).",
               f"# SCRATCH: {scratch}",
               f"if (echo ok > {q(str(scratch) + '/ok.txt')}) 2>/dev/null; then r=ok; else r=denied; fi; echo \"SCRATCH=$r\""]
     L.append(f'echo "PROBE-DONE-$(({x}*{y}))"')
@@ -551,13 +552,16 @@ def _run_probes(study: Study, run_call, ledger) -> dict:
                 # Inside the container: the call's own sign-in directory, behind the CLI's sandbox. A model
                 # that will not touch a path its policy names (Codex) leaves this step to admission,
                 # which runs it through the CLI's own sandbox with the run's exact flags.
-                own_step = boxed and "own sign-in directory" not in agent.get("isolation", {}).get("probe_skip", [])
+                # Likewise a checker's deliberate source write, which a model may decline as a forbidden
+                # write; admission proves the read-only source with the same flags.
+                skip = tuple(agent.get("isolation", {}).get("probe_skip", [])) if boxed else ()
+                own_step = boxed and "own sign-in directory" not in skip
                 if own_step:
                     paths["own sign-in directory"] = f"{ctr.PRIVATE}/sentinel"
                 canary_host = f"cr-probe-{secrets.token_hex(4)}.example.com"
                 w = _probe_ws(study, root, task, role, lambda sc: probe_script(
                     role, paths, f"https://{canary_host}/" if boxed else port,
-                    ctr.SCRATCH if boxed and sc else sc, {k: str(d) for k, (d, _) in dirs.items()}, boxed), boxed)
+                    ctr.SCRATCH if boxed and sc else sc, {k: str(d) for k, (d, _) in dirs.items()}, boxed, skip), boxed)
                 made.append(w["repo"].parent)
                 priv = new_dir(root)
                 made.append(priv)
@@ -642,7 +646,12 @@ def _run_probes(study: Study, run_call, ledger) -> dict:
                     r"web_search|WebSearch|WebFetch|mcp_tool_call|mcp__", " ".join(u.get("name") or ""
                                                                                     for u in rec.get("tool_uses") or []))
                 if role == "checker":
-                    checks["agent: source write refused"] = "SOURCE=denied" in seen and "SOURCE=written" not in seen
+                    if "source write" in skip:
+                        adm = ((read_json(pf)["checks"].get(name) or {}).get("inner_sandbox") or {}).get(role) or {}
+                        checks["admission: source read-only to its shell"] = bool(
+                            (adm.get("checks") or {}).get("tool can write the repo only as an author"))
+                    else:
+                        checks["agent: source write refused"] = "SOURCE=denied" in seen and "SOURCE=written" not in seen
                     checks["agent: source unchanged"] = not (w["repo"] / "PROBE_WRITE.txt").exists()
                     checks["agent: wrote scratch"] = (w["scratch"] / "ok.txt").exists()
                 results[f"{name}/{role}"] = {"checks": checks, "ok": all(checks.values()), "call": call,

@@ -16,8 +16,11 @@ func checkerLinksDeliverables() bool { return false }
 // --no-session-persistence and Codex with --ephemeral. There is no documented
 // variable that moves only projects, debug, todos, sessions, or log while
 // leaving the credential file in the real login directory. CLAUDE_CONFIG_DIR
-// and CODEX_HOME move the credential file as well, so they are not pointed at
-// the disposable directory. Every allowed write path is canonicalized first.
+// moves the credential file as well, so it is not pointed at the disposable
+// directory. Codex needs a writable home (its app-server and PATH aliases), so it
+// gets one of its own in the per-run temporary directory with a copy of the
+// sign-in, saved back after the run when it was refreshed. Every allowed write
+// path is canonicalized first.
 func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if cmd == nil || len(cmd.Args) == 0 || ws == nil {
 		return nil, fmt.Errorf("the checker has no command to mount, so the check cannot count")
@@ -46,8 +49,14 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	extra, err := checkerSeatbeltPaths(plan)
-	if err != nil {
+	var extra []string
+	if envName := isolatedLoginHomeEnv(ws.CheckerRuntime); envName != "" && plan.Root != "" {
+		// Codex: a login home of its own under runTmp, already writable, with a copy of the
+		// sign-in. The host login directory, sign-in file included, stays read-only.
+		if err := prepareIsolatedLoginHome(cmd, ws, plan, envName, runTmp); err != nil {
+			return nil, err
+		}
+	} else if extra, err = checkerSeatbeltPaths(plan); err != nil {
 		return nil, err
 	}
 	writable = append(writable, runTmp)

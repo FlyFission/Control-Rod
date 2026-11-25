@@ -408,6 +408,8 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		if ws.CheckerTmp != "" {
 			defer os.RemoveAll(ws.CheckerTmp)
 		}
+		// Runs before CheckerTmp is removed (deferred later, so earlier).
+		defer func() { _ = ws.SaveRefreshedCredential() }()
 		if ws.Seccomp != nil {
 			defer ws.Seccomp.Close()
 		}

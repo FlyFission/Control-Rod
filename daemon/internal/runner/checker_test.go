@@ -1053,3 +1053,39 @@ func assertPolicy(t *testing.T, res checkerResult, text string) {
 	}
 	t.Fatalf("no policy event containing %q in %+v", text, res.Events)
 }
+
+func TestSaveRefreshedCredentialOnlyWhenSafe(t *testing.T) {
+	dir := t.TempDir()
+	host := filepath.Join(dir, "auth.json")
+	cp := filepath.Join(dir, "copy.json")
+	reset := func(hostBody, copyBody string) *Workspace {
+		if err := os.WriteFile(host, []byte(hostBody), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(cp, []byte(copyBody), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return &Workspace{CredentialCopy: &credentialCopy{Host: host, Copy: cp, Original: []byte(`{"t":1}`)}}
+	}
+	cases := []struct{ name, host, copy, want string }{
+		{"refreshed", `{"t":1}`, `{"t":2}`, `{"t":2}`},
+		{"unchanged", `{"t":1}`, `{"t":1}`, `{"t":1}`},
+		{"not json", `{"t":1}`, `{"t":`, `{"t":1}`},
+		{"host refreshed by another run", `{"t":3}`, `{"t":2}`, `{"t":3}`},
+	}
+	for _, c := range cases {
+		ws := reset(c.host, c.copy)
+		if err := ws.SaveRefreshedCredential(); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if b, _ := os.ReadFile(host); string(b) != c.want {
+			t.Fatalf("%s: host %q, want %q", c.name, b, c.want)
+		}
+		if st, _ := os.Stat(host); st.Mode().Perm() != 0o600 {
+			t.Fatalf("%s: mode %v", c.name, st.Mode())
+		}
+	}
+	if err := (&Workspace{}).SaveRefreshedCredential(); err != nil {
+		t.Fatal(err)
+	}
+}

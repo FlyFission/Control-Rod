@@ -80,6 +80,9 @@ type Workspace struct {
 	// CheckerTmp is the macOS per-run temporary directory. The daemon removes it
 	// after the run. Linux uses the private /tmp tmpfs and does not set this.
 	CheckerTmp string
+	// CredentialCopy is the sign-in file a macOS checker works on in its own login home
+	// (CODEX_HOME in CheckerTmp). SaveRefreshedCredential puts a refreshed sign-in back.
+	CredentialCopy *credentialCopy
 	// Seccomp is the Unix-socket filter passed to bubblewrap. The daemon closes
 	// it after the run. It is nil when the platform has no seccomp filter.
 	Seccomp *os.File

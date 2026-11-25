@@ -1214,6 +1214,89 @@ func assertRealDir(path string) error {
 // The disposable session directories are not included: Seatbelt cannot mount
 // them over the real paths, so allowing those host paths would not redirect
 // the CLI. Linux bind-mounts them instead.
+// credentialCopy is a checker's copy of the host sign-in file: where it came from, where the
+// checker reads it, and the bytes copied in.
+type credentialCopy struct {
+	Host, Copy string
+	Original   []byte
+}
+
+// prepareIsolatedLoginHome gives a macOS checker a login home of its own inside its per-run
+// temporary directory, with a copy of the host sign-in file, and points envName (CODEX_HOME) at
+// it. Seatbelt cannot mount the host file into it as Linux does, and Codex writes runtime state
+// (its in-process app-server, PATH aliases) under its home before it reads the brief, which the
+// read-only real login directory refuses. The host directory is never written during the check.
+func prepareIsolatedLoginHome(cmd *exec.Cmd, ws *Workspace, plan loginPlan, envName, runTmp string) error {
+	homeDir := filepath.Join(runTmp, "isolated-home")
+	if err := os.MkdirAll(homeDir, 0o700); err != nil {
+		return err
+	}
+	if plan.Credential != "" {
+		b, err := readCapped(plan.Credential)
+		if err != nil {
+			return fmt.Errorf("cannot read the sign-in file (%v), so the check cannot count", err)
+		}
+		dest := filepath.Join(homeDir, filepath.Base(plan.Credential))
+		if err := os.WriteFile(dest, b, 0o600); err != nil {
+			return err
+		}
+		ws.CredentialCopy = &credentialCopy{Host: plan.Credential, Copy: dest, Original: b}
+	}
+	prefix := envName + "="
+	env := cmd.Env
+	if env == nil {
+		env = os.Environ()
+	}
+	filtered := make([]string, 0, len(env)+1)
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, prefix) {
+			filtered = append(filtered, kv)
+		}
+	}
+	cmd.Env = append(filtered, prefix+homeDir)
+	return nil
+}
+
+// SaveRefreshedCredential puts a sign-in the checker refreshed back into the host file, so a
+// rotated token is not lost. It writes only when the copy changed, is valid JSON, and the host
+// file still holds what was copied in (another run may have refreshed it meanwhile). The write is
+// a rename beside the host file, keeping its mode.
+func (ws *Workspace) SaveRefreshedCredential() error {
+	c := ws.CredentialCopy
+	if c == nil {
+		return nil
+	}
+	now, err := readCapped(c.Copy)
+	if err != nil || bytes.Equal(now, c.Original) || !json.Valid(now) {
+		return nil
+	}
+	host, err := readCapped(c.Host)
+	if err != nil || !bytes.Equal(host, c.Original) {
+		return nil
+	}
+	st, err := os.Lstat(c.Host)
+	if err != nil || !st.Mode().IsRegular() {
+		return nil
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(c.Host), "."+filepath.Base(c.Host)+".controlrod-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(now); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(st.Mode().Perm()); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), c.Host)
+}
+
 func checkerSeatbeltPaths(plan loginPlan) ([]string, error) {
 	var out []string
 	if plan.Credential != "" {

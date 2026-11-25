@@ -1,10 +1,10 @@
 # Ship: Refresh the README and website tour screenshots
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner, 2026-11-25 11:10 UTC.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): Ben Huffer, yes, by decision card "Merge PR 212 (refreshed tour screenshots) into main?" in the project thread, 2026-11-25 11:10 UTC. Blind check: Codex GitHub review, no findings.
 
 - Rollback: revert the merge. No data, route or migration.
 - Monitoring after merge: the README and the site tour show the plain column names and the current top bar; the readme-shots workflow may push the same pictures again on this PR.

@@ -36,6 +36,7 @@ const apiPaths = [
   "/runtimes",
   "/subscriptions",
   "/scrams",
+  "/update-notice",
   "/usage",
   "/workspace/projects",
 ];

@@ -11,6 +11,7 @@
 // them, from Homebrew's `brew update` (BSD-2-Clause); ignoring Ctrl+C while the checkout is changing,
 // also from `brew update`.
 import { spawn, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { lstatSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import lockfile from "proper-lockfile";
 import { isAbsolute, join, resolve } from "node:path";
@@ -29,15 +30,15 @@ export function cleanEnv(env = process.env) {
   return out;
 }
 
-export function gitRunner(root) {
+export function gitRunner(root, env = process.env) {
   const runGit = (args, opts = {}) => {
-    const r = spawnSync("git", args, { cwd: root, encoding: "utf8", ...opts, env: cleanEnv(opts.env ?? process.env) });
+    const r = spawnSync("git", args, { cwd: root, encoding: "utf8", ...opts, env: cleanEnv(opts.env ?? env) });
     return { ok: r.status === 0, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim(), missing: r.error?.code === "ENOENT" };
   };
   // For a slow step (the fetch): it runs without blocking, so the update lock keeps being refreshed.
   runGit.async = (args) =>
     new Promise((done) => {
-      const child = spawn("git", args, { cwd: root, env: cleanEnv(process.env), stdio: ["ignore", "pipe", "pipe"] });
+      const child = spawn("git", args, { cwd: root, env: cleanEnv(env), stdio: ["ignore", "pipe", "pipe"] });
       let out = "";
       let err = "";
       child.stdout.on("data", (d) => (out += d));
@@ -46,6 +47,33 @@ export function gitRunner(root) {
       child.on("close", (code) => done({ ok: code === 0, out: out.trim(), err: err.trim(), missing: false }));
     });
   return runGit;
+}
+
+export async function writeUpdateNotice(root, home, runningCommit) {
+  let result;
+  try {
+    await update(root, { check: true }, {
+      git: gitRunner(root, { ...process.env, GIT_TERMINAL_PROMPT: "0" }),
+      log: () => undefined,
+      notice: { runningCommit, report: (latest, behind) => { result = { latest_commit: latest, behind }; } },
+    });
+  } catch {
+    result = { error: "Could not check for updates." };
+  }
+  // The checkout can be newer than what is running (updated, not restarted): then a restart, not
+  // an update, is what brings the new version in.
+  const head = gitRunner(root)(["rev-parse", "--verify", "HEAD"]);
+  if (head.ok && head.out !== runningCommit) result = { ...result, checkout_commit: head.out };
+  const path = join(home, "update-notice.json");
+  const temp = `${path}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temp, `${JSON.stringify({ ...result, running_commit: runningCommit, checked_at: new Date().toISOString() })}\n`, {
+      flag: "wx", mode: 0o600,
+    });
+    renameSync(temp, path);
+  } finally {
+    rmSync(temp, { force: true });
+  }
 }
 
 const isAlive = (pid) => {
@@ -91,7 +119,7 @@ export class UpdateError extends Error {
  */
 export async function update(root, opts, deps) {
   const { check = false, restart = true } = opts;
-  const { git, log } = deps;
+  const { git, log, notice } = deps;
   const short = (sha) => sha.slice(0, 7);
 
   // 1. Look before touching anything.
@@ -152,9 +180,9 @@ export async function update(root, opts, deps) {
     log(`Checking for updates (${root})...`);
     // A private ref, so another git command's FETCH_HEAD cannot change what this update installs.
     const ref = check ? "refs/controlrod/check-target" : "refs/controlrod/update-target";
-    const fetchArgs = ["fetch", "--quiet", "--no-tags", "origin", `+refs/heads/${BRANCH}:${ref}`];
+    const fetchArgs = ["fetch", "--quiet", "--no-tags", ...(check ? ["--no-write-fetch-head"] : []), "origin", `+refs/heads/${BRANCH}:${ref}`];
     const fetched = git.async ? await git.async(fetchArgs) : git(fetchArgs);
-    const old = git(["rev-parse", "HEAD"]).out;
+    const old = check && notice ? notice.runningCommit : git(["rev-parse", "HEAD"]).out;
     const state = readState();
     if (!fetched.ok && !(state?.pending === old && !check)) {
       throw new UpdateError(`Could not reach GitHub to check for updates. Check your connection and try again.\n  ${fetched.err.split("\n")[0]}`);
@@ -167,6 +195,7 @@ export async function update(root, opts, deps) {
     // A checkout left unbuilt by an interrupted or failed update is finished even when it is current.
     const resume = old === target && state?.pending === old;
     if (old === target && !resume) {
+      if (check) notice?.report(target, 0);
       log(`Control Rod is up to date (${short(old)}).`);
       return 0;
     }
@@ -178,8 +207,11 @@ export async function update(root, opts, deps) {
           `  cd ${root} && git branch my-work && git reset --keep origin/${BRANCH} && controlrod setup`,
       );
     }
-    const changes = resume ? [] : git(["log", "--oneline", "--no-decorate", `${old}..${target}`]).out.split("\n").filter(Boolean);
+    const listed = resume ? null : git(["log", "--oneline", "--no-decorate", `${old}..${target}`]);
+    if (check && listed && !listed.ok) throw new UpdateError("Could not list the changes for this update.");
+    const changes = listed?.out.split("\n").filter(Boolean) ?? [];
     if (check) {
+      notice?.report(target, changes.length);
       log(resume ? "The last update did not finish; `controlrod update` finishes it." : `${changes.length} new change${changes.length === 1 ? "" : "s"} on ${BRANCH}:`);
       for (const c of changes.slice(0, 15)) log(`  ${c}`);
       if (changes.length > 15) log(`  ...and ${changes.length - 15} more`);

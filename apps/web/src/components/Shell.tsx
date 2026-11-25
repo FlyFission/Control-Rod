@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AgentUpdates } from "./AgentUpdates.js";
+import { UpdateNotice } from "./UpdateNotice.js";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
@@ -681,6 +682,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const workspace = (
       <div className="main">
         <AgentUpdates />
+        <UpdateNotice />
         <header className="topbar">
           {phone && (
             <div className="phone-top">

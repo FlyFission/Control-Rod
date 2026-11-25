@@ -15,7 +15,21 @@ import (
 // test is sure to keep running while it is checked.
 const helperSleep = "CONTROLROD_TEST_HELPER_SLEEP"
 
+// helperFakeGrok, set in a child's environment, makes this test binary a scripted Grok ACP agent
+// (fakeGrokAgent); helperBridge makes it the daemon's `grok-bridge` command, as the daemon
+// binary would be.
+const (
+	helperFakeGrok = "CONTROLROD_TEST_FAKE_GROK"
+	helperBridge   = "CONTROLROD_TEST_GROK_BRIDGE"
+)
+
 func TestMain(m *testing.M) {
+	if s := os.Getenv(helperFakeGrok); s != "" {
+		os.Exit(fakeGrokAgent(s))
+	}
+	if os.Getenv(helperBridge) == "1" && len(os.Args) > 2 && os.Args[1] == grokBridgeCommand {
+		os.Exit(GrokBridgeMain(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	if os.Getenv(helperSleep) == "1" && len(os.Args) > 1 {
 		if n, err := strconv.Atoi(os.Args[len(os.Args)-1]); err == nil {
 			time.Sleep(time.Duration(n) * time.Second)

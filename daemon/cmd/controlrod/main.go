@@ -56,6 +56,9 @@ func main() {
 		os.Exit(agents(os.Args[2:]))
 	case "runtimes":
 		os.Exit(runtimesCheck())
+	case "grok-bridge":
+		// Hidden: the daemon starts it for a Grok CLI run (change record grok-seat).
+		os.Exit(runner.GrokBridgeMain(os.Args[2:], os.Stdout, os.Stderr))
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)

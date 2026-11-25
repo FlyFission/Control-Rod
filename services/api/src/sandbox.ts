@@ -100,8 +100,8 @@ export function networkFor(asked: { hosts: string[]; malformed: string[] }, lane
 }
 
 /** Runtimes that cannot limit network to named hosts: Codex can only switch it on or off, and
- * Antigravity runs with no network at all. */
-const HOSTLESS = ["codex", "agy"];
+ * Antigravity's and Grok CLI's commands run with no network at all. */
+const HOSTLESS = ["codex", "agy", "grok"];
 
 /** Runtimes that can hold a policy with named hosts. */
 export function runtimesForHosts(offer: string[], hosts: string[]): string[] {

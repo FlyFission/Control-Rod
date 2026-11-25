@@ -166,6 +166,7 @@ describe("spoofed checks", () => {
       "gemini-4-hydrogen-high", "gemini-4-hydrogen-low", "gemini-4-hydrogen-medium", "gemini-4-hydrogen-xhigh",
       "gemini-4-neon-high", "gemini-4-neon-low", "gemini-4-neon-medium", "gemini-4-neon-xhigh",
       "gpt-5-codex", "gpt-5.6-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol",
+      "grok-4.5", "grok-4.6", "grok-4.7", "grok-4.7-build-fast",
     ]);
   });
 });

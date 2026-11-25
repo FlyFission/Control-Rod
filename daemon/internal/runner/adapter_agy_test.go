@@ -68,8 +68,21 @@ func TestAgyOutsideDeniesNameEverySiblingOnThePath(t *testing.T) {
 	top, _ := os.ReadDir("/")
 	first := strings.Split(strings.TrimPrefix(real, "/"), "/")[0]
 	for _, e := range top {
-		if e.Name() != first && !slices.Contains(got, "/"+e.Name()) {
-			t.Fatalf("/%s is not denied", e.Name())
+		p := "/" + e.Name()
+		if e.Name() != first && !slices.Contains(agySystemPaths, p) && !slices.Contains(got, p) {
+			t.Fatalf("%s is not denied", p)
+		}
+	}
+	// System folders stay readable: Antigravity applies these denies to its terminal sandbox, and
+	// a denied /bin or /usr stops every command from starting.
+	for _, g := range got {
+		if slices.Contains(agySystemPaths, g) {
+			t.Fatalf("system folder %s is denied", g)
+		}
+	}
+	for _, home := range []string{"/Users", "/home", "/Volumes", "/private/var/folders", "/private/var/root"} {
+		if slices.Contains(agySystemPaths, home) {
+			t.Fatalf("%s must stay denied", home)
 		}
 	}
 }
@@ -215,7 +228,7 @@ func TestAgyRunHomeIsEmptyBesideTheWorkspaceAndLinksOnlyTheKeychain(t *testing.T
 	for _, e := range entries {
 		names = append(names, e.Name())
 	}
-	if !slices.Equal(names, []string{".controlrod-gate.sh", ".gemini", "Library"}) {
+	if !slices.Equal(names, []string{".controlrod-gate.sh", ".controlrod-nobypass.sh", ".gemini", "Library"}) {
 		t.Fatalf("run home holds %v", names)
 	}
 	cfg, _ := os.ReadDir(filepath.Join(ws.RunHome, ".gemini", "config"))
@@ -233,7 +246,7 @@ func TestAgyRunHomeIsEmptyBesideTheWorkspaceAndLinksOnlyTheKeychain(t *testing.T
 		t.Fatal(err)
 	}
 	gate := hooks["controlrod-seat-gate"]["PreToolUse"]
-	if len(gate) != 1 || !strings.Contains(gate[0].Matcher, "search_web") || !strings.Contains(gate[0].Matcher, "invoke_subagent") {
+	if len(gate) != 2 || !strings.Contains(gate[0].Matcher, "search_web") || !strings.Contains(gate[0].Matcher, "invoke_subagent") || gate[1].Matcher != "run_command" {
 		t.Fatalf("gate %+v", gate)
 	}
 	c := exec.Command(gate[0].Hooks[0].Command)
@@ -392,5 +405,94 @@ func TestAgyRefusesWorkspaceConfigurationItWouldLoad(t *testing.T) {
 				t.Fatalf("%s in the %s: %v", name, where, err)
 			}
 		}
+	}
+}
+
+// The terminal gate refuses any call that asks to leave the sandbox, whatever the spacing, case or
+// value, and an empty input; every other call falls through to the permission rules.
+func TestAgyBypassGateRefusesLeavingTheSandbox(t *testing.T) {
+	home := t.TempDir()
+	if err := writeAgyGate(home); err != nil {
+		t.Fatal(err)
+	}
+	gate := filepath.Join(home, ".controlrod-nobypass.sh")
+	decide := func(in string) (string, string) {
+		t.Helper()
+		c := exec.Command(gate)
+		c.Stdin = strings.NewReader(in)
+		out, err := c.Output()
+		var d struct{ Decision, Reason string }
+		if err != nil || json.Unmarshal(out, &d) != nil {
+			t.Fatalf("gate printed %q (%v) for %s", out, err, in)
+		}
+		return d.Decision, d.Reason
+	}
+	for _, in := range []string{
+		`{"toolCall":{"name":"run_command","args":{"CommandLine":"cat x","BypassSandbox":true}}}`,
+		"{\"toolCall\":{\"name\":\"run_command\",\"args\":{\"CommandLine\":\"cat x\",\n  \"BypassSandbox\" :\n true}}}",
+		`{"toolCall":{"args":{"bypassSandbox":"true"}}}`,
+		`{"toolCall":{"args":{"BypassSandbox":1}}}`,
+		`{"toolCall":{"args":{"CommandLine":"echo \"BypassSandbox\":false","BypassSandbox":true}}}`,
+		``,
+	} {
+		if d, r := decide(in); d != "deny" || r != agyBypassReason {
+			t.Fatalf("%q: %s %s", in, d, r)
+		}
+	}
+	for _, in := range []string{
+		`{"toolCall":{"name":"run_command","args":{"CommandLine":"ls"}}}`,
+		`{"toolCall":{"name":"run_command","args":{"CommandLine":"ls","BypassSandbox":false}}}`,
+		`{"toolCall":{"args":{"CommandLine":"echo \"BypassSandbox\":true","BypassSandbox":false}}}`,
+	} {
+		if d, _ := decide(in); d != "ask" {
+			t.Fatalf("%q: %s", in, d)
+		}
+	}
+}
+
+// Each Antigravity workspace sits in a fresh owner-only folder of its own, so a file the file
+// tools create above the workspace is beside this run only.
+func TestAgyWorkspaceRootIsFreshPerRun(t *testing.T) {
+	a, err := (agyAdapter{}).WorkspaceRoot("")
+	if err != nil {
+		t.Skipf("no run root here: %v", err)
+	}
+	defer os.RemoveAll(a)
+	b, err := (agyAdapter{}).WorkspaceRoot("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(b)
+	if a == b || filepath.Dir(a) != filepath.Dir(b) {
+		t.Fatalf("roots %s and %s", a, b)
+	}
+	if tmp, _ := canonicalPath("/var/tmp"); filepath.Dir(a) != tmp {
+		t.Fatalf("root %s is not directly in /var/tmp: no folder shared between runs may sit on the path", a)
+	}
+	if st, err := os.Stat(a); err != nil || st.Mode().Perm() != 0o700 {
+		t.Fatalf("root %s mode %v %v", a, st.Mode(), err)
+	}
+	deny, err := agyOutsideDenies(filepath.Join(a, "ws"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(deny, b) {
+		t.Fatalf("another run's folder %s is not denied: %v", b, deny)
+	}
+}
+
+// An Antigravity author workspace is made inside its own run folder, which the daemon removes.
+func TestAgyPrepareWorkspaceRecordsItsRunFolder(t *testing.T) {
+	ws, err := prepareWorkspace(t.TempDir(), &Job{Run: testRun("r1", "author")}, agyAdapter{})
+	if err != nil {
+		t.Skipf("no run root here: %v", err)
+	}
+	defer os.RemoveAll(ws.RunRoot)
+	tmp, _ := canonicalPath("/var/tmp")
+	if ws.RunRoot == "" || filepath.Dir(ws.RunRoot) != tmp || !within(ws.Dir, ws.RunRoot) {
+		t.Fatalf("workspace %s, run folder %s", ws.Dir, ws.RunRoot)
+	}
+	if other, err := prepareWorkspace(t.TempDir(), &Job{Run: testRun("r2", "author")}, claudeAdapter{}); err != nil || other.RunRoot != "" {
+		t.Fatalf("a Claude workspace got a run folder: %+v %v", other, err)
 	}
 }

@@ -3,7 +3,7 @@
 | Requirement | Change | Tests and checks | Disposition |
 |---|---|---|---|
 | AG-01 Antigravity runs author (outside a checkout), intake and pre-check work on macOS. | `adapter_agy.go` launch, `adapter.go` confinement seam, `checker.go` run root | `adapter_agy_test.go` argument shape; qualification `positive` | implemented and tested |
-| AG-02 Commands cannot read logins, reach the network or write outside the workspace. | print-mode terminal sandbox; command denies | qualification `cat-home`, `network`, `touch-outside` | implemented, live check |
+| AG-02 Commands cannot read logins, reach the network or write outside the workspace. | print-mode terminal sandbox; bypass hook; system folders readable; command denies | `TestAgyBypassGateRefusesLeavingTheSandbox`; qualification `positive` (a command runs), `bypass`, `cat-home`, `network`, `touch-outside` | implemented, live check |
 | AG-03 File tools stay inside the workspace. | `AgySettings`, `agyOutsideDenies`, run root outside home | unit fence tests; qualification `view-home`, `view-peer`, `write-outside` | implemented, live check |
 | AG-04 User configuration and hook files never reach a run. | per-run home (`PrepareRunHome`); refusal near `.agents`, `GEMINI.md`, `AGENTS.md` | `TestAgyRefusesWorkspaceConfigurationItWouldLoad`; run-home tests | implemented and tested |
 | AG-05 Tools that act outside the sandbox are refused. | global PreToolUse gate in the run home | gate tests; qualification `web-search`, `subagent` | implemented, live check |

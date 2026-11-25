@@ -172,6 +172,22 @@ var agyGatedTools = []string{
 // agyGateReason is what the agent is told when a gated tool is refused.
 const agyGateReason = "blocked by Control Rod seat policy: this tool acts outside the sandbox"
 
+// agyBypassReason is what the agent is told when it asks to run a command outside the sandbox.
+const agyBypassReason = "blocked by Control Rod seat policy: commands may not leave the sandbox"
+
+// agyBypassGate refuses a terminal call that asks to run outside the sandbox. After a command
+// fails in the sandbox, Antigravity offers the agent a retry with BypassSandbox set, and an allow
+// rule approves that retry without asking (measured with agy 1.5.16: the retry read the home
+// folder and reached the network). No permission rule turns it off ("unsandboxed" rules are
+// ignored), so this hook does. Any value of the field other than false is refused, and an input
+// it cannot read is refused too; every other call falls through to the permission rules ("ask").
+// The key is written by Antigravity, not by the model: inside a JSON string its quotes are
+// escaped, so text in the command line cannot match it.
+var agyBypassGate = "#!/bin/sh\nin=$(/bin/cat | /usr/bin/tr -d '\\r\\n') || in=\n" +
+	"if [ -z \"$in\" ] || printf '%s' \"$in\" | /usr/bin/grep -Eiq '\"bypasssandbox\"[[:space:]]*:[[:space:]]*[^f[:space:]]'; then\n" +
+	"  printf '%s\\n' " + shellQuote(encodeJSON(map[string]string{"decision": "deny", "reason": agyBypassReason})) + "\n" +
+	"else\n  printf '%s\\n' '{\"decision\":\"ask\"}'\nfi\n"
+
 // writeAgyGate writes the run home's global hooks.json: a PreToolUse hook that refuses every
 // gated tool. A hook in the global configuration is Control Rod's own, and a workspace hook that
 // allows does not override it (measured). The hook command only prints the refusal.
@@ -185,9 +201,16 @@ func writeAgyGate(home string) error {
 	if err := os.WriteFile(script, []byte(body), 0o700); err != nil {
 		return err
 	}
+	bypass := filepath.Join(home, ".controlrod-nobypass.sh")
+	if err := os.WriteFile(bypass, []byte(agyBypassGate), 0o700); err != nil {
+		return err
+	}
 	hooks := map[string]any{"controlrod-seat-gate": map[string]any{"PreToolUse": []any{map[string]any{
 		"matcher": strings.Join(agyGatedTools, "|"),
 		"hooks":   []any{map[string]any{"type": "command", "command": script, "timeout": 10}},
+	}, map[string]any{
+		"matcher": "run_command",
+		"hooks":   []any{map[string]any{"type": "command", "command": bypass, "timeout": 10}},
 	}}}}
 	return os.WriteFile(filepath.Join(cfg, "hooks.json"), []byte(encodeJSON(hooks)+"\n"), 0o600)
 }
@@ -357,6 +380,17 @@ const agyAnyCommand = "command(*)"
 // later in one of those folders is not named; only the per-user temporary folders on that path
 // are writable by the user, and the file tools can only create new files there, not change
 // existing ones.
+// agySystemPaths are left readable to the file tools. Antigravity compiles the file-tool read
+// denies into its terminal sandbox too, so denying these stops every command from starting
+// (measured with agy 1.5.16: zsh fails with exit 71, and the agent then asks to run outside the
+// sandbox). They hold the operating system and installed programs, not the user's files: the
+// home folders, other volumes, the per-user temporary folders and every other run stay denied.
+// Anything not on this list is denied, so a new top-level folder is denied by default.
+var agySystemPaths = []string{
+	"/Applications", "/Library", "/System", "/bin", "/dev", "/etc", "/opt", "/sbin", "/tmp", "/usr", "/var",
+	"/private/etc", "/private/tmp", "/private/var/db", "/private/var/run", "/private/var/select",
+}
+
 func agyOutsideDenies(dir string) ([]string, error) {
 	if !filepath.IsAbs(dir) {
 		return nil, fmt.Errorf("workspace %s is not absolute", dir)
@@ -373,8 +407,8 @@ func agyOutsideDenies(dir string) ([]string, error) {
 			return nil, fmt.Errorf("cannot list %s (%v), so Antigravity's file tools cannot be fenced", cur, err)
 		}
 		for _, e := range entries {
-			if e.Name() != part {
-				out = append(out, filepath.Join(cur, e.Name()))
+			if p := filepath.Join(cur, e.Name()); e.Name() != part && !slices.Contains(agySystemPaths, p) {
+				out = append(out, p)
 			}
 		}
 		cur = filepath.Join(cur, part)
@@ -382,33 +416,36 @@ func agyOutsideDenies(dir string) ([]string, error) {
 	return out, nil
 }
 
-// WorkspaceRoot puts an Antigravity author or intake workspace under the per-user folder in
-// /var/tmp, outside the home folder and the daemon's home, for the reason on agyAdapter.
+// WorkspaceRoot puts each Antigravity author or intake run in a fresh owner-only folder directly
+// in /var/tmp, outside the home folder and the daemon's home, for the reason on agyAdapter. The
+// folder holds only this run's workspace and run home. The file tools can create a new file in a
+// folder above the workspace that is not denied (measured with agy 1.5.16), so no folder shared
+// between runs sits on the path: such a file lands in this run's own folder or in /var/tmp, and
+// every other run's folder is beside it and denied by name. A later run whose path would load
+// instruction files planted that way is refused.
 func (agyAdapter) WorkspaceRoot(string) (string, error) { return agyRunRoot() }
 
 func agyRunRoot() (string, error) {
-	base := filepath.Join("/var/tmp", fmt.Sprintf("controlrod-run-%d", os.Getuid()))
-	if err := os.MkdirAll(base, 0o700); err != nil {
-		return "", err
-	}
-	if err := os.Chmod(base, 0o700); err != nil {
-		return "", err
-	}
-	real, err := canonicalPath(base)
+	tmp, err := canonicalPath("/var/tmp")
 	if err != nil {
 		return "", err
 	}
-	if st, err := os.Lstat(real); err != nil || !st.IsDir() || !ownedByMe(st) {
-		return "", fmt.Errorf("%s is not a folder this user owns, so no Antigravity workspace is made there", real)
-	}
-	hits, err := upwardInstructionHits(real)
+	hits, err := upwardInstructionHits(tmp)
 	if err != nil {
 		return "", err
 	}
 	if len(hits) > 0 {
 		return "", fmt.Errorf("the Antigravity workspace would discover instruction files (%s)", strings.Join(hits, ", "))
 	}
-	return real, nil
+	dir, err := os.MkdirTemp(tmp, fmt.Sprintf("controlrod-agy-%d-", os.Getuid()))
+	if err != nil {
+		return "", err
+	}
+	if st, err := os.Lstat(dir); err != nil || !st.IsDir() || !ownedByMe(st) || st.Mode().Perm() != 0o700 {
+		os.RemoveAll(dir)
+		return "", fmt.Errorf("%s is not a private folder of this user, so no Antigravity workspace is made there", dir)
+	}
+	return dir, nil
 }
 
 // SelfConfinedChecker: an Antigravity checker is not wrapped in Control Rod's outer Seatbelt

@@ -6,7 +6,7 @@
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|
-| R-01 | An agent command reads a login or reaches the network. | Antigravity's own terminal sandbox, always on in print mode (measured); `security`, network clients, other agent CLIs and pushes denied by rule. | Any probe in the live qualification succeeding. |
+| R-01 | An agent command reads a login or reaches the network. | Antigravity's own terminal sandbox, always on in print mode (measured); a run-home hook refuses every terminal call that asks to leave the sandbox (the first live qualification showed an allow rule approves those retries); system folders left readable so the sandboxed shell starts; `security`, network clients, other agent CLIs and pushes denied by rule. | Any probe in the live qualification succeeding. |
 | R-02 | A file tool reads or writes outside the workspace. | Workspace outside the home folder; every sibling on its path and every policy denial denied by `read_file`; `inputs/` denied for writes. Refused when a denial would hold the workspace. | The qualification's view or write-outside probe succeeding. |
 | R-03 | User configuration (MCP, hooks, plugins, grants) reaches a confined run. | A per-run empty home with only the Keychain linked, outside the workspace and denied to the file tools. | A user customization observed in a run. |
 | R-04 | A checker changes the work it checks. | Plan mode, scratch the only writable folder for file tools, writing commands denied, and the deliverable tree and workspace hashed before and after: any change voids the check. | A check that counts after a deliverable changed. |
@@ -16,7 +16,7 @@
 
 ## Residual
 
-- The file tools can create a new file directly in `/private/var/tmp` (a world temporary folder on the workspace path, which cannot be denied without denying the workspace). They cannot change existing files there, and a checker in plan mode cannot do it at all (the run ends). Recorded in [ship](ship.md).
+- The file tools can create a new file directly in `/private/var/tmp` (a world temporary folder on the workspace path, which cannot be denied without denying the workspace). They cannot change existing files there, no later run can read it (each run's folder is beside it and denied), an instruction file planted there makes later runs refuse, and a checker in plan mode cannot do it at all (the run ends). Recorded in [ship](ship.md).
 
 ## Required links
 

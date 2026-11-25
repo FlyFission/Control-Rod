@@ -110,7 +110,13 @@ func prepareWorkspace(root string, job *Job, a Adapter) (*Workspace, error) {
 		if err != nil {
 			return nil, err
 		}
-		root = own
+		ws, err := Prepare(own, job)
+		if err != nil {
+			os.RemoveAll(own)
+			return nil, err
+		}
+		ws.RunRoot = own
+		return ws, nil
 	}
 	return Prepare(root, job)
 }

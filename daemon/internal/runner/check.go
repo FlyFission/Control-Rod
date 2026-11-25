@@ -316,6 +316,9 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		return CheckResult{}, fmt.Errorf("prepare checker workspace: %w", err)
 	}
 	defer os.RemoveAll(ws.Dir)
+	if ws.RunRoot != "" {
+		defer os.RemoveAll(ws.RunRoot)
+	}
 
 	sp, err := buildSandboxPaths(homeDir, ws)
 	if err != nil && a.SandboxRequired() {

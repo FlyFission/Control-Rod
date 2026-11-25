@@ -10,12 +10,13 @@ Owner (sole maintainer): not yet recorded.
 
 - macOS only. Linux and Windows keep Antigravity listed and switched off.
 - No authoring in a repository checkout yet. Antigravity loads workspace hook files outside its sandbox, so a checkout needs a later mirrored workspace.
-- The file tools can create a new file directly in `/private/var/tmp` in an author run (risk residual). A checker in plan mode cannot.
+- The file tools can create a new file directly in `/private/var/tmp` in an author run (risk residual). No later run can read it, and a planted instruction file there makes later runs refuse. A checker in plan mode cannot.
+- System folders (`/usr`, `/bin`, `/System`, `/Library`, `/opt`, `/Applications`, `/private/etc` and a few under `/private/var`) stay readable to the file tools, because Antigravity applies the same rules to its terminal and a denied shell cannot start.
 - Antigravity's built-in list of safe commands and its own model reviewers can allow commands that are not on Control Rod's list. Its terminal sandbox still holds for every command, and deny rules hold.
 - One simple command per terminal call: Antigravity ends a print run at the first command with pipes or chaining.
 
 - Rollback: revert the merge. Antigravity returns to "found, not supported yet"; no stored data changes shape.
-- Monitoring after merge: the first real Antigravity check on a Mac ends with a verdict, and no `.controlrod-gate.sh` home is left under `/var/tmp/controlrod-run-<uid>`.
+- Monitoring after merge: the first real Antigravity check on a Mac ends with a verdict, and no `controlrod-agy-*` folder is left in `/var/tmp`.
 
 ## Required links
 

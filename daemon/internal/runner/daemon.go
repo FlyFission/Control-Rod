@@ -1413,6 +1413,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	if err != nil {
 		return fail(err.Error()), nil
 	}
+	if ws.RunRoot != "" {
+		// The outputs are read into the completion before this returns.
+		defer os.RemoveAll(ws.RunRoot)
+	}
 	if ws.releaseCheckout != nil {
 		// Custody ends when the run's processes are confirmed gone. When they could not be
 		// confirmed (ErrUncontained) the lock stays held for the daemon's lifetime, so no other run

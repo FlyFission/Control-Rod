@@ -2,7 +2,7 @@
 
 1. `adapter.go`: an empty `ConfinementGap` means confined on this platform; `workspaceRooter` and `selfConfinedChecker` interfaces.
 2. `adapter_agy.go`: print-mode launch, inline settings (`AgySettings`, `agyOutsideDenies`), run home, plan-mode checker, stream parser, `agy models` login check and model list. Refused off macOS, for checkout authoring, for network roles, and without the full tool set.
-3. `checker.go`: Antigravity author and intake workspaces under `/var/tmp/controlrod-run-<uid>`; no outer mount for a self-confined checker; `GEMINI.md` joins the protected login names.
+3. `checker.go`: Antigravity author and intake workspaces in a fresh private folder in `/var/tmp`, removed after the run; no outer mount for a self-confined checker; `GEMINI.md` joins the protected login names.
 4. `runtime.go`, `daemon.go`, `check.go`: `HOME` is the run home when one is set; the daemon removes it after the run.
 5. `models.json`: the Gemini models Antigravity offers.
 6. API: `agy` pinnable, counted, offered by the claim, listed on subscriptions; one list of runnable runtimes and seat orders; checkout authors only on checkout-capable runtimes.

@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useEffect } from "react";
-import { useWidePanel } from "./SidePanel.js";
+import { useSidePanelActive, useWidePanel } from "./SidePanel.js";
 
 /**
  * Something opened at the side panel's full size over a card: an output file, a run's full log.
@@ -28,7 +28,9 @@ export function usePanelScreen() {
 
 export function PanelScreenView({ screen, onBack }: { screen: PanelScreen; onBack: () => void }) {
   useWidePanel();
+  const active = useSidePanelActive();
   useEffect(() => {
+    if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("dialog[open], .palette")) {
         // Before the panel's own Esc (which closes it): one level at a time.
@@ -39,7 +41,7 @@ export function PanelScreenView({ screen, onBack }: { screen: PanelScreen; onBac
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [onBack]);
+  }, [active, onBack]);
   return (
     <div className="file-screen">
       <div className="file-screen-bar">

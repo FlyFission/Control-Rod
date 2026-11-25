@@ -169,3 +169,54 @@ describe("side panel width", () => {
     expect(loadSideWidth(undefined)).toBe(SIDE_DEFAULT_PX);
   });
 });
+
+describe("two owners at once", () => {
+  function Two({ onCloseA, onCloseB }: { onCloseA: () => void; onCloseB: () => void }) {
+    const [b, setB] = useState(false);
+    return (
+      <Host docked>
+        <button type="button" onClick={() => setB(true)}>
+          open b
+        </button>
+        <SidePanel label="A" onClose={onCloseA}>
+          <aside aria-label="A">
+            <textarea aria-label="note a" />
+          </aside>
+        </SidePanel>
+        {b && (
+          <SidePanel
+            label="B"
+            onClose={() => {
+              onCloseB();
+              setB(false);
+            }}
+          >
+            <aside aria-label="B" />
+          </SidePanel>
+        )}
+      </Host>
+    );
+  }
+
+  it("keeps the one underneath mounted and hidden, and only the top one answers Esc", () => {
+    const onCloseA = vi.fn();
+    const onCloseB = vi.fn();
+    render(<Two onCloseA={onCloseA} onCloseB={onCloseB} />);
+    const note = screen.getByLabelText("note a") as HTMLTextAreaElement;
+    fireEvent.change(note, { target: { value: "draft" } });
+    fireEvent.click(screen.getByText("open b"));
+    // A is still in the panel, hidden, with its text.
+    expect(note.isConnected).toBe(true);
+    expect(note.closest(".side-panel")?.hasAttribute("hidden")).toBe(true);
+    expect(screen.getByRole("complementary", { name: "B" }).closest(".side-panel")?.hasAttribute("hidden")).toBe(false);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onCloseB).toHaveBeenCalledTimes(1);
+    expect(onCloseA).not.toHaveBeenCalled();
+    // B closed: A shows again, same element, same text.
+    expect(screen.getByLabelText("note a")).toBe(note);
+    expect(note.value).toBe("draft");
+    expect(note.closest(".side-panel")?.hasAttribute("hidden")).toBe(false);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onCloseA).toHaveBeenCalledTimes(1);
+  });
+});

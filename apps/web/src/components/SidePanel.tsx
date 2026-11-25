@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDockTop } from "../features/board/dock.js";
 import { useOutsideClose } from "../lib/dismiss.js";
@@ -33,6 +33,17 @@ interface Host {
 }
 
 const HostCtx = createContext<Host | null>(null);
+/** Whether the owner around this content is the one showing (false while another sits on top of it). */
+const ActiveCtx = createContext(true);
+
+/**
+ * True when this content is what the person sees in the panel. A drawer under another one stays
+ * mounted (its typed text and open sections survive) but must not answer Esc or clicks meant for the
+ * one on top.
+ */
+export function useSidePanelActive(): boolean {
+  return useContext(ActiveCtx);
+}
 
 /** The shell's side of the panel: whether anything is showing in it, and the slot to place. */
 export function useSidePanelHost(docked: boolean) {
@@ -108,12 +119,26 @@ export function SidePanel({ label, onClose, autoFocus = true, children }: { labe
     // Registration follows the host, not its docked flag (the slot is the same element either way).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host?.slot]);
+  const top = !host || host.top === owner.current;
   // A pane beside the workspace stays open while the person works on the page; one that covers the
-  // page closes on a click outside it, as the drawers did.
-  useOutsideClose(frame, onClose, () => host?.docked === true);
+  // page closes on a click outside it, as the drawers did. Only the owner on top listens.
+  useOutsideClose(frame, onClose, () => host?.docked === true || !top);
+  // Esc hides the panel, one level at a time: a dialog or the palette over it takes Esc first, and a
+  // file or log open over a card goes back to the card first (PanelScreenView, capture phase).
+  useEffect(() => {
+    if (!top) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("dialog[open], .palette")) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [top, onClose]);
   // The content mounts a moment after its owner (once the slot is on the page), so an owner's own
   // focus-on-mount finds nothing yet: move focus in here, the first time the content shows.
-  const shown = !host || (host.top === owner.current && host.attached);
+  const shown = !host || (top && host.attached);
   const focused = useRef(false);
   useLayoutEffect(() => {
     if (!shown || focused.current) return;
@@ -123,21 +148,25 @@ export function SidePanel({ label, onClose, autoFocus = true, children }: { labe
     if (first instanceof HTMLElement && !first.contains(document.activeElement)) first.focus();
   }, [shown, autoFocus]);
   const body = (
-    <div ref={frame} className="side-panel" data-docked={host?.docked ? "" : undefined}>
-      {children}
-    </div>
+    <ActiveCtx.Provider value={top}>
+      <div ref={frame} className="side-panel" hidden={!top} data-docked={host?.docked ? "" : undefined}>
+        {children}
+      </div>
+    </ActiveCtx.Provider>
   );
   if (!host) return body;
-  return host.top === owner.current && host.attached ? createPortal(body, host.slot) : null;
+  // Every owner stays mounted in the slot; only the top one is visible.
+  return host.attached ? createPortal(body, host.slot) : null;
 }
 
 /** While mounted, the panel takes its widest size (it returns to the person's width after). */
 export function useWidePanel(): void {
   const host = useContext(HostCtx);
+  const active = useContext(ActiveCtx);
   useLayoutEffect(() => {
-    if (!host) return;
+    if (!host || !active) return;
     host.setWide(true);
     return () => host.setWide(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [host?.slot]);
+  }, [host?.slot, active]);
 }

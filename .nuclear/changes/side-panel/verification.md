@@ -7,6 +7,7 @@
 | E-03 | pass | Screenshots at 1440, 1024 and 390; every viewer at full size; a card opened from Packages; a full log in the panel. | `evidence/*.jpg` |
 | E-04 | pass | Viewer gallery in Chromium against sample files (markdown, PDF, Word, Python, CSV, diff, JPEG): each drawn inline and expanded, then a Packages row opened in the panel and its run's log opened over it. | `evidence/viewer-gallery.js`, `evidence/samples/` |
 | E-05 | done | Codex automatic review round 1 at bc70be2: 2 P2. Fixed: the new page group and its panels keep the browser's touch gestures (pinch zoom, scrolling) on touchscreens; content mounts only after the slot is on the page and the panel moves focus into it on first open. Rendered check covers both. | PR thread |
+| E-06 | done | Codex automatic review round 2 at cdb6795 (last allowed round): 3 P2. Fixed: a drawer under another one stays mounted and hidden, so its typed text survives; only the visible one answers Esc and outside clicks (Esc now lives in SidePanel); the license gate parses SPDX grouping (AND before OR, parentheses) and fails closed on anything else (tools/spdx.mjs, `node --test tools/spdx.test.mjs`, evidence/spdx-test.log). Unit test "two owners at once"; vitest 1030 pass; rendered check rerun (evidence/side-check.log). | PR thread, evidence/spdx-test.log, evidence/side-check.log |
 
 ## Evidence custody and coupling
 
@@ -17,6 +18,7 @@
 | E-03 | SP-03, SP-05, SP-07, SP-08, SP-09 | no | evidence/*.jpg | Implementing agent | Playwright on the dev server | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
 | E-04 | SP-07, SP-08, SP-09 | no | evidence/viewer-gallery.js | Implementing agent | Playwright on the dev server | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
 | E-05 | SP-02, SP-03 | yes | PR thread | Implementing agent | Codex automatic review | Repository workflow | Implementing agent | GitHub | GitHub | Implementing agent | Independent reviewer |
+| E-06 | SP-02, SP-03 | yes | PR thread | Implementing agent | Codex automatic review | Repository workflow | Implementing agent | GitHub | GitHub | Implementing agent | Independent reviewer |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
@@ -25,6 +27,7 @@
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: real browser | separated: owner retains merge decision | coupled: local machine | self-check | mocked API, Linux Chromium [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: implementation session | separated: real browser, real files | separated: owner retains merge decision | coupled: local machine | self-check | sample files only [Ship limits](ship.md) |
 | E-05 | separated: Codex | separated: GitHub review | separated: independent model | separated: owner retains merge decision | separated: hosted | diverse verification | findings fixed [Ship limits](ship.md) |
+| E-06 | separated: Codex | separated: GitHub review | separated: independent model | separated: owner retains merge decision | separated: hosted | diverse verification | findings fixed; fixes not re-reviewed (two-round limit) [Ship limits](ship.md) |
 
 Not done here: macOS Safari, Firefox and touch hardware; the Board page in a browser (unit tests only).
 

@@ -151,16 +151,6 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
     if (autoFocus) asideRef.current?.focus();
   }, [packageId, autoFocus]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("dialog[open], .palette")) {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const view = q.data;
   const pkg = view?.package ?? initialPkg;

@@ -32,16 +32,6 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
     asideRef.current?.focus();
   }, [capture.id]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("dialog[open], .palette")) {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const classify = useMutation({
     mutationFn: () => api.classifyCapture(capture.id, lane),

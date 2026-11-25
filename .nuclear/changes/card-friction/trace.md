@@ -3,6 +3,7 @@
 | Need | Code | Test |
 | --- | --- | --- |
 | One-step add in the project lane | `features/board/QuickAdd.tsx`, `components/LanePicker.tsx` defaultLaneFor | `quick-add.test.tsx` "standard lane", "project's default data lane" |
+| A stale page cannot lower a project's lane | `services/api/src/work.ts` atLeastProjectLane, `workspace-projects.ts` projectDefaultLane | `disclosure.test.ts` "project's default lane" |
 | Set the default once | `features/board/BoardView.tsx` project bar | `board.test.tsx` "data lane" case |
 | Optional per-card raise | `features/board/CaptureDrawer.tsx` | `quick-add.test.tsx` "CaptureDrawer data lane" |
 | No false Needs you | `lib/next.ts` ESCAPE_HATCHES | `next.test.ts`, `board.test.tsx` Safety card |

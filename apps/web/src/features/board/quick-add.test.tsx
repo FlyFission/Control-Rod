@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -102,6 +102,7 @@ describe("captureLine", () => {
     expect(captureLine(capture())).toEqual({ tone: "needs", text: "Classify the data lane" });
     expect(captureLine(capture({ lane: "internal" }))).toEqual({ tone: "wait", text: "Waiting for intake" });
     expect(captureLine(capture({ lane: "internal", intake: { run_id: "R-1", status: "running" } }))).toEqual({ tone: "wait", text: "Intake drafting" });
+    expect(captureLine(capture({ lane: "restricted", intake: { run_id: "R-1", status: "queued" } }))).toEqual({ tone: "wait", text: "Intake queued" });
     expect(captureLine(capture({ lane: "internal", intake: { run_id: "R-1", status: "failed", error: "no runtime" } }))).toEqual({ tone: "block", text: "Intake failed: no runtime" });
   });
 });
@@ -303,7 +304,7 @@ describe("CaptureDrawer data lane", () => {
     );
     await renderPage(<CaptureDrawer capture={capture({ lane: "internal", effective_lane: "internal" })} onClose={() => {}} />);
     const user = userEvent.setup();
-    expect(screen.getByText(/Cloud agents \(Claude, Codex and the others\) may work on it/)).toBeTruthy();
+    expect(screen.getByText(/Cloud agents \(Claude, Codex and the others\) may be sent its work/)).toBeTruthy();
     const picker = screen.getByLabelText("Raise to") as HTMLSelectElement;
     expect([...picker.options].map((o) => o.value)).toEqual(["internal", "proprietary", "client-confidential", "restricted"]);
     const button = screen.getByRole("button", { name: "Raise lane" }) as HTMLButtonElement;
@@ -316,8 +317,56 @@ describe("CaptureDrawer data lane", () => {
   it("offers no raise on a restricted card", async () => {
     api();
     await renderPage(<CaptureDrawer capture={capture({ lane: "restricted", effective_lane: "restricted" })} onClose={() => {}} />);
-    expect(screen.getByText(/No cloud agent sees it/)).toBeTruthy();
+    expect(screen.getByText(/no cloud agent is sent anything new/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Raise lane" })).toBeNull();
+  });
+
+  it("says raising does not call back work an agent already has", async () => {
+    api();
+    await renderPage(<CaptureDrawer capture={capture({ lane: "internal", effective_lane: "internal", intake: { run_id: "R-1", status: "running" } })} onClose={() => {}} />);
+    expect(screen.getByText(/Work already sent to an agent is not called back/)).toBeTruthy();
+  });
+
+  it("keeps the raise pick at or above the lane after a refresh raises it", async () => {
+    api();
+    function Refreshing() {
+      const [lane, setLane] = useState<DataLane>("internal");
+      return (
+        <>
+          <button type="button" onClick={() => setLane("client-confidential")}>Refresh</button>
+          <CaptureDrawer capture={capture({ lane, effective_lane: lane })} onClose={() => {}} />
+        </>
+      );
+    }
+    await renderPage(<Refreshing />);
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Raise to"), "proprietary");
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect((screen.getByLabelText("Raise to") as HTMLSelectElement).value).toBe("client-confidential"));
+    expect((screen.getByRole("button", { name: "Raise lane" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("offers an unclassified capture its own project's lane, not the open project's", async () => {
+    api();
+    const principal = "capture-lane-fixture";
+    const project = {
+      name: "P", mode: "software", status: "active", repo: "", repoStrategy: "worktree",
+      workspaceRoot: "", lane: "internal", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    } as const;
+    hydrateServerProjects(principal, [{ ...project, id: "prj_open" }, { ...project, id: "prj_tagged", lane: "restricted" }]);
+    selectProject(principal, "prj_open");
+    try {
+      await renderPage(
+        <WorkspaceProjectUser.Provider value={principal}>
+          <CaptureDrawer capture={capture({ text: "[mode:software] [project-id:prj_tagged]\n\nTagged work" })} onClose={() => {}} />
+        </WorkspaceProjectUser.Provider>,
+      );
+      expect((screen.getByLabelText("Data lane") as HTMLSelectElement).value).toBe("restricted");
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
   });
 });
 

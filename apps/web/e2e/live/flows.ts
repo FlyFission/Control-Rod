@@ -16,13 +16,15 @@ export async function addCard(page: Page, text: string): Promise<void> {
   const field = page.getByPlaceholder("What needs doing? Enter adds it");
   await field.fill(text);
   await field.press("Enter");
-  await expect(captureCard(page, text)).toBeVisible();
+  // The field clears once the card is posted; intake may already have replaced the capture card.
+  await expect(field).toHaveValue("");
   await page.keyboard.press("Escape");
 }
 
 export const captureCard = (page: Page, text: string) =>
   page.getByRole("article", { name: new RegExp(escape(text.slice(0, 60)), "i") });
 
+/** Classifies a capture that arrived unclassified (a sender without lane authority). The owner's cards take the project's lane. */
 export async function classify(page: Page, text: string, lane = "internal"): Promise<void> {
   const card = captureCard(page, text);
   await card.getByLabel("Data lane").selectOption(lane);
@@ -40,14 +42,13 @@ export async function packages(page: Page, stack: Stack): Promise<Pkg[]> {
 }
 
 /**
- * Types a scope request on the board, classifies it, and waits for intake to draft its two packages.
+ * Types a scope request on the board (it takes the project's data lane) and waits for intake to draft its two packages.
  * Returns their ids. Unique text per call keeps tests that share a stack apart.
  */
 export async function draftPair(page: Page, stack: Stack, tag: string): Promise<{ survey: string; sow: string; request: string }> {
   const before = new Set((await packages(page, stack)).map((p) => p.id));
   const request = `${SCOPE_REQUEST} (${tag} ${Date.now().toString(36)})`;
   await addCard(page, request);
-  await classify(page, request);
   let fresh: Pkg[] = [];
   await expect.poll(async () => (fresh = (await packages(page, stack)).filter((p) => !before.has(p.id))).length, { timeout: 60000 }).toBe(2);
   const survey = fresh.find((p) => p.id.endsWith("-SURVEY"))!.id;

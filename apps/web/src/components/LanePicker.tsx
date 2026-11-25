@@ -1,4 +1,5 @@
 import type { DataLane, WorkspaceProject } from "../api/types.js";
+import { extractBracketTag, useProjects } from "../lib/projects.js";
 
 /** Data lanes, least to most sensitive, in the words a person chooses by. */
 export const LANES: { value: DataLane; label: string }[] = [
@@ -20,6 +21,21 @@ export function defaultLaneFor(project: Pick<WorkspaceProject, "lane"> | null | 
   return project?.lane ?? STANDARD_LANE;
 }
 
+/** Where a lane sits from least (0) to most sensitive. */
+export function laneRank(lane: DataLane): number {
+  return LANES.findIndex((l) => l.value === lane);
+}
+
+/**
+ * The lane an existing capture is offered first: the default of the project its own [project-id] tag
+ * names, not whichever project happens to be open, else the standard lane.
+ */
+export function useCaptureDefaultLane(text: string | undefined): DataLane {
+  const projects = useProjects();
+  const id = extractBracketTag(text, "project-id");
+  return defaultLaneFor(id ? projects.find((p) => p.id === id) : undefined);
+}
+
 export function laneLabel(lane: DataLane): string {
   return LANES.find((l) => l.value === lane)?.label ?? lane;
 }
@@ -27,8 +43,8 @@ export function laneLabel(lane: DataLane): string {
 /** What a lane changes today, in one line (disclosure.ts LANE_RUNTIMES, sandbox.ts NETWORK_LANES, figures.ts PRESENTABLE). */
 export function laneEffect(lane: DataLane): string {
   return LOCAL_ONLY.has(lane)
-    ? "No cloud agent sees it: it stays on this computer until a provider is approved for this lane."
-    : "Cloud agents (Claude, Codex and the others) may work on it.";
+    ? "From now on only agents on this computer take its work; no cloud agent is sent anything new."
+    : "Cloud agents (Claude, Codex and the others) may be sent its work.";
 }
 
 /**

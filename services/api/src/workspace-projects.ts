@@ -199,6 +199,17 @@ export async function projectRuntimePrefs(
   };
 }
 
+/**
+ * The data lane a workspace project sets for its new cards, read from the server's own record, or
+ * undefined when the capture names no active project of this organization. A capture is never
+ * classified below it, whatever lane a browser with a stale copy of the project sends.
+ */
+export async function projectDefaultLane(q: { query: Db["query"] }, orgId: string, projectId: string): Promise<DataLane | undefined> {
+  const r = await q.query("select 1 from projects where id = $1 and org_id = $2 and coalesce(body->>'status', 'active') = 'active'", [projectId, orgId]);
+  if (!r.rowCount) return undefined;
+  return mergePrefs((await readPrefsMap(q, orgId))[projectId]).lane;
+}
+
 /** Lists active projects for the caller's organization with their workspace defaults. */
 export async function listWorkspaceProjects(db: Db, orgId: string): Promise<WorkspaceProjectView[]> {
   const rows = await db.query<{ id: string; body: Record<string, unknown>; created_at: Date }>(

@@ -1,8 +1,9 @@
 # Verification: Fewer steps on a new card
 
 - E-01: `pnpm --filter @control-rod/web typecheck` passes.
-- E-02: `vitest run` in `apps/web`: all files pass (929 tests at the first run, one expectation updated for the Return change).
-- Blind check: pending.
+- E-02: `vitest run` in `apps/web`: 87 files, 965 tests pass after the round-1 fixes.
+- E-03: `vitest run test/disclosure.test.ts test/runs.test.ts` in `services/api` against a local Postgres: 64 tests pass, including "raises a capture to its project's default lane when the page sent a lower one".
+- Blind check round 1 (Codex): no-merge, six findings. Fixed: the server now keeps a capture at or above its tagged project's lane at capture and at classify; drawer wording speaks of future dispatch and notes work already sent is not called back; unclassified pickers default from the capture's own project tag; e2e flows no longer classify; the raise pick never sits below the lane after a refresh; a held intake reads "Intake queued". Round 2: pending.
 
 ## Evidence custody and coupling
 
@@ -10,11 +11,13 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | E-01 | CF-01 | yes | tsc output in the PR session | Implementing agent | tsc | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 | E-02 | CF-01, CF-02, CF-03, CF-04 | yes | vitest output in the PR session | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
+| E-03 | CF-01 | yes | API vitest output in the PR session | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | types only  [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, mocked API  [Ship limits](ship.md) |
+| E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | real Postgres, injected HTTP  [Ship limits](ship.md) |
 
 Not done here: a real browser on a live install; the Playwright e2e suite.
 

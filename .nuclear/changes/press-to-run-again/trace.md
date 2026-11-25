@@ -7,6 +7,7 @@
 | Turning Light on starts waiting drafts | `services/api/src/admin.ts` project.set-signing-policy | `signing-policy.test.ts` "starts the drafts already waiting in the project once Light is turned on" |
 | A failed check retries once on its own | `services/api/src/work.ts` retryFailedCheck, requeueChecks | `signing-policy.test.ts` "runs a check that failed without a verdict again once on its own" |
 | Draft asks for Release, not Edit | `apps/web/src/lib/next.ts` nextLine | `lib/next.test.ts` "a draft" |
+| Cards follow the board's column agents unless overridden | `apps/web/src/components/NewWorkModal.tsx` agentsChosen | `components/newwork.test.tsx` "captures with resolved project preferences", "supports capture settings" |
 | One press settles and runs again | `apps/web/src/components/RunLog.tsx` Reconcile | `components/run-reconcile.test.tsx` |
 | Honest words | RunLog.tsx unknownOutcomeText, `lib/next.ts` stalledLine | `run-reconcile.test.tsx`, `lib/next.test.ts` "does not say the daemon stopped answering" |
 

@@ -2,7 +2,7 @@
 
 - E-01: `pnpm -C services/api typecheck` and `pnpm -C apps/web typecheck` pass.
 - E-02: `vitest run test/signing-policy.test.ts test/supervision.test.ts test/admin.test.ts test/scram.test.ts test/runs.test.ts test/checker-attempts.test.ts` (services/api, embedded PostgreSQL 17): all pass, 4 new.
-- E-03: `vitest run src/lib src/features/board src/components` (apps/web): 567 tests pass, 5 new.
+- E-03: `vitest run src/components src/features src/lib src/pages` (apps/web): 919 tests pass.
 
 ## Evidence custody and coupling
 

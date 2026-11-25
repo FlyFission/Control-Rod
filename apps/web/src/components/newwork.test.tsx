@@ -278,7 +278,10 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(captures[0]!.lane).toBe("client-confidential");
     expect(captures[0]!.text).toContain("[project-id:proj-launcher]");
     expect(captures[0]!.text).toContain("[repo:FlyFission/Release]");
-    expect(captures[0]!.text).toContain("[author:codex/default@default]");
+    // The card follows the board's column picks: nothing pins agents on it unless chosen here.
+    expect(summary.textContent).toContain("board column pick");
+    expect(captures[0]!.text).not.toContain("[author:");
+    expect(captures[0]!.text).not.toContain("[checker:");
     expect(captures[0]!.text).not.toContain("[workspace:");
 
   });
@@ -405,8 +408,9 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(capturedBody!.text).not.toContain("[workspace:");
     expect(capturedBody!.text).toContain("[stage:Detailed Design (60%)]");
     expect(capturedBody!.text).toContain("[purpose:Issue for Permit (IFP)]");
+    // The author was picked for this card; the checker was left to the board's column pick.
     expect(capturedBody!.text).toContain("[author:claude/default@default]");
-    expect(capturedBody!.text).toContain("[checker:codex/default@default]");
+    expect(capturedBody!.text).not.toContain("[checker:");
   });
 
   it("adds a [workflow:<id>] tag only when a workflow is chosen", async () => {

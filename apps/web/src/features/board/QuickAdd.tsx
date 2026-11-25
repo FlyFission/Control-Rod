@@ -2,10 +2,49 @@ import { type ClipboardEvent, type KeyboardEvent, useEffect, useRef, useState } 
 import { useActionLock } from "../../lib/scramLock.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
-import { api, explain } from "../../api/client.js";
+import { ApiError, api, explain } from "../../api/client.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { useMode } from "../../lib/mode.js";
 import { useActiveProject } from "../../lib/projects.js";
+import { cardBranchName } from "../../lib/branch.js";
+import type { WorkspaceProject } from "../../api/types.js";
+
+/**
+ * How a quick-added card goes in. In a project, it takes the project's lane (the person chose it
+ * when they made the project, and the field says so), and in a project bound to a repository with
+ * the worktree strategy, each card gets its own worktree and branch, so accepted work can go out as
+ * a draft pull request with no further steps. Outside a project there is no lane yet, so the card
+ * waits for one (M-0).
+ */
+export async function quickCapture(text: string, title: string, project: WorkspaceProject | null): Promise<void> {
+  if (!project) {
+    await api.capture({ text, source: "web" });
+    return;
+  }
+  let checkout: { repo: string; local_path: string; branch: string; workspace_root?: string } | undefined;
+  if (project.repo && project.repoStrategy === "worktree") {
+    const root = project.workspaceRoot || (await api.repos()).workspace_root;
+    const made = await api.materializeRepo({
+      repo: project.repo,
+      branch: cardBranchName(title),
+      strategy: "worktree",
+      mode: project.mode === "capital-projects" ? "capital-projects" : "software",
+      ...(root ? { workspace_root: root } : {}),
+    });
+    checkout = { repo: project.repo, local_path: made.local_path, branch: made.branch, ...(root ? { workspace_root: root } : {}) };
+    try {
+      await api.capture({ text, source: "web", lane: project.lane, checkout });
+    } catch (e) {
+      // Only a clear refusal means nothing owns the worktree just made for it; after a lost reply or a
+      // server error the capture may have been saved, so the worktree stays.
+      const refused = e instanceof ApiError && e.status >= 400 && e.status < 500;
+      if (refused && made.repo_path) await api.removeRepo({ worktree_path: made.local_path, repo_path: made.repo_path, ...(root ? { workspace_root: root } : {}) }).catch(() => undefined);
+      throw e;
+    }
+    return;
+  }
+  await api.capture({ text, source: "web", lane: project.lane });
+}
 
 /** The lines of a paste, one card each: trimmed, empty lines dropped. */
 export function splitPaste(text: string): string[] {
@@ -26,8 +65,9 @@ export function inTypingContext(target: EventTarget | null): boolean {
 /**
  * Quick add at the top of Ready (spec 6.3): "+ Quick add" or the `c` key opens an inline title field.
  * Enter posts one capture and leaves a fresh, focused field for the next; Escape closes; a typed draft
- * survives losing focus. Pasting several lines offers one card per line. The capture is posted with no
- * data lane, so nothing reaches an AI runtime until a person classifies it on the new card (M-0).
+ * survives losing focus. Pasting several lines offers one card per line. In a project the card takes the
+ * project's lane; outside one it has no lane, so nothing reaches an AI runtime until a person classifies
+ * it on the new card (M-0).
  */
 export function QuickAdd() {
   const scramLock = useActionLock();
@@ -83,7 +123,7 @@ export function QuickAdd() {
       batchProgress.current = { titles, sent: 0 };
       // Cards are posted in the order typed, one request at a time, so a failure says which one stopped.
       for (const t of titles) {
-        await api.capture({ text: `${capturePrefix}${t}`, source: "web" });
+        await quickCapture(`${capturePrefix}${t}`, t, activeProject ?? null);
         batchProgress.current.sent += 1;
       }
     },
@@ -235,7 +275,11 @@ export function QuickAdd() {
         <button type="button" className="btn ghost small" onClick={close} disabled={send.isPending}>
           Close
         </button>
-        <span className="muted small">Classify its data lane on the card before any agent sees it.</span>
+        <span className="muted small">
+          {activeProject
+            ? `Goes in on the ${activeProject.lane} lane${activeProject.repo && activeProject.repoStrategy === "worktree" ? `, in its own branch of ${activeProject.repo}` : ""}.`
+            : "Classify its data lane on the card before any agent sees it."}
+        </span>
       </div>
       {error !== null && (
         <p role="alert" className="error small">

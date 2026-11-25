@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { parseSteps, policyOf, policyRef, signPolicy } from "./signing-policy.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { CommandName } from "./commands/catalog.js";
@@ -40,7 +41,8 @@ interface AdminCommand {
   /** A command that exists in the catalog but is refused for everyone for now: its reason code. */
   unavailable?: string;
   catalog: CommandName;
-  signature: "direct" | "none";
+  /** direct: needs a passkey. none: a press. press-or-sign: a press, recorded as signed when a passkey came with it. */
+  signature: "direct" | "none" | "press-or-sign";
   need: Need;
   /** Runs inside the writer transaction after authority is confirmed. Returns what the client sees. */
   run: (c: Tx, caller: Caller, payload: Record<string, unknown>, ctx: AdminContext) => Promise<unknown>;
@@ -435,7 +437,10 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   "project.workspace-create": {
     label: "Create a workspace project",
     catalog: "admin.project-create", signature: "direct", need: "administrator",
-    run: createWorkspaceProject,
+    // The signature over the create also signs the signing preset chosen in the same form.
+    run: (c, caller, p, ctx) => createWorkspaceProject(c, caller, p, ctx.assertion
+      ? { subject: adminSubject("project.workspace-create", caller, p), assertion: ctx.assertion, ...(ctx.signed?.nonce ? { nonce: ctx.signed.nonce } : {}) }
+      : undefined),
   },
 
   "project.workspace-update": {
@@ -455,6 +460,28 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     label: "Archive a workspace project",
     catalog: "admin.project-update", signature: "direct", need: "administrator",
     run: (c, caller, p) => archiveWorkspaceProject(c, caller, str(p, "project_id")!),
+  },
+
+  "project.set-signing-policy": {
+    label: "Choose what needs your passkey",
+    catalog: "admin.project-set-signing-policy", signature: "direct", need: "administrator",
+    async run(c, caller, p, ctx) {
+      if (!ctx.assertion) throw new Refusal(403, "signature-required", "Choosing what needs your passkey is itself signed with your passkey");
+      const id = str(p, "project_id")!;
+      const r = await c.query<{ body: Record<string, unknown> }>("select body from projects where id = $1 and org_id = $2 for update", [id, caller.orgId]);
+      if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
+      const { preset, steps } = parseSteps(p.preset, p.steps);
+      const prior = policyOf(r.rows[0].body);
+      const policy = signPolicy({
+        prior, preset, steps, signedBy: caller.userName, subject: adminSubject("project.set-signing-policy", caller, p),
+        ...(ctx.signed?.nonce ? { nonce: ctx.signed.nonce } : {}), assertion: ctx.assertion,
+      });
+      await c.query("update projects set body = jsonb_set(body, '{signing_policy}', $2::jsonb) where id = $1", [id, policy]);
+      await appendEvent(c, "project.signing-policy-set", id, actorOf(caller), {
+        policy: policy.id, version: policy.version, preset, steps, ...(prior ? { from: prior.steps } : {}),
+      });
+      return { project_id: id, ...policyRef(policy) };
+    },
   },
 
   "project.update": {
@@ -643,8 +670,9 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
 
   "scram.pull": {
     label: "Pull SCRAM",
-    // Anyone active may stop the work: stopping is always safe. It is signed and has a reason.
-    catalog: "admin.scram-pull", signature: "direct", need: "member",
+    // Anyone active may stop the work: stopping is always safe, so it is one press with a reason, and
+    // signed when a passkey comes with it. Restarting after a SCRAM stays signed.
+    catalog: "admin.scram-pull", signature: "press-or-sign", need: "member",
     async run(c, caller, p, ctx) {
       return pullScram(c, caller.orgId, caller.memberId, p, ctx.assertion, actorOf(caller));
     },
@@ -754,7 +782,8 @@ function translate(error: unknown): unknown {
  * the subject digest its passkey assertion was verified over; anything else refuses.
  */
 export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: Caller, payload: Record<string, unknown>,
-  signed: { subject: string; credentialId: string; nonce?: string; assertion?: Record<string, unknown> } | null) {
+  signed: { subject: string; credentialId: string; nonce?: string; assertion?: Record<string, unknown> } | null,
+  assertionRejected = false) {
   if (signed?.nonce) ctx = { ...ctx, signed: { subject: signed.subject, nonce: signed.nonce } };
   if (signed?.assertion) {
     const a = signed.assertion as { id?: unknown; response?: Record<string, unknown> };
@@ -766,6 +795,12 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
   if (cmd.signature === "direct") {
     if (signed === null) throw new Refusal(403, "signature-required", "This command needs your passkey");
     if (signed.subject !== adminSubject(name, caller, payload)) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
+  }
+  // A passkey that came with a press-or-sign command must still cover this exact request.
+  // A passkey that came and did not verify is refused, never taken as a press.
+  if (cmd.signature === "press-or-sign" && assertionRejected) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
+  if (cmd.signature === "press-or-sign" && signed && signed.subject !== adminSubject(name, caller, payload)) {
+    throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
   }
   const signedSubject = signed?.subject ?? null;
   return command(db, cmd.catalog, async (c) => {
@@ -789,7 +824,7 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
     }
     const result = await cmd.run(c, caller, payload, ctx);
     await appendEvent(c, "admin.command", name, actorOf(caller), {
-      signature: cmd.signature, ...(signedSubject ? { subject_digest: signedSubject, credential_id: signed!.credentialId } : {}), ...(bootstrap ? { bootstrap: true } : {}),
+      signature: cmd.signature === "press-or-sign" ? (signedSubject ? "direct" : "none") : cmd.signature, ...(signedSubject ? { subject_digest: signedSubject, credential_id: signed!.credentialId } : {}), ...(bootstrap ? { bootstrap: true } : {}),
     });
     return result;
   }).catch((e) => { throw translate(e); });
@@ -804,7 +839,7 @@ export async function adminActions(db: Db, caller: Caller) {
   const me = await member(db, caller.memberId, caller.orgId);
   const held = new Set<string>((await currentQualification(db, caller.memberId))?.authorities ?? []);
   return Object.entries(ADMIN_COMMANDS).map(([name, cmd]) => {
-    const base = { command: name, label: cmd.label, signature: cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
+    const base = { command: name, label: cmd.label, signature: cmd.signature === "press-or-sign" ? "none" : cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
     if (me.status !== "active") return { ...base, allowed: false, reason_code: "member-inactive", reason: teach("member-inactive").sentence, change: teach("member-inactive").change };
     // Refused for everyone, whatever their authority: say so rather than offer it.
     if (cmd.unavailable) {

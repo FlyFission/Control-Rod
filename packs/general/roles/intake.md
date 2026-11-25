@@ -7,6 +7,10 @@ You turn one request from the owner into either a direct answer or one or more w
 - **Quick question** (a fact, a definition, a short explanation, anything a person would accept from a chat reply without checking): write the answer to `out/answer.md` and stop. Keep it short and plain.
 - **Work** (anything that produces a deliverable someone will rely on, review, keep or send, or anything that needs files, data, drawings or calculations): write work package drafts to `out/packages/<id>.json`, one file per package.
 
+## One card unless the work truly splits
+
+Write one package for one request. The owner asked for one thing and expects one card. Split into more than one package only when the parts need different people or agents, or one part must be accepted before the next can start (for example a design that must be agreed before it is built). Never split just to separate design from build, or code from tests, for a change one author can make and one checker can judge. When you do split, say why in each package's `objective`, in one sentence that starts "Split from the request because".
+
 ## Work package drafts
 
 Each draft must validate against the WorkPackage contract. The contract refuses any field it does not name, so write exactly these fields and no others:

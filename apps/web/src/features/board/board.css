@@ -819,6 +819,15 @@
 .bd[data-density="compact"] .bd-col {
   gap: 4px;
 }
+.bd-split {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bd-split-request {
+  font-style: italic;
+}
 .bd[data-density="compact"] .bd-avatar,
 .bd[data-density="compact"] .bd-chip {
   display: none;
@@ -2289,4 +2298,20 @@
 @media (max-width: 600px) {
   .bd-calm-head { padding: 16px 16px 6px; }
   .bd-calm-body { padding: 6px 16px 20px; }
+}
+/* The one-time offer to let routine cards finish on their own. */
+.bd-autonomy-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.bd-autonomy-offer p {
+  margin: 0;
+  flex: 1 1 320px;
 }

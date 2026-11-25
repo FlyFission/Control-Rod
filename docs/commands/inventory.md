@@ -24,9 +24,10 @@ checks the static rules and that this catalog matches the commands executed.
 | `run.override-independence` | member | direct | Override independence | `work.ts` overrideIndependence | `POST /packages/:id/runs/:runId/override-independence` |
 | `check.request` | member | none | Request checker attempt | `work.ts` requestCheck | `POST /packages/:id/checks` |
 | `check.recheck-override` | member | direct | Override a sticky checker fail | `work.ts` recordRecheckOverride | `POST /packages/:id/recheck-overrides` |
-| `runtime.report-status` | agent-via-daemon | none | Probe runtime | `subscriptions.ts` recordSubscriptionReport<br>`work.ts` recordRuntimeStatus | `POST /runner/claim` |
+| `runtime.report-status` | agent-via-daemon | none | Probe runtime | `subscriptions.ts` recordSubscriptionReport<br>`usage-limits.ts` recordUsageLimits<br>`work.ts` recordRuntimeStatus | `POST /runner/claim` |
 | `runtime.report-agent-updates` | agent-via-daemon | none | Probe runtime (agent updates) | `agent-updates.ts` recordAgentUpdates | `POST /runner/claim` |
 | `setup.record` | member | none | Record agent setup (seats and check-in) | `setup.ts` recordSeat<br>`setup.ts` recordSetup | `PUT /setup/seats/:runtime`, `PUT /setup` |
+| `package.open-pr` | system | none | Record a draft pull request attempt for accepted work | `work.ts` publishAccepted | no production caller yet (declared seam) |
 | `verification.record-person` | member | direct | Record person verification | `person-verification.ts` recordPersonVerification | `POST /packages/:id/person-verifications` |
 | `preparation.confirm` | member | direct | Confirm requirements | `preparation/subjects.ts` confirmRequirements | `POST /packages/:id/preparation/confirm` |
 | `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |
@@ -45,6 +46,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `admin.project-create` | member | direct | Create project | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.project-update` | member | direct | Set mode, default rigor, lanes, overlays | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.project-set-autonomy` | member | direct | Set autonomy level | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
+| `admin.project-set-signing-policy` | member | direct | Choose what needs a passkey | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.repo-bind` | member | direct | Bind repository | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.repo-unbind` | member | direct | Unbind repository | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.policy-propose` | member | none | Change policy set (proposal) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
@@ -52,7 +54,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `admin.runtime-pin` | member | direct | Pin runtime | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.daemon-enroll-key` | member | direct | Enroll daemon signing key | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.daemon-retire-key` | member | direct | Retire daemon signing key | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
-| `admin.scram-pull` | member | direct | SCRAM | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
+| `admin.scram-pull` | member | none | SCRAM (one press; signed when a passkey comes with it) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.scram-review` | member | direct | SCRAM (quarantine review) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.scram-restart` | member | direct | SCRAM (staged restart) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.runtime-rollback` | member | direct | Pin runtime (rollback) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |

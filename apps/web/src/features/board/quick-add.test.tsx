@@ -149,8 +149,113 @@ describe("QuickAdd on the board", () => {
       await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
       await user.type(screen.getByLabelText("Card title"), "Draft the fixture{Enter}");
       await waitFor(() => expect(posted).toEqual([
-        { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web" },
+        { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web", lane: "internal" },
       ]));
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
+  });
+
+  it("takes the worktree away again when the card itself is refused", async () => {
+    api();
+    const removed: unknown[] = [];
+    server.use(
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/u/Code", local: [], github: [] })),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ ok: true, strategy: "worktree", repo: body.repo, branch: body.branch, local_path: "/home/u/Code/.worktrees/app/x", repo_path: "/home/u/Code/app" });
+      }),
+      http.post("*/captures", () => HttpResponse.json({ code: "invalid", message: "No" }, { status: 400 })),
+      http.post("*/repos/remove", async ({ request }) => {
+        removed.push(await request.json());
+        return HttpResponse.json({ ok: true, removed: "/home/u/Code/.worktrees/app/x" });
+      }),
+    );
+    const principal = "repo-refused";
+    hydrateServerProjects(principal, [{
+      id: "prj_repo2", name: "App", mode: "capital-projects", status: "active", repo: "acme/app", repoStrategy: "worktree",
+      workspaceRoot: "", lane: "public", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    }]);
+    selectProject(principal, "prj_repo2");
+    try {
+      await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
+      await user.type(screen.getByLabelText("Card title"), "Fix it{Enter}");
+      await waitFor(() => expect(removed).toEqual([{ worktree_path: "/home/u/Code/.worktrees/app/x", repo_path: "/home/u/Code/app", workspace_root: "/home/u/Code" }]));
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
+  });
+
+  it("keeps the worktree when the server failed, since the card may have been saved", async () => {
+    api();
+    const removed: unknown[] = [];
+    server.use(
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/u/Code", local: [], github: [] })),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ ok: true, strategy: "worktree", repo: body.repo, branch: body.branch, local_path: "/home/u/Code/.worktrees/app/x", repo_path: "/home/u/Code/app" });
+      }),
+      http.post("*/captures", () => HttpResponse.json({ code: "invalid", message: "No" }, { status: 503 })),
+      http.post("*/repos/remove", async ({ request }) => {
+        removed.push(await request.json());
+        return HttpResponse.json({ ok: true, removed: "/home/u/Code/.worktrees/app/x" });
+      }),
+    );
+    const principal = "repo-lost";
+    hydrateServerProjects(principal, [{
+      id: "prj_repo3", name: "App", mode: "capital-projects", status: "active", repo: "acme/app", repoStrategy: "worktree",
+      workspaceRoot: "", lane: "public", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    }]);
+    selectProject(principal, "prj_repo3");
+    try {
+      await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
+      await user.type(screen.getByLabelText("Card title"), "Fix it{Enter}");
+      await new Promise((r) => setTimeout(r, 300));
+      expect(removed).toEqual([]);
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
+  });
+
+  it("gives a card in a repository project its own worktree and branch, so it can finish as a pull request", async () => {
+    const { posted } = api();
+    const made: Record<string, unknown>[] = [];
+    server.use(
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/u/Code", local: [], github: [] })),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        made.push(body);
+        return HttpResponse.json({ ok: true, strategy: "worktree", repo: body.repo, branch: body.branch, local_path: `/home/u/Code/.worktrees/app/${String(body.branch)}` });
+      }),
+    );
+    const principal = "repo-fixture";
+    hydrateServerProjects(principal, [{
+      id: "prj_repo", name: "App", mode: "capital-projects", status: "active", repo: "acme/app", repoStrategy: "worktree",
+      workspaceRoot: "", lane: "public", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    }]);
+    selectProject(principal, "prj_repo");
+    try {
+      await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
+      expect(screen.getByText("Goes in on the public lane, in its own branch of acme/app.")).toBeTruthy();
+      await user.type(screen.getByLabelText("Card title"), "Fix the login redirect{Enter}");
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(made).toEqual([expect.objectContaining({ repo: "acme/app", strategy: "worktree", workspace_root: "/home/u/Code", branch: expect.stringMatching(/^cr\/fix-the-login-redirect-[0-9a-f]{6}$/) })]);
+      expect(posted[0]).toMatchObject({
+        lane: "public",
+        checkout: { repo: "acme/app", branch: made[0]!.branch, local_path: `/home/u/Code/.worktrees/app/${String(made[0]!.branch)}`, workspace_root: "/home/u/Code" },
+      });
     } finally {
       for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
     }
@@ -330,8 +435,23 @@ describe("CaptureCard", () => {
     await renderPage(<Page />);
     await screen.findByText("Login redirect fix");
     await screen.findByText("Login redirect tests");
-    expect(screen.queryByText("Fix the login redirect")).toBeNull();
+    // The request's own card is gone; each package card says it is one of two from that request.
+    expect(screen.queryByRole("button", { name: "Fix the login redirect" })).toBeNull();
     expect(screen.queryByText("Classify the data lane")).toBeNull();
+    const first = screen.getByText("Login redirect fix").closest("article")!;
+    const second = screen.getByText("Login redirect tests").closest("article")!;
+    expect(first.textContent).toContain("Card 1 of 2 from one request: Fix the login redirect");
+    expect(second.textContent).toContain("Card 2 of 2 from one request");
+  });
+
+  it("says nothing about a split when a request became one card", async () => {
+    api({
+      captures: [capture({ disposition: "package", package_ids: ["WP-1"] })],
+      packages: [pkg({ id: "WP-1", title: "Login redirect fix" })],
+    });
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Login redirect fix")).closest("article")!;
+    expect(card.textContent).not.toContain("from one request");
   });
 
   it("keeps the board usable and says so when captures cannot be read", async () => {

@@ -4,6 +4,8 @@ import { explain } from "../api/client.js";
 import type { CheckIn } from "../api/types.js";
 import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
 import { AgentList } from "../components/AgentList.js";
+import { SigningSettings } from "../components/SigningSettings.js";
+import { useActiveProject, useProjects } from "../lib/projects.js";
 import { ControlRodVersion } from "../components/UpdateNotice.js";
 import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
 import { CHECK_IN_CHOICES, CHECK_IN_LATER, readBack } from "../lib/agents.js";
@@ -25,6 +27,9 @@ export function Setup() {
   const [changed, setChanged] = useState<Record<string, boolean>>({});
   const [checkIn, setCheckIn] = useState<CheckIn | null>(null);
   const top = useRef<HTMLHeadingElement>(null);
+  const active = useActiveProject();
+  const projects = useProjects();
+  const signingProject = active ?? projects[0] ?? null;
 
   const chosenCheckIn: CheckIn = checkIn ?? agents.setup?.check_in ?? "start-and-merge";
   const rows = agents.rows.map((r) => (r.info.runnable ? { ...r, seated: changed[r.info.id] ?? r.seated } : r));
@@ -42,7 +47,7 @@ export function Setup() {
         <h1 ref={top} tabIndex={-1}>
           {agents.setup?.confirmed ? "Setup" : "Welcome. Let's set up Control Rod."}
         </h1>
-        <p className="muted">Two quick checks: which agents sit at the table, and when we check with you. You can change both any time.</p>
+        <p className="muted">Which agents sit at the table, when we check with you, and what needs your passkey. You can change these any time.</p>
       </header>
 
       <section className="seat-panel" aria-labelledby="setup-agents-title">
@@ -87,12 +92,21 @@ export function Setup() {
         {!choice.today && <p className="muted small">{CHECK_IN_LATER}</p>}
       </section>
 
+      <section className="panel" id="signing" aria-labelledby="setup-signing-title">
+        <h2 id="setup-signing-title">3. What needs your passkey{signingProject ? ` on ${signingProject.name}` : ""}</h2>
+        {signingProject ? (
+          <SigningSettings key={`${signingProject.id}:${signingProject.signing?.version ?? 0}`} project={signingProject} />
+        ) : (
+          <p className="muted small">Create a project first. Its signing settings start at Light: cards start and finish on their own.</p>
+        )}
+      </section>
+
       <section className="panel readback" aria-labelledby="setup-readback-title" aria-live="polite">
         <h2 id="setup-readback-title">Here's what you're setting up</h2>
         <p>{readBack(rows)}</p>
         <p>
           Check-in preference: {choice.label.toLowerCase()}.
-          {!choice.today && " Today every card still stops for your signed release at the start and your signed acceptance at the end."}
+          {!choice.today && " What actually stops a card for you is set under What needs your passkey."}
         </p>
         {!agents.loading && <WorkflowDiagram flow={buildCouncilFlow(rows, chosenCheckIn)} />}
         {agents.save.error && (

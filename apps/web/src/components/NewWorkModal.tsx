@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CloseX } from "./CloseX.js";
 import { backdropClose } from "../lib/dismiss.js";
 
+import { suggestBranchName } from "../lib/branch.js";
 import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
@@ -36,14 +37,6 @@ import {
   type WorkDefaults,
 } from "../lib/workDefaults.js";
 
-function suggestBranchName(text: string): string {
-  const slug = text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 36);
-  return slug ? `cr/${slug}` : "cr/work-package";
-}
 
 const STRATEGY_NOTE: Record<RepoOutfallStrategy, string> = {
   worktree:

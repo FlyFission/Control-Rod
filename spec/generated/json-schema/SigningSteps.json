@@ -1,0 +1,45 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SigningSteps.json",
+    "type": "object",
+    "properties": {
+        "release": {
+            "$ref": "SigningStepMode.json"
+        },
+        "accept": {
+            "$ref": "SigningStepMode.json"
+        },
+        "return": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "click"
+                },
+                {
+                    "type": "string",
+                    "const": "passkey"
+                }
+            ]
+        },
+        "reject": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "click"
+                },
+                {
+                    "type": "string",
+                    "const": "passkey"
+                }
+            ]
+        }
+    },
+    "required": [
+        "release",
+        "accept",
+        "return",
+        "reject"
+    ],
+    "description": "The owner's choice of what needs a passkey on a project's routine cards.",
+    "unevaluatedProperties": false
+}

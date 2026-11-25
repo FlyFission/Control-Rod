@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { noteSigned } from "../../lib/signing.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
@@ -62,9 +63,13 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
     setDone(null);
     try {
       const { decision } = await decide(
-        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: digest, independentCheck: needsIndependentCheck(pkg), ...(why ? { reason: why } : {}) },
+        {
+          packageId: pkg.id, revision: pkg.revision, kind, shownDigest: digest, independentCheck: needsIndependentCheck(pkg), ...(why ? { reason: why } : {}),
+          noPasskey: card.offered?.find((a) => a.command === kind)?.signature === "none",
+        },
         passkeys,
       );
+      if (card.offered?.find((a) => a.command === kind)?.signature === "direct") noteSigned(kind);
       setDone(`${DECISION_LABEL[decision.kind]} recorded.`);
       setPending(null);
       setReason("");

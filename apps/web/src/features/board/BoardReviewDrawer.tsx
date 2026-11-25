@@ -7,7 +7,8 @@ import { api, explain } from "../../api/client.js";
 import { projectDisplayName, useProjects } from "../../lib/projects.js";
 import type { DecisionKind, PackageView, Run, WorkPackage } from "../../api/types.js";
 import { AgentPanel, pickRun } from "../../components/AgentPanel.js";
-import { Blocked, ReasonBox, useDecisionSigner, type DecisionSigner } from "../../components/DecisionBar.js";
+import { Blocked, PasskeyHint, ReasonBox, useDecisionSigner, type DecisionSigner } from "../../components/DecisionBar.js";
+import { PullRequestLine } from "../../components/PullRequestLine.js";
 import { DrawerOutputs } from "./DrawerOutputs.js";
 import { useDockTop } from "./dock.js";
 import { AgentBadge } from "../../components/AgentBadge.js";
@@ -173,6 +174,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
             <span className="mono">{packageId}</span>
             {pkg && <> {"·"} {STATUS_LABEL[pkg.status] ?? pkg.status}</>}
           </p>
+          {view && <PullRequestLine pr={view.pull_request} />}
         </div>
         <CloseX onClose={onClose} label="Close review drawer" />
       </div>
@@ -313,8 +315,9 @@ function NextStep({ view, step, d }: { view: PackageView; step: DrawerStep; d: D
       )}
 
       <ReasonBox d={d} compact />
+      <PasskeyHint d={d} />
 
-      {d.busy && <p className="muted small">Waiting for your passkey…</p>}
+      {d.busy && <p className="muted small">{d.signsWithPasskey ? "Waiting for your passkey…" : "Recording…"}</p>}
       {(d.error ?? requeue.error ?? stop.error) && (
         <p role="alert" className="error small">
           {d.error ?? explain(requeue.error ?? stop.error, "That did not go through.")}

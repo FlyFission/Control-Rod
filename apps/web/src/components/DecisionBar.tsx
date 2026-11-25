@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { noteSigned, passkeyHint, signedToday } from "../lib/signing.js";
 import { explain } from "../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView } from "../api/types.js";
 import { decisionLabel, NEEDS_REASON, browserPasskeys, decide, type Passkeys } from "../lib/decide.js";
@@ -57,9 +58,14 @@ export function useDecisionSigner(view: PackageView, passkeys: Passkeys = browse
     setDone(null);
     try {
       const { decision } = await decide(
-        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, independentCheck: needsIndependentCheck(pkg), ...(reason.trim().length > 0 ? { reason } : {}) },
+        {
+          packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, independentCheck: needsIndependentCheck(pkg), ...(reason.trim().length > 0 ? { reason } : {}),
+          // The signing settings let this step go with a press: no passkey, still bound to what was shown.
+          noPasskey: decisions.find((a) => a.command === kind)?.signature === "none",
+        },
         passkeys,
       );
+      if (decisions.find((a) => a.command === kind)?.signature === "direct") noteSigned(kind);
       setDone(`${decisionLabel(decision.kind)} recorded.`);
       setPending(null);
       setReason("");
@@ -83,7 +89,24 @@ export function useDecisionSigner(view: PackageView, passkeys: Passkeys = browse
     void sign(kind);
   }
 
-  return { actions, scramLock, allowed, refused, current, pending, pendingAllowed, setPending, reason, setReason, busy, error, done, sign, choose };
+  const signsWithPasskey = allowed.some((k) => decisions.find((a) => a.command === k)?.signature === "direct");
+  return { actions, decisions, scramLock, allowed, refused, current, pending, pendingAllowed, setPending, reason, setReason, busy, error, done, sign, choose, signsWithPasskey };
+}
+
+/**
+ * One quiet line under the buttons when one of them will ask for a passkey: why, and where to
+ * change it. After a few signed steps of one kind in a day it offers to let them go.
+ */
+export function PasskeyHint({ d }: { d: DecisionSigner }) {
+  const signedKind = d.allowed.find((k) => d.decisions.find((a) => a.command === k)?.signature === "direct");
+  if (!signedKind) return null;
+  const descriptor = d.decisions.find((a) => a.command === signedKind);
+  if (descriptor?.signing_preset === undefined && descriptor?.step_mode === undefined) return null;
+  return (
+    <p className="small muted passkey-hint">
+      {passkeyHint(signedKind, decisionLabel(signedKind), descriptor.signing_preset, signedToday(signedKind))} <a href="/setup#signing">Change</a>
+    </p>
+  );
 }
 
 /** Where a decision's reason is typed: shown in view and focused the moment it opens. */
@@ -106,7 +129,7 @@ export function ReasonBox({ d, compact = false }: { d: DecisionSigner; compact?:
       </label>
       <div className="decide-buttons">
         <button type="button" className={pending === "reject" ? "btn danger" : "btn primary"} onClick={() => void d.sign(pending)} disabled={d.busy || !d.pendingAllowed || d.scramLock.locked || d.reason.trim().length === 0} title={d.scramLock.why}>
-          Sign: {decisionLabel(pending)}
+          {d.decisions.find((a) => a.command === pending)?.signature === "none" ? decisionLabel(pending) : `Sign: ${decisionLabel(pending)}`}
         </button>
         <button type="button" className="btn ghost" onClick={() => d.setPending(null)} disabled={d.busy}>
           Cancel
@@ -203,6 +226,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
           ))}
         </div>
       )}
+      <PasskeyHint d={d} />
       {actions.isSuccess && allowed.length === 0 && <Blocked refused={refused} label={label} />}
       {allowed.length > 0 && refused.length > 0 && (
         <details className="refused-decisions">
@@ -211,7 +235,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
         </details>
       )}
       <ReasonBox d={d} />
-      {busy && <p className="muted small">Waiting for your passkey</p>}
+      {busy && <p className="muted small">{d.signsWithPasskey ? "Waiting for your passkey" : "Recording"}</p>}
       {error !== null && (
         <p role="alert" className="error">
           {error}

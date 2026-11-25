@@ -1,0 +1,128 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw/http";
+import { server } from "../test/server.js";
+import { renderPage } from "../test/render.js";
+import type { WorkspaceProject } from "../api/types.js";
+import { type Passkeys, decide } from "../lib/decide.js";
+import { noteSigned, passkeyHint, presetOf, signedToday, SIGNING_PRESETS } from "../lib/signing.js";
+import { SigningSettings } from "./SigningSettings.js";
+import { AutonomyOffer } from "../features/board/AutonomyOffer.js";
+
+const project: WorkspaceProject = {
+  id: "prj_test", name: "Project", mode: "software", status: "active", repo: "",
+  repoStrategy: "worktree", workspaceRoot: "", lane: "internal",
+  author: { ecosystem: "claude", model: "default", reasoning: "default" },
+  checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+  createdAt: "2026-11-22T00:00:00Z",
+};
+const keys = (signed: unknown[]): Passkeys => ({
+  async get(o) { signed.push(o); return { id: "cred-1", response: { signature: "sig" }, type: "public-key" }; },
+  async create() { return {}; },
+});
+
+/** Records the admin command the page signs and sends. */
+function adminCommand(name: string) {
+  const sent: { options?: unknown; command?: unknown } = {};
+  server.use(
+    http.post(`*/admin/commands/${name}/options`, async ({ request }) => {
+      sent.options = await request.json();
+      return HttpResponse.json({ options: { challenge: "c" } });
+    }),
+    http.post(`*/admin/commands/${name}`, async ({ request }) => {
+      sent.command = await request.json();
+      return HttpResponse.json({ project_id: "prj_test", version: 1 });
+    }),
+  );
+  return sent;
+}
+
+beforeEach(() => localStorage.clear());
+
+describe("signing helpers", () => {
+  it("names a set of steps by its preset, or custom", () => {
+    expect(presetOf(SIGNING_PRESETS[0]!.steps)).toBe("light");
+    expect(presetOf({ ...SIGNING_PRESETS[0]!.steps, accept: "click" })).toBe("custom");
+  });
+
+  it("counts passkey steps per kind per day and offers to let them go after three", () => {
+    const day = new Date("2026-11-25T10:00:00Z");
+    expect(noteSigned("accept", day)).toBe(1);
+    noteSigned("accept", day);
+    expect(noteSigned("accept", day)).toBe(3);
+    expect(signedToday("accept", new Date("2026-11-26T10:00:00Z"))).toBe(0);
+    expect(passkeyHint("accept", "Accept", "balanced", 3)).toBe("You've signed 3 accepts today. Let these go without a passkey?");
+    expect(passkeyHint("accept", "Accept", "balanced", 1)).toBe("Asks for your passkey because your settings sign accept.");
+    expect(passkeyHint("accept", "Accept", undefined, 0)).toMatch(/no signing settings yet/);
+  });
+});
+
+describe("a step the settings let go with a press", () => {
+  it("sends the decision with the digest the person saw and asks for no passkey", async () => {
+    let body: Record<string, unknown> | undefined;
+    let optionsAsked = false;
+    server.use(
+      http.post("*/packages/WP-1/decisions/options", () => { optionsAsked = true; return HttpResponse.json({}); }),
+      http.post("*/packages/WP-1/decisions", async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ kind: "return" }, { status: 201 });
+      }),
+    );
+    const signed: unknown[] = [];
+    const digest = { algorithm: "sha256" as const, value: "a".repeat(64) };
+    await decide({ packageId: "WP-1", revision: 0, kind: "return", reason: "Needs a plan", shownDigest: digest, noPasskey: true }, keys(signed));
+    expect(optionsAsked).toBe(false);
+    expect(signed).toEqual([]);
+    expect(body).toEqual({ kind: "return", package_revision: 0, reason: "Needs a plan", expected_subject_digest: digest });
+  });
+});
+
+describe("What needs your passkey", () => {
+  it("starts at Light for a project that has not chosen, and signs the choice once", async () => {
+    const sent = adminCommand("project.set-signing-policy");
+    const signed: unknown[] = [];
+    await renderPage(<SigningSettings project={project} passkeys={keys(signed)} />);
+    expect((screen.getByRole("radio", { name: /Light/ }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByText(/Until you save, every step on this project asks for your passkey/)).toBeTruthy();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Sign and save" }));
+    await waitFor(() => expect(sent.command).toBeDefined());
+    expect(signed).toHaveLength(1);
+    expect(sent.command).toMatchObject({ payload: { project_id: "prj_test", preset: "light" } });
+  });
+
+  it("sends each step when they no longer match a preset", async () => {
+    const sent = adminCommand("project.set-signing-policy");
+    const user = userEvent.setup();
+    await renderPage(<SigningSettings project={{ ...project, signing: { preset: "light", steps: SIGNING_PRESETS[0]!.steps, version: 1, signed_by: "ben", signed_at: "2026-11-25T00:00:00Z" } }} passkeys={keys([])} />);
+    expect((screen.getByRole("button", { name: "Sign and save" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByText(/Advanced: choose each step/));
+    await user.selectOptions(screen.getByLabelText("Accept work that passed its check"), "click");
+    await user.click(screen.getByRole("button", { name: "Sign and save" }));
+    await waitFor(() => expect(sent.command).toBeDefined());
+    expect(sent.command).toMatchObject({ payload: { project_id: "prj_test", steps: { release: "auto", accept: "click", return: "click", reject: "click" } } });
+  });
+
+  it("offers no choice on a Nuclear-grade project", async () => {
+    await renderPage(<SigningSettings project={{ ...project, mode: "nuclear-grade" }} />);
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.getByText(/is Nuclear-grade, so every release, accept, return and reject is signed/)).toBeTruthy();
+  });
+});
+
+describe("the board's one-time offer", () => {
+  it("turns on Light with one passkey tap", async () => {
+    const sent = adminCommand("project.set-signing-policy");
+    const signed: unknown[] = [];
+    await renderPage(<AutonomyOffer project={project} passkeys={keys(signed)} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Turn on (one passkey tap)" }));
+    await waitFor(() => expect(sent.command).toMatchObject({ payload: { project_id: "prj_test", preset: "light" } }));
+    expect(signed).toHaveLength(1);
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Let cards finish on their own" })).toBeNull());
+  });
+
+  it("is not shown once a project has chosen", async () => {
+    await renderPage(<AutonomyOffer project={{ ...project, signing: { preset: "everything", steps: SIGNING_PRESETS[2]!.steps, version: 1, signed_by: "ben", signed_at: "2026-11-25T00:00:00Z" } }} />);
+    expect(screen.queryByRole("region", { name: "Let cards finish on their own" })).toBeNull();
+  });
+});

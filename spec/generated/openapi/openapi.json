@@ -8007,6 +8007,25 @@
               "none"
             ]
           },
+          "step_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "click",
+              "passkey"
+            ],
+            "description": "For a decision on a card: how the owner's signing policy takes it. \"auto\" means Control Rod\ntakes it on its own when it can; \"click\" a press with no passkey; \"passkey\" a signed press.\nAbsent for anything that is not a card decision."
+          },
+          "signing_preset": {
+            "type": "string",
+            "enum": [
+              "light",
+              "balanced",
+              "everything",
+              "custom"
+            ],
+            "description": "The signing preset in force for this card, when a signing policy covers it."
+          },
           "authority": {
             "type": "array",
             "items": {
@@ -10253,7 +10272,7 @@
             "type": "string"
           }
         },
-        "description": "Who acted. Agents and the system can never hold a human decision right."
+        "description": "Who acted. Agents can never hold a human decision right. The system acts only under the owner's\npasskey-signed signing policy, and then only to release or to accept a pre-check that passed."
       },
       "ControlRod.Records.AgentAssignment": {
         "type": "object",
@@ -10903,6 +10922,10 @@
             "type": "string",
             "pattern": "^[0-9a-f]{32}$",
             "description": "The one-time nonce the passkey challenge was built from, so the binding of the signature to\nthis subject, kind and revision can be re-verified from the record alone. Absent on decisions\nrecorded before it was kept."
+          },
+          "signing_policy": {
+            "$ref": "#/components/schemas/ControlRod.Records.SigningPolicyRef",
+            "description": "Present when the step went through under the owner's signing policy instead of a passkey of\nits own: a copy of the signed policy it relied on. `assertion` is then the policy's assertion."
           },
           "decided_at": {
             "type": "string",
@@ -11864,6 +11887,10 @@
             "maximum": 3,
             "description": "Autonomy level. Level 4 is never permitted (specification 11.2)."
           },
+          "signing_policy": {
+            "$ref": "#/components/schemas/ControlRod.Records.SigningPolicy",
+            "description": "What needs the owner's passkey on this project's routine cards. Absent means every step is signed."
+          },
           "status": {
             "$ref": "#/components/schemas/ControlRod.Records.LifecycleStatus"
           }
@@ -12558,7 +12585,6 @@
           "scope",
           "pulled_by",
           "reason",
-          "assertion",
           "quarantine"
         ],
         "properties": {
@@ -12583,7 +12609,8 @@
             "minLength": 1
           },
           "assertion": {
-            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion",
+            "description": "The puller's passkey, when they signed the pull. Stopping is always safe, so a press is enough."
           },
           "quarantine": {
             "type": "array",
@@ -12763,6 +12790,153 @@
           "engineer-in-responsible-charge"
         ],
         "description": "Roles a signer may hold on a package."
+      },
+      "ControlRod.Records.SigningPolicy": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "preset",
+          "steps",
+          "signed_by",
+          "signed_at",
+          "subject_digest",
+          "assertion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SP-[0-9a-f]{8}$"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "preset": {
+            "type": "string",
+            "enum": [
+              "light",
+              "balanced",
+              "everything",
+              "custom"
+            ]
+          },
+          "steps": {
+            "$ref": "#/components/schemas/ControlRod.Records.SigningSteps"
+          },
+          "signed_by": {
+            "type": "string"
+          },
+          "signed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subject_digest": {
+            "type": "string",
+            "description": "The digest the owner's passkey signed: the command, the member and this exact choice."
+          },
+          "challenge_nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          }
+        },
+        "description": "The signing policy as stored on its project: the reference plus the owner's passkey assertion."
+      },
+      "ControlRod.Records.SigningPolicyRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "preset",
+          "steps",
+          "signed_by",
+          "signed_at",
+          "subject_digest"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SP-[0-9a-f]{8}$"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "preset": {
+            "type": "string",
+            "enum": [
+              "light",
+              "balanced",
+              "everything",
+              "custom"
+            ]
+          },
+          "steps": {
+            "$ref": "#/components/schemas/ControlRod.Records.SigningSteps"
+          },
+          "signed_by": {
+            "type": "string"
+          },
+          "signed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subject_digest": {
+            "type": "string",
+            "description": "The digest the owner's passkey signed: the command, the member and this exact choice."
+          },
+          "challenge_nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          }
+        },
+        "description": "The signed policy a decision relied on, without its assertion (the decision carries that)."
+      },
+      "ControlRod.Records.SigningStepMode": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "click",
+          "passkey"
+        ],
+        "description": "How each step on a routine card is taken: by Control Rod itself, by a press, or signed with a passkey."
+      },
+      "ControlRod.Records.SigningSteps": {
+        "type": "object",
+        "required": [
+          "release",
+          "accept",
+          "return",
+          "reject"
+        ],
+        "properties": {
+          "release": {
+            "$ref": "#/components/schemas/ControlRod.Records.SigningStepMode"
+          },
+          "accept": {
+            "$ref": "#/components/schemas/ControlRod.Records.SigningStepMode"
+          },
+          "return": {
+            "type": "string",
+            "enum": [
+              "click",
+              "passkey"
+            ]
+          },
+          "reject": {
+            "type": "string",
+            "enum": [
+              "click",
+              "passkey"
+            ]
+          }
+        },
+        "description": "The owner's choice of what needs a passkey on a project's routine cards."
       },
       "ControlRod.Records.TenancyId": {
         "type": "string",
@@ -13377,6 +13551,39 @@
         },
         "description": "One entry in your office: something that needs a person."
       },
+      "PackagePullRequest": {
+        "type": "object",
+        "required": [
+          "state",
+          "at"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "opening",
+              "opened",
+              "no-changes",
+              "not-opened"
+            ],
+            "description": "opening: pushing now; opened: the draft is up; no-changes: the work changed no files; not-opened: it failed, see detail."
+          },
+          "url": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "The draft pull request Control Rod opened, or tried to open, for accepted work on a repository checkout."
+      },
       "PackageView": {
         "type": "object",
         "required": [
@@ -13387,6 +13594,10 @@
           "subject_digest"
         ],
         "properties": {
+          "pull_request": {
+            "$ref": "#/components/schemas/PackagePullRequest",
+            "description": "Set once accepted work bound to a repository checkout goes out as a pull request."
+          },
           "draft_etag": {
             "type": "string",
             "description": "Strong ETag of the current draft's content; send it as If-Match to edit the draft."
@@ -13944,6 +14155,10 @@
           },
           "local_path": {
             "type": "string"
+          },
+          "repo_path": {
+            "type": "string",
+            "description": "The base clone the worktree belongs to, which removing the worktree names."
           },
           "scaffolded_dirs": {
             "type": "array",
@@ -15211,6 +15426,15 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "signing_preset": {
+            "type": "string",
+            "enum": [
+              "light",
+              "balanced",
+              "everything"
+            ],
+            "description": "What needs a passkey on routine cards, signed with the create. Ignored for Nuclear-grade."
           }
         }
       },
@@ -15394,7 +15618,46 @@
             "$ref": "#/components/schemas/ControlRod.Records.WorkLaneSet",
             "description": "The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset)."
           },
+          "signing": {
+            "$ref": "#/components/schemas/WorkspaceProjects.WorkspaceSigning",
+            "description": "What needs a passkey on this project's routine cards, once the owner has chosen. Absent: every step is signed."
+          },
           "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceProjects.WorkspaceSigning": {
+        "type": "object",
+        "required": [
+          "preset",
+          "steps",
+          "version",
+          "signed_by",
+          "signed_at"
+        ],
+        "properties": {
+          "preset": {
+            "type": "string",
+            "enum": [
+              "light",
+              "balanced",
+              "everything",
+              "custom"
+            ]
+          },
+          "steps": {
+            "$ref": "#/components/schemas/ControlRod.Records.SigningSteps"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "signed_by": {
+            "type": "string"
+          },
+          "signed_at": {
             "type": "string",
             "format": "date-time"
           }

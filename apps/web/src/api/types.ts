@@ -208,3 +208,6 @@ export interface FreezeResult {
 export type RemoveWorktreeRequest = S["Repos.RemoveWorktreeRequest"];
 export type RemoveWorktreeResult = S["Repos.RemoveWorktreeResult"];
 
+/** What needs a passkey on a project's routine cards (the owner's signing policy, summarised). */
+export type WorkspaceSigning = S["WorkspaceProjects.WorkspaceSigning"];
+export type SigningSteps = S["ControlRod.Records.SigningSteps"];

@@ -74,10 +74,16 @@ async function running(id: string) {
 }
 
 describe("pulling SCRAM", () => {
-  it("needs a passkey and a reason", async () => {
-    const bare = await post("/admin/commands/scram.pull", { payload: { scope: "organization", reason: "x" } });
-    expect(bare.json().code).toBe("signature-required");
+  it("needs a reason, and a passkey only when one is offered, which must then cover the exact pull", async () => {
+    // Stopping is always safe, so a press is enough; the reason is still required.
+    expect((await post("/admin/commands/scram.pull", { payload: { scope: "organization", reason: " " } })).json().code).toBe("reason-required");
     expect((await signed("scram.pull", { scope: "organization", reason: " " })).json().code).toBe("reason-required");
+    const o = await post("/admin/commands/scram.pull/options", { payload: { scope: "organization", reason: "One thing" } });
+    const swapped = await post("/admin/commands/scram.pull", { payload: { scope: "organization", reason: "Another" }, assertion: key.assert(o.json().options) });
+    expect(swapped.json().code).toBe("signature-mismatch");
+    // A passkey that does not verify is refused, never taken as a press.
+    const broken = await post("/admin/commands/scram.pull", { payload: { scope: "organization", reason: "Another" }, assertion: { id: "nope", response: {} } });
+    expect(broken.json().code).toBe("signature-mismatch");
   });
 
   it("stops running work, holds everything in scope, quarantines what stopped runs report, and restarts only once reviewed", async () => {
@@ -414,6 +420,23 @@ describe("pulling SCRAM", () => {
     const blocked = await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "Too soon" });
     expect(blocked.json().message).toContain(`${runId} has unreviewed quarantine`);
     expect((await review(scram.id, runId, "discard", "Resumed work's late output discarded")).statusCode).toBe(200);
+    await restartAll(scram.id);
+  });
+
+  it("stops with one press and no passkey, records it as unsigned, and still signs the restart", async () => {
+    await h.admin.query("update runs set status = 'stopped' where status in ('queued', 'running')");
+    const runId = await running("WP-SCR-PRESS");
+    const pulled = await post("/admin/commands/scram.pull", { payload: { scope: "organization", reason: "Pressed SCRAM" } });
+    expect(pulled.statusCode, pulled.body).toBe(200);
+    const scram = pulled.json();
+    expect(scram.assertion).toBeUndefined();
+    expect(scram.quarantine).toEqual([runId]);
+    expect((await events("scram.pulled")).at(-1)!.data).toMatchObject({ reason: "Pressed SCRAM", signed: false });
+    expect((await events("admin.command")).at(-1)!.data).toMatchObject({ signature: "none" });
+    const bare = await post("/admin/commands/scram.restart", { payload: { scram_id: scram.id, scope: "all", reason: "Without a passkey" } });
+    expect(bare.json().code).toBe("signature-required");
+    await daemon(`/runner/runs/${runId}/complete`, { status: "stopped", outputs: [] });
+    expect((await review(scram.id, runId, "discard", "Nothing to keep")).statusCode).toBe(200);
     await restartAll(scram.id);
   });
 });

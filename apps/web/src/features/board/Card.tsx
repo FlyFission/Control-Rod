@@ -74,6 +74,8 @@ export type CardProps = {
   edgeColor?: string;
   /** Compact density shows one line: a status mark and the title (the next line is the hover text). */
   compact?: boolean;
+  /** Set when intake turned one request into several cards: this card's place and the request. */
+  split?: { index: number; total: number; request: string };
   /** An agent run on this card is running now, as last read; queued alone does not count. */
   runRunning?: boolean;
   /** Runtime providers of the author and checker runs, for their icons. */
@@ -82,7 +84,7 @@ export type CardProps = {
 };
 
 /** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false, author, checker }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false, author, checker, split }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
@@ -175,6 +177,12 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           )}
         </span>
       </div>
+      {split && (
+        <p className="bd-split small muted" title={split.request ? `From your request: ${split.request}` : undefined}>
+          Card {split.index} of {split.total} from one request
+          {split.request ? <>: <span className="bd-split-request">{split.request}</span></> : null}
+        </p>
+      )}
       <p className="bd-next">
         {stream === "live" && lastKnown ? (
           <span className="muted">Last known: {next.text}</span>

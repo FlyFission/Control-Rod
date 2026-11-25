@@ -64,3 +64,16 @@ export function plainError(raw: string | undefined): PlainError | undefined {
   if (text.length <= 140 && !/[/\\{}<>=]|policy:|error:|exit (code|status)|errno|panic|stack|0x/i.test(text)) return { what: text };
   return { what: "Something went wrong while it ran." };
 }
+
+/**
+ * What the item says, in plain words. A run that failed is not a disagreement about the work, so it
+ * is never called a dispute; the runner's own text moves under Details.
+ */
+export function plainItem(item: { detail?: string | undefined; risk: { label: string } }): { label: string; detail: string; raw?: string | undefined } {
+  const failed = /^Run failed: ([\s\S]*)$/.exec(item.detail ?? "");
+  if (failed) {
+    const plain = plainError(failed[1]);
+    return { label: "Did not finish", detail: plain ? `${plain.what}${plain.fix ? ` ${plain.fix}` : ""}` : "A run did not finish.", raw: failed[1] };
+  }
+  return { label: item.risk.label, detail: item.detail ?? "" };
+}

@@ -434,7 +434,8 @@ describe("inbox", () => {
     expect([...mine.querySelectorAll(".office-title")].map((n) => n.textContent)).toEqual(["Lost WP-9", "Accept WP-1"]);
     expect(mine.textContent).toContain("Outcome unknown");
     expect(screen.getByText(/Signing binds revision 1 of WP-1/)).toBeTruthy();
-    expect(screen.getByText("You may accept, return.")).toBeTruthy();
+    // The choices live in the drawer, not as a sentence on the row.
+    expect(screen.queryByText(/You may/)).toBeNull();
     expect(screen.getByRole("link", { name: "Open the runs" }).getAttribute("href")).toBe("/packages/WP-9#runs");
     // Work only someone else may sign is listed apart, with who and why, and not counted as yours.
     expect(mine.textContent).not.toContain("Material WP-7");
@@ -465,8 +466,8 @@ describe("inbox", () => {
     expect(rows[0]!.querySelector(".risk-band svg")!.getAttribute("data-glyph")).toBe("cross");
     expect(rows[1]!.querySelector(".risk-band svg")!.getAttribute("data-glyph")).toBe("bang");
     // A scram item has no digest; the decision has a short one.
-    expect(rows[0]!.querySelector(".inbox-digest")).toBeNull();
-    expect(rows[1]!.querySelector(".inbox-digest")!.textContent).toBe("sha256:ab12cd34ef56");
+    expect(rows[0]!.querySelector(".inbox-more")?.textContent ?? "").not.toContain("sha256:");
+    expect(rows[1]!.querySelector(".inbox-more")!.textContent).toContain("sha256:ab12cd34ef56");
   });
 
   it("shows the digest lines in words and marks them seen, on this person's own cursor", async () => {
@@ -717,7 +718,7 @@ describe("runtime readiness in the office", () => {
       ),
     );
     await renderPage(<Inbox />);
-    expect(await screen.findByText("codex is not ready and is not offered for work.")).toBeTruthy();
+    expect(await screen.findByText("Codex can't take work right now.")).toBeTruthy();
     expect(screen.getByText(/not signed in/)).toBeTruthy();
     expect(screen.queryByText(/claude is not ready/)).toBeNull();
   });

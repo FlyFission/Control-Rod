@@ -1,3 +1,4 @@
+import { AGENTS } from "../../lib/agents.js";
 import { type ReactNode, useEffect, useState } from "react";
 import type { WorkPackage } from "../../api/types.js";
 import type { ColumnId } from "../../lib/board.js";
@@ -137,7 +138,8 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           </span>
         ))}
         <span className="bd-id mono">
-          {pkg.id} r{pkg.revision}
+          {pkg.id}
+          {pkg.revision > 0 ? ` · version ${pkg.revision + 1}` : ""}
         </span>
         {!compact && pkg.grade && pkg.grade !== "general-service" && <span className="bd-grade">{pkg.grade}</span>}
         {nuclear && <span className="bd-nuclear">Nuclear</span>}
@@ -155,7 +157,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
             </span>
           )}
           {author ? (
-            <span className="bd-agent-icon" title={`Author: ${author}`}>
+            <span className="bd-agent-icon" title={`${agentWord(author)} does the work`}>
               <AgentBadge runtime={author} size={18} />
               <span className="sr-only">Author agent {author}</span>
             </span>
@@ -170,7 +172,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
             )
           )}
           {checker && (
-            <span className="bd-agent-icon bd-agent-checker" title={`Checker: ${checker}`}>
+            <span className="bd-agent-icon bd-agent-checker" title={`${agentWord(checker)} checks it`}>
               <AgentBadge runtime={checker} size={18} />
               <span className="sr-only">Checker agent {checker}</span>
             </span>
@@ -225,4 +227,9 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
       )}
     </article>
   );
+}
+
+/** An agent's short name for a tooltip, as the column pickers say it. */
+function agentWord(provider: string): string {
+  return AGENTS.find((a) => a.id === provider)?.name.replace(/ (Code|CLI)$/, "") ?? provider;
 }

@@ -16,7 +16,7 @@ import { RunCard, canStop, runLogScreen } from "../../components/RunLog.js";
 import { projectContextDefault } from "../../lib/context-profile.js";
 import { needsIndependentCheck } from "../../lib/board.js";
 import { decisionLabel } from "../../lib/decide.js";
-import { STATUS_LABEL } from "../../lib/format.js";
+import { AGENTS } from "../../lib/agents.js";
 import { MODE_COPY, type EngineeringMode } from "../../lib/mode.js";
 import { stalledLine, stalledRun } from "../../lib/next.js";
 import { plainError } from "../../lib/plainError.js";
@@ -189,7 +189,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
               {pkg ? <h2 className="bd-calm-title">{pkg.title}</h2> : <h2 className="bd-calm-title mono">{packageId}</h2>}
               <p className="bd-calm-meta small muted">
                 <span className="mono">{packageId}</span>
-                {pkg && <> {"·"} {STATUS_LABEL[pkg.status] ?? pkg.status}</>}
+                {pkg && <> {"·"} {columnWord(pkg.status, view?.pre_check?.outcome, mode)}</>}
               </p>
               {view && <PullRequestLine pr={view.pull_request} />}
             </>
@@ -394,7 +394,16 @@ function DrawerDetails({ view, mode, d }: { view: PackageView; mode: Engineering
   const runs = [...(view.runs ?? [])].sort((a, b) => (Date.parse(b.finished_at ?? b.started_at ?? b.queued_at) || 0) - (Date.parse(a.finished_at ?? a.started_at ?? a.queued_at) || 0));
   const latest = pickRun(view.runs ?? []);
   const author = [...(view.runs ?? [])].filter((r) => r.role === "author").sort((a, b) => Date.parse(b.queued_at) - Date.parse(a.queued_at))[0]?.runtime?.provider;
-  const checker = [...(view.runs ?? [])].filter((r) => r.role === "pre-check").sort((a, b) => Date.parse(b.queued_at) - Date.parse(a.queued_at))[0]?.runtime?.provider;
+  const checkRun = [...(view.runs ?? [])].filter((r) => r.role === "pre-check").sort((a, b) => Date.parse(b.queued_at) - Date.parse(a.queued_at))[0];
+  const checker = checkRun?.runtime?.provider;
+  const checkSummary = pre
+    ? `${pre.outcome === "pass" ? "Passed" : pre.outcome === "fail" ? "Failed" : pre.outcome}${pre.findings.length > 0 ? `, ${pre.findings.length} ${pre.findings.length === 1 ? "finding" : "findings"}` : ""}`
+    : checkRun?.status === "running" || checkRun?.status === "queued"
+      ? "Running"
+      : checkRun?.status === "failed" || checkRun?.status === "lost"
+        ? "Did not finish"
+        : "Not run yet";
+  const outputCount = view.outputs.length;
 
   const row = (id: Section, label: string, summary: string, body: ReactNode) => (
     <div className="bd-fold">
@@ -463,7 +472,7 @@ function DrawerDetails({ view, mode, d }: { view: PackageView; mode: Engineering
       {row(
         "check",
         "Check result",
-        pre ? `${pre.outcome === "pass" ? "Passed" : pre.outcome === "fail" ? "Failed" : pre.outcome}${pre.findings.length > 0 ? `, ${pre.findings.length} ${pre.findings.length === 1 ? "finding" : "findings"}` : ""}` : "Not run yet",
+        checkSummary,
         pre ? (
           <>
             <p className="small muted">
@@ -485,13 +494,17 @@ function DrawerDetails({ view, mode, d }: { view: PackageView; mode: Engineering
             )}
           </>
         ) : (
-          <p className="small muted">The check runs after an agent finishes the work.</p>
+          <p className="small muted">
+            {checkSummary === "Did not finish"
+              ? "The checker stopped before it gave a verdict, so nothing was judged yet. Its run log, under Agent runs, says why."
+              : "The check runs after an agent finishes the work."}
+          </p>
         ),
       )}
       {row(
         "outputs",
         "Outputs",
-        `${view.outputs.length} of ${pkg.deliverables.length} ${pkg.deliverables.length === 1 ? "file" : "files"}`,
+        outputCount === 0 ? "None yet" : `${outputCount} ${outputCount === 1 ? "file" : "files"}`,
         <>
           <DrawerOutputs packageId={pkg.id} outputs={view.outputs} loading={false} />
           {pkg.deliverables.length > 0 && (
@@ -526,26 +539,27 @@ function DrawerDetails({ view, mode, d }: { view: PackageView; mode: Engineering
       {row(
         "settings",
         "Who and how",
-        `${pkg.agent_assignment[0]?.agent_baseline ?? "Unassigned"}, ${needsIndependentCheck(pkg) ? "independent check" : "standard check"}`,
+        `${author ? agentName(author) : "No one yet"} writes, ${checker ? agentName(checker) : "no one yet"} checks`,
         <>
           <dl className="bd-custody" role="group" aria-label="Custody chain">
             <div>
               <dt>{copy.custodyRoles[0]}</dt>
               <dd>
                 {author && <AgentBadge runtime={author} />}
-                {pkg.agent_assignment[0]?.agent_baseline ?? "Unassigned"}
+                {author ? agentName(author) : "Not started yet"}
               </dd>
             </div>
             <div>
               <dt>{copy.custodyRoles[1]}</dt>
               <dd>
                 {checker && <AgentBadge runtime={checker} />}
-                {needsIndependentCheck(pkg) ? "Independent required" : "Standard check"}
+                {checker ? agentName(checker) : "Not checked yet"}
+                {needsIndependentCheck(pkg) ? " (a different agent from the author)" : ""}
               </dd>
             </div>
             <div>
               <dt>{copy.custodyRoles[2]}</dt>
-              <dd>Passkey sign-off</dd>
+              <dd>You, or your signing settings</dd>
             </div>
           </dl>
           <div className="bd-fold-switches">
@@ -562,7 +576,7 @@ function DrawerDetails({ view, mode, d }: { view: PackageView; mode: Engineering
       {row(
         "signing",
         "Signing record",
-        `Revision ${pkg.revision}`,
+        `Version ${pkg.revision + 1}`,
         <>
           <p className="small">{view.binds ?? `A decision here signs revision ${pkg.revision}, its output and its pre-check, bound by this digest.`}</p>
           <p className="small muted">
@@ -578,4 +592,19 @@ function DrawerDetails({ view, mode, d }: { view: PackageView; mode: Engineering
       )}
     </section>
   );
+}
+
+/** The board column a card sits in, so the drawer and the board use the same words. */
+function columnWord(status: WorkPackage["status"], preOutcome: string | undefined, mode: EngineeringMode): string {
+  const cols = MODE_COPY[mode].boardColumns;
+  if (status === "draft") return cols.ready;
+  if (status === "released" || status === "in-work") return cols.drafting;
+  if (status === "in-verification") return preOutcome === "pass" ? cols["needs-signature"] : cols["agent-check"];
+  if (status === "accepted") return cols.reached;
+  return "Closed";
+}
+
+/** An agent's short name, as the column pickers say it. */
+function agentName(provider: string): string {
+  return AGENTS.find((a) => a.id === provider)?.name.replace(/ (Code|CLI)$/, "") ?? provider;
 }

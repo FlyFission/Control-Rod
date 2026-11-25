@@ -39,7 +39,8 @@ describe("Today, the shift brief", () => {
     expect(readouts).toEqual(["Waiting on you=2", "Agents working=6", "Stuck=1"]);
     const list = screen.getByRole("list", { name: "2 waiting on you" });
     expect([...list.querySelectorAll(".need-title")].map((a) => a.textContent)).toEqual(["SCRAM: drill", "Accept WP-1"]);
-    expect(within(list).getByText("sha256:ab12cd34ef56")).toBeTruthy();
+    // The digest stays in the Inbox details, not on the Today row.
+    expect(screen.queryByText("sha256:ab12cd34ef56")).toBeNull();
     expect(within(list).getByRole("link", { name: "Accept WP-1" }).getAttribute("href")).toBe("/packages/WP-1#decide");
     // The riskiest item's band is the tallest and carries a shape.
     expect(list.querySelectorAll(".risk-band")[0]!.getAttribute("data-level")).toBe("4");

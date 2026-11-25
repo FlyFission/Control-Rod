@@ -11,6 +11,7 @@ import secrets
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 from .common import HERE, ROOT, Refused
@@ -20,7 +21,10 @@ GENERIC = {"GIT_AUTHOR_NAME": "bench", "GIT_AUTHOR_EMAIL": "bench@invalid", "GIT
            "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"}
 SAFE = ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "commit.gpgsign=false",
         "-c", "core.autocrlf=false", "-c", "core.symlinks=true", "-c", "safe.directory=*",
-        "-c", "advice.detachedHead=false", "-c", "init.defaultBranch=main"]
+        "-c", "advice.detachedHead=false", "-c", "init.defaultBranch=main",
+        # no background repack or maintenance: a detached `gc --auto` after a large commit (a Django
+        # export) writes pack temp files while the harness removes the tree
+        "-c", "gc.auto=0", "-c", "gc.autoDetach=false", "-c", "maintenance.auto=false"]
 
 
 SYSTEM_PATH = "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"
@@ -204,4 +208,18 @@ def remove(d: Path) -> None:
         d.chmod(d.stat().st_mode | 0o700)
     except OSError:
         pass
-    shutil.rmtree(d)
+
+    def gone(func, path, exc):  # an entry that vanished on its own is already removed
+        e = exc if isinstance(exc, BaseException) else exc[1]
+        if not isinstance(e, FileNotFoundError):
+            raise e
+    kw = {"onexc": gone} if sys.version_info >= (3, 12) else {"onerror": gone}
+    for attempt in range(3):  # a directory that gained an entry mid-walk is walked again
+        try:
+            shutil.rmtree(d, **kw)
+            return
+        except OSError:
+            if attempt == 2 or not d.exists():
+                if d.exists():
+                    raise
+                return

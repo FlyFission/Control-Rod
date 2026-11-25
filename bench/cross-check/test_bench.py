@@ -458,6 +458,26 @@ class Workspaces(Tmp):
             c = self.capture(edit)[0]
             self.assertEqual(c["status"], "patch_invalid", c["changes"])
 
+    def test_harness_git_never_starts_background_maintenance(self):
+        root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
+        repo = workspace.export_base(self.task, root, self.d / "cache")
+        for k, v in (("gc.auto", "0"), ("gc.autodetach", "false"), ("maintenance.auto", "false")):
+            self.assertEqual(workspace._git(["config", "--get", k], repo).strip(), v)
+
+    def test_remove_tolerates_an_entry_that_vanishes_mid_walk(self):
+        d = self.d / "gone"
+        (d / "pack").mkdir(parents=True)
+        (d / "pack" / "tmp").write_text("x")
+        real = os.unlink
+        def flaky(p, *a, **k):  # a concurrent process removed it first
+            if str(p).endswith("tmp"):
+                real(p, *a, **k)
+                raise FileNotFoundError(2, "No such file or directory", str(p))
+            return real(p, *a, **k)
+        with mock.patch("os.unlink", side_effect=flaky):
+            workspace.remove(d)
+        self.assertFalse(d.exists())
+
     def test_capture_drops_sandbox_mount_point_stubs(self):
         def stubs(r):  # what a killed Claude Code sandbox can leave in its working directory
             (r / ".bashrc").write_text("")

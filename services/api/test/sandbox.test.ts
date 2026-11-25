@@ -27,6 +27,7 @@ describe("what a role asks for", () => {
     expect(runtimesForHosts(["claude", "codex", "fake"], ["docs.example.org"])).toEqual(["claude", "fake"]);
     // Antigravity runs with no network, so it cannot hold named hosts either.
     expect(runtimesForHosts(["agy", "claude"], ["docs.example.org"])).toEqual(["claude"]);
+    expect(runtimesForHosts(["grok", "claude"], ["docs.example.org"])).toEqual(["claude"]);
     expect(runtimesForHosts(["claude", "codex"], [])).toEqual(["claude", "codex"]);
   });
 

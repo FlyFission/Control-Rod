@@ -113,6 +113,10 @@ describe("the navigation rail", () => {
     await renderPage(<Shell session={ben}><p>app</p></Shell>);
     await userEvent.setup().keyboard("[[");
     expect(rail().hasAttribute("inert")).toBe(false);
+    // The toggle and the handle stop advertising a key that does nothing.
+    expect(toggle().hasAttribute("aria-keyshortcuts")).toBe(false);
+    expect(toggle().getAttribute("title")).not.toContain("[");
+    expect(screen.getByRole("separator", { name: "Navigation width" }).getAttribute("title")).not.toContain("[");
   });
 
   it("showing the rail again never changes the saved width", async () => {
@@ -123,7 +127,7 @@ describe("the navigation rail", () => {
     await waitFor(() => expect(loadRailLayout("ben")).toEqual({ width: 480, collapsed: false }));
   });
 
-  it("moves focus to the workspace when the focused toggle goes away at the phone breakpoint", async () => {
+  it("moves focus to the workspace when the breakpoint removes the focused control, and leaves it otherwise", async () => {
     api();
     let matches = false;
     const listeners = new Set<() => void>();
@@ -135,10 +139,21 @@ describe("the navigation rail", () => {
       addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false,
     }));
     try {
-      await renderPage(<Shell session={ben}><p>app</p></Shell>);
+      await renderPage(<Shell session={ben}><input aria-label="Draft" /></Shell>);
       toggle().focus();
       act(() => { matches = true; listeners.forEach((l) => l()); });
       expect(document.activeElement?.id).toBe("main");
+      // Search is desktop-only too.
+      act(() => { matches = false; listeners.forEach((l) => l()); });
+      screen.getByRole("button", { name: /^Search/ }).focus();
+      act(() => { matches = true; listeners.forEach((l) => l()); });
+      expect(document.activeElement?.id).toBe("main");
+      // A control that stays mounted keeps focus.
+      act(() => { matches = false; listeners.forEach((l) => l()); });
+      const draft = screen.getByLabelText("Draft");
+      draft.focus();
+      act(() => { matches = true; listeners.forEach((l) => l()); });
+      expect(document.activeElement).toBe(draft);
     } finally {
       vi.unstubAllGlobals();
     }

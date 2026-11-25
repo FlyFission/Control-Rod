@@ -141,6 +141,16 @@ const truncated = (page) => page.evaluate(() => [...document.querySelectorAll('.
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
   check((await railW(page)) === 480, `showing it at 830 px (squeezed to ${reopened}) keeps the saved 480 (got ${await railW(page)})`);
+  // Enter on the handle hides and shows it; reopening squeezed does not save the squeeze either.
+  await page.setViewportSize({ width: 830, height: 800 }); await page.waitForTimeout(300);
+  const hsep = page.locator('[role="separator"][aria-label="Navigation width"]');
+  await hsep.focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
+  const enterHidden = await railW(page);
+  await hsep.focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
+  const enterShown = await railW(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
+  check(enterHidden === 0 && enterShown > 0 && (await railW(page)) === 480, `Enter on the handle hides (${enterHidden}) and shows (${enterShown}) at 830 px and keeps the saved 480 (got ${await railW(page)})`);
   // Focus on the handle survives the phone breakpoint by moving to the workspace.
   await page.locator('[role="separator"][aria-label="Navigation width"]').focus();
   await page.setViewportSize({ width: 700, height: 800 }); await page.waitForTimeout(400);

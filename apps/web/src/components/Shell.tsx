@@ -27,7 +27,7 @@ import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
 import { ShortcutHelp } from "./ShortcutHelp.js";
-import { OPEN_MODAL, singleKeysOn } from "../lib/singleKeys.js";
+import { OPEN_MODAL, singleKeysOn, useSingleKeysOn } from "../lib/singleKeys.js";
 import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 import { useFirstRunSetup } from "../lib/firstRun.js";
@@ -340,6 +340,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const railUser = session.signed_in ? session.user : undefined;
   const [railStart] = useState(() => loadRailLayout(railUser));
   const railPanel = usePanelRef();
+  const keysOn = useSingleKeysOn();
   // The width the person chose. Only their own drags, key presses, double-clicks and the toggle change
   // it: a narrow window that squeezes the rail for the workspace's minimum never does.
   const railWidth = useRef(railStart.width);
@@ -349,13 +350,19 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
   // The library reports a finished layout before the panel's own size reads the new value: read it on
   // the next task, once it does.
+  // Hiding or showing (by any route: the toggle, `[`, Enter on the handle, a drag past the minimum)
+  // saves visibility only; a rail reopened in a narrow window may be squeezed, and that squeeze is not
+  // the person's choice. Only a resize of an open rail that stays open saves a new width.
+  const railSavedCollapsed = useRef(railStart.collapsed);
   function persistRailSoon(chosen: boolean) {
     if (!chosen) return;
     window.setTimeout(() => {
       const panel = railPanel.current;
       if (!panel) return;
       const collapsed = panel.isCollapsed();
-      if (!collapsed) railWidth.current = panel.getSize().inPixels;
+      const wasCollapsed = railSavedCollapsed.current;
+      if (!collapsed && !wasCollapsed) railWidth.current = panel.getSize().inPixels;
+      railSavedCollapsed.current = collapsed;
       saveRailLayout(railUser, { width: railWidth.current, collapsed });
     }, 0);
   }
@@ -376,7 +383,9 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     // squeezed, and that squeeze is not the person's choice.
     window.setTimeout(() => {
       const p = railPanel.current;
-      if (p) saveRailLayout(railUser, { width: railWidth.current, collapsed: p.isCollapsed() });
+      if (!p) return;
+      railSavedCollapsed.current = p.isCollapsed();
+      saveRailLayout(railUser, { width: railWidth.current, collapsed: p.isCollapsed() });
     }, 0);
   }
   // The panel's default stays the app's default, so double-clicking the edge resets to it (the library's
@@ -385,6 +394,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     if (phone) return;
     const saved = loadRailLayout(railUser);
     railWidth.current = saved.width;
+    railSavedCollapsed.current = saved.collapsed;
     let frame = 0;
     let tries = 0;
     const apply = () => {
@@ -408,17 +418,17 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   // If focus sat on one of them it would fall to the page: note it during the render that flips the
   // layout and hand focus to the workspace once the new layout is in place.
   const lastPhone = useRef(phone);
-  const focusLost = useRef(false);
+  const focusedAtFlip = useRef<Element | null>(null);
   if (lastPhone.current !== phone) {
     lastPhone.current = phone;
-    const at = typeof document === "undefined" ? null : document.activeElement;
-    const going = phone ? "#cr-rail, .rail-toggle, .rail-sep" : ".phone-top, .bottom-bar, .more-sheet";
-    focusLost.current = at instanceof Element && at.closest(going) !== null;
+    focusedAtFlip.current = typeof document === "undefined" ? null : document.activeElement;
   }
   useLayoutEffect(() => {
-    if (!focusLost.current) return;
-    focusLost.current = false;
-    document.getElementById("main")?.focus();
+    const was = focusedAtFlip.current;
+    focusedAtFlip.current = null;
+    // Whatever control the new layout removed (rail, handle, toggle, Search, runs, the phone's bars),
+    // focus goes to the workspace; a control that stayed keeps it.
+    if (was && was !== document.body && !was.isConnected) document.getElementById("main")?.focus();
   }, [phone]);
   const toggleRailRef = useRef(toggleRail);
   toggleRailRef.current = toggleRail;
@@ -694,8 +704,8 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
                 className="rail-toggle"
                 aria-controls="cr-rail"
                 aria-expanded={!railCollapsed}
-                aria-keyshortcuts="["
-                title={railCollapsed ? "Show navigation  [" : "Hide navigation  ["}
+                aria-keyshortcuts={keysOn ? "[" : undefined}
+                title={`${railCollapsed ? "Show navigation" : "Hide navigation"}${keysOn ? "  [" : ""}`}
                 onClick={toggleRail}
               >
                 <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -838,7 +848,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         <Separator
           className="rail-sep"
           aria-label="Navigation width"
-          title="Drag to resize the navigation. Double-click to reset. Press [ to hide or show it."
+          title={`Drag to resize the navigation. Double-click to reset.${keysOn ? " Press [ to hide or show it." : ""}`}
         />
         )}
         <Panel id="workspace" className="main-panel" minSize="560px">

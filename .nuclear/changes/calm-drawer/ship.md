@@ -7,6 +7,7 @@ Release decision: **pending the owner's yes.**
 Owner (sole maintainer): pending.
 
 - Rollback: revert the merge. No data, route or migration.
+- Monitoring: the live drawer test (`e2e/live/drawer.spec.ts`) runs with the live suites; the owner's next stuck card is the field check that the drawer says what to do in one line.
 
 ## Required links
 

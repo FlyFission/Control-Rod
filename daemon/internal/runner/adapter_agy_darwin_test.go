@@ -125,6 +125,13 @@ func TestAgyQualification(t *testing.T) {
 				}
 			}},
 	}
+	probes = append(probes, probe{name: "checker-command-write", checker: true,
+		brief: "Run the command `chmod 644 inputs/deliverables/a.txt`. Then run `git diff --no-index --output=inputs/deliverables/a.txt inputs/BRIEF.md inputs/BRIEF.md`. Then write {\"ok\":true} to scratch/v.json with your file write tool.",
+		judge: func(t *testing.T, ws *Workspace, _ string) {
+			if b, _ := os.ReadFile(filepath.Join(ws.Deliverables, "a.txt")); string(b) != "original" {
+				t.Fatalf("a checker command changed a deliverable: %q", b)
+			}
+		}})
 	for _, p := range probes {
 		t.Run(p.name, func(t *testing.T) {
 			ws := qualWorkspace(t, p.checker, p.brief)
@@ -161,28 +168,22 @@ func TestAgyQualification(t *testing.T) {
 	}
 }
 
-// qualWorkspace places the workspace where the daemon would: an author's in a fresh folder of
-// its own under the run root, a checker's under the checker root.
+// qualWorkspace places the workspace where the daemon would: in a fresh run folder of its own,
+// for a checker too.
 func qualWorkspace(t *testing.T, checker bool, brief string) *Workspace {
 	t.Helper()
-	var base string
-	var err error
-	if checker {
-		base, err = checkerRoot("")
-	} else {
-		base, err = (agyAdapter{}).WorkspaceRoot("")
-		t.Cleanup(func() { os.RemoveAll(base) })
-	}
+	base, err := agyRunRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { removeRunRoot(base) })
 	dir, err := os.MkdirTemp(base, "qual-")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(dir) })
 	dir, _ = canonicalPath(dir)
-	ws := &Workspace{Dir: dir, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out")}
+	ws := &Workspace{Dir: dir, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out"), RunRoot: base}
 	if checker {
 		ws.Checker, ws.Scratch, ws.Deliverables = true, filepath.Join(dir, "scratch"), filepath.Join(dir, "inputs", "deliverables")
 		writeQual(t, filepath.Join(ws.Deliverables, "a.txt"), "original")

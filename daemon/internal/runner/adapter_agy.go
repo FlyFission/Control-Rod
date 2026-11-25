@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"sort"
@@ -84,8 +85,29 @@ func (a agyAdapter) Probe(ctx context.Context, _ string, run CommandRunner) Runt
 			return true
 		}
 		st.Models = agyModels(out)
+		if !agyQualifiedVersion(st.Version) {
+			st.Reason = agyVersionReason(st.Version)
+			return true
+		}
 		return false
 	})
+}
+
+// agyQualifiedSeries is the Antigravity release series whose confinement was qualified live
+// (change record agy-seat): tool names the seat gate refuses and the field a sandbox-bypass request
+// carries were measured on 1.5.16. Another series is listed but not seated until it is qualified.
+const agyQualifiedSeries = "1.5."
+
+var agyVersionRE = regexp.MustCompile(`(?:^|[^0-9.])(\d+\.\d+\.\d+)(?:$|[^0-9.])`)
+
+// agyQualifiedVersion reads the first x.y.z in the version line.
+func agyQualifiedVersion(v string) bool {
+	m := agyVersionRE.FindStringSubmatch(v)
+	return m != nil && strings.HasPrefix(m[1], agyQualifiedSeries)
+}
+
+func agyVersionReason(v string) string {
+	return fmt.Sprintf("Antigravity CLI %q is installed, but Control Rod has qualified its sandbox only on the %sx series, so it is not seated yet.", v, agyQualifiedSeries)
 }
 
 // agyModels reads model ids from `agy models`: the first field of each line that looks like an
@@ -116,6 +138,9 @@ func modelID(s string) bool {
 }
 
 func (agyAdapter) PreflightCLI(ctx context.Context, run CommandRunner) error {
+	if out, code, err := run(ctx, agyAdapter{}.Binary(), "--version"); err != nil || code != 0 || !agyQualifiedVersion(firstLine(out)) {
+		return refuse("%s", agyVersionReason(firstLine(out)))
+	}
 	if _, code, err := run(ctx, agyAdapter{}.Binary(), "models"); err != nil || code != 0 {
 		return refuse("Antigravity CLI is not signed in. Run `agy` once and sign in; Control Rod never signs in for you.")
 	}
@@ -244,6 +269,8 @@ var agyCheckerWriteDenies = []string{
 	"rm", "mv", "cp", "touch", "mkdir", "rmdir", "tee", "sed", "awk", "chmod", "chown", "ln", "dd", "truncate",
 	"install", "patch", "git apply", "git checkout", "git reset", "git restore", "git commit", "git add", "git stash",
 	"python", "python3", "node", "perl", "ruby", "sh", "bash", "zsh", "env", "xargs", "find",
+	"chflags", "xattr", "tar", "ditto", "cpio", "pax", "unzip", "swift", "swiftc", "xcrun", "clang", "cc", "gcc", "make",
+	"git diff --output", "git log --output", "git show --output",
 }
 
 func (a agyAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
@@ -261,6 +288,15 @@ func (a agyAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at Sandbox
 	args, err := AgyArgs(run, ws, p, at)
 	if err != nil {
 		return nil, err
+	}
+	if ws.Checker && ws.RunRoot != "" {
+		// Antigravity's terminal sandbox lets commands write anywhere in the workspace, so a
+		// checker's inputs are made immutable: a command cannot change them, even for a moment and
+		// put them back before the tree is hashed again. The flag is cleared when the run folder
+		// is removed.
+		if err := setImmutable(ws.Inputs, true); err != nil {
+			return nil, fmt.Errorf("make the checker's inputs read-only: %w", err)
+		}
 	}
 	return exec.Command(a.Binary(), args...), nil
 }
@@ -425,9 +461,26 @@ func agyOutsideDenies(dir string) ([]string, error) {
 // instruction files planted that way is refused.
 func (agyAdapter) WorkspaceRoot(string) (string, error) { return agyRunRoot() }
 
+// SerializeRuns: Antigravity's file-tool fence names the folders beside the workspace when the
+// run starts, so a folder another run makes later would not be denied. Runs of this runtime on
+// this machine therefore never overlap: the lock is held from before the run folder is made until
+// it is removed, across every daemon of this user.
+func (agyAdapter) SerializeRuns(ctx context.Context) (func(), error) {
+	tmp, err := canonicalPath("/var/tmp")
+	if err != nil {
+		return nil, err
+	}
+	return lockFileWait(ctx, filepath.Join(tmp, fmt.Sprintf("controlrod-agy-%d.lock", os.Getuid())))
+}
+
 func agyRunRoot() (string, error) {
 	tmp, err := canonicalPath("/var/tmp")
 	if err != nil {
+		return "", err
+	}
+	// The shared checker folder of the other runtimes exists before the fence is computed, so it is
+	// denied by name even when no check has run yet.
+	if _, err := checkerRoot(""); err != nil {
 		return "", err
 	}
 	hits, err := upwardInstructionHits(tmp)
@@ -455,6 +508,10 @@ func agyRunRoot() (string, error) {
 // only reading commands run. The deliverable tree is still hashed before and after, so any
 // change to it voids the check.
 func (agyAdapter) SelfConfinedChecker() bool { return true }
+
+// ExitStatusUntrusted: Antigravity exits 0 when it stops a run at a refused tool, so the daemon
+// decides from its result line (status SUCCESS with no finish reason), and a run without one fails.
+func (agyAdapter) ExitStatusUntrusted() bool { return true }
 
 func (agyAdapter) LaunchInfo(run Run, ws *Workspace, p *SandboxPolicy) Launch {
 	l := baseLaunch(run)

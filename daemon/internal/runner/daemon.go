@@ -804,6 +804,31 @@ func (b *logBuffer) ended() <-chan struct{} {
 	return b.endCh
 }
 
+// exitStatusUntrusted is a runtime whose exit status does not say whether its turn failed:
+// Antigravity exits 0 when it ends a run at a refused tool (measured with agy 1.5.16), so only its
+// own result line can say the turn succeeded.
+type exitStatusUntrusted interface{ ExitStatusUntrusted() bool }
+
+// errTurnFailed is a run whose process exited cleanly but whose runtime reported a failed turn,
+// or, for a runtime whose exit status is untrusted, reported no result at all.
+var errTurnFailed = errors.New("the runtime reported that its turn failed")
+
+// turnFailure is checked after a clean exit: a turn the runtime itself reported as failed is a
+// failed run, whatever the exit status, and so is a turn with no result from a runtime whose exit
+// status cannot be trusted.
+func turnFailure(a Adapter, buf *logBuffer) error {
+	buf.mu.Lock()
+	over, failed := buf.turnOver, buf.turnFailed
+	buf.mu.Unlock()
+	if failed {
+		return errTurnFailed
+	}
+	if u, ok := a.(exitStatusUntrusted); ok && u.ExitStatusUntrusted() && !over {
+		return fmt.Errorf("%w: it ended without a result", errTurnFailed)
+	}
+	return nil
+}
+
 // endedFailed reports whether the runtime's end-of-turn report said the turn failed.
 func (b *logBuffer) endedFailed() bool {
 	b.mu.Lock()
@@ -1409,13 +1434,21 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 			return fail("checkout refused: " + err.Error()), nil
 		}
 	}
+	if s, ok := a.(runSerializer); ok {
+		unlock, lerr := s.SerializeRuns(held)
+		if lerr != nil {
+			return fail("wait for this runtime's other run on this machine: " + lerr.Error()), nil
+		}
+		defer unlock()
+	}
 	ws, err := prepareWorkspace(d.cfg.Home, job, a)
 	if err != nil {
 		return fail(err.Error()), nil
 	}
 	if ws.RunRoot != "" {
-		// The outputs are read into the completion before this returns.
-		defer os.RemoveAll(ws.RunRoot)
+		// The outputs are read into the completion before this returns. Deferred after the lock,
+		// so the folder is gone before the next run of this runtime starts.
+		defer removeRunRoot(ws.RunRoot)
 	}
 	if ws.releaseCheckout != nil {
 		// Custody ends when the run's processes are confirmed gone. When they could not be
@@ -1667,6 +1700,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		if !buf.endedFailed() {
 			err = nil
 		}
+	}
+	if err == nil {
+		err = turnFailure(a, buf)
 	}
 	stopFlush()
 	<-flushed

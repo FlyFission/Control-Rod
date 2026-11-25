@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -494,5 +495,116 @@ func TestAgyPrepareWorkspaceRecordsItsRunFolder(t *testing.T) {
 	}
 	if other, err := prepareWorkspace(t.TempDir(), &Job{Run: testRun("r2", "author")}, claudeAdapter{}); err != nil || other.RunRoot != "" {
 		t.Fatalf("a Claude workspace got a run folder: %+v %v", other, err)
+	}
+}
+
+// A clean exit is not a success when the runtime reported a failed turn, and, for Antigravity
+// (which exits 0 when it stops at a refused tool), when it reported no result at all.
+func TestTurnFailureOverridesACleanExit(t *testing.T) {
+	cases := []struct {
+		a            Adapter
+		over, failed bool
+		wantErr      bool
+	}{
+		{agyAdapter{}, true, false, false},
+		{agyAdapter{}, true, true, true},
+		{agyAdapter{}, false, false, true},
+		{claudeAdapter{}, true, true, true},
+		{claudeAdapter{}, false, false, false},
+	}
+	for i, c := range cases {
+		buf := &logBuffer{adapt: c.a, turnOver: c.over, turnFailed: c.failed}
+		if err := turnFailure(c.a, buf); (err != nil) != c.wantErr || (err != nil && !errors.Is(err, errTurnFailed)) {
+			t.Fatalf("case %d: %v", i, err)
+		}
+	}
+	// A refused tool ends the run with status ERROR on the captured stream.
+	buf := &logBuffer{adapt: agyAdapter{}}
+	buf.add(`{"event":"result","result":{"status":"ERROR","finished_reason":"tool_denied"}}`)
+	if err := turnFailure(agyAdapter{}, buf); err == nil {
+		t.Fatal("a refused-tool stop counted as success")
+	}
+}
+
+func TestAgyQualifiedVersionIsTheMeasuredSeries(t *testing.T) {
+	for v, want := range map[string]bool{"1.5.16": true, "agy 1.5.16": true, "Antigravity CLI v1.5.3 (abc)": true,
+		"1.6.0": false, "2.5.1": false, "1.50.1": false, "": false, "unknown": false} {
+		if got := agyQualifiedVersion(v); got != want {
+			t.Fatalf("%q: %v", v, got)
+		}
+	}
+	run := func(_ context.Context, _ string, args ...string) (string, int, error) {
+		if args[0] == "--version" {
+			return "1.6.0\n", 0, nil
+		}
+		return "", 0, nil
+	}
+	if err := (agyAdapter{}).PreflightCLI(context.Background(), run); err == nil || !strings.Contains(err.Error(), "qualified") {
+		t.Fatalf("an unqualified version passed preflight: %v", err)
+	}
+}
+
+// Two Antigravity runs never overlap: the second waits for the first's release, or for its context.
+func TestAgyRunsAreSerialized(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "agy.lock")
+	first, err := lockFileWait(context.Background(), path)
+	if err != nil {
+		t.Skipf("no run locks here: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Millisecond)
+	defer cancel()
+	if _, err := lockFileWait(ctx, path); err == nil {
+		t.Fatal("a second run started while the first held the lock")
+	}
+	got := make(chan error, 1)
+	go func() {
+		release, err := lockFileWait(context.Background(), path)
+		if err == nil {
+			release()
+		}
+		got <- err
+	}()
+	time.Sleep(300 * time.Millisecond)
+	first()
+	select {
+	case err := <-got:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the waiting run never started after the release")
+	}
+	if err := os.Symlink(path, path+".link"); err == nil {
+		if _, err := lockFileWait(context.Background(), path+".link"); err == nil {
+			t.Fatal("a symlinked lock was followed")
+		}
+	}
+}
+
+// An Antigravity pre-check gets its own run folder too, not the checker folder the other runtimes share.
+func TestAgyPreCheckGetsItsOwnRunFolder(t *testing.T) {
+	job := &Job{Run: testRun("c1", "pre-check")}
+	ws, err := prepareWorkspace(t.TempDir(), job, agyAdapter{})
+	if err != nil {
+		t.Skipf("no run root here: %v", err)
+	}
+	defer removeRunRoot(ws.RunRoot)
+	tmp, _ := canonicalPath("/var/tmp")
+	if !ws.Checker || ws.RunRoot == "" || filepath.Dir(ws.RunRoot) != tmp || !within(ws.Dir, ws.RunRoot) || ws.Scratch == "" {
+		t.Fatalf("pre-check workspace %+v", ws)
+	}
+	shared, err := checkerRoot("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if within(ws.Dir, shared) {
+		t.Fatalf("the pre-check sits in the shared checker folder %s", shared)
+	}
+	deny, err := agyOutsideDenies(ws.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(deny, shared) {
+		t.Fatalf("the shared checker folder is not denied: %v", deny)
 	}
 }

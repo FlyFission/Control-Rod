@@ -311,13 +311,20 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		}
 	}
 
+	if s, ok := a.(runSerializer); ok {
+		unlock, lerr := s.SerializeRuns(ctx)
+		if lerr != nil {
+			return CheckResult{}, fmt.Errorf("wait for this runtime's other run on this machine: %w", lerr)
+		}
+		defer unlock()
+	}
 	ws, err := prepareWorkspace(homeDir, job, a)
 	if err != nil {
 		return CheckResult{}, fmt.Errorf("prepare checker workspace: %w", err)
 	}
 	defer os.RemoveAll(ws.Dir)
 	if ws.RunRoot != "" {
-		defer os.RemoveAll(ws.RunRoot)
+		defer removeRunRoot(ws.RunRoot)
 	}
 
 	sp, err := buildSandboxPaths(homeDir, ws)
@@ -450,6 +457,9 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 			},
 		}
 		execErr = Execute(runCtx, cmd, buf.add, hooks)
+		if execErr == nil {
+			execErr = turnFailure(a, buf)
+		}
 		if !errors.Is(execErr, ErrUncontained) && spawned != nil {
 			receipts.Remove(job.Run.ID)
 		}

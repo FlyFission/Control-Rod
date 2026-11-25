@@ -102,21 +102,28 @@ func prepareWorkspace(root string, job *Job, a Adapter) (*Workspace, error) {
 	if job != nil && job.Run.Checkout != nil && job.Run.Role != "author" {
 		return nil, errors.New("only an author run may carry a checkout binding")
 	}
-	if job != nil && job.Run.Role == "pre-check" && a != nil && a.SandboxRequired() {
-		return PrepareChecker(root, job)
-	}
+	checker := job != nil && job.Run.Role == "pre-check" && a != nil && a.SandboxRequired()
 	if r, ok := a.(workspaceRooter); ok && job != nil && job.Run.Checkout == nil {
+		// Every role, a pre-check too, in a fresh folder of the runtime's own.
 		own, err := r.WorkspaceRoot(root)
 		if err != nil {
 			return nil, err
 		}
-		ws, err := Prepare(own, job)
+		var ws *Workspace
+		if checker {
+			ws, err = prepareCheckerIn(own, job)
+		} else {
+			ws, err = Prepare(own, job)
+		}
 		if err != nil {
-			os.RemoveAll(own)
+			removeRunRoot(own)
 			return nil, err
 		}
 		ws.RunRoot = own
 		return ws, nil
+	}
+	if checker {
+		return PrepareChecker(root, job)
 	}
 	return Prepare(root, job)
 }
@@ -131,6 +138,11 @@ func PrepareChecker(root string, job *Job) (*Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
+	return prepareCheckerIn(base, job)
+}
+
+// prepareCheckerIn is PrepareChecker under a base folder that has already been checked.
+func prepareCheckerIn(base string, job *Job) (*Workspace, error) {
 	dir, err := WorkspaceDir(base, job.Run)
 	if err != nil {
 		return nil, err

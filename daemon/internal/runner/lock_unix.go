@@ -3,6 +3,7 @@
 package runner
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -136,4 +137,34 @@ func lockFile(path string) (func(), error) {
 func hardLinked(fi os.FileInfo) bool {
 	st, ok := fi.Sys().(*syscall.Stat_t)
 	return ok && st.Nlink > 1
+}
+
+// lockFileWait takes an exclusive lock on path, a regular file of this user's that is not a
+// symlink, waiting for any other holder until ctx ends, and returns its release.
+func lockFileWait(ctx context.Context, path string) (func(), error) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	st, err := f.Stat()
+	if err != nil || !st.Mode().IsRegular() || !ownedByMe(st) {
+		f.Close()
+		return nil, fmt.Errorf("%s is not a regular file of this user, so it cannot be used as a lock", path)
+	}
+	for {
+		err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, nil
+		}
+		if !errors.Is(err, syscall.EWOULDBLOCK) {
+			f.Close()
+			return nil, err
+		}
+		select {
+		case <-ctx.Done():
+			f.Close()
+			return nil, context.Cause(ctx)
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
 }

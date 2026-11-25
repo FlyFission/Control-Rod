@@ -1413,6 +1413,8 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
 }
 
 const CHECKOUT_DAEMON_KEY = "checkout-daemon";
+const CHECKOUT_RUNTIME_HOLD = "This run is bound to a checkout and waits for Claude Code or Codex on a connected daemon: the runtimes offered here cannot author in a checkout yet.";
+const CHECKOUT_RUNTIME_KEY = "checkout-runtime";
 const CHECKOUT_DAEMON_HOLD = "This run is bound to a checkout and waits for a connected daemon that can hold exclusive custody of it. The daemon that asked cannot (older version or a host without custody).";
 
 export async function claim(
@@ -1513,7 +1515,8 @@ export async function claim(
             await holdRun(c, cfg, row, pkg.id, net.held.slice(0, 300), "sandbox", `sandbox:${row.role}:${lane}`);
             continue;
           }
-          await releaseHold(c, cfg, row, "sandbox");
+          // A checkout-runtime hold is decided below, once the author offer is known.
+          if (row.body.waiting_key !== CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
           const offer = net.offer;
           const project = pkg.body?.project;
           const owner = typeof project === "string" && project ? await ownerOf(c, "package", pkg.id) : null;
@@ -1542,7 +1545,14 @@ export async function claim(
             const preferredAuthor =
               capPrefs.author?.ecosystem ?? projPrefs?.laneAgents?.drafting ?? projPrefs?.author;
             // A checkout run goes only to a runtime that can author in a checkout.
-            runtime = pickRuntime(row.body.checkout ? offer.filter((r) => CHECKOUT_AUTHORS.includes(r)) : offer, preferredAuthor);
+            const authors = row.body.checkout ? offer.filter((r) => CHECKOUT_AUTHORS.includes(r)) : offer;
+            if (!authors.length && offer.length) {
+              // Held, not skipped silently: say why on the run, replacing any older hold.
+              await holdRun(c, cfg, row, pkg.id, CHECKOUT_RUNTIME_HOLD, "sandbox", CHECKOUT_RUNTIME_KEY);
+              continue;
+            }
+            if (row.body.waiting_key === CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
+            runtime = pickRuntime(authors, preferredAuthor);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
             }

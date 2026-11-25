@@ -9,7 +9,11 @@
 | AG-05 Tools that act outside the sandbox are refused. | global PreToolUse gate in the run home | gate tests; qualification `web-search`, `subagent` | implemented, live check |
 | AG-06 A checker cannot change what it checks. | plan mode, scratch-only writes, write commands denied, tree hash | checker settings tests; qualification `checker` | implemented, live check |
 | AG-07 Only Gemini models count. | `models.json` agy entries | API `wave2-assurance.test.ts` | implemented and tested |
-| AG-08 Refused and failed runs read as failures. | `parseAgy`, `agyResult.failed` | `TestAgyCapturedStream` on captured lines | implemented and tested |
+| AG-08 Refused and failed runs read as failures. | `parseAgy`, `agyResult.failed`, `turnFailure` after a clean exit | `TestAgyCapturedStream`, `TestTurnFailureOverridesACleanExit` | implemented and tested |
+| AG-10 Antigravity runs on one machine never overlap. | `SerializeRuns`, `lockFileWait`; pre-checks in their own run folder | `TestAgyRunsAreSerialized`, `TestAgyPreCheckGetsItsOwnRunFolder` | implemented and tested |
+| AG-11 A checker cannot change its inputs even briefly. | `setImmutable` on `inputs/`; more checker command denies | `TestAgyCheckerInputsAreImmutableUntilTheRunFolderGoes` (macOS); qualification `checker-command-write` | implemented, live check |
+| AG-12 Only the qualified series is seated. | `agyQualifiedVersion` in probe and preflight | `TestAgyQualifiedVersionIsTheMeasuredSeries` | implemented and tested |
+| AG-13 Work Antigravity cannot do is not sent to it, and waits with a reason. | API `runtimesForHosts`, checkout-runtime hold | `sandbox.test.ts`, `runs.test.ts` | implemented and tested |
 | AG-09 Checkout authors and other platforms stay refused. | `AgyArgs`, `ConfinementGap`; API `CHECKOUT_AUTHORS` | refusal unit tests; API seat tests | implemented and tested |
 
 ## Required links

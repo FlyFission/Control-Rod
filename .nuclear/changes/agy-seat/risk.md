@@ -12,6 +12,9 @@
 | R-04 | A checker changes the work it checks. | Plan mode, scratch the only writable folder for file tools, writing commands denied, and the deliverable tree and workspace hashed before and after: any change voids the check. | A check that counts after a deliverable changed. |
 | R-05 | Antigravity serves a Claude or GPT model and is counted as an independent Google checker. | Only Gemini models are registered for the `agy` harness; a counted check refuses any other model. | A counted check on a non-Gemini model. |
 | R-06 | A stopped or refused run reads as success. | The result's status and finish reason decide, not the exit code. Tested on captured lines. | A failed result read as success. |
+| R-08 | Two Antigravity runs overlap and one reads the other's folder, made after its rules were computed. | One lock across every daemon of the user; every run, a pre-check too, in its own folder; the shared checker folder made before the rules. | Two Antigravity runs alive at once. |
+| R-09 | A checker changes its inputs briefly and restores them before the hash. | Inputs immutable from launch; `chflags`, archivers, compilers and `--output` forms denied. | A checker command that writes an input. |
+| R-10 | An Antigravity upgrade adds a tool outside the sandbox or changes the bypass field. | Only the qualified 1.5 series is seated, at probe and again before each launch. | A new series seated without a qualification. |
 | R-07 | A checkout run is sent to Antigravity and fails. | The API offers only checkout-capable runtimes to checkout authors; the daemon refuses it too. | A checkout author run claimed by `agy`. |
 
 ## Selected mode
@@ -22,6 +25,8 @@
 ## Residual
 
 - The file tools can create a new file directly in `/private/var/tmp` (a world temporary folder on the workspace path, which cannot be denied without denying the workspace). They cannot change existing files there, no later run can read it (each run's folder is beside it and denied), an instruction file planted there makes later runs refuse, and a checker in plan mode cannot do it at all (the run ends). Recorded in [ship](ship.md).
+
+- Another local user or program can create files in `/private/var/tmp` (world-writable) after a run's rules are computed, or in the moment between the instruction-file check and launch. Control Rod's own runs cannot (they never overlap), and a file there that a later run would load makes it refuse.
 
 ## Required links
 

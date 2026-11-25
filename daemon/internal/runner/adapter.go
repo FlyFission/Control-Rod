@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -72,6 +73,21 @@ type workspaceRooter interface {
 // selfConfinedChecker is a runtime whose checker is not wrapped in Control Rod's outer checker
 // mount, because its own sandbox cannot start inside one. Its Command carries the checker's
 // limits instead, and the deliverable tree is still hashed before and after the run.
+// runSerializer is a runtime whose runs must not overlap on this machine: the daemon holds the
+// release from before the workspace is made until the run's folder is removed.
+type runSerializer interface {
+	SerializeRuns(ctx context.Context) (func(), error)
+}
+
+// removeRunRoot removes a run folder made by a workspaceRooter, clearing any immutable flag first.
+func removeRunRoot(dir string) {
+	if dir == "" {
+		return
+	}
+	_ = setImmutable(dir, false)
+	_ = os.RemoveAll(dir)
+}
+
 type selfConfinedChecker interface {
 	SelfConfinedChecker() bool
 }

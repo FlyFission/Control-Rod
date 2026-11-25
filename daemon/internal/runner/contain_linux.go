@@ -21,9 +21,18 @@ func cgroupOf(pid int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for _, line := range strings.Split(string(b), "\n") {
+	return parseCgroup(string(b))
+}
+
+// parseCgroup reads the cgroup v2 line of a /proc/<pid>/cgroup file. A process that exited and
+// is held unreaped keeps its cgroup, and once that cgroup is removed (a --collect scope goes as
+// soon as it is empty) the kernel prints its path with " (deleted)" after it. That is still the
+// cgroup the process was in, so the suffix is dropped: a process that ran briefly and exited inside
+// its scope is located there, not taken for one that never arrived.
+func parseCgroup(s string) (string, error) {
+	for _, line := range strings.Split(s, "\n") {
 		if rest, ok := strings.CutPrefix(line, "0::"); ok {
-			return filepath.Join("/sys/fs/cgroup", rest), nil
+			return filepath.Join("/sys/fs/cgroup", strings.TrimSuffix(rest, " (deleted)")), nil
 		}
 	}
 	return "", errors.New("no cgroup v2 membership")

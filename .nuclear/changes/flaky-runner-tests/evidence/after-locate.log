@@ -1,0 +1,9 @@
+$ go test -run TestLocateFindsALeaderThatExitedInItsCollectedScope -count=3 -v  # with the fix
+=== RUN   TestLocateFindsALeaderThatExitedInItsCollectedScope
+--- PASS: TestLocateFindsALeaderThatExitedInItsCollectedScope (0.03s)
+=== RUN   TestLocateFindsALeaderThatExitedInItsCollectedScope
+--- PASS: TestLocateFindsALeaderThatExitedInItsCollectedScope (0.01s)
+=== RUN   TestLocateFindsALeaderThatExitedInItsCollectedScope
+--- PASS: TestLocateFindsALeaderThatExitedInItsCollectedScope (0.01s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.046s

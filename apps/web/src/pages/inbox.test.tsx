@@ -58,11 +58,11 @@ describe("Inbox", () => {
     expect(screen.queryByRole("complementary", { name: /Review / })).toBeNull();
     expect(container.querySelector(".inbox-has-drawer")).toBeNull();
 
-    // Inspect and sign opens the drawer for that item, with the signing readout in it.
+    // Inspect and sign opens the drawer for that item; its signing record is one click away under Details.
     await user.click(screen.getAllByRole("button", { name: "Inspect and sign" })[0]!);
     expect(await screen.findByRole("complementary", { name: "Review WP-0001" })).toBeTruthy();
     expect(container.querySelector(".inbox-has-drawer")).toBeTruthy();
-    expect(await screen.findByRole("region", { name: "Signing readout" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Signing record/ })).toBeTruthy();
 
     // Clicking Close dismisses the drawer and does NOT snap back to WP-0001
     await user.click(screen.getByRole("button", { name: "Close review drawer" }));

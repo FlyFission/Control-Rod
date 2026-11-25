@@ -682,15 +682,15 @@ describe("BoardView", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "First card" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-1" });
-    await user.click(await within(drawer).findByRole("button", { name: "Return with direction" }));
-    const textarea = within(drawer).getByLabelText(/Direction for the next revision/);
+    await user.click(await within(drawer).findByRole("button", { name: "Send back with a note" }));
+    const textarea = within(drawer).getByLabelText(/What should change in the next revision/);
     await user.type(textarea, "Fix valve");
     expect((textarea as HTMLTextAreaElement).value).toBe("Fix valve");
 
     await user.click(screen.getByRole("button", { name: "Second card" }));
     const drawer2 = await screen.findByRole("complementary", { name: "Review WP-2" });
-    await within(drawer2).findByRole("button", { name: "Return with direction" });
-    expect(within(drawer2).queryByLabelText(/Direction for the next revision/)).toBeNull();
+    await within(drawer2).findByRole("button", { name: "Send back with a note" });
+    expect(within(drawer2).queryByLabelText(/What should change in the next revision/)).toBeNull();
   });
 
   it("navigates capture and package card title buttons with J and K", async () => {
@@ -888,6 +888,7 @@ describe("context profile", () => {
     expect(within(card).getByText("Nuclear")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Relief valve sizing" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-S" });
+    await user.click(await within(drawer).findByRole("button", { name: /Who and how/ }));
     const group = within(drawer).getByRole("group", { name: "Context" });
     const nuclear = within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement;
     expect(nuclear.getAttribute("aria-pressed")).toBe("true");
@@ -914,6 +915,7 @@ describe("context profile", () => {
     expect(within(card).queryByText("Nuclear")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Lighting layout" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-L" });
+    await user.click(await within(drawer).findByRole("button", { name: /Who and how/ }));
     const group = within(drawer).getByRole("group", { name: "Context" });
     expect(within(group).getByRole("button", { name: "Light" }).getAttribute("aria-pressed")).toBe("true");
     await waitFor(() => expect((within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement).disabled).toBe(false));
@@ -938,6 +940,7 @@ describe("context profile", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Guided pump study" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-G" });
+    await user.click(await within(drawer).findByRole("button", { name: /Who and how/ }));
     expect((await within(drawer).findAllByText("Not editable during guided preparation")).length).toBeGreaterThan(0);
     const group = within(drawer).getByRole("group", { name: "Context" });
     const nuclear = within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement;
@@ -976,6 +979,7 @@ describe("workflow", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Plant work" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-P" });
+    await user.click(await within(drawer).findByRole("button", { name: /Who and how/ }));
     const select = within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement;
     // An inheriting card shows the inheritance choice, naming what it resolves to.
     await waitFor(() => expect(select.selectedOptions[0]?.textContent).toBe("Project default (Superpowers)"));
@@ -999,6 +1003,7 @@ describe("workflow", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Relief valve" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-W" });
+    await user.click(await within(drawer).findByRole("button", { name: /Who and how/ }));
     const select = within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement;
     expect(select.value).toBe("");
     expect(select.selectedOptions[0]?.textContent).toBe("Project default (Playbook)");
@@ -1024,6 +1029,7 @@ describe("workflow", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Cooling loop" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-C" });
+    await user.click(await within(drawer).findByRole("button", { name: /Who and how/ }));
     const select = within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement;
     await waitFor(() => expect(select.value).toBe("pocock"));
     await waitFor(() => expect(select.disabled).toBe(false));
@@ -1042,6 +1048,7 @@ describe("workflow", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Guided pump study" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-G" });
+    await user.click(await within(drawer).findByRole("button", { name: /Who and how/ }));
     expect(await within(drawer).findAllByText("Not editable during guided preparation")).toBeTruthy();
     expect((within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement).disabled).toBe(true);
   });
@@ -1054,6 +1061,7 @@ describe("workflow", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Approved scope" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-A" });
+    await user.click(await within(drawer).findByRole("button", { name: /Who and how/ }));
     expect(await within(drawer).findByText("Only a draft's workflow can change")).toBeTruthy();
     expect((within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement).disabled).toBe(true);
   });

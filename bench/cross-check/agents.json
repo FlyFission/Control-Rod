@@ -107,6 +107,7 @@
         "browser_use_full_cdp_access",
         "computer_use",
         "daemon_auto_start",
+        "default_mode_request_user_input",
         "deferred_tool_world_state",
         "goals",
         "guardian_approval",
@@ -116,10 +117,14 @@
         "in_app_local_automation",
         "memories",
         "multi_agent",
+        "multi_agent_v2",
+        "multi_agent_v2_dynamic_tools",
         "plugin_discovery_prefetch",
         "plugin_sharing",
         "plugins",
         "remote_plugin",
+        "runtime_agent_instances",
+        "send_message_to_user_async",
         "shell_snapshot",
         "skill_mcp_dependency_install",
         "skill_search",
@@ -187,7 +192,11 @@
         "/etc/codex/config.toml",
         "/etc/codex/managed_config.toml",
         "/etc/codex/requirements.toml"
-      ]
+      ],
+      "probe_skip": [
+        "own sign-in directory"
+      ],
+      "probe_skip_why": "gpt models decline to run a step that touches a path their permission profile denies; admission proves that denial through `codex sandbox` with the run's flags"
     },
     "transport_allow": {
       "openai_base_url": [

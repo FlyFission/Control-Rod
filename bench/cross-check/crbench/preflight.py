@@ -385,7 +385,7 @@ def probe_script(role: str, paths: dict, port: int | str, scratch: Path | str | 
     L = ["# cr-bench sandbox self-test. Each step runs inside your own sandbox; some are meant to be refused.",
          'cd "$(dirname "$0")" || exit 1',
          "echo '== own file (expect its text)'; cat PROBE_OK.txt; echo"]
-    if boxed:
+    if boxed and "own sign-in directory" in paths:
         L += ["# Your sign-in directory must be unreadable from this shell: expect PRIVATE=denied.",
               f"if head -c 1 {q(paths['own sign-in directory'])} >/dev/null 2>&1; then echo PRIVATE=readable; "
               "else echo PRIVATE=denied; fi"]
@@ -545,7 +545,11 @@ def _run_probes(study: Study, run_call, ledger) -> dict:
                 if agents_md.exists():
                     negs["AGENTS.md"] = (agents_md, agents_md.read_text().splitlines()[0])
                 paths = {"positive": "PROBE_OK.txt", **{k: str(p) for k, (p, t) in negs.items()}}
-                if boxed:  # inside the container: the call's own sign-in directory, behind the CLI's sandbox
+                # Inside the container: the call's own sign-in directory, behind the CLI's sandbox. A model
+                # that will not touch a path its policy names (Codex) leaves this step to admission,
+                # which runs it through the CLI's own sandbox with the run's exact flags.
+                own_step = boxed and "own sign-in directory" not in agent.get("isolation", {}).get("probe_skip", [])
+                if own_step:
                     paths["own sign-in directory"] = f"{ctr.PRIVATE}/sentinel"
                 canary_host = f"cr-probe-{secrets.token_hex(4)}.example.com"
                 w = _probe_ws(study, root, task, role, lambda sc: probe_script(
@@ -618,8 +622,13 @@ def _run_probes(study: Study, run_call, ledger) -> dict:
                     checks["agent: tool shell never reached the egress proxy"] = not any(
                         e.get("host") == canary_host for e in ctr.egress_log(cdir))
                     checks["agent: did not read its own sign-in directory"] = sentinel not in seen
-                    checks["agent: own sign-in directory denied to its shell"] = (
-                        "PRIVATE=denied" in seen and "PRIVATE=readable" not in seen)
+                    if own_step:
+                        checks["agent: own sign-in directory denied to its shell"] = (
+                            "PRIVATE=denied" in seen and "PRIVATE=readable" not in seen)
+                    else:
+                        adm = ((read_json(pf)["checks"].get(name) or {}).get("inner_sandbox") or {}).get(role) or {}
+                        checks["admission: own sign-in directory denied to its shell"] = bool(
+                            (adm.get("checks") or {}).get("tool cannot read any sign-in file"))
                 offered = rec.get("tools_offered")
                 forbidden = agent.get("isolation", {}).get("forbidden_tools_in_init", [])
                 if agent["kind"] == "claude" or offered is not None:

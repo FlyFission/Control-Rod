@@ -242,6 +242,21 @@ describe("commands", () => {
     ]));
   });
 
+  it("picks a column's agent with a press, and still asks for the passkey for any other project setting", async () => {
+    const made = await signed(ben, benKey, "project.workspace-create", { name: "Agent picks" });
+    expect(made.statusCode, made.body).toBe(200);
+    const { id } = made.json();
+    const press = (patch: Json) => h.app.inject({
+      method: "PATCH", url: `/workspace/projects/${id}`, headers: { cookie: ben, origin: ORIGIN }, payload: { payload: { project_id: id, patch } },
+    });
+    const picked = await press({ laneAgents: { drafting: "claude", "agent-check": "grok" } });
+    expect(picked.statusCode, picked.body).toBe(200);
+    expect(picked.json().laneAgents).toEqual({ drafting: "claude", "agent-check": "grok" });
+    const repo = await press({ repo: "elsewhere", laneAgents: { drafting: "codex" } });
+    expect(repo.statusCode, repo.body).toBe(403);
+    expect(repo.json().code).toBe("signature-required");
+  });
+
   let project: string;
   it("creates and updates a project and refuses unsafe autonomy", async () => {
     const created = await signed(ben, benKey, "project.create", { name: "Plant", mode: "capital-projects", default_rigor: "standard", lanes: ["internal", "proprietary"], qa_overlays: ["nqa-1"] });

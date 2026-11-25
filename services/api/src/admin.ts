@@ -33,6 +33,9 @@ import { resolveChoice } from "./work-lanes.js";
  * writer transaction against the Member's latest qualification and active status.
  */
 
+/** Project settings that only pick agents: a press, no passkey. */
+const AGENT_PICK_KEYS = new Set(["laneAgents", "author", "checker"]);
+
 export interface Caller { userName: string; memberId: string; orgId: string }
 type Need = "administrator" | "policy" | "administrator+policy" | "lane" | "member";
 
@@ -448,12 +451,18 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
 
   "project.workspace-update": {
     label: "Update workspace project defaults",
-    catalog: "admin.project-update", signature: "direct", need: "administrator",
-    async run(c, caller, p) {
+    // Picking which agent works a column is a press, like moving a card: the data lane still decides
+    // which agents may see the work (disclosure.ts), so the pick cannot widen who reads it. Every
+    // other project setting (repository, folder, data lane, work lanes) still needs the passkey.
+    catalog: "admin.project-update", signature: "press-or-sign", need: "administrator",
+    async run(c, caller, p, ctx) {
       const id = str(p, "project_id")!;
       const { patch } = p;
       if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
         throw new Refusal(400, "invalid", "A workspace project update needs a patch object");
+      }
+      if (!ctx.assertion && Object.keys(patch).some((k) => !AGENT_PICK_KEYS.has(k))) {
+        throw new Refusal(403, "signature-required", "This command needs your passkey");
       }
       return updateWorkspaceProject(c, caller, id, patch as Record<string, unknown>);
     },

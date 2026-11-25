@@ -1,3 +1,4 @@
+import { CLI_ECOSYSTEMS } from "../../lib/runtimes.js";
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AutonomyOffer } from "./AutonomyOffer.js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -126,13 +127,18 @@ export function BoardView() {
     setProjectError(null);
     setProjectPending(true);
     try {
-      const { options } = await api.adminCommandOptions(change.command, change.payload);
-      if (!stillCurrent(startedUnder)) return;
-      const assertion = await browserPasskeys.get(options);
-      if (!stillCurrent(startedUnder)) return;
+      // Picking a column's agent is a press; every other project setting is signed with the passkey.
+      const agentPickOnly = change.command === "project.workspace-update" && Object.keys(change.payload.patch ?? {}).every((k) => AGENT_PICK_KEYS.has(k));
+      let assertion: Record<string, unknown> | undefined;
+      if (!agentPickOnly) {
+        const { options } = await api.adminCommandOptions(change.command, change.payload);
+        if (!stillCurrent(startedUnder)) return;
+        assertion = await browserPasskeys.get(options);
+        if (!stillCurrent(startedUnder)) return;
+      }
       const saved = change.command === "project.workspace-update"
         ? await api.updateWorkspaceProject(change.payload, assertion)
-        : await api.archiveWorkspaceProject(change.payload, assertion);
+        : await api.archiveWorkspaceProject(change.payload, assertion!);
       if (!stillCurrent(startedUnder)) return;
       await qc.cancelQueries({ queryKey });
       if (!stillCurrent(startedUnder)) return;
@@ -470,14 +476,10 @@ export function BoardView() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  function handleLaneAgentChange(colId: "drafting" | "agent-check", eco: "claude" | "codex") {
+  function handleLaneAgentChange(colId: "drafting" | "agent-check", eco: string) {
     if (!activeProject) return;
+    // One agent may do both jobs (the checker still works blind, in a fresh context): the pick is kept as made.
     const laneAgents = { ...activeProject.laneAgents, [colId]: eco };
-    const effectiveAuthor = laneAgents.drafting ?? activeProject.author.ecosystem;
-    const effectiveChecker = laneAgents["agent-check"] ?? activeProject.checker.ecosystem;
-    if (effectiveAuthor === effectiveChecker) {
-      laneAgents[colId === "drafting" ? "agent-check" : "drafting"] = eco === "claude" ? "codex" : "claude";
-    }
     void applyProjectChange({
       command: "project.workspace-update",
       payload: { project_id: activeProject.id, patch: { laneAgents } },
@@ -514,10 +516,13 @@ export function BoardView() {
                   title={`Agent runtime for ${copy.boardColumns[c.id]}`}
                   value={laneAgentValue}
                   disabled={projectPending}
-                  onChange={(e) => handleLaneAgentChange(laneAgentCol, e.target.value as "claude" | "codex")}
+                  onChange={(e) => handleLaneAgentChange(laneAgentCol, e.target.value)}
                 >
-                  <option value="claude">Claude</option>
-                  <option value="codex">Codex</option>
+                  {COLUMN_AGENTS.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.short}
+                    </option>
+                  ))}
                 </select>
               )}
               {countsKnown ? (
@@ -1004,3 +1009,12 @@ export function BoardView() {
     </div>
   );
 }
+
+/** Project settings that only pick agents: a press, no passkey (the server holds the same list). */
+const AGENT_PICK_KEYS = new Set(["laneAgents", "author", "checker"]);
+
+/** Every agent Control Rod can run, by the short name the column picker shows. */
+const COLUMN_AGENTS = CLI_ECOSYSTEMS.filter((e) => e.runnable).map((e) => ({
+  id: e.id,
+  short: e.id === "agy" ? "Antigravity" : e.label.replace(/ (Code|CLI)( \(.*\))?$/, ""),
+}));

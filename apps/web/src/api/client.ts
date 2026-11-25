@@ -249,8 +249,9 @@ export const api = {
   workspaceProjects: () => call<WorkspaceProject[]>("GET", "/workspace/projects"),
   createWorkspaceProject: (payload: WorkspaceProjectCreatePayload, assertion: Record<string, unknown>) =>
     call<WorkspaceProject>("POST", "/workspace/projects", { payload, assertion }),
-  updateWorkspaceProject: (payload: WorkspaceProjectUpdatePayload, assertion: Record<string, unknown>) =>
-    call<WorkspaceProject>("PATCH", `/workspace/projects/${enc(payload.project_id)}`, { payload, assertion }),
+  /** Without an assertion it is a press, which the server takes only for agent picks. */
+  updateWorkspaceProject: (payload: WorkspaceProjectUpdatePayload, assertion?: Record<string, unknown>) =>
+    call<WorkspaceProject>("PATCH", `/workspace/projects/${enc(payload.project_id)}`, assertion ? { payload, assertion } : { payload }),
   archiveWorkspaceProject: (payload: WorkspaceProjectArchivePayload, assertion: Record<string, unknown>) =>
     call<WorkspaceProjectArchive>("POST", `/workspace/projects/${enc(payload.project_id)}/archive`, { payload, assertion }),
   roster: () => call<RosterView>("GET", "/roster"),

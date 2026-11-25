@@ -85,9 +85,43 @@ afterEach(() => {
 });
 
 describe("BoardView", () => {
+  it("picks a column's agent with one press, no passkey, and keeps the pick as made", async () => {
+    api({ packages: [] });
+    const project: WorkspaceProject = {
+      id: "prj_test", name: "Project", mode: "software", status: "active", repo: "",
+      repoStrategy: "worktree", workspaceRoot: "", lane: "internal",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+      createdAt: "2026-11-22T00:00:00Z",
+    };
+    hydrateServerProjects("ben", [project]);
+    selectProject("ben", project.id);
+    const passkey = vi.spyOn(browserPasskeys, "get");
+    const writeBodies: unknown[] = [];
+    server.use(
+      http.patch("*/workspace/projects/prj_test", async ({ request }) => {
+        const body = (await request.json()) as { payload: { patch: Record<string, unknown> } };
+        writeBodies.push(body);
+        return HttpResponse.json({ ...project, ...body.payload.patch });
+      }),
+    );
+    try {
+      await renderPage(<WorkspaceProjectUser value="ben"><Page /></WorkspaceProjectUser>);
+      const checker = screen.getByLabelText("Agent oversight for Being checked") as HTMLSelectElement;
+      // Every agent Control Rod can run is offered, Grok and Antigravity too.
+      expect([...checker.options].map((o) => o.value)).toEqual(expect.arrayContaining(["claude", "codex", "grok", "agy"]));
+      await userEvent.setup().selectOptions(checker, "claude");
+      await waitFor(() => expect(writeBodies).toHaveLength(1));
+      // Claude writes and Claude checks: one agent may do both jobs, so nothing else is switched.
+      expect(writeBodies[0]).toEqual({ payload: { project_id: "prj_test", patch: { laneAgents: { "agent-check": "claude" } } } });
+      expect(passkey).not.toHaveBeenCalled();
+    } finally {
+      passkey.mockRestore();
+    }
+  });
+
   it.each([
     { action: "repository", command: "project.workspace-update", patch: { repo: "RepoA" } },
-    { action: "lane agent", command: "project.workspace-update", patch: { laneAgents: { drafting: "codex", "agent-check": "claude" } } },
     { action: "data lane", command: "project.workspace-update", patch: { lane: "proprietary" } },
     { action: "archive", command: "project.workspace-archive", patch: undefined },
   ])("applies the $action change only after a bound passkey assertion succeeds", async ({ action, command, patch }) => {

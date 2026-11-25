@@ -3,6 +3,7 @@
 Release decision: **pending owner decision.**
 
 - Rollback: revert the merge. No migration.
+- Superseded (2026-11-25): the next Mac run showed Codex's own Seatbelt helper cannot start inside the outer profile, so [codex-checker-self-confined-mac](../codex-checker-self-confined-mac/plan.md) stops wrapping Codex on macOS and removes this isolated home.
 - Monitoring after merge: a Codex pre-check on macOS produces a verdict, and `codex login status` still works on the host afterwards.
 
 ## Required links

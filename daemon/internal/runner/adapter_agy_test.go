@@ -214,8 +214,12 @@ func TestAgyIsConfinedOnlyOnMacOS(t *testing.T) {
 	if runtime.GOOS != "darwin" && err == nil {
 		t.Fatal("started on a platform its sandbox was not measured on")
 	}
-	if !selfConfined(agyAdapter{}) || selfConfined(claudeAdapter{}) || selfConfined(codexAdapter{}) {
-		t.Fatal("only Antigravity skips the outer checker mount")
+	if !selfConfined(agyAdapter{}) || selfConfined(claudeAdapter{}) {
+		t.Fatal("Antigravity skips the outer checker mount and Claude does not")
+	}
+	// Codex skips it only on macOS, where Seatbelt profiles do not nest.
+	if selfConfined(codexAdapter{}) != (runtime.GOOS == "darwin") {
+		t.Fatal("Codex skips the outer checker mount on macOS only")
 	}
 }
 

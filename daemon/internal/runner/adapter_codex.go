@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -120,6 +121,17 @@ func (codexAdapter) LaunchInfo(run Run, _ *Workspace, p *SandboxPolicy) Launch {
 }
 
 func (codexAdapter) StagesArtifact() bool { return true }
+
+// SelfConfinedChecker: on macOS a Codex checker is not wrapped in the outer Seatbelt profile.
+// Codex runs every command, and since 0.172 even its AGENTS.md lookup, through a Seatbelt helper
+// of its own, and Seatbelt profiles do not nest: inside the outer profile the helper fails with
+// "sandbox_apply: Operation not permitted" (exit 71) and Codex stops before it reads the brief.
+// Codex's own permission profile carries the checker's limits instead (CodexPolicyArgs for a
+// checker): the filesystem is read-only except scratch, every denied path (the home folder, the
+// login folders, the daemon's home) is unreadable, and commands get no network. The deliverable
+// tree, the workspace and the protected login names are still hashed before and after, so any
+// other write voids the check. Linux keeps the outer bubblewrap, where Codex's sandbox nests.
+func (codexAdapter) SelfConfinedChecker() bool { return runtime.GOOS == "darwin" }
 
 func (codexAdapter) CheckManagedConfig(files []string) error { return managedConfigRefusal(files) }
 

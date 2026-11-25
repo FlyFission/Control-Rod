@@ -84,6 +84,7 @@ test_a_shallow_home_is_still_denied (bench.cross-check.test_bench.Preflight.test
 test_auth_status_route (bench.cross-check.test_bench.Preflight.test_auth_status_route) ... ok
 test_billing_keys_found_in_config_and_env (bench.cross-check.test_bench.Preflight.test_billing_keys_found_in_config_and_env) ... ok
 test_container_probe_script_never_prints_a_protected_file (bench.cross-check.test_bench.Preflight.test_container_probe_script_never_prints_a_protected_file) ... ok
+test_preflight_runs_the_grader_check_on_selected_tasks (bench.cross-check.test_bench.Preflight.test_preflight_runs_the_grader_check_on_selected_tasks) ... ok
 test_probes_need_a_matching_preflight (bench.cross-check.test_bench.Preflight.test_probes_need_a_matching_preflight) ... ok
 test_run_refuses_without_gates (bench.cross-check.test_bench.Preflight.test_run_refuses_without_gates) ... ok
 test_sealed_probe_passes_and_leaky_or_lazy_fails (bench.cross-check.test_bench.Preflight.test_sealed_probe_passes_and_leaky_or_lazy_fails) ... ok
@@ -116,7 +117,7 @@ test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 114 tests in 65.525s
+Ran 115 tests in 68.483s
 
 OK (skipped=1)
 # python3.9 --version: Python 3.9.25
@@ -205,6 +206,7 @@ test_a_shallow_home_is_still_denied (bench.cross-check.test_bench.Preflight) ...
 test_auth_status_route (bench.cross-check.test_bench.Preflight) ... ok
 test_billing_keys_found_in_config_and_env (bench.cross-check.test_bench.Preflight) ... ok
 test_container_probe_script_never_prints_a_protected_file (bench.cross-check.test_bench.Preflight) ... ok
+test_preflight_runs_the_grader_check_on_selected_tasks (bench.cross-check.test_bench.Preflight) ... ok
 test_probes_need_a_matching_preflight (bench.cross-check.test_bench.Preflight) ... ok
 test_run_refuses_without_gates (bench.cross-check.test_bench.Preflight) ... ok
 test_sealed_probe_passes_and_leaky_or_lazy_fails (bench.cross-check.test_bench.Preflight) ... ok
@@ -237,6 +239,6 @@ test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 114 tests in 73.152s
+Ran 115 tests in 73.732s
 
 OK (skipped=1)

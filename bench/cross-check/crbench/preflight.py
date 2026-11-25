@@ -234,8 +234,8 @@ def preflight(study: Study, phase: str, overage_off_confirmed: bool = False) -> 
     docker = docker_facts(cfg) if cfg["snapshot"]["kind"] == "swebench" else {"ok": True, "not_needed": True}
     if cfg["snapshot"]["kind"] == "swebench":  # the grader accepts our flags and every selected row
         m = load_manifest(study, phase) if (study.phase_dir(phase) / "manifest.json").exists() else None
-        ids = (m["tasks"] + m["reserve"]) if m else []
-        docker["grader"] = grading.grader_check(cfg, ids)
+        task_ids = (m["tasks"] + m["reserve"]) if m else []
+        docker["grader"] = grading.grader_check(cfg, task_ids)
         docker["ok"] = docker["ok"] and docker["grader"]["ok"]
     overage = {"confirmed_off": overage_off_confirmed or not real,
                "basis": "owner confirmation at preflight" if real else "stub agents"}

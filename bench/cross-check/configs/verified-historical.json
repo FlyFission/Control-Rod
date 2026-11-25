@@ -2,7 +2,7 @@
   "name": "verified-historical",
   "_owner": "Policy values below (calendar_days, call and token caps, timeouts) and the snapshot sha256 and expected_rows are the owner's to set before `init`; init refuses while they are null. Nothing is frozen until then.",
   "cohort": {"population": "Python repositories in SWE-bench Verified, difficulty 15 min - 1 hour and 1-4 hours (Verified is OpenAI's human-screened subset), plus any task on the pinned pre-exclusion list", "historical": true},
-  "snapshot": {"kind": "swebench", "path": "~/cr-bench-data/swe-bench-verified-test.jsonl", "dataset_name": "princeton-nlp/SWE-bench_Verified", "split": "test", "sha256": null, "expected_rows": null},
+  "snapshot": {"kind": "swebench", "path": "~/cr-bench-data/swe-bench-verified-v5-test.jsonl", "dataset_name": "SWE-bench/SWE-bench_Verified", "split": "test", "sha256": null, "expected_rows": null},
   "selection": {"seed": 20261124, "calibration_n": 12, "reserve": 6, "max_per_repo": 3, "difficulty": ["15 min - 1 hour", "1-4 hours"], "pre_exclusions": null},
   "authors": ["claude", "codex"],
   "margins": {"delta_catch": 0.15, "delta_fr": 0.05, "alpha": 0.05, "power": 0.8},

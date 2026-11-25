@@ -671,6 +671,23 @@ class Preflight(Tmp):
                     self.assertNotIn(line, script)  # a model that reads the script first cannot quote a result
                 self.assertNotRegex(script, r"\b[A-Z_]+=(present|absent)\b")
 
+    def test_preflight_runs_the_grader_check_on_selected_tasks(self):
+        s = self.study()
+        m = manifest.select(s, "calibration")
+        proto = s.protocol()
+        proto["frozen"]["config"]["snapshot"]["kind"] = "swebench"
+        seen = {}
+        def check(cfg, ids):
+            seen["ids"] = ids
+            return {"ok": True, "why": None}
+        with mock.patch.object(Study, "protocol", return_value=proto), \
+                mock.patch.object(preflight, "docker_facts", return_value={"ok": True}), \
+                mock.patch.object(preflight.grading, "grader_check", side_effect=check):
+            rec = preflight.preflight(s, "calibration")
+        self.assertEqual(seen["ids"], m["tasks"] + m["reserve"])
+        self.assertIsInstance(rec["identities"], dict)  # the task list never replaces the CLI identities
+        self.assertTrue(rec["docker"]["grader"]["ok"])
+
     def test_probes_need_a_matching_preflight(self):
         s = self.study()
         manifest.select(s, "calibration")

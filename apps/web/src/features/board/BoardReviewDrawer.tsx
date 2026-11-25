@@ -42,6 +42,17 @@ export type DrawerStep = {
   action?: { kind: "requeue"; runId: string } | { kind: "open-case"; label: string; hash?: string } | { kind: "decide"; decision: DecisionKind };
 };
 
+const sentence = (s: string) => (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`);
+
+/** The reason a forward step is refused (Release, then Accept, then Accept with findings), else any refusal's reason. */
+export function refusalReason(refused: readonly { command: string; reason?: string; change?: string }[]): string | undefined {
+  const forward = PRIMARY_ORDER.map((k) => refused.find((a) => a.command === k && a.reason)).find(Boolean);
+  const a = forward ?? refused.find((x) => x.reason);
+  if (!a?.reason) return undefined;
+  return a.change ? `${sentence(a.reason)} ${sentence(a.change)}` : a.reason;
+}
+const PRIMARY_ORDER = ["release", "accept", "accept-with-findings"] as const;
+
 /** What a step offers, for resetting its notes and toggles only when that changes. */
 export function stepKey(step: DrawerStep): string {
   const a = step.action;
@@ -104,7 +115,7 @@ export function drawerStep(view: PackageView, allowed: readonly DecisionKind[], 
   }
   const primary = PRIMARY.find((k) => allowed.includes(k));
   if (primary) return { tone: "needs", text: PRIMARY_TEXT[primary] ?? "Ready for you.", action: { kind: "decide", decision: primary } };
-  return { tone: "wait", text: refusedReason ? `Nothing for you to do yet. ${refusedReason}` : "Nothing for you to do yet." };
+  return { tone: "wait", text: refusedReason ? sentence(refusedReason) : "Nothing for you to do yet." };
 }
 
 /**
@@ -184,7 +195,9 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
 
 function CalmBody({ view, mode }: { view: PackageView; mode: EngineeringMode }) {
   const d = useDecisionSigner(view);
-  const refusedReason = d.actions.isSuccess && d.allowed.length === 0 ? d.refused.find((a) => a.reason)?.reason : undefined;
+  // Why the step that moves the work forward (Release, Accept) is closed, even when Send back or
+  // Reject are open: that reason is what the person needs to act on.
+  const refusedReason = d.actions.isSuccess ? refusalReason(d.refused) : undefined;
   const step = drawerStep(view, d.allowed, refusedReason);
   const pkg = view.package;
   return (

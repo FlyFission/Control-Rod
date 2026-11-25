@@ -7,7 +7,7 @@ import { renderPage } from "../../test/render.js";
 import { pkg, view } from "../../test/fixtures.js";
 import type { Run } from "../../api/types.js";
 import { Card } from "./Card.js";
-import { BoardReviewDrawer, drawerStep, stepKey } from "./BoardReviewDrawer.js";
+import { BoardReviewDrawer, drawerStep, refusalReason, stepKey } from "./BoardReviewDrawer.js";
 import { runLine } from "../../lib/next.js";
 import { latestProviders } from "./useBoardData.js";
 import { elapsedText } from "../../lib/format.js";
@@ -36,7 +36,14 @@ describe("drawerStep and stepKey", () => {
   const v = (over: Parameters<typeof view>[0] = {}) => view({ runs: [], ...over }, { id: "WP-1", status: "in-verification" }) as never;
   it("never makes Send back the primary step unless the check found problems", () => {
     expect(drawerStep(v(), ["return", "reject"], "Needs a second qualified person").action).toBeUndefined();
-    expect(drawerStep(v(), ["return"], "Waiting on a person verification").text).toMatch(/Waiting on a person verification/);
+    expect(drawerStep(v(), ["return"], "Waiting on a person verification").text).toBe("Waiting on a person verification.");
+  });
+  it("explains why Accept is closed even when Send back and Reject are open", () => {
+    const refused = [
+      { command: "reject", reason: "Not yours" },
+      { command: "accept", reason: "A person verification is required", change: "Record a passing person verification" },
+    ];
+    expect(refusalReason(refused)).toBe("A person verification is required. Record a passing person verification.");
     expect(drawerStep(v({ pre_check: { outcome: "fail", verifier: "v", method: "m", findings: [] } as never }), ["return"], undefined).action).toEqual({ kind: "decide", decision: "return" });
   });
   it("keys a running step by what it offers, not by its changing label", () => {

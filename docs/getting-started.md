@@ -35,6 +35,10 @@ controlrod start   # checks, builds, starts in the background and opens the app
 
 `controlrod update` checks GitHub, and if `main` has moved on it stops a running Control Rod (running work finishes first), sets any edits you made to Control Rod's own files aside with `git stash`, moves to the new version, installs and builds it, and starts it again the way it was running. If the install or the build fails, it goes back to the version you had and rebuilds that. Your records in `~/.controlrod` are never touched. `controlrod update --check` only lists what is new. It updates the `main` branch only; on another branch it says so and stops.
 
+### Adding cards from a terminal
+
+`controlrod card add "Fix the login typo" --project Sandbox` adds a card the way the board's quick add does: the project's lane, and for a project with a repository a worktree and branch of its own. `controlrod cards` lists every card and the column it is in (`--project` narrows it). Neither needs the browser or a passkey, so an agent working in a terminal can use them too. They use a token Control Rod writes to `~/.controlrod/cli.token` each time it starts, which only lists and adds cards; it cannot accept, release, sign or change settings. Runs never see it, because the Control Rod home is hidden from them.
+
 ### Running it in the background
 
 `controlrod start` checks the machine and stops with what to fix if something is missing (`controlrod doctor` shows the full list), builds in front of you, then runs Control Rod detached, opens the app in your browser and returns. `controlrod start --foreground` keeps it in the terminal instead (`Ctrl+C` stops it), and `--no-open` skips the browser; `pnpm cr start` inside the checkout is a terminal start too. Its output goes to `~/.controlrod/logs/controlrod.log` (`controlrod logs -f`). `controlrod stop` stops it from any terminal, the same way as `Ctrl+C`: running work finishes and is saved first, and `controlrod stop --now` skips that wait. `controlrod status` says whether it runs, where, and which version.

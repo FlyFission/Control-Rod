@@ -34,6 +34,7 @@ const openDbRaw = async (url: string) => {
 export const ORIGIN = "http://localhost:7300";
 export const RP_ID = "localhost";
 export const DAEMON_TOKEN = "test-daemon-token-0123456789";
+export const CLI_TOKEN = "test-cli-token-0123456789";
 const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 
 /**
@@ -104,7 +105,7 @@ export async function startHarness(
     const app = buildApp({
       ...options,
       db,
-      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
+      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), cliTokenHash: hashToken(CLI_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
     });
     await app.ready();
     return {
@@ -146,7 +147,7 @@ export async function startHarness(
     const app = buildApp({
       ...options,
       db,
-      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
+      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), cliTokenHash: hashToken(CLI_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
     });
     await app.ready();
     return {
@@ -181,7 +182,7 @@ export async function startHarness(
   const app = buildApp({
       ...options,
     db,
-    auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
+    auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), cliTokenHash: hashToken(CLI_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
   });
   await app.ready();
   return {

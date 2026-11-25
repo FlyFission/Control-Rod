@@ -1,10 +1,10 @@
 # Ship: Plain names on the board, one way to add work, a shorter Setup
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner, 2026-11-25 00:56 UTC.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): Ben Huffer, yes, by decision card "Merge PR 194 (plain board names, one add button, shorter Setup) into main?" in the project thread, 2026-11-25 00:56 UTC. Blind check: Codex on the owner's Mac (static, four minor findings; three fixed, one deferred, as recorded in verification.md).
 
 - Rollback: revert the merge. No data, route or migration.
 - Monitoring after merge: a fresh install shows the Software board columns as Ready, Agent working, Being checked, Needs a reviewer, Ready to accept; Setup lists runnable agents and one "Coming later" line.

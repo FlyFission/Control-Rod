@@ -135,12 +135,12 @@ describe("first-run setup", () => {
     expect(await screen.findByText(/Couldn't copy here/)).toBeTruthy();
   });
 
-  it("lists agents that are not found or not supported yet under Add an agent, without switches", async () => {
+  it("names the agents it cannot run yet in one line, without switches", async () => {
     api();
     await renderPage(<Setup />);
-    const more = (await screen.findByText("Add an agent")).closest("details")!;
-    for (const name of ["Antigravity", "Grok CLI", "OpenCode"]) expect(within(more).getByText(name)).toBeTruthy();
-    expect(within(more).queryAllByRole("switch")).toHaveLength(0);
+    const later = await screen.findByText(/^Coming later:/);
+    for (const name of ["Antigravity", "Grok CLI", "OpenCode"]) expect(later.textContent).toContain(name);
+    expect(screen.queryByText("Antigravity", { selector: "li *" })).toBeNull();
   });
 });
 

@@ -138,18 +138,18 @@ describe("agent card", () => {
     expect(screen.queryByText("You may accept it.")).toBeNull();
   });
 
-  it("puts unverified Material work at Person verifies, never Needs signature, and says when the step is unknown", async () => {
+  it("puts unverified Material work at the reviewer step (Needs a reviewer in Software), never Ready to accept, and says when the step is unknown", async () => {
     serve();
     let verifs: "none" | "fail" = "none";
     server.use(http.get("*/packages/:id/person-verifications", () => (verifs === "fail" ? HttpResponse.json({ code: "boom" }, { status: 500 }) : HttpResponse.json([]))));
     const first = await renderPage(<AgentCard figure={figure()} lens={undefined} />);
-    expect(await screen.findByText(/step: Person verifies/)).toBeTruthy();
-    expect(screen.queryByText(/step: Needs signature/)).toBeNull();
+    expect(await screen.findByText(/step: Needs a reviewer/)).toBeTruthy();
+    expect(screen.queryByText(/step: Ready to accept/)).toBeNull();
     first.unmount();
     verifs = "fail";
     await renderPage(<AgentCard figure={figure()} lens={undefined} />);
     expect(await screen.findByText(/step unknown until the person verifications are read/)).toBeTruthy();
-    expect(screen.queryByText(/step: Needs signature/)).toBeNull();
+    expect(screen.queryByText(/step: Ready to accept/)).toBeNull();
   });
 
   it("does not say the viewer may accept after a failed refresh of a covering pass", async () => {

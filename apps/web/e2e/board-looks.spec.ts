@@ -100,7 +100,7 @@ for (const look of ["a"]) {
     await expect(page.getByText("Blocked: Needs a second qualified person. Originators cannot verify their own work: ben")).toBeVisible();
     // The capture card asks for its lane; the quick add field is open while the scan runs (slice M4).
     await expect(page.getByText("Needs you: Classify the data lane")).toBeVisible();
-    await page.getByRole("button", { name: "+ Add a card" }).click();
+    await page.getByRole("button", { name: "+ Quick add" }).click();
     await expect(page.getByLabel("Card title")).toBeFocused();
     expect(await scan(page)).toEqual([]);
 

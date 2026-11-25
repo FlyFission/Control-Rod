@@ -35,7 +35,7 @@ export function guideSteps(s: GuideState): GuideStep[] {
     { id: "project", title: "Connect a repository", why: "Make a project and point it at the repository the changes should land in.", done: s.hasRepoProject },
     { id: "card", title: "Describe your first change", why: "One or two sentences is enough. An agent turns it into a plan you can read.", done: s.hasCard },
     { id: "release", title: "Approve the plan", why: "Open the card in Ready, read the plan, and press Release. The agents start then, not before.", done: s.released },
-    { id: "accept", title: "Review and accept the work", why: "When the check passes the card moves to Needs signature. Read the result and press Accept.", done: s.accepted },
+    { id: "accept", title: "Review and accept the work", why: "When the check passes, the card waits for you. Read the result and press Accept.", done: s.accepted },
   ];
 }
 

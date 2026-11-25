@@ -710,12 +710,158 @@ func TestAbsentLoginDirectoryIsPartOfTheHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.Close()
-	if _, err := hashProtected(dir); err == nil {
-		t.Fatal("a settings file over the output cap was hashed")
+	noQuietPeriod(t)
+	big, err := hashProtected(dir)
+	if ok := identityWorks(t, settings); !ok {
+		if err == nil {
+			t.Fatal("a settings file over the output cap was hashed without an identity record")
+		}
+		return
+	}
+	if err != nil || big == changed {
+		t.Fatalf("a settings file over the output cap: %q, %v; want a new digest by identity", big, err)
 	}
 }
 
-func TestProtectedLoginHashRejectsOverBudgetTrees(t *testing.T) {
+// noQuietPeriod lets a test hash large files it has just written.
+func noQuietPeriod(t *testing.T) {
+	t.Helper()
+	saved := identityQuietPeriod
+	identityQuietPeriod = 0
+	t.Cleanup(func() { identityQuietPeriod = saved })
+}
+
+// identityWorks says whether large files at path can be named by identity on this machine.
+func identityWorks(t *testing.T, path string) bool {
+	t.Helper()
+	_, _, ok := fileIdentity(mustLstat(t, path))
+	return ok && ownChangeTime(path)
+}
+
+func mustLstat(t *testing.T, path string) os.FileInfo {
+	t.Helper()
+	st, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+// Codex keeps its own CLI binary under ~/.codex/plugins (CodexCLI.app), far over any content
+// budget. The login hash must still work there, and still see a change to that binary.
+func TestProtectedLoginHashNamesLargeFilesByIdentity(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "plugins", ".plugin-appserver", "codex-cli", "CodexCLI.app", "Contents", "MacOS")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(bin, "codex")
+	if err := os.WriteFile(exe, nil, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(exe, MaxOutputTotal+1); err != nil {
+		t.Fatal(err)
+	}
+	if ok := identityWorks(t, exe); !ok {
+		t.Skip("no change-time record on this platform; large files still fail closed")
+	}
+	noQuietPeriod(t)
+	first, err := hashProtected(root)
+	if err != nil {
+		t.Fatalf("a login directory holding a large app binary could not be hashed: %v", err)
+	}
+	again, err := hashProtected(root)
+	if err != nil || again != first {
+		t.Fatalf("an unchanged tree hashed differently: %q vs %q (%v)", first, again, err)
+	}
+	// Same size, contents rewritten, modification time put back: the change time still moves.
+	before := mustLstat(t, exe)
+	time.Sleep(20 * time.Millisecond)
+	f, err := os.OpenFile(exe, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteAt([]byte("tampered"), 0); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if err := os.Chtimes(exe, before.ModTime(), before.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	tampered, err := hashProtected(root)
+	if err != nil || tampered == first {
+		t.Fatalf("rewriting a large protected file did not change the hash: %q, %v", tampered, err)
+	}
+}
+
+// A rewrite inside the same timestamp tick as the last change would keep the change time, so a
+// large file changed within the quiet period is refused rather than trusted by identity. This
+// covers coarse-timestamp filesystems, where the baseline and a rewrite can share one tick.
+func TestProtectedLoginHashRefusesARecentlyChangedLargeFile(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "plugins"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	big := filepath.Join(root, "plugins", "bin")
+	if err := os.WriteFile(big, nil, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(big, MaxOutputFile+1); err != nil {
+		t.Fatal(err)
+	}
+	if ok := identityWorks(t, big); !ok {
+		t.Skip("no change-time record on this platform")
+	}
+	if digest, err := hashProtected(root); err == nil || !strings.Contains(err.Error(), "changed") || digest != "" {
+		t.Fatalf("a large file changed just now was trusted by identity: %q, %v", digest, err)
+	}
+}
+
+// Symlinks are bounded by the entry limit, not the content budget: a plugin tree whose large
+// files used up the budget, with a link sorted after them, still hashes, and the link counts.
+func TestProtectedLoginHashKeepsLinksPastTheContentBudget(t *testing.T) {
+	root := t.TempDir()
+	plugins := filepath.Join(root, "plugins")
+	if err := os.Mkdir(plugins, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for i := range MaxOutputTotal/MaxOutputFile + 1 {
+		f := filepath.Join(plugins, fmt.Sprintf("a%d", i))
+		if err := os.WriteFile(f, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Truncate(f, MaxOutputFile); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if ok := identityWorks(t, plugins); !ok {
+		t.Skip("no change-time record on this platform")
+	}
+	noQuietPeriod(t)
+	link := filepath.Join(plugins, "zz-link")
+	if err := os.Symlink("a0", link); err != nil {
+		t.Fatal(err)
+	}
+	first, err := hashProtected(root)
+	if err != nil {
+		t.Fatalf("a link after the content budget was spent failed the hash: %v", err)
+	}
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("a1", link); err != nil {
+		t.Fatal(err)
+	}
+	if second, err := hashProtected(root); err != nil || second == first {
+		t.Fatalf("retargeting the link did not change the hash: %q, %v", second, err)
+	}
+}
+
+func TestProtectedLoginHashOverBudgetTrees(t *testing.T) {
+	saved := protectedMaxEntries
+	protectedMaxEntries = 2000
+	t.Cleanup(func() { protectedMaxEntries = saved })
+	noQuietPeriod(t)
 	for _, tc := range []struct {
 		name string
 		want string
@@ -754,13 +900,21 @@ func TestProtectedLoginHashRejectsOverBudgetTrees(t *testing.T) {
 				}
 				createFile("skills", "one-more-byte", 1)
 			case "entries":
-				for i := range checkerMaxEntries()/2 + 1 {
+				for i := range protectedMaxEntries/2 + 1 {
 					name := fmt.Sprint(i)
 					createFile("plugins", name, 0)
 					createFile("skills", name, 0)
 				}
 			}
 			digest, err := hashProtected(root)
+			// Over the byte limits, files are named by identity where the platform records a change
+			// time; only the entry limit, or a platform without that record, still fails.
+			if ok := identityWorks(t, root); ok && tc.name != "entries" {
+				if err != nil || digest == "" {
+					t.Fatalf("hashProtected returned %q, %v; want a digest by identity", digest, err)
+				}
+				return
+			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) || digest != "" {
 				t.Fatalf("hashProtected returned %q, %v; want no digest and an error mentioning %q", digest, err, tc.want)
 			}

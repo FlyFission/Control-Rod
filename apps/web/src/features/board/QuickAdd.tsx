@@ -24,7 +24,7 @@ export function inTypingContext(target: EventTarget | null): boolean {
 }
 
 /**
- * Quick add at the top of Ready (spec 6.3): "+ Add a card" or the `c` key opens an inline title field.
+ * Quick add at the top of Ready (spec 6.3): "+ Quick add" or the `c` key opens an inline title field.
  * Enter posts one capture and leaves a fresh, focused field for the next; Escape closes; a typed draft
  * survives losing focus. Pasting several lines offers one card per line. The capture is posted with no
  * data lane, so nothing reaches an AI runtime until a person classifies it on the new card (M-0).
@@ -185,7 +185,7 @@ export function QuickAdd() {
   if (!open) {
     return (
       <button ref={opener} type="button" className="btn small bd-add" onClick={() => setOpen(true)} disabled={scramLock.locked} title={scramLock.why} aria-keyshortcuts="c">
-        + Add a card
+        + Quick add
       </button>
     );
   }

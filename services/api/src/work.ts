@@ -2985,7 +2985,8 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg])
       .catch((e) => { throw dependencyRefusal(e); });
     await markObject(c, "package", String(pkg.id), pkg.data_lane, `drafted by intake from capture ${capture.id}`, await packageInputs(c, pkg, capture.id));
-    await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id });
+    // Nuclear-grade, as intake judged it, is recorded where no draft edit reaches: the signing floor reads it.
+    await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id, ...(isNuclearDraft ? { nuclear: true } : {}) });
     if(cfg.guidedPreparation) await enrollPreparationTx(c,cfg,SYSTEM,pkg.id as string,{package_revision:0,idempotency_key:`intake-${capture.id}-${pkg.id}`});
     created.push(pkg.id as string);
   }
@@ -3693,42 +3694,110 @@ export async function runtimeStatus(db: Db, orgId: string): Promise<{ reported_a
 
 /* ---------- pull request out ---------- */
 
+/** Outcomes after which this revision never tries again. A failed attempt may be retried. */
+const PR_FINAL = new Set(["no-changes", "not-github", "lane", "shared", "changed", "no-checkout"]);
+/** How long an attempt that never reported holds the claim before another may try. */
+const PR_CLAIM_MS = 15 * 60_000;
+
 /**
  * Opens the draft pull request for an accepted package whose request was bound to a repository
- * checkout, once per revision, and records what happened as an event on the package. Runs after
- * the accept commits, outside any transaction: pushing and opening a pull request take seconds and
- * talk to GitHub. Every outcome, including "nothing to open", is recorded, never thrown.
+ * checkout, and records what happened as events on the package. Runs after the accept commits,
+ * outside the decision's transaction. What goes out is exactly what was accepted: the subject is
+ * recomputed and must match the accept decision's digest, and the commit is built from the
+ * accepted author run's recorded commit and patch output, never from the live tree. The lane is
+ * checked and the push made under the shared marking lock, so a lane raise waits for the push or
+ * the push sees the raise. A failed attempt (or one that never reported in 15 minutes) may be
+ * tried again; the publisher then finds the branch and pull request it already made.
  */
 export async function publishAccepted(db: Db, id: string, revision: number): Promise<void> {
-  const r = await db.query<{ body: Json; status: string; checkout: Json | null }>(
-    `select p.body, p.status, c.body->'checkout' as checkout from packages p join captures c on c.id = p.capture_id
+  const r = await db.query<{ body: Json; status: string; capture_id: string | null; checkout: Json | null }>(
+    `select p.body, p.status, p.capture_id, c.body->'checkout' as checkout from packages p join captures c on c.id = p.capture_id
       where p.id = $1 and p.revision = $2`, [id, revision]);
   const row = r.rows[0];
   if (!row || row.status !== "accepted" || !row.checkout) return;
-  // Claim this revision under the events lock, so two accepts racing open one pull request.
+  const checkout = row.checkout;
   const first = await command(db, "package.open-pr", async (c) => {
     await c.query("lock table events in exclusive mode");
-    const done = await c.query("select 1 from events where body->>'type' = 'package.pr-started' and body->>'subject' = $1 and (body->'data'->>'revision')::int = $2 limit 1", [id, revision]);
-    if (done.rowCount) return false;
-    await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: String(row.checkout!.branch ?? "") });
+    const last = (await c.query<{ body: Json }>(
+      `select body from events where body->>'subject' = $1 and body->>'type' in ('package.pr-started', 'package.pr-opened', 'package.pr-not-opened')
+         and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision])).rows[0]?.body;
+    if (last?.type === "package.pr-opened") return false;
+    if (last?.type === "package.pr-not-opened" && PR_FINAL.has(String(last.data?.reason))) return false;
+    if (last?.type === "package.pr-started" && Date.now() - new Date(String(last.at)).getTime() < PR_CLAIM_MS) return false;
+    await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: publishBranchOf(id, revision) });
     return true;
   });
   if (!first) return;
-  // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
-  const lane = await laneOf(db, "package", id, row.body.data_lane);
-  if (lane !== "public" && lane !== "internal") {
-    await command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: "lane", detail: `This work is on the ${String(lane ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.` }));
+  const notOpened = (reason: string, detail: string) =>
+    command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason, detail }));
+  // Cards drafted from one request share its checkout, so one card's pull request could carry another's unaccepted work.
+  const siblings = (await db.query<{ n: number }>("select count(distinct id)::int as n from packages where capture_id = $1", [row.capture_id])).rows[0]?.n ?? 0;
+  if (siblings > 1) {
+    await notOpened("shared", "This request became several cards that share one branch, so no single card's pull request is opened. Push the branch yourself once every card is accepted.");
     return;
   }
-  const ver = (await db.query<{ body: Json }>("select body from verifications where package_id = $1 and package_revision = $2 order by round desc, created_at desc limit 1", [id, revision])).rows[0]?.body;
-  const result = await publishCheckout(row.checkout as never, { title: String(row.body.title ?? id), body: prBody(row.body, ver) });
+  const pkg = await currentPackage(db, id);
+  if (!pkg || pkg.revision !== revision || pkg.status !== "accepted") return;
+  const s = await subjectOf(db, pkg);
+  const accepted = (await db.query<{ body: Json }>(
+    "select body from decisions where package_id = $1 and package_revision = $2 and kind in ('accept', 'accept-with-findings') order by created_at desc limit 1",
+    [id, revision])).rows[0]?.body;
+  // The subject as it was decided on, before the decision moved the status on.
+  const decided = digest({ ...s.subject, package: { ...s.subject.package, status: "in-verification" } });
+  if (!accepted || accepted.subject_digest?.value !== decided || !s.author || s.author.status !== "succeeded") {
+    await notOpened("changed", "The work on record is not exactly what was accepted, so nothing was pushed.");
+    return;
+  }
+  const finalHead = String(s.author.body?.trace?.checkout_final?.head ?? checkout.head ?? "");
+  const patches = s.outputs.filter((o) => /\.(patch|diff)$/i.test(o.name));
+  if (patches.length > 1) {
+    await notOpened("failed", `The accepted work has ${patches.length} patch files, so Control Rod cannot tell which one to open a pull request for.`);
+    return;
+  }
+  let patch: Buffer | null = null;
+  if (patches[0]) {
+    const out = (await db.query<{ bytes: Buffer; sha256: string }>("select bytes, sha256 from outputs where run_id = $1 and name = $2", [s.author.id, patches[0].name])).rows[0];
+    if (!out) { await notOpened("failed", "The accepted patch could not be read."); return; }
+    await verifyRecordedOutput(db, { packageId: id, revision, runId: s.author.id, path: patches[0].name }, out);
+    patch = out.bytes;
+  }
+  const result = await command(db, "package.publish-pr", async (c) => {
+    // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
+    const lane = await laneOf(c, "package", id, pkg.body.data_lane);
+    if (lane !== "public" && lane !== "internal") return { lane };
+    return publishCheckout({
+      repo: String(checkout.repo ?? ""), root: String(checkout.root ?? ""), path: String(checkout.path ?? ""),
+      boundHead: String(checkout.head ?? ""), finalHead, patch, publishBranch: publishBranchOf(id, revision),
+      title: String(pkg.body.title ?? id), body: prBody(pkg.body, s.verification ?? undefined),
+    });
+  });
+  if ("lane" in result) {
+    await notOpened("lane", `This work is on the ${String(result.lane ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.`);
+    return;
+  }
   await command(db, "package.open-pr", async (c) => {
     if (result.opened) {
-      await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, committed: result.committed });
+      await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, reused: result.reused });
     } else {
       await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: result.reason, detail: result.detail });
     }
   });
+}
+
+/** The branch only this package revision publishes to. */
+export function publishBranchOf(id: string, revision: number): string {
+  return `controlrod/${id.replace(/[^A-Za-z0-9._-]+/g, "-")}-r${revision}`;
+}
+
+/**
+ * Accepted work whose pull request never got an outcome (the server stopped between the accept
+ * and the push, or the last attempt failed). Run once when the server starts; no timer.
+ */
+export async function resumePublishing(db: Db): Promise<void> {
+  const r = await db.query<{ id: string; revision: number }>(
+    `select distinct on (p.id) p.id, p.revision from packages p join captures c on c.id = p.capture_id
+      where c.body ? 'checkout' order by p.id, p.revision desc`);
+  for (const p of r.rows) await publishAccepted(db, p.id, p.revision).catch(() => undefined);
 }
 
 /** The pull request's description: what the card asked for, and who checked it. */

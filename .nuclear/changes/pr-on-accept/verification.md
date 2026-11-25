@@ -17,7 +17,7 @@
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | git push to a local bare remote and a stubbed gh, never real GitHub  [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, mocked API  [Ship limits](ship.md) |
 
-A Codex blind review of this commit is deferred until it runs on the owner's Mac; its findings are fixed before merge.
+Codex blind review round 2 (range 367366f6..ff4101a0, on the owner's Mac): 6 high, 2 medium. Fixed: publication pinned (isolated git config, fail-closed config check, gh pinned to github.com), a per-revision branch that must be absent or already this commit, the commit built from the accepted run's recorded commit and patch (never the live tree) with the subject rechecked against the accept decision, run folders refused in the patch and in every outbound commit, lane checked under the shared marking lock for the push, sibling cards sharing a checkout refused, failed attempts retried and existing pull requests found, unfinished attempts resumed at start. Open: a quick-add worktree whose capture then fails is left on disk (no data leaves; listed as a follow-up). A third review is deferred until it runs.
 
 Claims: PR-01 pull request opens on accept with guards; PR-02 one attempt per revision; PR-03 lane gate; PR-04 quick add lane and worktree; PR-05 SCRAM one press, restart signed.
 

@@ -98,6 +98,9 @@ export async function routinePackage(q: Db | Tx, pkg: { id: string; body: Record
   // The capture itself, which no draft edit changes, can also say Nuclear-grade.
   const origin = await captureOf(q, pkg.id);
   if ((captureTags(origin?.text) ?? []).some((t) => t.key === "mode" && t.value.toLowerCase() === "nuclear-grade")) return false;
+  // ...and so can intake's own judgement, recorded on the package.drafted event.
+  const drafted = await q.query("select 1 from events where body->>'type' = 'package.drafted' and body->>'subject' = $1 and (body->'data'->>'nuclear')::boolean limit 1", [pkg.id]);
+  if (drafted.rowCount) return false;
   if (projectBody && resolveWorkspaceMode(projectBody) === "nuclear-grade") return false;
   if (highConsequence(needsOf(pkg.body as { grade?: unknown; discipline?: unknown }))) return false;
   const lane = await laneOf(q, "package", pkg.id, pkg.body.data_lane);

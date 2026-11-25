@@ -12,8 +12,10 @@ import {
   readlinkSync,
   readSync,
   realpathSync,
+  mkdtempSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
@@ -498,14 +500,22 @@ interface GhOptions {
   timeout?: number | undefined;
   extraConfigPairs?: ReadonlyArray<readonly [string, string]> | undefined;
   ceilingDir?: string | undefined;
+  /** Pins gh to this host, whatever GH_HOST says. */
+  host?: string | undefined;
 }
 
 async function gh(args: string[], options: GhOptions = {}): Promise<string> {
-  const { timeout = 10_000, extraConfigPairs = [], ceilingDir } = options;
+  const { timeout = 10_000, extraConfigPairs = [], ceilingDir, host } = options;
   const env = gitConfigEnv(
     [...HOST_GIT_CONFIG_PAIRS, ...GH_NETWORK_ALLOWLIST_PAIRS, ...extraConfigPairs],
     hostGitEnv(ceilingDir),
   );
+  if (host) {
+    env.GH_HOST = host;
+    delete env.GH_REPO;
+    delete env.GH_ENTERPRISE_TOKEN;
+    delete env.GITHUB_ENTERPRISE_TOKEN;
+  }
   const { stdout } = await execFileAsync("gh", args, { timeout, env });
   return stdout.trim();
 }
@@ -1816,59 +1826,112 @@ export function repoRoutes(
 
 /** What publishing an accepted card's checkout did. */
 export type PublishResult =
-  | { opened: true; url: string; branch: string; head: string; committed: boolean }
+  | { opened: true; url: string; branch: string; head: string; reused: boolean }
   | { opened: false; reason: "not-github" | "no-changes" | "failed"; detail: string };
 
+/** What goes out: exactly the accepted work, built from recorded inputs, never from the live tree. */
+export interface PublishInput {
+  /** owner/name on github.com. */
+  repo: string;
+  /** The workspace root and the bound linked worktree, used only to find the repository. */
+  root: string;
+  path: string;
+  /** The commit the card was bound to, and the commit the accepted author run ended on (same or a descendant). */
+  boundHead: string;
+  finalHead: string;
+  /** The accepted patch output, applied on finalHead in a private index; null when the author committed instead. */
+  patch: Buffer | null;
+  /** A branch only this package revision publishes to, e.g. controlrod/WP-12-r0. */
+  publishBranch: string;
+  title: string;
+  body: string;
+}
+
+/** Any path inside one of Control Rod's reserved run folders. */
+const RUN_DIR_PATH = /(^|\/)\.controlrod-run-[^/]*(\/|$)/;
+
 /**
- * Opens a draft pull request for an accepted card's checkout: the bound linked worktree, on its own
- * branch. Anything the author left uncommitted (outside Control Rod's run folders) is committed
- * first; then the branch is pushed and a draft pull request is opened with gh. Draft, so the owner's
- * merge stays the check-in before anything lands. Never force-pushes, never touches another branch.
+ * Opens a draft pull request for accepted work. The commit that leaves the machine is built here
+ * from recorded inputs: the commit the accepted author run ended on, plus the accepted patch output
+ * applied in a private index. Nothing is read from the live working tree, so edits made after the
+ * check never go out. It is pushed by object id to a branch of its own (which must not exist yet,
+ * or must already be exactly this commit), on github.com/<repo> named here, with user and system
+ * git config switched off and the repository's own config refused when it could redirect the push.
+ * The pull request is a draft against the default branch, so the owner's merge stays the check-in.
+ * A retry finds the branch and pull request it already made instead of making new ones.
  */
-export async function publishCheckout(
-  binding: { repo: string; root: string; path: string; branch: string; head: string },
-  pr: { title: string; body: string },
-  /** Tests push to a local bare repository instead of GitHub. */
-  testing: { pushUrl?: string } = {},
-): Promise<PublishResult> {
-  if (!SAFE_OWNER_REPO.test(binding.repo)) return { opened: false, reason: "not-github", detail: "Only a GitHub repository gets a pull request; the work stays on its local branch." };
-  const branch = assertValidBranch(binding.branch);
-  const root = resolveSafeWorkspaceRoot(binding.root);
-  const path = resolveWithoutSymlinks(binding.path);
+export async function publishCheckout(input: PublishInput, testing: { pushUrl?: string } = {}): Promise<PublishResult> {
+  if (!SAFE_OWNER_REPO.test(input.repo)) return { opened: false, reason: "not-github", detail: "Only a GitHub repository gets a pull request; the work stays on its local branch." };
+  const branch = assertValidBranch(input.publishBranch);
+  const root = resolveSafeWorkspaceRoot(input.root);
+  const path = resolveWithoutSymlinks(input.path);
   if (path === root || !isContainedIn(root, path)) return { opened: false, reason: "failed", detail: "The checkout is not inside its workspace root." };
-  const opts = { cwd: path, workspaceRoot: root, timeout: 60_000 };
+  if (!/^[0-9a-f]{40,64}$/.test(input.boundHead) || !/^[0-9a-f]{40,64}$/.test(input.finalHead)) return { opened: false, reason: "failed", detail: "The recorded commits are not commit ids." };
+  const owner = input.repo.replace(/\.git$/i, "");
+  // Only the repository's own config applies: no user or system rewrites, proxies or helpers.
+  const isolated = { GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_SYSTEM: "/dev/null" };
+  const scratch = mkdtempSyncSafe();
+  const opts = { cwd: path, workspaceRoot: root, timeout: 60_000, extraEnv: isolated };
   try {
-    const actual = await git(["symbolic-ref", "--short", "HEAD"], opts);
-    if (actual !== branch) return { opened: false, reason: "failed", detail: `The checkout moved to branch ${actual}; nothing was pushed.` };
-    // Commit what the author left in the tree, never Control Rod's own run folders.
-    const dirty = await git(["status", "--porcelain", "--", ".", ":(exclude).controlrod-run-*"], opts);
-    let committed = false;
-    if (dirty) {
-      await git(["add", "-A", "--", ".", ":(exclude).controlrod-run-*"], opts);
-      // The owner's own git identity when they have one; a plain Control Rod one otherwise.
-      const who = await git(["config", "user.email"], opts).catch(() => "");
-      const identity = who ? [] : ["-c", "user.name=Control Rod", "-c", "user.email=controlrod@localhost"];
-      await git([...identity, "commit", "-q", "-m", pr.title.slice(0, 200), "-m", "Accepted in Control Rod."], opts);
-      committed = true;
+    // Fail closed: a config git cannot list is treated as one that could redirect the push.
+    let listed = "";
+    try {
+      listed = await git(["config", "--show-scope", "--name-only", "--get-regexp", "^(url|http|credential|include|includeif)\\."], opts);
+    } catch (e) {
+      if ((e as { code?: number }).code !== 1) return { opened: false, reason: "failed", detail: "The repository's config could not be read, so nothing was pushed." };
     }
-    const head = await git(["rev-parse", "--verify", "HEAD^{commit}"], opts);
-    if (head === binding.head) return { opened: false, reason: "no-changes", detail: "The author made no changes to the repository, so there is nothing to open a pull request for." };
-    // The push carries the owner's GitHub credential, so it goes only to github.com/<repo>, named
-    // here rather than read from the checkout's remote, and only when the repository's own config
-    // cannot redirect it (url rewrites, proxies, credential or include settings an agent could plant).
-    const planted = (await git(["config", "--show-scope", "--name-only", "--get-regexp", "^(url|http|credential|include|includeif)\\."], opts).catch(() => ""))
-      .split("\n").filter((l) => /^(local|worktree)\s/.test(l)).map((l) => l.replace(/^\S+\s+/, "")).join("\n");
-    if (planted) return { opened: false, reason: "failed", detail: `The repository's config sets ${planted.split("\n").slice(0, 3).join(", ")}, which could redirect a push; nothing was pushed.` };
-    const owner = binding.repo.replace(/\.git$/i, "");
+    const planted = listed.split("\n").filter((l) => /^(local|worktree)\s/.test(l)).map((l) => l.replace(/^\S+\s+/, ""));
+    if (planted.length) return { opened: false, reason: "failed", detail: `The repository's config sets ${planted.slice(0, 3).join(", ")}, which could redirect a push; nothing was pushed.` };
+    // The accepted run ended on finalHead, a descendant of the bound commit.
+    await git(["merge-base", "--is-ancestor", input.boundHead, input.finalHead], opts).catch(() => { throw new Error("The accepted commit is not a descendant of the bound commit."); });
+    // Commits the author made on the way must not carry run folders either.
+    const committed = await git(["log", "--format=", "--name-only", `${input.boundHead}..${input.finalHead}`], opts);
+    if (committed.split("\n").some((l) => RUN_DIR_PATH.test(l))) return { opened: false, reason: "failed", detail: "A commit on the branch includes a .controlrod-run-* folder; nothing was pushed." };
+    let head = input.finalHead;
+    if (input.patch && input.patch.length > 0) {
+      const index = join(scratch, "index");
+      const patchFile = join(scratch, "accepted.patch");
+      writeFileSync(patchFile, input.patch, { mode: 0o600 });
+      const withIndex = { ...opts, extraEnv: { ...isolated, GIT_INDEX_FILE: index } };
+      await git(["read-tree", input.finalHead], withIndex);
+      await git(["apply", "--cached", "--whitespace=nowarn", patchFile], withIndex);
+      const tree = await git(["write-tree"], withIndex);
+      const paths = await git(["ls-tree", "-r", "--name-only", tree], opts);
+      const before = new Set((await git(["ls-tree", "-r", "--name-only", input.finalHead], opts)).split("\n"));
+      if (paths.split("\n").some((l) => RUN_DIR_PATH.test(l) && !before.has(l))) return { opened: false, reason: "failed", detail: "The accepted patch adds a .controlrod-run-* folder; nothing was pushed." };
+      if (tree !== (await git(["rev-parse", `${input.finalHead}^{tree}`], opts))) {
+        // The owner's own identity when git has one (read with their config), else a plain one.
+        const name = await git(["config", "user.name"], { cwd: path, workspaceRoot: root }).catch(() => "");
+        const email = await git(["config", "user.email"], { cwd: path, workspaceRoot: root }).catch(() => "");
+        const who = { GIT_AUTHOR_NAME: name || "Control Rod", GIT_AUTHOR_EMAIL: email || "controlrod@localhost", GIT_COMMITTER_NAME: name || "Control Rod", GIT_COMMITTER_EMAIL: email || "controlrod@localhost" };
+        head = await git(["commit-tree", tree, "-p", input.finalHead, "-m", input.title.slice(0, 200), "-m", "Accepted in Control Rod."], { ...opts, extraEnv: { ...isolated, ...who } });
+      }
+    }
+    if (head === input.boundHead) return { opened: false, reason: "no-changes", detail: "The accepted work changes nothing in the repository, so there is nothing to open a pull request for." };
     const target = testing.pushUrl ?? `https://github.com/${owner}.git`;
-    // gh supplies the GitHub credential; the hardened defaults clear every other helper first.
-    await git(["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential", "push", target, `HEAD:refs/heads/${branch}`], { ...opts, timeout: 120_000 });
-    const url = await gh(["pr", "create", "--repo", owner, "--head", branch, "--draft", "--title", pr.title.slice(0, 250), "--body", pr.body.slice(0, 60_000)], { timeout: 60_000, ceilingDir: root });
-    const link = url.split("\n").reverse().find((l) => /^https:\/\/github\.com\/.+\/pull\/\d+$/.test(l.trim()))?.trim();
-    if (!link) return { opened: false, reason: "failed", detail: "gh did not return a pull request link." };
-    return { opened: true, url: link, branch, head, committed };
+    const cred = ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"];
+    // The branch is this package revision's own: absent, or already exactly this commit (a retry).
+    const remote = await git([...cred, "ls-remote", target, `refs/heads/${branch}`], { ...opts, timeout: 60_000 });
+    const there = remote.split(/\s+/)[0] ?? "";
+    let reused = false;
+    if (there && there !== head) return { opened: false, reason: "failed", detail: `The branch ${branch} already exists on GitHub with other work; nothing was pushed.` };
+    if (!there) await git([...cred, "push", `--force-with-lease=refs/heads/${branch}:`, target, `${head}:refs/heads/${branch}`], { ...opts, timeout: 120_000 });
+    else reused = true;
+    // gh is pinned to github.com and this repository, whatever GH_HOST or the current folder say.
+    const ghEnv = { timeout: 60_000, ceilingDir: root, host: "github.com" };
+    const existing = await gh(["pr", "list", "--repo", `github.com/${owner}`, "--head", branch, "--state", "all", "--json", "url", "--jq", ".[0].url // empty"], ghEnv).catch(() => "");
+    const url = existing.trim() || (await gh(["pr", "create", "--repo", `github.com/${owner}`, "--head", branch, "--draft", "--title", input.title.slice(0, 250), "--body", input.body.slice(0, 60_000)], ghEnv));
+    const link = url.split("\n").reverse().find((l) => new RegExp(`^https://github\\.com/${owner.replace(/[.]/g, "\\.")}/pull/\\d+$`, "i").test(l.trim()))?.trim();
+    if (!link) return { opened: false, reason: "failed", detail: "gh did not return a pull request link for this repository." };
+    return { opened: true, url: link, branch, head, reused: reused || Boolean(existing.trim()) };
   } catch (e) {
     const msg = (e as { stderr?: string }).stderr || (e as Error).message || String(e);
     return { opened: false, reason: "failed", detail: msg.replace(/\s+/g, " ").trim().slice(0, 400) };
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
   }
+}
+
+function mkdtempSyncSafe(): string {
+  return mkdtempSync(join(tmpdir(), "controlrod-publish-"));
 }

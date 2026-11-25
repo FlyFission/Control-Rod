@@ -276,6 +276,21 @@ describe("signing policy on a project", () => {
     expect((await actions(id)).find((a) => a.command === "release")).toMatchObject({ step_mode: "passkey", signature: "direct" });
   });
 
+  it("keeps intake's own Nuclear-grade judgement, even after an edit clears the profile", async () => {
+    const id = await drafted("INFERRED", { mode: "nuclear-grade" });
+    const v = await view(id);
+    expect(v.package.context_profile).toBe("nuclear");
+    const { context_profile: _drop, ...rest } = v.package;
+    expect((await h.app.inject({ method: "PUT", url: `/packages/${id}`, headers: { cookie, origin: ORIGIN, "if-match": v.draft_etag }, payload: rest })).statusCode).toBe(200);
+    expect((await actions(id)).find((a) => a.command === "release")).toMatchObject({ step_mode: "passkey" });
+  });
+
+  it("treats a null passkey as a malformed signature, never as a press", async () => {
+    const id = await drafted("NULLKEY");
+    const r = await asOwner("POST", `/packages/${id}/decisions`, { kind: "reject", package_revision: 0, reason: "x", expected_subject_digest: (await view(id)).subject_digest, assertion: null });
+    expect(r.statusCode).toBe(403);
+  });
+
   it("keeps a draft's project and high grade out of an edit's reach", async () => {
     const id = await drafted("EDITFLOOR", { grade: "safety", discipline: "mechanical" });
     const v = await view(id);

@@ -54,7 +54,8 @@ export const COMMANDS = {
   "runtime.report-agent-updates": entry("agent-via-daemon", "none", "Probe runtime (agent updates)"),
   "setup.record": entry("member", "none", "Record agent setup (seats and check-in)"),
   "decision.apply": entry("member", "direct", "Release; Verdict", "write"),
-  "package.open-pr": entry("system", "none", "Open a draft pull request for accepted work"),
+  "package.open-pr": entry("system", "none", "Record a pull request attempt for accepted work"),
+  "package.publish-pr": entry("system", "none", "Push accepted work and open its draft pull request", "read"),
   "verification.record-person": entry("member", "direct", "Record person verification"),
 
   // Preparation.

@@ -1230,9 +1230,9 @@ func hashProtected(root string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// protectedMaxEntries bounds the protected login walk. Entries cost one lstat each;
-// file contents are bounded separately by the byte budget.
-var protectedMaxEntries = 200_000
+// protectedMaxEntries bounds the protected login walk. It is the existing tree entry cap
+// (MaxOutputTotal / checkerEntryCharge); a variable only so tests can lower it.
+var protectedMaxEntries = checkerMaxEntries()
 
 // identityQuietPeriod is how long a large protected file must have gone unchanged before its
 // identity stands for its contents. It covers the coarsest common timestamp tick (FAT's two

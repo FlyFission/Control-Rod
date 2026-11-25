@@ -18,7 +18,7 @@ On 2026-11-24 the owner's first Codex checker run on his Mac failed at once: "pr
 ## Decisions
 
 1. Keep `plugins` protected (plugins can carry skills and hooks). A file over the per-file limit, or past the byte budget, is named by its identity (device, inode, size, modification and change times) instead of its contents. A process without root cannot set the change time back, so a write, truncate, replace or retime still changes the hash. Platforms without that record keep the old refusal.
-2. The protected walk gets its own entry cap (200,000 lstat calls) instead of the 25,600 shared with output trees, since app bundles hold many small files.
+2. The protected walk keeps the existing entry cap (`checkerMaxEntries()`, 25,600). The owner's measured `~/.codex/plugins` holds 7,021 entries (`find | wc -l` on his Mac, verification E-03).
 3. A run whose command never started (`cmd.Process == nil`) reports containment `none`, the existing wire value for "no process was started". The API already records such a run as failed and the web shows its error and the Requeue button.
 
 ## Required links

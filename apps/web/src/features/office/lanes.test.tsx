@@ -6,9 +6,10 @@ import type { AgentFigure, WorkLaneSet } from "../../api/types.js";
 import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
 import { AgentCard } from "./AgentCard.js";
-import { BayNamesProvider, bayNamesFor, plantLaneSet } from "./lanes.js";
+import { BayNamesProvider, bayModeWords, bayNamesFor, bayOf, plantLaneSet, plantNamesFor } from "./lanes.js";
 import { OfficeView } from "./OfficeView.js";
 import { PlantList } from "./PlantList.js";
+import { saveMode } from "../../lib/mode.js";
 
 /** The Plant's bays follow the project's work lanes: names, purposes and accessible names. The art and each figure's place do not move. */
 
@@ -104,11 +105,37 @@ describe("the Plant with work lanes", () => {
   });
 
   it("keeps today's six names for a project with the capital-project preset, or an older server that sends no lanes", async () => {
+    saveMode("capital-projects");
     floor(undefined);
     await renderPage(<OfficeView />);
     expect(await screen.findByRole("region", { name: /^Process, Work bay: Process design and simulation/ })).toBeTruthy();
     expect(screen.getByRole("region", { name: /^Project controls, Work bay:/ })).toBeTruthy();
     expect(screen.queryByRole("region", { name: /^Frontend,/ })).toBeNull();
+  });
+
+  it("follows the engineering mode when no project has chosen lanes", async () => {
+    saveMode("software");
+    floor(undefined);
+    await renderPage(<OfficeView />);
+    expect(await screen.findByRole("region", { name: /^Frontend, Work bay:/ })).toBeTruthy();
+    expect(screen.getByRole("region", { name: /^Docs, Work bay:/ })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: /^Process,/ })).toBeNull();
+    expect(screen.getByText(/Software lanes/)).toBeTruthy();
+  });
+
+  it("speaks the nuclear-grade words for the shared rooms, over the capital-project disciplines", () => {
+    const names = plantNamesFor(undefined, "nuclear-grade");
+    expect(bayOf(names, "process").name).toBe("Process");
+    expect(bayOf(names, "assurance").name).toBe("QA");
+    expect(bayOf(names, "verification").name).toBe("Independent verification");
+    expect(bayModeWords(undefined, "nuclear-grade")).toBe("Nuclear grade");
+  });
+
+  it("lets a project's own lanes win over the mode for the bays, and keeps the mode's room words", () => {
+    const names = plantNamesFor(SOFTWARE, "capital-projects");
+    expect(bayOf(names, "process").name).toBe("Frontend");
+    expect(bayOf(names, "verification").name).toBe("Verification");
+    expect(bayOf(plantNamesFor(SOFTWARE, "software"), "verification").name).toBe("CI and checks");
   });
 
   it("names the bay on the list and the card, and the lane when it differs from the bay", async () => {

@@ -32,13 +32,15 @@ export function AgentList({
   lightUp?: boolean;
 }) {
   const motion = useInstrumentMotion();
-  const main = rows.filter((r) => r.state !== "not-yet" && r.state !== "not-found");
-  const more = rows.filter((r) => r.state === "not-yet" || r.state === "not-found");
+  // Agents Control Rod can run stay in the list, found or not, so a missing one shows its install
+  // command where the person looks. The ones it cannot run yet are one line, not a row each.
+  const main = rows.filter((r) => r.state !== "not-yet");
+  const later = rows.filter((r) => r.state === "not-yet");
   const seatProps = { onToggle, busy, usage, lightUp: lightUp && motion === "full" };
   return (
     <>
       {main.length === 0 ? (
-        <p className="muted">No agent was found on this computer yet. Add one below.</p>
+        <p className="muted">No agent Control Rod can run was found on this computer yet.</p>
       ) : (
         <ul className="agent-list seat-table">
           {main.map((r, i) => (
@@ -46,15 +48,10 @@ export function AgentList({
           ))}
         </ul>
       )}
-      {more.length > 0 && (
-        <details className="agent-more">
-          <summary>Add an agent</summary>
-          <ul className="agent-list seat-table">
-            {more.map((r, i) => (
-              <AgentItem key={r.info.id} row={r} index={i} {...seatProps} />
-            ))}
-          </ul>
-        </details>
+      {later.length > 0 && (
+        <p className="agent-later small muted">
+          Coming later: {later.map((r) => r.info.name).join(", ")}. Control Rod can run them once it can hold them in a sandbox.
+        </p>
       )}
     </>
   );

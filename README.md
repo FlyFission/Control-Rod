@@ -142,24 +142,24 @@ git clone https://github.com/FlyFission/Control-Rod.git
 cd Control-Rod
 mise install     # fetches every pinned tool (Node, pnpm, Go, and friends); skip it if you already have them
 pnpm install
-pnpm cr link          # installs the controlrod command, so the rest works from any folder
-controlrod doctor     # checks your setup and tells you what to fix
-controlrod start      # builds on first run, then serves http://localhost:7300
+pnpm cr link          # installs the controlrod command (once)
+controlrod start      # checks your setup, builds, starts in the background and opens your browser
 ```
 
-Choose **Set up this machine**, register a passkey, confirm your seated agents, and land on the Board. `Ctrl+C` stops everything cleanly; your data stays in `~/.controlrod`. To preview the standalone interactive landing page locally, run `node scripts/serve-site.mjs` (`http://localhost:7310`).
+Choose **Set up this machine**, register a passkey, confirm your seated agents, and land on the Board. `controlrod stop` stops everything cleanly; your data stays in `~/.controlrod`. To preview the standalone interactive landing page locally, run `node scripts/serve-site.mjs` (`http://localhost:7310`).
 
 After that:
 
 | Command | Does |
 | --- | --- |
-| `controlrod start --background` | runs it without keeping a terminal open; `controlrod open` brings up the app |
-| `controlrod stop` / `restart` / `status` / `logs -f` | what they say; `stop` lets running work finish first |
+| `controlrod start` | starts it in the background and opens the app; `--foreground` keeps it in the terminal, `--no-open` skips the browser |
+| `controlrod stop` / `restart` / `status` / `logs -f` / `open` | what they say; `stop` lets running work finish first |
 | `controlrod update` | gets the latest version, rebuilds, and restarts it; goes back to your version if anything fails |
 | `controlrod agents update` | updates Claude Code, Codex and the other agent CLIs, asking before each |
+| `controlrod doctor` | lists anything missing on this machine |
 | `controlrod help` | everything else |
 
-`pnpm cr <command>` inside the folder does the same if you'd rather not install the command.
+`pnpm cr <command>` inside the folder does the same if you'd rather not install the command (`pnpm cr start` stays in that terminal).
 
 | Surface | Windows (WSL2) | Linux | macOS |
 | --- | --- | --- | --- |

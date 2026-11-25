@@ -358,7 +358,7 @@ function setup() {
 }
 
 /** Says what runs already; true when the caller should not start another. */
-async function alreadyRunning() {
+async function alreadyRunning({ open = false } = {}) {
   const running = await findRunning(home, port, root);
   if (!running) return false;
   if (running.foreign) {
@@ -369,24 +369,38 @@ async function alreadyRunning() {
     process.exit(1);
   }
   console.log(`Control Rod is already running at ${appUrl()} (${running.mode === "background" ? "in the background" : "in another terminal"}).`);
-  console.log(`Open it with \`${me} open\`, or stop it with \`${me} stop\`.`);
+  if (open && process.stdout.isTTY && !process.env.CI) openUrl(readRecord(home)?.url ?? appUrl());
+  else console.log(`Open it with \`${me} open\`, or stop it with \`${me} stop\`.`);
   return true;
 }
 
 /**
  * macOS has only 32 shared memory segments in all, and every PostgreSQL that is killed outright
- * leaves one behind; when they run out, no PostgreSQL starts. Say so before starting; freeing them
- * is the person's call (`doctor --fix`), since nothing proves a segment was PostgreSQL's.
+ * leaves one behind; when they run out, no PostgreSQL starts. When they are about to run out (the
+ * database could not start anyway), start frees the ones that are certainly dead: this user's,
+ * PostgreSQL's 56-byte interlock size, nothing attached, and the process that made them gone. It
+ * says what it freed. The owner chose this over a separate `doctor --fix` step (2026-11-24).
  */
-function warnDeadDatabaseMemory() {
+function freeDeadDatabaseMemory() {
   if (platform() !== "darwin" || process.env.CONTROLROD_DATABASE_URL) return;
   const use = segmentUse();
   if (!use || use.used < use.limit - 2) return;
   const dead = orphanedSegments();
-  console.log(
-    `\nmacOS is almost out of shared memory segments (${use.used} of ${use.limit} in use), so the database may not start.` +
-      (dead.length ? `\n${dead.length} look left behind by PostgreSQL runs that were killed; \`${me} doctor --fix\` frees them, or restart the Mac.` : "\nRestarting the Mac frees them."),
-  );
+  const freed = dead.length ? freeOrphanedSegments(dead) : 0;
+  if (freed) {
+    console.log(`Freed ${freed} shared memory segment${freed === 1 ? "" : "s"} left behind by stopped databases (macOS allows ${use.limit} in all).`);
+  } else {
+    console.log(
+      `\nmacOS is almost out of shared memory segments (${use.used} of ${use.limit} in use) and none are safe to free here, ` +
+        "so the database may not start. Restarting the Mac frees them.",
+    );
+  }
+}
+
+/** Opens the app in the browser when someone is at this terminal to see it. */
+function openWhenInteractive(url, wanted) {
+  if (!wanted || !process.stdout.isTTY || process.env.CI) return;
+  openUrl(url);
 }
 
 /** The address the browser uses. In GitHub Codespaces that is the forwarded https address. */
@@ -419,7 +433,7 @@ async function start() {
   setup();
   // On a first run the database package was not installed yet when `doctor` looked; look again now.
   if (!databaseOk()) process.exit(1);
-  warnDeadDatabaseMemory();
+  freeDeadDatabaseMemory();
   const env = { ...process.env, CONTROLROD_HOME: home };
   // In GitHub Codespaces the browser reaches the app at a forwarded https address, not localhost, and a
   // passkey is bound to the address it was made on. Use that address unless the caller chose one.
@@ -618,8 +632,8 @@ function tail(file, lines) {
  * Starts Control Rod detached from this terminal, its output going to the log. Builds in the
  * foreground first, so the person sees progress and errors here, then waits until it answers.
  */
-async function startBackground() {
-  if (await alreadyRunning()) return 0;
+async function startBackground({ open = false } = {}) {
+  if (await alreadyRunning({ open })) return 0;
   // The checks print only when something is missing; the full list is in `doctor`.
   const said = [];
   const print = console.log;
@@ -636,8 +650,9 @@ async function startBackground() {
   }
   setup();
   if (!databaseOk()) return 1;
+  freeDeadDatabaseMemory();
   const fd = openLog();
-  const child = spawn(process.execPath, [join(root, "scripts", "cr.mjs"), "start"], {
+  const child = spawn(process.execPath, [join(root, "scripts", "cr.mjs"), "start", "--foreground"], {
     cwd: root,
     detached: true,
     stdio: ["ignore", fd, fd],
@@ -653,6 +668,7 @@ async function startBackground() {
       console.log(`\nControl Rod is running at ${appUrl()}`);
       console.log(`Log: ${logFile}  (\`${me} logs\`)`);
       console.log(`Stop it with \`${me} stop\`.`);
+      openWhenInteractive(readRecord(home)?.url ?? appUrl(), open);
       return 0;
     }
     if (i % 4 === 3) process.stdout.write(".");
@@ -665,6 +681,7 @@ async function startBackground() {
     const other = await findRunning(home, port, root);
     if (other && !other.foreign) {
       console.log(`\nControl Rod is already running at ${readRecord(home)?.url ?? appUrl()} (started by another command).`);
+      openWhenInteractive(readRecord(home)?.url ?? appUrl(), open);
       return 0;
     }
   }
@@ -695,7 +712,7 @@ async function stopCommand({ now = false, quiet = false } = {}) {
 /** Runs the launcher in this terminal as a child, so this process can return its exit code. */
 function startHere() {
   return new Promise((done) => {
-    const child = spawn(process.execPath, [join(root, "scripts", "cr.mjs"), "start"], { cwd: root, stdio: "inherit", env: cleanEnv() });
+    const child = spawn(process.execPath, [join(root, "scripts", "cr.mjs"), "start", "--foreground"], { cwd: root, stdio: "inherit", env: cleanEnv() });
     // Ctrl+C reaches the child directly (same terminal); a stop signal sent here is passed on.
     const pass = (sig) => () => child.kill(sig);
     process.on("SIGINT", () => undefined);
@@ -712,7 +729,7 @@ async function status() {
   console.log(`  code:  ${root}`);
   console.log(`  data:  ${home}`);
   if (!running) {
-    console.log(`\nNot running. Start it with \`${me} start\` (or \`${me} start --background\`).`);
+    console.log(`\nNot running. Start it with \`${me} start\`.`);
     return 0;
   }
   if (running.foreign) {
@@ -753,7 +770,7 @@ async function openCommand() {
 
 function logsCommand(follow) {
   if (!existsSync(logFile)) {
-    console.log(`No log yet. A start with \`${me} start --background\` writes one to ${logFile}; a start in a terminal prints there instead.`);
+    console.log(`No log yet. A start in the background (\`controlrod start\`) writes one to ${logFile}; a start in a terminal prints there instead.`);
     return 0;
   }
   if (follow) {
@@ -805,7 +822,7 @@ async function updateCommand(flags) {
           }),
         restart: async ({ mode }) => {
           if (mode === "background") {
-            return spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "start", "--background"], { cwd: root, stdio: "inherit", env: cleanEnv() }).status ?? 1;
+            return spawnSync(process.execPath, [join(root, "scripts", "cr.mjs"), "start", "--background", "--no-open"], { cwd: root, stdio: "inherit", env: cleanEnv() }).status ?? 1;
           }
           console.log("\nControl Rod was running, so it starts again here (Ctrl+C stops it).\n");
           return startHere();
@@ -884,9 +901,18 @@ const program = new Command()
     `\nAgent CLIs:\n  agents [check]        which agent CLIs are installed and signed in\n  agents update         update Claude Code, Codex and the others, asking before each\n\nYour records live in ${home}.`,
   );
 
-program.command("start").description("start Control Rod (Ctrl+C stops it)")
+// `controlrod start` is the one step: it checks the machine, builds when needed, frees database
+// memory left behind on macOS, runs in the background and opens the app. `pnpm cr start`, the
+// developer's form inside the checkout, keeps running in that terminal as before.
+program.command("start").description(cli ? "start Control Rod in the background and open it in your browser" : "start Control Rod in this terminal (Ctrl+C stops it)")
+  .option("-f, --foreground", "keep it in this terminal (Ctrl+C stops it)")
   .option("-b, --background", "run in the background and give this terminal back")
-  .action(async (o) => (o.background ? exit(await startBackground()) : start()));
+  .option("--no-open", "do not open the browser")
+  .action(async (o) => {
+    const background = o.background || (cli && !o.foreground);
+    if (background) exit(await startBackground({ open: o.open }));
+    else start();
+  });
 program.command("stop").description("stop Control Rod; running work finishes and is saved first")
   .option("--now", "stop without waiting for running work")
   .action(async (o) => exit((await stopCommand({ now: o.now })).code));
@@ -896,7 +922,8 @@ program.command("restart").description("stop, then start again the same way")
   .action(async (o) => {
     const s = await stopCommand({ now: o.now, quiet: true });
     if (s.code !== 0) exit(s.code);
-    if (s.mode === "background" || o.background) exit(await startBackground());
+    // A terminal start comes back in this terminal; otherwise `controlrod restart` runs it in the background.
+    if (s.mode === "background" || o.background || (cli && s.mode !== "foreground")) exit(await startBackground({ open: false }));
     else exit(await startHere());
   });
 program.command("status").description("is it running, where, and which version").action(async () => exit(await status()));

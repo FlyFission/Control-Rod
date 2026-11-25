@@ -1958,3 +1958,93 @@
     font-size: var(--fs-label);
   }
 }
+
+/* What went wrong with a run that ended without a result, under the card's next step. */
+.bd-next-detail {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The guided first run: five steps, the next one lit, one primary button. */
+.bd-guide {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  color: var(--text);
+}
+.bd-guide-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bd-guide-head h2 {
+  margin: 0 0 2px;
+  font-size: var(--fs-title);
+}
+.bd-guide-head p {
+  margin: 0;
+}
+.bd-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bd-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.bd-guide-step[data-state="next"] {
+  border-color: var(--accent);
+}
+.bd-guide-step[data-state="later"] {
+  color: var(--muted);
+  opacity: 0.75;
+}
+.bd-guide-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  font-size: var(--fs-label);
+}
+.bd-guide-step[data-state="done"] .bd-guide-mark {
+  background: var(--done);
+  border-color: transparent;
+  color: var(--ground);
+}
+.bd-guide-step[data-state="next"] .bd-guide-mark {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.bd-guide-text {
+  display: grid;
+  gap: 2px;
+}
+.bd-guide-title {
+  font-size: var(--fs-label);
+  font-weight: 600;
+}
+.bd-guide-actions {
+  display: flex;
+  gap: 8px;
+}

@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { readString, writeString } from "./storage.js";
 
 /**
@@ -41,3 +42,15 @@ export function resetSingleKeysForTest(): void {
 
 /** Any open modal, native or ARIA, that single-key shortcuts must not open things behind. */
 export const OPEN_MODAL = 'dialog[open], .palette, [role="dialog"][aria-modal="true"]';
+
+/** Whether single-key shortcuts are on, kept current across this tab and others. */
+export function useSingleKeysOn(): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      window.addEventListener(SINGLE_KEYS_EVENT, notify);
+      return () => window.removeEventListener(SINGLE_KEYS_EVENT, notify);
+    },
+    singleKeysOn,
+    () => true,
+  );
+}

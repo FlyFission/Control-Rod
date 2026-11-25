@@ -1,0 +1,12 @@
+--- PASS: TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential (0.03s)
+--- PASS: TestCheckerCannotRewriteLoginInstructions (0.06s)
+--- PASS: TestProtectedLoginHashNamesLargeFilesByIdentity (0.02s)
+--- PASS: TestProtectedLoginHashOverBudgetTrees (0.18s)
+--- PASS: TestRunRefusedBeforeStartReportsNoProcess (0.01s)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.310s
+
+Full suite with bubblewrap:
+--- FAIL: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun (0.04s)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	37.142s
+FAIL

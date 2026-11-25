@@ -33,6 +33,10 @@ The same day his start failed with "Control Rod could not start its database ...
 | Docker Compose, Supabase CLI | (names only) | command names: `start`/`stop`/`status`, `logs -f`, background start |
 | Homebrew `brew doctor` | BSD-2-Clause | `doctor` as the place that says what to fix |
 
+## Follow-up: `controlrod start` as the one step (2026-11-24, after #177)
+
+The owner, after #177: "why multiple commands, can't we simplify? controlrod start seems like it should do all of that, 2 steps is brutal". So `controlrod start` now checks the machine (stopping with what to fix), builds when needed, frees on macOS the shared memory segments that are certainly dead when the limit is near, starts in the background, and opens the app in the browser when someone is at the terminal. `--foreground` keeps it in the terminal and `--no-open` skips the browser. `pnpm cr start`, the developer's form inside the checkout, stays a terminal start. `doctor` and `doctor --fix` remain for the full list. This reverses the review-round-2 choice to never free segments automatically, at the owner's request; the filter is unchanged and freeing happens only when PostgreSQL could not start anyway.
+
 ## Not in scope
 
 Desktop icons, an in-app update button, release tags or a cooldown before taking new commits.

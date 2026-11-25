@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, WorkPackage } from "../api/types.js";
+import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, Run, WorkPackage } from "../api/types.js";
 import { pkg } from "../test/fixtures.js";
-import { hasOtherQualified, nextLine, type NextInput } from "./next.js";
+import { hasOtherQualified, nextLine, stalledRun, type NextInput } from "./next.js";
 
 const allowed = (command: string, label = command): ActionDescriptor => ({ command, label, allowed: true, signature: "direct" });
 const refused = (command: string, reason?: string, missing?: string[]): ActionDescriptor => ({ command, label: command, allowed: false, signature: "none", ...(reason ? { reason } : {}), ...(missing ? { missing } : {}) });
@@ -78,6 +78,46 @@ describe("nextLine", () => {
   });
   it("reads accepted packages as ok", () => {
     expect(nextLine(input({ status: "accepted" })).tone).toBe("ok");
+  });
+});
+
+const run = (over: Partial<Run>): Run => ({ id: "R-1", role: "pre-check", status: "failed", queued_at: "2026-11-24T18:13:00Z", ...over }) as Run;
+
+describe("a run that ended without a result", () => {
+  const hatches = [allowed("return", "Return for revision"), allowed("reject", "Reject")];
+  it("asks the person to run a failed check again, not to return finished work", () => {
+    const line = nextLine(input({ status: "in-verification", actions: hatches, runs: [run({ error: "protected login entry is over the byte limit, so the check cannot count" })] }));
+    expect(line).toMatchObject({ tone: "needs", text: "The check could not finish. Run it again", command: "requeue", runId: "R-1" });
+    expect(line.detail).toMatch(/byte limit/);
+  });
+  it("names a lost or stopped author run in plain words", () => {
+    expect(nextLine(input({ status: "in-work", runs: [run({ role: "author", status: "lost" })] })).text).toBe("The agent stopped answering. Run it again");
+    expect(nextLine(input({ status: "in-work", runs: [run({ role: "author", status: "stopped" })] })).text).toBe("The agent was stopped. Run it again");
+  });
+  it("speaks only for the newest run, and not once it was queued again or while another runs", () => {
+    const old = run({ id: "R-old", queued_at: "2026-11-24T18:00:00Z" });
+    const ok = run({ id: "R-new", status: "succeeded", queued_at: "2026-11-24T18:20:00Z" });
+    expect(stalledRun([old, ok])).toBeUndefined();
+    expect(stalledRun([run({ requeued_as: "R-2" })])).toBeUndefined();
+    expect(nextLine(input({ runActive: true, runs: [run({})] })).command).not.toBe("requeue");
+  });
+  it("sends a run whose outcome is unknown to its run log first, without offering Run again", () => {
+    const line = nextLine(input({ runs: [run({ role: "author", status: "failed", outcome_unknown: { since: "2026-11-24T18:14:00Z", reason: "lease expired" } })] }));
+    expect(line.tone).toBe("needs");
+    expect(line.text).toMatch(/may not have stopped. Open its run log/);
+    expect(line.command).toBe("open-run-log");
+  });
+  it("does not offer Run again when an earlier failed check blocks another check of the same work", () => {
+    const line = nextLine(input({ status: "in-verification", runs: [run({})], checkBlocked: { reason: "A check of this deliverable already failed." } }));
+    expect(line.command).toBe("open-checks");
+    expect(line.text).toMatch(/earlier check of this work failed/);
+  });
+  it("puts a stalled run before the verification lines, so an earlier pass cannot hide it", () => {
+    const line = nextLine(input({ column: "person-verifies", originators: ["ben"], otherQualifiedVerifier: false, runs: [run({ status: "lost" })] }));
+    expect(line.command).toBe("requeue");
+  });
+  it("keeps a long runner error short on the card", () => {
+    expect(nextLine(input({ runs: [run({ error: "x".repeat(400) })] })).detail).toHaveLength(160);
   });
 });
 

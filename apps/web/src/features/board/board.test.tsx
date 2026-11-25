@@ -130,7 +130,7 @@ describe("BoardView", () => {
       const user = userEvent.setup();
       const region = screen.getByRole("region", { name: "Active project settings" });
       const repo = within(region).getByLabelText("Project default repository") as HTMLSelectElement;
-      const author = screen.getByLabelText("Agent oversight for Implementing") as HTMLSelectElement;
+      const author = screen.getByLabelText("Agent oversight for Agent working") as HTMLSelectElement;
       const dataLane = within(region).getByLabelText("Project default data lane") as HTMLSelectElement;
       if (action === "repository") {
         await within(repo).findByRole("option", { name: "RepoA (main)" });
@@ -171,8 +171,8 @@ describe("BoardView", () => {
     api({ packages: [pkg({ id: "WP-1" })] });
     await renderPage(<Page />);
     const regions = await within(screen.getByRole("region", { name: "Work stages" })).findAllByRole("region");
-    expect(regions.map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)!.textContent)).toEqual(["Ready", "Implementing", "CI / Agent check", "Peer review", "Needs signature", "Accepted"]);
-    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Ready", "Implementing", "CI / Agent check", "Peer review", "Needs signature", "Accepted"]);
+    expect(regions.map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)!.textContent)).toEqual(["Ready", "Agent working", "Being checked", "Needs a reviewer", "Ready to accept", "Accepted"]);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Ready", "Agent working", "Being checked", "Needs a reviewer", "Ready to accept", "Accepted"]);
   });
 
   it("labels each card by its title and keeps the counts out of a live region", async () => {
@@ -538,12 +538,16 @@ describe("BoardView", () => {
     }
   });
 
-  it("guides the first card on an empty board", async () => {
+  it("guides a first run on an empty board, one step at a time", async () => {
     api({ packages: [] });
     await renderPage(<Page />);
-    expect(await screen.findByText(/Add a card to capture a task/)).toBeTruthy();
-    expect(screen.getByText(/Choose its data lane before an agent starts drafting/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "+ Add a card" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Get your first change done" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Choose agents" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "+ Quick add" })).toBeTruthy();
+    // Hidden, the plain empty board says what to do.
+    await userEvent.click(screen.getByRole("button", { name: "Hide guide" }));
+    expect(await screen.findByText(/Describe what you want done/)).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Get your first change done" })).toBeNull();
   });
 
   it("counts what needs you and the agents running", async () => {
@@ -591,9 +595,9 @@ describe("BoardView", () => {
     expect(await screen.findByText(/Could not read person verifications/)).toBeTruthy();
     expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
     expect(screen.queryByText("Waiting on a person verification")).toBeNull();
-    // Ruling 11: the card sits in Person verifies (Peer review in Software mode), never in Needs signature, while the step is unknown.
+    // Ruling 11: the card sits in Person verifies (Needs a reviewer in Software mode), never in Needs signature, while the step is unknown.
     const region = screen.getByText("Relief valve sizing").closest("section")!;
-    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Peer review");
+    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Needs a reviewer");
   });
 
   it("moves a card back to Person verifies and offers no Accept when a refresh of its covering pass fails", async () => {
@@ -613,7 +617,7 @@ describe("BoardView", () => {
     await act(async () => void (await qc.refetchQueries({ queryKey: ["person-verifications"] })));
     await waitFor(() => expect(next()).toContain("Could not read person verifications"));
     const region = screen.getByText("Relief valve sizing").closest("section")!;
-    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Peer review");
+    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Needs a reviewer");
   });
 
   it("says it cannot tell who can verify when the session cannot be read", async () => {

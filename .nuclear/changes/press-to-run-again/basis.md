@@ -15,7 +15,7 @@ Neither was true to what happened. The check had failed before it started (the C
 
 1. `reconcileRun` (services/api/src/work.ts) accepts a press, with no passkey, when the project's signed signing policy covers the card and takes send-back ("return") as a press, the policy's passkey is still valid and its signer holds reconcile authority for the card. The reason is still required and the evidence records the policy id and version. Otherwise it stays signed, as before.
 2. The run log (RunLog.tsx) offers **It has stopped. Run it again** where the card's send-back is a press: one press settles the run and queues it again. Elsewhere the signed form stays.
-3. Turning a project's signing to release on its own (Light, Balanced) now starts the drafts already waiting in that project (\`project.set-signing-policy\` calls \`autoDecide(release)\` on them), as if the policy had been there when intake drafted them. The owner hit this the same day: two cards drafted a minute before he turned Light on stayed drafts asking for a passkey.
+3. Turning a project's signing to release on its own (Light, Balanced) now starts the drafts already waiting in that project (`project.set-signing-policy` calls `autoDecide(release)` on them), as if the policy had been there when intake drafted them. The owner hit this the same day: two cards drafted a minute before he turned Light on stayed drafts asking for a passkey.
 4. Plain words: a run that reported its end without proof says so ("Control Rod cannot prove every process it started has stopped (on macOS it never can)") instead of "the daemon stopped answering", which stays for a lapsed lease or a daemon restart. The card line drops "it may not have stopped" for those runs.
 
 ## Out of scope

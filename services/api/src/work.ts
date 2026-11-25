@@ -3768,7 +3768,7 @@ export async function publishAccepted(db: Db, id: string, revision: number): Pro
     return publishCheckout({
       repo: String(checkout.repo ?? ""), root: String(checkout.root ?? ""), path: String(checkout.path ?? ""),
       boundHead: String(checkout.head ?? ""), finalHead, patch, publishBranch: publishBranchOf(id, revision),
-      title: String(pkg.body.title ?? id), body: prBody(pkg.body, s.verification ?? undefined),
+      title: String(pkg.body.title ?? id), body: prBody(pkg.body, s.verification ?? undefined), acceptedAt: String(accepted.decided_at),
     });
   });
   if ("lane" in result) {

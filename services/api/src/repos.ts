@@ -1845,6 +1845,8 @@ export interface PublishInput {
   publishBranch: string;
   title: string;
   body: string;
+  /** When the work was accepted (ISO time). The commit carries it, so a retry rebuilds the same commit. */
+  acceptedAt: string;
 }
 
 /** Any path inside one of Control Rod's reserved run folders. */
@@ -1903,7 +1905,13 @@ export async function publishCheckout(input: PublishInput, testing: { pushUrl?: 
         // The owner's own identity when git has one (read with their config), else a plain one.
         const name = await git(["config", "user.name"], { cwd: path, workspaceRoot: root }).catch(() => "");
         const email = await git(["config", "user.email"], { cwd: path, workspaceRoot: root }).catch(() => "");
-        const who = { GIT_AUTHOR_NAME: name || "Control Rod", GIT_AUTHOR_EMAIL: email || "controlrod@localhost", GIT_COMMITTER_NAME: name || "Control Rod", GIT_COMMITTER_EMAIL: email || "controlrod@localhost" };
+        const when = new Date(input.acceptedAt);
+        if (Number.isNaN(when.getTime())) return { opened: false, reason: "failed", detail: "The accept decision has no usable time." };
+        const date = `${Math.floor(when.getTime() / 1000)} +0000`;
+        const who = {
+          GIT_AUTHOR_NAME: name || "Control Rod", GIT_AUTHOR_EMAIL: email || "controlrod@localhost", GIT_AUTHOR_DATE: date,
+          GIT_COMMITTER_NAME: name || "Control Rod", GIT_COMMITTER_EMAIL: email || "controlrod@localhost", GIT_COMMITTER_DATE: date,
+        };
         head = await git(["commit-tree", tree, "-p", input.finalHead, "-m", input.title.slice(0, 200), "-m", "Accepted in Control Rod."], { ...opts, extraEnv: { ...isolated, ...who } });
       }
     }

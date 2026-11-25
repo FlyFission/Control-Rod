@@ -51,7 +51,7 @@ afterEach(() => {
 /** The worktree's changes as the author's patch output, and the inputs the publisher takes. */
 function accepted(extra: Partial<Parameters<typeof publishCheckout>[0]> = {}) {
   const patch = Buffer.from(execFileSync("git", ["diff", "--binary", "HEAD"], { cwd: worktree }));
-  return { repo: "acme/app", root, path: worktree, boundHead: base, finalHead: g(worktree, "rev-parse", "HEAD"), patch, publishBranch: "controlrod/WP-1-r0", title: "Add x", body: "Because", ...extra };
+  return { repo: "acme/app", root, path: worktree, boundHead: base, finalHead: g(worktree, "rev-parse", "HEAD"), patch, publishBranch: "controlrod/WP-1-r0", title: "Add x", body: "Because", acceptedAt: "2026-11-25T03:00:00Z", ...extra };
 }
 const pushed = (ref = "controlrod/WP-1-r0") => execFileSync("git", ["--git-dir", bare, "ls-tree", "-r", "--name-only", ref], { encoding: "utf8" });
 
@@ -76,6 +76,8 @@ describe("publishCheckout", () => {
     writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
     const input = accepted();
     expect((await publishCheckout(input, { pushUrl: bare })).opened).toBe(true);
+    // A retry a moment later rebuilds the very same commit.
+    await new Promise((r) => setTimeout(r, 1100));
     writeFileSync(`${ghLog}.existing`, "https://github.com/acme/app/pull/7\n");
     expect(await publishCheckout(input, { pushUrl: bare })).toMatchObject({ opened: true, reused: true, url: "https://github.com/acme/app/pull/7" });
   });

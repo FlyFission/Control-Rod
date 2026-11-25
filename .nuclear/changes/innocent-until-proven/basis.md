@@ -26,3 +26,11 @@ Passkeys for big settings, SCRAM, quarantine, the kernel's floors, and the agent
 ## Exit criteria
 
 Web tests, the daemon staging test and the API refusal catalogue test pass; every note box can be signed empty and sends its fallback.
+
+## Required links
+
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [proof](proof.md).
+
+## Source-lineage note
+
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

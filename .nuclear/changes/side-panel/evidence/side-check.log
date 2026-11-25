@@ -1,6 +1,8 @@
 ok   panel opens docked at 520 px (got 520)
 ok   page narrows beside the panel, not under it
 ok   no overlay on a wide screen
+ok   focus moves into the panel when it opens
+ok   page keeps touch scrolling and pinch zoom
 ok   top bar stays visible
 ok   click on the page keeps the panel open
 ok   another item swaps the panel content

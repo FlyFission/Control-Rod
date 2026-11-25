@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SidePanel, SidePanelProvider, SidePanelSlot, useSidePanelHost } from "./SidePanel.js";
@@ -116,6 +116,38 @@ describe("SidePanel", () => {
     expect(after).toBe(box);
     expect(after.value).toBe("half a note");
     expect(document.querySelector(".side-panel-overlay")?.contains(after)).toBe(true);
+  });
+});
+
+function Focusing({ onClose }: { onClose: () => void }) {
+  const ref = useRef<HTMLElement>(null);
+  // As the drawers do: focus their own panel when they mount.
+  useEffect(() => ref.current?.focus(), []);
+  return (
+    <SidePanel label="Focus" onClose={onClose}>
+      <aside ref={ref} tabIndex={-1} aria-label="Focus me" />
+    </SidePanel>
+  );
+}
+
+describe("SidePanel focus", () => {
+  it("mounts its content only once the slot is on the page, so the panel takes focus on first open", () => {
+    function P() {
+      const [shown, setShown] = useState(false);
+      return (
+        <Host docked>
+          <button type="button" onClick={() => setShown(true)}>
+            go
+          </button>
+          {shown && <Focusing onClose={() => setShown(false)} />}
+        </Host>
+      );
+    }
+    render(<P />);
+    const go = screen.getByText("go");
+    go.focus();
+    fireEvent.click(go);
+    expect(document.activeElement).toBe(screen.getByRole("complementary", { name: "Focus me" }));
   });
 });
 

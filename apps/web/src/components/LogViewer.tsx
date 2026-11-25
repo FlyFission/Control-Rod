@@ -15,34 +15,17 @@ export function problemLines(lines: readonly string[]): number[] {
 
 /**
  * The run log at full size (owner, 2026-11-25: "the window is so small that it's hard to figure
- * anything out"). A modal over the whole screen: what happened in one sentence first, then every
- * line, wrapped and numbered, with a switch to show only the lines that look like problems.
+ * anything out"). In a card's side panel it opens over the card (PanelScreen); on a full page it is a
+ * modal over the whole screen. Either way: what happened in one sentence first, then every line,
+ * wrapped and numbered, with a switch to show only the lines that look like problems.
  */
 export function LogViewer({ title, summary, lines, onClose, live = false }: { title: string; summary: React.ReactNode; lines: readonly string[]; onClose: () => void; live?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-  const [onlyProblems, setOnlyProblems] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const problems = useMemo(() => problemLines(lines), [lines]);
-  const problemSet = useMemo(() => new Set(problems), [problems]);
-  const shown = onlyProblems ? problems : lines.map((_, i) => i);
-
   useEffect(() => {
     const dlg = ref.current;
     if (dlg && !dlg.open) dlg.showModal?.();
     return () => dlg?.close?.();
   }, []);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(lines.join("\n"));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  };
-
   return (
     <dialog
       ref={ref}
@@ -58,6 +41,32 @@ export function LogViewer({ title, summary, lines, onClose, live = false }: { ti
         <h2 id="log-viewer-title">{title}</h2>
         <CloseX onClose={onClose} label="Close full log" />
       </header>
+      <LogBody title={title} summary={summary} lines={lines} live={live} />
+    </dialog>
+  );
+}
+
+/** The log itself, for the modal and for the side panel. */
+export function LogBody({ title, summary, lines, live = false }: { title: string; summary: React.ReactNode; lines: readonly string[]; live?: boolean }) {
+  const endRef = useRef<HTMLDivElement>(null);
+  const [onlyProblems, setOnlyProblems] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const problems = useMemo(() => problemLines(lines), [lines]);
+  const problemSet = useMemo(() => new Set(problems), [problems]);
+  const shown = onlyProblems ? problems : lines.map((_, i) => i);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <>
       <div className="log-viewer-summary">{summary}</div>
       <div className="log-viewer-bar">
         <label className="small">
@@ -88,6 +97,6 @@ export function LogViewer({ title, summary, lines, onClose, live = false }: { ti
         )}
         <div ref={endRef} />
       </div>
-    </dialog>
+    </>
   );
 }

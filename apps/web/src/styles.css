@@ -2739,3 +2739,165 @@ select {
 .log-viewer-lines li[data-problem] {
   color: var(--stuck);
 }
+
+/* ---- File viewers (components/viewers/) ---- */
+.code-view {
+  margin-top: 8px;
+  max-height: 520px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: var(--fs-small);
+  line-height: var(--lh-mono);
+}
+.code-view pre.shiki {
+  margin: 0;
+  padding: 12px;
+  min-width: max-content;
+  font-family: var(--mono);
+}
+.code-view.numbered pre.shiki code {
+  counter-reset: line;
+}
+.code-view.numbered pre.shiki .line::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 3.5ch;
+  margin-right: 1.5ch;
+  text-align: right;
+  color: var(--muted);
+  opacity: 0.6;
+  user-select: none;
+}
+.file-markdown table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.file-markdown th,
+.file-markdown td {
+  border: 1px solid var(--line-2);
+  padding: 4px 8px;
+  text-align: left;
+}
+.file-markdown .code-view {
+  max-height: none;
+}
+.file-markdown li.task-list-item {
+  list-style: none;
+}
+.file-markdown ul.contains-task-list {
+  padding-left: 4px;
+}
+.file-markdown li.task-list-item input[type="checkbox"] {
+  box-shadow: none;
+  appearance: auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0 8px 0 0;
+  padding: 0;
+  vertical-align: middle;
+  background: none;
+  border: 0;
+  accent-color: var(--accent);
+}
+.csv-view td.num,
+.csv-view th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.csv-view {
+  margin-top: 8px;
+}
+.csv-view table {
+  display: block;
+  max-height: 520px;
+  overflow: auto;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.file-screen-body .csv-view table {
+  max-height: none;
+}
+.csv-view th,
+.csv-view td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.csv-view th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  font-weight: 600;
+}
+.image-view-btn {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.image-view.full {
+  overflow: auto;
+  max-height: 80vh;
+}
+.image-view.full .image-view-btn {
+  cursor: zoom-out;
+}
+.image-view.full .preview-img {
+  max-width: none;
+}
+.pdf-view {
+  margin-top: 8px;
+}
+.pdf-view .pdf-page {
+  margin: 0 auto 10px;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.4);
+}
+.pdf-view .pdf-page-wait {
+  background: var(--ground);
+  margin-bottom: 10px;
+}
+.pdf-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* A Word document keeps its own paper colours, like a page on the desk. */
+.docx-view {
+  margin-top: 8px;
+  background: #fff;
+  color: #111;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+}
+.docx-view section.docx {
+  padding: 0 !important;
+  min-height: 0 !important;
+  width: auto !important;
+  box-shadow: none !important;
+}
+.log-viewer-bar label {
+  display: inline-flex;
+  align-items: center;
+}
+.log-viewer-bar input[type="checkbox"] {
+  box-shadow: none;
+  border: 0;
+  appearance: auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0 6px 0 0;
+  padding: 0;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}

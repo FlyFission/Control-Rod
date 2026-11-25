@@ -2290,3 +2290,61 @@
   margin: 0;
   flex: 1 1 320px;
 }
+
+/* ---- An output at the panel's full size (fileView.tsx) ---- */
+.bd-calm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.bd-calm-card[hidden] {
+  display: none;
+}
+.bd-output-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.file-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+.file-screen-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.file-screen-links {
+  display: inline-flex;
+  gap: 14px;
+}
+.file-screen-name {
+  margin: 8px 0 0;
+  font-size: var(--fs-body);
+  overflow-wrap: anywhere;
+}
+.file-screen-meta {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+/* In the full view a file is as tall as it needs: the panel scrolls, not a box inside it. */
+.file-screen-body .preview,
+.file-screen-body .preview-text,
+.file-screen-body .code-view {
+  max-height: none;
+}
+.file-screen-body .log-viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 8px 0;
+}
+.file-screen-body .log-viewer-body {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}

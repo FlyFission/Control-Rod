@@ -616,6 +616,8 @@
 /* On any touchscreen the workspace keeps the browser's gestures (pinch zoom, scrolling); only the
    resize handle claims touch for dragging. */
 .shell .shell-panes,
-.shell .shell-panes > [data-panel] {
+.shell .shell-panes > [data-panel],
+.shell .work-panes,
+.shell .work-panes > [data-panel] {
   touch-action: auto !important;
 }

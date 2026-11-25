@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { CardLink } from "../components/CardPanel.js";
 import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { AttentionItem } from "../api/types.js";
@@ -114,9 +115,9 @@ export function Today() {
               <ul className="today-list">
                 {awaitingHuman.map((p) => (
                   <li key={p.id} className="today-row">
-                    <Link to="/packages/$id" params={{ id: p.id }} className="today-link">
+                    <CardLink id={p.id} className="today-link">
                       {p.title || p.id}
-                    </Link>
+                    </CardLink>
                     <span className="pill">{STATUS_LABEL[p.status] ?? p.status}</span>
                   </li>
                 ))}

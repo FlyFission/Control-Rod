@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { CloseX } from "../../components/CloseX.js";
 import { SidePanel } from "../../components/SidePanel.js";
 import { Link } from "@tanstack/react-router";
@@ -10,8 +10,9 @@ import { AgentPanel, pickRun } from "../../components/AgentPanel.js";
 import { Blocked, PasskeyHint, ReasonBox, useDecisionSigner, type DecisionSigner } from "../../components/DecisionBar.js";
 import { PullRequestLine } from "../../components/PullRequestLine.js";
 import { DrawerOutputs } from "./DrawerOutputs.js";
+import { PanelScreenContext, PanelScreenView, type PanelScreen } from "../../components/PanelScreen.js";
 import { AgentBadge } from "../../components/AgentBadge.js";
-import { RunCard, canStop } from "../../components/RunLog.js";
+import { RunCard, canStop, runLogScreen } from "../../components/RunLog.js";
 import { projectContextDefault } from "../../lib/context-profile.js";
 import { needsIndependentCheck } from "../../lib/board.js";
 import { decisionLabel } from "../../lib/decide.js";
@@ -28,6 +29,8 @@ import { FindingDetail, ScopeDriftNote } from "../../components/FindingDetail";
 interface BoardReviewDrawerProps {
   packageId: string;
   initialPkg?: WorkPackage;
+  /** Opens this run's full log over the card once the card has loaded (from the runs list). */
+  openRunLog?: string;
   mode: EngineeringMode;
   autoFocus?: boolean;
   onClose: () => void;
@@ -129,7 +132,7 @@ export function drawerStep(view: PackageView, allowed: readonly DecisionKind[], 
  * primary step. Everything a decision rests on (what was asked, the check, outputs, runs, custody,
  * switches, the signing digest) is one click away under Details, and in full on the case page.
  */
-export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = true, onClose }: BoardReviewDrawerProps) {
+export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = true, openRunLog, onClose }: BoardReviewDrawerProps) {
   const asideRef = useRef<HTMLElement>(null);
   // Closing hands focus back to whatever opened the drawer (the card or button), if it is still on the page.
   const opener = useRef<Element | null>(null);
@@ -161,28 +164,62 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
 
   const view = q.data;
   const pkg = view?.package ?? initialPkg;
+  // An output or a full log opened at the panel's full size over the card (PanelScreen.tsx); back
+  // returns focus to the card. Another card never inherits it.
+  const [screenFor, setScreenFor] = useState<{ packageId: string; screen: PanelScreen } | undefined>(undefined);
+  const openScreen = useCallback((s: PanelScreen) => setScreenFor({ packageId, screen: s }), [packageId]);
+  const closeScreen = useCallback(() => {
+    setScreenFor(undefined);
+    asideRef.current?.focus();
+  }, []);
+  const screen = screenFor?.packageId === packageId ? screenFor.screen : undefined;
+  // Asked to open a run's log: once, when the card's runs are known.
+  const runLogDone = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!openRunLog || runLogDone.current === `${packageId}:${openRunLog}`) return;
+    const r = q.data?.runs?.find((x) => x.id === openRunLog);
+    if (!r) return;
+    runLogDone.current = `${packageId}:${openRunLog}`;
+    setScreenFor({ packageId, screen: runLogScreen(packageId, r) });
+  }, [openRunLog, packageId, q.data]);
 
   return (
-    <SidePanel label={`Review ${packageId}`} onClose={onClose}>
+    <SidePanel label={`Review ${packageId}`} onClose={onClose} autoFocus={autoFocus}>
     <aside ref={asideRef} tabIndex={-1} className="bd-drawer bd-cockpit bd-calm" aria-label={`Review ${packageId}`}>
       <div className="bd-calm-head">
         <div className="bd-calm-titles">
-          {pkg ? <h2 className="bd-calm-title">{pkg.title}</h2> : <h2 className="bd-calm-title mono">{packageId}</h2>}
-          <p className="bd-calm-meta small muted">
-            <span className="mono">{packageId}</span>
-            {pkg && <> {"·"} {STATUS_LABEL[pkg.status] ?? pkg.status}</>}
-          </p>
-          {view && <PullRequestLine pr={view.pull_request} />}
+          {screen ? (
+            // A file or log open over the card: it is the title, the card the line under it.
+            <>
+              <h2 className={screen.mono ? "bd-calm-title mono" : "bd-calm-title"}>{screen.title}</h2>
+              <p className="bd-calm-meta small muted">From {pkg?.title ?? packageId}</p>
+            </>
+          ) : (
+            <>
+              {pkg ? <h2 className="bd-calm-title">{pkg.title}</h2> : <h2 className="bd-calm-title mono">{packageId}</h2>}
+              <p className="bd-calm-meta small muted">
+                <span className="mono">{packageId}</span>
+                {pkg && <> {"·"} {STATUS_LABEL[pkg.status] ?? pkg.status}</>}
+              </p>
+              {view && <PullRequestLine pr={view.pull_request} />}
+            </>
+          )}
         </div>
         <CloseX onClose={onClose} label="Close review drawer" />
       </div>
 
       <div className="bd-calm-body">
-        {view ? (
-          <CalmBody key={view.package.id} view={view} mode={mode} />
-        ) : q.isLoading ? (
-          <p className="muted">Loading…</p>
-        ) : null}
+        {screen ? <PanelScreenView key={screen.key} screen={screen} onBack={closeScreen} /> : null}
+        {/* The card stays mounted under an open file, so going back keeps its open sections and notes. */}
+        <div hidden={Boolean(screen)} className="bd-calm-card">
+          <PanelScreenContext.Provider value={openScreen}>
+            {view ? (
+              <CalmBody key={view.package.id} view={view} mode={mode} />
+            ) : q.isLoading ? (
+              <p className="muted">Loading…</p>
+            ) : null}
+          </PanelScreenContext.Provider>
+        </div>
 
         {q.isError && (
           <div role="alert" className="error">

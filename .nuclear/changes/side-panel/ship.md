@@ -1,11 +1,13 @@
 # Ship: Show details in a side panel instead of windows
 
-- Draft PR for owner review. Merge needs the owner's yes.
-- Rollback: revert the squash commit; no data or contract change.
+Release decision: pending the owner's yes to merge, after at most two Codex review rounds (round 1 fixed, E-05).
 
 ## Signature
 
 Pending.
+
+- Rollback: revert the squash commit; no data or contract change. Saved widths under `cr.side:<user>` are ignored after a revert.
+- Monitoring after merge: on a real install (Safari on macOS first), cards open beside the page, PDFs and Word files draw, and nothing on the page is hard to click beside the panel.
 
 ## Required links
 
@@ -13,7 +15,7 @@ Pending.
 
 ## Exit criteria
 
-Ending: clicking a card, capture or inbox item opens its details in one side panel; on a wide screen it sits beside the page (resizable, width kept per person) and the page stays usable; narrower it slides over the page and a click outside closes it; X and Esc hide it everywhere; crossing between the two keeps what was typed; web tests, typecheck, build and the rendered check pass.
+Ending: clicking a card, capture or inbox item, or a card link anywhere in the app, opens its details in one side panel; on a wide screen it sits beside the page (resizable, width kept per person) and the page stays usable; narrower it slides over the page and a click outside closes it; X and Esc hide it; an output file (markdown, PDF, Word, code, CSV, image, diff, JSON) or a run's full log opens at the panel's full size over the card, with Back and Esc returning to the card; crossing the breakpoint keeps what was typed; web tests, typecheck, build and the rendered checks pass.
 
 ## Source-lineage note
 

@@ -47,6 +47,8 @@ const openItem = async (page, title) => { await page.locator(`[data-inspect-for=
   check(pane && pane.w === 520, `panel opens docked at 520 px (got ${pane?.w})`);
   check(main && main.w < mainBefore.w && main.x + main.w <= pane.x + 1, 'page narrows beside the panel, not under it');
   check(await page.locator('.side-panel-overlay').count() === 0, 'no overlay on a wide screen');
+  check(await page.evaluate(() => !!document.activeElement?.closest('#side')), 'focus moves into the panel when it opens');
+  check(await page.evaluate(() => getComputedStyle(document.querySelector('.work-panes')).touchAction === 'auto' && getComputedStyle(document.querySelector('#page')).touchAction === 'auto'), 'page keeps touch scrolling and pinch zoom');
   check(await page.locator('.topbar').isVisible(), 'top bar stays visible');
   await page.screenshot({ path: `${out}/02-open-1440.png` });
   // Clicking the page keeps the panel; clicking another item swaps its content.

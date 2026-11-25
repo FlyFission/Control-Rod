@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -59,18 +60,25 @@ var (
 var grokTermDeniedPrograms = []string{"/usr/bin/security", "/usr/bin/osascript", "/usr/bin/open",
 	"/bin/launchctl", "/usr/bin/sudo", "/usr/bin/su", "/usr/bin/login", "/usr/bin/pbcopy", "/usr/bin/pbpaste"}
 
+// grokTermDeniedServices are the system services a command may not reach.
+var grokTermDeniedServices = []string{"com.apple.SecurityServer", "com.apple.securityd", "com.apple.pasteboard.1",
+	"com.apple.coreservices.appleevents", "com.apple.coreservices.launchservicesd"}
+
 // grokBridgeConfig is everything the bridge needs, computed by the daemon and passed inline, never
 // as a file, so nothing an agent can write configures the run.
 type grokBridgeConfig struct {
-	Workspace  string   `json:"workspace"`
-	RunHome    string   `json:"run_home"`
-	GrokHome   string   `json:"grok_home"`
-	Denied     []string `json:"denied"`
-	WriteDirs  []string `json:"write_dirs"`
-	WriteFiles []string `json:"write_files,omitempty"`
-	Hosts      []string `json:"hosts"`
-	Prompt     string   `json:"prompt"`
-	Checker    bool     `json:"checker,omitempty"`
+	Workspace string   `json:"workspace"`
+	RunHome   string   `json:"run_home"`
+	GrokHome  string   `json:"grok_home"`
+	Denied    []string `json:"denied"`
+	// DeniedPrefixes are path prefixes denied to reads: other runs' folders in the shared
+	// temporary folders, whose names Control Rod controls.
+	DeniedPrefixes []string `json:"denied_prefixes,omitempty"`
+	WriteDirs      []string `json:"write_dirs"`
+	WriteFiles     []string `json:"write_files,omitempty"`
+	Hosts          []string `json:"hosts"`
+	Prompt         string   `json:"prompt"`
+	Checker        bool     `json:"checker,omitempty"`
 }
 
 func (c *grokBridgeConfig) termHome() string { return filepath.Join(c.RunHome, grokTermDir) }
@@ -100,12 +108,30 @@ func ancestors(p string) []string {
 	return out
 }
 
+// safePrefix is a path prefix that can be written as a Seatbelt regex without escapes.
+var safePrefix = regexp.MustCompile(`^/[A-Za-z0-9/._-]+$`)
+
+// prefixRegexes are Seatbelt regex literals matching every path that starts with one of prefixes.
+// A dot is written as [.]; a prefix with any other special character is not one Control Rod makes,
+// and parseBridgeArgs refuses it.
+func prefixRegexes(prefixes []string) []string {
+	out := make([]string, 0, len(prefixes))
+	for _, p := range prefixes {
+		out = append(out, "^"+strings.ReplaceAll(p, ".", "[.]"))
+	}
+	return out
+}
+
 func sbplRule(b *strings.Builder, action, op, filter string, paths []string) {
 	if len(paths) == 0 {
 		return
 	}
 	b.WriteString("(" + action + " " + op)
 	for _, p := range paths {
+		if filter == "regex" {
+			b.WriteString("\n    (regex #" + sbplString(p) + ")")
+			continue
+		}
 		b.WriteString("\n    (" + filter + " " + sbplString(p) + ")")
 	}
 	b.WriteString(")\n")
@@ -123,6 +149,7 @@ func grokProcessProfile(c *grokBridgeConfig, exe string, proxyPort int) string {
 	b.WriteString(fmt.Sprintf("(allow network-outbound\n    (remote ip \"localhost:%d\"))\n", proxyPort))
 	b.WriteString("(deny file-write*)\n")
 	sbplRule(&b, "deny", "file-read*", "subpath", c.Denied)
+	sbplRule(&b, "deny", "file-read*", "regex", prefixRegexes(c.DeniedPrefixes))
 	var meta []string
 	for _, p := range []string{c.Workspace, c.RunHome, c.GrokHome, exe} {
 		meta = append(meta, ancestors(p)...)
@@ -153,6 +180,9 @@ func grokProcessProfile(c *grokBridgeConfig, exe string, proxyPort int) string {
 	}
 	files = append(files, grokDevWrites...)
 	sbplRule(&b, "allow", "file-write*", "literal", files)
+	// The commands' own folder is readable to commands, so the Grok process (which reads the
+	// login) may not write there: nothing it holds can be handed to a command that way.
+	sbplRule(&b, "deny", "file-write*", "subpath", []string{c.termHome()})
 	return b.String()
 }
 
@@ -163,6 +193,7 @@ func grokCommandProfile(c *grokBridgeConfig) string {
 	var b strings.Builder
 	b.WriteString("(version 1)\n(allow default)\n(deny network*)\n(deny file-write*)\n")
 	sbplRule(&b, "deny", "file-read*", "subpath", append(slices.Clone(c.Denied), c.RunHome))
+	sbplRule(&b, "deny", "file-read*", "regex", prefixRegexes(c.DeniedPrefixes))
 	var meta []string
 	for _, p := range []string{c.Workspace, c.termHome()} {
 		meta = append(meta, ancestors(p)...)
@@ -173,7 +204,9 @@ func grokCommandProfile(c *grokBridgeConfig) string {
 	sbplRule(&b, "allow", "file-write*", "subpath", append(slices.Clone(c.WriteDirs), c.termHome()))
 	sbplRule(&b, "allow", "file-write*", "literal", append(slices.Clone(c.WriteFiles), grokDevWrites...))
 	sbplRule(&b, "deny", "process-exec", "literal", grokTermDeniedPrograms)
-	b.WriteString("(deny mach-lookup\n    (global-name \"com.apple.SecurityServer\")\n    (global-name \"com.apple.securityd\"))\n")
+	// The services behind those programs too, so a copy of one is refused as well: the Keychain,
+	// the clipboard, Apple Events and Launch Services (which starts programs outside the sandbox).
+	sbplRule(&b, "deny", "mach-lookup", "global-name", grokTermDeniedServices)
 	return b.String()
 }
 

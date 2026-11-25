@@ -250,7 +250,19 @@ func grokBridgeFor(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*
 	if err != nil {
 		return nil, err
 	}
-	cfg := &grokBridgeConfig{Workspace: dir, GrokHome: grokHome, Denied: deny, Checker: ws.Checker,
+	// Other runs' folders in the shared temporary folders (checker workspaces, Antigravity run
+	// folders, checker temporary folders) are unreadable; this run's own workspace is reopened.
+	var prefixes []string
+	for _, tmp := range []string{"/var/tmp", os.TempDir()} {
+		c, err := canonicalPath(tmp)
+		if err != nil || !safePrefix.MatchString(c) {
+			return nil, fmt.Errorf("the temporary folder %s cannot be fenced for Grok CLI (%v)", tmp, err)
+		}
+		if !slices.Contains(prefixes, c+"/controlrod-") {
+			prefixes = append(prefixes, c+"/controlrod-")
+		}
+	}
+	cfg := &grokBridgeConfig{Workspace: dir, GrokHome: grokHome, Denied: deny, DeniedPrefixes: prefixes, Checker: ws.Checker,
 		Hosts: authorEgressHosts(RuntimeGrok, p), Prompt: Prompt}
 	if ws.Checker {
 		files, evidence, err := checkerWriteTargets(ws)

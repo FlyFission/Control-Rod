@@ -319,6 +319,9 @@ func TestGrokProfiles(t *testing.T) {
 			t.Errorf("Grok's profile lacks %q:\n%s", want, g)
 		}
 	}
+	if !strings.HasSuffix(strings.TrimSpace(g), "(deny file-write*\n    (subpath "+sbplString(cfg.termHome())+"))") {
+		t.Errorf("the Grok process may write the commands' folder:\n%s", g)
+	}
 	writes := g[strings.Index(g, "(allow file-write*"):]
 	if strings.Contains(writes, sbplString(cfg.Workspace)+")") || strings.Contains(writes, sbplString(filepath.Join(cfg.GrokHome, "auth.json"))+")") {
 		t.Errorf("the Grok process may write the workspace or its login:\n%s", writes)
@@ -328,12 +331,18 @@ func TestGrokProfiles(t *testing.T) {
 			t.Errorf("Grok's profile opens %s", never)
 		}
 	}
+	cfg.DeniedPrefixes = []string{"/private/var/tmp/controlrod-"}
+	for _, prof := range []string{grokProcessProfile(cfg, "/x/grok", 1), grokCommandProfile(cfg)} {
+		if !strings.Contains(prof, `(regex #"^/private/var/tmp/controlrod-")`) {
+			t.Errorf("other runs' temporary folders are readable:\n%s", prof)
+		}
+	}
 	c := grokCommandProfile(cfg)
 	for _, want := range []string{
 		"(deny network*)", "(deny file-write*)",
 		"(subpath " + sbplString(user) + ")", "(subpath " + sbplString(cfg.RunHome) + ")",
 		"(allow file-read*\n    (subpath " + sbplString(cfg.Workspace) + ")\n    (subpath " + sbplString(cfg.termHome()) + "))",
-		`(literal "/usr/bin/security")`, "com.apple.SecurityServer",
+		`(literal "/usr/bin/security")`, `(global-name "com.apple.SecurityServer")`, `(global-name "com.apple.pasteboard.1")`,
 	} {
 		if !strings.Contains(c, want) {
 			t.Errorf("the command profile lacks %q:\n%s", want, c)

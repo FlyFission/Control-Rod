@@ -113,6 +113,11 @@ func parseBridgeArgs(args []string) (*grokBridgeConfig, []string, error) {
 			return nil, nil, fmt.Errorf("bridge config path %q is not a clean absolute path", p)
 		}
 	}
+	for _, p := range cfg.DeniedPrefixes {
+		if !safePrefix.MatchString(p) {
+			return nil, nil, fmt.Errorf("bridge config prefix %q has characters a profile cannot hold", p)
+		}
+	}
 	if len(cfg.Denied) == 0 || len(cfg.WriteDirs) == 0 || cfg.Prompt == "" {
 		return nil, nil, errors.New("bridge config is incomplete")
 	}

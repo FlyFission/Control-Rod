@@ -387,7 +387,12 @@ func TestNoRuntimeNameSwitch(t *testing.T) {
 // preflight (so they show as not ready, with the gap as the reason) and by Command itself.
 func TestAwaitingConfinementIsRefused(t *testing.T) {
 	look := func(string) (string, error) { return "/usr/bin/x", nil }
-	for _, id := range []string{RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama} {
+	awaiting := []string{RuntimeGrok, RuntimeOpenCode, RuntimeOllama}
+	if runtime.GOOS != "darwin" {
+		// Antigravity's sandbox is measured on macOS only (change record agy-seat).
+		awaiting = append(awaiting, RuntimeAgy)
+	}
+	for _, id := range awaiting {
 		a, ok := AdapterFor(id)
 		if !ok {
 			t.Fatalf("%s not registered", id)
@@ -395,7 +400,7 @@ func TestAwaitingConfinementIsRefused(t *testing.T) {
 		if _, ok := a.(AwaitingConfinement); !ok {
 			t.Fatalf("%s is not marked as awaiting confinement", id)
 		}
-		if a.Capabilities().NativeSandbox != "none" {
+		if a.Capabilities().NativeSandbox != "none" && id != RuntimeAgy {
 			t.Fatalf("%s claims a sandbox it does not have: %q", id, a.Capabilities().NativeSandbox)
 		}
 		err := PreflightHost(id, look, nil)

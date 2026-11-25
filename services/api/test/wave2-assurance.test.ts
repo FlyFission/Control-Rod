@@ -43,9 +43,12 @@ describe("Wave 2 multi-CLI assurance and O6 quorum", () => {
   });
 
   it("harnessName names the Wave 2 runtimes, which do not count until they can run", () => {
-    for (const r of ["grok", "opencode", "agy", "ollama"]) {
+    for (const r of ["grok", "opencode", "ollama"]) {
       expect(harnessName(r)).toBe(r);
       expect(countedProvider(r)).toBe(false);
     }
+    // Antigravity runs confined on macOS, so its pre-checks count.
+    expect(harnessName("antigravity")).toBe("agy");
+    expect(countedProvider("agy")).toBe(true);
   });
 });

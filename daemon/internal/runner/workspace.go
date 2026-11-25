@@ -68,6 +68,9 @@ type Workspace struct {
 	// LoginDisposable is this run's directory mounted over session paths on Linux.
 	// It is not the real login directory, and the daemon removes only this directory.
 	LoginDisposable string
+	// RunHome is a per-run home folder a runtime starts with (HOME), outside the workspace and
+	// so not writable by its agent. The daemon removes it after the run.
+	RunHome string
 	// CheckerTmp is the macOS per-run temporary directory. The daemon removes it
 	// after the run. Linux uses the private /tmp tmpfs and does not set this.
 	CheckerTmp string

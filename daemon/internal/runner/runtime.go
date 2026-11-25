@@ -361,6 +361,9 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 			env = withEnv(env, filterExtraEnv(extra.CheckerEnv())...)
 		}
 	}
+	if ws != nil && ws.RunHome != "" {
+		env = withEnv(env, "HOME="+ws.RunHome)
+	}
 	return finishCommand(cmd, ws, env), nil
 }
 

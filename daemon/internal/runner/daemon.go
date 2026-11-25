@@ -1497,6 +1497,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		}
 	}
 	cmd, err := Command(runtime, job.Run, ws, sandbox, d.sandboxPaths(ws))
+	if ws.RunHome != "" {
+		defer os.RemoveAll(ws.RunHome)
+	}
 	// Nothing starts once the lease has ended (or anything else stopped the run) during preparation.
 	if err == nil && held.Err() != nil {
 		err = context.Cause(held)

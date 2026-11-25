@@ -26,7 +26,7 @@ import { bindCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
-import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
+import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
 import { benchedRuntimes } from "./setup.js";
 import { projectRuntimePrefs } from "./workspace-projects.js";
 import { ownerOf } from "./tenancy.js";
@@ -789,6 +789,7 @@ function runtimeName(provider: unknown): string {
   const p = String(provider ?? "").toLowerCase();
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
+  if (p === "agy" || p === "antigravity" || p === "gemini-cli") return "agy";
   return p;
 }
 
@@ -796,7 +797,7 @@ function runtimeName(provider: unknown): string {
 function pickRuntime(have: string[], preferred?: string): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && have.includes(pref)) return pref;
-  return ["claude", "codex", "fake"].find((r) => have.includes(r)) ?? null;
+  return [...RUNNABLE, "fake"].find((r) => have.includes(r)) ?? null;
 }
 
 /**
@@ -807,7 +808,7 @@ function pickRuntime(have: string[], preferred?: string): string | null {
 function pickChecker(have: string[], authorRuntime: string, override: boolean, preferred?: string): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && pref !== authorRuntime && have.includes(pref)) return pref;
-  const other = ["codex", "claude", "fake"].find((r) => have.includes(r) && r !== authorRuntime);
+  const other = [...CHECKER_ORDER, "fake"].find((r) => have.includes(r) && r !== authorRuntime);
   if (other) return other;
   return override && have.includes(authorRuntime) ? authorRuntime : null;
 }
@@ -1540,7 +1541,8 @@ export async function claim(
           } else {
             const preferredAuthor =
               capPrefs.author?.ecosystem ?? projPrefs?.laneAgents?.drafting ?? projPrefs?.author;
-            runtime = pickRuntime(offer, preferredAuthor);
+            // A checkout run goes only to a runtime that can author in a checkout.
+            runtime = pickRuntime(row.body.checkout ? offer.filter((r) => CHECKOUT_AUTHORS.includes(r)) : offer, preferredAuthor);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
             }
@@ -3503,7 +3505,7 @@ export async function listCaptures(db: Db, orgId: string) {
 
 /* ---------- runtime readiness ---------- */
 
-const KNOWN_RUNTIMES = ["claude", "codex", "fake"];
+const KNOWN_RUNTIMES = [...RUNNABLE, "fake"];
 
 export interface RuntimeStatus {
   runtime: string;

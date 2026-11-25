@@ -102,6 +102,13 @@ func prepareWorkspace(root string, job *Job, a Adapter) (*Workspace, error) {
 	if job != nil && job.Run.Role == "pre-check" && a != nil && a.SandboxRequired() {
 		return PrepareChecker(root, job)
 	}
+	if r, ok := a.(workspaceRooter); ok && job != nil && job.Run.Checkout == nil {
+		own, err := r.WorkspaceRoot(root)
+		if err != nil {
+			return nil, err
+		}
+		root = own
+	}
 	return Prepare(root, job)
 }
 
@@ -974,7 +981,7 @@ func makeCheckerRunTmp(ws *Workspace) (string, error) {
 // protectedLoginNames stay read-only inside the active CLI's login directory.
 // They are the instruction, hook, skill, and settings names those CLIs load.
 var protectedLoginNames = []string{
-	"settings.json", "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "AGENTS.override.md",
+	"settings.json", "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "AGENTS.override.md", "GEMINI.md",
 	"config.toml", "hooks", "skills", "agents", "commands", "plugins", "rules",
 }
 
@@ -1464,6 +1471,11 @@ func sbplString(s string) string {
 func applyCheckerMount(cmd *exec.Cmd, ws *Workspace) error {
 	if ws == nil || ws.Deliverables == "" {
 		return errors.New("the checker has no deliverable tree to mount read-only, so the check cannot count")
+	}
+	if a, ok := AdapterFor(ws.CheckerRuntime); ok && selfConfined(a) {
+		// Its own launch carries the checker's limits (selfConfinedChecker); the deliverable
+		// tree and the workspace are still compared before and after.
+		return nil
 	}
 	argv, err := checkerMountArgv(cmd, ws)
 	if err != nil {

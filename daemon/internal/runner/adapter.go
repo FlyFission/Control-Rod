@@ -48,6 +48,7 @@ type Adapter interface {
 // so a run on it would reach the whole machine. PreflightHost and Command refuse it with the gap
 // as the reason: it is listed as not ready and never started. An adapter leaves this interface
 // when its confinement is built and qualified (ADR 0021), under its own change record.
+// An empty gap means the runtime is confined on this platform.
 type AwaitingConfinement interface {
 	ConfinementGap() string
 }
@@ -55,9 +56,29 @@ type AwaitingConfinement interface {
 // confinementRefusal is the refusal for a runtime that is awaiting confinement, or nil.
 func confinementRefusal(a Adapter) error {
 	if w, ok := a.(AwaitingConfinement); ok {
-		return refuse("%s cannot run work yet: %s", a.DisplayName(), w.ConfinementGap())
+		if gap := w.ConfinementGap(); gap != "" {
+			return refuse("%s cannot run work yet: %s", a.DisplayName(), gap)
+		}
 	}
 	return nil
+}
+
+// workspaceRooter places a runtime's author and intake workspaces under a root of its own instead
+// of the daemon's home. The argument is the daemon's home.
+type workspaceRooter interface {
+	WorkspaceRoot(daemonHome string) (string, error)
+}
+
+// selfConfinedChecker is a runtime whose checker is not wrapped in Control Rod's outer checker
+// mount, because its own sandbox cannot start inside one. Its Command carries the checker's
+// limits instead, and the deliverable tree is still hashed before and after the run.
+type selfConfinedChecker interface {
+	SelfConfinedChecker() bool
+}
+
+func selfConfined(a Adapter) bool {
+	s, ok := a.(selfConfinedChecker)
+	return ok && s.SelfConfinedChecker()
 }
 
 // HookProvider records a permission-hook file for the run. The caller removes it.

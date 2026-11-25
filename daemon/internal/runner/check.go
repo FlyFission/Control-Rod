@@ -322,6 +322,9 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		return CheckResult{}, fmt.Errorf("%w: %v", ErrCheckUsage, err)
 	}
 	cmd, err := Command(checkerID, job.Run, ws, sandbox, sp)
+	if ws.RunHome != "" {
+		defer os.RemoveAll(ws.RunHome)
+	}
 	if err != nil {
 		return CheckResult{}, fmt.Errorf("%w: %v", ErrCheckUsage, err)
 	}

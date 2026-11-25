@@ -155,6 +155,13 @@ describe("signing policy on a project", () => {
     expect(ok.json()).toMatchObject({ project_id: project, version: 1, preset: "light", steps: PRESETS.light });
   });
 
+  it("starts the drafts already waiting in the project once Light is turned on", async () => {
+    const id = (await asOwner("GET", "/packages")).json().find((p: { id: string }) => p.id.endsWith("-NOPOLICY")).id;
+    const v = await view(id);
+    expect(v.package.status).toBe("released");
+    expect(v.decisions.find((d: Json) => d.kind === "release").actor).toEqual({ kind: "system", id: expect.stringMatching(/^policy:SP-/) });
+  });
+
   it("under Light, releases a routine card on its own and records the policy it relied on", async () => {
     const id = await drafted("LIGHT");
     const v = await view(id);
@@ -253,6 +260,48 @@ describe("signing policy on a project", () => {
     expect(r.json()).toMatchObject({ actor: { kind: "human" }, signing_policy: { preset: "light" } });
   });
 
+  it("under Light, settles a failed run's unknown outcome with a press, so it can run again", async () => {
+    const id = await drafted("UNPROVEN");
+    const author = await claimFor("author", ["fake"], id);
+    // Process group containment (macOS always) can never prove every process of a failed run stopped.
+    const done = await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "failed", error: "boom", outputs: [], containment: "process-group" });
+    expect(done.statusCode, done.body).toBe(200);
+    const held = (await view(id)).runs.find((r: Json) => r.id === author.run.id);
+    expect(held.outcome_unknown.reason).toMatch(/process group/);
+    expect((await asOwner("POST", `/packages/${id}/runs/${author.run.id}/requeue`, {})).json().code).toBe("outcome-unknown");
+    // A reason is still recorded.
+    expect((await asOwner("POST", `/packages/${id}/runs/${author.run.id}/reconcile`, {})).json().code).toBe("reason-required");
+    const r = await asOwner("POST", `/packages/${id}/runs/${author.run.id}/reconcile`, { reason: "Nothing is still running" });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().reconciliation).toMatchObject({ disposition: "abandoned", by: { kind: "human" } });
+    expect(r.json().reconciliation.evidence).toMatch(/with a press under signing policy SP-.* v1: Nothing is still running/);
+    const again = await asOwner("POST", `/packages/${id}/runs/${author.run.id}/requeue`, {});
+    expect(again.statusCode, again.body).toBe(201);
+  });
+
+  it("under Light, runs a check that failed without a verdict again once on its own, then stops for a person", async () => {
+    const id = await drafted("RETRY");
+    const author = await claimFor("author", ["fake"], id);
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "report.md", content_base64: b64("done") }] });
+    const first = await claimFor("pre-check", ["codex"], id);
+    const failed = await asDaemon(`/runner/runs/${first.run.id}/complete`, { status: "failed", error: "verification.json does not match the schema, so the check cannot count", outputs: [], containment: "process-group" });
+    expect(failed.statusCode, failed.body).toBe(200);
+    let runs = (await view(id)).runs.filter((r: Json) => r.role === "pre-check");
+    const old = runs.find((r: Json) => r.id === first.run.id);
+    expect(old.reconciliation).toMatchObject({ disposition: "abandoned", by: { kind: "system", id: expect.stringMatching(/^policy:SP-/) } });
+    expect(old.requeued_as).toBeDefined();
+    expect(runs.find((r: Json) => r.id === old.requeued_as)).toMatchObject({ status: "queued", generation: 2 });
+    // The retry fails too: it stays for the person.
+    const second = await claimFor("pre-check", ["codex"], id);
+    expect(second.run.id).toBe(old.requeued_as);
+    await asDaemon(`/runner/runs/${second.run.id}/complete`, { status: "failed", error: "boom", outputs: [], containment: "process-group" });
+    runs = (await view(id)).runs.filter((r: Json) => r.role === "pre-check");
+    const last = runs.find((r: Json) => r.id === second.run.id);
+    expect(last.requeued_as).toBeUndefined();
+    expect(last.reconciliation).toBeUndefined();
+    expect(runs.filter((r: Json) => r.status === "queued")).toHaveLength(0);
+  });
+
   it("refuses a press made on a card that changed since it was shown", async () => {
     const id = await drafted("CHANGED");
     const r = await asOwner("POST", `/packages/${id}/decisions`, {
@@ -344,11 +393,22 @@ describe("signing policy on a project", () => {
     expect(press.statusCode).toBe(403);
   });
 
+  it("asks for a passkey to settle an unknown outcome once the settings sign send-backs", async () => {
+    const id = await drafted("UNPROVEN-SIGNED");
+    const author = await claimFor("author", ["fake"], id);
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "failed", error: "boom", outputs: [], containment: "process-group" });
+    await signedAdmin("project.set-signing-policy", { project_id: project, preset: "everything" });
+    const r = await asOwner("POST", `/packages/${id}/runs/${author.run.id}/reconcile`, { reason: "Nothing is still running" });
+    expect(r.statusCode).toBe(403);
+    expect(r.json().code).toBe("unsigned");
+  });
+
   it("under Everything, behaves as before", async () => {
     await signedAdmin("project.set-signing-policy", { project_id: project, preset: "everything" });
     const id = await drafted("EVERYTHING");
     expect((await view(id)).package.status).toBe("draft");
   });
+
   it("asks for a passkey, on the board and at the server alike, once the policy's passkey is revoked", async () => {
     await signedAdmin("project.set-signing-policy", { project_id: project, preset: "light" });
     const id = await drafted("REVOKED");

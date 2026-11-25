@@ -1,3 +1,4 @@
+import { plainError } from "./plainError.js";
 import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, Run, WorkPackage } from "../api/types.js";
 import { blockUnverifiedAccept, boardColumn, isVerified, preCheckState } from "./board.js";
 
@@ -32,7 +33,8 @@ export function stalledLine(run: Run, checkBlocked?: { reason?: string }): NextL
   const who = run.role === "pre-check" ? "The check" : "The agent";
   const what =
     run.status === "lost" ? `${who} stopped answering` : run.status === "stopped" ? `${who} was stopped` : `${who} could not finish`;
-  const detail = run.error?.trim();
+  // The plain sentence, not the runner's own text: that stays one click away in the run log.
+  const detail = plainError(run.error)?.what;
   // A check of this same deliverable already failed: the server refuses another until the author
   // revises it or the owner signs an override, so Run again would only be refused.
   if (run.role === "pre-check" && checkBlocked) {
@@ -48,7 +50,10 @@ export function stalledLine(run: Run, checkBlocked?: { reason?: string }): NextL
   if (run.outcome_unknown !== undefined && run.reconciliation === undefined) {
     return {
       tone: "needs",
-      text: `${what}, and it may not have stopped. Open its run log to confirm, then run it again`,
+      // A run that reported its end is not one that stopped answering: say which.
+      text: /lease|restarted|renewing/.test(run.outcome_unknown.reason ?? "")
+        ? `${what}, and it may not have stopped. Open its run log to confirm, then run it again`
+        : `${what}. Open its run log to run it again`,
       command: "open-run-log",
       runId: run.id,
       ...(detail ? { detail: detail.length > 160 ? `${detail.slice(0, 157)}...` : detail } : {}),
@@ -173,7 +178,9 @@ export function nextLine(i: NextInput): NextLine {
   // Only a step that moves the work forward makes a card read "Needs you". Return and Reject are
   // always open on live work (with a reason), so naming them would mark every card in work as
   // waiting on a person when nothing is asked of anyone.
-  const first = offered.find((a) => a.allowed && !ESCAPE_HATCHES.has(a.command));
+  // Editing a draft is optional: when the draft can also be released, the card asks for that.
+  const forward = offered.filter((a) => a.allowed && !ESCAPE_HATCHES.has(a.command));
+  const first = forward.find((a) => a.command !== "draft.edit") ?? forward[0];
   if (first) return { tone: "needs", text: first.label, command: first.command };
 
   if (column === "person-verifies") return { tone: "wait", text: "Waiting on a person verification" };

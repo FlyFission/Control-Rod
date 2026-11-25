@@ -15,7 +15,7 @@ export interface PlainError {
 const RULES: { test: RegExp; plain: PlainError }[] = [
   {
     // The login-folder fingerprint: a folder (usually ~/.codex with the Codex app's plugins) too large to hash.
-    test: /login (directory|entry)[\s\S]*over the \d+ byte limit/i,
+    test: /login (directory|entry)[\s\S]*over the (\d+ )?byte limit/i,
     plain: {
       what: "The agent's sign-in folder was too large for the safety check to read, so the check stopped before it looked at the work.",
       fix: "Update Control Rod (controlrod update), then run it again.",
@@ -27,6 +27,14 @@ const RULES: { test: RegExp; plain: PlainError }[] = [
     plain: {
       what: "The safety check could not read the agent's sign-in folder, so it stopped before it looked at the work.",
       fix: "Check that the agent is installed and signed in on Setup, then run it again.",
+    },
+  },
+  {
+    // The checker answered, but not in the shape Control Rod reads: Control Rod's problem, not the work's.
+    test: /(verification|criterion-results)\.json does not match the (checker )?schema|checker wrote no scratch\/verification\.json/i,
+    plain: {
+      what: "The checker's answer came back in a form Control Rod could not read, so the check did not count.",
+      fix: "Run it again. If it keeps happening, pick another checker at the top of the Being checked column.",
     },
   },
   {

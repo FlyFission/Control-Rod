@@ -29,7 +29,7 @@ test.describe("@break inputs", () => {
   for (const [name, text] of nasty) {
     test(`quick add takes ${name} text literally`, async ({ page, journal, stack }) => {
       const tag = `fz${Date.now().toString(36)}`;
-      await page.getByRole("button", { name: "+ Add a card" }).click();
+      await page.getByRole("button", { name: "+ Quick add" }).click();
       const field = page.getByPlaceholder("What needs doing? Enter adds it");
       await field.fill(`${tag} ${text}`);
       await field.press("Enter");
@@ -51,7 +51,7 @@ test.describe("@break inputs", () => {
 
   test("an empty or blank line adds nothing", async ({ page, stack }) => {
     const before = (await page.context().request.get(`${stack.url}/captures`).then((r) => r.json()) as { text?: string }[]).filter((c) => (c.text ?? "").trim() === "").length;
-    await page.getByRole("button", { name: "+ Add a card" }).click();
+    await page.getByRole("button", { name: "+ Quick add" }).click();
     const field = page.getByPlaceholder("What needs doing? Enter adds it");
     for (const t of ["", "   ", "\n\n"]) {
       await field.fill(t);
@@ -66,7 +66,7 @@ test.describe("@break inputs", () => {
     const tag = `paste${Date.now().toString(36)}`;
     const count = () => capturesWith(page, stack.url, tag);
     const before = 0;
-    await page.getByRole("button", { name: "+ Add a card" }).click();
+    await page.getByRole("button", { name: "+ Quick add" }).click();
     const field = page.getByPlaceholder("What needs doing? Enter adds it");
     const lines = Array.from({ length: 40 }, (_, i) => `${tag} line ${i + 1}`).join("\n");
     await field.focus();
@@ -146,7 +146,7 @@ test.describe("@break outages", () => {
   test("the network drops while adding a card: the line is kept and nothing is lost or doubled", async ({ page, stack, context }) => {
     const text = `Offline line ${Date.now()}`;
     const count = () => capturesWith(page, stack.url, text);
-    await page.getByRole("button", { name: "+ Add a card" }).click();
+    await page.getByRole("button", { name: "+ Quick add" }).click();
     const field = page.getByPlaceholder("What needs doing? Enter adds it");
     await field.fill(text);
     await context.setOffline(true);
@@ -256,7 +256,7 @@ test.describe("@break sessions and links", () => {
   test("a lost session sends the person to sign in instead of failing silently", async ({ page, journal, stack, context }) => {
     journal.allow(/./);
     await context.clearCookies();
-    await page.getByRole("button", { name: "+ Add a card" }).click();
+    await page.getByRole("button", { name: "+ Quick add" }).click();
     const field = page.getByPlaceholder("What needs doing? Enter adds it");
     await field.fill(`After the session ended ${Date.now()}`);
     await field.press("Enter");

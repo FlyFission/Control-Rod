@@ -138,7 +138,7 @@ export function BoardListView({
                       <div className="bd-list-badges">
                         {c.column === "needs-signature" && (
                           <span className="bd-safety-badge" data-tone="needs">
-                            Needs signature
+                            Ready to accept
                           </span>
                         )}
                         {check && <span className="bd-check">◆ Check</span>}

@@ -18,23 +18,34 @@ describe("council", () => {
     const c = councilOf(rows({ claude: true, codex: true }));
     expect(c.author?.id).toBe("claude");
     expect(c.checker?.id).toBe("codex");
-    expect(c.fallbacks.map((s) => s.id)).toEqual(["codex"]);
-    expect(c.later.map((s) => s.id)).toEqual(["agy", "grok", "opencode", "ollama"]);
+    expect(c.fallbacks.map((s) => s.id)).toEqual(["codex", "agy", "grok"]);
+    expect(c.later.map((s) => s.id)).toEqual(["opencode", "ollama"]);
   });
 
   it("never seats the author's own vendor as checker", () => {
     const c = councilOf(rows({ claude: true, codex: false }));
     expect(c.author?.id).toBe("claude");
     expect(c.checker).toBeUndefined();
-    expect(c.waiting.map((s) => s.id)).toEqual(["codex"]);
+    expect(c.waiting.map((s) => s.id)).toEqual(["codex", "agy", "grok"]);
   });
 
   it("leaves a benched agent out of every seat", () => {
-    const c = councilOf(rows({ claude: true, codex: true }, [{ runtime: "claude", seated: false }]));
+    const c = councilOf(rows({ claude: true, codex: true }, [{ runtime: "claude", seated: false }, { runtime: "agy", seated: false }, { runtime: "grok", seated: false }]));
     expect(c.author?.id).toBe("codex");
     expect(c.checker).toBeUndefined();
-    expect(c.benched.map((s) => s.id)).toEqual(["claude"]);
+    expect(c.benched.map((s) => s.id)).toEqual(["claude", "agy", "grok"]);
     expect(c.fallbacks).toEqual([]);
+  });
+});
+
+describe("stand-in", () => {
+  it("shows a ready stand-in before one that is still waiting, as the dispatcher picks", () => {
+    const f = buildCouncilFlow(rows({ claude: true, codex: false, grok: true }), "start-and-merge");
+    expect(f.steps.find((s) => s.id === "fallback")?.seat?.id).toBe("grok");
+    // With a third vendor ready, the stand-in's work is checked now, not when the author returns.
+    const g = buildCouncilFlow(rows({ claude: true, codex: false, agy: true, grok: true }), "start-and-merge");
+    expect(g.steps.find((s) => s.id === "fallback")?.seat?.id).toBe("agy");
+    expect(g.steps.find((s) => s.id === "fallback-check")?.seat?.id ?? JSON.stringify(g.steps.map((s) => [s.id, s.seat?.id]))).toBe("grok");
   });
 });
 

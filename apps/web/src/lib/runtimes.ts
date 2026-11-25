@@ -37,6 +37,12 @@ export interface CliEcosystem {
   modelDefaultReasoning?: Readonly<Record<string, ReasoningLevel>>;
 }
 
+/**
+ * The runtimes that can author in a repository checkout. Antigravity and Grok are fenced to the
+ * workspace folder, so the dispatcher never gives them checkout authoring (daemon docs).
+ */
+export const CHECKOUT_AUTHORS: readonly CliEcosystemId[] = ["claude", "codex"];
+
 export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
   {
     id: "claude",
@@ -112,21 +118,22 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "agy",
     label: "Antigravity CLI (AGY)",
     cliCommand: "agy",
-    runnable: false,
-    models: ["argon", "gemini-2.5-pro", "gemini-2.5-flash"],
-    reasoningLevels: ["low", "medium", "high", "max"],
-    modelReasoningLevels: {
-      argon: ["low", "medium", "high", "max"],
-      "gemini-2.5-pro": ["low", "medium", "high"],
-      "gemini-2.5-flash": ["off", "minimal", "low", "medium", "high"],
-    },
-    defaultModel: "argon",
-    defaultReasoning: "high",
-    modelDefaultReasoning: {
-      "gemini-2.5-pro": "medium",
-      "gemini-2.5-flash": "medium",
-    },
+    runnable: true,
+    // Antigravity model ids carry their own effort (daemon/internal/runner/models.json).
+    models: [
+      "default",
+      "gemini-4-neon-high",
+      "gemini-4-neon-xhigh",
+      "gemini-4-hydrogen-high",
+      "gemini-4-hydrogen-xhigh",
+      "gemini-4-carbon-high",
+      "gemini-4-argon-high",
+    ],
+    reasoningLevels: ["default"],
+    defaultModel: "default",
+    defaultReasoning: "default",
   },
+
   {
     id: "opencode",
     label: "OpenCode",
@@ -152,17 +159,14 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "grok",
     label: "Grok CLI",
     cliCommand: "grok",
-    runnable: false,
-    models: ["grok-code-fast-1", "grok-4", "grok-3"],
-    reasoningLevels: ["low", "medium", "high"],
-    modelReasoningLevels: {
-      "grok-code-fast-1": ["off", "low", "medium"],
-      "grok-4": ["low", "medium", "high"],
-      "grok-3": ["off", "low", "high"],
-    },
-    defaultModel: "grok-code-fast-1",
-    defaultReasoning: "medium",
+    runnable: true,
+    // The deciding Grok models in daemon/internal/runner/models.json.
+    models: ["default", "grok-4.7", "grok-4.6", "grok-4.5"],
+    reasoningLevels: ["default"],
+    defaultModel: "default",
+    defaultReasoning: "default",
   },
+
   {
     id: "cursor",
     label: "Cursor Agent",

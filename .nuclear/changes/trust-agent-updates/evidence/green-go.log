@@ -1,0 +1,14 @@
+--- PASS: TestAgyNewerVersionsAreSeated (0.00s)
+--- PASS: TestGrokVersionLoginAndModels (0.00s)
+--- PASS: TestCodexSwitchesOffNewFeaturesInsteadOfRefusing (0.00s)
+--- PASS: TestCodex0172IsSeatedWithItsNewFeatureSwitchedOff (0.00s)
+--- PASS: TestCodexLaunchCarriesTheSwitches (0.00s)
+--- PASS: TestLaunchRefusesSwitchesTheLastPreflightDidNotFind (0.00s)
+--- PASS: TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode (0.00s)
+--- PASS: TestPreflightRefusesWithTheFixAndNeverFallsBack (0.00s)
+--- SKIP: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.00s)
+--- PASS: TestPreflightRefusesUnreadableFeatureListsAndUnqualifiedPlatforms (0.00s)
+--- PASS: TestCodex0171FeaturesAreQualified (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.030s
+Full suite: only TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun fails (cloud HTTPS_PROXY; same on main).

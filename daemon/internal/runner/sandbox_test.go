@@ -201,7 +201,7 @@ func found(string) (string, error) { return "/usr/bin/x", nil }
 func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 	ctx := context.Background()
 	signedIn := preflightRunner(map[string]int{"claude auth status": 0, "codex login status": 0})
-	safe := func(context.Context) (string, error) {
+	safe := func(context.Context, []string) (string, error) {
 		return "shell_tool stable true\nhooks stable false\nsteer removed true\ninstant_interrupt under development true\n", nil
 	}
 	if err := Preflight(ctx, RuntimeClaude, signedIn, found, safe, nil); err != nil {
@@ -282,30 +282,38 @@ func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 		}
 	}
 	// A feature Control Rod has not qualified, left on by a new version.
-	unknown := func(context.Context) (string, error) {
+	unknown := func(context.Context, []string) (string, error) {
 		return "shell_tool stable true\nteleport experimental true\n", nil
 	}
 	if err := Preflight(ctx, RuntimeCodex, signedIn, found, unknown, nil); err == nil || !strings.Contains(err.Error(), "teleport") {
 		t.Fatalf("unqualified feature: %v", err)
 	}
-	broken := func(context.Context) (string, error) { return "", errors.New("exit 2") }
+	broken := func(context.Context, []string) (string, error) { return "", errors.New("exit 2") }
 	if err := Preflight(ctx, RuntimeCodex, signedIn, found, broken, nil); err == nil {
 		t.Fatal("an unreadable feature list passed")
 	}
 }
 
 // The installed Codex, when there is one, must leave on only features Control Rod has qualified once
-// its switches are applied: this is the per-version check the preflight runs.
+// its switches are applied, the ones the preflight adds for this version included: this is the
+// per-version check the preflight runs. What it adds is logged, for a later qualification.
 func TestInstalledCodexLeavesOnlyQualifiedFeatures(t *testing.T) {
 	if _, err := exec.LookPath("codex"); err != nil {
 		t.Skip("codex is not installed here")
 	}
-	list, err := CodexEffectiveFeatures(context.Background())
+	list, err := CodexEffectiveFeatures(context.Background(), nil)
 	if err != nil {
 		t.Skipf("codex features list did not run here: %v", err)
 	}
-	if extra := unqualifiedCodexFeatures(list); len(extra) > 0 {
-		t.Fatalf("the installed Codex leaves unqualified features on: %v", extra)
+	_ = list
+	// The same routine as the preflight, so a listing the daemon would refuse fails here too.
+	signedIn := func(context.Context, string, ...string) (string, int, error) { return "", 0, nil }
+	off, err := (codexAdapter{features: CodexEffectiveFeatures}).PreflightSwitches(context.Background(), signedIn)
+	if err != nil {
+		t.Fatalf("the installed Codex would be refused: %v", err)
+	}
+	if len(off) > 0 {
+		t.Logf("the installed Codex turns on %v; runs switch them off", off)
 	}
 }
 
@@ -468,8 +476,8 @@ func TestPreflightRefusesUnreadableFeatureListsAndUnqualifiedPlatforms(t *testin
 	signedIn := preflightRunner(map[string]int{"codex login status": 0})
 	for _, list := range []string{"", "\n\n", "shell_tool stable true\nsomething else entirely\n"} {
 		l := list
-		got := func(context.Context) (string, error) { return l, nil }
-		if err := Preflight(ctx, RuntimeCodex, signedIn, found, got, nil); err == nil {
+		got := func(context.Context, []string) (string, error) { return l, nil }
+		if _, err := PreflightSwitches(ctx, RuntimeCodex, signedIn, found, got, nil); err == nil {
 			t.Errorf("feature list %q passed", list)
 		}
 	}

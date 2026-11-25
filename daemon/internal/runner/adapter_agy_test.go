@@ -530,21 +530,34 @@ func TestTurnFailureOverridesACleanExit(t *testing.T) {
 	}
 }
 
-func TestAgyQualifiedVersionIsTheMeasuredSeries(t *testing.T) {
+// Updates are trusted: the tested build and every newer one are seated, with a note on a newer
+// one; an older build, a prerelease of the tested one, or an unreadable version is not.
+func TestAgyNewerVersionsAreSeated(t *testing.T) {
 	for v, want := range map[string]bool{"1.5.16": true, "agy 1.5.16": true, "Antigravity CLI v1.5.16 (abc)": true,
-		"1.5.3": false, "1.5.17": false, "1.5.16-beta": false, "1.5.16.1": false, "1.6.0": false, "2.5.1": false, "1.50.16": false, "": false, "unknown": false} {
+		"1.5.17": true, "1.5.16.1": true, "1.6.0": true, "2.5.1": true, "1.50.16": true, "1.5.17-beta": true,
+		"1.5.3": false, "1.5.15": false, "1.4.99": false, "1.5.16-beta": false, "": false, "unknown": false} {
 		if got := agyQualifiedVersion(v); got != want {
-			t.Fatalf("%q: %v", v, got)
+			t.Errorf("%q: %v", v, got)
 		}
 	}
-	run := func(_ context.Context, _ string, args ...string) (string, int, error) {
-		if args[0] == "--version" {
-			return "1.6.0\n", 0, nil
+	for v, wantNote := range map[string]bool{"1.5.16": false, "1.5.17": true, "1.5.16.1": true} {
+		if _, newer := agentVersionAtLeast(v, agyTestedVersion); newer != wantNote {
+			t.Errorf("newer(%q) = %v", v, newer)
 		}
-		return "", 0, nil
 	}
-	if err := (agyAdapter{}).PreflightCLI(context.Background(), run); err == nil || !strings.Contains(err.Error(), "qualified") {
-		t.Fatalf("an unqualified version passed preflight: %v", err)
+	run := func(version string) CommandRunner {
+		return func(_ context.Context, _ string, args ...string) (string, int, error) {
+			if args[0] == "--version" {
+				return version + "\n", 0, nil
+			}
+			return "", 0, nil
+		}
+	}
+	if err := (agyAdapter{}).PreflightCLI(context.Background(), run("1.5.15")); err == nil || !strings.Contains(err.Error(), "older than") {
+		t.Fatalf("an older version passed preflight: %v", err)
+	}
+	if err := (agyAdapter{}).PreflightCLI(context.Background(), run("1.5.17")); err != nil && strings.Contains(err.Error(), "older than") {
+		t.Fatalf("a newer version was refused for its version: %v", err)
 	}
 }
 

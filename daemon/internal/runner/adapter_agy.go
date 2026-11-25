@@ -89,27 +89,31 @@ func (a agyAdapter) Probe(ctx context.Context, _ string, run CommandRunner) Runt
 			st.Reason = agyVersionReason(st.Version)
 			return true
 		}
+		if _, newer := agentVersionAtLeast(st.Version, agyTestedVersion); newer {
+			st.Note = newerThanTestedNote("Antigravity CLI", st.Version, agyTestedVersion)
+		}
 		return false
 	})
 }
 
-// agyQualifiedVersions are the Antigravity builds whose confinement was qualified live (change
-// record agy-seat): the tool names the seat gate refuses and the field a sandbox-bypass request
-// carries were measured on these exact builds. Any other build, a patch or
-// prerelease of the same series too, is listed but not seated until it is qualified.
-var agyQualifiedVersions = []string{"1.5.16"}
+// agyTestedVersion is the Antigravity build whose confinement was qualified live (change record
+// agy-seat). It and every newer build are seated (agent_version.go); an older one is not.
+const agyTestedVersion = "1.5.16"
 
 // agyVersionRE takes the first x.y.z in the version line with anything that follows it attached
 // (a prerelease or build suffix), so "1.5.16-beta" is not read as 1.5.16.
 var agyVersionRE = regexp.MustCompile(`(?:^|[^0-9.])(\d+\.\d+\.\d+[^\s,;()]*)`)
 
 func agyQualifiedVersion(v string) bool {
-	m := agyVersionRE.FindStringSubmatch(v)
-	return m != nil && slices.Contains(agyQualifiedVersions, m[1])
+	ok, _ := agentVersionAtLeast(v, agyTestedVersion)
+	return ok
 }
 
 func agyVersionReason(v string) string {
-	return fmt.Sprintf("Antigravity CLI %q is installed, but Control Rod has qualified its sandbox only on version %s, so it is not seated yet.", v, strings.Join(agyQualifiedVersions, ", "))
+	if agyVersionRE.FindStringSubmatch(v) == nil {
+		return fmt.Sprintf("Control Rod could not read a version from %s (%q), so it is not seated.", "Antigravity CLI", v)
+	}
+	return fmt.Sprintf("Antigravity CLI %q is installed, but it is older than %s, the first version Control Rod can sandbox. Update Antigravity.", v, agyTestedVersion)
 }
 
 // agyModels reads model ids from `agy models`: the first field of each line that looks like an

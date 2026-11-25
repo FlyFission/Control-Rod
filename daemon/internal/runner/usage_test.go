@@ -576,3 +576,20 @@ func TestReadCodexUsageSameSecondOrdering(t *testing.T) {
 		}
 	}
 }
+
+// The control plane refuses any JSON number with a fraction, so a fractional reading must leave as a
+// whole number or every claim carrying it is refused and no run ever starts.
+func TestUsageWindowSendsWholePercent(t *testing.T) {
+	for _, tc := range []struct {
+		in   float64
+		want string
+	}{{37.5, `"used_percent":38`}, {3.49, `"used_percent":3`}, {100.4, `"used_percent":100`}, {-2, `"used_percent":0`}} {
+		b, err := json.Marshal(UsageProvider{ID: "codex", Windows: []UsageWindow{{ID: "primary", UsedPercent: tc.in}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), tc.want) || strings.Contains(string(b), ".") {
+			t.Fatalf("%v: got %s, want %s with no fraction", tc.in, b, tc.want)
+		}
+	}
+}

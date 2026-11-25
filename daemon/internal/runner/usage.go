@@ -76,6 +76,16 @@ type UsageWindow struct {
 	ObservedAt string `json:"observed_at,omitempty"`
 }
 
+// MarshalJSON sends the percent as a whole number. The control plane accepts only integers in
+// JSON (the canonical record profile), so a reading like 37.5% would make every runner claim
+// that carries it fail with HTTP 400, and no work would start.
+func (w UsageWindow) MarshalJSON() ([]byte, error) {
+	type plain UsageWindow
+	p := plain(w)
+	p.UsedPercent = math.Round(clampPercent(p.UsedPercent))
+	return json.Marshal(p)
+}
+
 // UsageProvider is one CLI's windows and where they came from.
 type UsageProvider struct {
 	ID         string        `json:"id"`

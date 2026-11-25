@@ -1,10 +1,10 @@
 # Ship: Grok CLI as a confined seat
 
-Release decision: **pending** the live qualification, at most two Codex blind-review rounds (the owner's limit), and the owner's merge decision.
+Release decision: **ship**. The live qualification passed on the owner's Mac; the repository's automatic Codex review ran its two rounds (one finding each, both fixed with tests) and came back clean at 972f0d4.
 
 ## Signature
 
-Owner (sole maintainer): not yet given.
+Owner (sole maintainer): yes, 2026-11-25 12:36 UTC, "Merge once CI passes" on the merge decision card in the Control Rod project thread "Get Antigravity and Grok running work".
 
 ## Known limits
 

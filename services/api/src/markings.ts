@@ -1,6 +1,7 @@
 import type { Db, Tx } from "./db/index.js";
 import { type DataLane, LANE_ORDER, isLane } from "./disclosure.js";
 import { assertMarkingWrite } from "./marking-lock.js";
+import { publishing } from "./publish-claim.js";
 import { Refusal } from "./refusal.js";
 import { checkSchema } from "./tenancy.js";
 
@@ -93,6 +94,11 @@ async function write(c: Tx, m: Omit<Marking, "effective_lane">): Promise<Marking
   await lock(c);
   const full: Marking = { ...m, effective_lane: await compute(c, m) };
   checkSchema("MarkingEnvelope.json", full);
+  // The lane barrier: a card whose draft pull request is being opened right now cannot leave the
+  // lanes that may go to GitHub until that attempt has finished (or its claim has run out).
+  if (m.object_kind === "package" && full.effective_lane !== "public" && full.effective_lane !== "internal" && await publishing(c, m.object_id)) {
+    throw new Refusal(409, "publishing", `A draft pull request is being opened for ${m.object_id} right now; raise its lane again in a minute.`);
+  }
   await c.query("insert into object_markings (body) values ($1)", [full]);
   return full;
 }

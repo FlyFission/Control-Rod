@@ -1,10 +1,10 @@
 # Ship: Show details in a side panel instead of windows
 
-Release decision: pending the owner's yes to merge, after at most two Codex review rounds (round 1 fixed, E-05).
+Release decision: merge. Two Codex review rounds fixed (E-05, E-06); the automatic runs after the limit were fixed (E-07) except one known item carried to the next PR: reopening the same run log from Runs after Back needs the panel closed first.
 
 ## Signature
 
-Pending.
+Owner (sole maintainer): Ben Huffer, yes ("merge") in the project thread, 2026-11-25 16:33 UTC, after choosing "Fix both, then merge" on the decision card at 13:34 UTC.
 
 - Rollback: revert the squash commit; no data or contract change. Saved widths under `cr.side:<user>` are ignored after a revert.
 - Monitoring after merge: on a real install (Safari on macOS first), cards open beside the page, PDFs and Word files draw, and nothing on the page is hard to click beside the panel.

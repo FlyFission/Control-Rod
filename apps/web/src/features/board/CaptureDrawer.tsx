@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CloseX } from "../../components/CloseX.js";
-import { useOutsideClose } from "../../lib/dismiss.js";
+import { SidePanel } from "../../components/SidePanel.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { api, explain } from "../../api/client.js";
@@ -22,7 +22,6 @@ interface CaptureDrawerProps {
 export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
   const qc = useQueryClient();
   const asideRef = useRef<HTMLElement>(null);
-  useOutsideClose(asideRef, onClose);
   const shown = splitAttachments(capture.text);
   const summary = captureSummaryText(shown.text) || shown.files.join(", ");
   const line = captureLine(capture);
@@ -33,16 +32,6 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
     asideRef.current?.focus();
   }, [capture.id]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("dialog[open], .palette")) {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const classify = useMutation({
     mutationFn: () => api.classifyCapture(capture.id, lane),
@@ -63,6 +52,7 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
   });
 
   return (
+    <SidePanel label={`Capture ${capture.id}`} onClose={onClose}>
     <aside ref={asideRef} tabIndex={-1} className="bd-drawer" aria-label={`Capture ${capture.id}`}>
       <div className="bd-drawer-head">
         <div className="bd-drawer-id-row">
@@ -184,5 +174,6 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
         )}
       </div>
     </aside>
+    </SidePanel>
   );
 }

@@ -1,0 +1,5 @@
+test,status,seconds
+retries three times,pass,0.41
+stops after success,pass,0.02
+raises after last attempt,pass,0.40
+backoff grows,pass,0.01

@@ -1,12 +1,17 @@
 import { Suspense, lazy, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Markdown from "react-markdown";
 import { api } from "../api/client.js";
 import type { Artifact } from "../api/types.js";
 import { DiffView } from "./DiffView.js";
-import { baseName, isGeoJson, previewKind, shortDigest } from "../lib/format.js";
+import { baseName, codeLang, isGeoJson, previewKind, shortDigest } from "../lib/format.js";
+import { CodeView } from "./viewers/CodeView.js";
+import { ViewerBoundary } from "./viewers/ViewerBoundary.js";
+import { CsvView } from "./viewers/CsvView.js";
+import { MarkdownView } from "./viewers/MarkdownView.js";
 
 const GeoMap = lazy(() => import("./GeoMap.js"));
+const PdfView = lazy(() => import("./viewers/PdfView.js"));
+const DocxView = lazy(() => import("./viewers/DocxView.js"));
 
 /** One output, previewed on demand so the page does not download every file at once. */
 export function OutputItem({ packageId, artifact }: { packageId: string; artifact: Artifact }) {
@@ -29,15 +34,63 @@ export function OutputItem({ packageId, artifact }: { packageId: string; artifac
   );
 }
 
-/** The body of one output preview, without the Preview/Hide control: the drawer lays it out itself. */
+/**
+ * The body of one output preview, without the Preview/Hide control: the drawer lays it out itself.
+ * Each kind of file has its own viewer; the heavy ones (PDF, Word, maps) load only when needed.
+ */
 export function Preview({ href, name }: { href: string; name: string }) {
-  const kind = previewKind(name);
-  if (kind === "image") return <img className="preview-img" src={href} alt={name} />;
-  if (kind === "pdf") return <iframe className="preview-pdf" src={href} title={name} />;
-  return <TextPreview href={href} kind={kind} />;
+  return (
+    <ViewerBoundary href={href} resetKey={href}>
+      <PreviewBody href={href} name={name} />
+    </ViewerBoundary>
+  );
 }
 
-function TextPreview({ href, kind }: { href: string; kind: ReturnType<typeof previewKind> }) {
+function PreviewBody({ href, name }: { href: string; name: string }) {
+  const kind = previewKind(name);
+  if (kind === "image") return <ImageView href={href} name={name} />;
+  if (kind === "pdf") {
+    return (
+      <Suspense fallback={<p className="muted">Loading the PDF…</p>}>
+        <PdfView href={href} />
+      </Suspense>
+    );
+  }
+  if (kind === "docx") return <DocxPreview href={href} />;
+  return <TextPreview href={href} kind={kind} name={name} />;
+}
+
+/** Fits the panel; a click shows it at full size (scroll to pan) and back. */
+function ImageView({ href, name }: { href: string; name: string }) {
+  const [full, setFull] = useState(false);
+  return (
+    <div className={full ? "image-view full" : "image-view"}>
+      <button type="button" className="image-view-btn" onClick={() => setFull((v) => !v)} aria-pressed={full} title={full ? "Fit to the panel" : "Show at full size"}>
+        <img className="preview-img" src={href} alt={name} />
+      </button>
+    </div>
+  );
+}
+
+function DocxPreview({ href }: { href: string }) {
+  const q = useQuery({
+    queryKey: ["output-bytes", href],
+    queryFn: async () => {
+      const res = await fetch(href, { credentials: "same-origin" });
+      if (!res.ok) throw new Error(`Could not load (${res.status})`);
+      return res.arrayBuffer();
+    },
+  });
+  if (q.isLoading) return <p className="muted">Loading</p>;
+  if (q.isError || q.data === undefined) return <p className="error">Could not load this output.</p>;
+  return (
+    <Suspense fallback={<p className="muted">Loading the document…</p>}>
+      <DocxView data={q.data} />
+    </Suspense>
+  );
+}
+
+function TextPreview({ href, kind, name }: { href: string; kind: ReturnType<typeof previewKind>; name: string }) {
   const q = useQuery({
     queryKey: ["output", href],
     queryFn: async () => {
@@ -50,13 +103,9 @@ function TextPreview({ href, kind }: { href: string; kind: ReturnType<typeof pre
   if (q.isError || q.data === undefined) return <p className="error">Could not load this output.</p>;
   const text = q.data;
   if (kind === "diff") return <DiffView text={text} />;
-  if (kind === "markdown") {
-    return (
-      <div className="markdown preview">
-        <Markdown>{text}</Markdown>
-      </div>
-    );
-  }
+  if (kind === "markdown") return <MarkdownView text={text} />;
+  if (kind === "csv") return <CsvView text={text} name={name} />;
+  if (kind === "code") return <CodeView code={text} lang={codeLang(name)} />;
   if (kind === "json" || kind === "geojson") {
     let parsed: unknown;
     try {
@@ -71,7 +120,7 @@ function TextPreview({ href, kind }: { href: string; kind: ReturnType<typeof pre
         </Suspense>
       );
     }
-    return <pre className="preview-text">{JSON.stringify(parsed, null, 2)}</pre>;
+    return <CodeView code={JSON.stringify(parsed, null, 2)} lang="json" />;
   }
   return <pre className="preview-text">{text}</pre>;
 }

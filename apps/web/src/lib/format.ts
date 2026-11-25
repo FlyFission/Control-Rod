@@ -17,16 +17,42 @@ export function baseName(path: string): string {
   return i >= 0 ? path.slice(i + 1) : path;
 }
 
-export type PreviewKind = "diff" | "markdown" | "image" | "pdf" | "geojson" | "json" | "text";
+export type PreviewKind = "diff" | "markdown" | "image" | "pdf" | "geojson" | "json" | "csv" | "docx" | "code" | "text";
+
+/** File extensions drawn with syntax colours, mapped to the highlighter's language names. */
+export const CODE_LANG: Readonly<Record<string, string>> = {
+  ts: "typescript", tsx: "tsx", js: "javascript", jsx: "jsx", mjs: "javascript", cjs: "javascript",
+  py: "python", go: "go", rs: "rust", rb: "ruby", java: "java", kt: "kotlin", swift: "swift",
+  c: "c", h: "c", cpp: "cpp", cc: "cpp", hpp: "cpp", cs: "csharp", php: "php",
+  sh: "shellscript", bash: "shellscript", zsh: "shellscript", ps1: "powershell",
+  yaml: "yaml", yml: "yaml", toml: "toml", ini: "ini", sql: "sql", graphql: "graphql",
+  html: "html", css: "css", scss: "scss", xml: "xml", vue: "vue", svelte: "svelte",
+  tsp: "typespec", proto: "proto", dockerfile: "docker", tf: "hcl", hcl: "hcl", lua: "lua",
+};
+
+function ext(name: string): string {
+  const base = baseName(name).toLowerCase();
+  if (base === "dockerfile") return "dockerfile";
+  const i = base.lastIndexOf(".");
+  return i > 0 ? base.slice(i + 1) : "";
+}
+
+/** The language a code file is highlighted as, or undefined for plain text. */
+export function codeLang(name: string): string | undefined {
+  return CODE_LANG[ext(name)];
+}
 
 export function previewKind(name: string): PreviewKind {
-  const ext = name.toLowerCase().split(".").pop() ?? "";
-  if (ext === "diff" || ext === "patch") return "diff";
-  if (ext === "md" || ext === "markdown") return "markdown";
-  if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) return "image";
-  if (ext === "pdf") return "pdf";
-  if (ext === "geojson") return "geojson";
-  if (ext === "json") return "json";
+  const e = ext(name);
+  if (e === "diff" || e === "patch") return "diff";
+  if (e === "md" || e === "markdown" || e === "mdx") return "markdown";
+  if (["png", "jpg", "jpeg", "gif", "svg", "webp", "avif"].includes(e)) return "image";
+  if (e === "pdf") return "pdf";
+  if (e === "geojson") return "geojson";
+  if (e === "json") return "json";
+  if (e === "csv" || e === "tsv") return "csv";
+  if (e === "docx") return "docx";
+  if (CODE_LANG[e]) return "code";
   return "text";
 }
 

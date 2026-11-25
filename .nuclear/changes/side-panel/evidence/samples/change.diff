@@ -1,0 +1,12 @@
+--- a/runner/intake.go
++++ b/runner/intake.go
+@@ -10,7 +10,12 @@ func Intake(ctx context.Context) error {
+-	return run(ctx)
++	for attempt := 1; attempt <= 3; attempt++ {
++		if err := run(ctx); err == nil {
++			return nil
++		}
++		time.Sleep(backoff(attempt))
++	}
++	return ErrStuck
+ }

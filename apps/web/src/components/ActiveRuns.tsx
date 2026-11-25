@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { api } from "../api/client.js";
 import { useLiveStatus } from "../lib/live.js";
 import { recentRuns } from "../lib/runPreferences.js";
+import { CardLink } from "./CardPanel.js";
 import { sessionIdentity } from "../lib/session.js";
 import { CLI_ECOSYSTEMS } from "../lib/runtimes.js";
 import { runStatusText } from "./RunLog.js";
@@ -81,16 +82,10 @@ export function ActiveRunList({ enabled = true, onSelect, showRecent = false }: 
                   <span className="small muted">Open captures</span>
                 </Link>
               ) : (
-                <Link
-                  to="/packages/$id"
-                  params={{ id: run.package_id }}
-                  hash={`run-${run.id}`}
-                  className="active-run-link"
-                  onClick={onSelect}
-                >
+                <CardLink id={run.package_id} hash={`run-${run.id}`} className="active-run-link" {...(onSelect ? { onOpen: onSelect } : {})}>
                   <strong>{run.title || run.package_id}</strong>
                   <span className="small muted"><span className="mono">{run.package_id} · {run.id}</span> · {run.role}</span>
-                </Link>
+                </CardLink>
               )}
               <div className="active-run-status small">
                 <span className="tag">{CLI_ECOSYSTEMS.find((cli) => cli.id === run.runtime.provider)?.label ?? run.runtime.provider}</span>
@@ -106,15 +101,9 @@ export function ActiveRunList({ enabled = true, onSelect, showRecent = false }: 
           <ul className="active-runs-list">
             {recent.map((visited) => (
               <li key={`${visited.packageId}/${visited.runId}`}>
-                <Link
-                  to="/packages/$id"
-                  params={{ id: visited.packageId }}
-                  hash={`run-${visited.runId}`}
-                  className="active-run-link mono small"
-                  onClick={onSelect}
-                >
+                <CardLink id={visited.packageId} hash={`run-${visited.runId}`} className="active-run-link mono small" {...(onSelect ? { onOpen: onSelect } : {})}>
                   {visited.packageId} · {visited.runId}
-                </Link>
+                </CardLink>
               </li>
             ))}
           </ul>

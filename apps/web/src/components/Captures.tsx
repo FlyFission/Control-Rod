@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CardLink } from "./CardPanel.js";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -103,7 +104,7 @@ function CaptureRow({ c }: { c: CaptureView }) {
         </div>
       )}
       {disposition === "package" && (c.package_ids ?? (c.package_id ? [c.package_id] : [])).map(id => (
-        <p key={id}><Link to="/packages/$id" params={{ id }} className="link">Open package {id}</Link></p>
+        <p key={id}><CardLink id={id} className="link">Open package {id}</CardLink></p>
       ))}
     </li>
   );

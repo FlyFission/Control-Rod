@@ -110,6 +110,37 @@ describe("the drawer, calm", () => {
     expect(within(outputs).queryByTestId("diff-view")).toBeNull();
   });
 
+  it("expands an output to the whole panel, titled by the file, and Esc goes back to the card before closing", async () => {
+    serve();
+    let closed = 0;
+    await renderPage(<BoardReviewDrawer packageId="WP-1" mode="software" onClose={() => (closed += 1)} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^.?\s*Outputs/ }));
+    await waitFor(() => expect(screen.getByTestId("diff-view")).toBeTruthy());
+    await user.click(screen.getByRole("button", { name: "Expand" }));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("x.diff");
+    expect(screen.getByText("From Cockpit")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Download" }).getAttribute("download")).toBe("x.diff");
+    // The card's details are kept, hidden, under the file.
+    expect(screen.queryByRole("button", { name: /^.?\s*Outputs/ })).toBeNull();
+    await user.keyboard("{Escape}");
+    expect(closed).toBe(0);
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Cockpit");
+    expect(screen.getByRole("button", { name: /^.?\s*Outputs/ }).getAttribute("aria-expanded")).toBe("true");
+    await user.keyboard("{Escape}");
+    expect(closed).toBe(1);
+  });
+
+  it("opens a run's full log over the card instead of a pop-up, and can open straight to it", async () => {
+    serve();
+    server.use(http.get("*/packages/:id/runs/:run/log", () => HttpResponse.json({ lines: ["start", "error: boom", "done"] })));
+    await renderPage(<BoardReviewDrawer packageId="WP-1" mode="software" openRunLog="R-1" onClose={() => {}} />);
+    expect(await screen.findByRole("heading", { level: 2, name: "Author log, round 1" })).toBeTruthy();
+    expect(await screen.findByText("error: boom")).toBeTruthy();
+    expect(document.querySelector("dialog[open]")).toBeNull();
+    expect(screen.getByRole("checkbox", { name: /Only problem lines \(1\)/ })).toBeTruthy();
+  });
+
   it("says a check that could not finish in plain words, offers Run again, and keeps the raw error behind a toggle", async () => {
     const raw = 'Policy: the login directory could not be hashed, so the check cannot count: protected login entry "/x/codex" is over the 20971520 byte limit';
     serve({ runs: [run({}), run({ id: "R-2", role: "pre-check", status: "failed", queued_at: "2026-11-24T09:10:00Z", error: raw })], pre_check: undefined as never });

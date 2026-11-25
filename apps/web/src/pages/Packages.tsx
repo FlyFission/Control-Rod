@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CardLink } from "../components/CardPanel.js";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
@@ -90,7 +91,7 @@ function PackageList() {
       <ul className="package-list">
         {shown.map((p) => (
           <li key={p.id}>
-            <Link to="/packages/$id" params={{ id: p.id }} className="package-row">
+            <CardLink id={p.id} className="package-row">
               <span className="package-row-title">{p.title}</span>
               <span className="mono small muted">
                 {p.id} rev {p.revision}
@@ -99,7 +100,7 @@ function PackageList() {
                 {STATUS_LABEL[p.status]} · {p.project} · {p.rigor_mode}
                 {p.discipline !== undefined ? ` · ${p.discipline}` : ""}
               </span>
-            </Link>
+            </CardLink>
           </li>
         ))}
       </ul>

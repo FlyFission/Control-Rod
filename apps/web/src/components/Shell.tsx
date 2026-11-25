@@ -35,6 +35,10 @@ import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js
 import { useFirstRunSetup } from "../lib/firstRun.js";
 import { readString, writeString } from "../lib/storage.js";
 import { PHONE_QUERY, useMedia } from "../lib/useMedia.js";
+import { SidePanelProvider, SidePanelSlot, useSidePanelHost } from "./SidePanel.js";
+import { CardPanelContext, type CardOpen } from "./CardPanel.js";
+import { BoardReviewDrawer } from "../features/board/BoardReviewDrawer.js";
+import { SIDE_MAX_PX, SIDE_MIN_PX, loadSideWidth, saveSideWidth } from "../lib/sidePanelLayout.js";
 import { Group, Panel, Separator, usePanelRef, type PanelSize } from "react-resizable-panels";
 import {
   RAIL_DEFAULT_PX,
@@ -292,6 +296,11 @@ export function Shell({ session, children }: { session: Session; children: React
   );
 }
 
+/** Room for the page and the side panel side by side; narrower, the panel slides over the page. */
+const SIDE_DOCK_QUERY = "(min-width: 1180px)";
+/** The page keeps at least this much beside the side panel. */
+const PAGE_MIN_PX = 420;
+
 function WorkspaceShell({ session, children }: { session: Session; children: ReactNode }) {
   const qc = useQueryClient();
   const projectUser = useContext(WorkspaceProjectUser);
@@ -338,6 +347,40 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
   const [helpOpen, setHelpOpen] = useState(false);
   const phone = useMedia(PHONE_QUERY);
+  // Details open in one side panel (components/SidePanel.tsx): a resizable pane beside the page when
+  // there is room for both, sliding over the page from the right when there is not.
+  const sideDocked = useMedia(SIDE_DOCK_QUERY) && !phone;
+  const side = useSidePanelHost(sideDocked);
+  const sideUser = session.signed_in ? session.user : undefined;
+  const sidePanel = usePanelRef();
+  // A file open in the panel widens it as far as the page allows; closing the file returns the
+  // person's own width. Neither is saved: only their drags are.
+  useEffect(() => {
+    if (!side.open || !sideDocked || side.full) return;
+    const frame = window.requestAnimationFrame(() => {
+      const p = sidePanel.current;
+      const group = document.querySelector<HTMLElement>(".work-panes");
+      if (!p || !group) return;
+      const own = loadSideWidth(sideUser);
+      const room = group.getBoundingClientRect().width - PAGE_MIN_PX;
+      const target = side.wide ? Math.max(own, Math.min(SIDE_MAX_PX, room)) : own;
+      try {
+        p.resize(`${Math.round(target)}px`);
+      } catch {
+        // The panel registers with its group a frame after it mounts; the next change retries.
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [side.wide, side.full]);
+  function persistSideSoon(chosen: boolean) {
+    if (!chosen) return;
+    // As with the rail, the panel's own size reads the new value on the next task.
+    window.setTimeout(() => {
+      const p = sidePanel.current;
+      if (p) saveSideWidth(sideUser, p.getSize().inPixels);
+    }, 0);
+  }
   // The desktop rail: drag its edge to widen or narrow it, or tuck it away with the top bar's button
   // or `[`. Width and tucked state are this person's own, kept in this browser (lib/railLayout.ts).
   const railUser = session.signed_in ? session.user : undefined;
@@ -473,6 +516,11 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
   useEffect(() => setMoreOpen(false), [path]);
+  // A card opened from anywhere (CardPanel.tsx) shows in the side panel; moving to another page
+  // closes it, as the page's own selection would.
+  const [panelCard, setPanelCard] = useState<CardOpen | undefined>(undefined);
+  useEffect(() => setPanelCard(undefined), [path]);
+  const closePanelCard = useCallback(() => setPanelCard(undefined), []);
   // The phone's sticky stage headers sit under the top bar: publish its height.
   const shellRef = useRef<HTMLDivElement>(null);
   // Restart, beside SCRAM while one holds: open the review and restart of the SCRAM the lamp shows (a real
@@ -826,9 +874,34 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         {/* On every screen: a SCRAM locks actions in its scope; a drill locks the same way, since it stops work for real. */}
         <ScramBanner presenting={presenting} />
 
-        <main id="main" className="content" tabIndex={-1}>
-          {children}
-        </main>
+        {/* The page and the side panel. One tree whether the panel is open or not, so opening it never
+            remounts the page (its scroll, filters and drafts stay). */}
+        <Group orientation="horizontal" className="work-panes" onLayoutChanged={(_layout, meta) => persistSideSoon(meta.isUserInteraction)}>
+          <Panel id="page" className="page-panel" minSize={`${PAGE_MIN_PX}px`}>
+            <main id="main" className="content" tabIndex={-1} inert={(side.full && sideDocked) || undefined}>
+              {children}
+            </main>
+            {/* Full width: the panel covers the page, which stays mounted (scroll, filters, drafts) under it. */}
+            {side.full && sideDocked && <SidePanelSlot slot={side.slot} full />}
+          </Panel>
+          {side.open && sideDocked && !side.full && (
+            <Separator className="side-sep" aria-label="Side panel width" title="Drag to resize the side panel." />
+          )}
+          {side.open && sideDocked && !side.full && (
+            <Panel
+              id="side"
+              className="side-pane"
+              panelRef={sidePanel}
+              defaultSize={`${loadSideWidth(sideUser)}px`}
+              minSize={`${SIDE_MIN_PX}px`}
+              maxSize={`${SIDE_MAX_PX}px`}
+              groupResizeBehavior="preserve-pixel-size"
+            >
+              <SidePanelSlot slot={side.slot} />
+            </Panel>
+          )}
+        </Group>
+        {side.open && !sideDocked && <SidePanelSlot slot={side.slot} overlay wide={side.wide} full={side.full} />}
         {phone && (
           <PhoneBar
             needs={needs}
@@ -855,6 +928,8 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
 
   return (
     <ScramLockContext.Provider value={lock}>
+    <SidePanelProvider host={side.host}>
+    <CardPanelContext.Provider value={setPanelCard}>
     <div className="shell" ref={shellRef} data-phone={phone ? "" : undefined} data-look={look} data-mode={mode} data-scram={scramKind} data-tab-hidden={tabHidden ? "" : undefined}>
       <a className="skip" href="#main">
         Skip to content
@@ -895,7 +970,18 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       <NewWorkModal open={newWorkOpen} mode={mode} onClose={() => setNewWorkOpen(false)} />
       {newProjectOpen && <ProjectModal open={newProjectOpen} defaultMode={mode} onClose={() => setNewProjectOpen(false)} />}
       <ShortcutHelp open={helpOpen} mac={isMac()} onClose={() => setHelpOpen(false)} />
+      {panelCard && (
+        <BoardReviewDrawer
+          key={panelCard.id}
+          packageId={panelCard.id}
+          mode={mode}
+          {...(panelCard.runLog ? { openRunLog: panelCard.runLog } : {})}
+          onClose={closePanelCard}
+        />
+      )}
     </div>
+    </CardPanelContext.Provider>
+    </SidePanelProvider>
     </ScramLockContext.Provider>
   );
 }

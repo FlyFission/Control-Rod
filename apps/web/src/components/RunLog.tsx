@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { PackageView, Run } from "../api/types.js";
@@ -10,7 +10,10 @@ import { plainError } from "../lib/plainError.js";
 import { modelRouting } from "../lib/modelRouting.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 import { VendorBadge } from "./VendorBadge.js";
-import { LogViewer } from "./LogViewer.js";
+import { LogBody, LogViewer } from "./LogViewer.js";
+import { rememberRun } from "../lib/runPreferences.js";
+import { sessionIdentity } from "../lib/session.js";
+import { usePanelScreen, type PanelScreen } from "./PanelScreen.js";
 
 export function runState(run: Run): StateKind {
   switch (run.status) {
@@ -220,6 +223,13 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
   const waiting = frozen === null ? 0 : Math.max(0, latest.length - frozen.length);
   const routing = modelRouting(run.trace, run.finished_at !== undefined);
   const [full, setFull] = useState(false);
+  const openScreen = usePanelScreen();
+  const logTitle = runLogTitle(run);
+  function openFull() {
+    // In a card's side panel the log opens over the card at the panel's full size; on a page, as a modal.
+    if (openScreen) openScreen(runLogScreen(packageId, run));
+    else setFull(true);
+  }
   return (
     // A run that needs the person (requeue it, or reconcile it first) is shown open, so its buttons are seen.
     <details
@@ -268,7 +278,7 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
         )}
         {!readOnly && <RunActions packageId={packageId} run={run} showStop={!focused} />}
         <div className="log-bar">
-          <button type="button" className="btn small" onClick={() => setFull(true)}>
+          <button type="button" className="btn small" onClick={openFull}>
             Open full log
           </button>
           {(live || frozen !== null) && (
@@ -291,7 +301,7 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
         </div>
         {full && (
           <LogViewer
-            title={`${ROLE_LABEL[run.role]} log, round ${run.round}`}
+            title={logTitle}
             summary={run.error !== undefined ? <RunError raw={run.error} /> : <p>{runStatusText(run)}</p>}
             lines={latest}
             live={live}
@@ -304,4 +314,35 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
       </div>
     </details>
   );
+}
+
+export const runLogTitle = (run: Run) => `${ROLE_LABEL[run.role]} log, round ${run.round}`;
+
+/** A run's full log at the side panel's full size, over its card. */
+export function runLogScreen(packageId: string, run: Run): PanelScreen {
+  const title = runLogTitle(run);
+  return { key: `log:${run.id}`, title, body: <LiveLog packageId={packageId} run={run} title={title} /> };
+}
+
+/**
+ * The full log in the side panel. It reads the same query as the run's card, so it keeps updating
+ * while the run is live, and it stays live after the card's own section is folded.
+ */
+function LiveLog({ packageId, run: opened, title }: { packageId: string; run: Run; title: string }) {
+  // The run as the card's own read has it now, so the status line follows it after it finishes.
+  const view = useQuery({ queryKey: ["package", packageId], queryFn: () => api.packageView(packageId) });
+  const run = view.data?.runs?.find((r) => r.id === opened.id) ?? opened;
+  // Listed under Recent runs, as opening it on the case page does.
+  const session = useQuery({ queryKey: ["session"], queryFn: api.session });
+  const viewer = sessionIdentity(session.data);
+  useEffect(() => {
+    rememberRun(viewer, packageId, opened.id);
+  }, [viewer, packageId, opened.id]);
+  const live = run.status === "running" || run.status === "queued";
+  const log = useQuery({
+    queryKey: ["runlog", packageId, run.id],
+    queryFn: () => api.runLog(packageId, run.id),
+    refetchInterval: () => (live && isVisible() ? 2000 : false),
+  });
+  return <LogBody title={title} summary={run.error !== undefined ? <RunError raw={run.error} /> : <p>{runStatusText(run)}</p>} lines={log.data?.lines ?? []} live={live} />;
 }

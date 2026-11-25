@@ -108,25 +108,6 @@ function cleanLaneAgents(v: unknown): Record<string, string> | undefined {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-function ecosystemOf(selection: string): string {
-  return selection.split("/")[0]!.trim().toLowerCase();
-}
-
-function assertO6Independence(prefs: ProjectWorkspacePrefs): void {
-  if (prefs.author.ecosystem === prefs.checker.ecosystem) {
-    throw new Refusal(409, "o6-independence", "Default Author and Checker must use distinct CLI ecosystems (O6 independence)");
-  }
-  const draftingEco = prefs.laneAgents?.drafting
-    ? ecosystemOf(prefs.laneAgents.drafting)
-    : prefs.author.ecosystem.toLowerCase();
-  const checkEco = prefs.laneAgents?.["agent-check"]
-    ? ecosystemOf(prefs.laneAgents["agent-check"])
-    : prefs.checker.ecosystem.toLowerCase();
-  if (draftingEco === checkEco) {
-    throw new Refusal(409, "o6-independence", "Drafting and Agent-check lanes must use distinct CLI ecosystems (O6 independence)");
-  }
-}
-
 export function resolveWorkspaceMode(body: Record<string, unknown>): EngineeringMode {
   if (Array.isArray(body.qa_overlays) && body.qa_overlays.includes("nuclear-grade")) {
     return "nuclear-grade";
@@ -246,7 +227,8 @@ export async function createWorkspaceProject(
     ...(input.checker !== undefined ? { checker: input.checker as AgentRuntimeSelection } : {}),
     ...(input.laneAgents !== undefined ? { laneAgents: input.laneAgents as Record<string, string> } : {}),
   });
-  assertO6Independence(prefs);
+  // A shared author and checker CLI is allowed here; the pre-check holds for an independent runtime
+  // or the owner's override before acceptance, so the protection sits where it matters.
   // The lanes the person chose, or the preset the repository and mode propose. Either way they are the
   // project's setting from the start and its setting changes them.
   const lanes = input.work_lanes !== undefined
@@ -332,7 +314,6 @@ export async function updateWorkspaceProject(
     ...(patch.checker !== undefined ? { checker: patch.checker as AgentRuntimeSelection } : {}),
     ...(nextLaneAgents !== undefined ? { laneAgents: nextLaneAgents } : {}),
   });
-  assertO6Independence(next);
   // Work lanes live on the project record, beside its other settings, and are checked against the spec.
   const body = r.rows[0].body;
   let lanes = laneSetOf(body.work_lanes);

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { PackageProof, RecordsVerification, SealCheck, WindowExport } from "../api/types.js";
-import { type Passkeys, browserPasskeys, signAdmin } from "../lib/decide.js";
+import { NOTE_FALLBACK, type Passkeys, browserPasskeys, noteOr, signAdmin } from "../lib/decide.js";
 import { shortDigest, time } from "../lib/format.js";
 
 /**
@@ -167,7 +167,7 @@ function Seal({ passkeys }: { passkeys: Passkeys }) {
   const h = head.data?.head;
   const seal = useMutation({
     // What the screen shows is what is signed: this head, this purpose, this moment.
-    mutationFn: () => signAdmin<{ payload: { head_seq: number } }>("chain.seal", { head_seq: h!.head_seq, head_digest: h!.head_digest.value, purpose: purpose.trim(), sealed_at: new Date().toISOString() }, passkeys),
+    mutationFn: () => signAdmin<{ payload: { head_seq: number } }>("chain.seal", { head_seq: h!.head_seq, head_digest: h!.head_digest.value, purpose: noteOr(purpose, NOTE_FALLBACK.seal), sealed_at: new Date().toISOString() }, passkeys),
     onSuccess: () => {
       setPurpose("");
       void qc.invalidateQueries({ queryKey: ["records-verify"] });
@@ -194,10 +194,10 @@ function Seal({ passkeys }: { passkeys: Passkeys }) {
             This seals the chain through entry <span className="mono">{h.head_seq}</span>, digest <span className="mono">{h.head_digest.value}</span>.
           </p>
           <label className="field">
-            <span>Purpose (required)</span>
-            <input value={purpose} maxLength={200} onChange={(e) => setPurpose(e.target.value)} />
+            <span>Purpose (optional)</span>
+            <input value={purpose} placeholder="Optional" maxLength={200} onChange={(e) => setPurpose(e.target.value)} />
           </label>
-          <button type="button" className="btn small" disabled={!purpose.trim()} onClick={() => seal.mutate()}>
+          <button type="button" className="btn small" disabled={seal.isPending} onClick={() => seal.mutate()}>
             Sign with your passkey and seal
           </button>
         </fieldset>

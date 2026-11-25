@@ -121,10 +121,6 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
       setError("Enter a project name.");
       return;
     }
-    if (authorEco === checkerEco) {
-      setError("Default Author and Checker must use distinct CLI ecosystems (O6 independence).");
-      return;
-    }
     setError(null);
     createMut.mutate(sessionGeneration());
   }
@@ -247,6 +243,12 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
             </select>
           </label>
         </div>
+
+        {authorEco === checkerEco && (
+          <p className="cr-warn-text small" role="status">
+            Both roles use {ecosystemById(authorEco).cliCommand}. That works; the check is just less independent, and the card says so before you accept.
+          </p>
+        )}
 
         <LanePicker id="new-project-lane" value={lane} onChange={setLane} />
 

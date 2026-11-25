@@ -235,7 +235,16 @@ func StageArtifact(a RuntimeArtifact, base string) (RuntimeArtifact, error) {
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		return a, err
 	}
-	if fi, err := os.Lstat(base); err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
+	fi, err := os.Lstat(base)
+	if err == nil && fi.IsDir() && fi.Mode().Perm()&0o077 != 0 && fileOwnedByUser(fi) {
+		// A folder of ours that others can read is made private rather than refused: the fix is one
+		// chmod, and nothing is staged until it holds.
+		if err := os.Chmod(base, 0o700); err != nil {
+			return a, fmt.Errorf("make %s private (mode 0700): %w", base, err)
+		}
+		fi, err = os.Lstat(base)
+	}
+	if err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
 		return a, fmt.Errorf("%s must be a private folder (mode 0700) to stage runtimes in", base)
 	}
 	// One stager per digest at a time, across daemons: a copy another launch is using is never

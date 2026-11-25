@@ -148,7 +148,7 @@ describe("CardActions", () => {
     await user.click(screen.getByRole("button", { name: /Move to/ }));
     await user.click(screen.getByRole("menuitem", { name: "Return with direction" }));
     const sign = screen.getByRole("button", { name: "Sign: Return with direction" });
-    expect(sign).toHaveProperty("disabled", true);
+    expect(sign).toHaveProperty("disabled", false);
     expect(signed).toHaveLength(0);
     await user.type(screen.getByLabelText("What should change in the next revision?"), "Use the vendor curve");
     await user.click(sign);

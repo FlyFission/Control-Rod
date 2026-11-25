@@ -120,8 +120,30 @@ export interface DecideInput {
   noPasskey?: boolean;
 }
 
-/** Kinds that need a written reason before the person signs. */
+/** Kinds that open a note box before the person signs. The note is optional: an empty one is sent as NOTE_FALLBACK. */
 export const NEEDS_REASON: ReadonlySet<DecisionKind> = new Set(["accept-with-findings", "return", "reject"]);
+
+/**
+ * What the record says when the person leaves a note empty. A note helps, but leaving it out never
+ * stops the step: the server and kernel still see a reason, and the record says plainly none was typed.
+ */
+export const NOTE_FALLBACK = {
+  "accept-with-findings": "Accepted with the findings as listed; no note typed.",
+  return: "Sent back with no note typed; take another pass at the work.",
+  reject: "Rejected with no note typed.",
+  reconcile: "Marked as never reporting; no note typed.",
+  override: "Allowed to check on the author's runtime; no note typed.",
+  "scram-pull": "SCRAM pulled; no note typed.",
+  "scram-review": "Reviewed; no note typed.",
+  "scram-restart": "Restarted after review; no note typed.",
+  seal: "Sealed from the Records page.",
+} as const;
+
+/** The note as typed, trimmed, or the plain fallback when it is empty. */
+export function noteOr(text: string | undefined, fallback: string): string {
+  const t = (text ?? "").trim();
+  return t.length > 0 ? t : fallback;
+}
 
 export const DECISION_LABEL: Record<DecisionKind, string> = {
   release: "Release",
@@ -140,9 +162,6 @@ export async function decide(
   passkeys: Passkeys = browserPasskeys,
   client: Api = api,
 ): Promise<{ decision: Decision; signed: Digest }> {
-  if (NEEDS_REASON.has(input.kind) && (input.reason ?? "").trim().length === 0) {
-    throw new Error("A reason is required for this decision.");
-  }
   if (input.independentCheck && ACCEPT_COMMANDS.includes(input.kind)) {
     const fresh = await client.personVerifications(input.packageId);
     const covers = fresh.some((v) => v.package_revision === input.revision && v.outcome === "pass" && v.covers_current_subject === true);
@@ -151,7 +170,11 @@ export async function decide(
   const req = {
     kind: input.kind,
     package_revision: input.revision,
-    ...(input.reason !== undefined && input.reason.trim().length > 0 ? { reason: input.reason.trim() } : {}),
+    ...(NEEDS_REASON.has(input.kind)
+      ? { reason: noteOr(input.reason, NOTE_FALLBACK[input.kind as keyof typeof NOTE_FALLBACK]) }
+      : input.reason !== undefined && input.reason.trim().length > 0
+        ? { reason: input.reason.trim() }
+        : {}),
   };
   if (input.noPasskey) {
     const decision = await client.decide(input.packageId, { ...req, expected_subject_digest: input.shownDigest });
@@ -181,8 +204,7 @@ export async function signReconcile(
   passkeys: Passkeys = browserPasskeys,
   client: Api = api,
 ): Promise<{ signed: Digest }> {
-  const reason = input.reason.trim();
-  if (reason.length === 0) throw new Error("Say why the run will not report.");
+  const reason = noteOr(input.reason, NOTE_FALLBACK.reconcile);
   const opts = await client.reconcileOptions(input.packageId, input.runId, reason);
   const assertion = await passkeys.get(opts.options);
   await client.reconcileRun(input.packageId, input.runId, { reason, assertion });
@@ -198,8 +220,7 @@ export async function signOverride(
   passkeys: Passkeys = browserPasskeys,
   client: Api = api,
 ): Promise<{ signed: Digest }> {
-  const reason = input.reason.trim();
-  if (reason.length === 0) throw new Error("Say why the pre-check may share the author's runtime.");
+  const reason = noteOr(input.reason, NOTE_FALLBACK.override);
   const opts = await client.overrideOptions(input.packageId, input.runId, reason);
   const assertion = await passkeys.get(opts.options);
   await client.overrideIndependence(input.packageId, input.runId, { reason, assertion });

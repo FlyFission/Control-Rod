@@ -238,3 +238,48 @@ func TestSeatbeltPreparedCheckerSettles(t *testing.T) {
 		t.Fatalf("verification %s", res.Verification)
 	}
 }
+
+// Codex writes runtime state under its home (an in-process app-server, PATH aliases) before it
+// reads the brief. A macOS checker gets a home of its own with a copy of the sign-in; the real
+// login folder is not written, and a refreshed sign-in is saved back after the run.
+func TestSeatbeltCodexCheckerGetsAWritableHomeOfItsOwn(t *testing.T) {
+	home := t.TempDir()
+	codexDir := filepath.Join(home, ".codex")
+	if err := os.MkdirAll(codexDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(codexDir, "auth.json"), []byte(`{"token":"old"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CODEX_HOME", codexDir)
+	ws := seatbeltFixture(t)
+	ws.CheckerRuntime = RuntimeCodex
+	script := `mkdir -p "$CODEX_HOME/app-server-control" && echo A:$? > scratch/evidence/a
+echo x > "` + codexDir + `/written"; echo R:$? >> scratch/evidence/a
+grep -q old "$CODEX_HOME/auth.json"; echo C:$? >> scratch/evidence/a
+printf '%s' '{"token":"new"}' > "$CODEX_HOME/auth.json"
+printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
+	cmd := exec.Command("/bin/sh", "-c", script)
+	cmd.Dir = ws.Dir
+	cmd.Env = append(os.Environ(), "CODEX_HOME="+codexDir)
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(ws.CheckerTmp)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	got, _ := os.ReadFile(filepath.Join(ws.Scratch, "evidence", "a"))
+	if string(got) != "A:0\nR:1\nC:0\n" {
+		t.Fatalf("own home writable, real login read-only, sign-in copied: got %q", got)
+	}
+	if _, err := os.Lstat(filepath.Join(codexDir, "written")); !os.IsNotExist(err) {
+		t.Fatalf("the real login folder was written: %v", err)
+	}
+	if err := ws.SaveRefreshedCredential(); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(codexDir, "auth.json")); string(b) != `{"token":"new"}` {
+		t.Fatalf("refreshed sign-in not saved back: %q", b)
+	}
+}

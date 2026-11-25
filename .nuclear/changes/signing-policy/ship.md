@@ -6,7 +6,7 @@ Release decision: **pending the owner's recorded yes** (kernel decision function
 
 | Decision | Question | Answer (owner's words) | Given | Where | Recorded by |
 |---|---|---|---|---|---|
-| Pending | deferred | deferred | deferred | deferred | deferred |
+| Merge PR #198, including the kernel decision function `kernel/src/transition.rs` | "Merge PR #198 (signing settings, compact cards, full log, one-press SCRAM), including its kernel/src/transition.rs change?" | Yes, merge #198 (option chosen on a decision card) | 2026-11-25T11:09:55Z | Project thread "Make cards finish without Ben stepping in", decision cmsg_01JQf1P5cs98pyQ9mZyGHPrK4MGqoc5V4qgJcUhNthTsxQ | Claude (project thread) |
 
 - Rollback: revert the merge. Migration 028 only marks a field mutable; a stored `signing_policy` is ignored by the old kernel path, which signs every step.
 - Monitoring after merge: on a Light project a new card goes from Ready to Accepted without a press; `decision.auto-skipped` events say why one did not.

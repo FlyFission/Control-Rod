@@ -160,6 +160,21 @@ describe("the drawer, calm", () => {
     expect(screen.getByRole("button", { name: "Sign: Return with direction" })).toHaveProperty("disabled", true);
   });
 
+  it("says when person verifications could not be read, with a retry, instead of asking for one", async () => {
+    let reads = 0;
+    serve();
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json(view({ runs: [run({})], pre_check: { outcome: "pass", verifier: "v", method: "m", findings: [] } as never }, { id: "WP-1", title: "Safety work", status: "in-verification", grade: "safety" } as never))),
+      http.get("*/packages/:id/actions", () => HttpResponse.json([{ command: "accept", label: "Accept", allowed: true, signature: "direct" }])),
+      http.get("*/packages/:id/person-verifications", () => (reads++, new HttpResponse(null, { status: 500 }))),
+    );
+    await renderPage(<BoardReviewDrawer packageId="WP-1" mode="software" onClose={() => {}} />);
+    expect(await screen.findByText("The person verifications could not be read, so Accept is not offered yet.")).toBeTruthy();
+    const before = reads;
+    await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
+  });
+
   it("closes on Escape", async () => {
     serve();
     let closed = 0;

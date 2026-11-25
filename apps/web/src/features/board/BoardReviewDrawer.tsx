@@ -200,7 +200,12 @@ function CalmBody({ view, mode }: { view: PackageView; mode: EngineeringMode }) 
   const d = useDecisionSigner(view);
   // Why the step that moves the work forward (Release, Accept) is closed, even when Send back or
   // Reject are open: that reason is what the person needs to act on.
-  const refusedReason = d.actions.isSuccess ? refusalReason(view.package.status, d.refused) : undefined;
+  // A failed read of the person verifications is not a missing verification: say it could not be read.
+  const refusedReason = d.actions.verificationsFailed
+    ? "The person verifications could not be read, so Accept is not offered yet."
+    : d.actions.isSuccess
+      ? refusalReason(view.package.status, d.refused)
+      : undefined;
   const step = drawerStep(view, d.allowed, refusedReason);
   const pkg = view.package;
   return (
@@ -328,6 +333,14 @@ function NextStep({ view, step, d }: { view: PackageView; step: DrawerStep; d: D
         <p role="alert" className="error small">
           Could not check what you may sign.{" "}
           <button type="button" className="bd-link small" onClick={d.actions.refetch}>
+            Try again
+          </button>
+        </p>
+      )}
+      {d.actions.verificationsFailed && (
+        <p role="alert" className="error small">
+          The person verifications could not be read.{" "}
+          <button type="button" className="bd-link small" onClick={d.actions.refetchVerifications}>
             Try again
           </button>
         </p>

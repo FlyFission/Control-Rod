@@ -305,17 +305,15 @@ func TestInstalledCodexLeavesOnlyQualifiedFeatures(t *testing.T) {
 	if err != nil {
 		t.Skipf("codex features list did not run here: %v", err)
 	}
-	extra := unqualifiedCodexFeatures(list)
-	if len(extra) == 0 {
-		return
-	}
-	t.Logf("the installed Codex turns on %v; runs switch them off", extra)
-	again, err := CodexEffectiveFeatures(context.Background(), extra)
+	_ = list
+	// The same routine as the preflight, so a listing the daemon would refuse fails here too.
+	signedIn := func(context.Context, string, ...string) (string, int, error) { return "", 0, nil }
+	off, err := (codexAdapter{features: CodexEffectiveFeatures}).PreflightSwitches(context.Background(), signedIn)
 	if err != nil {
-		t.Fatalf("codex features list with %v switched off: %v", extra, err)
+		t.Fatalf("the installed Codex would be refused: %v", err)
 	}
-	if still := unqualifiedCodexFeatures(again); len(still) > 0 {
-		t.Fatalf("the installed Codex leaves unqualified features on even when switched off: %v", still)
+	if len(off) > 0 {
+		t.Logf("the installed Codex turns on %v; runs switch them off", off)
 	}
 }
 

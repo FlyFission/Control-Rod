@@ -28,7 +28,8 @@ func agentVersionAtLeast(v, tested string) (ok, newer bool) {
 		return false, false
 	}
 	c := compareVersion(got, want)
-	if strings.Contains(suffix, "-") {
+	// Build metadata ("+build-7") does not order versions; a prerelease marker before it does.
+	if pre, _, _ := strings.Cut(suffix, "+"); strings.Contains(pre, "-") {
 		// Any prerelease marker, also after a fourth number ("1.0.92.0-rc.1"), counts as before its base.
 		return c > 0, c > 0
 	}

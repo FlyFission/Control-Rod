@@ -126,9 +126,11 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
   const fallback = author ? (council.fallbacks.find((s) => s.ready) ?? council.fallbacks[0]) : undefined;
   // pickChecker for the stand-in's work: a ready, seated agent from another vendor than the stand-in.
   // That can be the author it stood in for, once that author is back.
-  const fallbackChecker = fallback
-    ? rows.filter((r) => r.info.runnable && r.seated && r.state === "ready" && r.info.vendor !== fallback.vendor).map(seatOf)[0]
-    : undefined;
+  // One that is ready now comes first; the author it stood in for checks only when nobody else can.
+  const fallbackCheckers = fallback
+    ? rows.filter((r) => r.info.runnable && r.seated && r.state === "ready" && r.info.vendor !== fallback.vendor).map(seatOf)
+    : [];
+  const fallbackChecker = fallbackCheckers.find((s) => s.id !== author?.id) ?? fallbackCheckers[0];
   const checksOnReturn = fallbackChecker !== undefined && fallbackChecker.id === author?.id;
   const s = stops(checkIn);
   const steps: FlowStep[] = [];

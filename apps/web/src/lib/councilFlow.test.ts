@@ -42,6 +42,10 @@ describe("stand-in", () => {
   it("shows a ready stand-in before one that is still waiting, as the dispatcher picks", () => {
     const f = buildCouncilFlow(rows({ claude: true, codex: false, grok: true }), "start-and-merge");
     expect(f.steps.find((s) => s.id === "fallback")?.seat?.id).toBe("grok");
+    // With a third vendor ready, the stand-in's work is checked now, not when the author returns.
+    const g = buildCouncilFlow(rows({ claude: true, codex: false, agy: true, grok: true }), "start-and-merge");
+    expect(g.steps.find((s) => s.id === "fallback")?.seat?.id).toBe("agy");
+    expect(g.steps.find((s) => s.id === "fallback-check")?.seat?.id ?? JSON.stringify(g.steps.map((s) => [s.id, s.seat?.id]))).toBe("grok");
   });
 });
 

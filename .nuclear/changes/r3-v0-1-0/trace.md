@@ -4,8 +4,8 @@
 |---|---|---|---|
 | R310-1 | Version `v0.1.0`, macOS row unchanged, no phone approvals or remote daemons promised. | E-01 (`release-notes.md` preamble), D1 in [basis](basis.md) | done in the notes; the tag is cut after merge |
 | R310-2 | Notes are the script's output for `phase0-before-rebase..origin/main`, including Quick records via `risk.md`. | E-02 (tests), E-01 (the committed file) | done |
-| R310-3 | Tag and GitHub release only after a green main ci run, with that run's SBOM. | E-03 | open until the merge commit's ci run is green |
-| R310-4 | Fresh clone at the tag: `mise install`, `pnpm cr doctor`, `pnpm cr start` reaches the board. | E-04 | open until the tag exists |
+| R310-3 | Tag and GitHub release only after a green main ci run, with that run's SBOM. | E-03 | done |
+| R310-4 | Fresh clone at the tag: `mise install`, `pnpm cr doctor`, `pnpm cr start` reaches the board. | E-04 (`evidence/board-chromium.png`) | done on WSL2, not macOS |
 | R310-5 | No trust surface edited. | E-05 (diff has no `.github/` path) | done |
 
 ## Required links

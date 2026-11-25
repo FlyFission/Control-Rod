@@ -1,13 +1,13 @@
 # Verification: v0.1.0 first release
 
-Evidence status: **pass** for the notes tests and the generated file (E-01, E-02). **Open** for the tag, the GitHub release, and the fresh-clone check, which cannot run until this commit is on green main (E-03, E-04).
+Evidence status: **pass** for the notes, the tag, the GitHub release, and the fresh-clone board proof (E-01 to E-04). The fresh-clone run is one machine (WSL2), not macOS.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | `evidence/release-notes.md` is the stdout of `python3 tools/release_notes.py --from phase0-before-rebase --to origin/main --preamble /tmp/v010-preamble.md` at main `e1410497`. The preamble states v0.1.0, owner-local, no phone approvals, no remote daemons, and macOS not yet verified live. The list includes the four Quick records via their `risk.md` headings. | `evidence/release-notes.md` |
 | E-02 | pass | `uv run --with pytest python -m pytest tools/test_release_notes.py -q` — `8 passed in 0.22s`, including the Quick-record test: a `risk.md` heading is used when `basis.md` is absent. CI's python job does not run `tools/` tests, so this is a by-hand run. | `tools/test_release_notes.py` |
-| E-03 | open | Annotated tag `v0.1.0` and GitHub release, after main ci for the merge commit is green, SBOM from that run. | Filled at tag time |
-| E-04 | open | Fresh clone at the tag: `mise install`, `pnpm cr doctor`, `pnpm cr start` reaches the board. | Filled after the tag |
+| E-03 | pass | Annotated tag `v0.1.0` points at `2e8f38a07116e42bdbb859e14bcb736ee9b8a1b7`, the squash of #209. Main ci run 45537886977 for that commit completed success on all seven jobs. GitHub release https://github.com/FlyFission/Control-Rod/releases/tag/v0.1.0 uses the committed notes file and that run's `control-rod-sbom.cdx.json`. | the tag and the release |
+| E-04 | pass | Fresh clone of tag `v0.1.0` at `/tmp/cr-v010-clone`. `mise` was not on PATH; the installer script failed; the v2026.11.13 binary was downloaded and `mise install` then `pnpm install --frozen-lockfile` and `pnpm cr doctor` passed (node v22.23.5, pnpm 10.28.0, go 1.24.7, uv 0.11.32, bundled database, sandbox preflight). `pnpm cr start` with `CONTROLROD_HOME=/tmp/cr-v010-home` (not the owner's `~/.controlrod`) reached health. Chromium, using the tag's `SoftPasskey` against `http://localhost:7300` (not 127.0.0.1; the server's RP ID is localhost), registered the owner and showed the board heading. Screenshot: `evidence/board-chromium.png`. | `evidence/board-chromium.png` |
 | E-05 | pass | This change's diff has no path under `.github/`. | the commit |
 
 ## Evidence custody and coupling

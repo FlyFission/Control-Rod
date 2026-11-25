@@ -3,7 +3,7 @@
 Release decision: **the commit ships on green CI without a sign-off table entry** — no trust surface is edited. The tag and the GitHub release are cut only after that commit's main ci run is green.
 
 - **Shipped in this commit:** the notes generator's Quick-record fallback, and [evidence/release-notes.md](evidence/release-notes.md), the script's output for `phase0-before-rebase..origin/main` with the honesty preamble.
-- **Cut after merge, not in this commit:** annotated tag `v0.1.0` on the green main commit; GitHub release whose body is `release-notes.md`; SBOM artifact from that commit's ci run.
+- **Cut after merge:** annotated tag `v0.1.0` on `2e8f38a07116e42bdbb859e14bcb736ee9b8a1b7` after main ci run 45537886977 completed success. GitHub release https://github.com/FlyFission/Control-Rod/releases/tag/v0.1.0. Body is the committed notes. SBOM is that run's artifact. Fresh clone reached the board in Chromium (`evidence/board-chromium.png`).
 - **Not claimed:** a live macOS start; phone approvals; remote daemons; that `.github/workflows/release.yml` exists (it does not; the proposal remains in `r3-distribution-prep` until a recorded yes).
 - **Ruling A-1:** the only tag is not an ancestor of main, so the notes are every titled record on main.
 - **Ruling A-2:** Quick records take their title from `risk.md`. Reviewer feedback named `ao-daemon-lock-probe`; the other three no-basis directories were checked the same way. Not the owner's words.

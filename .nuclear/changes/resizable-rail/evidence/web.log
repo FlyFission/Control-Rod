@@ -1,0 +1,6 @@
+ Test Files  86 passed (86)
+      Tests  938 passed (938)
+tsc: clean
+✓ built in 640ms
+app bundle gzip bytes: 339324 (main before this change: 322416)
+License gate passed for 238 packages.

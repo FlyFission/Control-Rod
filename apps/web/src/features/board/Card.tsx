@@ -178,6 +178,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           <span className="muted">{next.text}</span>
         )}
       </p>
+      {stream === "live" && !lastKnown && next.detail && <p className="bd-next-detail small muted">{next.detail}</p>}
       {spin && (
         <span className="bd-progress" role="img" aria-label="Agent running">
           <span aria-hidden="true" />

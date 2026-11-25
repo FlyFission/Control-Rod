@@ -5,6 +5,7 @@ import { ApiError, api } from "../../api/client.js";
 import type { ActionDescriptor, CaptureView, Digest, PersonVerificationEntry, Run, WorkPackage } from "../../api/types.js";
 import { type ColumnId, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
+import { MODE_COPY, useMode } from "../../lib/mode.js";
 import { useLiveStatus } from "../../lib/live.js";
 import { projectContextDefault, resolveContextProfile } from "../../lib/context-profile.js";
 import { type NextLine, hasOtherQualified, nextLine } from "../../lib/next.js";
@@ -34,6 +35,12 @@ export type BoardCard = {
   digest?: Digest;
   /** The run that Stop would end, when one is queued or running. */
   activeRunId?: string;
+  /** The run "Run again" would queue again, when the newest run ended without a result. */
+  requeueRunId?: string;
+  /** The run whose log must settle an unknown outcome before it can run again. */
+  settleRunId?: string;
+  /** A check of this deliverable is blocked by an earlier fail: the package page shows the history and override. */
+  openChecks?: boolean;
   /** The runtime providers of the latest author run and the latest pre-check run, for the card's agent icons. */
   author?: string;
   checker?: string;
@@ -92,6 +99,7 @@ const NO_NEXT: NextLine = { tone: "wait", text: "Could not read what is next" };
  * recorded verifications. Status comes from the event stream: when it is unknown, the cards say so.
  */
 export function useBoardData(): BoardData {
+  const mode = useMode();
   const live = useLiveStatus();
   const session = useQuery({ queryKey: ["session"], queryFn: api.session });
   const packages = useQuery({ queryKey: ["packages"], queryFn: api.packages });
@@ -212,6 +220,7 @@ export function useBoardData(): BoardData {
         runActive,
         heldPreCheck: (view?.runs ?? []).some((r) => r.role === "pre-check" && r.status === "queued" && r.waiting_reason !== undefined),
         runs: view?.runs ?? [],
+        checkBlocked: view?.check_blocked,
       });
       offered = offeredNow;
     }
@@ -234,6 +243,9 @@ export function useBoardData(): BoardData {
       ...(actionable?.offered && actionable.view ? { offered: actionable.offered, digest: actionable.view.subject_digest } : {}),
       // Stop only while the run can still be stopped: not after a stop was requested (the run log's rule).
       ...(actionable?.offered && actionable.view && activeRun && canStop(activeRun) ? { activeRunId: activeRun.id } : {}),
+      ...(actionable?.offered && actionable.view && next.command === "requeue" && next.runId ? { requeueRunId: next.runId } : {}),
+      ...(actionable?.offered && actionable.view && next.command === "open-run-log" && next.runId ? { settleRunId: next.runId } : {}),
+      ...(actionable?.offered && actionable.view && next.command === "open-checks" ? { openChecks: true } : {}),
     });
   });
 
@@ -245,8 +257,9 @@ export function useBoardData(): BoardData {
   }, [nextGraceEnd]);
 
   const problems: string[] = [];
+  const checkColumn = MODE_COPY[mode].boardColumns["agent-check"];
   if (packages.isError) problems.push("Could not load the work on this board.");
-  if (office.isError) problems.push("Could not read the agent pre-check results, so cards may sit in Agent check.");
+  if (office.isError) problems.push(`Could not read the agent pre-check results, so cards may sit in ${checkColumn}.`);
   if (capturesQ.isError) problems.push("Could not read the captures, so new cards may be missing from Ready.");
 
   return {

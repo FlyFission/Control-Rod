@@ -8,6 +8,7 @@ export function shortcuts(mac: boolean): Shortcut[] {
   return [
     { keys: [mac ? "⌘" : "Ctrl", "K"], what: "Search places, packages and commands", where: "Anywhere" },
     { keys: ["C"], what: "New work; on the board, add a card in Ready", where: "Anywhere" },
+    { keys: ["["], what: "Hide or show the navigation (drag its edge to resize)", where: "Anywhere on a wide screen" },
     { keys: ["J"], what: "Next card", where: "Board" },
     { keys: ["K"], what: "Previous card", where: "Board" },
     { keys: ["N"], what: "Next card marked Needs you or Blocked", where: "Board" },
@@ -94,7 +95,7 @@ export function ShortcutHelp({ open, mac, onClose }: { open: boolean; mac: boole
             ))}
           </tbody>
         </table>
-        <p className="muted small">Single-letter keys do nothing while you are typing in a field.</p>
+        <p className="muted small">Single-key shortcuts do nothing while you are typing in a field.</p>
         <label className="shortcut-toggle small">
           <input
             ref={toggle}
@@ -106,7 +107,7 @@ export function ShortcutHelp({ open, mac, onClose }: { open: boolean; mac: boole
               setKeysOn(singleKeysOn());
             }}
           />{" "}
-          Single-key shortcuts (C, J, K, N, ?) on this browser. Turn them off if a stray key or speech input moves you around; {mac ? "⌘" : "Ctrl"} K and Esc still work, and the Shortcuts button opens this list.
+          Single-key shortcuts (C, J, K, N, [, ?) on this browser. Turn them off if a stray key or speech input moves you around; {mac ? "⌘" : "Ctrl"} K and Esc still work, and the Shortcuts button opens this list.
         </label>
       </div>
     </div>

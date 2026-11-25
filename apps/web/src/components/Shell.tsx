@@ -1,4 +1,4 @@
-import { type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AgentUpdates } from "./AgentUpdates.js";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,12 +27,20 @@ import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
 import { ShortcutHelp } from "./ShortcutHelp.js";
-import { OPEN_MODAL, singleKeysOn } from "../lib/singleKeys.js";
+import { OPEN_MODAL, singleKeysOn, useSingleKeysOn } from "../lib/singleKeys.js";
 import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 import { useFirstRunSetup } from "../lib/firstRun.js";
 import { readString, writeString } from "../lib/storage.js";
 import { PHONE_QUERY, useMedia } from "../lib/useMedia.js";
+import { Group, Panel, Separator, usePanelRef, type PanelSize } from "react-resizable-panels";
+import {
+  RAIL_DEFAULT_PX,
+  RAIL_MAX_PX,
+  RAIL_MIN_PX,
+  loadRailLayout,
+  saveRailLayout,
+} from "../lib/railLayout.js";
 import "./shell.css";
 
 const COLLAPSED_GROUPS_KEY = "cr.nav-collapsed";
@@ -273,7 +281,7 @@ function userInitial(name: string | undefined): string {
 }
 
 /**
- * The shell (specification 12; plan task 3.1): 224px navigation rail + operational topbar +
+ * The shell (specification 12; plan task 3.1): a resizable, collapsible navigation rail + operational topbar +
  * scrollable workspace, Inbox count, mode/look switchers, and command palette (Ctrl+K / Cmd+K).
  */
 export function Shell({ session, children }: { session: Session; children: ReactNode }) {
@@ -330,6 +338,121 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
   const [helpOpen, setHelpOpen] = useState(false);
   const phone = useMedia(PHONE_QUERY);
+  // The desktop rail: drag its edge to widen or narrow it, or tuck it away with the top bar's button
+  // or `[`. Width and tucked state are this person's own, kept in this browser (lib/railLayout.ts).
+  const railUser = session.signed_in ? session.user : undefined;
+  const [railStart] = useState(() => loadRailLayout(railUser));
+  const railPanel = usePanelRef();
+  const keysOn = useSingleKeysOn();
+  // The width the person chose. Only their own drags, key presses, double-clicks and the toggle change
+  // it: a narrow window that squeezes the rail for the workspace's minimum never does.
+  const railWidth = useRef(railStart.width);
+  const [railCollapsed, setRailCollapsed] = useState(railStart.collapsed);
+  function onRailResize(size: PanelSize) {
+    setRailCollapsed(size.inPixels < 1);
+  }
+  // The library reports a finished layout before the panel's own size reads the new value: read it on
+  // the next task, once it does.
+  // Hiding or showing with the toggle, `[` or Enter on the handle saves visibility only: a rail
+  // reopened in a narrow window may be squeezed, and that squeeze is not the person's choice. A drag
+  // (including one that drags a hidden rail open) saves the width it ends at.
+  function persistRailSoon(chosen: boolean) {
+    if (!chosen) return;
+    window.setTimeout(() => {
+      const panel = railPanel.current;
+      if (!panel) return;
+      const collapsed = panel.isCollapsed();
+      // Drags and arrow keys are the only user-driven layout changes left here (the toggle, `[` and
+      // Enter on the handle go through toggleRail): the width they leave open is the chosen one.
+      if (!collapsed) railWidth.current = panel.getSize().inPixels;
+      saveRailLayout(railUser, { width: railWidth.current, collapsed });
+    }, 0);
+  }
+  function toggleRail() {
+    const panel = railPanel.current;
+    if (!panel) return;
+    if (panel.isCollapsed()) {
+      panel.resize(`${Math.max(railWidth.current, RAIL_MIN_PX)}px`);
+    } else {
+      // Focus inside a rail about to go inert would be stranded: hand it to the toggle first.
+      const railEl = document.getElementById("cr-rail");
+      if (railEl && document.activeElement && railEl.contains(document.activeElement)) {
+        document.querySelector<HTMLElement>(".rail-toggle")?.focus();
+      }
+      panel.collapse();
+    }
+    // Showing or hiding never changes the chosen width: a rail reopened in a narrow window may be
+    // squeezed, and that squeeze is not the person's choice.
+    window.setTimeout(() => {
+      const p = railPanel.current;
+      if (!p) return;
+      saveRailLayout(railUser, { width: railWidth.current, collapsed: p.isCollapsed() });
+    }, 0);
+  }
+  // The panel's default stays the app's default, so double-clicking the edge resets to it (the library's
+  // behaviour); the person's saved layout is applied before the first paint.
+  useLayoutEffect(() => {
+    if (phone) return;
+    const saved = loadRailLayout(railUser);
+    railWidth.current = saved.width;
+    let frame = 0;
+    let tries = 0;
+    const apply = () => {
+      const panel = railPanel.current;
+      if (!panel) return;
+      try {
+        // Open at the saved width first even when it is hidden, so every way of showing it again
+        // (the toggle, `[`, Enter on the handle) comes back at that width.
+        if (saved.width !== RAIL_DEFAULT_PX) panel.resize(`${saved.width}px`);
+        if (saved.collapsed) panel.collapse();
+      } catch {
+        // A rail that comes back after a phone-width window is registered with its group a frame
+        // later than on first load: try again on the next frames.
+        if (++tries < 10) frame = window.requestAnimationFrame(apply);
+      }
+    };
+    apply();
+    return () => window.cancelAnimationFrame(frame);
+    // On mount, and again when a phone-width window widens and the rail comes back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone]);
+  // Crossing the phone breakpoint removes the rail, its handle and toggle (or the phone's own bars).
+  // If focus sat on one of them it would fall to the page: note it during the render that flips the
+  // layout and hand focus to the workspace once the new layout is in place.
+  const lastPhone = useRef(phone);
+  const focusedAtFlip = useRef<Element | null>(null);
+  if (lastPhone.current !== phone) {
+    lastPhone.current = phone;
+    focusedAtFlip.current = typeof document === "undefined" ? null : document.activeElement;
+  }
+  useLayoutEffect(() => {
+    const was = focusedAtFlip.current;
+    focusedAtFlip.current = null;
+    // Whatever control the new layout removed (rail, handle, toggle, Search, runs, the phone's bars),
+    // focus goes to the workspace; a control that stayed keeps it.
+    if (was && was !== document.body && !was.isConnected) document.getElementById("main")?.focus();
+  }, [phone]);
+  const toggleRailRef = useRef(toggleRail);
+  toggleRailRef.current = toggleRail;
+  // Enter on the handle hides or shows the rail like the toggle does, at the saved width, instead of
+  // the library's own memory of the last width that fit. Caught on the group in the capture phase so
+  // it runs before the handle's own listener; focus stays on the handle.
+  const groupCleanup = useRef<(() => void) | null>(null);
+  const groupElRef = useCallback((el: HTMLDivElement | null) => {
+    groupCleanup.current?.();
+    groupCleanup.current = null;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || !(e.target instanceof Element) || !e.target.classList.contains("rail-sep")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) toggleRailRef.current();
+    };
+    el.addEventListener("keydown", onKey, true);
+    groupCleanup.current = () => el.removeEventListener("keydown", onKey, true);
+  }, []);
+  const phoneRef = useRef(phone);
+  phoneRef.current = phone;
   const [moreOpen, setMoreOpen] = useState(false);
   const navigate = useNavigate();
   // The tab title count and opt-in notifications read the same Inbox as the rail badge (pattern AW1, AW2).
@@ -415,6 +538,11 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         setHelpOpen(true);
         return;
       }
+      if (!inField && !hasOpenOverlay && !phoneRef.current && e.key === "[" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        toggleRailRef.current();
+        return;
+      }
       if (!inField && !hasBoardQuickAdd && !hasOpenOverlay && !newLocked.current && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         setNewWorkOpen(true);
@@ -442,15 +570,8 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     }
   }
 
-  return (
-    <ScramLockContext.Provider value={lock}>
-    <div className="shell" ref={shellRef} data-phone={phone ? "" : undefined} data-look={look} data-mode={mode} data-scram={scramKind} data-tab-hidden={tabHidden ? "" : undefined}>
-      <a className="skip" href="#main">
-        Skip to content
-      </a>
-
-      {!phone && (
-      <aside className="rail">
+  const rail = (
+      <aside className="rail" id="cr-rail" inert={railCollapsed}>
         <div className="brand-row">
           <Link to="/" className="brand">
             <BrandMark />
@@ -502,6 +623,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
                   type="button"
                   className={activeProject?.id === proj.id ? "rail-proj-btn active" : "rail-proj-btn"}
                   aria-pressed={activeProject?.id === proj.id}
+                  title={proj.repo ? `${proj.name} (${proj.repo})` : proj.name}
                   onClick={() => selectProject(projectUser, proj.id)}
                 >
                   <span className="rail-proj-name">{proj.name}</span>
@@ -560,11 +682,11 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         </nav>
 
         <div className="rail-foot">
-          <div className="user-chip">
+          <div className="user-chip" title={session.user ?? "Signed in"}>
             <span className="rail-avatar" aria-hidden="true">
               {userInitial(session.user)}
             </span>
-            <span>{session.user ?? "Signed in"}</span>
+            <span className="user-chip-name">{session.user ?? "Signed in"}</span>
           </div>
           <button type="button" className="btn small rail-shortcuts" aria-keyshortcuts="?" onClick={() => setHelpOpen(true)}>
             Shortcuts <kbd>?</kbd>
@@ -574,8 +696,9 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
           </button>
         </div>
       </aside>
-      )}
+  );
 
+  const workspace = (
       <div className="main">
         <AgentUpdates />
         <header className="topbar">
@@ -611,6 +734,24 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
             </div>
           )}
           <div className="top-left">
+            {!phone && (
+              <button
+                type="button"
+                className="rail-toggle"
+                aria-controls="cr-rail"
+                aria-expanded={!railCollapsed}
+                aria-keyshortcuts={keysOn ? "[" : undefined}
+                title={`${railCollapsed ? "Show navigation" : "Hide navigation"}${keysOn ? "  [" : ""}`}
+                onClick={toggleRail}
+              >
+                <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <rect x="3" y="4" width="14" height="12" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M8 4v12" stroke="currentColor" strokeWidth="1.5" />
+                  {!railCollapsed && <path d="M4.8 7h1.6M4.8 9.5h1.6M4.8 12h1.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />}
+                </svg>
+                <span className="sr-only">{railCollapsed ? "Show navigation" : "Hide navigation"}</span>
+              </button>
+            )}
             <span className="console-live-dot" aria-hidden="true" />
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>
             <details
@@ -708,6 +849,46 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
           />
         )}
       </div>
+
+  );
+
+  return (
+    <ScramLockContext.Provider value={lock}>
+    <div className="shell" ref={shellRef} data-phone={phone ? "" : undefined} data-look={look} data-mode={mode} data-scram={scramKind} data-tab-hidden={tabHidden ? "" : undefined}>
+      <a className="skip" href="#main">
+        Skip to content
+      </a>
+
+      {/* One tree on every width: the workspace stays mounted (and keeps unsaved drafts and focus) when
+          a window crosses the phone breakpoint; on a phone the rail and its handle are simply absent. */}
+      <Group orientation="horizontal" className="shell-panes" elementRef={groupElRef} onLayoutChanged={(_layout, meta) => persistRailSoon(meta.isUserInteraction)}>
+        {!phone && (
+        <Panel
+          id="rail"
+          className="rail-panel"
+          panelRef={railPanel}
+          defaultSize={`${RAIL_DEFAULT_PX}px`}
+          minSize={`${RAIL_MIN_PX}px`}
+          maxSize={`${RAIL_MAX_PX}px`}
+          collapsible
+          collapsedSize={0}
+          groupResizeBehavior="preserve-pixel-size"
+          onResize={onRailResize}
+        >
+          {rail}
+        </Panel>
+        )}
+        {!phone && (
+        <Separator
+          className="rail-sep"
+          aria-label="Navigation width"
+          title={`Drag to resize the navigation. Double-click to reset.${keysOn ? " Press [ to hide or show it." : ""}`}
+        />
+        )}
+        <Panel id="workspace" className="main-panel" minSize="560px">
+          {workspace}
+        </Panel>
+      </Group>
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
       <NewWorkModal open={newWorkOpen} mode={mode} onClose={() => setNewWorkOpen(false)} />

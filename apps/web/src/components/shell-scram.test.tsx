@@ -262,9 +262,9 @@ describe("what a SCRAM locks", () => {
     // All projects: the sidebar's lock is off, so the button opens the modal.
     await user.click(await screen.findByRole("button", { name: /New change/ }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Capture settings" }));
+    await user.click(within(dialog).getByRole("button", { name: "More settings" }));
     const field = within(dialog).getByLabelText("Project / Workstream");
-    const capture = () => within(dialog).getByRole("button", { name: /^Capture (change|packet|deliverable)$/ }) as HTMLButtonElement;
+    const capture = () => within(dialog).getByRole("button", { name: /^Add (change|packet|deliverable)$/ }) as HTMLButtonElement;
     await user.clear(field);
     await user.type(field, "Plant B");
     expect(capture().disabled).toBe(false);

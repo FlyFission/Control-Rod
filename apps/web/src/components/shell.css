@@ -113,8 +113,11 @@
 .shell .top-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
-  flex-wrap: nowrap;
+  /* A wide rail can leave the workspace narrow: the status and actions wrap rather than clip. */
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .shell .topbar .btn.small {
   border-radius: 2px;
@@ -352,4 +355,175 @@
 }
 .shell .more-foot .user-chip > span:not(.rail-avatar) {
   display: inline;
+}
+
+/* ---- Resizable, collapsible rail (desktop) ---- */
+.shell .shell-panes {
+  height: 100vh;
+  min-width: 0;
+}
+.shell .rail-panel {
+  height: 100%;
+  overflow: hidden;
+}
+.shell .rail-panel > .rail {
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  border-right: 0;
+}
+.shell .main-panel {
+  height: 100%;
+  min-width: 0;
+}
+/* The rail's edge is the drag handle: a machined rule that lights up when it can be moved. The hit
+   area is wider than the line (the library's resizeTargetMinimumSize). */
+.shell .rail-sep {
+  width: 1px;
+  background: var(--plant-linework);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+  outline: none;
+}
+.shell .rail-sep[data-separator="hover"],
+.shell .rail-sep[data-separator="active"],
+.shell .rail-sep:focus-visible {
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.shell .rail-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--plant-linework);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.shell .rail-toggle:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.shell .rail-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.shell .user-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell .rail-sep {
+    transition: none;
+  }
+}
+
+/* Project names win over the repository chip: the chip shows only when the rail is wide enough to
+   spare it (the repository stays in the tooltip), and a long name takes a second line before it is
+   cut. */
+.shell .rail-projects {
+  container-type: inline-size;
+}
+.shell .rail-proj-btn {
+  align-items: flex-start;
+}
+.shell .rail-proj-name {
+  flex: 0 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.3;
+}
+.shell .rail-proj-repo {
+  flex: 0 0 auto;
+  max-width: 40%;
+  margin-left: auto;
+}
+@container (max-width: 340px) {
+  .shell .rail-proj-repo {
+    display: none;
+  }
+}
+
+/* On a phone the panel group holds only the workspace and must not clip or scroll it: the page
+   scrolls as before (sticky stage headers rely on it). These override the library's inline styles. */
+.shell[data-phone] .shell-panes,
+.shell[data-phone] .shell-panes > [data-panel],
+.shell[data-phone] .shell-panes > [data-panel] > div {
+  display: block !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  /* No handle on a phone: give gestures back to the browser (pinch zoom, scrolling). */
+  touch-action: auto !important;
+}
+
+/* The resize handle keeps a focus ring in forced-colors mode, where backgrounds and shadows flatten. */
+.shell .rail-sep:focus-visible {
+  outline: 2px solid transparent;
+}
+@media (forced-colors: active) {
+  .shell .rail-sep {
+    background: CanvasText;
+  }
+  .shell .rail-sep:focus-visible,
+  .shell .rail-sep[data-separator="hover"],
+  .shell .rail-sep[data-separator="active"] {
+    background: Highlight;
+    outline: 2px solid Highlight;
+  }
+}
+
+/* A keyboard user sees a long project name in full on the focused row, not just in a tooltip. */
+.shell .rail-proj-btn:focus-visible .rail-proj-name {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+}
+
+/* Inside the desktop rail, places always stack, whatever the window width (an older narrow-window rule
+   laid them out in a row, which cut them off between 821 and 900 px). */
+.shell .rail .places {
+  border-bottom: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+.shell .rail .places ul {
+  flex-direction: column;
+}
+.shell .rail .place-link.active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Keyboard users get the repository too: a focused row shows it, on its own line when the rail is
+   too narrow to keep it beside the name. */
+.shell .rail-proj-btn:focus-visible {
+  flex-wrap: wrap;
+}
+@container (max-width: 340px) {
+  .shell .rail-proj-btn:focus-visible .rail-proj-repo {
+    display: inline-block;
+    max-width: 100%;
+    margin-left: 0;
+  }
+}
+.shell .rail-proj-btn:focus-visible .rail-proj-repo {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  overflow: visible;
+}
+
+/* On any touchscreen the workspace keeps the browser's gestures (pinch zoom, scrolling); only the
+   resize handle claims touch for dragging. */
+.shell .shell-panes,
+.shell .shell-panes > [data-panel] {
+  touch-action: auto !important;
 }

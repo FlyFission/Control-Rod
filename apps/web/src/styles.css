@@ -273,10 +273,10 @@ textarea {
   font-size: var(--fs-ui);
 }
 
-/* Shell — 224px navigation rail + 50px operational topbar + scrollable workspace */
+/* Shell — resizable navigation rail (react-resizable-panels) + operational topbar + scrollable workspace */
 .shell {
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
   background: var(--ground);
@@ -1972,7 +1972,7 @@ select {
 }
 .rail-proj-repo {
   flex-shrink: 0;
-  max-width: 82px;
+  max-width: 40%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

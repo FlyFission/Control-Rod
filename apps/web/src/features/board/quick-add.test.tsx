@@ -120,7 +120,7 @@ describe("QuickAdd on the board", () => {
     const { posted } = api();
     await renderPage(<Page />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+    await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
     const field = screen.getByLabelText("Card title");
     expect(document.activeElement).toBe(field);
     await user.type(field, "Fix the login redirect{Enter}");
@@ -146,7 +146,7 @@ describe("QuickAdd on the board", () => {
     try {
       await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
       const user = userEvent.setup();
-      await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+      await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
       await user.type(screen.getByLabelText("Card title"), "Draft the fixture{Enter}");
       await waitFor(() => expect(posted).toEqual([
         { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web" },
@@ -160,21 +160,21 @@ describe("QuickAdd on the board", () => {
     api();
     await renderPage(<Page />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+    await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
     await user.type(screen.getByLabelText("Card title"), "Half typed");
     await user.tab();
     expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe("Half typed");
     await user.click(screen.getByLabelText("Card title"));
     await user.keyboard("{Escape}");
     expect(screen.queryByLabelText("Card title")).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "+ Add a card" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "+ Quick add" }));
   });
 
   it("opens from the c key outside a field, and not from c typed inside one or when a dialog/palette is open", async () => {
     api();
     await renderPage(<Page />);
     const user = userEvent.setup();
-    await screen.findByRole("button", { name: "+ Add a card" });
+    await screen.findByRole("button", { name: "+ Quick add" });
 
     // Guarded when an open dialog or .palette is present
     const dlg = document.createElement("dialog");
@@ -202,7 +202,7 @@ describe("QuickAdd on the board", () => {
     const { posted } = api();
     await renderPage(<Page />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+    await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
     await user.click(screen.getByLabelText("Card title"));
     await user.paste("Fix login\nDraft SOW\n\nSize relief valve");
     await user.click(screen.getByRole("button", { name: "Add 3 cards" }));
@@ -220,7 +220,7 @@ describe("QuickAdd on the board", () => {
     server.use(http.post("*/captures", () => HttpResponse.json({ code: "refused", message: "Captures are paused", change: "Ask the owner to resume intake." }, { status: 409 })));
     await renderPage(<Page />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+    await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
     await user.type(screen.getByLabelText("Card title"), "Fix login{Enter}");
     expect((await screen.findByRole("alert")).textContent).toContain("Captures are paused");
     expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe("Fix login");
@@ -230,7 +230,7 @@ describe("QuickAdd on the board", () => {
     const { posted } = api();
     await renderPage(<Page />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+    await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
     const field = screen.getByLabelText("Card title");
     await user.click(field);
     await user.paste(`Short first line\n${"x".repeat(CAPTURE_LIMIT + 1)}`);
@@ -261,7 +261,7 @@ describe("QuickAdd on the board", () => {
     );
     await renderPage(<Page />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+    await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
     await user.click(screen.getByLabelText("Card title"));
     await user.paste("Line one\nLine two\nLine three");
     await user.click(screen.getByRole("button", { name: "Add 3 cards" }));

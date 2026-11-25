@@ -1,6 +1,6 @@
 # Ship: Fix the flaky daemon runner tests in CI
 
-Release decision: **pending** the owner's yes after a Codex blind check and green CI. No trust surface is touched.
+Release decision: **pending** the owner's yes. Codex round 2 said MERGE (verification E-06) and its two P3s are fixed; CI must be green on the head. No trust surface is touched.
 
 ## Signature
 

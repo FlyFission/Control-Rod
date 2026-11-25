@@ -88,7 +88,9 @@ func cgroupFixture(t *testing.T, name string) (dir, reported string, cmd *exec.C
 	}
 	rel := filepath.Dir(strings.TrimPrefix(own, "/sys/fs/cgroup"))
 	dir = filepath.Join(mount, rel, name)
-	if err := os.Mkdir(dir, 0o755); err != nil {
+	if err := os.Mkdir(dir, 0o755); errors.Is(err, os.ErrExist) {
+		t.Fatalf("a unique cgroup name collided: %v", err)
+	} else if err != nil {
 		t.Skipf("cannot make a cgroup here: %v", err)
 	}
 	cmd = exec.Command("sleep", "60")

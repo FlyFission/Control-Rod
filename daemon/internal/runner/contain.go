@@ -138,7 +138,7 @@ func (k Container) Locate(pid int, unit string) (Unit, error) {
 		// A process that already exited may have left before it could be seen in its scope, or
 		// exited inside it and seen it collected; the scope's place is known, and an empty or
 		// collected scope simply holds nothing.
-		if k.ScopeParent != "" && ((err != nil && !processExists(pid)) || (err == nil && exitedInRemovedScope(pid, dir, unit))) {
+		if k.ScopeParent != "" && ((err != nil && !processExists(pid)) || (err == nil && dir == k.ScopeParent+"/"+unit+".scope (deleted)" && exitedInRemovedScope(pid, dir, unit))) {
 			u.Cgroup = k.ScopeParent + "/" + unit + ".scope"
 			return u, nil
 		}

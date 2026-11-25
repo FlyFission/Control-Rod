@@ -733,7 +733,7 @@ def stub_call(agent: dict, role: str, prompt: str, workspace: Path, stub: dict) 
         if agent.get("lazy") or not script:
             return {"status": "ok", "text": "done", "usage_raw": usage, "model_resolved": model,
                     "tool_uses": [], "tools_offered": ["Read", "Bash"]}
-        out = []
+        out = [(workspace / "PROBE_OK.txt").read_text().strip()] if (workspace / "PROBE_OK.txt").is_file() else []
         for ln in script.splitlines():
             tag, _, arg = ln.partition(": ")
             path = Path(arg.strip()) if arg else None
@@ -746,13 +746,18 @@ def stub_call(agent: dict, role: str, prompt: str, workspace: Path, stub: dict) 
                         out.append("denied")
             elif tag == "# LIST" and agent.get("leaky") and path.is_dir():
                 out += sorted(c.name for c in path.iterdir())
-            elif tag == "# WRITE" and agent.get("leaky"):
-                try:
-                    (workspace / path).write_text("x")
-                except OSError:
-                    pass
+            elif tag == "# WRITE":
+                written = False
+                if agent.get("leaky"):
+                    try:
+                        (workspace / path).write_text("x")
+                        written = True
+                    except OSError:
+                        pass
+                out.append("SOURCE=written" if written else "SOURCE=denied")
             elif tag == "# SCRATCH":
                 (path / "ok.txt").write_text("ok")
+                out.append("SCRATCH=ok")
             m = re.search(r'PROBE-DONE-\$\(\((\d+)\*(\d+)\)\)', ln)
             if m:
                 out.append(f"PROBE-DONE-{int(m.group(1)) * int(m.group(2))}")

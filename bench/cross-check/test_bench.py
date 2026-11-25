@@ -468,10 +468,11 @@ class Workspaces(Tmp):
         self.assertEqual([c["paths"] for c in cap["changes"]], [[".mcp.json"]])
         self.assertEqual(self.capture(lambda r: (r / ".profile").write_text(""))[0]["status"], "empty")
 
-    def test_container_checker_tree_keeps_its_top_directory_mode(self):
+    def test_container_checker_tree_keeps_directory_modes(self):
         root = workspace.workspace_root({"caps": {"workspace_root": str(self.d / "ws")}})
-        repo, _ = workspace.checker_tree(self.task, b"", root, self.d / "cache", keep_root=True)
-        self.assertTrue(repo.stat().st_mode & 0o200)  # Claude Code's sandbox needs EROFS, not EACCES, here
+        repo, _ = workspace.checker_tree(self.task, b"", root, self.d / "cache", files_only=True)
+        for d in (repo, repo / ".git", repo / ".git" / "info"):  # Claude Code's sandbox needs EROFS, not EACCES
+            self.assertTrue(d.stat().st_mode & 0o200, d)
         self.assertFalse((repo / "lists.py").stat().st_mode & 0o222)
 
     def test_capture_never_reads_the_authors_git_dir(self):

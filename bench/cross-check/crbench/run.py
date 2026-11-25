@@ -287,7 +287,7 @@ class Runner:
         if sha256_bytes(patch) != sub["sha256"]:
             raise Refused("§6 digest", f"{tid}/{author} patch changed after capture")
         repo, scratch = checker_tree(task, patch, self.root, self.cache,
-                                     keep_root=self.agents[name]["kind"] != "stub")  # container: read-only mount
+                                     files_only=self.agents[name]["kind"] != "stub")  # container: read-only mount
         try:
             before = tree_hash(repo)
             changed = "\n".join(f"{c['status']}\t{' -> '.join(c['paths'])}" for c in sub["changes"])

@@ -105,14 +105,14 @@ test_capture_drops_sandbox_mount_point_stubs (bench.cross-check.test_bench.Works
 test_capture_never_reads_the_authors_git_dir (bench.cross-check.test_bench.Workspaces.test_capture_never_reads_the_authors_git_dir) ... ok
 test_capture_statuses (bench.cross-check.test_bench.Workspaces.test_capture_statuses) ... ok
 test_checker_tree_read_only_with_patch_staged (bench.cross-check.test_bench.Workspaces.test_checker_tree_read_only_with_patch_staged) ... ok
-test_container_checker_tree_keeps_its_top_directory_mode (bench.cross-check.test_bench.Workspaces.test_container_checker_tree_keeps_its_top_directory_mode) ... ok
+test_container_checker_tree_keeps_directory_modes (bench.cross-check.test_bench.Workspaces.test_container_checker_tree_keeps_directory_modes) ... ok
 test_export_is_one_generic_commit_outside_repo (bench.cross-check.test_bench.Workspaces.test_export_is_one_generic_commit_outside_repo) ... ok
 test_root_inside_repo_home_or_study_refused (bench.cross-check.test_bench.Workspaces.test_root_inside_repo_home_or_study_refused) ... ok
 test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces.test_root_through_a_symlink_is_resolved)
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 110 tests in 68.601s
+Ran 110 tests in 68.989s
 
 OK (skipped=1)
 # python3.9 --version: Python 3.9.25
@@ -222,13 +222,13 @@ test_capture_drops_sandbox_mount_point_stubs (bench.cross-check.test_bench.Works
 test_capture_never_reads_the_authors_git_dir (bench.cross-check.test_bench.Workspaces) ... ok
 test_capture_statuses (bench.cross-check.test_bench.Workspaces) ... ok
 test_checker_tree_read_only_with_patch_staged (bench.cross-check.test_bench.Workspaces) ... ok
-test_container_checker_tree_keeps_its_top_directory_mode (bench.cross-check.test_bench.Workspaces) ... ok
+test_container_checker_tree_keeps_directory_modes (bench.cross-check.test_bench.Workspaces) ... ok
 test_export_is_one_generic_commit_outside_repo (bench.cross-check.test_bench.Workspaces) ... ok
 test_root_inside_repo_home_or_study_refused (bench.cross-check.test_bench.Workspaces) ... ok
 test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces)
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 110 tests in 78.936s
+Ran 110 tests in 76.159s
 
 OK (skipped=1)

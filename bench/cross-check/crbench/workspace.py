@@ -150,18 +150,19 @@ def tree_hash(repo: Path) -> str:
     return h.hexdigest()
 
 
-def make_read_only(repo: Path, keep_root: bool = False) -> None:
+def make_read_only(repo: Path, files_only: bool = False) -> None:
     """Defense in depth only; the read-only guarantee is the OS confinement (confine.py), or in a
-    container the read-only mount. keep_root leaves the top directory's mode alone for a container
-    call: Claude Code's sandbox puts mount points for absent protected names (.claude, .bashrc, ...)
-    in its working directory, and skips them only when the directory refuses as read-only (EROFS);
-    a mode-only refusal (EACCES) from the owner makes it try, and bubblewrap then aborts the shell."""
+    container the read-only mount. files_only leaves every directory's mode alone for a container
+    call: Claude Code's sandbox puts mount points for absent protected names (.claude,
+    .git/config.lock, ...) under its working directory and skips one only when its directory
+    refuses as read-only (EROFS); a mode-only refusal (EACCES) from the owner makes it try, and
+    bubblewrap then aborts the shell before any command runs."""
     for dirpath, dirnames, filenames in os.walk(repo, followlinks=False):
-        for name in [*dirnames, *filenames]:
+        for name in [*([] if files_only else dirnames), *filenames]:
             p = Path(dirpath) / name
             if not p.is_symlink():
                 p.chmod(p.lstat().st_mode & ~0o222)
-    if not keep_root:
+    if not files_only:
         repo.chmod(repo.stat().st_mode & ~0o222)
 
 
@@ -174,7 +175,7 @@ def apply_patch(repo: Path, patch: bytes, index: bool = True) -> None:
         pf.unlink()
 
 
-def checker_tree(task: dict, patch: bytes, root: Path, cache: Path, keep_root: bool = False) -> tuple[Path, Path]:
+def checker_tree(task: dict, patch: bytes, root: Path, cache: Path, files_only: bool = False) -> tuple[Path, Path]:
     """The base commit with the patch applied to the index and tree (so `git diff HEAD` shows
     every change, new files included), plus a separate writable scratch directory."""
     repo = export_base(task, root, cache)
@@ -182,7 +183,7 @@ def checker_tree(task: dict, patch: bytes, root: Path, cache: Path, keep_root: b
         apply_patch(repo, patch)
     scratch = repo.parent / "scratch"
     scratch.mkdir()
-    make_read_only(repo, keep_root)
+    make_read_only(repo, files_only)
     return repo, scratch
 
 

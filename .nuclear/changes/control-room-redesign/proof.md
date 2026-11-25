@@ -157,3 +157,9 @@ Local engineering evidence using the repository workflow, not a compliance certi
 - vitest 82 files / 890 tests, tsc clean.
 - Codex review on 9f072494: the diff line cap hid a binary or rename file that came after 1,500 text lines, with no Show all. The cap now applies to text hunks only, and a test is added. Also, phones had lost the only New project opener (the rail's +); the More sheet now carries "New project", with a test. vitest 82 files / 892 tests. Then (81630abe review): files with text hunks also show their rename, mode and new/deleted lines; test added.
 - Codex review on 2f3aaa85: organization budget said an exact "tokens left" while some runs had not reported tokens. It now reads "At most N left" in that case (pages/org-budget.test.tsx).
+
+## Plant follows the engineering mode (Nov 24, after #174)
+
+- Ben: switching Software / Capital projects / Nuclear grade changed nothing on the Plant. Cause: the Plant named its bays only from a project's work lanes and otherwise showed the capital-project disciplines; the mode was never read.
+- Fix (apps/web/src/features/office/lanes.tsx `plantNamesFor`, OfficeView): without project lanes, the bays follow the mode (Software preset names in Software, capital disciplines otherwise). The shared rooms use the mode's words: Software reads Dependencies, CI and checks, Releases. Nuclear grade reads QA, Independent verification, Records. A project's own lanes still win for the bays. The header says which ("Software lanes", "Capital project lanes", "Nuclear grade"). The art is unchanged (one work-bay archetype).
+- Tests: lanes.test.tsx (mode names, nuclear words, project lanes win); office-view tests pin capital mode for their capital fixtures. vitest 85 files / 928 tests. Screenshots: /mnt/project-files/control-rod/modes/.

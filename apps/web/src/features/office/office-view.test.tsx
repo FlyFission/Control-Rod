@@ -10,6 +10,10 @@ import { LENSES, LENS_COLORS, changeStep, lensById } from "./lenses.js";
 import { OfficeView } from "./OfficeView.js";
 import { seatFigures, shortCode } from "./seat.js";
 import { causeGroups, exceptionsView, portfolio } from "./exceptions.js";
+import { saveMode } from "../../lib/mode.js";
+
+// These fixtures are capital-project work, so the Plant reads in that mode unless a test says otherwise.
+beforeEach(() => saveMode("capital-projects"));
 
 /** The office view: seating, lenses, presenting mode and the card (plan tasks 4.5 and 4.8; OV-01, OV-07). */
 
@@ -258,6 +262,7 @@ describe("the Plant and the archived office themes", () => {
   let member = "ben";
   beforeEach(() => {
     localStorage.clear();
+    saveMode("capital-projects");
     member = "ben";
     server.use(
       http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: member })),

@@ -8,7 +8,7 @@ read out of git, never typed by hand. The output is committed with the release
 record before the tag is cut; the release workflow attaches those committed
 bytes rather than regenerating anything. An empty range is an error, not an
 empty release: a tag cut on a range with no new records is a mistake worth
-refusing.
+refusing. A directory that has no `basis.md` at `--to` is skipped, not fatal.
 """
 
 from __future__ import annotations
@@ -47,14 +47,21 @@ def added_slugs(from_ref: str, to_ref: str) -> list[str]:
             seen.append(slug)
     return seen
 
-
-def title_of(slug: str, at: str) -> str:
-    """The record's title: the first heading of its basis.md at the given ref."""
-    text = git("show", f"{at}:.nuclear/changes/{slug}/basis.md")
-    for line in text.splitlines():
+def heading(slug: str, at: str, name: str) -> str | None:
+    r = subprocess.run(["git", "show", f"{at}:.nuclear/changes/{slug}/{name}"], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    for line in r.stdout.splitlines():
         if line.startswith("# "):
             return line[2:].strip()
-    return slug
+    return None
+
+
+def title_of(slug: str, at: str) -> str | None:
+    """The record's title at the given ref: the first heading of basis.md, or of
+    risk.md when the record is a Quick record with no basis.md. None only when
+    neither file has a heading."""
+    return heading(slug, at, "basis.md") or heading(slug, at, "risk.md")
 
 
 def main() -> None:
@@ -65,16 +72,22 @@ def main() -> None:
     args = parser.parse_args()
 
     slugs = added_slugs(args.from_ref, args.to_ref)
-    if not slugs:
-        sys.exit(f"no new change records in {args.from_ref}..{args.to_ref}; refusing to emit empty release notes")
+    lines = []
+    for slug in slugs:
+        title = title_of(slug, args.to_ref)
+        if title is None:
+            continue
+        lines.append(f"- {title} ({slug})")
+    if not lines:
+        sys.exit(f"no titled change records in {args.from_ref}..{args.to_ref}; refusing to emit empty release notes")
 
     if args.preamble is not None:
         text = args.preamble.read_text(encoding="utf-8")
         if text.strip():
             print(text.rstrip())
             print()
-    for slug in slugs:
-        print(f"- {title_of(slug, args.to_ref)} ({slug})")
+    for line in lines:
+        print(line)
 
 
 if __name__ == "__main__":

@@ -51,6 +51,8 @@ export const REASONS: Record<string, Reason> = {
   "signature-required": r("This command needs your passkey.", "Sign it with your passkey."),
   "signature-mismatch": r("The signature does not cover this exact request.", "Request a fresh prompt for the request as it now stands and sign that."),
   "signature-revoked": r("The passkey that signed this is no longer valid.", "Sign with a passkey that is still registered to you."),
+  "policy-required": r("Control Rod takes this step on its own only when your signing settings let it.", "Take the step yourself, or change what needs your passkey in Setup."),
+  "policy-signature-revoked": r("The passkey that signed your signing settings is no longer valid.", "Choose what needs your passkey again in Setup, with a passkey that is still registered to you."),
   "precondition-required": r("This edit must say which version it started from.", "Send the draft's current ETag in If-Match; the app does this when you edit from the page."),
   stale: r("The record changed since you opened it.", "Reload, review the current version and save again."),
   changed: r("The package changed since you opened it.", "Reload and review the current version before deciding."),

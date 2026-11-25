@@ -36,6 +36,11 @@ export interface DecideInput {
    * shows a pass that covers the current work (ruling 16; screen-only until the kernel guard D-4).
    */
   independentCheck?: boolean;
+  /**
+   * The owner's signing policy lets this step go with a press (the action's signature is "none"):
+   * no passkey is asked for. The server still checks the digest the person was shown.
+   */
+  noPasskey?: boolean;
 }
 
 /** Kinds that need a written reason before the person signs. */
@@ -71,6 +76,10 @@ export async function decide(
     package_revision: input.revision,
     ...(input.reason !== undefined && input.reason.trim().length > 0 ? { reason: input.reason.trim() } : {}),
   };
+  if (input.noPasskey) {
+    const decision = await client.decide(input.packageId, { ...req, expected_subject_digest: input.shownDigest });
+    return { decision, signed: input.shownDigest };
+  }
   const opts = await client.decisionOptions(input.packageId, { ...req, expected_subject_digest: input.shownDigest });
   if (opts.subject_digest.value !== input.shownDigest.value) {
     throw new Error("This package changed since you opened it. Reload and review the current version.");

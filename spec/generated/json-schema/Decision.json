@@ -40,6 +40,10 @@
             "pattern": "^[0-9a-f]{32}$",
             "description": "The one-time nonce the passkey challenge was built from, so the binding of the signature to\nthis subject, kind and revision can be re-verified from the record alone. Absent on decisions\nrecorded before it was kept."
         },
+        "signing_policy": {
+            "$ref": "SigningPolicyRef.json",
+            "description": "Present when the step went through under the owner's signing policy instead of a passkey of\nits own: a copy of the signed policy it relied on. `assertion` is then the policy's assertion."
+        },
         "decided_at": {
             "type": "string",
             "format": "date-time"

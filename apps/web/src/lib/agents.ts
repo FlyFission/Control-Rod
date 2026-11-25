@@ -110,7 +110,7 @@ export const CHECK_IN_CHOICES: readonly { id: CheckIn; label: string; detail: st
 
 /** Said under a choice that is saved now but changes nothing yet. */
 export const CHECK_IN_LATER =
-  "Saved for when check-in points arrive. Until then every card stops for your signed release at the start and your signed acceptance at the end, as it does today.";
+  "Saved for when check-in points arrive. Until then, what stops a card for you is set under What needs your passkey.";
 
 /**
  * Which known agent a run's provider names (RuntimeRef.provider), so a figure can show its agent's

@@ -27,6 +27,7 @@
     "024-context-profile": "b28e3e8f43b486e1f1bc5b1eb6fd713200630392c7ca7ee9688f2d2c8e32871e",
     "025-dependency-provenance": "c41ce2bc51834dfcb17cb44147542f9acc8aef8a4022f90210eb326beb144fa0",
     "026-default-workflow": "c47831866647e3f36bdc75d0231341de221d5a7762019b438ce6d399b2ce24f3",
-    "027-work-lanes": "7ff875ea5a1b6c42c8bd74e3cd27288eb322bcb7f5d75d3f9e303eebf57d8795"
+    "027-work-lanes": "7ff875ea5a1b6c42c8bd74e3cd27288eb322bcb7f5d75d3f9e303eebf57d8795",
+    "028-signing-policy": "b5cc745af3ca79de9b431bcb869b0d93486ed00ddd535312edf4eec8afae38ef"
   }
 }

@@ -4,7 +4,13 @@
 //! and allows only what a rule names. The floors it holds:
 //!
 //! 1. Only a person can release, accept, return or reject, and only with a passkey assertion
-//!    the server verified over the digest of exactly what that person reviewed.
+//!    the server verified over the digest of exactly what that person reviewed. The one
+//!    exception is the owner's signing policy: a passkey-signed record, kept by the server, in
+//!    which the owner chose which steps need a signature of their own. A step the policy covers
+//!    needs no assertion per step, and under it Control Rod itself (a system actor) may release
+//!    and may accept work whose pre-check passed. Nothing else: the system never accepts with
+//!    findings, returns, rejects or overrides independence, and the policy never waives the
+//!    signature on an independence override.
 //! 2. Agents can claim released work, submit output and submit a pre-check. Nothing else.
 //! 3. The pre-check comes from a different agent baseline than the author's, on a different
 //!    provider. The same provider counts as the same runtime whatever the models. A pre-check on
@@ -133,6 +139,11 @@ pub struct Request {
     /// The assertion's challenge was the digest of the revision, output and pre-check now on record.
     #[serde(default)]
     pub digest_matches: bool,
+    /// The owner's signing policy covers this step on this package: the server verified the
+    /// owner's passkey over the stored policy and found that it lets this action go without a
+    /// signature of its own. The server sets it only from that stored, verified record.
+    #[serde(default)]
+    pub policy_signed: bool,
     /// A non-empty written reason accompanies the request.
     #[serde(default)]
     pub reason_given: bool,
@@ -169,10 +180,15 @@ pub fn decide(req: &Request) -> Outcome {
         return refuse(ReasonCode::Forbidden);
     }
     if req.action.human_only() {
-        if req.actor_kind != ActorKind::Human {
+        // The policy never stands in for the independence override: that one is always signed.
+        let policy = req.policy_signed && req.action != Action::OverrideIndependence;
+        let by_system = req.actor_kind == ActorKind::System
+            && policy
+            && matches!(req.action, Action::Release | Action::Accept);
+        if req.actor_kind != ActorKind::Human && !by_system {
             return refuse(ReasonCode::NotHuman);
         }
-        if !req.assertion_verified || !req.digest_matches {
+        if !policy && (!req.assertion_verified || !req.digest_matches) {
             return refuse(ReasonCode::Unsigned);
         }
     } else if req.actor_kind != ActorKind::Agent {
@@ -298,6 +314,7 @@ mod tests {
             assertion_verified: true,
             digest_matches: true,
             reason_given: false,
+            policy_signed: false,
             preparation: None,
         }
     }
@@ -540,6 +557,87 @@ mod tests {
             ] {
                 assert!(!decide(&agent(action, status)).decision.is_allowed());
             }
+        }
+    }
+
+    fn system(action: Action, status: Status) -> Request {
+        Request {
+            actor_kind: ActorKind::System,
+            actor_id: "policy:SP-1".into(),
+            assertion_verified: false,
+            digest_matches: false,
+            policy_signed: true,
+            ..human(action, status)
+        }
+    }
+
+    #[test]
+    fn without_the_policy_the_system_takes_no_human_action() {
+        for action in HUMAN_ACTIONS {
+            for status in ALL_STATUSES {
+                let mut r = system(action, status);
+                r.policy_signed = false;
+                assert_eq!(decide(&r).decision.reason(), ReasonCode::NotHuman);
+            }
+        }
+    }
+
+    #[test]
+    fn under_the_policy_the_system_releases_and_accepts_a_pass_only() {
+        assert_eq!(
+            decide(&system(Action::Release, Status::Draft)).next,
+            Some(Status::Released)
+        );
+        let mut r = system(Action::Accept, Status::InVerification);
+        r.pre_check = Some(PreCheckOutcome::Pass);
+        assert_eq!(decide(&r).next, Some(Status::Accepted));
+        for outcome in [PreCheckOutcome::Fail, PreCheckOutcome::Inconclusive] {
+            r.pre_check = Some(outcome);
+            assert!(!decide(&r).decision.is_allowed());
+        }
+        r.pre_check = None;
+        assert!(!decide(&r).decision.is_allowed());
+        for action in [
+            Action::AcceptWithFindings,
+            Action::Return,
+            Action::Reject,
+            Action::OverrideIndependence,
+        ] {
+            for status in ALL_STATUSES {
+                let mut r = system(action, status);
+                r.reason_given = true;
+                r.pre_check = Some(PreCheckOutcome::Fail);
+                assert_eq!(
+                    decide(&r).decision.reason(),
+                    ReasonCode::NotHuman,
+                    "{action:?} in {status:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn under_the_policy_a_person_needs_no_signature_except_to_override_independence() {
+        let mut r = human(Action::Return, Status::InVerification);
+        r.assertion_verified = false;
+        r.digest_matches = false;
+        r.policy_signed = true;
+        r.reason_given = true;
+        assert_eq!(decide(&r).next, Some(Status::Draft));
+        let mut o = human(Action::OverrideIndependence, Status::InVerification);
+        o.assertion_verified = false;
+        o.digest_matches = false;
+        o.policy_signed = true;
+        o.reason_given = true;
+        assert_eq!(decide(&o).decision.reason(), ReasonCode::Unsigned);
+    }
+
+    #[test]
+    fn the_policy_never_lets_an_agent_take_a_human_action() {
+        for action in HUMAN_ACTIONS {
+            let mut r = agent(action, Status::InVerification);
+            r.policy_signed = true;
+            assert_eq!(decide(&r).decision.reason(), ReasonCode::NotHuman);
         }
     }
 

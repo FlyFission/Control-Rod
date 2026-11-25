@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { noteSigned, passkeyHint, signedToday } from "../lib/signing.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { explain } from "../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView } from "../api/types.js";
@@ -50,9 +51,13 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
     setDone(null);
     try {
       const { decision } = await decide(
-        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, independentCheck: needsIndependentCheck(pkg), ...(reason.trim().length > 0 ? { reason } : {}) },
+        {
+          packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, independentCheck: needsIndependentCheck(pkg), ...(reason.trim().length > 0 ? { reason } : {}),
+          noPasskey: decisions.find((a) => a.command === kind)?.signature === "none",
+        },
         passkeys,
       );
+      if (decisions.find((a) => a.command === kind)?.signature === "direct") noteSigned(kind);
       setDone(`${label(decision.kind)} recorded.`);
       setPending(null);
       setReason("");
@@ -142,6 +147,18 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
           ))}
         </div>
       )}
+      {(() => {
+        // One quiet line under the buttons when one of them will ask for a passkey: why, and where to change it.
+        const signedKind = allowed.find((k) => decisions.find((a) => a.command === k)?.signature === "direct");
+        if (!signedKind) return null;
+        const preset = decisions.find((a) => a.command === signedKind)?.signing_preset;
+        if (preset === undefined && decisions.find((a) => a.command === signedKind)?.step_mode === undefined) return null;
+        return (
+          <p className="small muted passkey-hint">
+            {passkeyHint(signedKind, label(signedKind), preset, signedToday(signedKind))} <a href="/setup#signing">Change</a>
+          </p>
+        );
+      })()}
       {actions.isSuccess && allowed.length === 0 && <Blocked refused={refused} label={label} />}
       {allowed.length > 0 && refused.length > 0 && (
         <details className="refused-decisions">

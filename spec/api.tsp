@@ -42,6 +42,16 @@ model ActionDescriptor {
   allowed: boolean;
   signature: "direct" | "absorbed" | "none";
 
+  /**
+   * For a decision on a card: how the owner's signing policy takes it. "auto" means Control Rod
+   * takes it on its own when it can; "click" a press with no passkey; "passkey" a signed press.
+   * Absent for anything that is not a card decision.
+   */
+  step_mode?: "auto" | "click" | "passkey";
+
+  /** The signing preset in force for this card, when a signing policy covers it. */
+  signing_preset?: "light" | "balanced" | "everything" | "custom";
+
   /** Any one of these roles or authorities may take it. */
   authority?: string[];
 
@@ -112,7 +122,18 @@ namespace WorkspaceProjects {
 
     /** The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset). */
     work_lanes?: ControlRod.Records.WorkLaneSet;
+
+    /** What needs a passkey on this project's routine cards, once the owner has chosen. Absent: every step is signed. */
+    signing?: WorkspaceSigning;
     createdAt: utcDateTime;
+  }
+
+  model WorkspaceSigning {
+    preset: "light" | "balanced" | "everything" | "custom";
+    steps: ControlRod.Records.SigningSteps;
+    version: int32;
+    signed_by: string;
+    signed_at: utcDateTime;
   }
 
   model UpdateProject {
@@ -138,6 +159,9 @@ namespace WorkspaceProjects {
     mode?: EngineeringMode;
     ...OmitProperties<UpdateProject, "laneAgents">;
     laneAgents?: Record<string>;
+
+    /** What needs a passkey on routine cards, signed with the create. Ignored for Nuclear-grade. */
+    signing_preset?: "light" | "balanced" | "everything";
   }
 
   /** The passkey challenge binds the payload through the project.workspace-create admin command. */

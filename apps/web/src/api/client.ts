@@ -229,7 +229,7 @@ export const api = {
       `/packages/${enc(id)}/decisions/options`,
       req,
     ),
-  decide: (id: string, body: DecisionRequest & { assertion: Record<string, unknown> }) =>
+  decide: (id: string, body: DecisionRequest & ({ assertion: Record<string, unknown> } | { expected_subject_digest: Digest })) =>
     call<Decision>("POST", `/packages/${enc(id)}/decisions`, body),
 
   office: () => call<OfficeItem[]>("GET", "/office"),

@@ -112,7 +112,7 @@ describe("first-run setup", () => {
     await user.click(screen.getByRole("radio", { name: /Just at the start/ }));
     const back = screen.getByRole("region", { name: "Here's what you're setting up" });
     expect(within(back).getByText(/No agent at the table can work yet/)).toBeTruthy();
-    expect(within(back).getByText(/Check-in preference: just at the start\. Today every card still stops for your signed release at the start and your signed acceptance at the end\./)).toBeTruthy();
+    expect(within(back).getByText(/Check-in preference: just at the start\. What actually stops a card for you is set under What needs your passkey\./)).toBeTruthy();
     expect(screen.getByText(/Saved for when check-in points arrive/)).toBeTruthy();
     expect(sent).toHaveLength(0);
 

@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { parseSteps, policyOf, policyRef, signPolicy } from "./signing-policy.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { CommandName } from "./commands/catalog.js";
@@ -435,7 +436,10 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   "project.workspace-create": {
     label: "Create a workspace project",
     catalog: "admin.project-create", signature: "direct", need: "administrator",
-    run: createWorkspaceProject,
+    // The signature over the create also signs the signing preset chosen in the same form.
+    run: (c, caller, p, ctx) => createWorkspaceProject(c, caller, p, ctx.assertion
+      ? { subject: adminSubject("project.workspace-create", caller, p), assertion: ctx.assertion, ...(ctx.signed?.nonce ? { nonce: ctx.signed.nonce } : {}) }
+      : undefined),
   },
 
   "project.workspace-update": {
@@ -455,6 +459,28 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     label: "Archive a workspace project",
     catalog: "admin.project-update", signature: "direct", need: "administrator",
     run: (c, caller, p) => archiveWorkspaceProject(c, caller, str(p, "project_id")!),
+  },
+
+  "project.set-signing-policy": {
+    label: "Choose what needs your passkey",
+    catalog: "admin.project-set-signing-policy", signature: "direct", need: "administrator",
+    async run(c, caller, p, ctx) {
+      if (!ctx.assertion) throw new Refusal(403, "signature-required", "Choosing what needs your passkey is itself signed with your passkey");
+      const id = str(p, "project_id")!;
+      const r = await c.query<{ body: Record<string, unknown> }>("select body from projects where id = $1 and org_id = $2 for update", [id, caller.orgId]);
+      if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
+      const { preset, steps } = parseSteps(p.preset, p.steps);
+      const prior = policyOf(r.rows[0].body);
+      const policy = signPolicy({
+        prior, preset, steps, signedBy: caller.userName, subject: adminSubject("project.set-signing-policy", caller, p),
+        ...(ctx.signed?.nonce ? { nonce: ctx.signed.nonce } : {}), assertion: ctx.assertion,
+      });
+      await c.query("update projects set body = jsonb_set(body, '{signing_policy}', $2::jsonb) where id = $1", [id, policy]);
+      await appendEvent(c, "project.signing-policy-set", id, actorOf(caller), {
+        policy: policy.id, version: policy.version, preset, steps, ...(prior ? { from: prior.steps } : {}),
+      });
+      return { project_id: id, ...policyRef(policy) };
+    },
   },
 
   "project.update": {

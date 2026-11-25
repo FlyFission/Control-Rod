@@ -349,6 +349,9 @@ model Project {
   @maxValue(3)
   autonomy_level: int32;
 
+  /** What needs the owner's passkey on this project's routine cards. Absent means every step is signed. */
+  signing_policy?: ControlRod.Records.SigningPolicy;
+
   status: LifecycleStatus;
 }
 

@@ -1412,6 +1412,18 @@ export interface components {
             allowed: boolean;
             /** @enum {string} */
             signature: "direct" | "absorbed" | "none";
+            /**
+             * @description For a decision on a card: how the owner's signing policy takes it. "auto" means Control Rod
+             *     takes it on its own when it can; "click" a press with no passkey; "passkey" a signed press.
+             *     Absent for anything that is not a card decision.
+             * @enum {string}
+             */
+            step_mode?: "auto" | "click" | "passkey";
+            /**
+             * @description The signing preset in force for this card, when a signing policy covers it.
+             * @enum {string}
+             */
+            signing_preset?: "light" | "balanced" | "everything" | "custom";
             /** @description Any one of these roles or authorities may take it. */
             authority?: string[];
             /** @description Qualifications the viewer lacks for it, in words. */
@@ -2065,7 +2077,10 @@ export interface components {
             rollout: string;
             risks: string[];
         };
-        /** @description Who acted. Agents and the system can never hold a human decision right. */
+        /**
+         * @description Who acted. Agents can never hold a human decision right. The system acts only under the owner's
+         *     passkey-signed signing policy, and then only to release or to accept a pre-check that passed.
+         */
         "ControlRod.Records.Actor": {
             /** @enum {string} */
             kind: "human" | "agent" | "system";
@@ -2306,6 +2321,11 @@ export interface components {
              *     recorded before it was kept.
              */
             challenge_nonce?: string;
+            /**
+             * @description Present when the step went through under the owner's signing policy instead of a passkey of
+             *     its own: a copy of the signed policy it relied on. `assertion` is then the policy's assertion.
+             */
+            signing_policy?: components["schemas"]["ControlRod.Records.SigningPolicyRef"];
             /** Format: date-time */
             decided_at: string;
         };
@@ -2646,6 +2666,8 @@ export interface components {
              * @description Autonomy level. Level 4 is never permitted (specification 11.2).
              */
             autonomy_level: number;
+            /** @description What needs the owner's passkey on this project's routine cards. Absent means every step is signed. */
+            signing_policy?: components["schemas"]["ControlRod.Records.SigningPolicy"];
             status: components["schemas"]["ControlRod.Records.LifecycleStatus"];
         };
         /** @description An engineering quantity. The value is a decimal string so no precision is lost. */
@@ -3007,6 +3029,51 @@ export interface components {
          * @enum {string}
          */
         "ControlRod.Records.SignerRole": "originator" | "checker" | "approver" | "discipline-lead" | "engineer-in-responsible-charge";
+        /** @description The signing policy as stored on its project: the reference plus the owner's passkey assertion. */
+        "ControlRod.Records.SigningPolicy": {
+            id: string;
+            /** Format: int32 */
+            version: number;
+            /** @enum {string} */
+            preset: "light" | "balanced" | "everything" | "custom";
+            steps: components["schemas"]["ControlRod.Records.SigningSteps"];
+            signed_by: string;
+            /** Format: date-time */
+            signed_at: string;
+            /** @description The digest the owner's passkey signed: the command, the member and this exact choice. */
+            subject_digest: string;
+            challenge_nonce?: string;
+            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+        };
+        /** @description The signed policy a decision relied on, without its assertion (the decision carries that). */
+        "ControlRod.Records.SigningPolicyRef": {
+            id: string;
+            /** Format: int32 */
+            version: number;
+            /** @enum {string} */
+            preset: "light" | "balanced" | "everything" | "custom";
+            steps: components["schemas"]["ControlRod.Records.SigningSteps"];
+            signed_by: string;
+            /** Format: date-time */
+            signed_at: string;
+            /** @description The digest the owner's passkey signed: the command, the member and this exact choice. */
+            subject_digest: string;
+            challenge_nonce?: string;
+        };
+        /**
+         * @description How each step on a routine card is taken: by Control Rod itself, by a press, or signed with a passkey.
+         * @enum {string}
+         */
+        "ControlRod.Records.SigningStepMode": "auto" | "click" | "passkey";
+        /** @description The owner's choice of what needs a passkey on a project's routine cards. */
+        "ControlRod.Records.SigningSteps": {
+            release: components["schemas"]["ControlRod.Records.SigningStepMode"];
+            accept: components["schemas"]["ControlRod.Records.SigningStepMode"];
+            /** @enum {string} */
+            return: "click" | "passkey";
+            /** @enum {string} */
+            reject: "click" | "passkey";
+        };
         /** @description A stable identifier: a lowercase type prefix, an underscore, then up to 64 letters, digits or hyphens. */
         "ControlRod.Records.TenancyId": string;
         "ControlRod.Records.ToolRef": {
@@ -3827,6 +3894,11 @@ export interface components {
             laneAgents?: {
                 [key: string]: string;
             };
+            /**
+             * @description What needs a passkey on routine cards, signed with the create. Ignored for Nuclear-grade.
+             * @enum {string}
+             */
+            signing_preset?: "light" | "balanced" | "everything";
         };
         "WorkspaceProjects.RuntimeSelection": {
             ecosystem: string;
@@ -3884,8 +3956,20 @@ export interface components {
             };
             /** @description The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset). */
             work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneSet"];
+            /** @description What needs a passkey on this project's routine cards, once the owner has chosen. Absent: every step is signed. */
+            signing?: components["schemas"]["WorkspaceProjects.WorkspaceSigning"];
             /** Format: date-time */
             createdAt: string;
+        };
+        "WorkspaceProjects.WorkspaceSigning": {
+            /** @enum {string} */
+            preset: "light" | "balanced" | "everything" | "custom";
+            steps: components["schemas"]["ControlRod.Records.SigningSteps"];
+            /** Format: int32 */
+            version: number;
+            signed_by: string;
+            /** Format: date-time */
+            signed_at: string;
         };
     };
     responses: never;

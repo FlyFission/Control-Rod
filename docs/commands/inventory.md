@@ -24,7 +24,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `run.override-independence` | member | direct | Override independence | `work.ts` overrideIndependence | `POST /packages/:id/runs/:runId/override-independence` |
 | `check.request` | member | none | Request checker attempt | `work.ts` requestCheck | `POST /packages/:id/checks` |
 | `check.recheck-override` | member | direct | Override a sticky checker fail | `work.ts` recordRecheckOverride | `POST /packages/:id/recheck-overrides` |
-| `runtime.report-status` | agent-via-daemon | none | Probe runtime | `subscriptions.ts` recordSubscriptionReport<br>`work.ts` recordRuntimeStatus | `POST /runner/claim` |
+| `runtime.report-status` | agent-via-daemon | none | Probe runtime | `subscriptions.ts` recordSubscriptionReport<br>`usage-limits.ts` recordUsageLimits<br>`work.ts` recordRuntimeStatus | `POST /runner/claim` |
 | `runtime.report-agent-updates` | agent-via-daemon | none | Probe runtime (agent updates) | `agent-updates.ts` recordAgentUpdates | `POST /runner/claim` |
 | `setup.record` | member | none | Record agent setup (seats and check-in) | `setup.ts` recordSeat<br>`setup.ts` recordSetup | `PUT /setup/seats/:runtime`, `PUT /setup` |
 | `verification.record-person` | member | direct | Record person verification | `person-verification.ts` recordPersonVerification | `POST /packages/:id/person-verifications` |
@@ -45,6 +45,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `admin.project-create` | member | direct | Create project | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.project-update` | member | direct | Set mode, default rigor, lanes, overlays | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.project-set-autonomy` | member | direct | Set autonomy level | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
+| `admin.project-set-signing-policy` | member | direct | Choose what needs a passkey | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.repo-bind` | member | direct | Bind repository | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.repo-unbind` | member | direct | Unbind repository | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.policy-propose` | member | none | Change policy set (proposal) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |

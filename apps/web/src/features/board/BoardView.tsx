@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { AutonomyOffer } from "./AutonomyOffer.js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { WorkspaceProjectArchivePayload, WorkspaceProjectUpdatePayload } from "../../api/types.js";
@@ -778,6 +779,7 @@ export function BoardView() {
           </p>
         )}
       </header>
+      {activeProject && <AutonomyOffer project={activeProject} />}
       <p className="sr-only" role="status">
         {jumpNote ?? ""}
       </p>

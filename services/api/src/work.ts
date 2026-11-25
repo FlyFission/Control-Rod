@@ -29,7 +29,8 @@ import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
 import { benchedRuntimes } from "./setup.js";
 import { projectRuntimePrefs } from "./workspace-projects.js";
-import { ownerOf } from "./tenancy.js";
+import { currentCredential, ownerOf } from "./tenancy.js";
+import { governingPolicy, modeFor, policyRef } from "./signing-policy.js";
 import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
@@ -2975,6 +2976,10 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   const updated = { ...capture, disposition: "package", package_id: created[0] };
   validate(cfg, "Capture.json", updated);
   await c.query("update captures set body = $2 where id = $1", [capture.id, updated]);
+  // Where the owner's signing policy releases routine cards on its own, they start now. The
+  // completion already holds the SCRAM gate; a card the policy, SCRAM or preparation refuses
+  // simply stays a draft for a person.
+  for (const id of created) await autoDecide(c, cfg, id, 0, "release");
 }
 
 async function finishAuthor(c: Tx, cfg: WorkConfig, row: Json, agent: Actor) {
@@ -3108,6 +3113,8 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
     await appendEvent(c, "package.revising", pkg.id, agent, { revision: pkg.revision, round: row.round + 1 });
     await queueRun(c, cfg, pkg.id, pkg.revision, "author", row.round + 1);
   }
+  // A pass is accepted at once where the owner's signing policy says so.
+  if (record.outcome === "pass") await autoDecide(c, cfg, pkg.id, pkg.revision, "accept");
 }
 
 /* ---------- decisions ---------- */
@@ -3174,8 +3181,15 @@ export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: 
       : preparing ? refused(edit, "preparation-edit-required") : { ...edit, allowed: true });
     // While SCRAM holds the package, release is refused exactly as submitting it would be.
     const scram = await scramHolding(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
+    // The owner's signing policy decides which of these need a passkey; work it does not cover
+    // (nuclear, high consequence, a restricted lane, or no policy yet) is signed every time.
+    const policy = await governingPolicy(c, pkg);
     for (const kind of Object.keys(HUMAN_ACTIONS)) {
-      const base = { command: kind, label: DECISION_LABELS[kind], signature: "direct", authority: ACTION_ROLES[kind as SignerAction] };
+      const mode = modeFor(policy, kind);
+      const base = {
+        command: kind, label: DECISION_LABELS[kind], signature: mode === "passkey" ? "direct" : "none", authority: ACTION_ROLES[kind as SignerAction],
+        step_mode: mode, ...(policy ? { signing_preset: policy.preset } : {}),
+      };
       if (kind === "release" && scram) {
         out.push(refused(base, "scram-stopped", `SCRAM ${scram.id} has stopped this work: ${scram.reason}`));
         continue;
@@ -3212,56 +3226,119 @@ export async function applyDecision(
   cfg: WorkConfig,
   user: string,
   id: string,
-  req: { kind: string; package_revision: number; reason?: string },
+  req: { kind: string; package_revision: number; reason?: string; expected_digest?: string },
   signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   return command(db, "decision.apply", async (c) => {
     // Lock order everywhere: marking (the executor), administration, the SCRAM gate, then rows.
     if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
     if (req.kind === "release") await enterScramGate(c);
+    return decideTx(c, cfg, { kind: "human", id: user }, id, req, signed);
+  });
+}
+
+/**
+ * Control Rod takes a step itself because the owner's signing policy says it may (release, or
+ * accept of a pass). Runs inside the caller's transaction. Every check that can refuse (the policy,
+ * authority, SCRAM, preparation, the kernel) runs before anything is written, so a refusal leaves
+ * the transaction as it was: the card waits for a person and the work that triggered this (an
+ * intake or a pre-check completing) still lands. A refusal after writing began is not swallowed.
+ * The SCRAM gate must already be held by the caller when kind is "release".
+ */
+export async function autoDecide(c: Tx, cfg: WorkConfig, pkgId: string, revision: number, kind: "release" | "accept"): Promise<boolean> {
+  const pkg = await currentPackage(c, pkgId);
+  if (!pkg || pkg.revision !== revision) return false;
+  const policy = await governingPolicy(c, pkg);
+  if (!policy || modeFor(policy, kind) !== "auto") return false;
+  const stage = { writing: false };
+  try {
+    await decideTx(c, cfg, { kind: "system", id: `policy:${policy.id}` }, pkgId, { kind, package_revision: revision }, null, stage);
+    return true;
+  } catch (e) {
+    if (!(e instanceof Refusal) || stage.writing) throw e;
+    await appendEvent(c, "decision.auto-skipped", pkgId, SYSTEM, { kind, revision, policy: policy.id, reason: e.code, detail: e.message.slice(0, 300) });
+    return false;
+  }
+}
+
+/** One decision on a package, by a person (signed, or covered by the signing policy) or by the policy itself. */
+async function decideTx(
+  c: Tx,
+  cfg: WorkConfig,
+  who: { kind: "human" | "system"; id: string },
+  id: string,
+  req: { kind: string; package_revision: number; reason?: string; expected_digest?: string },
+  signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
+  stage: { writing: boolean } = { writing: false },
+) {
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
     if (!(req.kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
     if (req.kind === "release") await refuseIfScrammed(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
+    // The signing policy, read inside the writer transaction so a change made a moment ago holds.
+    // It covers this step only when it does not ask for a passkey here and no passkey came with it.
+    const policy = signed ? null : await governingPolicy(c, pkg);
+    const mode = modeFor(policy, req.kind);
+    const byPolicy = policy !== null && (who.kind === "system" ? mode === "auto" : mode !== "passkey");
+    if (who.kind === "system" && !byPolicy) throw new Refusal(403, "policy-required", "Control Rod takes this step only when your signing policy lets it");
+    if (byPolicy) {
+      // The policy is only as good as the passkey that signed it and the authority of its signer.
+      const cred = await currentCredential(c, policy!.assertion.credential_id);
+      if (!cred || cred.revoked) throw new Refusal(403, "policy-signature-revoked", "The passkey that signed your signing policy is no longer valid. Choose your signing settings again.");
+    }
     // Authority is read inside the writer transaction, so a revocation that lands first is honored.
-    await requireAuthority(c, user, req.kind as SignerAction, needsOf(pkg.body));
+    // Under the policy the signer's authority is what counts; a person acting under it needs their own too.
+    if (who.kind === "human") await requireAuthority(c, who.id, req.kind as SignerAction, needsOf(pkg.body));
+    if (byPolicy) await requireAuthority(c, policy!.signed_by, req.kind as SignerAction, needsOf(pkg.body));
     if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     const s = await subjectOf(c, pkg);
+    // A press with no passkey still binds to what the person saw: the digest they were shown.
+    if (who.kind === "human" && !signed && req.expected_digest !== undefined && req.expected_digest !== s.digest) {
+      throw new Refusal(409, "changed", "This package changed since you opened it. Reload and review the current version.");
+    }
     const preparation = await decisionPreparation(c, cfg, pkg, s, req.kind, true);
     const reason = (req.reason ?? "").trim();
     const outcome = decide({
       status: pkg.status,
       action: HUMAN_ACTIONS[req.kind] ?? "reject",
-      actor_kind: "human",
-      actor_id: user,
+      actor_kind: who.kind,
+      actor_id: who.id,
       author_baseline: s.author?.body.agent_baseline,
       pre_check: s.verification?.outcome,
       assertion_verified: signed !== null,
       digest_matches: signed !== null && signed.subject_digest === s.digest,
+      policy_signed: byPolicy,
       reason_given: reason.length > 0,
       ...(preparation?{preparation}:{}),
     });
     const next = kernel(outcome, req.kind);
+    // A decision under the policy carries the policy's own passkey assertion and a copy of the
+    // policy, so the record shows which signed choice let it through.
+    const assertion = signed
+      ? {
+          credential_id: String(signed.assertion.id ?? ""),
+          authenticator_data: String(signed.assertion.response?.authenticatorData ?? ""),
+          client_data_json: String(signed.assertion.response?.clientDataJSON ?? ""),
+          signature: String(signed.assertion.response?.signature ?? ""),
+        }
+      : byPolicy ? policy!.assertion : { credential_id: "", authenticator_data: "", client_data_json: "", signature: "" };
     const decision = {
       schema_version: "0.1.0",
       id: `D-${randomUUID().slice(0, 8)}`,
       package_id: pkg.id,
       package_revision: pkg.revision,
       kind: req.kind,
-      actor: { kind: "human", id: user },
+      actor: { kind: who.kind, id: who.id },
       subject_digest: { algorithm: "sha256", value: s.digest },
       ...(reason ? { reason: reason.slice(0, 4000) } : {}),
-      assertion: {
-        credential_id: String(signed?.assertion.id ?? ""),
-        authenticator_data: String(signed?.assertion.response?.authenticatorData ?? ""),
-        client_data_json: String(signed?.assertion.response?.clientDataJSON ?? ""),
-        signature: String(signed?.assertion.response?.signature ?? ""),
-      },
+      assertion,
       ...(signed?.nonce ? { challenge_nonce: signed.nonce } : {}),
+      ...(byPolicy ? { signing_policy: policyRef(policy!) } : {}),
       decided_at: now(),
     };
     validate(cfg, "Decision.json", decision);
+    stage.writing = true;
     await c.query("insert into decisions (id, package_id, package_revision, kind, body) values ($1, $2, $3, $4, $5)", [
       decision.id,
       pkg.id,
@@ -3270,7 +3347,7 @@ export async function applyDecision(
       decision,
     ]);
     if(req.kind==="release" && s.preparation) await persistReleaseManifest(c,cfg,s.preparation,decision.id);
-    const human: Actor = { kind: "human", id: user };
+    const actor: Actor = { kind: who.kind, id: who.id };
     if (req.kind === "return") {
       await c.query("update packages set status = 'closed', updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision]);
       const body = { ...pkg.body, revision: pkg.revision + 1, status: "draft" };
@@ -3281,7 +3358,7 @@ export async function applyDecision(
         pkg.capture_id,
         body,
       ]);
-      await advancePreparationRevision(c,cfg,user,pkg,body);
+      await advancePreparationRevision(c,cfg,who.id,pkg,body);
       await stopQueuedRuns(c, cfg, pkg.id, pkg.revision, "Stopped because the package was returned.");
     } else {
       await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
@@ -3290,14 +3367,14 @@ export async function applyDecision(
         await stopQueuedRuns(c, cfg, pkg.id, undefined, "Stopped because the package was rejected.");
       }
     }
-    await appendEvent(c, `decision.${req.kind}`, pkg.id, human, {
+    await appendEvent(c, `decision.${req.kind}`, pkg.id, actor, {
       revision: pkg.revision,
       decision: decision.id,
       subject_digest: s.digest,
       status: req.kind === "return" ? "draft" : next,
+      ...(byPolicy ? { signing_policy: policy!.id, policy_version: policy!.version } : {}),
     });
     return decision;
-  });
 }
 
 /* ---------- office and metrics ---------- */

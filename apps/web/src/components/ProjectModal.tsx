@@ -85,6 +85,8 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
         author: { ecosystem: aEco.id, model: aEco.defaultModel, reasoning: aEco.defaultReasoning },
         checker: { ecosystem: cEco.id, model: cEco.defaultModel, reasoning: cEco.defaultReasoning },
         ...(bays ? { work_lanes: { preset: bays } } : {}),
+        // Light: routine cards start and finish on their own. Signed by this same passkey tap.
+        ...(mode !== "nuclear-grade" ? { signing_preset: "light" as const } : {}),
       };
       const { options } = await api.adminCommandOptions("project.workspace-create", payload);
       if (!stillCurrent(startedUnder)) return;
@@ -245,6 +247,12 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
         </div>
 
         <LanePicker id="new-project-lane" value={lane} onChange={setLane} />
+
+        <p className="small muted">
+          {mode === "nuclear-grade"
+            ? "Nuclear-grade: every release and accept is signed with your passkey."
+            : "Cards start and finish on their own; your passkey is only for big things. Change it any time in Setup, under What needs your passkey."}
+        </p>
 
         {error && (
           <p role="alert" className="error">

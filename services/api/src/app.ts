@@ -509,6 +509,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       kind: String(body.kind),
       package_revision: Number(body.package_revision),
       ...(body.reason ? { reason: String(body.reason) } : {}),
+      ...(typeof body.expected_subject_digest?.value === "string" ? { expected_digest: body.expected_subject_digest.value } : {}),
     }, signed);
     return reply.code(201).send(decision);
   });

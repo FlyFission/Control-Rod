@@ -1,0 +1,69 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SigningPolicy.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "pattern": "^SP-[0-9a-f]{8}$"
+        },
+        "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "preset": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "light"
+                },
+                {
+                    "type": "string",
+                    "const": "balanced"
+                },
+                {
+                    "type": "string",
+                    "const": "everything"
+                },
+                {
+                    "type": "string",
+                    "const": "custom"
+                }
+            ]
+        },
+        "steps": {
+            "$ref": "SigningSteps.json"
+        },
+        "signed_by": {
+            "type": "string"
+        },
+        "signed_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "subject_digest": {
+            "type": "string",
+            "description": "The digest the owner's passkey signed: the command, the member and this exact choice."
+        },
+        "challenge_nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
+        }
+    },
+    "required": [
+        "id",
+        "version",
+        "preset",
+        "steps",
+        "signed_by",
+        "signed_at",
+        "subject_digest",
+        "assertion"
+    ],
+    "description": "The signing policy as stored on its project: the reference plus the owner's passkey assertion.",
+    "unevaluatedProperties": false
+}

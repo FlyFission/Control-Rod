@@ -11,7 +11,10 @@ using JsonSchema;
 @id("https://controlrod.dev/schemas/v0")
 namespace ControlRod.Records;
 
-/** Who acted. Agents and the system can never hold a human decision right. */
+/**
+ * Who acted. Agents can never hold a human decision right. The system acts only under the owner's
+ * passkey-signed signing policy, and then only to release or to accept a pre-check that passed.
+ */
 @extension("unevaluatedProperties", false)
 model Actor {
   kind: "human" | "agent" | "system";
@@ -527,7 +530,57 @@ model Decision {
   @pattern("^[0-9a-f]{32}$")
   challenge_nonce?: string;
 
+  /**
+   * Present when the step went through under the owner's signing policy instead of a passkey of
+   * its own: a copy of the signed policy it relied on. `assertion` is then the policy's assertion.
+   */
+  signing_policy?: SigningPolicyRef;
+
   decided_at: utcDateTime;
+}
+
+/** How each step on a routine card is taken: by Control Rod itself, by a press, or signed with a passkey. */
+union SigningStepMode {
+  "auto",
+  "click",
+  "passkey",
+}
+
+/** The owner's choice of what needs a passkey on a project's routine cards. */
+@extension("unevaluatedProperties", false)
+model SigningSteps {
+  release: SigningStepMode;
+  accept: SigningStepMode;
+  `return`: "click" | "passkey";
+  reject: "click" | "passkey";
+}
+
+/** The signed policy a decision relied on, without its assertion (the decision carries that). */
+@extension("unevaluatedProperties", false)
+model SigningPolicyRef {
+  @pattern("^SP-[0-9a-f]{8}$")
+  id: string;
+
+  @minValue(1)
+  version: int32;
+
+  preset: "light" | "balanced" | "everything" | "custom";
+  steps: SigningSteps;
+  signed_by: string;
+  signed_at: utcDateTime;
+
+  /** The digest the owner's passkey signed: the command, the member and this exact choice. */
+  subject_digest: string;
+
+  @pattern("^[0-9a-f]{32}$")
+  challenge_nonce?: string;
+}
+
+/** The signing policy as stored on its project: the reference plus the owner's passkey assertion. */
+@extension("unevaluatedProperties", false)
+model SigningPolicy {
+  ...SigningPolicyRef;
+  assertion: PasskeyAssertion;
 }
 
 /** One entry in the append-only event log. Each entry carries the digest of the one before. */

@@ -2709,3 +2709,17 @@ select {
   font-weight: 600;
 }
 .places-cta:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* What needs your passkey (Setup) and the quiet line under a decision that will ask for one. */
+.signing-settings {
+  display: grid;
+  gap: 10px;
+}
+.signing-steps th {
+  text-align: left;
+  font-weight: 500;
+  padding: 4px 12px 4px 0;
+}
+.passkey-hint {
+  margin: 6px 0 0;
+}

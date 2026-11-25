@@ -82,6 +82,7 @@ export const COMMANDS = {
   "admin.project-create": entry("member", "direct", "Create project"),
   "admin.project-update": entry("member", "direct", "Set mode, default rigor, lanes, overlays"),
   "admin.project-set-autonomy": entry("member", "direct", "Set autonomy level"),
+  "admin.project-set-signing-policy": entry("member", "direct", "Choose what needs a passkey"),
   "admin.repo-bind": entry("member", "direct", "Bind repository"),
   "admin.repo-unbind": entry("member", "direct", "Unbind repository"),
   "admin.policy-propose": entry("member", "none", "Change policy set (proposal)"),

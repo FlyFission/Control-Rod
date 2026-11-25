@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PullRequestLine } from "../components/PullRequestLine.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ApiError, api } from "../api/client.js";
@@ -121,6 +122,7 @@ export function PackagePage({ id }: { id: string }) {
           {pkg.id} · rev {pkg.revision} · {projectDisplayName(pkg.project, projects)}
         </p>
         <h1>{pkg.title}</h1>
+        <PullRequestLine pr={view.pull_request} />
         <p className="small">
           <Link to="/packages/$id/case" params={{ id: pkg.id }}>
             Open the case view (preview)

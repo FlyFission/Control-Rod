@@ -14,7 +14,7 @@ import { command } from "./commands/executor.js";
 const now = () => new Date().toISOString();
 
 /** Provider CLIs the daemon registers today. Anything else is not stored. */
-const PROVIDERS = ["claude", "codex"] as const;
+const PROVIDERS = ["claude", "codex", "agy", "grok"] as const;
 
 const AUTH = ["signed-in", "signed-out", "unknown"] as const;
 
@@ -111,7 +111,7 @@ function cleanRole(v: unknown): SubscriptionRole | undefined {
 function cleanProbe(v: unknown): SubscriptionProbe | undefined {
   if (!isRecord(v) || hasSecretKey(v)) return undefined;
   const id = v.id;
-  if (id !== "claude" && id !== "codex") return undefined;
+  if (typeof id !== "string" || !(PROVIDERS as readonly string[]).includes(id)) return undefined;
   const display = text(v.display_name, 80);
   if (!display) return undefined;
   const family = text(v.vendor_family, 40);
@@ -211,7 +211,7 @@ export async function subscriptionPins(db: Db, orgId: string): Promise<Subscript
   }
   const out: SubscriptionPin[] = [];
   for (const pin of pins) {
-    if (pin.runtime !== "claude" && pin.runtime !== "codex") continue;
+    if (typeof pin.runtime !== "string" || !(PROVIDERS as readonly string[]).includes(pin.runtime)) continue;
     const role = pin.role === "author" ? "author" : pin.role === "pre-check" ? "checker" : undefined;
     const digest = digestOf({ digest: pin.artifact_digest });
     if (!role || !digest) continue;

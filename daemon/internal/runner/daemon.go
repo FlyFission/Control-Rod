@@ -804,6 +804,60 @@ func (b *logBuffer) ended() <-chan struct{} {
 	return b.endCh
 }
 
+// exitStatusUntrusted is a runtime whose exit status does not say whether its turn failed:
+// Antigravity exits 0 when it ends a run at a refused tool (measured with agy 1.5.16), so only its
+// own result line can say the turn succeeded.
+type exitStatusUntrusted interface{ ExitStatusUntrusted() bool }
+
+// uncontainedLocks holds the release of every run lock kept because its run's processes were not
+// confirmed gone, for the daemon's lifetime: an unreachable lock file would be closed by its
+// finalizer, which releases the lock.
+var (
+	uncontainedMu    sync.Mutex
+	uncontainedLocks []func()
+)
+
+func keepUncontained(release func()) {
+	uncontainedMu.Lock()
+	defer uncontainedMu.Unlock()
+	uncontainedLocks = append(uncontainedLocks, release)
+}
+
+// modelFilter is a runtime that may run only some of the models it offers: a run its stream
+// reports on any other model fails.
+type modelFilter interface{ ModelAllowed(model string) bool }
+
+// errTurnFailed is a run whose process exited cleanly but whose runtime reported a failed turn,
+// or, for a runtime whose exit status is untrusted, reported no result at all.
+var errTurnFailed = errors.New("the runtime reported that its turn failed")
+
+// turnFailure is checked after a clean exit: a turn the runtime itself reported as failed is a
+// failed run, whatever the exit status, and so is a turn with no result from a runtime whose exit
+// status cannot be trusted.
+func turnFailure(a Adapter, buf *logBuffer) error {
+	buf.mu.Lock()
+	over, failed := buf.turnOver, buf.turnFailed
+	models := make([]string, 0, len(buf.models))
+	for m := range buf.models {
+		models = append(models, m)
+	}
+	buf.mu.Unlock()
+	if failed {
+		return errTurnFailed
+	}
+	if f, ok := a.(modelFilter); ok {
+		for _, m := range models {
+			if !f.ModelAllowed(m) {
+				return fmt.Errorf("%w: it ran on %s, a model this runtime may not run here", errTurnFailed, m)
+			}
+		}
+	}
+	if u, ok := a.(exitStatusUntrusted); ok && u.ExitStatusUntrusted() && !over {
+		return fmt.Errorf("%w: it ended without a result", errTurnFailed)
+	}
+	return nil
+}
+
 // endedFailed reports whether the runtime's end-of-turn report said the turn failed.
 func (b *logBuffer) endedFailed() bool {
 	b.mu.Lock()
@@ -1409,9 +1463,35 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 			return fail("checkout refused: " + err.Error()), nil
 		}
 	}
+	if s, ok := a.(runSerializer); ok {
+		unlock, lerr := s.SerializeRuns(held)
+		if lerr != nil {
+			return fail("wait for this runtime's other run on this machine: " + lerr.Error()), nil
+		}
+		// Kept while the run's processes are not confirmed gone (ErrUncontained): a surviving agent
+		// must not see another run's folder made after its fence was computed.
+		defer func() {
+			if errors.Is(resultErr, ErrUncontained) {
+				keepUncontained(unlock)
+				return
+			}
+			unlock()
+		}()
+	}
 	ws, err := prepareWorkspace(d.cfg.Home, job, a)
 	if err != nil {
 		return fail(err.Error()), nil
+	}
+	if ws.RunRoot != "" {
+		// The outputs are read into the completion before this returns. Deferred after the lock,
+		// so the folder is gone before the next run of this runtime starts, and kept, like the
+		// lock, while the run's processes are not confirmed gone.
+		root := ws.RunRoot
+		defer func() {
+			if !errors.Is(resultErr, ErrUncontained) {
+				removeRunRoot(root)
+			}
+		}()
 	}
 	if ws.releaseCheckout != nil {
 		// Custody ends when the run's processes are confirmed gone. When they could not be
@@ -1497,6 +1577,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		}
 	}
 	cmd, err := Command(runtime, job.Run, ws, sandbox, d.sandboxPaths(ws))
+	if ws.RunHome != "" {
+		defer os.RemoveAll(ws.RunHome)
+	}
 	// Nothing starts once the lease has ended (or anything else stopped the run) during preparation.
 	if err == nil && held.Err() != nil {
 		err = context.Cause(held)
@@ -1660,6 +1743,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		if !buf.endedFailed() {
 			err = nil
 		}
+	}
+	if err == nil {
+		err = turnFailure(a, buf)
 	}
 	stopFlush()
 	<-flushed

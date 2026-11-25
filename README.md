@@ -11,7 +11,7 @@
 
 **Control Rod** is a free, open-source multi-agent harness that runs on your own machine. Bring the command-line subscriptions you already pay for (**Claude Code** and **Codex** today, with zero API keys and zero cloud account), drop in what you want built, and let one agent work inside an isolated git worktree while a **different vendor's agent** checks only the diff and test evidence behind a blind wall. A deterministic **Rust/WASM kernel** decides every state transition, your passkey signs at release and at acceptance, and each accepted change exports a tamper-evident **PR receipt** anyone can verify offline.
 
-![The Control Rod Board: cards move from Ready through Implementing, CI / Agent check, Peer review, and Needs signature to Accepted, with warm amber reserved only for cards waiting on you.](docs/assets/readme/app/board.png)
+![The Control Rod Board: cards move from Ready through Agent working, Being checked, Needs a reviewer, and Ready to accept to Accepted, with warm amber reserved only for cards waiting on you.](docs/assets/readme/app/board.png)
 
 ![Control Rod multi-agent council loop: your passkey release feeds an isolated author worktree, crosses a blind wall that strips author reasoning, enters a cross-vendor blind checker, and seals an offline-verifiable PR receipt under Rust/WASM kernel custody.](docs/assets/readme/council-loop.svg)
 
@@ -25,7 +25,7 @@
 - **Blind cross-vendor verification on by default.** Every deliverable is checked by an agent from a different vendor family before it reaches your Inbox. Author prompts, chain-of-thought, and self-justification are stripped at the blind wall so the author cannot talk the checker into agreeing. If you only have one vendor installed, you can write a reason and sign an explicit override on the record.
 - **Dynamic council routing & logged stand-in failover.** View your active council as a live block flow diagram or decision matrix (`/workflow`). When an author CLI is signed out or missing at dispatch, a seated stand-in can take the author role on the record (`Fallback: ran as …`), while checker seats never fail over to shop for a pass.
 - **Per-card skill workflows (`Superpowers`, `Matt Pocock`, `Nuclear`).** Run a card on the plain Playbook, Jesse Vincent's **Superpowers**, **Matt Pocock's** skill stages, or their **Pocock Superpowers** hybrid—generated from pinned MIT commits and SHA-256 locked—paired independently with **Light** or **Nuclear** context depth.
-- **You choose where you step in.** Today your passkey (Touch ID, Windows Hello, or a hardware security key) signs twice: when releasing work and when accepting a result. Next ([ADR 0024](docs/adr/0024-council-first.md), *planned*), choose check-in presets from *at the start* to *at every step*—while **SCRAM**, checker disputes, and tripped limits always stop for you.
+- **You choose where you step in.** Each project's settings say what needs your passkey (Touch ID, Windows Hello, or a hardware security key): nothing routine (*Light*, the default, where a card releases itself, an agent-checked pass is accepted on its own and the work opens as a draft pull request), accepts only (*Balanced*), or every step (*Everything*). Safety work, restricted lanes and Nuclear-grade projects always ask. **SCRAM** stops everything with one press, and restarting after it is always signed.
 - **A shareable PR receipt anyone can verify offline.** Export a provenance receipt (`pnpm cr receipt`) and check it against its sealed inclusion proof anywhere, without a server, via `pnpm cr verify`—or run the standalone blind checker on any git branch in 30 seconds.
 
 ---
@@ -81,7 +81,9 @@ Seat the CLIs on your machine once on **Setup**; Control Rod shows your exact ro
 | --- | --- | --- |
 | **Claude Code** | Anthropic | **Runnable** — plans, authors in git worktrees, and checks blind |
 | **Codex CLI** | OpenAI | **Runnable** — plans, authors in git worktrees, and checks blind |
-| **Antigravity, Grok CLI, OpenCode, Ollama** | Google, xAI, OpenCode, Local | **Detected & listed** — held switched off until each adapter is qualified to run inside its own sandbox |
+| **Antigravity** | Google | **Runnable on macOS** — checks blind and writes work outside a git checkout, inside its own sandbox |
+| **Grok CLI** | xAI | **Runnable on macOS** — checks blind and writes work outside a git checkout, through Control Rod's fenced bridge |
+| **OpenCode, Ollama** | OpenCode, Local | **Detected & listed** — held switched off until each adapter is qualified to run inside its own sandbox |
 | **Custom local or hosted endpoints** | User-named | **Planned** ([ADR 0024](docs/adr/0024-council-first.md)) |
 
 ![Three orthogonal controls per card: Workflow Pack (Playbook, Superpowers, Matt Pocock, Pocock Superpowers), Context Depth (Light vs Nuclear), and Check-In Points.](docs/assets/readme/workflow-modes.svg)

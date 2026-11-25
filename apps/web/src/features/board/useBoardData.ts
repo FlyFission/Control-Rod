@@ -55,6 +55,8 @@ export type BoardData = {
   cards: BoardCard[];
   /** Captures not yet drafted into a package, newest first; they sit at the top of Ready (spec 6.2). */
   captures: CaptureView[];
+  /** Cards that intake drafted from one request with others: which one this is, of how many, and the request. */
+  splits: Map<string, Split>;
   /** The captures read succeeded since the latest stream drop: their tones are current, not last known. */
   capturesFresh: boolean;
   loading: boolean;
@@ -265,6 +267,7 @@ export function useBoardData(): BoardData {
   return {
     cards,
     captures: pendingCaptures(capturesQ.data ?? []),
+    splits: splitsOf(capturesQ.data ?? []),
     capturesFresh: fresh(capturesQ),
     loading: packages.isPending || capturesQ.isPending,
     problems,
@@ -303,4 +306,27 @@ export function pendingCaptures(all: CaptureView[]): CaptureView[] {
   return all
     .filter((c) => c.disposition !== "answered" && (c.package_ids ?? (c.package_id ? [c.package_id] : [])).length === 0)
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+}
+
+/** Where a card came from when intake turned one request into several cards. */
+export interface Split {
+  index: number;
+  total: number;
+  request: string;
+}
+
+/**
+ * Intake may draft one request into several cards. Each such card learns its place among its
+ * siblings and the request it came from, so the board can say so instead of a card seeming to
+ * appear from nowhere. A request drafted into one card is not a split and is left out.
+ */
+export function splitsOf(all: CaptureView[]): Map<string, Split> {
+  const out = new Map<string, Split>();
+  for (const c of all) {
+    const ids = c.package_ids ?? [];
+    if (ids.length < 2) continue;
+    const request = String(c.text ?? "").replace(/\[[a-z-]+:[^\]]*\]/g, "").replace(/\s+/g, " ").trim();
+    ids.forEach((id, i) => out.set(id, { index: i + 1, total: ids.length, request }));
+  }
+  return out;
 }

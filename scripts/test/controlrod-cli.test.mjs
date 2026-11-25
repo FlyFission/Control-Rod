@@ -2,14 +2,14 @@
 // running-instance record. Real git and real processes; the install and build steps are stand-ins.
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { claimRecord, clearRecord, findRunning, parseSegments, readRecord, releaseClaim, startedOf, stopLauncher, writeRecord } from "../lib/instance.mjs";
 import { link, MARK, shellProfile, shim, unlink } from "../lib/link.mjs";
-import { gitRunner, update, UpdateError } from "../lib/update.mjs";
+import { gitRunner, update, UpdateError, writeUpdateNotice } from "../lib/update.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const tmp = (name) => mkdtempSync(join(tmpdir(), `cr-${name}-`));
@@ -254,6 +254,36 @@ test("--check lists what is new and changes nothing", async () => {
   assert.match(f.logs(), /2 new changes.*feature two.*feature one/s);
   assert.deepEqual(f.steps(), []);
   assert.equal(gitIn(f.root, "rev-parse", "HEAD"), f.first);
+});
+
+test("update notice records the running revision privately and handles an offline check", async () => {
+  const f = fixture();
+  const home = tmp("update-notice");
+  const path = join(home, "update-notice.json");
+  const read = () => JSON.parse(readFileSync(path, "utf8"));
+  commit(f.origin, "a.txt", "two\n", "feature one");
+  const latest = commit(f.origin, "a.txt", "three\n", "feature two");
+  await writeUpdateNotice(f.root, home, f.first);
+  const { checked_at, ...record } = read();
+  assert.ok(Number.isFinite(Date.parse(checked_at)));
+  assert.deepEqual(record, { running_commit: f.first, latest_commit: latest, behind: 2 });
+  assert.equal(statSync(path).mode & 0o777, 0o600);
+  assert.equal(gitIn(f.root, "rev-parse", "HEAD"), f.first);
+  assert.equal(gitIn(f.root, "rev-parse", "refs/controlrod/check-target"), latest);
+
+  gitIn(f.root, "merge", "--ff-only", "refs/controlrod/check-target");
+  await writeUpdateNotice(f.root, home, f.first);
+  assert.equal(read().behind, 2);
+  assert.equal(read().checkout_commit, latest);
+  await writeUpdateNotice(f.root, home, latest);
+  assert.equal(read().behind, 0);
+  assert.equal(read().checkout_commit, undefined);
+
+  gitIn(f.root, "remote", "set-url", "origin", join(home, "unavailable"));
+  await writeUpdateNotice(f.root, home, latest);
+  assert.equal(read().error, "Could not check for updates.");
+  assert.equal(read().behind, undefined);
+  assert.equal(statSync(path).mode & 0o777, 0o600);
 });
 
 test("not running: updates without restarting and says how to start", async () => {

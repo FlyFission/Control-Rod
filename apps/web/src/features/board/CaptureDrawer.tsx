@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { CloseX } from "../../components/CloseX.js";
+import { SidePanel } from "../../components/SidePanel.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { api, explain } from "../../api/client.js";
@@ -36,16 +38,6 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
     asideRef.current?.focus();
   }, [capture.id]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("dialog[open], .palette")) {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const classify = useMutation({
     mutationFn: () => api.classifyCapture(capture.id, lane),
@@ -66,6 +58,7 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
   });
 
   return (
+    <SidePanel label={`Capture ${capture.id}`} onClose={onClose}>
     <aside ref={asideRef} tabIndex={-1} className="bd-drawer" aria-label={`Capture ${capture.id}`}>
       <div className="bd-drawer-head">
         <div className="bd-drawer-id-row">
@@ -82,12 +75,7 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
           >
             {dismiss.isPending ? "Dismissing…" : "Dismiss"}
           </button>
-          <button type="button" className="btn small" onClick={onClose} aria-label="Close capture drawer">
-            Close
-          </button>
-          <kbd className="muted small" aria-hidden="true">
-            Esc
-          </kbd>
+          <CloseX onClose={onClose} label="Close capture drawer" />
         </div>
       </div>
 
@@ -227,5 +215,6 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
         )}
       </div>
     </aside>
+    </SidePanel>
   );
 }

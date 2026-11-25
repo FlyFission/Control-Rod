@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CloseX } from "./CloseX.js";
 import { newer, strictVersion } from "../lib/semver.js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
@@ -122,9 +123,7 @@ export function AgentUpdates() {
           </h2>
           <p className="muted small">Newer versions bring bug fixes, new models and features. Update between runs.</p>
         </div>
-        <button type="button" className="au-close" aria-label="Dismiss agent updates" onClick={() => dismiss(shown.map(keyOf))}>
-          ×
-        </button>
+        <CloseX onClose={() => dismiss(shown.map(keyOf))} label="Dismiss agent updates" />
       </header>
       <ul className="au-list">
         {shown.map((u) => (

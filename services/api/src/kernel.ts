@@ -40,6 +40,8 @@ export interface KernelRequest {
   pre_check?: "pass" | "fail" | "inconclusive";
   assertion_verified?: boolean;
   digest_matches?: boolean;
+  /** The owner's signed signing policy covers this step; set only from that stored, verified record. */
+  policy_signed?: boolean;
   reason_given?: boolean;
   preparation?: PreparationGuard;
 }

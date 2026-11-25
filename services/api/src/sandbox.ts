@@ -99,9 +99,13 @@ export function networkFor(asked: { hosts: string[]; malformed: string[] }, lane
   return { hosts: asked.hosts };
 }
 
-/** Runtimes that can hold a policy: Codex can switch network on or off, not limit it to hosts. */
+/** Runtimes that cannot limit network to named hosts: Codex can only switch it on or off, and
+ * Antigravity's and Grok CLI's commands run with no network at all. */
+const HOSTLESS = ["codex", "agy", "grok"];
+
+/** Runtimes that can hold a policy with named hosts. */
 export function runtimesForHosts(offer: string[], hosts: string[]): string[] {
-  return hosts.length ? offer.filter((r) => r !== "codex") : offer;
+  return hosts.length ? offer.filter((r) => !HOSTLESS.includes(r)) : offer;
 }
 
 /** The policy body for an organization and a set of allowed hosts, without id or version. */

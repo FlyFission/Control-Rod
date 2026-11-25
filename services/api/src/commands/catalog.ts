@@ -54,6 +54,7 @@ export const COMMANDS = {
   "runtime.report-agent-updates": entry("agent-via-daemon", "none", "Probe runtime (agent updates)"),
   "setup.record": entry("member", "none", "Record agent setup (seats and check-in)"),
   "decision.apply": entry("member", "direct", "Release; Verdict", "write"),
+  "package.open-pr": entry("system", "none", "Record a draft pull request attempt for accepted work", "read"),
   "verification.record-person": entry("member", "direct", "Record person verification"),
 
   // Preparation.
@@ -82,6 +83,7 @@ export const COMMANDS = {
   "admin.project-create": entry("member", "direct", "Create project"),
   "admin.project-update": entry("member", "direct", "Set mode, default rigor, lanes, overlays"),
   "admin.project-set-autonomy": entry("member", "direct", "Set autonomy level"),
+  "admin.project-set-signing-policy": entry("member", "direct", "Choose what needs a passkey"),
   "admin.repo-bind": entry("member", "direct", "Bind repository"),
   "admin.repo-unbind": entry("member", "direct", "Unbind repository"),
   "admin.policy-propose": entry("member", "none", "Change policy set (proposal)"),
@@ -89,7 +91,7 @@ export const COMMANDS = {
   "admin.runtime-pin": entry("member", "direct", "Pin runtime"),
   "admin.daemon-enroll-key": entry("member", "direct", "Enroll daemon signing key"),
   "admin.daemon-retire-key": entry("member", "direct", "Retire daemon signing key"),
-  "admin.scram-pull": entry("member", "direct", "SCRAM"),
+  "admin.scram-pull": entry("member", "none", "SCRAM (one press; signed when a passkey comes with it)"),
   "admin.scram-review": entry("member", "direct", "SCRAM (quarantine review)"),
   "admin.scram-restart": entry("member", "direct", "SCRAM (staged restart)"),
   "admin.runtime-rollback": entry("member", "direct", "Pin runtime (rollback)"),

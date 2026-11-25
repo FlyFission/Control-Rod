@@ -437,7 +437,8 @@ model ScramEvent {
   @minLength(1)
   reason: string;
 
-  assertion: PasskeyAssertion;
+  /** The puller's passkey, when they signed the pull. Stopping is always safe, so a press is enough. */
+  assertion?: PasskeyAssertion;
 
   /** Run ids stopped, with their outputs quarantined. */
   quarantine: string[];

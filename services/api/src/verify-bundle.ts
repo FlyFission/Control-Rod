@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBundleReceiptBinding, type ReceiptBindingExpectation } from "./pr-receipt.js";
 import { type InclusionBundle, NOT_WITNESSED, type WindowBundle, verifyInclusion, verifyWindow } from "./seals.js";
+import { evidenceRecordDir, isEvidenceRecordArg, verifyEvidenceRecord } from "./verify-evidence.js";
 
 /**
  * Offline check of a downloaded inclusion proof or audit export (`pnpm cr verify <file>`), for an
@@ -146,11 +147,18 @@ async function main(argv: string[]) {
     return 2;
   }
   if (!files.length) {
-    console.error("Usage: pnpm cr verify [--receipt <receipt-or-verdict>] [--diff-sha256 <sha256>] [--head-sha <sha>] [--revision <n>] <inclusion-proof-or-audit-export.json> [more.json ...]");
+    console.error("Usage: pnpm cr verify [--receipt <receipt-or-verdict>] [--diff-sha256 <sha256>] [--head-sha <sha>] [--revision <n>] <inclusion-proof-or-audit-export.json | change-record-dir> [more ...]");
     return 2;
   }
   let worst = 0;
+  const storeRoot = process.env.CONTROLROD_EVIDENCE_STORE;
   for (const f of files) {
+    if (isEvidenceRecordArg(f)) {
+      const evidence = verifyEvidenceRecord(evidenceRecordDir(f), storeRoot);
+      for (const l of evidence.lines) console.log(l);
+      worst = Math.max(worst, evidence.code);
+      continue;
+    }
     let text: string;
     try {
       text = readFileSync(resolve(f), "utf8");

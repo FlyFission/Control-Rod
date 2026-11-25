@@ -6,6 +6,8 @@ How work moves from an idea to `main`. The rules that cannot bend are in [AGENTS
 
 1. **Issue.** Every piece of work starts as a GitHub issue (use a template under *New issue*). One issue, one outcome a reviewer can check.
 2. **Change record.** Create `.nuclear/changes/<slug>/` with risk, basis, plan, trace, verification and ship files before you touch code. A small administrative change may use the commit message as its record. CI validates every record with `--strict-custody`.
+   A record created after the proposed ADR 0026 is accepted keeps a SHA-256 digest and a row in `evidence/manifest.json` for each evidence file, and may keep the payload out of git. The proposal is [proposed-adr.md](../.nuclear/changes/r4-evidence-lifecycle/evidence/proposed-adr.md). Until that text is in `docs/adr/`, this page does not require a manifest. `tools/check_evidence_manifest.py` already fails a record that cites an evidence file which is neither in the tree nor in a manifest. Existing records, whose payloads are in git, still pass.
+
 3. **Branch.** From the latest `main`. Name it by kind: `feat/…`, `fix/…`, `docs/…`, or `phase-N/…` for planned phase work.
 4. **Pull request.** Fill in the template completely: the change record, what changed and why, whether a trust surface is touched, and the evidence. Link the issue with `Closes #N`. Open it as a draft until CI is green.
 5. **Review.** Answer every review thread, including the ones left by automated reviewers (Copilot, the Codex connector). A thread left open at merge has meant a follow-up PR before; resolve or reply to each one first.

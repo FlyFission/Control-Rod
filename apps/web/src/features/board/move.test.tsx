@@ -150,7 +150,7 @@ describe("CardActions", () => {
     const sign = screen.getByRole("button", { name: "Sign: Return with direction" });
     expect(sign).toHaveProperty("disabled", true);
     expect(signed).toHaveLength(0);
-    await user.type(screen.getByLabelText("Direction for the next revision"), "Use the vendor curve");
+    await user.type(screen.getByLabelText("What should change in the next revision?"), "Use the vendor curve");
     await user.click(sign);
     await waitFor(() => expect(sent).toMatchObject({ kind: "return", reason: "Use the vendor curve" }));
   });
@@ -173,7 +173,7 @@ describe("CardActions", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Move to/ }));
     await user.click(screen.getByRole("menuitem", { name: "Return with direction" }));
-    await user.type(screen.getByLabelText("Direction for the next revision"), "Use the vendor curve");
+    await user.type(screen.getByLabelText("What should change in the next revision?"), "Use the vendor curve");
     act(() => setCard(card({ offered: [allow("accept"), refuse("return", "The package moved on", "Read the new revision")] })));
     expect(screen.queryByRole("button", { name: "Sign: Return with direction" })).toBeNull();
     const alert = screen.getByRole("alert");

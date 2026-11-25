@@ -75,6 +75,10 @@
             "maximum": 3,
             "description": "Autonomy level. Level 4 is never permitted (specification 11.2)."
         },
+        "signing_policy": {
+            "$ref": "SigningPolicy.json",
+            "description": "What needs the owner's passkey on this project's routine cards. Absent means every step is signed."
+        },
         "status": {
             "$ref": "LifecycleStatus.json"
         }

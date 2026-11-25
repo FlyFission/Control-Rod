@@ -2,11 +2,52 @@ import { type ClipboardEvent, type KeyboardEvent, useEffect, useRef, useState } 
 import { useActionLock } from "../../lib/scramLock.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { OPEN_MODAL, singleKeysOn } from "../../lib/singleKeys.js";
-import { api, explain } from "../../api/client.js";
+import { ApiError, api, explain } from "../../api/client.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { useMode } from "../../lib/mode.js";
 import { useActiveProject } from "../../lib/projects.js";
 import { LOCAL_ONLY, defaultLaneFor, laneLabel } from "../../components/LanePicker.js";
+import { cardBranchName } from "../../lib/branch.js";
+import type { WorkspaceProject } from "../../api/types.js";
+
+/**
+ * How a quick-added card goes in. In a project, it takes the project's lane (the person chose it
+ * when they made the project, and the field says so), and in a project bound to a repository with
+ * the worktree strategy, each card gets its own worktree and branch, so accepted work can go out as
+ * a draft pull request with no further steps. Outside a project it takes the standard lane
+ * (Internal). The server keeps it at or above its project's lane and classifies only for a sender
+ * with lane authority (M-0).
+ */
+export async function quickCapture(text: string, title: string, project: WorkspaceProject | null): Promise<void> {
+  const lane = defaultLaneFor(project);
+  if (!project) {
+    await api.capture({ text, source: "web", lane });
+    return;
+  }
+  let checkout: { repo: string; local_path: string; branch: string; workspace_root?: string } | undefined;
+  if (project.repo && project.repoStrategy === "worktree") {
+    const root = project.workspaceRoot || (await api.repos()).workspace_root;
+    const made = await api.materializeRepo({
+      repo: project.repo,
+      branch: cardBranchName(title),
+      strategy: "worktree",
+      mode: project.mode === "capital-projects" ? "capital-projects" : "software",
+      ...(root ? { workspace_root: root } : {}),
+    });
+    checkout = { repo: project.repo, local_path: made.local_path, branch: made.branch, ...(root ? { workspace_root: root } : {}) };
+    try {
+      await api.capture({ text, source: "web", lane, checkout });
+    } catch (e) {
+      // Only a clear refusal means nothing owns the worktree just made for it; after a lost reply or a
+      // server error the capture may have been saved, so the worktree stays.
+      const refused = e instanceof ApiError && e.status >= 400 && e.status < 500;
+      if (refused && made.repo_path) await api.removeRepo({ worktree_path: made.local_path, repo_path: made.repo_path, ...(root ? { workspace_root: root } : {}) }).catch(() => undefined);
+      throw e;
+    }
+    return;
+  }
+  await api.capture({ text, source: "web", lane });
+}
 
 /** The lines of a paste, one card each: trimmed, empty lines dropped. */
 export function splitPaste(text: string): string[] {
@@ -87,7 +128,7 @@ export function QuickAdd() {
       batchProgress.current = { titles, sent: 0 };
       // Cards are posted in the order typed, one request at a time, so a failure says which one stopped.
       for (const t of titles) {
-        await api.capture({ text: `${capturePrefix}${t}`, source: "web", lane });
+        await quickCapture(`${capturePrefix}${t}`, t, activeProject ?? null);
         batchProgress.current.sent += 1;
       }
     },
@@ -240,7 +281,8 @@ export function QuickAdd() {
           Close
         </button>
         <span className="muted small">
-          {laneLabel(lane)} data lane{activeProject ? " (project default)" : ""}.
+          {laneLabel(lane)} data lane{activeProject ? " (project default)" : ""}
+          {activeProject?.repo && activeProject.repoStrategy === "worktree" ? `, in its own branch of ${activeProject.repo}` : ""}.
           {LOCAL_ONLY.has(lane) ? " Stays on this computer; no cloud agent sees it." : " Cloud agents may work on it."}
         </span>
       </div>

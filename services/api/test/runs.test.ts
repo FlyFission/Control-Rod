@@ -137,6 +137,15 @@ describe("launch inputs", () => {
       const held = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'author'", [id])).rows[0]!.body;
       expect(held).toMatchObject({ waiting_cause: "sandbox", waiting_key: "checkout-daemon" });
       expect(held.waiting_reason).toMatch(/custody/);
+      // A custody-capable daemon that offers only Antigravity cannot author in a checkout: held, with a reason.
+      expect(await claim(["agy"], true)).toBeNull();
+      const agyHeld = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'author'", [id])).rows[0]!.body;
+      expect(agyHeld).toMatchObject({ waiting_cause: "sandbox", waiting_key: "checkout-runtime" });
+      expect(agyHeld.waiting_reason).toMatch(/Claude Code or Codex/);
+      // Nor one that offers only Grok CLI.
+      expect(await claim(["grok"], true)).toBeNull();
+      const grokHeld = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'author'", [id])).rows[0]!.body;
+      expect(grokHeld).toMatchObject({ waiting_cause: "sandbox", waiting_key: "checkout-runtime" });
       const author = await claim(["fake"], true);
       const started = (await h.db.query<{ body: Record<string, any> }>("select body from runs where id = $1", [author!.run.id])).rows[0]!.body;
       expect(started.waiting_cause).toBeUndefined();

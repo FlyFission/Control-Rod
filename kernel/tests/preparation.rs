@@ -54,6 +54,7 @@ fn enrolled_release_defaults_closed_and_requires_complete_guard() {
         assertion_verified: true,
         digest_matches: true,
         reason_given: false,
+        policy_signed: false,
         preparation: Some(PreparationGuard::default()),
     };
     assert!(!decide(&req).decision.is_allowed());
@@ -91,6 +92,7 @@ fn acceptance_cannot_waive_missing_mandatory_prepared_verification() {
         assertion_verified: true,
         digest_matches: true,
         reason_given: true,
+        policy_signed: false,
         preparation: Some(PreparationGuard {
             requirements_confirmed: true,
             basis_current: true,

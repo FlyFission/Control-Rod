@@ -1,9 +1,9 @@
 # Verification: Fewer steps on a new card
 
 - E-01: `pnpm --filter @control-rod/web typecheck` passes.
-- E-02: `vitest run` in `apps/web`: 87 files, 965 tests pass after the round-1 fixes.
+- E-02: `vitest run` in `apps/web`: 1,041 tests pass after merging main and the round-2 fixes.
 - E-03: `vitest run test/disclosure.test.ts test/runs.test.ts` in `services/api` against a local Postgres: 64 tests pass, including "raises a capture to its project's default lane when the page sent a lower one".
-- Blind check round 1 (Codex): no-merge, six findings. Fixed: the server now keeps a capture at or above its tagged project's lane at capture and at classify; drawer wording speaks of future dispatch and notes work already sent is not called back; unclassified pickers default from the capture's own project tag; e2e flows no longer classify; the raise pick never sits below the lane after a refresh; a held intake reads "Intake queued". Round 2: pending.
+- Blind check round 1 (Codex): no-merge, six findings. Fixed: the server now keeps a capture at or above its tagged project's lane at capture and at classify; drawer wording speaks of future dispatch and notes work already sent is not called back; unclassified pickers default from the capture's own project tag; e2e flows no longer classify; the raise pick never sits below the lane after a refresh; a held intake reads "Intake queued". Round 2 (Codex): all six FIXED; NO-MERGE on three new items, all fixed after: merged main (Quick add now keeps main's per-card worktree and sends the project lane); an archived project still sets the lane floor (API test covers it); the keyboard persona waits for any card, since intake may retitle the new one. Two-round cap reached; the owner decides on merge.
 
 ## Evidence custody and coupling
 

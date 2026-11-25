@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CloseX } from "./CloseX.js";
+import { backdropClose } from "../lib/dismiss.js";
 
+import { suggestBranchName } from "../lib/branch.js";
 import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
@@ -34,14 +37,6 @@ import {
   type WorkDefaults,
 } from "../lib/workDefaults.js";
 
-function suggestBranchName(text: string): string {
-  const slug = text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 36);
-  return slug ? `cr/${slug}` : "cr/work-package";
-}
 
 const STRATEGY_NOTE: Record<RepoOutfallStrategy, string> = {
   worktree:
@@ -439,6 +434,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       className="cr-modal"
       aria-labelledby="new-work-title"
       onClose={onClose}
+      onClick={backdropClose(onClose)}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
@@ -449,7 +445,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           <h2 id="new-work-title" className="cr-modal-title">{copy.modalTitle}</h2>
           <p className="small muted" style={{ margin: 0 }}>An agent turns this into a plan. Nothing runs until you approve it.</p>
         </div>
-        <button type="button" className="btn small" onClick={onClose}>Esc</button>
+        <CloseX onClose={onClose} />
       </div>
 
       <form className="cr-modal-body" onSubmit={submit}>

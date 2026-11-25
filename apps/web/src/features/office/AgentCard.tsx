@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CardLink } from "../../components/CardPanel.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
@@ -96,9 +97,9 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
       {isPackage && <Glance f={f} view={view.data} actions={offered} verified={verified} failed={view.isError || actions.isError} />}
       <AgentActions f={f} view={view.data} />
       {isPackage ? (
-        <Link to="/packages/$id" params={{ id: f.package_id }} {...(f.href.hash ? { hash: f.href.hash } : {})} className="btn small">
+        <CardLink id={f.package_id} {...(f.href.hash ? { hash: f.href.hash } : {})} className="btn small">
           Open the package
-        </Link>
+        </CardLink>
       ) : (
         <Link to="/packages" className="btn small">
           Open captures and packages

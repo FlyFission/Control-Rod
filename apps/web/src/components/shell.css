@@ -87,6 +87,9 @@
 
 /* ---- Top bar ---- */
 .shell .topbar {
+  /* Above the SCRAM banner below it, so the SCRAM hover card is never covered. */
+  position: relative;
+  z-index: 20;
   min-height: var(--topbar-h);
   background-color: var(--plant-ground);
   background-image: none;
@@ -115,27 +118,6 @@
   /* A wide rail can leave the workspace narrow: the status and actions wrap rather than clip. */
   flex-wrap: wrap;
   min-width: 0;
-}
-/* The rod gauge at full size, on an engraved plate: the state of the whole plant, read at a glance. */
-.shell .shell-rods {
-  position: relative;
-  gap: 10px;
-  padding: 4px 12px 4px 8px;
-  border: 1px solid var(--plant-linework);
-  background: var(--plant-surface);
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-  font-size: var(--fs-label);
-}
-.shell .shell-rods .rod-gauge {
-  zoom: 1;
-}
-.shell .shell-rods-label {
-  font-weight: 600;
-  color: var(--text-2);
-  white-space: nowrap;
-}
-.shell[data-scram="trip"] .shell-rods-label {
-  color: var(--plant-trip);
 }
 .shell .topbar .btn.small {
   border-radius: 2px;
@@ -223,15 +205,6 @@
 }
 .shell[data-phone] .top-right {
   gap: 6px;
-}
-.shell[data-phone] .shell-rods {
-  padding: 2px 8px 2px 4px;
-}
-.shell[data-phone] .shell-rods .rod-gauge {
-  zoom: 0.7;
-}
-.shell[data-phone] .shell-rods-label {
-  display: none;
 }
 .shell[data-phone] .topbar .btn.small {
   min-height: 44px;
@@ -483,13 +456,105 @@
    scrolls as before (sticky stage headers rely on it). These override the library's inline styles. */
 .shell[data-phone] .shell-panes,
 .shell[data-phone] .shell-panes > [data-panel],
-.shell[data-phone] .shell-panes > [data-panel] > div {
+.shell[data-phone] .shell-panes > [data-panel] > div,
+.shell[data-phone] .work-panes,
+.shell[data-phone] .work-panes > [data-panel],
+.shell[data-phone] .work-panes > [data-panel] > div {
   display: block !important;
   height: auto !important;
   max-height: none !important;
   overflow: visible !important;
   /* No handle on a phone: give gestures back to the browser (pinch zoom, scrolling). */
   touch-action: auto !important;
+}
+
+/* ---- Side panel for details (components/SidePanel.tsx) ----
+   Wide screens: a pane beside the page, its left edge a drag handle like the rail's. Narrower: it
+   slides over the page from the right, below the top bar and any SCRAM banner. */
+.shell .work-panes {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.shell .page-panel {
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.shell .page-panel > .content {
+  flex: 1;
+}
+.shell .side-pane,
+.shell .side-panel-dock,
+.side-panel-slot,
+.side-panel {
+  height: 100%;
+  min-width: 0;
+}
+.shell .side-pane {
+  overflow: hidden;
+  background: var(--surface);
+}
+.shell .side-sep {
+  width: 1px;
+  background: var(--line-2);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+  outline: none;
+}
+.shell .side-sep[data-separator="hover"],
+.shell .side-sep[data-separator="active"],
+.shell .side-sep:focus-visible {
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.side-panel-overlay {
+  position: fixed;
+  top: var(--dock-top, 56px);
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  width: min(560px, 100vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line-2);
+  box-shadow: -12px 0 32px rgb(0 0 0 / 0.45);
+  overscroll-behavior: contain;
+}
+/* Inside the panel a drawer fills it: no fixed position, width or shadow of its own. */
+.side-panel > .bd-drawer,
+.side-panel > .bd-drawer.bd-cockpit,
+.side-panel > .bd-drawer.bd-cockpit.bd-calm {
+  position: static;
+  top: auto;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  z-index: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .side-panel-overlay {
+    animation: side-in 160ms ease-out;
+  }
+}
+@keyframes side-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@media (forced-colors: active) {
+  .shell .side-sep {
+    background: CanvasText;
+  }
+  .shell .side-sep:focus-visible,
+  .shell .side-sep[data-separator="hover"],
+  .shell .side-sep[data-separator="active"] {
+    background: Highlight;
+    outline: 2px solid Highlight;
+  }
 }
 
 /* The resize handle keeps a focus ring in forced-colors mode, where backgrounds and shadows flatten. */
@@ -551,6 +616,38 @@
 /* On any touchscreen the workspace keeps the browser's gestures (pinch zoom, scrolling); only the
    resize handle claims touch for dragging. */
 .shell .shell-panes,
-.shell .shell-panes > [data-panel] {
+.shell .shell-panes > [data-panel],
+.shell .work-panes,
+.shell .work-panes > [data-panel] {
   touch-action: auto !important;
+}
+
+/* Full width (PanelFullToggle): the panel covers the page inside its own pane; the page stays mounted. */
+.shell .page-panel {
+  position: relative;
+}
+.side-panel-full {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: var(--surface);
+}
+.side-panel-full > .side-panel-slot {
+  height: 100%;
+}
+.panel-full-x {
+  font-size: 18px;
+}
+/* The overlay on a phone is already the whole screen. */
+.shell[data-phone] .panel-full-x {
+  display: none;
+}
+.side-panel-overlay[data-wide] {
+  width: min(960px, calc(100vw - 48px));
+}
+.shell[data-phone] .side-panel-overlay[data-wide] {
+  width: 100vw;
+}
+.side-panel-overlay[data-full] {
+  width: 100vw;
 }

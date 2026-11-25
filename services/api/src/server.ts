@@ -11,6 +11,7 @@ import { closeDb, openDb } from "./db/index.js";
 import { localRoleSecrets, privateDir, privateFile } from "./db/roles.js";
 import { loadTrustAnchors } from "./attestation.js";
 import { PgLogTail, pgStartFailure } from "./pg-start-error.js";
+import { updateNoticeFor } from "./update-notice.js";
 
 /**
  * Starts Control Rod on this machine: an embedded Postgres in ~/.controlrod/pg, the control
@@ -103,11 +104,13 @@ renameSync(tokenTmp, tokenPath);
 const origin = process.env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`;
 const sourceConfigPath=process.env.CONTROLROD_PREPARATION_CONFIG;
 const sourceConfig=sourceConfigPath?preparationConfig(readFileSync(sourceConfigPath,"utf8")):{};
+const updateNotice = updateNoticeFor(root, home, process.env.CONTROLROD_RUNNING_COMMIT);
 const app = buildApp({
   ...sourceConfig,
   db,
   root,
   webDir: join(root, "apps", "web", "dist"),
+  updateNotice,
   guidedPreparation: process.env.CONTROLROD_GUIDED_PREPARATION === "1",
   preparedRelease: process.env.CONTROLROD_PREPARED_RELEASE === "1",
   auth: {
@@ -136,4 +139,5 @@ process.on("SIGTERM", stop);
 onLauncherGone = stop;
 
 await app.listen({ host: "127.0.0.1", port });
+void updateNotice?.check();
 console.log(`Control Rod is running at ${origin}`);

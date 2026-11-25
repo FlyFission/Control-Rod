@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { AutonomyOffer } from "./AutonomyOffer.js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { DataLane, WorkspaceProjectArchivePayload, WorkspaceProjectUpdatePayload } from "../../api/types.js";
@@ -483,7 +484,8 @@ export function BoardView() {
     }, "Could not update lane agent oversight.");
   }
 
-  const COLUMN_FOLD_LIMIT = 8;
+  // Compact cards are one line each, so a column holds three times as many before it folds.
+  const COLUMN_FOLD_LIMIT = lens.density === "compact" ? 24 : 8;
 
   const renderColumns = (cards: BoardCard[], includeReadyExtras: boolean, Heading: "h2" | "h3", idPrefix: string) =>
     COLUMNS.map((c) => {
@@ -578,6 +580,7 @@ export function BoardView() {
               selected={selectedId === x.pkg.id}
               edgeColor={edgeColor(x, lens)}
               compact={lens.density === "compact"}
+              {...(data.splits.get(x.pkg.id) ? { split: data.splits.get(x.pkg.id)! } : {})}
               actions={<CardActions card={x} />}
               {...(data.unknownSince ? { unknownSince: data.unknownSince } : {})}
               {...(x.owner ? { owner: x.owner } : {})}
@@ -798,6 +801,7 @@ export function BoardView() {
           </p>
         )}
       </header>
+      {activeProject && <AutonomyOffer key={activeProject.id} project={activeProject} />}
       <p className="sr-only" role="status">
         {jumpNote ?? ""}
       </p>

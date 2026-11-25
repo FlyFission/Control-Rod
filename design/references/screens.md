@@ -38,7 +38,7 @@ Each row is a pass or fail test that a reviewer applies to a screenshot. The num
 | Running | A running card shows a live status line in plain words and a moving progress cue | 1 |
 | Waiting on you | Cards waiting on you are the only warm-coloured cards, and they sort first | 1, 9 |
 | Agents | Every card shows the icon of the agent working it, and of the checker | 5 |
-| Card open | The drawer reads like a cockpit: status, run log, diff and the decision on one screen at 1440 without scrolling | 3 |
+| Card open | Calm first (owner, 2026-11-25): the title, one plain sentence on where the work stands and one primary step, all above the fold at 390 and 1440. Errors in plain words, raw text behind a toggle. Everything else (what was asked, check, outputs, runs, custody, switches, digest) folded under Details | 9 |
 
 ## Today
 

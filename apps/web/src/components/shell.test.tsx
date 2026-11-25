@@ -120,7 +120,7 @@ describe("keyboard shortcut list", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Shortcuts/ }));
     expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("button", { name: "Close keyboard shortcuts" }));
     expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
   });
 });
@@ -136,7 +136,7 @@ describe("single-key shortcuts switch", () => {
     expect((toggle as HTMLInputElement).checked).toBe(true);
     await user.click(toggle);
     expect(window.localStorage.getItem("cr.single-key-shortcuts")).toBe("off");
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("button", { name: "Close keyboard shortcuts" }));
     await user.keyboard("?");
     expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
     await user.keyboard("c");

@@ -461,11 +461,9 @@ textarea {
   border-color: #ff6b6b;
   color: #ffffff;
   box-shadow: 0 0 22px rgb(255 77 77 / 0.55), inset 0 1px 0 rgb(255 200 200 / 0.35);
-  animation: scram-beacon 1.6s ease-in-out infinite;
 }
 /* No pulse runs in a hidden tab. */
-.shell[data-tab-hidden] .console-live-dot,
-.shell[data-tab-hidden] .topbar-scram {
+.shell[data-tab-hidden] .console-live-dot {
   animation-play-state: paused;
 }
 .stream-pill {
@@ -1448,7 +1446,7 @@ select {
   font-family: var(--mono);
   font-size: var(--fs-small);
   line-height: var(--lh-mono);
-  max-height: 320px;
+  max-height: min(50vh, 480px);
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1685,8 +1683,7 @@ select {
     transition: none;
   }
   .figure .mark.pulse::after,
-  .shell[data-scram="trip"] .console-live-dot,
-  .shell[data-scram="trip"] .topbar-scram {
+  .shell[data-scram="trip"] .console-live-dot {
     animation: none;
   }
   .figure .mark.pulse::after {
@@ -2209,12 +2206,6 @@ select {
 }
 
 /* Split-pane Inbox review */
-.inbox.inbox-has-drawer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
-  gap: 14px;
-  align-items: start;
-}
 .inbox-main {
   display: flex;
   flex-direction: column;
@@ -2224,11 +2215,6 @@ select {
 .office-item.inbox-selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
-}
-@media (max-width: 1100px) {
-  .inbox.inbox-has-drawer {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Shown on the board and a package's runs when no run daemon is answering (lib/daemon.ts). */
@@ -2630,16 +2616,6 @@ select {
   pointer-events: none;
   z-index: 50;
 }
-.shell-rods {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text);
-  font-size: var(--fs-small);
-  font-weight: 600;
-}
-.shell-rods .rod-gauge { zoom: 0.85; }
-.shell[data-scram="trip"] .shell-rods { color: var(--plant-trip); }
 .shell-notlive {
   padding: 2px 8px;
   border: 1px dashed var(--line-2);
@@ -2649,3 +2625,290 @@ select {
   font-weight: 600;
 }
 .places-cta:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* What needs your passkey (Setup) and the quiet line under a decision that will ask for one. */
+.signing-settings {
+  display: grid;
+  gap: 10px;
+}
+.signing-steps th {
+  text-align: left;
+  font-weight: 500;
+  padding: 4px 12px 4px 0;
+}
+.passkey-hint {
+  margin: 6px 0 0;
+}
+
+/* The one close button (components/CloseX.tsx): same ✕, same size, top-right of every drawer, dialog and panel. */
+.close-x {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.close-x:hover {
+  color: var(--text);
+  border-color: var(--text-2);
+}
+.close-x:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.close-x:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The run log at full size: nearly the whole screen, wrapped, numbered, plain summary first. */
+.log-viewer {
+  width: calc(100vw - 32px);
+  max-width: 1400px;
+  height: calc(100dvh - 32px);
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  display: none;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+}
+.log-viewer[open] {
+  display: flex;
+}
+.log-viewer::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.log-viewer-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.log-viewer-head h2 {
+  margin: 0;
+  font-size: var(--fs-ui);
+}
+.log-viewer-summary {
+  padding: 12px 16px 0;
+  font-size: 16px;
+}
+.log-viewer-summary p {
+  margin: 0;
+}
+.log-viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.log-viewer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 16px 16px;
+  background: var(--ground);
+}
+.log-viewer-lines {
+  margin: 0;
+  padding-left: 5ch;
+  font-family: var(--mono);
+  font-size: var(--fs-small);
+  line-height: var(--lh-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.log-viewer-lines li::marker {
+  color: var(--muted);
+}
+.log-viewer-lines li[data-problem] {
+  color: var(--stuck);
+}
+
+/* ---- File viewers (components/viewers/) ---- */
+.code-view {
+  margin-top: 8px;
+  max-height: 520px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: var(--fs-small);
+  line-height: var(--lh-mono);
+}
+.code-view pre.shiki {
+  margin: 0;
+  padding: 12px;
+  min-width: max-content;
+  font-family: var(--mono);
+}
+.code-view.numbered pre.shiki code {
+  counter-reset: line;
+}
+.code-view.numbered pre.shiki .line::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 3.5ch;
+  margin-right: 1.5ch;
+  text-align: right;
+  color: var(--muted);
+  opacity: 0.6;
+  user-select: none;
+}
+.file-markdown table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.file-markdown th,
+.file-markdown td {
+  border: 1px solid var(--line-2);
+  padding: 4px 8px;
+  text-align: left;
+}
+/* A block with no language: the same frame as a coloured one, scrolling sideways rather than spilling. */
+.file-markdown > pre {
+  margin: 8px 0;
+  padding: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ground);
+  font-size: var(--fs-small);
+  line-height: var(--lh-mono);
+}
+.file-markdown .code-view {
+  max-height: none;
+}
+.file-markdown li.task-list-item {
+  list-style: none;
+}
+.file-markdown ul.contains-task-list {
+  padding-left: 4px;
+}
+.file-markdown li.task-list-item input[type="checkbox"] {
+  box-shadow: none;
+  appearance: auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0 8px 0 0;
+  padding: 0;
+  vertical-align: middle;
+  background: none;
+  border: 0;
+  accent-color: var(--accent);
+}
+.csv-view td.num,
+.csv-view th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.csv-view {
+  margin-top: 8px;
+}
+.csv-view table {
+  display: block;
+  max-height: 520px;
+  overflow: auto;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.file-screen-body .csv-view table {
+  max-height: none;
+}
+.csv-view th,
+.csv-view td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.csv-view th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  font-weight: 600;
+}
+.image-view-btn {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.image-view.full {
+  overflow: auto;
+  max-height: 80vh;
+}
+.image-view.full .image-view-btn {
+  cursor: zoom-out;
+}
+.image-view.full .preview-img {
+  max-width: none;
+}
+.pdf-view {
+  margin-top: 8px;
+}
+.pdf-view .pdf-page {
+  margin: 0 auto 10px;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.4);
+}
+.pdf-view .pdf-page-wait {
+  background: var(--ground);
+  margin-bottom: 10px;
+}
+.pdf-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* A Word document keeps its own paper colours, like a page on the desk. */
+.docx-view {
+  margin-top: 8px;
+  background: #fff;
+  color: #111;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+}
+.docx-view section.docx {
+  padding: 0 !important;
+  min-height: 0 !important;
+  width: auto !important;
+  box-shadow: none !important;
+}
+.log-viewer-bar label {
+  display: inline-flex;
+  align-items: center;
+}
+.log-viewer-bar input[type="checkbox"] {
+  box-shadow: none;
+  border: 0;
+  appearance: auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0 6px 0 0;
+  padding: 0;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}

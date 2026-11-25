@@ -27,6 +27,6 @@
         "kind",
         "id"
     ],
-    "description": "Who acted. Agents and the system can never hold a human decision right.",
+    "description": "Who acted. Agents can never hold a human decision right. The system acts only under the owner's\npasskey-signed signing policy, and then only to release or to accept a pre-check that passed.",
     "unevaluatedProperties": false
 }

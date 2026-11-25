@@ -263,7 +263,7 @@ describe("decision flow", () => {
     offer(["release", "reject"]);
     await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys(signed)} />);
     await userEvent.setup().click(await screen.findByRole("button", { name: "Reject" }));
-    expect(screen.getByRole("textbox", { name: "Why reject this package" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Why reject this work?" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Sign: Reject" }) as HTMLButtonElement).disabled).toBe(true);
     expect(signed).toEqual([]);
   });
@@ -326,7 +326,7 @@ describe("decision flow", () => {
     const sign = screen.getByRole("button", { name: "Sign: Return with direction" });
     expect((sign as HTMLButtonElement).disabled).toBe(true);
     expect(signed).toEqual([]);
-    await user.type(screen.getByLabelText("Direction for the next revision"), "Use the 100 ft setback.");
+    await user.type(screen.getByLabelText("What should change in the next revision?"), "Use the 100 ft setback.");
     await user.click(sign);
     await waitFor(() =>
       expect(decided).toMatchObject({ kind: "return", package_revision: 0, reason: "Use the 100 ft setback." }),
@@ -529,6 +529,24 @@ describe("runs that need the owner", () => {
     await renderPage(<RunCard packageId="WP-9" run={run} />);
     expect(canRequeue(run)).toBe(false);
     expect(screen.queryByRole("button",{name:"Requeue this run"})).toBeNull();
+  });
+
+  it("opens the full log: plain summary first, every line numbered, and a filter for problem lines", async () => {
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.setAttribute("open", ""); };
+    HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) { this.removeAttribute("open"); };
+    server.use(http.get("*/packages/WP-9/runs/R-lost/log", () => HttpResponse.json({ lines: ["starting", "error: could not read the file", "done"] })));
+    await renderPage(<RunCard packageId="WP-9" run={lostRun} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open full log" }));
+    const dlg = screen.getByRole("dialog", { name: /Author log, round 1/ });
+    expect(within(dlg).getByText("Runner lost: no heartbeat from the daemon.")).toBeTruthy();
+    const log = within(dlg).getByRole("log");
+    await waitFor(() => expect(log.querySelectorAll("li").length).toBe(3));
+    await user.click(within(dlg).getByLabelText(/Only problem lines \(1\)/));
+    expect([...log.querySelectorAll("li")].map((li) => li.textContent)).toEqual(["error: could not read the file"]);
+    expect(log.querySelector("li")!.getAttribute("value")).toBe("2");
+    await user.click(within(dlg).getByRole("button", { name: "Close full log" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("shows a lost run plainly and lets the owner requeue it once", async () => {

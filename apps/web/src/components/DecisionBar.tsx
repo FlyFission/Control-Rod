@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { noteSigned, passkeyHint, signedToday } from "../lib/signing.js";
 import { explain } from "../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView } from "../api/types.js";
 import { decisionLabel, NEEDS_REASON, browserPasskeys, decide, type Passkeys } from "../lib/decide.js";
@@ -13,19 +14,19 @@ import "../pages/screens.css";
 const KINDS: DecisionKind[] = ["release", "accept", "accept-with-findings", "return", "reject"];
 const isKind = (c: string): c is DecisionKind => (KINDS as string[]).includes(c);
 
+export type DecisionSigner = ReturnType<typeof useDecisionSigner>;
+
 /**
- * The decision bar (specification 14 Sign; plan task 3.5). It never disappears. It offers exactly
- * the decisions the server's kernel would allow this person now, each signed with their passkey over
- * the digest shown beside the sentence of what it binds. When nothing is open to them it says why:
- * the floor that blocks it, the authority missing, and the one fact that would change it.
+ * The state behind signing a decision on one package, shared by the decision bar on the case page
+ * and the board drawer: what is open to this person now, the reason a decision needs, and the
+ * passkey ceremony. The kernel on the server still decides.
  */
-export function DecisionBar({ view, passkeys = browserPasskeys }: { view: PackageView; passkeys?: Passkeys }) {
+export function useDecisionSigner(view: PackageView, passkeys: Passkeys = browserPasskeys) {
   const qc = useQueryClient();
   const pkg = view.package;
   // The server's actions with the acceptance rule applied (ruling 16), the same rule the board uses.
   const actions = useOfferedActions(pkg);
   const scramLock = useActionLock(pkg.project);
-  const label = (k: DecisionKind) => decisionLabel(k);
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,21 +40,33 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   const current = actions.isSuccess && !actions.isError;
   const pendingAllowed = pending !== null && current && allowed.includes(pending);
   // A decision started before permission was withdrawn is put away, with the refusal shown below.
+  const allowedKey = allowed.join(",");
+  // "Accept recorded." is a confirmation, not a status: it fades once read.
   useEffect(() => {
-    if (pending !== null && actions.isSuccess && !allowed.includes(pending)) setPending(null);
-  }, [pending, actions.isSuccess, allowed]);
+    if (done === null) return;
+    const t = setTimeout(() => setDone(null), 6000);
+    return () => clearTimeout(t);
+  }, [done]);
+  useEffect(() => {
+    if (pending !== null && actions.isSuccess && !allowedKey.split(",").includes(pending)) setPending(null);
+  }, [pending, actions.isSuccess, allowedKey]);
 
   async function sign(kind: DecisionKind) {
-    if (scramLock.locked) return;
+    if (scramLock.locked || busy) return;
     setBusy(true);
     setError(null);
     setDone(null);
     try {
       const { decision } = await decide(
-        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, independentCheck: needsIndependentCheck(pkg), ...(reason.trim().length > 0 ? { reason } : {}) },
+        {
+          packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, independentCheck: needsIndependentCheck(pkg), ...(reason.trim().length > 0 ? { reason } : {}),
+          // The signing settings let this step go with a press: no passkey, still bound to what was shown.
+          noPasskey: decisions.find((a) => a.command === kind)?.signature === "none",
+        },
         passkeys,
       );
-      setDone(`${label(decision.kind)} recorded.`);
+      if (decisions.find((a) => a.command === kind)?.signature === "direct") noteSigned(kind);
+      setDone(`${decisionLabel(decision.kind)} recorded.`);
       setPending(null);
       setReason("");
       for (const key of ["package", "office", "inbox", "packages", "actions"]) void qc.invalidateQueries({ queryKey: key === "package" ? [key, pkg.id] : [key] });
@@ -68,12 +81,83 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
 
   function choose(kind: DecisionKind) {
     setError(null);
+    setDone(null);
     if (NEEDS_REASON.has(kind)) {
       setPending(kind);
       return;
     }
     void sign(kind);
   }
+
+  const signsWithPasskey = allowed.some((k) => decisions.find((a) => a.command === k)?.signature === "direct");
+  return { actions, decisions, scramLock, allowed, refused, current, pending, pendingAllowed, setPending, reason, setReason, busy, error, done, sign, choose, signsWithPasskey };
+}
+
+/**
+ * One quiet line under the buttons when one of them will ask for a passkey: why, and where to
+ * change it. After a few signed steps of one kind in a day it offers to let them go.
+ */
+export function PasskeyHint({ d }: { d: DecisionSigner }) {
+  const signedKind = d.allowed.find((k) => d.decisions.find((a) => a.command === k)?.signature === "direct");
+  if (!signedKind) return null;
+  const descriptor = d.decisions.find((a) => a.command === signedKind);
+  if (descriptor?.signing_preset === undefined && descriptor?.step_mode === undefined) return null;
+  return (
+    <p className="small muted passkey-hint">
+      {passkeyHint(signedKind, decisionLabel(signedKind), descriptor.signing_preset, signedToday(signedKind))} <a href="/setup#signing">Change</a>
+    </p>
+  );
+}
+
+/** Where a decision's reason is typed: shown in view and focused the moment it opens. */
+export function ReasonBox({ d, compact = false }: { d: DecisionSigner; compact?: boolean }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const pending = d.pending;
+  useEffect(() => {
+    if (pending === null) return;
+    const el = ref.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [pending]);
+  if (pending === null || !d.pendingAllowed) return null;
+  return (
+    <div className="reason">
+      <label className="field">
+        <span>{REASON_PROMPT[pending]}</span>
+        <textarea ref={ref} rows={compact ? 2 : 3} value={d.reason} onChange={(e) => d.setReason(e.target.value)} />
+      </label>
+      <div className="decide-buttons">
+        <button type="button" className={pending === "reject" ? "btn danger" : "btn primary"} onClick={() => void d.sign(pending)} disabled={d.busy || !d.pendingAllowed || d.scramLock.locked || d.reason.trim().length === 0} title={d.scramLock.why}>
+          {d.decisions.find((a) => a.command === pending)?.signature === "none" ? decisionLabel(pending) : `Sign: ${decisionLabel(pending)}`}
+        </button>
+        <button type="button" className="btn ghost" onClick={() => d.setPending(null)} disabled={d.busy}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const REASON_PROMPT: Record<DecisionKind, string> = {
+  release: "Reason",
+  accept: "Reason",
+  return: "What should change in the next revision?",
+  reject: "Why reject this work?",
+  "accept-with-findings": "Why accept with these findings?",
+};
+
+/**
+ * The decision bar (specification 14 Sign; plan task 3.5). It never disappears. It offers exactly
+ * the decisions the server's kernel would allow this person now, each signed with their passkey over
+ * the digest shown beside the sentence of what it binds. When nothing is open to them it says why:
+ * the floor that blocks it, the authority missing, and the one fact that would change it.
+ */
+export function DecisionBar({ view, passkeys = browserPasskeys }: { view: PackageView; passkeys?: Passkeys }) {
+  const pkg = view.package;
+  const d = useDecisionSigner(view, passkeys);
+  const { actions, scramLock, allowed, refused, current, busy, error, done, choose } = d;
+  const label = (k: DecisionKind) => decisionLabel(k);
 
   return (
     <section id="decide" className="panel decide" aria-labelledby="decide-title">
@@ -142,6 +226,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
           ))}
         </div>
       )}
+      <PasskeyHint d={d} />
       {actions.isSuccess && allowed.length === 0 && <Blocked refused={refused} label={label} />}
       {allowed.length > 0 && refused.length > 0 && (
         <details className="refused-decisions">
@@ -149,23 +234,8 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
           <Blocked refused={refused} label={label} />
         </details>
       )}
-      {pending !== null && pendingAllowed && (
-        <div className="reason">
-          <label className="field">
-            <span>{pending === "return" ? "Direction for the next revision" : pending === "reject" ? "Why reject this package" : "Why accept with these findings"}</span>
-            <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          <div className="decide-buttons">
-            <button type="button" className="btn primary" onClick={() => void sign(pending)} disabled={busy || !pendingAllowed || scramLock.locked || reason.trim().length === 0} title={scramLock.why}>
-              Sign: {label(pending)}
-            </button>
-            <button type="button" className="btn ghost" onClick={() => setPending(null)} disabled={busy}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-      {busy && <p className="muted small">Waiting for your passkey</p>}
+      <ReasonBox d={d} />
+      {busy && <p className="muted small">{d.signsWithPasskey ? "Waiting for your passkey" : "Recording"}</p>}
       {error !== null && (
         <p role="alert" className="error">
           {error}
@@ -181,7 +251,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
 }
 
 /** Refused decisions grouped by reason: what blocks them, what is missing, and what would change it. */
-function Blocked({ refused, label }: { refused: ActionDescriptor[]; label: (k: DecisionKind) => string }) {
+export function Blocked({ refused, label }: { refused: ActionDescriptor[]; label: (k: DecisionKind) => string }) {
   if (refused.length === 0) return <p className="muted small">No decision is open on this revision.</p>;
   const groups = new Map<string, ActionDescriptor[]>();
   for (const a of refused) {

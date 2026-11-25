@@ -72,8 +72,10 @@ export type CardProps = {
   actions?: ReactNode;
   /** Left-edge color from the active `colorBy` lens (never a meaning token). */
   edgeColor?: string;
-  /** Compact density hides avatars and grade/context chips, never the next line. */
+  /** Compact density shows one line: a status mark and the title (the next line is the hover text). */
   compact?: boolean;
+  /** Set when intake turned one request into several cards: this card's place and the request. */
+  split?: { index: number; total: number; request: string };
   /** An agent run on this card is running now, as last read; queued alone does not count. */
   runRunning?: boolean;
   /** Runtime providers of the author and checker runs, for their icons. */
@@ -82,12 +84,37 @@ export type CardProps = {
 };
 
 /** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false, author, checker }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false, author, checker, split }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
   const check = needsIndependentCheck(pkg);
   const spin = showsRunSpinner({ runRunning, lastKnown }, stream);
+  if (compact) {
+    // Compact is one line: a status mark and the name. The next line stays for screen readers and
+    // as the hover text; everything else is one click away in the drawer.
+    const live = stream === "live" && !lastKnown;
+    const said = stream === "unknown" ? `Status unknown since ${sinceText(unknownSince)}` : lastKnown ? `Last known: ${next.text}` : `${tone.word ? `${tone.word}: ` : ""}${next.text}`;
+    return (
+      <article
+        aria-labelledby={titleId}
+        className={selected ? "bd-card bd-card-compact selected" : "bd-card bd-card-compact"}
+        data-kind={kinds[0]}
+        data-column={column}
+        data-tone={live ? next.tone : "unknown"}
+        style={edgeColor ? { borderLeftColor: edgeColor } : undefined}
+        title={said}
+      >
+        <span className={spin ? "bd-sym bd-live" : "bd-sym"} aria-hidden="true">
+          {spin ? "\u25cf" : live ? tone.symbol : "\u25cb"}
+        </span>
+        <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
+          {pkg.title}
+        </button>
+        <p className="bd-next sr-only">{said}</p>
+      </article>
+    );
+  }
   return (
     <article
       aria-labelledby={titleId}
@@ -150,6 +177,12 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           )}
         </span>
       </div>
+      {split && (
+        <p className="bd-split small muted" title={split.request ? `From your request: ${split.request}` : undefined}>
+          Card {split.index} of {split.total} from one request
+          {split.request ? <>: <span className="bd-split-request">{split.request}</span></> : null}
+        </p>
+      )}
       <p className="bd-next">
         {stream === "live" && lastKnown ? (
           <span className="muted">Last known: {next.text}</span>

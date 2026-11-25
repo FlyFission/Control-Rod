@@ -12,6 +12,7 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
+import { PR_CLAIM_MS, PUBLISH_SEND_BY_MS } from "./publish-claim.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramOfHold, scramRunEnded } from "./scram.js";
@@ -22,14 +23,15 @@ import { RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
-import { bindCheckout } from "./repos.js";
+import { bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
-import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
+import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
 import { benchedRuntimes } from "./setup.js";
 import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
-import { ownerOf } from "./tenancy.js";
+import { currentCredential, ownerOf } from "./tenancy.js";
+import { governingPolicy, modeFor, policyRef } from "./signing-policy.js";
 import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
@@ -61,6 +63,11 @@ export { Refusal } from "./refusal.js";
 export interface WorkConfig {
   /** Repository root, for packs/. */
   root: string;
+  /**
+   * Called after a commit that accepted a package, to open its pull request. The app sets it; tests
+   * that do not set it open nothing.
+   */
+  publish?: (packageId: string, revision: number) => void;
   ajv: Ajv2020;
   /** Seconds a claim lasts without a heartbeat before the sweep marks the run lost. */
   leaseSeconds?: number;
@@ -579,6 +586,7 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     ...(warning ? { check_warning: warning } : {}),
     ...(drift?.outside.length ? { scope_drift: drift } : {}),
     decisions: decisions.rows.map((d) => d.body),
+    ...(await pullRequestOf(db, id, pkg.revision)),
     subject_digest: { algorithm: "sha256", value: s.digest },
     // What a signature on this revision binds, in words; for statuses with a gate decision.
     ...(pkg.status === "draft" || pkg.status === "in-verification"
@@ -651,6 +659,16 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
     const next = { ...body, id: pkg.id, revision: pkg.revision, status: "draft", schema_version: "0.1.0" };
     next.agent_assignment = pkg.body.agent_assignment;
     next.verification = pkg.body.verification;
+    // What decides how a card is signed is not the draft's to change: the project it is filed under
+    // (whose signing policy governs it) and a Safety or Material grade. A Nuclear-grade request is
+    // read from the capture itself, which no edit changes.
+    for (const key of ["project"] as const) {
+      if (pkg.body[key] === undefined) delete next[key];
+      else next[key] = pkg.body[key];
+    }
+    if (highConsequence(needsOf(pkg.body)) && !highConsequence(needsOf(next))) {
+      throw new Refusal(409, "lowering-needs-change-request", `This package is ${String(pkg.body.grade)} grade; lowering its grade needs a new request, not an edit`);
+    }
     validate(cfg, "WorkPackage.json", next);
     await checkDependsOn(c, id, next);
     // A draft's lane may be raised by editing it; lowering below the effective lane is a declassification.
@@ -806,6 +824,8 @@ function runtimeName(provider: unknown): string {
   const p = String(provider ?? "").toLowerCase();
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
+  if (p === "agy" || p === "antigravity" || p === "gemini-cli") return "agy";
+  if (p === "grok" || p === "xai" || p === "grok-cli") return "grok";
   return p;
 }
 
@@ -813,7 +833,7 @@ function runtimeName(provider: unknown): string {
 function pickRuntime(have: string[], preferred?: string): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && have.includes(pref)) return pref;
-  return ["claude", "codex", "fake"].find((r) => have.includes(r)) ?? null;
+  return [...RUNNABLE, "fake"].find((r) => have.includes(r)) ?? null;
 }
 
 /**
@@ -824,7 +844,7 @@ function pickRuntime(have: string[], preferred?: string): string | null {
 function pickChecker(have: string[], authorRuntime: string, override: boolean, preferred?: string): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && pref !== authorRuntime && have.includes(pref)) return pref;
-  const other = ["codex", "claude", "fake"].find((r) => have.includes(r) && r !== authorRuntime);
+  const other = [...CHECKER_ORDER, "fake"].find((r) => have.includes(r) && r !== authorRuntime);
   if (other) return other;
   return override && have.includes(authorRuntime) ? authorRuntime : null;
 }
@@ -1429,6 +1449,8 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
 }
 
 const CHECKOUT_DAEMON_KEY = "checkout-daemon";
+const CHECKOUT_RUNTIME_HOLD = "This run is bound to a checkout and waits for Claude Code or Codex on a connected daemon: the runtimes offered here cannot author in a checkout yet.";
+const CHECKOUT_RUNTIME_KEY = "checkout-runtime";
 const CHECKOUT_DAEMON_HOLD = "This run is bound to a checkout and waits for a connected daemon that can hold exclusive custody of it. The daemon that asked cannot (older version or a host without custody).";
 
 export async function claim(
@@ -1516,9 +1538,16 @@ export async function claim(
             continue;
           }
           await releaseHold(c, cfg, row, "lane");
-          const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
+          // A checkout author is pinned only among checkout-capable runtimes, so another runtime's
+          // pin never stands in for theirs (the hold names the real blocker).
+          const seatable = row.body.checkout ? admittedHere.filter((r) => CHECKOUT_AUTHORS.includes(r)) : admittedHere;
+          if (!seatable.length) {
+            await holdRun(c, cfg, row, pkg.id, CHECKOUT_RUNTIME_HOLD, "sandbox", CHECKOUT_RUNTIME_KEY);
+            continue;
+          }
+          const pinned = await pinnedOffer(c, seatable, row.role, artifacts);
           if (pinned.reason) {
-            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin", `runtime-pin:${row.role}:${[...admittedHere].sort().join(",")}`);
+            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin", `runtime-pin:${row.role}:${[...seatable].sort().join(",")}`);
             continue;
           }
           await releaseHold(c, cfg, row, "runtime-pin");
@@ -1529,7 +1558,8 @@ export async function claim(
             await holdRun(c, cfg, row, pkg.id, net.held.slice(0, 300), "sandbox", `sandbox:${row.role}:${lane}`);
             continue;
           }
-          await releaseHold(c, cfg, row, "sandbox");
+          // A checkout-runtime hold is decided below, once the author offer is known.
+          if (row.body.waiting_key !== CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
           const offer = net.offer;
           const project = pkg.body?.project;
           const owner = typeof project === "string" && project ? await ownerOf(c, "package", pkg.id) : null;
@@ -1557,7 +1587,15 @@ export async function claim(
           } else {
             const preferredAuthor =
               capPrefs.author?.ecosystem ?? projPrefs?.laneAgents?.drafting ?? projPrefs?.author;
-            runtime = pickRuntime(offer, preferredAuthor);
+            // A checkout run goes only to a runtime that can author in a checkout.
+            const authors = row.body.checkout ? offer.filter((r) => CHECKOUT_AUTHORS.includes(r)) : offer;
+            if (!authors.length && offer.length) {
+              // Held, not skipped silently: say why on the run, replacing any older hold.
+              await holdRun(c, cfg, row, pkg.id, CHECKOUT_RUNTIME_HOLD, "sandbox", CHECKOUT_RUNTIME_KEY);
+              continue;
+            }
+            if (row.body.waiting_key === CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
+            runtime = pickRuntime(authors, preferredAuthor);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
             }
@@ -2985,13 +3023,18 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg])
       .catch((e) => { throw dependencyRefusal(e); });
     await markObject(c, "package", String(pkg.id), pkg.data_lane, `drafted by intake from capture ${capture.id}`, await packageInputs(c, pkg, capture.id));
-    await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id });
+    // Nuclear-grade, as intake judged it, is recorded where no draft edit reaches: the signing floor reads it.
+    await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id, nuclear: isNuclearDraft });
     if(cfg.guidedPreparation) await enrollPreparationTx(c,cfg,SYSTEM,pkg.id as string,{package_revision:0,idempotency_key:`intake-${capture.id}-${pkg.id}`});
     created.push(pkg.id as string);
   }
   const updated = { ...capture, disposition: "package", package_id: created[0] };
   validate(cfg, "Capture.json", updated);
   await c.query("update captures set body = $2 where id = $1", [capture.id, updated]);
+  // Where the owner's signing policy releases routine cards on its own, they start now. The
+  // completion already holds the SCRAM gate; a card the policy, SCRAM or preparation refuses
+  // simply stays a draft for a person.
+  for (const id of created) await autoDecide(c, cfg, id, 0, "release");
 }
 
 async function finishAuthor(c: Tx, cfg: WorkConfig, row: Json, agent: Actor) {
@@ -3125,6 +3168,8 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
     await appendEvent(c, "package.revising", pkg.id, agent, { revision: pkg.revision, round: row.round + 1 });
     await queueRun(c, cfg, pkg.id, pkg.revision, "author", row.round + 1);
   }
+  // A pass is accepted at once where the owner's signing policy says so.
+  if (record.outcome === "pass") await autoDecide(c, cfg, pkg.id, pkg.revision, "accept");
 }
 
 /* ---------- decisions ---------- */
@@ -3191,8 +3236,20 @@ export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: 
       : preparing ? refused(edit, "preparation-edit-required") : { ...edit, allowed: true });
     // While SCRAM holds the package, release is refused exactly as submitting it would be.
     const scram = await scramHolding(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
+    // The owner's signing policy decides which of these need a passkey; work it does not cover
+    // (nuclear, high consequence, a restricted lane, or no policy yet) is signed every time.
+    const stored = await governingPolicy(c, pkg);
+    // Offer a press only where the decision would take it: the policy's passkey still valid.
+    const policyCred = stored ? await currentCredential(c, stored.assertion.credential_id) : null;
+    const policy = stored && policyCred && !policyCred.revoked ? stored : null;
     for (const kind of Object.keys(HUMAN_ACTIONS)) {
-      const base = { command: kind, label: DECISION_LABELS[kind], signature: "direct", authority: ACTION_ROLES[kind as SignerAction] };
+      // ...and its signer still holding the authority for this step; otherwise this step is signed.
+      const signerCovers = policy !== null && (await signingGaps(c, policy.signed_by, kind as SignerAction, needsOf(pkg.body))).length === 0;
+      const mode = signerCovers ? modeFor(policy, kind) : "passkey";
+      const base = {
+        command: kind, label: DECISION_LABELS[kind], signature: mode === "passkey" ? "direct" : "none", authority: ACTION_ROLES[kind as SignerAction],
+        step_mode: mode, ...(stored ? { signing_preset: stored.preset } : {}),
+      };
       if (kind === "release" && scram) {
         out.push(refused(base, "scram-stopped", `SCRAM ${scram.id} has stopped this work: ${scram.reason}`));
         continue;
@@ -3229,56 +3286,139 @@ export async function applyDecision(
   cfg: WorkConfig,
   user: string,
   id: string,
-  req: { kind: string; package_revision: number; reason?: string },
+  req: { kind: string; package_revision: number; reason?: string; expected_digest?: string; assertion_rejected?: boolean },
   signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   return command(db, "decision.apply", async (c) => {
     // Lock order everywhere: marking (the executor), administration, the SCRAM gate, then rows.
     if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
+    // A press under the signing policy relies on the policy's passkey and its signer's authority,
+    // so it is serialized with the administrative changes that could revoke either.
+    else await lockOrgOf(c, user);
     if (req.kind === "release") await enterScramGate(c);
+    return decideTx(c, cfg, { kind: "human", id: user }, id, req, signed);
+  });
+}
+
+/**
+ * Control Rod takes a step itself because the owner's signing policy says it may (release, or
+ * accept of a pass). Runs inside the caller's transaction. Every check that can refuse (the policy,
+ * authority, SCRAM, preparation, the kernel) runs before anything is written, so a refusal leaves
+ * the transaction as it was: the card waits for a person and the work that triggered this (an
+ * intake or a pre-check completing) still lands. A refusal after writing began is not swallowed.
+ * The SCRAM gate must already be held by the caller when kind is "release".
+ */
+export async function autoDecide(c: Tx, cfg: WorkConfig, pkgId: string, revision: number, kind: "release" | "accept"): Promise<boolean> {
+  const pkg = await currentPackage(c, pkgId);
+  if (!pkg || pkg.revision !== revision) return false;
+  const policy = await governingPolicy(c, pkg);
+  if (!policy || modeFor(policy, kind) !== "auto") return false;
+  // Serialize with administrative changes (a revoked passkey, a withdrawn qualification) without
+  // waiting: the caller already holds row locks, so blocking here could deadlock. While an
+  // administrative change is in flight, the card waits for a person instead.
+  const owner = await c.query<{ org_id: string }>("select org_id from projects where id = $1", [pkg.body.project]);
+  let got = false;
+  // A short wait covers a signed decision or an admin command that is finishing.
+  for (let i = 0; owner.rows[0] && !got && i < 5; i++) {
+    if (i > 0) await c.query("select pg_sleep(0.05)");
+    got = Boolean((await c.query<{ ok: boolean }>("select pg_try_advisory_xact_lock(hashtext('controlrod-admin:' || $1)) as ok", [owner.rows[0].org_id])).rows[0]?.ok);
+  }
+  if (!got) {
+    await appendEvent(c, "decision.auto-skipped", pkgId, SYSTEM, { kind, revision, policy: policy.id, reason: "busy", detail: "An administrative change was in progress; the card waits for a person." });
+    return false;
+  }
+  const stage = { writing: false };
+  try {
+    await decideTx(c, cfg, { kind: "system", id: `policy:${policy.id}` }, pkgId, { kind, package_revision: revision }, null, stage);
+    return true;
+  } catch (e) {
+    if (!(e instanceof Refusal) || stage.writing) throw e;
+    await appendEvent(c, "decision.auto-skipped", pkgId, SYSTEM, { kind, revision, policy: policy.id, reason: e.code, detail: e.message.slice(0, 300) });
+    return false;
+  }
+}
+
+/** One decision on a package, by a person (signed, or covered by the signing policy) or by the policy itself. */
+async function decideTx(
+  c: Tx,
+  cfg: WorkConfig,
+  who: { kind: "human" | "system"; id: string },
+  id: string,
+  req: { kind: string; package_revision: number; reason?: string; expected_digest?: string; assertion_rejected?: boolean },
+  signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
+  stage: { writing: boolean } = { writing: false },
+) {
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
     if (!(req.kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
     if (req.kind === "release") await refuseIfScrammed(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
+    // The signing policy, read inside the writer transaction so a change made a moment ago holds.
+    // It covers this step only when it does not ask for a passkey here and no passkey came with it.
+    const policy = signed || req.assertion_rejected ? null : await governingPolicy(c, pkg);
+    const mode = modeFor(policy, req.kind);
+    const byPolicy = policy !== null && (who.kind === "system" ? mode === "auto" : mode !== "passkey");
+    if (who.kind === "system" && !byPolicy) throw new Refusal(403, "policy-required", "Control Rod takes this step only when your signing policy lets it");
+    if (byPolicy) {
+      // The policy is only as good as the passkey that signed it and the authority of its signer.
+      const cred = await currentCredential(c, policy!.assertion.credential_id);
+      if (!cred || cred.revoked) throw new Refusal(403, "policy-signature-revoked", "The passkey that signed your signing policy is no longer valid. Choose your signing settings again.");
+    }
     // Authority is read inside the writer transaction, so a revocation that lands first is honored.
-    await requireAuthority(c, user, req.kind as SignerAction, needsOf(pkg.body));
+    // Under the policy the signer's authority is what counts; a person acting under it needs their own too.
+    if (who.kind === "human") await requireAuthority(c, who.id, req.kind as SignerAction, needsOf(pkg.body));
+    if (byPolicy) await requireAuthority(c, policy!.signed_by, req.kind as SignerAction, needsOf(pkg.body));
     if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     const s = await subjectOf(c, pkg);
+    // A press with no passkey still binds to what the person saw: the digest they were shown.
+    if (who.kind === "human" && byPolicy && req.expected_digest === undefined) {
+      throw new Refusal(400, "invalid", "A decision without a passkey must say which version you saw (expected_subject_digest)");
+    }
+    if (who.kind === "human" && !signed && req.expected_digest !== undefined && req.expected_digest !== s.digest) {
+      throw new Refusal(409, "changed", "This package changed since you opened it. Reload and review the current version.");
+    }
     const preparation = await decisionPreparation(c, cfg, pkg, s, req.kind, true);
     const reason = (req.reason ?? "").trim();
     const outcome = decide({
       status: pkg.status,
       action: HUMAN_ACTIONS[req.kind] ?? "reject",
-      actor_kind: "human",
-      actor_id: user,
+      actor_kind: who.kind,
+      actor_id: who.id,
       author_baseline: s.author?.body.agent_baseline,
       pre_check: s.verification?.outcome,
       assertion_verified: signed !== null,
       digest_matches: signed !== null && signed.subject_digest === s.digest,
+      policy_signed: byPolicy,
       reason_given: reason.length > 0,
       ...(preparation?{preparation}:{}),
     });
     const next = kernel(outcome, req.kind);
+    // A decision under the policy carries the policy's own passkey assertion and a copy of the
+    // policy, so the record shows which signed choice let it through.
+    const assertion = signed
+      ? {
+          credential_id: String(signed.assertion.id ?? ""),
+          authenticator_data: String(signed.assertion.response?.authenticatorData ?? ""),
+          client_data_json: String(signed.assertion.response?.clientDataJSON ?? ""),
+          signature: String(signed.assertion.response?.signature ?? ""),
+        }
+      : byPolicy ? policy!.assertion : { credential_id: "", authenticator_data: "", client_data_json: "", signature: "" };
     const decision = {
       schema_version: "0.1.0",
       id: `D-${randomUUID().slice(0, 8)}`,
       package_id: pkg.id,
       package_revision: pkg.revision,
       kind: req.kind,
-      actor: { kind: "human", id: user },
+      actor: { kind: who.kind, id: who.id },
       subject_digest: { algorithm: "sha256", value: s.digest },
       ...(reason ? { reason: reason.slice(0, 4000) } : {}),
-      assertion: {
-        credential_id: String(signed?.assertion.id ?? ""),
-        authenticator_data: String(signed?.assertion.response?.authenticatorData ?? ""),
-        client_data_json: String(signed?.assertion.response?.clientDataJSON ?? ""),
-        signature: String(signed?.assertion.response?.signature ?? ""),
-      },
+      assertion,
       ...(signed?.nonce ? { challenge_nonce: signed.nonce } : {}),
+      ...(byPolicy ? { signing_policy: policyRef(policy!) } : {}),
       decided_at: now(),
     };
     validate(cfg, "Decision.json", decision);
+    stage.writing = true;
     await c.query("insert into decisions (id, package_id, package_revision, kind, body) values ($1, $2, $3, $4, $5)", [
       decision.id,
       pkg.id,
@@ -3287,7 +3427,7 @@ export async function applyDecision(
       decision,
     ]);
     if(req.kind==="release" && s.preparation) await persistReleaseManifest(c,cfg,s.preparation,decision.id);
-    const human: Actor = { kind: "human", id: user };
+    const actor: Actor = { kind: who.kind, id: who.id };
     if (req.kind === "return") {
       await c.query("update packages set status = 'closed', updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision]);
       const body = { ...pkg.body, revision: pkg.revision + 1, status: "draft" };
@@ -3298,23 +3438,28 @@ export async function applyDecision(
         pkg.capture_id,
         body,
       ]);
-      await advancePreparationRevision(c,cfg,user,pkg,body);
+      await advancePreparationRevision(c,cfg,who.id,pkg,body);
       await stopQueuedRuns(c, cfg, pkg.id, pkg.revision, "Stopped because the package was returned.");
     } else {
       await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
       if (req.kind === "release") await queueRun(c, cfg, pkg.id, pkg.revision, "author", 1);
+      // Accepted work with a repository checkout goes out as a draft pull request once this commits.
+      if ((req.kind === "accept" || req.kind === "accept-with-findings") && cfg.publish) {
+        const publish = cfg.publish;
+        afterCommit(c, () => publish(pkg.id, pkg.revision));
+      }
       if (req.kind === "reject") {
         await stopQueuedRuns(c, cfg, pkg.id, undefined, "Stopped because the package was rejected.");
       }
     }
-    await appendEvent(c, `decision.${req.kind}`, pkg.id, human, {
+    await appendEvent(c, `decision.${req.kind}`, pkg.id, actor, {
       revision: pkg.revision,
       decision: decision.id,
       subject_digest: s.digest,
       status: req.kind === "return" ? "draft" : next,
+      ...(byPolicy ? { signing_policy: policy!.id, policy_version: policy!.version } : {}),
     });
     return decision;
-  });
 }
 
 /* ---------- office and metrics ---------- */
@@ -3520,7 +3665,7 @@ export async function listCaptures(db: Db, orgId: string) {
 
 /* ---------- runtime readiness ---------- */
 
-const KNOWN_RUNTIMES = ["claude", "codex", "fake"];
+const KNOWN_RUNTIMES = [...RUNNABLE, "fake"];
 
 export interface RuntimeStatus {
   runtime: string;
@@ -3583,4 +3728,168 @@ export async function runtimeStatus(db: Db, orgId: string): Promise<{ reported_a
     "select body from runtime_pins where body->>'status' = 'active' and body->>'org_id' = $1 order by body->>'runtime', body->>'role'", [orgId])).rows.map((x) => x.body);
   if (!r.rows[0]) return { runtimes: [], pins };
   return { ...(JSON.parse(r.rows[0].value) as { reported_at?: string; runtimes: RuntimeStatus[] }), pins };
+}
+
+/* ---------- pull request out ---------- */
+
+/** Outcomes after which this revision never tries again. A failed attempt may be retried. */
+const PR_FINAL = new Set(["no-changes", "not-github", "lane", "shared", "changed", "no-checkout"]);
+/** When this server started: a claim made before it cannot belong to an attempt that is still running. */
+const STARTED_AT = Date.now();
+
+/**
+ * Opens the draft pull request for an accepted package whose request was bound to a repository
+ * checkout, and records what happened as events on the package. Runs after the accept commits,
+ * outside the decision's transaction. What goes out is exactly what was accepted: the subject is
+ * recomputed and must match the accept decision's digest, and the commit is built from the
+ * accepted author run's recorded commit and patch output, never from the live tree. The claim is
+ * the lane barrier (publish-claim.ts): no lock is held across the network, yet no raise can land
+ * while the attempt may still send. A failed attempt (or one that never reported in 15 minutes) may be
+ * tried again; the publisher then finds the branch and pull request it already made.
+ */
+export async function publishAccepted(db: Db, id: string, revision: number, atStart = false): Promise<void> {
+  const r = await db.query<{ body: Json; status: string; capture_id: string | null; checkout: Json | null }>(
+    `select p.body, p.status, p.capture_id, c.body->'checkout' as checkout from packages p join captures c on c.id = p.capture_id
+      where p.id = $1 and p.revision = $2`, [id, revision]);
+  const row = r.rows[0];
+  if (!row || row.status !== "accepted" || !row.checkout) return;
+  const checkout = row.checkout;
+  // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
+  const routine = async (q: Db | Tx = db) => {
+    const lane = await laneOf(q, "package", id, row.body.data_lane);
+    return { ok: lane === "public" || lane === "internal", lane };
+  };
+  // The claim is taken under the shared marking lock and only on a routine lane, and while it holds
+  // no marking can raise the card (markings.ts): a raise lands before the claim, and is seen here,
+  // or waits until the attempt is over.
+  const first = await command(db, "package.open-pr", async (c) => {
+    await c.query("lock table events in exclusive mode");
+    const last = (await c.query<{ body: Json }>(
+      `select body from events where body->>'subject' = $1 and body->>'type' in ('package.pr-started', 'package.pr-opened', 'package.pr-not-opened')
+         and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision])).rows[0]?.body;
+    if (last?.type === "package.pr-opened") return null;
+    if (last?.type === "package.pr-not-opened" && PR_FINAL.has(String(last.data?.reason))) return null;
+    // At start a claim from before this server started cannot still be running, so it does not hold;
+    // a claim this server made (an accept during the startup pass) always does, for its 15 minutes.
+    if (last?.type === "package.pr-started") {
+      const at = new Date(String(last.at)).getTime();
+      const stale = atStart ? at < STARTED_AT : false;
+      if (!stale && Date.now() - at < PR_CLAIM_MS) return null;
+    }
+    const now = await routine(c);
+    if (!now.ok) {
+      await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: "lane", detail: `This work is on the ${String(now.lane ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.` });
+      return null;
+    }
+    const claim = randomUUID();
+    const started = await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: publishBranchOf(id, revision), claim });
+    return { claim, at: started.at };
+  });
+  if (!first) return;
+  const { claim } = first;
+  // The send budget counts from the claim's own time, the same clock the barrier measures.
+  const sendBy = new Date(first.at).getTime() + PUBLISH_SEND_BY_MS;
+  const notOpened = (reason: string, detail: string) =>
+    command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason, detail, claim }));
+  // Cards drafted from one request share its checkout, so one card's pull request could carry another's unaccepted work.
+  const siblings = (await db.query<{ n: number }>("select count(distinct id)::int as n from packages where capture_id = $1", [row.capture_id])).rows[0]?.n ?? 0;
+  if (siblings > 1) {
+    await notOpened("shared", "This request became several cards that share one branch, so no single card's pull request is opened. Push the branch yourself once every card is accepted.");
+    return;
+  }
+  const pkg = await currentPackage(db, id);
+  if (!pkg || pkg.revision !== revision || pkg.status !== "accepted") return;
+  const s = await subjectOf(db, pkg);
+  const accepted = (await db.query<{ body: Json }>(
+    "select body from decisions where package_id = $1 and package_revision = $2 and kind in ('accept', 'accept-with-findings') order by created_at desc limit 1",
+    [id, revision])).rows[0]?.body;
+  // The subject as it was decided on, before the decision moved the status on.
+  const decided = digest({ ...s.subject, package: { ...s.subject.package, status: "in-verification" } });
+  if (!accepted || accepted.subject_digest?.value !== decided || !s.author || s.author.status !== "succeeded") {
+    await notOpened("changed", "The work on record is not exactly what was accepted, so nothing was pushed.");
+    return;
+  }
+  const finalHead = String(s.author.body?.trace?.checkout_final?.head ?? checkout.head ?? "");
+  const patches = s.outputs.filter((o) => /\.(patch|diff)$/i.test(o.name));
+  if (patches.length > 1) {
+    await notOpened("failed", `The accepted work has ${patches.length} patch files, so Control Rod cannot tell which one to open a pull request for.`);
+    return;
+  }
+  let patch: Buffer | null = null;
+  if (patches[0]) {
+    const out = (await db.query<{ bytes: Buffer; sha256: string }>("select bytes, sha256 from outputs where run_id = $1 and name = $2", [s.author.id, patches[0].name])).rows[0];
+    if (!out) { await notOpened("failed", "The accepted patch could not be read."); return; }
+    await verifyRecordedOutput(db, { packageId: id, revision, runId: s.author.id, path: patches[0].name }, out);
+    patch = out.bytes;
+  }
+  const result = await publishCheckout({
+    repo: String(checkout.repo ?? ""), root: String(checkout.root ?? ""), path: String(checkout.path ?? ""),
+    boundHead: String(checkout.head ?? ""), finalHead, patch, publishBranch: publishBranchOf(id, revision),
+    title: String(pkg.body.title ?? id), body: prBody(pkg.body, s.verification ?? undefined), acceptedAt: String(accepted.decided_at),
+    stillAllowed: async () => (await routine()).ok, deadline: sendBy,
+  });
+  await command(db, "package.open-pr", async (c) => {
+    // A late failure from an overlapping attempt never hides a pull request already opened.
+    const opened = await c.query("select 1 from events where body->>'subject' = $1 and body->>'type' = 'package.pr-opened' and (body->'data'->>'revision')::int = $2 limit 1", [id, revision]);
+    if (!result.opened && opened.rowCount) return;
+    if (result.opened) {
+      await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, reused: result.reused, claim });
+    } else {
+      await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: result.reason, detail: result.detail, claim });
+    }
+  });
+}
+
+/** The branch only this package revision publishes to. */
+export function publishBranchOf(id: string, revision: number): string {
+  return `controlrod/${id.replace(/[^A-Za-z0-9._-]+/g, "-")}-r${revision}`;
+}
+
+/**
+ * Accepted work whose pull request never got an outcome (the server stopped between the accept
+ * and the push, or the last attempt failed). Run once when the server starts; no timer.
+ */
+export async function resumePublishing(db: Db): Promise<void> {
+  const r = await db.query<{ id: string; revision: number }>(
+    `select distinct on (p.id) p.id, p.revision from packages p join captures c on c.id = p.capture_id
+      where c.body ? 'checkout' order by p.id, p.revision desc`);
+  for (const p of r.rows) await publishAccepted(db, p.id, p.revision, true).catch(() => undefined);
+}
+
+/** The pull request's description: what the card asked for, and who checked it. */
+export function prBody(pkg: Json, ver: Json | undefined): string {
+  const criteria = Array.isArray(pkg.acceptance_criteria) ? pkg.acceptance_criteria.map((x: unknown) => `- ${String(x)}`).join("\n") : "";
+  const checker = ver?.independence?.checker_runtime;
+  const checked = ver
+    ? `Blind check: **${String(ver.outcome)}**${checker?.provider ? ` by ${String(checker.provider)}${checker.model ? ` (${String(checker.model)})` : ""}` : ""}, ${Array.isArray(ver.findings) ? ver.findings.length : 0} findings.`
+    : "No blind check on record.";
+  return [
+    `Opened by Control Rod after the card **${String(pkg.title ?? pkg.id)}** (${String(pkg.id)} r${String(pkg.revision ?? 0)}) was accepted.`,
+    "",
+    String(pkg.objective ?? ""),
+    "",
+    criteria ? `**Acceptance criteria**\n\n${criteria}` : "",
+    "",
+    checked,
+    "",
+    "This is a draft: review and merge it when you are happy.",
+  ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
+}
+
+/** The latest pull request attempt for this revision, as the card shows it. */
+async function pullRequestOf(db: Db, id: string, revision: number) {
+  const r = await db.query<{ body: Json }>(
+    `select body from events where body->>'subject' = $1 and body->>'type' in ('package.pr-started', 'package.pr-opened', 'package.pr-not-opened')
+       and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision]);
+  const e = r.rows[0]?.body;
+  if (!e) return {};
+  if (e.type === "package.pr-opened") return { pull_request: { state: "opened", url: e.data.url, branch: e.data.branch, at: e.at } };
+  if (e.type === "package.pr-not-opened") return { pull_request: { state: e.data.reason === "no-changes" ? "no-changes" : "not-opened", detail: e.data.detail, at: e.at } };
+  return { pull_request: { state: "opening", branch: e.data.branch, at: e.at } };
+}
+
+/** Takes the organization's administrative lock for a person, the lock admin commands hold. */
+async function lockOrgOf(c: Tx, user: string): Promise<void> {
+  const m = await c.query<{ org_id: string }>("select org_id from members where user_name = $1", [user]);
+  if (m.rows[0]) await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || $1))", [m.rows[0].org_id]);
 }

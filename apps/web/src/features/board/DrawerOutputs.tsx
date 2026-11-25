@@ -4,6 +4,34 @@ import { api } from "../../api/client.js";
 import { Preview } from "../../components/OutputPreview.js";
 import { isDiffName } from "../../lib/diff.js";
 import { baseName, shortDigest } from "../../lib/format.js";
+import { usePanelScreen, type PanelScreen } from "../../components/PanelScreen.js";
+
+/** An output at the side panel's full size: the file is the title, its own viewer the body. */
+export function fileScreen(packageId: string, artifact: Artifact): PanelScreen {
+  const href = api.outputUrl(packageId, artifact.path);
+  const name = baseName(artifact.path);
+  return {
+    key: `file:${artifact.path}:${artifact.digest.value}`,
+    title: name,
+    mono: true,
+    links: (
+      <>
+        <a href={href} className="link" target="_blank" rel="noreferrer">
+          Open in a new tab
+        </a>
+        <a href={href} className="link" download={name}>
+          Download
+        </a>
+      </>
+    ),
+    meta: (
+      <span className="mono">
+        {artifact.path} · {shortDigest(artifact.digest)}
+      </span>
+    ),
+    body: <Preview href={`${href}?d=${artifact.digest.value}`} name={name} />,
+  };
+}
 
 /** The output opened first: a diff or patch, else the first one produced. */
 export function defaultOutput(outputs: readonly Artifact[]): Artifact | undefined {
@@ -16,6 +44,7 @@ export function defaultOutput(outputs: readonly Artifact[]): Artifact | undefine
  */
 export function DrawerOutputs({ packageId, outputs, loading }: { packageId: string; outputs: readonly Artifact[]; loading: boolean }) {
   const [chosen, setChosen] = useState<string | undefined>(undefined);
+  const openScreen = usePanelScreen();
   // A new package starts from its own default; an output that went away falls back to the default.
   useEffect(() => setChosen(undefined), [packageId]);
   const current = outputs.find((o) => o.path === chosen) ?? defaultOutput(outputs);
@@ -46,9 +75,16 @@ export function DrawerOutputs({ packageId, outputs, loading }: { packageId: stri
         <div className="bd-output-view" key={current.path}>
           <div className="bd-output-bar">
             <span className="mono small">{baseName(current.path)}</span>
-            <a href={href} className="link small" target="_blank" rel="noreferrer">
-              Open raw
-            </a>
+            <span className="bd-output-links">
+              {openScreen && (
+                <button type="button" className="btn ghost small" onClick={() => openScreen(fileScreen(packageId, current))}>
+                  Expand
+                </button>
+              )}
+              <a href={href} className="link small" target="_blank" rel="noreferrer">
+                Open raw
+              </a>
+            </span>
           </div>
           <Preview href={`${href}?d=${current.digest.value}`} name={baseName(current.path)} />
         </div>

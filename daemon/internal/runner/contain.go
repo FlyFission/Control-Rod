@@ -118,6 +118,9 @@ type Unit struct {
 	PGID   int
 }
 
+// locateWait bounds how long Locate waits for a started process to reach its scope.
+var locateWait = 5 * time.Second
+
 // Locate finds the unit a just-started process runs in. In cgroup mode it waits for systemd-run
 // to have moved the process into its scope; a process that never arrives is not contained.
 func (k Container) Locate(pid int, unit string) (Unit, error) {
@@ -125,16 +128,17 @@ func (k Container) Locate(pid int, unit string) (Unit, error) {
 	if k.Mode != ContainCgroup {
 		return u, nil
 	}
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(locateWait)
 	for {
 		dir, err := cgroupOf(pid)
 		if err == nil && hasSuffix(dir, "/"+unit+".scope") {
 			u.Cgroup = dir
 			return u, nil
 		}
-		// A process that already exited may have left before it could be seen in its scope; the
-		// scope's place is known, and an empty or collected scope simply holds nothing.
-		if err != nil && k.ScopeParent != "" && !processExists(pid) {
+		// A process that already exited may have left before it could be seen in its scope, or
+		// exited inside it and seen it collected; the scope's place is known, and an empty or
+		// collected scope simply holds nothing.
+		if k.ScopeParent != "" && ((err != nil && !processExists(pid)) || (err == nil && dir == k.ScopeParent+"/"+unit+".scope (deleted)" && exitedInRemovedScope(pid, dir, unit))) {
 			u.Cgroup = k.ScopeParent + "/" + unit + ".scope"
 			return u, nil
 		}

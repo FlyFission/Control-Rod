@@ -1,0 +1,19 @@
+ok   panel opens docked at 520 px (got 520)
+ok   page narrows beside the panel, not under it
+ok   no overlay on a wide screen
+ok   focus moves into the panel when it opens
+ok   page keeps touch scrolling and pinch zoom
+ok   top bar stays visible
+ok   click on the page keeps the panel open
+ok   another item swaps the panel content
+ok   dragging the edge widens it (got 680)
+ok   Esc hides it and the page takes the full width again
+ok   reopens at the dragged width (680 vs 680)
+ok   X hides it
+ok   slides over from the right at 1024 px (got {"x":464,"w":560,"top":72})
+ok   starts below the top bar
+ok   click outside closes the overlay
+ok   full width on a phone (got 390)
+ok   crossing to a narrow window moves the open panel over the page
+ok   and back beside it
+all passed

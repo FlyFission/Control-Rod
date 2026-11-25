@@ -73,6 +73,8 @@ function checkerRuntime(run: Json): string {
   if (!p || p === "any") return "unassigned";
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
+  if (p === "agy" || p === "antigravity" || p === "gemini-cli") return "agy";
+  if (p === "grok" || p === "xai" || p === "grok-cli") return "grok";
   return p.slice(0, 80);
 }
 

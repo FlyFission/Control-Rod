@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SigningStepMode.json",
+    "anyOf": [
+        {
+            "type": "string",
+            "const": "auto"
+        },
+        {
+            "type": "string",
+            "const": "click"
+        },
+        {
+            "type": "string",
+            "const": "passkey"
+        }
+    ],
+    "description": "How each step on a routine card is taken: by Control Rod itself, by a press, or signed with a passkey."
+}

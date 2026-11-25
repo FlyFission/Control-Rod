@@ -33,6 +33,7 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
+import { RUNNABLE } from "./runtimes.js";
 import { recordUsageLimits, usageLimitsView } from "./usage-limits.js";
 import { recordSeat, recordSetup, setupView } from "./setup.js";
 import { listWorkspaceProjects } from "./workspace-projects.js";
@@ -77,9 +78,12 @@ import {
   reconcileSubject,
   reconcileRun,
   updateDraft,
+  publishAccepted,
+  resumePublishing,
 } from "./work.js";
 import { activeRuns, activeRunSummaries, requireOwnedRun, runDetail, runEvents, runLogLines, type RunEventQuery } from "./run-reads.js";
 import { runOutputPreview, runOutputs } from "./run-outputs.js";
+import type { updateNoticeFor } from "./update-notice.js";
 
 export const VERSION = "0.1.0";
 
@@ -92,6 +96,7 @@ export interface AppOptions {
   onError?: (err: unknown) => void;
   auth: AuthConfig;
   root: string;
+  updateNotice?: ReturnType<typeof updateNoticeFor>;
   /** Built web app to serve at /, if present. */
   webDir?: string;
   /** Seconds a run claim lasts without a heartbeat. Default 90. */
@@ -106,6 +111,8 @@ export interface AppOptions {
   sweepSeconds?: number;
   /** The most missed events the stream replays on reconnect. Default STREAM_REPLAY_MAX. */
   streamReplayMax?: number;
+  /** Open a draft pull request when work bound to a repository checkout is accepted. Default on; CONTROLROD_PUBLISH_PULL_REQUESTS=0 turns it off. */
+  publishPullRequests?: boolean;
 }
 
 const OUTPUT_PATH = /^\/packages\/[^/?#]+\/(?:outputs\/|verification-evidence\/[^/?#]+\/)/;
@@ -134,8 +141,13 @@ const MIME: Record<string, string> = {
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
   const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.preparationLanes?{preparationLanes:opts.preparationLanes}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
+  // Accepted work bound to a repository checkout opens its draft pull request after the accept commits.
+  const resumePullRequests = opts.publishPullRequests ?? process.env.CONTROLROD_PUBLISH_PULL_REQUESTS !== "0";
+  if (resumePullRequests) cfg.publish = (id, revision) => void publishAccepted(db, id, revision).catch((e) => console.error("[control-rod] pull request:", e));
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
+  // Accepted work whose pull request never got an outcome is picked up once at start, not on a timer.
+  if (resumePullRequests) app.addHook("onReady", async () => { void resumePublishing(db).catch((e) => console.error("[control-rod] pull request:", e)); });
   const parseJson = app.getDefaultJsonParser("error", "error");
   app.removeContentTypeParser("application/json");
   app.addContentTypeParser("application/json", { parseAs: "buffer" }, (_req, body, done) => {
@@ -339,12 +351,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       throw new Refusal(400, "invalid", "The project ID in the request must match the path");
     }
     let signed: { subject: string; credentialId: string; nonce: string; assertion: Record<string, unknown> } | null = null;
-    if (req.body?.assertion) {
-      const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
+    // Presence, not truthiness: a null or false assertion is a malformed signature, never a press.
+    if (req.body !== null && typeof req.body === "object" && "assertion" in req.body) {
+      const ok = req.body.assertion ? await assertionVerify(db, auth, "admin", req.body.assertion as never) : null;
       if (ok && ok.user === user && ok.data.command === name && ok.data.member === caller.memberId)
         signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
     }
-    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed);
+    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed,
+      req.body !== null && typeof req.body === "object" && "assertion" in req.body && !signed);
   }
   app.post<{ Params: { name: string }; Body: AdminCommandBody }>("/admin/commands/:name", async (req) =>
     executeAdminCommand(req, req.params.name));
@@ -490,8 +504,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const user = await packageUser(req, req.params.id);
     const body = req.body ?? ({} as DecisionBody);
     let signed: { subject_digest: string; assertion: Record<string, unknown>; nonce?: string } | null = null;
-    if (body.assertion) {
-      const ok = await assertionVerify(db, auth, "decision", body.assertion as never);
+    const assertionSent = body !== null && typeof body === "object" && "assertion" in body;
+    if (assertionSent) {
+      const ok = body.assertion ? await assertionVerify(db, auth, "decision", body.assertion as never) : null;
       if (
         ok &&
         ok.user === user &&
@@ -500,7 +515,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
         Number(ok.data.revision) === Number(body.package_revision)
       ) {
         signed = {
-          subject_digest: String(ok.data.subject_digest), assertion: body.assertion,
+          subject_digest: String(ok.data.subject_digest), assertion: body.assertion as Record<string, unknown>,
           ...(typeof ok.data.nonce === "string" ? { nonce: ok.data.nonce } : {}),
         };
       }
@@ -509,6 +524,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       kind: String(body.kind),
       package_revision: Number(body.package_revision),
       ...(body.reason ? { reason: String(body.reason) } : {}),
+      ...(typeof body.expected_subject_digest?.value === "string" ? { expected_digest: body.expected_subject_digest.value } : {}),
+      // A passkey that came and did not verify is never taken as a press: the decision is judged unsigned.
+      ...(assertionSent && !signed ? { assertion_rejected: true } : {}),
     }, signed);
     return reply.code(201).send(decision);
   });
@@ -712,6 +730,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.get("/runtimes", async (req) => {
     return { ...(await runtimeStatus(db, (await callerFor(db, await person(req))).orgId)), ...(await agentUpdateView(db)) };
   });
+  app.get("/update-notice", async (req) => {
+    await callerFor(db, await person(req));
+    return (await opts.updateNotice?.read()) ?? null;
+  });
+  app.post("/update-notice/check", async (req) => {
+    await callerFor(db, await person(req));
+    return (await opts.updateNotice?.check()) ?? null;
+  });
   /** First-run setup: which agents are seated and when to check with the person. */
   app.get("/setup", async (req) => {
     await callerFor(db, await person(req));
@@ -866,7 +892,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])
       .map(String)
-      .filter((r) => ["claude", "codex", "fake"].includes(r) && !notReady.has(r));
+      .filter((r) => [...RUNNABLE, "fake"].includes(r) && !notReady.has(r));
     await sweep();
     // The daemon's run ceiling sizes budget reservations; one it did not report is never guessed.
     const ceiling = req.body?.run_ceiling_seconds;

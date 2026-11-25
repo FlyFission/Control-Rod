@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CardLink } from "../components/CardPanel.js";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
@@ -81,9 +82,7 @@ export function Registers() {
                     <td>{d.type}</td>
                     <td className="muted">{(d.format ?? []).join(", ") || "any"}</td>
                     <td>
-                      <Link to="/packages/$id" params={{ id: pkg.id }}>
-                        {pkg.title}
-                      </Link>{" "}
+                      <CardLink id={pkg.id}>{pkg.title}</CardLink>{" "}
                       <span className="mono small muted">
                         {pkg.id} rev {pkg.revision}
                       </span>

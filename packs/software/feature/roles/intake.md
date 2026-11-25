@@ -4,7 +4,7 @@ Job guidance for a request to design and implement new software functionality. D
 
 | Stage / Package | `agent_assignment[0].role` | When to split |
 |---|---|---|
-| Interface / design spec | `software-author` | Split out when contracts or architecture need owner approval before coding |
+| Interface / design spec | `software-author` | Only when the request itself asks for a design or spec to be approved before coding. Otherwise the implementation package covers its own design notes |
 | Feature implementation & tests | `software-author` | Default package; add `depends_on` to the design package when split |
 
 ## Acceptance criteria guidance

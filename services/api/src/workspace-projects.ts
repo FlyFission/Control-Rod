@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { type SigningPolicy, parseSteps, policySummary, signPolicy } from "./signing-policy.js";
 import type { Db, Tx } from "./db/index.js";
 import { appendEvent } from "./events.js";
 import type { Caller } from "./admin.js";
@@ -44,6 +45,8 @@ export interface WorkspaceProjectView {
   laneAgents?: Record<string, string>;
   /** The work lanes the Plant's bays follow. An old project reads as the capital-project preset. */
   work_lanes: WorkLaneSet;
+  /** What needs a passkey on this project's routine cards, when the owner has chosen. */
+  signing?: { preset: string; steps: Record<string, string>; version: number; signed_by: string; signed_at: string };
   createdAt: string;
 }
 
@@ -124,7 +127,7 @@ function assertO6Independence(prefs: ProjectWorkspacePrefs): void {
   }
 }
 
-function resolveWorkspaceMode(body: Record<string, unknown>): EngineeringMode {
+export function resolveWorkspaceMode(body: Record<string, unknown>): EngineeringMode {
   if (Array.isArray(body.qa_overlays) && body.qa_overlays.includes("nuclear-grade")) {
     return "nuclear-grade";
   }
@@ -205,7 +208,8 @@ export async function projectRuntimePrefs(
  * classified below it, whatever lane a browser with a stale copy of the project sends.
  */
 export async function projectDefaultLane(q: { query: Db["query"] }, orgId: string, projectId: string): Promise<DataLane | undefined> {
-  const r = await q.query("select 1 from projects where id = $1 and org_id = $2 and coalesce(body->>'status', 'active') = 'active'", [projectId, orgId]);
+  // An archived project keeps its floor: a stale tab must not lower the lane of work tagged to it.
+  const r = await q.query("select 1 from projects where id = $1 and org_id = $2", [projectId, orgId]);
   if (!r.rowCount) return undefined;
   return mergePrefs((await readPrefsMap(q, orgId))[projectId]).lane;
 }
@@ -227,6 +231,7 @@ export async function listWorkspaceProjects(db: Db, orgId: string): Promise<Work
       status: String(r.body.status ?? "active"),
       ...prefs,
       work_lanes: laneSetOf(r.body.work_lanes),
+      ...policySummary(r.body),
       createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     };
   });
@@ -237,6 +242,7 @@ export async function createWorkspaceProject(
   c: Tx,
   caller: Caller,
   input: Record<string, unknown>,
+  signed?: { subject: string; nonce?: string; assertion: SigningPolicy["assertion"] },
 ): Promise<WorkspaceProjectView> {
   const name = typeof input.name === "string" ? input.name.trim() : "";
   if (!name || name.length > 120) throw new Refusal(400, "invalid", "Project name is required (max 120 chars)");
@@ -273,6 +279,14 @@ export async function createWorkspaceProject(
     status: "active",
     work_lanes: lanes,
   }, actor);
+  // A signing preset chosen in the create form is signed by the same passkey as the project.
+  // Nuclear-grade projects sign every step whatever is chosen, so none is stored for them.
+  if (input.signing_preset !== undefined && signed && mode !== "nuclear-grade") {
+    const { preset, steps } = parseSteps(input.signing_preset, undefined);
+    const policy = signPolicy({ prior: null, preset, steps, signedBy: caller.userName, ...signed });
+    await c.query("update projects set body = jsonb_set(body, '{signing_policy}', $2::jsonb) where id = $1", [id, policy]);
+    await appendEvent(c, "project.signing-policy-set", id, actor, { policy: policy.id, version: policy.version, preset, steps });
+  }
   const map = await readPrefsMap(c, caller.orgId);
   map[id] = prefs;
   await writePrefsMap(c, caller.orgId, map);

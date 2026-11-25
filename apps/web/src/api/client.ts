@@ -137,6 +137,8 @@ async function send<T>(method: string, path: string, body?: unknown, headers: Re
 
 const enc = encodeURIComponent;
 
+type UpdateNoticeStatus = { running_commit: string; checked_at?: string; checkout_commit?: string; latest_commit?: string; behind?: number; error?: string };
+
 export const api = {
   session: () => call<Session>("GET", "/auth/session"),
   registerOptions: (name: string) =>
@@ -229,7 +231,7 @@ export const api = {
       `/packages/${enc(id)}/decisions/options`,
       req,
     ),
-  decide: (id: string, body: DecisionRequest & { assertion: Record<string, unknown> }) =>
+  decide: (id: string, body: DecisionRequest & ({ assertion: Record<string, unknown> } | { expected_subject_digest: Digest })) =>
     call<Decision>("POST", `/packages/${enc(id)}/decisions`, body),
 
   office: () => call<OfficeItem[]>("GET", "/office"),
@@ -237,6 +239,8 @@ export const api = {
   inbox: (since?: number) => call<InboxView>("GET", since === undefined ? "/inbox" : `/inbox?since=${since}`),
   runtimes: () =>
     call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[]; agent_updates?: AgentUpdate[] }>("GET", "/runtimes"),
+  updateNotice: () => call<UpdateNoticeStatus | null>("GET", "/update-notice"),
+  checkUpdateNotice: () => call<UpdateNoticeStatus | null>("POST", "/update-notice/check"),
   subscriptions: () => call<SubscriptionView>("GET", "/subscriptions"),
   setup: () => call<AgentSetupView>("GET", "/setup"),
   recordSetup: (body: AgentSetupRequest) => call<AgentSetupView>("PUT", "/setup", body),
@@ -256,6 +260,9 @@ export const api = {
     call<{ subject_digest: Digest; options: Record<string, unknown> }>("POST", `/admin/commands/${enc(name)}/options`, { payload }),
   adminCommand: <T = Record<string, unknown>>(name: string, payload: Record<string, unknown>, assertion: Record<string, unknown>) =>
     call<T>("POST", `/admin/commands/${enc(name)}`, { payload, assertion }),
+  /** An administrative command taken with a press, no passkey (SCRAM pull). */
+  adminPress: <T = Record<string, unknown>>(name: string, payload: Record<string, unknown>) =>
+    call<T>("POST", `/admin/commands/${enc(name)}`, { payload }),
   scrams: (presenting = false) => call<{ scrams: ScramSummary[]; presenting?: boolean }>("GET", presenting ? "/scrams?presenting=true" : "/scrams"),
   scramPreview: (scope: "organization" | "project", projectId?: string, presenting = false) =>
     call<ScramPreview>("GET", `/scrams/preview?scope=${enc(scope)}${projectId ? `&project_id=${enc(projectId)}` : ""}${presenting ? "&presenting=true" : ""}`),

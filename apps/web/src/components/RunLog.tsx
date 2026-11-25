@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { PackageView, Run } from "../api/types.js";
@@ -6,9 +6,14 @@ import { useActionLock } from "../lib/scramLock.js";
 import { isVisible } from "../lib/live.js";
 import { type Passkeys, browserPasskeys, signOverride, signReconcile } from "../lib/decide.js";
 import { time } from "../lib/format.js";
+import { plainError } from "../lib/plainError.js";
 import { modelRouting } from "../lib/modelRouting.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 import { VendorBadge } from "./VendorBadge.js";
+import { LogBody, LogViewer } from "./LogViewer.js";
+import { rememberRun } from "../lib/runPreferences.js";
+import { sessionIdentity } from "../lib/session.js";
+import { usePanelScreen, type PanelScreen } from "./PanelScreen.js";
 
 export function runState(run: Run): StateKind {
   switch (run.status) {
@@ -182,6 +187,24 @@ export function RunActions({ packageId, run, showStop = true }: { packageId: str
   );
 }
 
+/** A run's error: the plain sentence first, the runner's own text one click away. */
+function RunError({ raw }: { raw: string }) {
+  const plain = plainError(raw);
+  if (!plain || plain.what === raw.trim()) return <p className="error">{raw}</p>;
+  return (
+    <div className="run-error">
+      <p className="error">
+        {plain.what}
+        {plain.fix && <> {plain.fix}</>}
+      </p>
+      <details className="small">
+        <summary>Technical details</summary>
+        <pre className="log">{raw}</pre>
+      </details>
+    </div>
+  );
+}
+
 export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly = false, focused = false }: { packageId: string; run: Run; passkeys?: Passkeys; readOnly?: boolean; focused?: boolean }) {
   const live = run.status === "running" || run.status === "queued";
   const needsAttention = canRequeue(run) || outcomeUnknown(run) || isIndependenceHold(run);
@@ -199,6 +222,14 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
   const lines = frozen ?? latest;
   const waiting = frozen === null ? 0 : Math.max(0, latest.length - frozen.length);
   const routing = modelRouting(run.trace, run.finished_at !== undefined);
+  const [full, setFull] = useState(false);
+  const openScreen = usePanelScreen();
+  const logTitle = runLogTitle(run);
+  function openFull() {
+    // In a card's side panel the log opens over the card at the panel's full size; on a page, as a modal.
+    if (openScreen) openScreen(runLogScreen(packageId, run));
+    else setFull(true);
+  }
   return (
     // A run that needs the person (requeue it, or reconcile it first) is shown open, so its buttons are seen.
     <details
@@ -230,11 +261,7 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
         ) : routing.kind !== "none" ? (
           <p className="muted small">{routing.text}</p>
         ) : null}
-        {run.error !== undefined && (
-          <p className="error" role="alert">
-            {run.error}
-          </p>
-        )}
+        {run.error !== undefined && <RunError raw={run.error} />}
         {run.requeued_as !== undefined && <p className="muted small">Requeued as {run.requeued_as}</p>}
         {run.reconciliation !== undefined && <p className="muted small">Reconciled ({run.reconciliation.disposition}): {run.reconciliation.evidence}</p>}
         {!readOnly && <Reconcile packageId={packageId} run={run} passkeys={passkeys} />}
@@ -250,8 +277,12 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
           </div>
         )}
         {!readOnly && <RunActions packageId={packageId} run={run} showStop={!focused} />}
-        {(live || frozen !== null) && (
-          <div className="log-bar">
+        <div className="log-bar">
+          <button type="button" className="btn small" onClick={openFull}>
+            Open full log
+          </button>
+          {(live || frozen !== null) && (
+            <>
             <button type="button" className="btn ghost small" onClick={() => {
               // Resuming fetches again, so lines that landed after the last poll (a run that just
               // ended stops polling) are not missed.
@@ -265,7 +296,17 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
                 {waiting === 0 ? "Paused: nothing new since you paused." : `Paused: ${waiting} new ${waiting === 1 ? "line" : "lines"} since you paused.`}
               </span>
             )}
-          </div>
+            </>
+          )}
+        </div>
+        {full && (
+          <LogViewer
+            title={logTitle}
+            summary={run.error !== undefined ? <RunError raw={run.error} /> : <p>{runStatusText(run)}</p>}
+            lines={latest}
+            live={live}
+            onClose={() => setFull(false)}
+          />
         )}
         <pre className="log" aria-label={`${ROLE_LABEL[run.role]} log`}>
           {lines.length === 0 ? "No log lines yet." : lines.slice(-400).join("\n")}
@@ -273,4 +314,35 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
       </div>
     </details>
   );
+}
+
+export const runLogTitle = (run: Run) => `${ROLE_LABEL[run.role]} log, round ${run.round}`;
+
+/** A run's full log at the side panel's full size, over its card. */
+export function runLogScreen(packageId: string, run: Run): PanelScreen {
+  const title = runLogTitle(run);
+  return { key: `log:${run.id}`, title, body: <LiveLog packageId={packageId} run={run} title={title} /> };
+}
+
+/**
+ * The full log in the side panel. It reads the same query as the run's card, so it keeps updating
+ * while the run is live, and it stays live after the card's own section is folded.
+ */
+function LiveLog({ packageId, run: opened, title }: { packageId: string; run: Run; title: string }) {
+  // The run as the card's own read has it now, so the status line follows it after it finishes.
+  const view = useQuery({ queryKey: ["package", packageId], queryFn: () => api.packageView(packageId) });
+  const run = view.data?.runs?.find((r) => r.id === opened.id) ?? opened;
+  // Listed under Recent runs, as opening it on the case page does.
+  const session = useQuery({ queryKey: ["session"], queryFn: api.session });
+  const viewer = sessionIdentity(session.data);
+  useEffect(() => {
+    rememberRun(viewer, packageId, opened.id);
+  }, [viewer, packageId, opened.id]);
+  const live = run.status === "running" || run.status === "queued";
+  const log = useQuery({
+    queryKey: ["runlog", packageId, run.id],
+    queryFn: () => api.runLog(packageId, run.id),
+    refetchInterval: () => (live && isVisible() ? 2000 : false),
+  });
+  return <LogBody title={title} summary={run.error !== undefined ? <RunError raw={run.error} /> : <p>{runStatusText(run)}</p>} lines={log.data?.lines ?? []} live={live} />;
 }

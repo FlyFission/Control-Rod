@@ -19,6 +19,7 @@ import { CONTEXT_PROFILE_DOWN_SQL } from "../src/db/migrations/024-context-profi
 import { DEPENDENCY_PROVENANCE_DOWN_SQL } from "../src/db/migrations/025-dependency-provenance.js";
 import { DEFAULT_WORKFLOW_DOWN_SQL } from "../src/db/migrations/026-default-workflow.js";
 import { WORK_LANES_DOWN_SQL } from "../src/db/migrations/027-work-lanes.js";
+import { SIGNING_POLICY_DOWN_SQL } from "../src/db/migrations/028-signing-policy.js";
 import { verifyChain } from "../src/events.js";
 import { TEST_ROLE_SECRETS } from "./harness.js";
 
@@ -58,6 +59,7 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   const before = await snapshot(db, tables);
   for (const t of [...nonEmpty, "events"]) expect(before[t]?.length ?? 0, `${t} must hold history`).toBeGreaterThan(0);
   expect((await verifyChain(db)).ok).toBe(true);
+  await db.query(SIGNING_POLICY_DOWN_SQL);
   await db.query(WORK_LANES_DOWN_SQL);
   await db.query(DEFAULT_WORKFLOW_DOWN_SQL);
   await db.query(DEPENDENCY_PROVENANCE_DOWN_SQL);

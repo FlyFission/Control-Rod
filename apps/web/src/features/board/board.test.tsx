@@ -529,12 +529,16 @@ describe("BoardView", () => {
     }
   });
 
-  it("guides the first card on an empty board", async () => {
+  it("guides a first run on an empty board, one step at a time", async () => {
     api({ packages: [] });
     await renderPage(<Page />);
-    expect(await screen.findByText(/Add a card to capture a task/)).toBeTruthy();
-    expect(screen.getByText(/Choose its data lane before an agent starts drafting/)).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Get your first change done" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Choose agents" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "+ Add a card" })).toBeTruthy();
+    // Hidden, the plain empty board says what to do.
+    await userEvent.click(screen.getByRole("button", { name: "Hide guide" }));
+    expect(await screen.findByText(/Describe what you want done/)).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Get your first change done" })).toBeNull();
   });
 
   it("counts what needs you and the agents running", async () => {

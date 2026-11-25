@@ -44,14 +44,17 @@ export type DrawerStep = {
 
 const sentence = (s: string) => (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`);
 
-/** The reason a forward step is refused (Release, then Accept, then Accept with findings), else any refusal's reason. */
-export function refusalReason(refused: readonly { command: string; reason?: string; change?: string }[]): string | undefined {
-  const forward = PRIMARY_ORDER.map((k) => refused.find((a) => a.command === k && a.reason)).find(Boolean);
-  const a = forward ?? refused.find((x) => x.reason);
+/**
+ * Why the step that moves this package on is refused: Release while it is a draft, Accept (then
+ * Accept with findings) after. The server lists every decision for every state, so a refusal that
+ * belongs to another lifecycle step (Release on work in verification) is never the one shown.
+ */
+export function refusalReason(status: string, refused: readonly { command: string; reason?: string; change?: string }[]): string | undefined {
+  const forward = status === "draft" ? ["release"] : ["accept", "accept-with-findings"];
+  const a = forward.map((k) => refused.find((x) => x.command === k && x.reason)).find(Boolean);
   if (!a?.reason) return undefined;
   return a.change ? `${sentence(a.reason)} ${sentence(a.change)}` : a.reason;
 }
-const PRIMARY_ORDER = ["release", "accept", "accept-with-findings"] as const;
 
 /** What a step offers, for resetting its notes and toggles only when that changes. */
 export function stepKey(step: DrawerStep): string {
@@ -197,7 +200,7 @@ function CalmBody({ view, mode }: { view: PackageView; mode: EngineeringMode }) 
   const d = useDecisionSigner(view);
   // Why the step that moves the work forward (Release, Accept) is closed, even when Send back or
   // Reject are open: that reason is what the person needs to act on.
-  const refusedReason = d.actions.isSuccess ? refusalReason(d.refused) : undefined;
+  const refusedReason = d.actions.isSuccess ? refusalReason(view.package.status, d.refused) : undefined;
   const step = drawerStep(view, d.allowed, refusedReason);
   const pkg = view.package;
   return (

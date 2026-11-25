@@ -39,11 +39,15 @@ describe("drawerStep and stepKey", () => {
     expect(drawerStep(v(), ["return"], "Waiting on a person verification").text).toBe("Waiting on a person verification.");
   });
   it("explains why Accept is closed even when Send back and Reject are open", () => {
+    // The server lists every decision, Release included, whatever the state.
     const refused = [
+      { command: "release", reason: "The work is not in a state this action applies to" },
       { command: "reject", reason: "Not yours" },
       { command: "accept", reason: "A person verification is required", change: "Record a passing person verification" },
     ];
-    expect(refusalReason(refused)).toBe("A person verification is required. Record a passing person verification.");
+    expect(refusalReason("in-verification", refused)).toBe("A person verification is required. Record a passing person verification.");
+    expect(refusalReason("draft", refused)).toBe("The work is not in a state this action applies to");
+    expect(refusalReason("in-verification", [{ command: "release", reason: "wrong state" }])).toBeUndefined();
     expect(drawerStep(v({ pre_check: { outcome: "fail", verifier: "v", method: "m", findings: [] } as never }), ["return"], undefined).action).toEqual({ kind: "decide", decision: "return" });
   });
   it("keys a running step by what it offers, not by its changing label", () => {

@@ -5,6 +5,7 @@ import { ApiError, api } from "../../api/client.js";
 import type { ActionDescriptor, CaptureView, Digest, PersonVerificationEntry, Run, WorkPackage } from "../../api/types.js";
 import { type ColumnId, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
+import { MODE_COPY, useMode } from "../../lib/mode.js";
 import { useLiveStatus } from "../../lib/live.js";
 import { projectContextDefault, resolveContextProfile } from "../../lib/context-profile.js";
 import { type NextLine, hasOtherQualified, nextLine } from "../../lib/next.js";
@@ -98,6 +99,7 @@ const NO_NEXT: NextLine = { tone: "wait", text: "Could not read what is next" };
  * recorded verifications. Status comes from the event stream: when it is unknown, the cards say so.
  */
 export function useBoardData(): BoardData {
+  const mode = useMode();
   const live = useLiveStatus();
   const session = useQuery({ queryKey: ["session"], queryFn: api.session });
   const packages = useQuery({ queryKey: ["packages"], queryFn: api.packages });
@@ -255,8 +257,9 @@ export function useBoardData(): BoardData {
   }, [nextGraceEnd]);
 
   const problems: string[] = [];
+  const checkColumn = MODE_COPY[mode].boardColumns["agent-check"];
   if (packages.isError) problems.push("Could not load the work on this board.");
-  if (office.isError) problems.push("Could not read the agent pre-check results, so cards may sit in Agent check.");
+  if (office.isError) problems.push(`Could not read the agent pre-check results, so cards may sit in ${checkColumn}.`);
   if (capturesQ.isError) problems.push("Could not read the captures, so new cards may be missing from Ready.");
 
   return {

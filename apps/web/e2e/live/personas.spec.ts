@@ -147,7 +147,7 @@ test.describe("@persona", () => {
     const j = new Journey(page, "phone", "Checks the board from a phone between meetings and jots down one new task.");
     try {
       await signIn(page, stack);
-      await expect(page.getByRole("button", { name: "+ Add a card" })).toBeVisible({ timeout: 30000 });
+      await expect(page.getByRole("button", { name: "+ Quick add" })).toBeVisible({ timeout: 30000 });
       await j.note("Open the board on a phone");
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (overflow > 1) {

@@ -1,6 +1,5 @@
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
 import type { WorkspaceProjectArchivePayload, WorkspaceProjectUpdatePayload } from "../../api/types.js";
 import { useActionLock } from "../../lib/scramLock.js";
@@ -878,9 +877,6 @@ export function BoardView() {
             >
               + {copy.newCta} <kbd>C</kbd>
             </button>
-            <Link to="/packages" className="btn">
-              Open Packages
-            </Link>
           </div>
         </section>
       )}

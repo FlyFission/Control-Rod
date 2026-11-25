@@ -1,0 +1,18 @@
+# Six busy loops on 4 CPUs; PATH puts a multi-call sleep (evidence/multicall-sleep.go) first.
+# old = runner tests from main; new = this change.
+== old: -test.run 'TestConfirmProves|TestAWrite' -test.count=30
+      5     artifact_test.go:273: an unmodified runtime confirms: runtime artifact mismatch: the run's process was never seen executing the verified runtime
+      3     artifact_test.go:307: an attempted write in the window must fail the run closed: runtime artifact mismatch: the run's process was never seen executing the verified runtime
+      3 --- FAIL: TestAWriteBetweenCheckAndStartIsBlockedAndCaught
+      5 --- FAIL: TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes
+     27 --- PASS: TestAWriteBetweenCheckAndStartIsBlockedAndCaught
+     25 --- PASS: TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes
+== new: -test.run 'TestConfirmProves|TestAWrite' -test.count=30
+     30 --- PASS: TestAWriteBetweenCheckAndStartIsBlockedAndCaught
+     30 --- PASS: TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes
+== new: -test.run 'TestConfirmProves|TestAWrite|TestLocate|TestParseCgroup' -test.count=300
+    300 --- PASS: TestAWriteBetweenCheckAndStartIsBlockedAndCaught
+    300 --- PASS: TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes
+    300 --- PASS: TestLocateFindsALeaderThatExitedInItsCollectedScope
+    300 --- PASS: TestLocateRefusesALiveCgroupNamedLikeARemovedScope
+    300 --- PASS: TestParseCgroupKeepsTheKernelsText

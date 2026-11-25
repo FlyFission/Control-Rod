@@ -1,0 +1,52 @@
+# go test ./... in daemon/, cloud container (no bubblewrap, no user namespaces, no user systemd).
+# Failures are identical with and without this change; each needs a sandbox feature this container lacks (bubblewrap, user or network namespaces).
+== main
+--- FAIL: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun
+--- FAIL: TestBubblewrapMountsDeliverablesReadOnly
+--- FAIL: TestCheckerCannotReachAHostUnixSocket
+--- FAIL: TestCheckerCannotReachAnAbstractUnixSocket
+--- FAIL: TestCheckerCannotRewriteLoginInstructions
+--- FAIL: TestCheckerKeepsSocketpairAndTCP
+--- FAIL: TestCheckerMountBindsTheVerifiedDescriptor
+--- FAIL: TestCheckerMountBlocksWritesOutsideScratch
+--- FAIL: TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential
+--- FAIL: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath
+--- FAIL: TestCheckerProcDoesNotReachHostProcesses
+--- FAIL: TestCheckerRefusesADatagramSocketpair
+--- FAIL: TestCheckerRejectsX32AndIoUring
+--- FAIL: TestCheckerSessionSymlinkDoesNotGrantHomeWrites
+--- FAIL: TestConfirmSandboxSeesTheBubblewrapChild
+--- FAIL: TestPreparedCheckerThroughTheMount
+FAIL
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement
+ok  	github.com/flyfission/control-rod/daemon/internal/digest
+ok  	github.com/flyfission/control-rod/daemon/internal/wire
+== this change
+--- FAIL: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun
+--- FAIL: TestBubblewrapMountsDeliverablesReadOnly
+--- FAIL: TestCheckerCannotReachAHostUnixSocket
+--- FAIL: TestCheckerCannotReachAnAbstractUnixSocket
+--- FAIL: TestCheckerCannotRewriteLoginInstructions
+--- FAIL: TestCheckerKeepsSocketpairAndTCP
+--- FAIL: TestCheckerMountBindsTheVerifiedDescriptor
+--- FAIL: TestCheckerMountBlocksWritesOutsideScratch
+--- FAIL: TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential
+--- FAIL: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath
+--- FAIL: TestCheckerProcDoesNotReachHostProcesses
+--- FAIL: TestCheckerRefusesADatagramSocketpair
+--- FAIL: TestCheckerRejectsX32AndIoUring
+--- FAIL: TestCheckerSessionSymlinkDoesNotGrantHomeWrites
+--- FAIL: TestConfirmSandboxSeesTheBubblewrapChild
+--- FAIL: TestPreparedCheckerThroughTheMount
+FAIL
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement
+ok  	github.com/flyfission/control-rod/daemon/internal/digest
+ok  	github.com/flyfission/control-rod/daemon/internal/wire

@@ -1,0 +1,13 @@
+$ go test -run TestLocateFindsALeaderThatExitedInItsCollectedScope -count=3 -v  # contain*.go as on main
+=== RUN   TestLocateFindsALeaderThatExitedInItsCollectedScope
+    contain_linux_test.go:135: a leader that exited inside its scope must be located: process 3202 never entered scope controlrod-test-3195-1795570768502272502
+--- FAIL: TestLocateFindsALeaderThatExitedInItsCollectedScope (5.03s)
+=== RUN   TestLocateFindsALeaderThatExitedInItsCollectedScope
+    contain_linux_test.go:135: a leader that exited inside its scope must be located: process 3207 never entered scope controlrod-test-3195-1795570773535763933
+--- FAIL: TestLocateFindsALeaderThatExitedInItsCollectedScope (5.02s)
+=== RUN   TestLocateFindsALeaderThatExitedInItsCollectedScope
+    contain_linux_test.go:135: a leader that exited inside its scope must be located: process 3208 never entered scope controlrod-test-3195-1795570778552097563
+--- FAIL: TestLocateFindsALeaderThatExitedInItsCollectedScope (5.02s)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	15.079s
+FAIL

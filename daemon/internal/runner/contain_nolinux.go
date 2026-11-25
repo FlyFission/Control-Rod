@@ -9,6 +9,8 @@ import (
 
 func cgroupOf(int) (string, error) { return "", errors.New("cgroups are Linux only") }
 
+func exitedInRemovedScope(int, string, string) bool { return false }
+
 // DetectContainer uses the process group: cgroup scopes need Linux and a systemd user manager.
 func DetectContainer(func(string) string) Container { return Container{Mode: ContainGroup} }
 

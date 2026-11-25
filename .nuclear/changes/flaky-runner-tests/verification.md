@@ -4,7 +4,8 @@
 |---|---|---|---|
 | E-01 | pass | With main's `contain_linux.go`, `Locate` on a leader that exited in a removed cgroup fails after 5.02 s with "never entered scope" (CI: 5.09 s); with the fix it passes in 0.01 s. Cloud container as root, cgroup v2 at /sys/fs/cgroup/unified, not systemd itself. | `evidence/before-locate.log`, `evidence/after-locate.log` |
 | E-02 | pass | The kernel prints a zombie's removed cgroup with " (deleted)"; seen directly while building E-01. | E-01 |
-| E-03 | pass | Under CPU load with a multi-call stand-in `sleep` first on PATH, main's confirmation tests fail 12 of 60 runs with CI's exact message; this change's pass 60 of 60, and 1,500 of 1,500 for the touched tests. The stand-in models, and does not prove, the runner's coreutils. | `evidence/stress.log`, `evidence/multicall-sleep.go` |
+| E-03 | pass | Under CPU load with a multi-call stand-in `sleep` first on PATH, main's confirmation tests fail 8 of 60 runs (12 of 60 in an earlier run) with CI's exact message; this change's pass 60 of 60, and 1,500 of 1,500 for the touched tests. The stand-in models, and does not prove, the runner's coreutils. | `evidence/stress.log`, `evidence/multicall-sleep.go` |
+| E-05 | done | Blind review by Codex (gpt-6.2-sol, read-only) on the owner's machine at eb09ab9: NO-MERGE with 2 P2 and 2 P3. Fixed: the " (deleted)" form is accepted only for an exited leader and the receipt names the scope's own place, so a live cgroup named with that text is refused (test added), and live checks stay exact; the stand-in runtime sleeps 60 s; the cgroup tests use unique names and drop the stopwatch. Not changed: reuse of a removed scope's path (R-04) behaves as on main. | PR thread |
 | E-04 | pass | `go test ./...` in daemon/: the same 16 failures with and without the change, each needing a sandbox feature this container lacks. CI is the check for those. | `evidence/full-suite.log` |
 
 ## Evidence custody and coupling

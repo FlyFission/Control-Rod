@@ -17,9 +17,9 @@ On 2026-11-24 the Go job failed at random on PRs that did not touch Go (#181, #1
 
 ## Proposal
 
-1. `cgroupOf` drops the kernel's ` (deleted)` suffix (`parseCgroup`). Only a process with no live tasks left can be in a removed cgroup, so this is still the scope the leader entered; the existing "exited, so the scope holds nothing" handling then applies.
+1. `Locate` accepts `…/<unit>.scope (deleted)` only when the leader has exited (`exitedInRemovedScope`), and then records the scope's own place under `ScopeParent`, as it already did for a leader that left before it was seen. A live process cannot be in a removed cgroup, so a live process whose cgroup reads that way is in a live cgroup that merely carries the text in its name, and is refused. `cgroupOf` keeps the kernel's text exactly, so live checks (`signalPinned`) stay exact.
 2. Tests: `TestMain` makes the test binary a stand-in runtime that sleeps when `CONTROLROD_TEST_HELPER_SLEEP=1`; `verifiedCopy` copies the test binary and `sleepRuntime` launches it. No retries, skips or longer timeouts.
-3. Regression tests: `parseCgroup` on a removed, a live and a missing cgroup line; `Locate` on a leader that exited inside a cgroup that was then removed (needs root and a writable cgroup v2 hierarchy; skipped on GitHub's runners, run in the cloud container).
+3. Regression tests: `parseCgroup` keeps the kernel's text; `Locate` on a leader that exited inside a cgroup that was then removed, and `Locate` refusing a live process in a live cgroup literally named `<unit>.scope (deleted)` (both need root and a writable cgroup v2 hierarchy, use unique names, and skip on GitHub's runners; run in the cloud container). The stand-in runtime sleeps 60 s and is killed by the test, so it outlives every check.
 
 ## Out of scope
 

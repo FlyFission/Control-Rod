@@ -2,7 +2,8 @@
 
 | Requirement | Change | Tests and checks | Disposition |
 |---|---|---|---|
-| FR-01 A run that exits at once is located in its collected scope. | `contain_linux.go` `parseCgroup` | `TestAZombieOfACollectedScopeIsStillInIt`, `TestLocateFindsALeaderThatExitedInItsCollectedScope`; E-01, E-02 | implemented and tested |
+| FR-01 A run that exits at once is located in its collected scope. | `contain.go` `Locate`, `contain_linux.go` `exitedInRemovedScope` | `TestLocateFindsALeaderThatExitedInItsCollectedScope`; E-01, E-02 | implemented and tested |
+| FR-04 A live process is never located through a removed-looking path. | same | `TestLocateRefusesALiveCgroupNamedLikeARemovedScope`, `TestParseCgroupKeepsTheKernelsText`; E-01 | implemented and tested |
 | FR-02 Confirmation tests do not depend on the host's sleep. | `main_test.go`, `artifact_test.go` | E-03 | implemented and tested |
 | FR-03 No new failure elsewhere. | none | E-04 | checked |
 

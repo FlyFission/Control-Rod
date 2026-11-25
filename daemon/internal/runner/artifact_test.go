@@ -264,7 +264,7 @@ func TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes(t *testing.T) {
 		t.Skip("Confirm is Linux only")
 	}
 	path, l := verifiedCopy(t)
-	cmd := sleepRuntime(path, 5)
+	cmd := sleepRuntime(path, 60)
 	l.Apply(cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -298,7 +298,7 @@ func TestAWriteBetweenCheckAndStartIsBlockedAndCaught(t *testing.T) {
 	} else if !errors.Is(err, syscall.EWOULDBLOCK) {
 		t.Fatalf("expected the open to wait on the lease, got %v", err)
 	}
-	cmd := sleepRuntime(path, 5)
+	cmd := sleepRuntime(path, 60)
 	l.Apply(cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)

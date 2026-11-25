@@ -41,21 +41,22 @@ func TestUnreadableCgroupStateCountsAsAlive(t *testing.T) {
 	}
 }
 
-func TestAZombieOfACollectedScopeIsStillInIt(t *testing.T) {
-	got, err := parseCgroup("0::/user.slice/app.slice/controlrod-run-x-g1.scope (deleted)\n")
-	if err != nil || got != "/sys/fs/cgroup/user.slice/app.slice/controlrod-run-x-g1.scope" {
-		t.Fatalf("a removed cgroup is still the one the process was in: %q %v", got, err)
-	}
-	got, err = parseCgroup("12:pids:/x\n0::/user.slice/a.scope\n")
+func TestParseCgroupKeepsTheKernelsText(t *testing.T) {
+	got, err := parseCgroup("12:pids:/x\n0::/user.slice/a.scope\n")
 	if err != nil || got != "/sys/fs/cgroup/user.slice/a.scope" {
 		t.Fatalf("a live cgroup reads as it is: %q %v", got, err)
+	}
+	// Removed, or a live cgroup with this text in its name: told apart by Locate, not here.
+	got, err = parseCgroup("0::/user.slice/a.scope (deleted)\n")
+	if err != nil || got != "/sys/fs/cgroup/user.slice/a.scope (deleted)" {
+		t.Fatalf("the kernel's text is kept: %q %v", got, err)
 	}
 	if _, err := parseCgroup("12:pids:/x\n"); err == nil {
 		t.Fatal("no cgroup v2 line is no membership")
 	}
 }
 
-// cgroup2Mount finds a cgroup v2 hierarchy this process can make children in, or "".
+// cgroup2Mount finds the cgroup v2 hierarchy, or "".
 func cgroup2Mount() string {
 	b, err := os.ReadFile("/proc/self/mountinfo")
 	if err != nil {
@@ -72,40 +73,70 @@ func cgroup2Mount() string {
 	return ""
 }
 
-// A run that exits at once leaves its leader unreaped while systemd collects the empty scope.
-// Locate must find it in that scope at once, not wait out its deadline and call it uncontained.
-func TestLocateFindsALeaderThatExitedInItsCollectedScope(t *testing.T) {
+// cgroupFixture makes a child cgroup named name beside this process's own, and a sleeping child
+// moved into it. It returns the cgroup's directory, the parent as cgroupOf reports paths, and the
+// child, which the test owns (it is killed and reaped at cleanup).
+func cgroupFixture(t *testing.T, name string) (dir, reported string, cmd *exec.Cmd) {
+	t.Helper()
 	mount := cgroup2Mount()
 	if os.Geteuid() != 0 || mount == "" {
-		t.Skip("needs a writable cgroup v2 hierarchy")
+		t.Skip("needs root and a cgroup v2 hierarchy")
 	}
 	own, err := cgroupOf(os.Getpid())
 	if err != nil {
 		t.Skip(err)
 	}
-	const unit = "controlrod-test-collected"
-	// Make the scope beside this process's own cgroup, as the kernel reports paths from the mount.
-	rel := strings.TrimPrefix(own, "/sys/fs/cgroup")
-	dir := filepath.Join(mount, filepath.Dir(rel), unit+".scope")
+	rel := filepath.Dir(strings.TrimPrefix(own, "/sys/fs/cgroup"))
+	dir = filepath.Join(mount, rel, name)
 	if err := os.Mkdir(dir, 0o755); err != nil {
 		t.Skipf("cannot make a cgroup here: %v", err)
 	}
-	defer os.Remove(dir)
-	cmd := exec.Command("sleep", "30")
+	cmd = exec.Command("sleep", "60")
 	if err := cmd.Start(); err != nil {
+		os.Remove(dir)
 		t.Fatal(err)
 	}
-	defer cmd.Wait()
-	pid := cmd.Process.Pid
-	if err := os.WriteFile(filepath.Join(dir, "cgroup.procs"), []byte(strconv.Itoa(pid)), 0o644); err != nil {
-		cmd.Process.Kill()
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		removeCgroup(t, dir)
+	})
+	if err := os.WriteFile(filepath.Join(dir, "cgroup.procs"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o644); err != nil {
 		t.Skipf("cannot move a process into a cgroup here: %v", err)
 	}
+	return dir, filepath.Join("/sys/fs/cgroup", rel), cmd
+}
+
+// removeCgroup removes dir, waiting out the moment after a task exits before the kernel counts the
+// cgroup empty (as systemd sees it).
+func removeCgroup(t *testing.T, dir string) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		err := os.Remove(dir)
+		if err == nil || errors.Is(err, os.ErrNotExist) {
+			return
+		}
+		if !errors.Is(err, syscall.EBUSY) || time.Now().After(deadline) {
+			t.Fatal(err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func testUnit(t *testing.T) string {
+	return fmt.Sprintf("controlrod-test-%d-%d", os.Getpid(), time.Now().UnixNano())
+}
+
+// A run that exits at once leaves its leader unreaped while systemd collects the empty scope.
+// Locate must find it in that scope, not wait out its deadline and call it uncontained.
+func TestLocateFindsALeaderThatExitedInItsCollectedScope(t *testing.T) {
+	unit := testUnit(t)
+	dir, reported, cmd := cgroupFixture(t, unit+".scope")
+	pid := cmd.Process.Pid
 	_ = cmd.Process.Kill()
 	// Held unreaped: wait for the zombie, then collect its scope as systemd would.
 	for deadline := time.Now().Add(5 * time.Second); ; {
-		b, _ := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
-		if f := strings.Fields(string(b)); len(f) > 2 && f[2] == "Z" {
+		if _, err := processStart(pid); errors.Is(err, errNotRunning) {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -113,26 +144,24 @@ func TestLocateFindsALeaderThatExitedInItsCollectedScope(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	// The kernel counts the cgroup empty a moment after the zombie shows, as systemd sees it.
-	for deadline := time.Now().Add(5 * time.Second); ; {
-		err := os.Remove(dir)
-		if err == nil {
-			break
-		}
-		if !errors.Is(err, syscall.EBUSY) || time.Now().After(deadline) {
-			t.Fatal(err)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	start := time.Now()
-	u, err := (Container{Mode: ContainCgroup}).Locate(pid, unit)
+	removeCgroup(t, dir)
+	u, err := (Container{Mode: ContainCgroup, ScopeParent: reported}).Locate(pid, unit)
 	if err != nil {
 		t.Fatalf("a leader that exited inside its scope must be located: %v", err)
 	}
-	if !strings.HasSuffix(u.Cgroup, "/"+unit+".scope") {
-		t.Fatalf("located at %q", u.Cgroup)
+	if want := reported + "/" + unit + ".scope"; u.Cgroup != want {
+		t.Fatalf("located at %q, want the scope's own place %q", u.Cgroup, want)
 	}
-	if took := time.Since(start); took > time.Second {
-		t.Fatalf("located only after %s", took)
+}
+
+// A live process in a live cgroup whose name merely ends in " (deleted)" is not in the scope.
+func TestLocateRefusesALiveCgroupNamedLikeARemovedScope(t *testing.T) {
+	old := locateWait
+	locateWait = 200 * time.Millisecond
+	defer func() { locateWait = old }()
+	unit := testUnit(t)
+	_, reported, cmd := cgroupFixture(t, unit+".scope (deleted)")
+	if _, err := (Container{Mode: ContainCgroup, ScopeParent: reported}).Locate(cmd.Process.Pid, unit); err == nil {
+		t.Fatal("a live process outside the scope must not be located in it")
 	}
 }

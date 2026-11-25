@@ -82,6 +82,7 @@ import {
 } from "./work.js";
 import { activeRuns, activeRunSummaries, requireOwnedRun, runDetail, runEvents, runLogLines, type RunEventQuery } from "./run-reads.js";
 import { runOutputPreview, runOutputs } from "./run-outputs.js";
+import type { updateNoticeFor } from "./update-notice.js";
 
 export const VERSION = "0.1.0";
 
@@ -94,6 +95,7 @@ export interface AppOptions {
   onError?: (err: unknown) => void;
   auth: AuthConfig;
   root: string;
+  updateNotice?: ReturnType<typeof updateNoticeFor>;
   /** Built web app to serve at /, if present. */
   webDir?: string;
   /** Seconds a run claim lasts without a heartbeat. Default 90. */
@@ -729,6 +731,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   app.get("/runtimes", async (req) => {
     return { ...(await runtimeStatus(db, (await callerFor(db, await person(req))).orgId)), ...(await agentUpdateView(db)) };
+  });
+  app.get("/update-notice", async (req) => {
+    await callerFor(db, await person(req));
+    return (await opts.updateNotice?.read()) ?? null;
+  });
+  app.post("/update-notice/check", async (req) => {
+    await callerFor(db, await person(req));
+    return (await opts.updateNotice?.check()) ?? null;
   });
   /** First-run setup: which agents are seated and when to check with the person. */
   app.get("/setup", async (req) => {

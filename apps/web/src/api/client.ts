@@ -137,6 +137,8 @@ async function send<T>(method: string, path: string, body?: unknown, headers: Re
 
 const enc = encodeURIComponent;
 
+type UpdateNoticeStatus = { running_commit: string; checked_at?: string; checkout_commit?: string; latest_commit?: string; behind?: number; error?: string };
+
 export const api = {
   session: () => call<Session>("GET", "/auth/session"),
   registerOptions: (name: string) =>
@@ -237,6 +239,8 @@ export const api = {
   inbox: (since?: number) => call<InboxView>("GET", since === undefined ? "/inbox" : `/inbox?since=${since}`),
   runtimes: () =>
     call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[]; agent_updates?: AgentUpdate[] }>("GET", "/runtimes"),
+  updateNotice: () => call<UpdateNoticeStatus | null>("GET", "/update-notice"),
+  checkUpdateNotice: () => call<UpdateNoticeStatus | null>("POST", "/update-notice/check"),
   subscriptions: () => call<SubscriptionView>("GET", "/subscriptions"),
   setup: () => call<AgentSetupView>("GET", "/setup"),
   recordSetup: (body: AgentSetupRequest) => call<AgentSetupView>("PUT", "/setup", body),

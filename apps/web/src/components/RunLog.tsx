@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { PackageView, Run } from "../api/types.js";
@@ -10,6 +10,7 @@ import { plainError } from "../lib/plainError.js";
 import { modelRouting } from "../lib/modelRouting.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 import { VendorBadge } from "./VendorBadge.js";
+import { LogViewer } from "./LogViewer.js";
 
 export function runState(run: Run): StateKind {
   switch (run.status) {
@@ -218,6 +219,7 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
   const lines = frozen ?? latest;
   const waiting = frozen === null ? 0 : Math.max(0, latest.length - frozen.length);
   const routing = modelRouting(run.trace, run.finished_at !== undefined);
+  const [full, setFull] = useState(false);
   return (
     // A run that needs the person (requeue it, or reconcile it first) is shown open, so its buttons are seen.
     <details
@@ -265,8 +267,12 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
           </div>
         )}
         {!readOnly && <RunActions packageId={packageId} run={run} showStop={!focused} />}
-        {(live || frozen !== null) && (
-          <div className="log-bar">
+        <div className="log-bar">
+          <button type="button" className="btn small" onClick={() => setFull(true)}>
+            Open full log
+          </button>
+          {(live || frozen !== null) && (
+            <>
             <button type="button" className="btn ghost small" onClick={() => {
               // Resuming fetches again, so lines that landed after the last poll (a run that just
               // ended stops polling) are not missed.
@@ -280,102 +286,22 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
                 {waiting === 0 ? "Paused: nothing new since you paused." : `Paused: ${waiting} new ${waiting === 1 ? "line" : "lines"} since you paused.`}
               </span>
             )}
-          </div>
-        )}
-        <div className="log-bar">
-          <LogViewer title={`${ROLE_LABEL[run.role]} log, round ${run.round}`} lines={lines} live={live && frozen === null} />
+            </>
+          )}
         </div>
+        {full && (
+          <LogViewer
+            title={`${ROLE_LABEL[run.role]} log, round ${run.round}`}
+            summary={run.error !== undefined ? <RunError raw={run.error} /> : <p>{runStatusText(run)}</p>}
+            lines={latest}
+            live={live}
+            onClose={() => setFull(false)}
+          />
+        )}
         <pre className="log" aria-label={`${ROLE_LABEL[run.role]} log`}>
           {lines.length === 0 ? "No log lines yet." : lines.slice(-400).join("\n")}
         </pre>
       </div>
     </details>
-  );
-}
-
-/**
- * The whole run log in a window that fills the screen: every line (the drawer shows the last
- * 400), a filter that keeps only lines containing what is typed, numbered lines, and a copy
- * button. While the run is live and the reader is at the bottom, it keeps following new lines.
- */
-export function LogViewer({ title, lines, live }: { title: string; lines: string[]; live: boolean }) {
-  const dlg = useRef<HTMLDialogElement>(null);
-  const body = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState("");
-  const [copied, setCopied] = useState(false);
-  const atBottom = useRef(true);
-  const needle = filter.trim().toLowerCase();
-  const shown = lines.map((text, i) => ({ n: i + 1, text })).filter((l) => !needle || l.text.toLowerCase().includes(needle));
-  useEffect(() => {
-    const d = dlg.current;
-    if (!d) return;
-    if (open && !d.open) {
-      if (typeof d.showModal === "function") d.showModal();
-      else d.setAttribute("open", "");
-    } else if (!open && d.open) d.close();
-  }, [open]);
-  useEffect(() => {
-    const b = body.current;
-    if (open && live && b && atBottom.current) b.scrollTop = b.scrollHeight;
-  }, [open, live, lines.length]);
-  return (
-    <>
-      <button type="button" className="btn ghost small" onClick={() => setOpen(true)} disabled={lines.length === 0}>
-        Open full log
-      </button>
-      <dialog ref={dlg} className="log-viewer" aria-label={title} onClose={() => setOpen(false)}>
-        {open && (
-          <>
-            <header className="log-viewer-head">
-              <h2>{title}</h2>
-              <input
-                type="search"
-                className="log-viewer-filter"
-                placeholder="Filter lines"
-                aria-label="Filter log lines"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              />
-              <span className="muted small">
-                {needle ? `${shown.length} of ${lines.length} lines` : `${lines.length} ${lines.length === 1 ? "line" : "lines"}`}
-                {live ? ", live" : ""}
-              </span>
-              <button
-                type="button"
-                className="btn small"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(shown.map((l) => l.text).join("\n")).then(() => setCopied(true), () => setCopied(false));
-                }}
-              >
-                {copied ? "Copied" : "Copy"}
-              </button>
-              <button type="button" className="btn small" onClick={() => setOpen(false)}>
-                Close
-              </button>
-            </header>
-            <div
-              ref={body}
-              className="log-viewer-body mono"
-              onScroll={(e) => {
-                const b = e.currentTarget;
-                atBottom.current = b.scrollHeight - b.scrollTop - b.clientHeight < 24;
-              }}
-            >
-              {shown.length === 0 ? (
-                <p className="muted">{needle ? "No line matches the filter." : "No log lines yet."}</p>
-              ) : (
-                shown.map((l) => (
-                  <div key={l.n} className="log-line">
-                    <span className="log-n" aria-hidden="true">{l.n}</span>
-                    <span className="log-t">{l.text}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        )}
-      </dialog>
-    </>
   );
 }

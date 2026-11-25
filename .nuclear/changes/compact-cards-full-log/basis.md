@@ -16,6 +16,7 @@ The owner, 2026-11-25, on his own install:
 ## Proposal
 
 1. Compact density renders a card as one line: a status mark and the card's name. The status words stay in the tooltip and for screen readers. Columns fold at 24 compact cards instead of 8.
+   *Superseded:* #199 merged first with its own one-line compact card and full log; this change keeps #199's versions and adds only what follows (split note, intake wording, column fold).
 2. Every run log gets **Open full log**: a modal that fills the screen with every line numbered, a filter, a copy button, and follow-the-tail while the run is live. The drawer's log box grows to 60% of the window height.
 3. A card from a request that intake turned into several cards shows "Card N of M from one request: <request>".
 4. The intake brief now says one card per request unless the parts need different agents or one must be accepted before the next starts, and never to split design from build, or code from tests, for a change one author can make. When it splits, each objective says why. The software feature guidance splits out a design spec only when the request asks for one.

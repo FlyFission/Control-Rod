@@ -72,10 +72,7 @@ export type CardProps = {
   actions?: ReactNode;
   /** Left-edge color from the active `colorBy` lens (never a meaning token). */
   edgeColor?: string;
-  /**
-   * Compact density is one line: the card's name and a status mark whose words are in its tooltip
-   * and for screen readers. Everything else is in the drawer, one click away.
-   */
+  /** Compact density shows one line: a status mark and the title (the next line is the hover text). */
   compact?: boolean;
   /** Set when intake turned one request into several cards: this card's place and the request. */
   split?: { index: number; total: number; request: string };
@@ -94,8 +91,10 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
   const check = needsIndependentCheck(pkg);
   const spin = showsRunSpinner({ runRunning, lastKnown }, stream);
   if (compact) {
+    // Compact is one line: a status mark and the name. The next line stays for screen readers and
+    // as the hover text; everything else is one click away in the drawer.
     const live = stream === "live" && !lastKnown;
-    const said = live ? `${tone.word ? `${tone.word}: ` : ""}${next.text}` : stream === "live" ? `Last known: ${next.text}` : next.text;
+    const said = stream === "unknown" ? `Status unknown since ${sinceText(unknownSince)}` : lastKnown ? `Last known: ${next.text}` : `${tone.word ? `${tone.word}: ` : ""}${next.text}`;
     return (
       <article
         aria-labelledby={titleId}
@@ -107,17 +106,12 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
         title={said}
       >
         <span className={spin ? "bd-sym bd-live" : "bd-sym"} aria-hidden="true">
-          {spin ? "\u25cf" : tone.symbol}
+          {spin ? "\u25cf" : live ? tone.symbol : "\u25cb"}
         </span>
         <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
           {pkg.title}
         </button>
-        <span className="sr-only">{said}</span>
-        {spin && (
-          <span className="bd-progress" role="img" aria-label="Agent running">
-            <span aria-hidden="true" />
-          </span>
-        )}
+        <p className="bd-next sr-only">{said}</p>
       </article>
     );
   }

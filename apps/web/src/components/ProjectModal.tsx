@@ -1,4 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
+import { CloseX } from "./CloseX.js";
+import { backdropClose } from "../lib/dismiss.js";
 import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
@@ -135,6 +137,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
       className="cr-modal"
       aria-labelledby="new-project-title"
       onClose={onClose}
+      onClick={backdropClose(onClose)}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
@@ -149,9 +152,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
             Scope a dedicated board, default repository, and Author/Checker pair.
           </p>
         </div>
-        <button type="button" className="btn small" onClick={onClose}>
-          Esc
-        </button>
+        <CloseX onClose={onClose} />
       </div>
 
       <form className="cr-modal-body" onSubmit={submit}>
@@ -160,6 +161,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
             <span>Project name</span>
             <input
               type="text"
+              data-guard
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={

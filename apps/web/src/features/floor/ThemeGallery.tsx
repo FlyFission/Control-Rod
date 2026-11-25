@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CloseX } from "../../components/CloseX.js";
 import {
   THEME_CATALOG,
   getThemeEntry,
@@ -85,14 +86,7 @@ export function ThemeGallery({
             <h2 id="theme-gallery-title">Choose your working world</h2>
             <p>Same agents. Same work. A little more imagination.</p>
           </div>
-          <button
-            type="button"
-            className="floor-close"
-            onClick={onClose}
-            aria-label="Close themes"
-          >
-            ×
-          </button>
+          <CloseX onClose={onClose} label="Close themes" />
         </div>
 
         <div className="floor-gallery-filters" role="group" aria-label="Filter by mood">

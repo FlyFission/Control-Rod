@@ -175,6 +175,37 @@ describe("the drawer, calm", () => {
     await waitFor(() => expect(reads).toBeGreaterThan(before));
   });
 
+  it("has the one close button, and closes on a click outside unless a note is being typed", async () => {
+    serve();
+    server.use(
+      http.get("*/packages/:id/actions", () =>
+        HttpResponse.json([
+          { command: "accept", label: "Accept", allowed: true, signature: "direct" },
+          { command: "return", label: "Return", allowed: true, signature: "direct" },
+        ]),
+      ),
+    );
+    let closed = 0;
+    await renderPage(
+      <div>
+        <p data-testid="outside">Board</p>
+        <BoardReviewDrawer packageId="WP-1" mode="software" onClose={() => closed++} />
+      </div>,
+    );
+    const user = userEvent.setup();
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-1" });
+    const x = within(drawer).getByRole("button", { name: "Close review drawer" });
+    expect(x.className).toBe("close-x");
+    await user.click(await within(drawer).findByRole("button", { name: "Other choices" }));
+    await user.click(within(drawer).getByRole("button", { name: "Send back with a note" }));
+    await user.type(within(drawer).getByRole("textbox"), "half a thought");
+    await user.click(screen.getByTestId("outside"));
+    expect(closed).toBe(0);
+    await user.clear(within(drawer).getByRole("textbox"));
+    await user.click(screen.getByTestId("outside"));
+    expect(closed).toBe(1);
+  });
+
   it("closes on Escape", async () => {
     serve();
     let closed = 0;

@@ -1,4 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { CloseX } from "../../components/CloseX.js";
+import { useOutsideClose } from "../../lib/dismiss.js";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
@@ -131,6 +133,7 @@ export function drawerStep(view: PackageView, allowed: readonly DecisionKind[], 
 export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = true, onClose }: BoardReviewDrawerProps) {
   const asideRef = useRef<HTMLElement>(null);
   useDockTop(asideRef);
+  useOutsideClose(asideRef, onClose);
   // Closing hands focus back to whatever opened the drawer (the card or button), if it is still on the page.
   const opener = useRef<Element | null>(null);
   if (opener.current === null && typeof document !== "undefined") opener.current = document.activeElement;
@@ -173,9 +176,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
           </p>
           {view && <PullRequestLine pr={view.pull_request} />}
         </div>
-        <button type="button" className="btn ghost small bd-calm-close" onClick={onClose} aria-label="Close review drawer" title="Close (Esc)">
-          {"✕"}
-        </button>
+        <CloseX onClose={onClose} label="Close review drawer" />
       </div>
 
       <div className="bd-calm-body">

@@ -467,8 +467,9 @@ async function start() {
   // where a Ctrl+C does not reach them: this launcher stops them only after the daemon has exited,
   // so the daemon's final completions still have somewhere to go. The control plane also stops by
   // itself if this launcher disappears (CONTROLROD_LAUNCHER_PID).
+  const runningCommit = gitRunner(root)(["rev-parse", "--verify", "HEAD"]).out;
   const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], {
-    env: { ...env, CONTROLROD_LAUNCHER_PID: String(process.pid) },
+    env: { ...env, CONTROLROD_LAUNCHER_PID: String(process.pid), CONTROLROD_RUNNING_COMMIT: runningCommit },
     stdio: "inherit",
     detached: true,
   });

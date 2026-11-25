@@ -793,40 +793,31 @@
   font-weight: 600;
   color: var(--text);
 }
-.bd[data-density="compact"] .bd-card {
-  padding: 6px 9px;
-  gap: 4px;
-}
-/* Compact is one line: a status mark and the card's name, nothing else. */
+/* Compact: one line per card, a status mark and the name, nothing else. */
 .bd-card.bd-card-compact {
-  position: relative;
-  display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  min-height: 0;
-}
-.bd-card-compact .bd-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: var(--fs-small);
-  text-align: left;
+  gap: 8px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  box-shadow: none;
 }
 .bd-card-compact .bd-sym {
   flex: none;
   width: 1em;
   text-align: center;
 }
-.bd-card-compact .bd-progress {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  margin: 0;
+.bd-card-compact .bd-title {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.bd[data-density="compact"] .bd-col {
+  gap: 4px;
 }
 .bd-split {
   margin: 0;
@@ -2307,6 +2298,7 @@
 @media (max-width: 600px) {
   .bd-calm-head { padding: 16px 16px 6px; }
   .bd-calm-body { padding: 6px 16px 20px; }
+}
 /* The one-time offer to let routine cards finish on their own. */
 .bd-autonomy-offer {
   display: flex;

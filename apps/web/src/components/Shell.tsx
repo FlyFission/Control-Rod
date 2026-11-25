@@ -1,13 +1,14 @@
 import { type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { CloseX } from "./CloseX.js";
 import { AgentUpdates } from "./AgentUpdates.js";
+import { UpdateNotice } from "./UpdateNotice.js";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
-import { RodGauge } from "../design/instruments/RodGauge.js";
 import { ScramBanner, useScrams } from "../features/office/Scram.js";
-import { type RodPosition, rodState } from "../features/office/plant-instruments.js";
+import { rodState } from "../features/office/plant-instruments.js";
 import { lockFrom, lockedFor, ScramLockContext } from "../lib/scramLock.js";
 import { usePresenting } from "../lib/presenting.js";
 import { useLiveStatus } from "../lib/live.js";
@@ -23,6 +24,7 @@ import {
 } from "../lib/projects.js";
 import { PLACES, type PlaceGroup } from "../places/places.js";
 import { ActiveRuns } from "./ActiveRuns.js";
+import { ScramSwitch } from "./ScramSwitch.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
 import { ProjectModal } from "./ProjectModal.js";
@@ -65,14 +67,17 @@ const MODES: { id: EngineeringMode; label: string }[] = [
   { id: "nuclear-grade", label: "Nuclear-Grade" },
 ];
 
-/** The rod gauge's words, beside it, so the position is never left to a small drawing. */
-const ROD_LABEL: Record<RodPosition, string> = {
-  withdrawn: "No SCRAM",
-  bank: "SCRAM: project",
-  inserted: "SCRAM: organization",
-  drill: "SCRAM drill",
-  unknown: "SCRAM unknown",
-};
+/**
+ * Whether the SCRAM the lamp describes is still stopping (its stop not yet recorded): an organization
+ * SCRAM if one holds, else the project SCRAMs, else drills. Matches what rodState captions.
+ */
+function scramStopping(scrams: readonly { scram: { scope: string; drill?: boolean }; stopped?: unknown }[] | undefined): boolean {
+  const list = scrams ?? [];
+  const real = list.filter((x) => !x.scram.drill);
+  const org = real.find((x) => x.scram.scope === "organization");
+  const described = org ? [org] : real.length > 0 ? real : list;
+  return described.some((x) => !x.stopped);
+}
 
 const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control / Setup"];
 
@@ -158,9 +163,7 @@ function PhoneBar({
           >
             <div className="more-head">
               <span className="more-title">More</span>
-              <button type="button" className="btn small" onClick={() => { setMoreOpen(false); moreBtn.current?.focus(); }}>
-                Close
-              </button>
+              <CloseX onClose={() => { setMoreOpen(false); moreBtn.current?.focus(); }} label="Close menu" />
             </div>
             <ul className="more-list">
               {PLACE_GROUPS.map((group) => {
@@ -313,7 +316,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     }
   }, [projectUser, serverProjects.data]);
   const needs = inbox.data?.items.length ?? 0;
-  // SCRAM is app-wide (control room redesign, section 6.6): one read feeds the banner, the rod gauge,
+  // SCRAM is app-wide (control room redesign, section 6.6): one read feeds the banner, the SCRAM lamp,
   // the frame and the locks, on every screen.
   const presenting = usePresenting();
   const scramRead = useScrams(presenting);
@@ -472,6 +475,23 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   useEffect(() => setMoreOpen(false), [path]);
   // The phone's sticky stage headers sit under the top bar: publish its height.
   const shellRef = useRef<HTMLDivElement>(null);
+  // Restart, beside SCRAM while one holds: open the review and restart of the SCRAM the lamp shows (a real
+  // trip before any drill, so a drill is never lifted in its place), and take focus there.
+  const openScramReview = () => {
+    // The widest real hold first (organization, then project), then a drill: the one the lamp describes.
+    const toggle = [
+      '.scram-banner-item[data-kind="trip"][data-scope="organization"]',
+      '.scram-banner-item[data-kind="trip"]',
+      '.scram-banner-item[data-kind="drill"]',
+    ]
+      .map((sel) => shellRef.current?.querySelector<HTMLButtonElement>(`${sel} button[aria-expanded]`))
+      .find(Boolean);
+    if (!toggle) return;
+    if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+    // Centred, so a sticky top bar (phone) never covers it.
+    toggle.scrollIntoView?.({ block: "center" });
+    toggle.focus();
+  };
   useEffect(() => {
     const shell = shellRef.current;
     const bar = shell?.querySelector<HTMLElement>(".topbar");
@@ -681,6 +701,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const workspace = (
       <div className="main">
         <AgentUpdates />
+        <UpdateNotice />
         <header className="topbar">
           {phone && (
             <div className="phone-top">
@@ -776,12 +797,6 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
                 Not live
               </span>
             )}
-            <span className="shell-rods" data-position={rods.position}>
-              <RodGauge position={rods.position} {...(rods.caption ? { caption: rods.caption } : {})} />
-              <span className="shell-rods-label" aria-hidden="true">
-                {ROD_LABEL[rods.position]}
-              </span>
-            </span>
             {!phone && <ActiveRuns />}
             {!phone && (
               <button
@@ -798,9 +813,13 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
               </button>
             )}
 
-            <Link to="/office" className="btn small danger topbar-scram">
-              SCRAM
-            </Link>
+            <ScramSwitch
+              rods={rods}
+              stopping={scramStopping(scrams)}
+              failed={scramRead.isError}
+              presenting={presenting}
+              onRestart={openScramReview}
+            />
           </div>
         </header>
 

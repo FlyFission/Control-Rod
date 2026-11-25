@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { CloseX } from "../../components/CloseX.js";
+import { useOutsideClose } from "../../lib/dismiss.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { api, explain } from "../../api/client.js";
@@ -20,6 +22,7 @@ interface CaptureDrawerProps {
 export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
   const qc = useQueryClient();
   const asideRef = useRef<HTMLElement>(null);
+  useOutsideClose(asideRef, onClose);
   const shown = splitAttachments(capture.text);
   const summary = captureSummaryText(shown.text) || shown.files.join(", ");
   const line = captureLine(capture);
@@ -76,12 +79,7 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
           >
             {dismiss.isPending ? "Dismissing…" : "Dismiss"}
           </button>
-          <button type="button" className="btn small" onClick={onClose} aria-label="Close capture drawer">
-            Close
-          </button>
-          <kbd className="muted small" aria-hidden="true">
-            Esc
-          </kbd>
+          <CloseX onClose={onClose} label="Close capture drawer" />
         </div>
       </div>
 

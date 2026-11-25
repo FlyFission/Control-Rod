@@ -1,10 +1,10 @@
 # Ship: Pick a column's agent with a press, and let one agent check its own vendor's work
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): Ben Huffer chose "Merge 229 on green" on the merge decision card in the project thread, 2026-11-25 23:12 UTC.
 
 - Rollback: revert the merge. No data, route or migration change.
 - Monitoring after merge: on the owner's board, picking Claude for both columns saves with no passkey, and the next card is written and checked by Claude and accepted on its own.

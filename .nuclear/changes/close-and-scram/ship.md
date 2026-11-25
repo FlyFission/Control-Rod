@@ -1,10 +1,10 @@
 # Ship: SCRAM that signs, one way to close, true compact, a readable run log
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner, 2026-11-25 03:41 UTC.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): Ben Huffer, yes, by decision card "Merge PR 199 (SCRAM, close X, compact cards, full log) once Codex is clean?" in the project thread, 2026-11-25 03:41 UTC. Blind check: Codex GitHub review of 714f87e, no findings.
 
 - Rollback: revert the merge. No data, route or migration.
 - Monitoring: the live drawer and SCRAM dialog tests run with the live suites; the owner's next SCRAM and next stuck run are the field checks.

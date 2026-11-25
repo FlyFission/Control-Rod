@@ -2,7 +2,7 @@
 
 - Web unit tests and typecheck pass.
 - Live tests (built control plane, embedded PostgreSQL, Go daemon with the fake runtime, Chromium): drawer (now also opens the full log and checks it fills the window, Esc closes it and not the drawer), SCRAM dialog, lifecycle.
-- Blind check: pending.
+- Blind check: Codex GitHub review of 714f87e (2026-11-25), no findings.
 
 ## Evidence custody and coupling
 

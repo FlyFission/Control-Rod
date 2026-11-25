@@ -1502,9 +1502,16 @@ export async function claim(
             continue;
           }
           await releaseHold(c, cfg, row, "lane");
-          const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
+          // A checkout author is pinned only among checkout-capable runtimes, so another runtime's
+          // pin never stands in for theirs (the hold names the real blocker).
+          const seatable = row.body.checkout ? admittedHere.filter((r) => CHECKOUT_AUTHORS.includes(r)) : admittedHere;
+          if (!seatable.length) {
+            await holdRun(c, cfg, row, pkg.id, CHECKOUT_RUNTIME_HOLD, "sandbox", CHECKOUT_RUNTIME_KEY);
+            continue;
+          }
+          const pinned = await pinnedOffer(c, seatable, row.role, artifacts);
           if (pinned.reason) {
-            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin", `runtime-pin:${row.role}:${[...admittedHere].sort().join(",")}`);
+            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin", `runtime-pin:${row.role}:${[...seatable].sort().join(",")}`);
             continue;
           }
           await releaseHold(c, cfg, row, "runtime-pin");

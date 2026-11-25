@@ -93,21 +93,23 @@ func (a agyAdapter) Probe(ctx context.Context, _ string, run CommandRunner) Runt
 	})
 }
 
-// agyQualifiedSeries is the Antigravity release series whose confinement was qualified live
-// (change record agy-seat): tool names the seat gate refuses and the field a sandbox-bypass request
-// carries were measured on 1.5.16. Another series is listed but not seated until it is qualified.
-const agyQualifiedSeries = "1.5."
+// agyQualifiedVersions are the Antigravity builds whose confinement was qualified live (change
+// record agy-seat): the tool names the seat gate refuses, the field a sandbox-bypass request
+// carries and plan mode were measured on these exact builds. Any other build, a patch or
+// prerelease of the same series too, is listed but not seated until it is qualified.
+var agyQualifiedVersions = []string{"1.5.16"}
 
-var agyVersionRE = regexp.MustCompile(`(?:^|[^0-9.])(\d+\.\d+\.\d+)(?:$|[^0-9.])`)
+// agyVersionRE takes the first x.y.z in the version line with anything that follows it attached
+// (a prerelease or build suffix), so "1.5.16-beta" is not read as 1.5.16.
+var agyVersionRE = regexp.MustCompile(`(?:^|[^0-9.])(\d+\.\d+\.\d+[^\s,;()]*)`)
 
-// agyQualifiedVersion reads the first x.y.z in the version line.
 func agyQualifiedVersion(v string) bool {
 	m := agyVersionRE.FindStringSubmatch(v)
-	return m != nil && strings.HasPrefix(m[1], agyQualifiedSeries)
+	return m != nil && slices.Contains(agyQualifiedVersions, m[1])
 }
 
 func agyVersionReason(v string) string {
-	return fmt.Sprintf("Antigravity CLI %q is installed, but Control Rod has qualified its sandbox only on the %sx series, so it is not seated yet.", v, agyQualifiedSeries)
+	return fmt.Sprintf("Antigravity CLI %q is installed, but Control Rod has qualified its sandbox only on version %s, so it is not seated yet.", v, strings.Join(agyQualifiedVersions, ", "))
 }
 
 // agyModels reads model ids from `agy models`: the first field of each line that looks like an
@@ -260,7 +262,7 @@ var agyCommandDenies = []string{
 // reviewers), so the checker also denies the common writing commands by name, runs in plan mode,
 // and is voided by any change outside scratch/.
 var agyCheckerCommands = []string{
-	"ls", "cat", "head", "tail", "grep", "rg", "wc", "diff", "stat", "file", "test",
+	"ls", "cat", "head", "tail", "grep", "wc", "diff", "stat", "file", "test",
 	"git diff", "git log", "git show", "git status",
 }
 
@@ -338,13 +340,17 @@ func AgyArgs(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]strin
 	if ws.Checker {
 		prompt = CheckerPrompt
 	}
-	args := []string{"-p", prompt + agyToolNote, "--output-format", "stream-json", "--sandbox",
-		"--settings", settings, "--disable-slash-commands"}
+	args := []string{"-p", prompt + agyToolNote, "--output-format", "stream-json", "--sandbox", "--settings", settings}
 	if ws.Checker {
 		// Plan mode: a write or command that would need approval ends the run instead of being
 		// cleared by Antigravity's own model reviewers (measured: in default mode an unlisted
-		// command is reviewed and may run).
+		// command is reviewed and may run). Plan mode has no effect while slash commands are
+		// disabled (measured with agy 1.5.16: it warns and runs in default mode), so a checker
+		// keeps slash commands: the run home has no user commands and a workspace that could
+		// hold some is refused (upwardInstructionHits).
 		args = append(args, "--mode", "plan")
+	} else {
+		args = append(args, "--disable-slash-commands")
 	}
 	if m := RequestedModel(run); m != "" {
 		args = append(args, "--model", m)

@@ -118,6 +118,13 @@ func TestAgyCheckerSettingsWriteScratchOnlyAndRunReadingCommands(t *testing.T) {
 	if err != nil || !argPair(args, "--mode", "plan") || args[1] != CheckerPrompt+agyToolNote {
 		t.Fatalf("checker args %v %v", args, err)
 	}
+	// Plan mode has no effect with slash commands disabled, so a checker never passes both.
+	if slices.Contains(args, "--disable-slash-commands") {
+		t.Fatalf("checker args disable slash commands, which turns plan mode off: %v", args)
+	}
+	if slices.Contains(agyCheckerCommands, "rg") {
+		t.Fatal("rg can run a preprocessor program, so a checker does not allow it")
+	}
 	if !slices.Contains(deny, "command(rm)") || !slices.Contains(deny, "command(python3)") {
 		t.Fatalf("checker does not deny writing commands: %v", deny)
 	}
@@ -527,8 +534,8 @@ func TestTurnFailureOverridesACleanExit(t *testing.T) {
 }
 
 func TestAgyQualifiedVersionIsTheMeasuredSeries(t *testing.T) {
-	for v, want := range map[string]bool{"1.5.16": true, "agy 1.5.16": true, "Antigravity CLI v1.5.3 (abc)": true,
-		"1.6.0": false, "2.5.1": false, "1.50.1": false, "": false, "unknown": false} {
+	for v, want := range map[string]bool{"1.5.16": true, "agy 1.5.16": true, "Antigravity CLI v1.5.16 (abc)": true,
+		"1.5.3": false, "1.5.17": false, "1.5.16-beta": false, "1.5.16.1": false, "1.6.0": false, "2.5.1": false, "1.50.16": false, "": false, "unknown": false} {
 		if got := agyQualifiedVersion(v); got != want {
 			t.Fatalf("%q: %v", v, got)
 		}

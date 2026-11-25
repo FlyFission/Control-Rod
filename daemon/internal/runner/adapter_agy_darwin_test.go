@@ -160,6 +160,9 @@ func TestAgyQualification(t *testing.T) {
 			_ = c.Run()
 			stream := out.String()
 			_ = os.WriteFile(filepath.Join(os.TempDir(), "agy-qual-"+p.name+".log"), out.Bytes(), 0o600)
+			if p.checker && strings.Contains(stream, "has no effect") {
+				t.Error("plan mode did not take effect for the checker")
+			}
 			if strings.Contains(stream, "execvp()") {
 				t.Error("the terminal sandbox could not start a shell, so commands were pushed outside it")
 			}

@@ -13,6 +13,7 @@ Owner (sole maintainer): not yet given.
 - macOS only. Linux and Windows keep Grok listed and switched off.
 - No authoring in a repository checkout and no work that needs network: commands are fenced to the workspace folder with no network.
 - Commands cannot read the home folder, so tools installed there (for example under `~/.nvm` or `~/.cargo`) are not available to them.
+- The readiness check runs `grok models` outside the fence (it reads only Grok's own state, like Claude's and Codex's status commands), and Grok may refresh its model cache in `~/.grok` then.
 - Rollback: revert the merge. Grok returns to "found, not supported yet"; no stored data changes shape.
 - Monitoring after merge: the first real Grok check on a Mac ends with a verdict.
 

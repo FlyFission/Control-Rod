@@ -60,7 +60,8 @@ func TestGrokCommandIsTheBridge(t *testing.T) {
 	if cfg.Workspace != dir || cfg.RunHome != ws.RunHome || cfg.Checker || !slices.Equal(cfg.WriteDirs, []string{dir}) || cfg.Prompt != Prompt {
 		t.Fatalf("bridge config %+v", cfg)
 	}
-	if !slices.Contains(cfg.Denied, "/home/u") || !slices.Contains(cfg.Hosts, "api.x.ai:443") || !slices.Contains(cfg.Hosts, "cli-chat-proxy.grok.com:443") {
+	deniedHome, _ := canonicalPath("/home/u")
+	if !slices.Contains(cfg.Denied, deniedHome) || !slices.Contains(cfg.Hosts, "api.x.ai:443") || !slices.Contains(cfg.Hosts, "cli-chat-proxy.grok.com:443") {
 		t.Fatalf("bridge config denies or hosts %+v", cfg)
 	}
 	for _, sub := range []string{grokTmpDir, filepath.Join(grokTermDir, "tmp")} {

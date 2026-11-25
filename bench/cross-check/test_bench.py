@@ -1303,6 +1303,31 @@ class Grading(Tmp):
         p.write_text(json.dumps({"x": {"patch_successfully_applied": "true", "resolved": 0, "tests_status": {}}}))
         self.assertIsNone(grading.parse_swebench_report(p, "x"))  # verdict fields must be literal booleans
 
+    def test_grader_images_are_pulled_for_their_own_platform(self):
+        self.assertEqual(grading.image_platform("swebench/sweb.eval.x86_64.sympy_1776_sympy-18211:latest"), "linux/amd64")
+        self.assertIsNone(grading.image_platform("local/img"))
+        self.assertFalse(grading.ensure_image(None)["ok"])
+        ref = "swebench/sweb.eval.x86_64.a_1776_a-1:latest"
+        calls = []
+        inspect = iter([None, {"Id": "sha256:i", "RepoDigests": ["d"], "Architecture": "amd64"}])
+        def run(argv, **k):
+            calls.append(argv)
+            if argv[1] == "pull":
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            nxt = next(inspect)
+            return mock.Mock(returncode=0 if nxt else 1, stdout=json.dumps(nxt) if nxt else "", stderr="")
+        with mock.patch.object(grading.subprocess, "run", side_effect=run):
+            r = grading.ensure_image(ref)
+        self.assertTrue(r["ok"] and r["pulled"])
+        self.assertIn(["docker", "pull", "--platform", "linux/amd64", ref], calls)  # never the VM's arm64 default
+        wrong = {"Id": "sha256:j", "Architecture": "arm64"}
+        with mock.patch.object(grading.subprocess, "run", side_effect=lambda argv, **k: mock.Mock(
+                returncode=0, stdout=json.dumps(wrong), stderr="")):
+            self.assertFalse(grading.ensure_image(ref)["ok"])  # still arm64 after the pull: refused
+        with mock.patch.object(grading.subprocess, "run", side_effect=lambda argv, **k: mock.Mock(
+                returncode=1, stdout="", stderr="manifest unknown")):
+            self.assertIn("manifest unknown", grading.ensure_image(ref)["why"])
+
     def test_grader_check_needs_every_flag_and_complete_rows(self):
         cfg = {"evaluation": {"python": "3.11", "harness": "swebench==5.0.2"}, "snapshot": {"path": str(self.d / "s.jsonl")}}
         full = " ".join(grading.HARNESS_FLAGS)

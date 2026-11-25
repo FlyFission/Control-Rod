@@ -65,6 +65,7 @@ test_a_broken_patch_is_patch_invalid (bench.cross-check.test_bench.Grading.test_
 test_collection_errors_are_failures (bench.cross-check.test_bench.Grading.test_collection_errors_are_failures) ... ok
 test_controls_pass_on_fixtures (bench.cross-check.test_bench.Grading.test_controls_pass_on_fixtures) ... ok
 test_grader_check_needs_every_flag_and_complete_rows (bench.cross-check.test_bench.Grading.test_grader_check_needs_every_flag_and_complete_rows) ... ok
+test_grader_images_are_pulled_for_their_own_platform (bench.cross-check.test_bench.Grading.test_grader_images_are_pulled_for_their_own_platform) ... ok
 test_judge (bench.cross-check.test_bench.Grading.test_judge) ... ok
 test_known_bad_target_must_be_a_plain_file_inside (bench.cross-check.test_bench.Grading.test_known_bad_target_must_be_a_plain_file_inside) ... ok
 test_labels_are_safe_directory_names (bench.cross-check.test_bench.Grading.test_labels_are_safe_directory_names) ... ok
@@ -117,7 +118,7 @@ test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 115 tests in 68.483s
+Ran 116 tests in 69.821s
 
 OK (skipped=1)
 # python3.9 --version: Python 3.9.25
@@ -187,6 +188,7 @@ test_a_broken_patch_is_patch_invalid (bench.cross-check.test_bench.Grading) ... 
 test_collection_errors_are_failures (bench.cross-check.test_bench.Grading) ... ok
 test_controls_pass_on_fixtures (bench.cross-check.test_bench.Grading) ... ok
 test_grader_check_needs_every_flag_and_complete_rows (bench.cross-check.test_bench.Grading) ... ok
+test_grader_images_are_pulled_for_their_own_platform (bench.cross-check.test_bench.Grading) ... ok
 test_judge (bench.cross-check.test_bench.Grading) ... ok
 test_known_bad_target_must_be_a_plain_file_inside (bench.cross-check.test_bench.Grading) ... ok
 test_labels_are_safe_directory_names (bench.cross-check.test_bench.Grading) ... ok
@@ -239,6 +241,6 @@ test_root_through_a_symlink_is_resolved (bench.cross-check.test_bench.Workspaces
 macOS /var is a link to /private/var; the root must be the real path so confinement rules match. ... ok
 
 ----------------------------------------------------------------------
-Ran 115 tests in 73.732s
+Ran 116 tests in 81.295s
 
 OK (skipped=1)

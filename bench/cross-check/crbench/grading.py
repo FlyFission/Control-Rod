@@ -254,7 +254,11 @@ def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple
     if not snapshot.exists() or (frozen_snapshot_sha and sha256_file(snapshot) != frozen_snapshot_sha):
         raise Refused("§3 snapshot", "the grading snapshot is missing or differs from the frozen digest")
     out = {}
+    pins = {tid: ensure_image(tasks[tid].get("image")) for tid in sorted({t for _, t, _ in items})}
     for label, tid, patch in items:
+        if not pins[tid]["ok"]:
+            out[label] = {"status": "infra_error", "why": f"grader image: {pins[tid]['why']}"}
+            continue
         sub = eval_dir / label_dir(label)
         sub.mkdir(parents=True, exist_ok=True)
         model = "candidate"
@@ -295,7 +299,51 @@ def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple
             g = {"status": "infra_error", "why": "report and executed-test map disagree on resolution"}
         out[label] = {**base, **g, "outcomes": outcomes}
     out["_images"] = docker_images()
+    out["_image_pins"] = pins
     return out
+
+
+def image_platform(ref: str) -> str | None:
+    """The platform a SWE-bench image is built for, from its name (sweb.eval.x86_64.*)."""
+    if "x86_64" in ref:
+        return "linux/amd64"
+    if "arm64" in ref or "aarch64" in ref:
+        return "linux/arm64"
+    return None
+
+
+def _inspect(ref: str) -> dict | None:
+    try:
+        r = subprocess.run(["docker", "image", "inspect", "--format", "{{json .}}", ref], capture_output=True, text=True,
+                           timeout=60)
+        return json.loads(r.stdout) if r.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return None
+
+
+def ensure_image(ref: str | None, timeout: int = 3600) -> dict:
+    """The task's grader image, present for its own platform before the harness runs. The pinned
+    harness pulls through docker-py with no platform, which asks a Mac's Linux VM for arm64 and
+    gets nothing for the x86_64-only SWE-bench images; an image already present is used as is.
+    Records the image ID and repository digests."""
+    if not ref:
+        return {"ok": False, "why": "the task row names no grader image"}
+    want = image_platform(ref)
+    arch = {"linux/amd64": "amd64", "linux/arm64": "arm64"}.get(want or "")
+    info, pulled = _inspect(ref), False
+    if info is None or (arch and info.get("Architecture") != arch):
+        argv = ["docker", "pull", *(["--platform", want] if want else []), ref]
+        try:
+            r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return {"ok": False, "image": ref, "why": f"pull failed: {type(e).__name__}"}
+        if r.returncode != 0:
+            return {"ok": False, "image": ref, "why": f"pull failed: {(r.stderr or r.stdout).strip()[-300:]}"}
+        info, pulled = _inspect(ref), True
+    if info is None or (arch and info.get("Architecture") != arch):
+        return {"ok": False, "image": ref, "why": f"no {want} image after the pull"}
+    return {"ok": True, "image": ref, "id": info.get("Id"), "repo_digests": info.get("RepoDigests") or [],
+            "architecture": info.get("Architecture"), "pulled": pulled}
 
 
 def docker_images() -> list[dict]:
@@ -436,7 +484,8 @@ def run_controls(cfg: dict, tasks: dict, ids: list[str], root: Path, cache: Path
     layouts = sorted({r["got"].get("report_layout") for r in results.values() if r["got"].get("report_layout")})
     return {"at": now(), "passed": all(r["ok"] for r in results.values()), "results": results,
             "flaky_or_failing_tasks": sorted(t for t, oks in per_task.items() if not all(oks)),
-            "report_layout": layouts, "images": got.get("_images", []), "repeats": repeats}
+            "report_layout": layouts, "images": got.get("_images", []), "image_pins": got.get("_image_pins", {}),
+            "repeats": repeats}
 
 
 def controls_md(rec: dict) -> str:

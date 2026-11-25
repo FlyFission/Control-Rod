@@ -298,6 +298,7 @@ def evaluate(study: Study, phase: str) -> dict:
             results.setdefault(tid, {})[a] = g
         rec = {"at": now(), "results": results, "snapshot": cfg["snapshot"], "evaluation": cfg["evaluation"],
                "images": graded.get("_images", []) or (prev or {}).get("images", []),
+               "image_pins": {**(prev or {}).get("image_pins", {}), **graded.get("_image_pins", {})},
                "manifest_sha256": m["manifest_sha256"], "lock_sha256": lock_rec["sha256"],
                "judgments_sha256": judgments_digest(study, phase),
                "passes": (prev or {}).get("passes", 0) + 1}

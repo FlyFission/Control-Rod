@@ -1,10 +1,10 @@
 # Ship: Fewer steps on a new card
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner, 2026-11-25.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): yes, recorded 2026-11-25T16:52Z from the owner's own answer "Yes, merge it" to the merge question in the project thread, after both Codex blind-check rounds and with the round-2 fixes covered by tests only.
 
 - Rollback: revert the merge. No data, route or migration.
 - Monitoring after merge: on a real install, a card added with quick add shows its lane chip and goes straight to intake; a card that still asks to classify means the sender lacks lane authority or the project has no lane.

@@ -793,8 +793,30 @@
   font-weight: 600;
   color: var(--text);
 }
-.bd[data-density="compact"] .bd-card {
-  padding: 6px 9px;
+/* Compact: one line per card, a status mark and the name, nothing else. */
+.bd-card.bd-card-compact {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+.bd-card-compact .bd-sym {
+  flex: none;
+  width: 1em;
+  text-align: center;
+}
+.bd-card-compact .bd-title {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.bd[data-density="compact"] .bd-col {
   gap: 4px;
 }
 .bd[data-density="compact"] .bd-avatar,

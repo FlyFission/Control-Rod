@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { CloseX } from "./CloseX.js";
 import { AgentUpdates } from "./AgentUpdates.js";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -158,9 +159,7 @@ function PhoneBar({
           >
             <div className="more-head">
               <span className="more-title">More</span>
-              <button type="button" className="btn small" onClick={() => { setMoreOpen(false); moreBtn.current?.focus(); }}>
-                Close
-              </button>
+              <CloseX onClose={() => { setMoreOpen(false); moreBtn.current?.focus(); }} label="Close menu" />
             </div>
             <ul className="more-list">
               {PLACE_GROUPS.map((group) => {

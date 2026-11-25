@@ -1228,7 +1228,7 @@ describe("board lenses (M2)", () => {
     expect(screen.getByText("Protected doc")).toBeTruthy();
   });
 
-  it("hides avatars in compact density while keeping the next line", async () => {
+  it("shows one line per card in compact density: status mark and name, next line as hover text", async () => {
     api({
       packages: [pkg({ id: "WP-1", title: "Compact card", grade: "general-service", status: "in-verification" })],
       actions: { "WP-1": [accept] },
@@ -1244,8 +1244,11 @@ describe("board lenses (M2)", () => {
     await user.click(screen.getByText("View options", { exact: false }));
     await user.click(screen.getByRole("button", { name: "Compact" }));
     expect(document.querySelector(".bd")!.getAttribute("data-density")).toBe("compact");
-    expect(card.querySelectorAll(".bd-avatar").length).toBe(0);
-    expect(card.querySelector(".bd-next")!.textContent).toContain("Accept");
+    const compact = (await screen.findByText("Compact card")).closest("article")!;
+    expect(compact.className).toContain("bd-card-compact");
+    expect(compact.querySelectorAll(".bd-avatar, .bd-meta, .bd-id").length).toBe(0);
+    expect(compact.querySelector(".bd-next")!.textContent).toContain("Accept");
+    expect(compact.getAttribute("title")).toContain("Accept");
   });
 
   it("pluralizes the default-view guard notice when multiple protected cards are hidden", async () => {

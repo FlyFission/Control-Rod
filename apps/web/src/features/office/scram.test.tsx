@@ -6,6 +6,7 @@ import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
 import type { Passkeys } from "../../lib/decide.js";
 import { ScramBanner, ScramControl } from "./Scram.js";
+import { hydrateServerProjects, selectProject, WorkspaceProjectUser } from "../../lib/projects.js";
 
 /** SCRAM from the office (plan task 4.10; OV-12). */
 
@@ -16,6 +17,32 @@ const digest = (c: string) => c.repeat(64);
 const scram = { id: "scr_1", org_id: "org", scope: "organization", pulled_by: "m", reason: "Bad prompt shipped", assertion: {}, quarantine: ["R-1", "R-2"] };
 
 describe("SCRAM", () => {
+  it("opens on the project you are in, ready to fire, and lists workspace projects when the admin read has none", async () => {
+    window.localStorage.clear();
+    hydrateServerProjects("ben", [{ id: "p1", name: "Plant A", mode: "software" } as never]);
+    selectProject("ben", "p1");
+    server.use(
+      http.get("*/scrams/preview", () => HttpResponse.json(preview("project", ["R-a"], [], "p1"))),
+      http.get("*/admin", () => HttpResponse.json({ projects: [] })),
+    );
+    await renderPage(
+      <WorkspaceProjectUser.Provider value="ben">
+        <ScramControl passkeys={passkeys} />
+      </WorkspaceProjectUser.Provider>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "SCRAM" }));
+    const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
+    expect(within(dialog).getByRole("radio", { name: "One project" })).toHaveProperty("checked", true);
+    expect(within(dialog).getByRole("combobox")).toHaveProperty("value", "p1");
+    expect(await within(dialog).findByText(/in the project Plant A where it stands/)).toBeTruthy();
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Sign with your passkey and stop" })).toHaveProperty("disabled", false));
+    // Clearing the project says what is missing, next to the button.
+    await user.selectOptions(within(dialog).getByRole("combobox"), "");
+    expect(within(dialog).getByText("Choose the project to stop, or choose the whole organization.")).toBeTruthy();
+    window.localStorage.clear();
+  });
+
   it("states the scope and what it stops, counted by the pull's own selection, then signs exactly that (OV-12)", async () => {
     const sent: { name: string; body: unknown }[] = [];
     const asked: string[] = [];
@@ -46,13 +73,18 @@ describe("SCRAM", () => {
     await user.click(within(dialog).getByText("Which runs"));
     expect(within(dialog).getByText("R-old (running)")).toBeTruthy();
     const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
-    // No reason, no stop.
+    // The reason starts filled in, so an emergency stop is one press; with no reason, no stop, and the dialog says why.
+    expect(within(dialog).getByRole("textbox", { name: "Why (required)" })).toHaveProperty("value", "Emergency stop.");
+    expect(sign.disabled).toBe(false);
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
     expect(sign.disabled).toBe(true);
+    expect(within(dialog).getByText("Say why in one line.")).toBeTruthy();
     await user.click(within(dialog).getByRole("radio", { name: "One project" }));
     expect(within(dialog).getByText("Choose the project to see what this stops.")).toBeTruthy();
     await user.selectOptions(within(dialog).getByRole("combobox"), "p1");
     expect(await within(dialog).findByText(/in the project Plant A where it stands\. Counted at .+: 1 run running now stops, and 1 queued run is held\./)).toBeTruthy();
     expect(asked).toContain("scope=project&project_id=p1");
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
     await user.click(sign);
     await waitFor(() => expect(sent.map((s) => s.name)).toEqual(["scram.pull/options", "scram.pull"]));
@@ -79,11 +111,16 @@ describe("SCRAM", () => {
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
     const first = within(dialog).getByRole("radio", { name: "The whole organization" });
     const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+    const closeX = within(dialog).getByRole("button", { name: "Close SCRAM" });
     expect(document.activeElement).toBe(first);
-    // Backwards from the first control lands on the last, never on the page behind.
+    // Backwards from the first choice is the close button in the corner, then wraps to the last control.
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(closeX);
     await user.tab({ shift: true });
     expect(document.activeElement).toBe(cancel);
-    // Forwards from the last control lands on the first.
+    // Forwards from the last control lands on the first, the close button.
+    await user.tab();
+    expect(document.activeElement).toBe(closeX);
     await user.tab();
     expect(document.activeElement).toBe(first);
     for (let i = 0; i < 8; i++) {
@@ -108,6 +145,7 @@ describe("SCRAM", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
     await user.click(within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }));
     const cancel = (await within(dialog).findByRole("button", { name: "Cancel" })) as HTMLButtonElement;
@@ -131,6 +169,7 @@ describe("SCRAM", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
     const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
     expect(await within(dialog).findByText(/How many could not be counted just now\./, {}, { timeout: 5000 })).toBeTruthy();
@@ -155,6 +194,7 @@ describe("SCRAM", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
+    await user.clear(within(dialog).getByRole("textbox", { name: "Why (required)" }));
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
     const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
     // While it is still counting, nothing fires.

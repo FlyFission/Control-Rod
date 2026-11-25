@@ -467,7 +467,10 @@
 }
 .office-dialog {
   position: relative;
-  overflow: hidden;
+  /* Never taller than the window: a long count or run list scrolls, the Sign button stays reachable. */
+  max-height: calc(100dvh - 32px);
+  overflow-x: hidden;
+  overflow-y: auto;
   gap: 12px;
   color: var(--text);
   width: min(580px, calc(100vw - 32px));
@@ -1593,4 +1596,19 @@ a.plant-window-body:hover {
   cursor: pointer;
   font-size: var(--fs-label);
   color: var(--muted, #a7b6c4);
+}
+
+.office-scram-blocker {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.office-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.office-dialog-head > div {
+  display: grid;
+  gap: 6px;
 }

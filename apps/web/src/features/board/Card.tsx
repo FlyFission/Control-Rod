@@ -72,7 +72,7 @@ export type CardProps = {
   actions?: ReactNode;
   /** Left-edge color from the active `colorBy` lens (never a meaning token). */
   edgeColor?: string;
-  /** Compact density hides avatars and grade/context chips, never the next line. */
+  /** Compact density shows one line: a status mark and the title (the next line is the hover text). */
   compact?: boolean;
   /** An agent run on this card is running now, as last read; queued alone does not count. */
   runRunning?: boolean;
@@ -88,6 +88,31 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
   const titleId = `bd-card-${pkg.id}`;
   const check = needsIndependentCheck(pkg);
   const spin = showsRunSpinner({ runRunning, lastKnown }, stream);
+  if (compact) {
+    // Compact is one line: a status mark and the name. The next line stays for screen readers and
+    // as the hover text; everything else is one click away in the drawer.
+    const live = stream === "live" && !lastKnown;
+    const said = stream === "unknown" ? `Status unknown since ${sinceText(unknownSince)}` : lastKnown ? `Last known: ${next.text}` : `${tone.word ? `${tone.word}: ` : ""}${next.text}`;
+    return (
+      <article
+        aria-labelledby={titleId}
+        className={selected ? "bd-card bd-card-compact selected" : "bd-card bd-card-compact"}
+        data-kind={kinds[0]}
+        data-column={column}
+        data-tone={live ? next.tone : "unknown"}
+        style={edgeColor ? { borderLeftColor: edgeColor } : undefined}
+        title={said}
+      >
+        <span className={spin ? "bd-sym bd-live" : "bd-sym"} aria-hidden="true">
+          {spin ? "\u25cf" : live ? tone.symbol : "\u25cb"}
+        </span>
+        <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
+          {pkg.title}
+        </button>
+        <p className="bd-next sr-only">{said}</p>
+      </article>
+    );
+  }
   return (
     <article
       aria-labelledby={titleId}

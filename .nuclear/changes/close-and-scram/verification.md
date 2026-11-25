@@ -2,6 +2,7 @@
 
 - Web unit tests and typecheck pass.
 - Live tests (built control plane, embedded PostgreSQL, Go daemon with the fake runtime, Chromium): drawer (now also opens the full log and checks it fills the window, Esc closes it and not the drawer), SCRAM dialog, lifecycle.
+- After merging main (#190, the top-bar SCRAM switch): the live SCRAM test found the switch's hover card stayed up (focused) over the SCRAM page after pressing SCRAM, covering the page's own SCRAM button. Pressing SCRAM now hides the card until focus leaves it (`ScramSwitch.tsx`), with a unit test in `shell-scram.test.tsx`; the live SCRAM and drawer tests pass again.
 - Blind check: Codex GitHub review of 714f87e (2026-11-25), no findings.
 
 ## Evidence custody and coupling

@@ -131,6 +131,19 @@ describe("the SCRAM banner is app-wide", () => {
     expect(screen.getByRole("tooltip").textContent).toMatch(/Last reading: SCRAM in force/);
   });
 
+  it("hides the SCRAM card once SCRAM is pressed, so it never covers the SCRAM page's own button", async () => {
+    baseApi();
+    server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] })));
+    await renderShell("/board");
+    await waitFor(() => expect(document.querySelector(".scram-switch")).not.toBeNull());
+    const sw = document.querySelector(".scram-switch")!;
+    const user = userEvent.setup();
+    await user.click(within(sw as HTMLElement).getByRole("link", { name: "SCRAM" }));
+    expect(sw.hasAttribute("data-tip-dismissed")).toBe(true);
+    await user.unhover(sw);
+    expect(sw.hasAttribute("data-tip-dismissed")).toBe(true);
+  });
+
   it("shows an unknown lamp, not an off one, when a clear reading can no longer be refreshed", async () => {
     baseApi();
     let fail = false;

@@ -460,9 +460,10 @@ func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]str
 	}
 	isolated := ws != nil && ws.Checker && ws.IsolatedLoginHome != ""
 	if isolated {
-		// The run's own login home holds a credential copy and the session rollout: Codex reads and
-		// writes it itself, but the agent's commands never see it.
-		fs[ws.IsolatedLoginHome] = "deny"
+		// Every run's login home holds a credential copy and a session rollout: Codex reads and
+		// writes its own itself, but the agent's commands see none of them. The folder they are made
+		// in is denied whole, so a home made after this run started is covered too.
+		fs[filepath.Dir(ws.IsolatedLoginHome)] = "deny"
 	}
 	keys := make([]string, 0, len(fs))
 	for k := range fs {

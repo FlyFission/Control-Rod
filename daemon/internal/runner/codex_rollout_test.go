@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func writeCodexRollout(t *testing.T, home, name, body string) {
@@ -78,7 +79,7 @@ func TestAddPostRunModelsFeedsTheObservedSet(t *testing.T) {
 func TestCodexEphemeralOnlyWithoutAnIsolatedHome(t *testing.T) {
 	home, work := t.TempDir(), t.TempDir()
 	at := SandboxPaths{Home: home, DaemonHome: filepath.Join(home, ".controlrod"), Workspace: work}
-	iso := filepath.Join(t.TempDir(), "iso")
+	iso := filepath.Join(t.TempDir(), "homes", "run-1")
 	plain := &Workspace{Dir: work, Scratch: filepath.Join(work, "scratch"), Checker: true}
 	args, err := CodexArgs(plain, "", testPolicy(), at)
 	if err != nil || !slices.Contains(args, "--ephemeral") {
@@ -92,8 +93,8 @@ func TestCodexEphemeralOnlyWithoutAnIsolatedHome(t *testing.T) {
 	if slices.Contains(args, "--ephemeral") {
 		t.Fatal("checker with an isolated home kept --ephemeral")
 	}
-	if !strings.Contains(strings.Join(args, "\n"), strconv.Quote(iso)+`="deny"`) {
-		t.Fatal("the isolated home is not denied to the agent's commands")
+	if !strings.Contains(strings.Join(args, "\n"), strconv.Quote(filepath.Dir(iso))+`="deny"`) {
+		t.Fatal("the folder of every isolated home is not denied to the agent's commands")
 	}
 	author := &Workspace{Dir: work, IsolatedLoginHome: iso}
 	args, err = CodexArgs(author, "", testPolicy(), at)
@@ -187,31 +188,45 @@ func TestSaveRefreshedCredential(t *testing.T) {
 }
 
 func TestRemoveStaleIsolatedHomes(t *testing.T) {
-	parent := t.TempDir()
-	keep := filepath.Join(parent, "run-new.codexhome")
-	stale := filepath.Join(parent, "run-old.codexhome")
-	other := filepath.Join(parent, "run-old.home")
-	target := filepath.Join(parent, "target")
-	link := filepath.Join(parent, "run-link.codexhome")
-	file := filepath.Join(parent, "run-file.codexhome")
-	for _, d := range []string{keep, stale, other, target} {
+	root := t.TempDir()
+	live := filepath.Join(root, "run-live")
+	stale := filepath.Join(root, "run-stale")
+	target := filepath.Join(t.TempDir(), "target")
+	link := filepath.Join(root, "run-link")
+	for _, d := range []string{live, stale, target} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
-	os.Symlink(target, link)
-	os.WriteFile(file, nil, 0o600)
 	os.WriteFile(filepath.Join(stale, "auth.json"), []byte("x"), 0o600)
-	removeStaleIsolatedHomes(keep)
-	for p, want := range map[string]bool{keep: true, stale: false, other: true, target: true, file: true} {
+	old := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(stale, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	removeStaleIsolatedHomes(root, time.Now().Add(-staleIsolatedHomeAge))
+	for p, want := range map[string]bool{live: true, stale: false, link: true, target: true} {
 		if _, err := os.Lstat(p); (err == nil) != want {
 			t.Errorf("%s exists=%v want %v", filepath.Base(p), err == nil, want)
 		}
 	}
-	if _, err := os.Lstat(link); err != nil {
-		t.Error("symlink was removed")
+}
+
+func TestCodexHomesRootIsPrivate(t *testing.T) {
+	tmp := t.TempDir()
+	root, err := codexHomesRootIn(tmp)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Lstat(filepath.Join(target)); err != nil {
-		t.Error("symlink target removed")
+	if err := os.Chmod(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if root, err = codexHomesRootIn(tmp); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := os.Stat(root); st.Mode().Perm() != 0o700 {
+		t.Fatalf("mode = %v", st.Mode().Perm())
 	}
 }

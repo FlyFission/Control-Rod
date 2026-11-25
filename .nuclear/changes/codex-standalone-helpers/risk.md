@@ -4,7 +4,7 @@
 - **Scope.** Only a folder holding nothing but codex files is taken in. A shared bin (Homebrew, /usr/local/bin) stays a single file.
 - **Model provenance.** On macOS the Codex model now comes from Codex's own session record of the model it ran, not the API. That is stronger than trusting `-m`, weaker than a server-reported model. The agent's commands cannot write that record (outside the workspace and denied by name), but on macOS this rests on Codex's own sandbox.
 - **Sign-in.** A refreshed token is written back only when the host file is unchanged, by atomic rename keeping its mode. A crash leaves a copy of auth.json in the work folder until the next check there removes it.
-- **Concurrency.** Two checks on the same package revision share a parent folder; the stale-home cleanup could remove the other's home. Unlikely (one check per revision at a time).
+- **Concurrency.** Each run's home is a unique folder under one private root, which is denied whole to every Codex checker's commands, so overlapping checks cannot read each other's copies. Cleanup removes only homes older than a day, never a live run's (review findings on #230).
 - **No trust surface is touched** (kernel decision functions, policies, spec and workflows are unchanged; admission gains one refusal rule).
 
 ## Selected mode

@@ -217,12 +217,13 @@ func codexFeaturesOff(list string) map[string]bool {
 	return off
 }
 
-// prepareIsolatedHome gives a self-confined (macOS) Codex checker its own CODEX_HOME beside the
-// workspace: a copy of auth.json and nothing else. Codex keeps its session rollout, its skill
-// sync and its caches there, not in the real ~/.codex, so a check never writes the user's login
-// folder. The folder is outside the workspace (the agent cannot write it) and is denied to the
-// agent's commands by name (CodexPolicyArgs). Without a credential file to copy, the run keeps
-// the real login folder and --ephemeral, and its model stays unknown.
+// prepareIsolatedHome gives a self-confined (macOS) Codex checker its own CODEX_HOME: a fresh,
+// uniquely named folder under codexHomesRoot holding a copy of auth.json and nothing else. Codex
+// keeps its session rollout, its skill sync and its caches there, not in the real ~/.codex, so a
+// check never writes the user's login folder. The whole root is denied to every Codex checker's
+// commands (CodexPolicyArgs), so no run's agent can read its own or another run's copy, including
+// homes made after it started. Without a credential file to copy, the run keeps the real login
+// folder and --ephemeral, and its model stays unknown.
 func (a codexAdapter) prepareIsolatedHome(ws *Workspace) error {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
@@ -237,16 +238,13 @@ func (a codexAdapter) prepareIsolatedHome(ws *Workspace) error {
 	if err != nil {
 		return nil
 	}
-	dir, err := canonicalPath(ws.Dir)
+	root, err := codexHomesRoot()
 	if err != nil {
 		return err
 	}
-	iso := dir + ".codexhome"
-	removeStaleIsolatedHomes(iso)
-	if err := os.RemoveAll(iso); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(iso, 0o700); err != nil {
+	removeStaleIsolatedHomes(root, time.Now().Add(-staleIsolatedHomeAge))
+	iso, err := os.MkdirTemp(root, "run-")
+	if err != nil {
 		return err
 	}
 	ws.IsolatedLoginHome = iso
@@ -254,27 +252,56 @@ func (a codexAdapter) prepareIsolatedHome(ws *Workspace) error {
 	return os.WriteFile(ws.CredentialCopy.Copy, cred, 0o600)
 }
 
-// removeStaleIsolatedHomes deletes leftover *.codexhome folders from earlier runs beside keep:
-// real directories owned by this user only, never keep itself.
-func removeStaleIsolatedHomes(keep string) {
-	parent := filepath.Dir(keep)
-	entries, err := os.ReadDir(parent)
+// staleIsolatedHomeAge is how old a disposable login home must be before another run may remove
+// it as a crashed run's leftover: far longer than any check runs.
+const staleIsolatedHomeAge = 24 * time.Hour
+
+// codexHomesRoot is the private folder disposable Codex login homes are made in:
+// /tmp/controlrod-codexhomes-<uid> (never TMPDIR), mode 0700 and owned by this user.
+func codexHomesRoot() (string, error) {
+	return codexHomesRootIn("/tmp")
+}
+
+func codexHomesRootIn(tmp string) (string, error) {
+	if real, err := filepath.EvalSymlinks(tmp); err == nil {
+		tmp = real
+	}
+	root := filepath.Join(tmp, fmt.Sprintf("controlrod-codexhomes-%d", os.Getuid()))
+	if err := os.Mkdir(root, 0o700); err != nil && !os.IsExist(err) {
+		return "", err
+	}
+	fi, err := os.Lstat(root)
+	if err != nil {
+		return "", err
+	}
+	if !fi.IsDir() || !fileOwnedByUser(fi) {
+		return "", fmt.Errorf("%s must be a folder of this user's", root)
+	}
+	if fi.Mode().Perm()&0o077 != 0 {
+		if err := os.Chmod(root, 0o700); err != nil {
+			return "", err
+		}
+	}
+	return root, nil
+}
+
+// removeStaleIsolatedHomes deletes leftover login homes in root last changed before cutoff (a
+// crashed run's copy of auth.json): real directories owned by this user only. A live run's home
+// is far younger than the cutoff, so it is never taken.
+func removeStaleIsolatedHomes(root string, cutoff time.Time) {
+	entries, err := os.ReadDir(root)
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
-		p := filepath.Join(parent, e.Name())
-		if p == keep || !strings.HasSuffix(e.Name(), ".codexhome") {
-			continue
-		}
+		p := filepath.Join(root, e.Name())
 		st, err := os.Lstat(p)
-		if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 || !fileOwnedByUser(st) {
 			continue
 		}
-		if !fileOwnedByUser(st) {
-			continue
+		if st.ModTime().Before(cutoff) {
+			_ = os.RemoveAll(p)
 		}
-		_ = os.RemoveAll(p)
 	}
 }
 

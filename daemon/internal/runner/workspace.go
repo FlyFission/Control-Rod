@@ -75,9 +75,9 @@ type Workspace struct {
 	// so not writable by its agent. The daemon removes it after the run.
 	RunHome string
 	// IsolatedLoginHome is a per-run, disposable copy of a self-confined checker's login home
-	// (macOS Codex: CODEX_HOME), beside the workspace and outside every path the agent may write.
+	// (macOS Codex: CODEX_HOME), in a private folder outside every path the agent may write.
 	// It holds only a copy of the credential file and what the CLI records during the run (its
-	// session rollout, which names the model). The agent's commands are denied it by name, and the
+	// session rollout, which names the model). The agent's commands are denied its whole folder, and the
 	// daemon removes it after the run.
 	IsolatedLoginHome string
 	// CredentialCopy records the host sign-in file copied into IsolatedLoginHome.

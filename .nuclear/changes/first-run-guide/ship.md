@@ -1,10 +1,10 @@
 # Ship: A guided first run on the board
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner, 2026-11-25 00:37 UTC.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): Ben Huffer, yes, by decision card "Merge PR 193 (Run again on failed runs, first-run guide) into main?" in the project thread, 2026-11-25 00:37 UTC. Blind checks: Codex (two rounds on the owner's Mac, findings fixed as recorded in verification.md) and the Codex GitHub review of 2015a9e (no findings).
 
 - Rollback: revert the merge. No data, route or migration.
 - Monitoring after merge: a fresh install opens on the board with the guide at 0 of 5 and "Choose agents"; after Setup it moves to "Connect a repository".

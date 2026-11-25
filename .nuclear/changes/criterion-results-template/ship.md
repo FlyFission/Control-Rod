@@ -1,6 +1,12 @@
 # Ship: Checkers get a filled-in criterion results file to complete
 
-Release decision: **pending owner decision.**
+Release decision: **approved by the owner.**
+
+## Signature
+
+| Decision | Question | Answer (owner's words) | Given | Where | Recorded by |
+|---|---|---|---|---|---|
+| Merge PR #222 on green | "Merge fix PR #222 on green so Grok's passing check counts?" | Yes, merge #222 on green (option chosen on a decision card) | 2026-11-25T20:57:44Z | Project thread "Make cards finish without Ben stepping in", decision cmsg_01JQf1P5cs98pyQ9mZyGHPrKXkMjXaf9vJTjYNKG667qwq | Claude (project thread) |
 
 - Rollback: revert the merge. No migration.
 - Monitoring after merge: a prepared Grok, Claude or Codex check counts instead of failing with "criterion-results.json does not match the schema".

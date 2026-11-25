@@ -89,7 +89,6 @@ export const REASONS: Record<string, Reason> = {
 
   // Workspace project preferences and archive.
   "mode-immutable": r("The project's engineering mode is fixed after creation.", "Create a project in the engineering mode you need."),
-  "o6-independence": r("The author and checker must use different CLI ecosystems.", "Choose a different CLI for one of the roles."),
   "pending-signatures": r("Work in this project is waiting for verification or signature.", "Resolve the outstanding reviews before archiving the project."),
 
   // Markings and disclosure.

@@ -125,10 +125,10 @@ export function ReasonBox({ d, compact = false }: { d: DecisionSigner; compact?:
     <div className="reason">
       <label className="field">
         <span>{REASON_PROMPT[pending]}</span>
-        <textarea ref={ref} rows={compact ? 2 : 3} value={d.reason} onChange={(e) => d.setReason(e.target.value)} />
+        <textarea ref={ref} rows={compact ? 2 : 3} placeholder="Optional" value={d.reason} onChange={(e) => d.setReason(e.target.value)} />
       </label>
       <div className="decide-buttons">
-        <button type="button" className={pending === "reject" ? "btn danger" : "btn primary"} onClick={() => void d.sign(pending)} disabled={d.busy || !d.pendingAllowed || d.scramLock.locked || d.reason.trim().length === 0} title={d.scramLock.why}>
+        <button type="button" className={pending === "reject" ? "btn danger" : "btn primary"} onClick={() => void d.sign(pending)} disabled={d.busy || !d.pendingAllowed || d.scramLock.locked} title={d.scramLock.why}>
           {d.decisions.find((a) => a.command === pending)?.signature === "none" ? decisionLabel(pending) : `Sign: ${decisionLabel(pending)}`}
         </button>
         <button type="button" className="btn ghost" onClick={() => d.setPending(null)} disabled={d.busy}>

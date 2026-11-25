@@ -5,7 +5,7 @@ import "./scram-banner.css";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client.js";
 import type { ScramDetail, ScramEvent, ScramSummary } from "../../api/types.js";
-import { type Passkeys, browserPasskeys, signAdmin } from "../../lib/decide.js";
+import { NOTE_FALLBACK, type Passkeys, browserPasskeys, noteOr, signAdmin } from "../../lib/decide.js";
 import { time } from "../../lib/format.js";
 import { projectDisplayName, useActiveProject, useProjects } from "../../lib/projects.js";
 import { markScram } from "../../lib/scramTiming.js";
@@ -77,7 +77,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
   const projects: { id: string; name: string }[] = adminProjects.length > 0 ? adminProjects : workspace;
   const where = scope === "organization" ? "the whole organization" : `the project ${projects.find((p) => p.id === project)?.name ?? project}`;
   const pull = useMutation({
-    mutationFn: () => api.adminPress<ScramEvent>("scram.pull", { scope, ...(scope === "project" ? { project_id: project } : {}), reason: reason.trim(), ...(drill ? { drill: true } : {}) }),
+    mutationFn: () => api.adminPress<ScramEvent>("scram.pull", { scope, ...(scope === "project" ? { project_id: project } : {}), reason: noteOr(reason, NOTE_FALLBACK["scram-pull"]), ...(drill ? { drill: true } : {}) }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["scrams"] });
       void qc.invalidateQueries({ queryKey: ["office-figures"] });
@@ -96,17 +96,15 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
   }, [scope, project, chosen, patienceMs]);
   const waivable = !preview.isSuccess && (preview.isError || stalled);
   const counted = preview.isSuccess || (waivable && uncounted);
-  const ready = reason.trim().length > 0 && chosen && counted;
+  const ready = chosen && counted;
   // A disabled button always says why, in one line, next to it.
   const blocker = !chosen
     ? "Choose the project to stop, or choose the whole organization."
-    : reason.trim().length === 0
-      ? "Say why in one line."
-      : !counted
-        ? waivable
-          ? "Tick \u201cStop without a count\u201d to stop now."
-          : "Still counting what this stops. It can fire once the count is in."
-        : undefined;
+    : !counted
+      ? waivable
+        ? "Tick \u201cStop without a count\u201d to stop now."
+        : "Still counting what this stops. It can fire once the count is in."
+      : undefined;
   // Once the stop is in flight its payload is fixed, so nothing in the form may change.
   const frozen = pull.isPending;
 
@@ -237,7 +235,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
         )}
       </div>
       <label className="field">
-        <span>Why (required)</span>
+        <span>Why (optional)</span>
         <textarea rows={2} value={reason} disabled={frozen} data-prefilled={reason === "Emergency stop." ? "" : undefined} onChange={(e) => setReason(e.target.value)} />
       </label>
       <label className="office-choice">
@@ -399,7 +397,7 @@ function RunReview({ scramId, run: r, passkeys }: { scramId: string; run: Stoppe
   const reviewedThrough = Math.max(0, ...r.reviews.map((v) => v.covers_batch ?? 0));
   const needsReview = r.status !== "running" && (r.reviews.length === 0 || reviewedThrough < newest);
   const review = useMutation({
-    mutationFn: () => signAdmin("scram.review", { scram_id: scramId, run_id: r.run_id, disposition, reason: reason.trim(), ...(basis > 0 ? { covers_batch: basis } : {}) }, passkeys),
+    mutationFn: () => signAdmin("scram.review", { scram_id: scramId, run_id: r.run_id, disposition, reason: noteOr(reason, NOTE_FALLBACK["scram-review"]), ...(basis > 0 ? { covers_batch: basis } : {}) }, passkeys),
     onSuccess: () => {
       setReason("");
       setDisposition("discard");
@@ -456,10 +454,10 @@ function RunReview({ scramId, run: r, passkeys }: { scramId: string; run: Stoppe
             <input type="radio" name={`disp-${r.run_id}`} checked={disposition === "retain"} onChange={() => setDisposition("retain")} /> Keep it as reference only, never applied
           </label>
           <label className="field">
-            <span>What the review found (required)</span>
-            <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+            <span>What the review found (optional)</span>
+            <textarea rows={2} placeholder="Optional" value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
-          <button type="button" className="btn small" disabled={!reason.trim() || moved || review.isPending} onClick={() => review.mutate()}>
+          <button type="button" className="btn small" disabled={moved || review.isPending} onClick={() => review.mutate()}>
             {basis > 0 ? `Sign the review of reports 1 to ${basis}` : "Sign the review"}
           </button>
           {review.error && (
@@ -512,7 +510,7 @@ function Restart({ detail, passkeys }: { detail: ScramDetail; passkeys: Passkeys
         scram_id: detail.scram.id,
         scope,
         ...(scope === "package" ? { package_id: target } : scope === "discipline" ? { discipline: target } : {}),
-        reason: reason.trim(),
+        reason: noteOr(reason, NOTE_FALLBACK["scram-restart"]),
       }, passkeys),
     onSuccess: () => {
       setReason("");
@@ -522,7 +520,7 @@ function Restart({ detail, passkeys }: { detail: ScramDetail; passkeys: Passkeys
       void qc.invalidateQueries({ queryKey: ["office-figures"] });
     },
   });
-  const ready = reason.trim().length > 0 && valid;
+  const ready = valid;
   const pkg = held.find((p) => p.id === target);
   const inDiscipline = held.filter((p) => p.discipline === target);
   const stoppedIn = (ids: Set<string>) => detail.runs.filter((r) => r.subject === "package" && ids.has(r.subject_id)).length;
@@ -585,8 +583,8 @@ function Restart({ detail, passkeys }: { detail: ScramDetail; passkeys: Passkeys
         </p>
       )}
       <label className="field">
-        <span>Why it is safe to restart (required)</span>
-        <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <span>Why it is safe to restart (optional)</span>
+        <textarea rows={2} placeholder="Optional" value={reason} onChange={(e) => setReason(e.target.value)} />
       </label>
       <p className="muted small">The control plane refuses a restart while anything in its scope has an unknown outcome or unreviewed quarantine, and says what.</p>
       <button type="button" className="btn small" disabled={!ready || restart.isPending} onClick={() => restart.mutate()}>

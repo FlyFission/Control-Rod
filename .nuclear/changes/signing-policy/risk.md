@@ -8,7 +8,7 @@
 
 ## Selected mode
 
-- **Mode:** High consequence
+- **Mode:** Nuclear (high consequence: a kernel decision function, signed by the sole maintainer under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off)).
 - Basis: changes a kernel decision function (trust surface) and the meaning of a decision record.
 
 ## Required links

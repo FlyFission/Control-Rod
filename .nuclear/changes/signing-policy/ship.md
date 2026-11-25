@@ -6,7 +6,7 @@ Release decision: **pending the owner's recorded yes** (kernel decision function
 
 | Decision | Question | Answer (owner's words) | Given | Where | Recorded by |
 |---|---|---|---|---|---|
-| Pending | | | | | |
+| Pending | deferred | deferred | deferred | deferred | deferred |
 
 - Rollback: revert the merge. Migration 028 only marks a field mutable; a stored `signing_policy` is ignored by the old kernel path, which signs every step.
 - Monitoring after merge: on a Light project a new card goes from Ready to Accepted without a press; `decision.auto-skipped` events say why one did not.

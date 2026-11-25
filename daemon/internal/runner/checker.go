@@ -1234,10 +1234,15 @@ func hashProtected(root string) (string, error) {
 // (MaxOutputTotal / checkerEntryCharge); a variable only so tests can lower it.
 var protectedMaxEntries = checkerMaxEntries()
 
+// coarsestTimestampTick is the coarsest timestamp resolution among the filesystems ownChangeTime
+// admits: HFS+ stores times in whole seconds (Apple Technical Note TN1150, "HFS Plus Dates").
+// The others store nanoseconds and advance by at most a kernel clock tick, far below a second.
+const coarsestTimestampTick = time.Second
+
 // identityQuietPeriod is how long a large protected file must have gone unchanged before its
-// identity stands for its contents. It covers the coarsest common timestamp tick (FAT's two
-// seconds, HFS+'s one) with margin.
-var identityQuietPeriod = 5 * time.Second
+// identity stands for its contents: two of the coarsest ticks, so the file's last change and any
+// later rewrite can never share one tick. A variable only so tests can lower it.
+var identityQuietPeriod = 2 * coarsestTimestampTick
 
 type protectedHashBudget struct {
 	bytesLeft   int64

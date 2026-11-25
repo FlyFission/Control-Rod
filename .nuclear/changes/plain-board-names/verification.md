@@ -3,7 +3,7 @@
 - E-01: `tsc -p apps/web/tsconfig.json --noEmit` passes.
 - E-02: full web `vitest run`: 942 pass.
 - E-03: live stack (chromium): `lifecycle.spec.ts` passes; [Setup](evidence/setup-1440.png) and [board](evidence/board-1440.png) screenshots.
-- Blind check: pending.
+- Blind check: Codex, static, on the owner's Mac (throwaway clone, read-only). Four minor findings: the list badge, the pre-check alert and the Plant agent card used Software or legacy names in every mode (fixed: all three read the mode's own column names), and the public site tour still shows the old board screenshot (not changed here: the site screenshot is regenerated separately, and its alt text must keep describing the picture it shows).
 
 ## Evidence custody and coupling
 

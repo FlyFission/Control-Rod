@@ -6,7 +6,8 @@ import type { ActionDescriptor, AgentFigure, PackageView } from "../../api/types
 import { AgentPanel } from "../../components/AgentPanel.js";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
 import { VendorBadge } from "../../components/VendorBadge.js";
-import { COLUMNS, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, verificationRead } from "../../lib/board.js";
+import { acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, verificationRead } from "../../lib/board.js";
+import { MODE_COPY, useMode } from "../../lib/mode.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../../lib/format.js";
 import { useBayNames } from "./lanes.js";
 
@@ -109,6 +110,7 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
 
 /** The package at a glance (OV-08), rigor and independence (OV-10), and who may sign (OV-11). */
 function Glance({ f, view, actions, verified, failed }: { f: AgentFigure; view: PackageView | undefined; actions: ActionDescriptor[] | undefined; verified: boolean | "unknown" | null; failed: boolean }) {
+  const columnNames = MODE_COPY[useMode()].boardColumns;
   if (failed) return <p className="office-note">The package details could not be loaded, so they are not shown.</p>;
   if (!view || !actions) return <p className="office-note">Loading the package details…</p>;
   const pkg = view.package;
@@ -139,7 +141,7 @@ function Glance({ f, view, actions, verified, failed }: { f: AgentFigure; view: 
       <dt>Rung</dt>
       <dd>
         {STATUS_LABEL[pkg.status ?? ""] ?? pkg.status}
-        {stepUnknown ? "; step unknown until the person verifications are read" : step ? `; step: ${COLUMNS.find((c) => c.id === step)?.title}` : ""}
+        {stepUnknown ? "; step unknown until the person verifications are read" : step ? `; step: ${columnNames[step]}` : ""}
       </dd>
       <dt>Due</dt>
       <dd>No due date is recorded for this package.</dd>

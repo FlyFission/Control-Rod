@@ -149,8 +149,44 @@ describe("QuickAdd on the board", () => {
       await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
       await user.type(screen.getByLabelText("Card title"), "Draft the fixture{Enter}");
       await waitFor(() => expect(posted).toEqual([
-        { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web" },
+        { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web", lane: "internal" },
       ]));
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
+  });
+
+  it("gives a card in a repository project its own worktree and branch, so it can finish as a pull request", async () => {
+    const { posted } = api();
+    const made: Record<string, unknown>[] = [];
+    server.use(
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/u/Code", local: [], github: [] })),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        made.push(body);
+        return HttpResponse.json({ ok: true, strategy: "worktree", repo: body.repo, branch: body.branch, local_path: `/home/u/Code/.worktrees/app/${String(body.branch)}` });
+      }),
+    );
+    const principal = "repo-fixture";
+    hydrateServerProjects(principal, [{
+      id: "prj_repo", name: "App", mode: "capital-projects", status: "active", repo: "acme/app", repoStrategy: "worktree",
+      workspaceRoot: "", lane: "public", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    }]);
+    selectProject(principal, "prj_repo");
+    try {
+      await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
+      expect(screen.getByText("Goes in on the public lane, in its own branch of acme/app.")).toBeTruthy();
+      await user.type(screen.getByLabelText("Card title"), "Fix the login redirect{Enter}");
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(made).toEqual([expect.objectContaining({ repo: "acme/app", strategy: "worktree", workspace_root: "/home/u/Code", branch: expect.stringMatching(/^cr\/fix-the-login-redirect-[0-9a-f]{6}$/) })]);
+      expect(posted[0]).toMatchObject({
+        lane: "public",
+        checkout: { repo: "acme/app", branch: made[0]!.branch, local_path: `/home/u/Code/.worktrees/app/${String(made[0]!.branch)}`, workspace_root: "/home/u/Code" },
+      });
     } finally {
       for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
     }

@@ -22,7 +22,7 @@ import { RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
-import { bindCheckout } from "./repos.js";
+import { bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -62,6 +62,11 @@ export { Refusal } from "./refusal.js";
 export interface WorkConfig {
   /** Repository root, for packs/. */
   root: string;
+  /**
+   * Called after a commit that accepted a package, to open its pull request. The app sets it; tests
+   * that do not set it open nothing.
+   */
+  publish?: (packageId: string, revision: number) => void;
   ajv: Ajv2020;
   /** Seconds a claim lasts without a heartbeat before the sweep marks the run lost. */
   leaseSeconds?: number;
@@ -563,6 +568,7 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     ...(warning ? { check_warning: warning } : {}),
     ...(drift?.outside.length ? { scope_drift: drift } : {}),
     decisions: decisions.rows.map((d) => d.body),
+    ...(await pullRequestOf(db, id, pkg.revision)),
     subject_digest: { algorithm: "sha256", value: s.digest },
     // What a signature on this revision binds, in words; for statuses with a gate decision.
     ...(pkg.status === "draft" || pkg.status === "in-verification"
@@ -3363,6 +3369,11 @@ async function decideTx(
     } else {
       await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
       if (req.kind === "release") await queueRun(c, cfg, pkg.id, pkg.revision, "author", 1);
+      // Accepted work with a repository checkout goes out as a draft pull request once this commits.
+      if ((req.kind === "accept" || req.kind === "accept-with-findings") && cfg.publish) {
+        const publish = cfg.publish;
+        afterCommit(c, () => publish(pkg.id, pkg.revision));
+      }
       if (req.kind === "reject") {
         await stopQueuedRuns(c, cfg, pkg.id, undefined, "Stopped because the package was rejected.");
       }
@@ -3643,4 +3654,76 @@ export async function runtimeStatus(db: Db, orgId: string): Promise<{ reported_a
     "select body from runtime_pins where body->>'status' = 'active' and body->>'org_id' = $1 order by body->>'runtime', body->>'role'", [orgId])).rows.map((x) => x.body);
   if (!r.rows[0]) return { runtimes: [], pins };
   return { ...(JSON.parse(r.rows[0].value) as { reported_at?: string; runtimes: RuntimeStatus[] }), pins };
+}
+
+/* ---------- pull request out ---------- */
+
+/**
+ * Opens the draft pull request for an accepted package whose request was bound to a repository
+ * checkout, once per revision, and records what happened as an event on the package. Runs after
+ * the accept commits, outside any transaction: pushing and opening a pull request take seconds and
+ * talk to GitHub. Every outcome, including "nothing to open", is recorded, never thrown.
+ */
+export async function publishAccepted(db: Db, id: string, revision: number): Promise<void> {
+  const r = await db.query<{ body: Json; status: string; checkout: Json | null }>(
+    `select p.body, p.status, c.body->'checkout' as checkout from packages p join captures c on c.id = p.capture_id
+      where p.id = $1 and p.revision = $2`, [id, revision]);
+  const row = r.rows[0];
+  if (!row || row.status !== "accepted" || !row.checkout) return;
+  // Claim this revision under the events lock, so two accepts racing open one pull request.
+  const first = await command(db, "package.open-pr", async (c) => {
+    await c.query("lock table events in exclusive mode");
+    const done = await c.query("select 1 from events where body->>'type' = 'package.pr-started' and body->>'subject' = $1 and (body->'data'->>'revision')::int = $2 limit 1", [id, revision]);
+    if (done.rowCount) return false;
+    await appendEvent(c, "package.pr-started", id, SYSTEM, { revision, branch: String(row.checkout!.branch ?? "") });
+    return true;
+  });
+  if (!first) return;
+  // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
+  const lane = await laneOf(db, "package", id, row.body.data_lane);
+  if (lane !== "public" && lane !== "internal") {
+    await command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: "lane", detail: `This work is on the ${String(lane ?? "unknown")} lane, so it stays on its local branch. Push it yourself when it may leave this computer.` }));
+    return;
+  }
+  const ver = (await db.query<{ body: Json }>("select body from verifications where package_id = $1 and package_revision = $2 order by round desc, created_at desc limit 1", [id, revision])).rows[0]?.body;
+  const result = await publishCheckout(row.checkout as never, { title: String(row.body.title ?? id), body: prBody(row.body, ver) });
+  await command(db, "package.open-pr", async (c) => {
+    if (result.opened) {
+      await appendEvent(c, "package.pr-opened", id, SYSTEM, { revision, url: result.url, branch: result.branch, head: result.head, committed: result.committed });
+    } else {
+      await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: result.reason, detail: result.detail });
+    }
+  });
+}
+
+/** The pull request's description: what the card asked for, and who checked it. */
+export function prBody(pkg: Json, ver: Json | undefined): string {
+  const criteria = Array.isArray(pkg.acceptance_criteria) ? pkg.acceptance_criteria.map((x: unknown) => `- ${String(x)}`).join("\n") : "";
+  const checker = ver?.independence?.checker_runtime;
+  const checked = ver
+    ? `Blind check: **${String(ver.outcome)}**${checker?.provider ? ` by ${String(checker.provider)}${checker.model ? ` (${String(checker.model)})` : ""}` : ""}, ${Array.isArray(ver.findings) ? ver.findings.length : 0} findings.`
+    : "No blind check on record.";
+  return [
+    `Opened by Control Rod after the card **${String(pkg.title ?? pkg.id)}** (${String(pkg.id)} r${String(pkg.revision ?? 0)}) was accepted.`,
+    "",
+    String(pkg.objective ?? ""),
+    "",
+    criteria ? `**Acceptance criteria**\n\n${criteria}` : "",
+    "",
+    checked,
+    "",
+    "This is a draft: review and merge it when you are happy.",
+  ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
+}
+
+/** The latest pull request attempt for this revision, as the card shows it. */
+async function pullRequestOf(db: Db, id: string, revision: number) {
+  const r = await db.query<{ body: Json }>(
+    `select body from events where body->>'subject' = $1 and body->>'type' in ('package.pr-started', 'package.pr-opened', 'package.pr-not-opened')
+       and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision]);
+  const e = r.rows[0]?.body;
+  if (!e) return {};
+  if (e.type === "package.pr-opened") return { pull_request: { state: "opened", url: e.data.url, branch: e.data.branch, at: e.at } };
+  if (e.type === "package.pr-not-opened") return { pull_request: { state: e.data.reason === "no-changes" ? "no-changes" : "not-opened", detail: e.data.detail, at: e.at } };
+  return { pull_request: { state: "opening", branch: e.data.branch, at: e.at } };
 }

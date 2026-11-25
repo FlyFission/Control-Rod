@@ -24,7 +24,8 @@
             "minLength": 1
         },
         "assertion": {
-            "$ref": "PasskeyAssertion.json"
+            "$ref": "PasskeyAssertion.json",
+            "description": "The puller's passkey, when they signed the pull. Stopping is always safe, so a press is enough."
         },
         "quarantine": {
             "type": "array",
@@ -44,7 +45,6 @@
         "scope",
         "pulled_by",
         "reason",
-        "assertion",
         "quarantine"
     ],
     "description": "Who pulled SCRAM, where, why, and what was stopped. (A)",

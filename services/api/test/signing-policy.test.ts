@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PRESETS, parseSteps } from "../src/signing-policy.js";
 import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
@@ -49,7 +53,7 @@ const asDaemon = async (url: string, payload: unknown): Promise<DaemonReply> => 
   return (await h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: body })) as DaemonReply;
 };
 async function claim(runtimes = ["fake"]) {
-  const r = await asDaemon("/runner/claim", { runtimes });
+  const r = await asDaemon("/runner/claim", { runtimes, supports_checkouts: true });
   if (r.statusCode === 204) return null;
   const job = r.json();
   claims.set(job.run.id, job.claim.token);
@@ -165,6 +169,54 @@ describe("signing policy on a project", () => {
     const v = await view(id);
     expect(v.package.status).toBe("accepted");
     expect(v.decisions.find((d: Json) => d.kind === "accept").actor.kind).toBe("system");
+  });
+
+  it("under Light, a card bound to a repository checkout goes out as a pull request once accepted", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-pr-out-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      expect((await asOwner("POST", "/captures", { lane: "internal", text: "Draft PROUT", checkout: { repo: "demo", branch: "topic", local_path: path, workspace_root: root } })).statusCode).toBe(201);
+      const intake = await claimFor("intake");
+      await asDaemon(`/runner/runs/${intake.run.id}/complete`, { status: "succeeded", outputs: [{ name: "packages/PROUT.json", content_base64: b64(JSON.stringify(draft("PROUT"))) }] });
+      const id = (await asOwner("GET", "/packages")).json().find((p: { id: string }) => p.id.endsWith("-PROUT")).id;
+      expect((await view(id)).package.status).toBe("released");
+      const author = await claimFor("author", ["fake"], id);
+      const frozen = author.run.checkout;
+      const done = await asDaemon(`/runner/runs/${author.run.id}/complete`, {
+        status: "succeeded",
+        trace: {
+          schema_version: "0.1.0", run_id: author.run.id, package_id: id, package_revision: 0, agent_baseline: "intake-fake", baseline_revision: 0,
+          tool: { name: "fake", version: "test" }, inputs: [], outputs: [], started_at: new Date().toISOString(), finished_at: new Date().toISOString(),
+          checkout: frozen, checkout_final: { branch: "topic", head: frozen.head },
+        },
+        outputs: [{ name: "report.md", content_base64: b64("done") }],
+      });
+      expect(done.statusCode, done.body).toBe(200);
+      expect(done.json().status, done.body).toBe("succeeded");
+      const check = await claimFor("pre-check", ["codex"], id);
+      expect(check, JSON.stringify((await view(id)).runs.map((r: Json) => [r.role, r.status, r.waiting_reason, r.failure ?? r.error ?? r.refusal]))).toBeTruthy();
+      await asDaemon(`/runner/runs/${check.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+      expect((await view(id)).package.status).toBe("accepted");
+      // The pull request goes out after the accept commits; "demo" is a local repository, so the
+      // card says why there is none instead.
+      let pr: Json | undefined;
+      for (let i = 0; i < 50 && !(pr && pr.state !== "opening"); i++) {
+        pr = (await view(id)).pull_request;
+        if (!pr || pr.state === "opening") await new Promise((r) => setTimeout(r, 50));
+      }
+      expect(pr).toMatchObject({ state: "not-opened", detail: expect.stringMatching(/Only a GitHub repository/) });
+      const events = await h.db.query<{ body: Json }>("select body from events where body->>'subject' = $1 and body->>'type' like 'package.pr-%' order by seq", [id]);
+      expect(events.rows.map((e) => e.body.type)).toEqual(["package.pr-started", "package.pr-not-opened"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("never accepts a failed check on its own, and lets a person return it with a press", async () => {

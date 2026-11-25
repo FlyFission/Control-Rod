@@ -259,8 +259,21 @@ namespace Captures {
   @route("/{id}/dismiss") @post op dismiss(@path id: string): Capture | Refused;
 }
 
+/** The draft pull request Control Rod opened, or tried to open, for accepted work on a repository checkout. */
+model PackagePullRequest {
+  /** opening: pushing now; opened: the draft is up; no-changes: the work changed no files; not-opened: it failed, see detail. */
+  state: "opening" | "opened" | "no-changes" | "not-opened";
+  url?: string;
+  branch?: string;
+  detail?: string;
+  at: utcDateTime;
+}
+
 /** What the web app shows for one package: the revision, its runs, output and decisions. */
 model PackageView {
+  /** Set once accepted work bound to a repository checkout goes out as a pull request. */
+  pull_request?: PackagePullRequest;
+
   /** Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
   draft_etag?: string;
 

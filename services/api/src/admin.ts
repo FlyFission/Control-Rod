@@ -41,7 +41,8 @@ interface AdminCommand {
   /** A command that exists in the catalog but is refused for everyone for now: its reason code. */
   unavailable?: string;
   catalog: CommandName;
-  signature: "direct" | "none";
+  /** direct: needs a passkey. none: a press. press-or-sign: a press, recorded as signed when a passkey came with it. */
+  signature: "direct" | "none" | "press-or-sign";
   need: Need;
   /** Runs inside the writer transaction after authority is confirmed. Returns what the client sees. */
   run: (c: Tx, caller: Caller, payload: Record<string, unknown>, ctx: AdminContext) => Promise<unknown>;
@@ -669,8 +670,9 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
 
   "scram.pull": {
     label: "Pull SCRAM",
-    // Anyone active may stop the work: stopping is always safe. It is signed and has a reason.
-    catalog: "admin.scram-pull", signature: "direct", need: "member",
+    // Anyone active may stop the work: stopping is always safe, so it is one press with a reason, and
+    // signed when a passkey comes with it. Restarting after a SCRAM stays signed.
+    catalog: "admin.scram-pull", signature: "press-or-sign", need: "member",
     async run(c, caller, p, ctx) {
       return pullScram(c, caller.orgId, caller.memberId, p, ctx.assertion, actorOf(caller));
     },
@@ -793,6 +795,10 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
     if (signed === null) throw new Refusal(403, "signature-required", "This command needs your passkey");
     if (signed.subject !== adminSubject(name, caller, payload)) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
   }
+  // A passkey that came with a press-or-sign command must still cover this exact request.
+  if (cmd.signature === "press-or-sign" && signed && signed.subject !== adminSubject(name, caller, payload)) {
+    throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
+  }
   const signedSubject = signed?.subject ?? null;
   return command(db, cmd.catalog, async (c) => {
     // One administrative command at a time per organization: every invariant below (last
@@ -815,7 +821,7 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
     }
     const result = await cmd.run(c, caller, payload, ctx);
     await appendEvent(c, "admin.command", name, actorOf(caller), {
-      signature: cmd.signature, ...(signedSubject ? { subject_digest: signedSubject, credential_id: signed!.credentialId } : {}), ...(bootstrap ? { bootstrap: true } : {}),
+      signature: cmd.signature === "press-or-sign" ? (signedSubject ? "direct" : "none") : cmd.signature, ...(signedSubject ? { subject_digest: signedSubject, credential_id: signed!.credentialId } : {}), ...(bootstrap ? { bootstrap: true } : {}),
     });
     return result;
   }).catch((e) => { throw translate(e); });
@@ -830,7 +836,7 @@ export async function adminActions(db: Db, caller: Caller) {
   const me = await member(db, caller.memberId, caller.orgId);
   const held = new Set<string>((await currentQualification(db, caller.memberId))?.authorities ?? []);
   return Object.entries(ADMIN_COMMANDS).map(([name, cmd]) => {
-    const base = { command: name, label: cmd.label, signature: cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
+    const base = { command: name, label: cmd.label, signature: cmd.signature === "press-or-sign" ? "none" : cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
     if (me.status !== "active") return { ...base, allowed: false, reason_code: "member-inactive", reason: teach("member-inactive").sentence, change: teach("member-inactive").change };
     // Refused for everyone, whatever their authority: say so rather than offer it.
     if (cmd.unavailable) {

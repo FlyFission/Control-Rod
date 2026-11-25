@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { PullRequestLine } from "../../components/PullRequestLine.js";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
@@ -108,6 +109,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
           {pkg && <span className="bd-chip">{STATUS_LABEL[pkg.status]}</span>}
         </div>
         {pkg && <h2 className="bd-drawer-title">{pkg.title}</h2>}
+        {view && <PullRequestLine pr={view.pull_request} />}
         <div className="bd-drawer-actions">
           <Link to="/packages/$id" params={{ id: packageId }} className="btn small">
             Full case {"\u2197"}

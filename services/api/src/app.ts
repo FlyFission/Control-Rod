@@ -77,6 +77,7 @@ import {
   reconcileSubject,
   reconcileRun,
   updateDraft,
+  publishAccepted,
 } from "./work.js";
 import { activeRuns, activeRunSummaries, requireOwnedRun, runDetail, runEvents, runLogLines, type RunEventQuery } from "./run-reads.js";
 import { runOutputPreview, runOutputs } from "./run-outputs.js";
@@ -106,6 +107,8 @@ export interface AppOptions {
   sweepSeconds?: number;
   /** The most missed events the stream replays on reconnect. Default STREAM_REPLAY_MAX. */
   streamReplayMax?: number;
+  /** Open a draft pull request when work bound to a repository checkout is accepted. Default on. */
+  publishPullRequests?: boolean;
 }
 
 const OUTPUT_PATH = /^\/packages\/[^/?#]+\/(?:outputs\/|verification-evidence\/[^/?#]+\/)/;
@@ -134,6 +137,8 @@ const MIME: Record<string, string> = {
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
   const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.preparationLanes?{preparationLanes:opts.preparationLanes}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
+  // Accepted work bound to a repository checkout opens its draft pull request after the accept commits.
+  if (opts.publishPullRequests !== false) cfg.publish = (id, revision) => void publishAccepted(db, id, revision).catch((e) => console.error("[control-rod] pull request:", e));
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
   const parseJson = app.getDefaultJsonParser("error", "error");

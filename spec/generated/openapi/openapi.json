@@ -12585,7 +12585,6 @@
           "scope",
           "pulled_by",
           "reason",
-          "assertion",
           "quarantine"
         ],
         "properties": {
@@ -12610,7 +12609,8 @@
             "minLength": 1
           },
           "assertion": {
-            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion",
+            "description": "The puller's passkey, when they signed the pull. Stopping is always safe, so a press is enough."
           },
           "quarantine": {
             "type": "array",
@@ -13551,6 +13551,39 @@
         },
         "description": "One entry in your office: something that needs a person."
       },
+      "PackagePullRequest": {
+        "type": "object",
+        "required": [
+          "state",
+          "at"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "opening",
+              "opened",
+              "no-changes",
+              "not-opened"
+            ],
+            "description": "opening: pushing now; opened: the draft is up; no-changes: the work changed no files; not-opened: it failed, see detail."
+          },
+          "url": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "The draft pull request Control Rod opened, or tried to open, for accepted work on a repository checkout."
+      },
       "PackageView": {
         "type": "object",
         "required": [
@@ -13561,6 +13594,10 @@
           "subject_digest"
         ],
         "properties": {
+          "pull_request": {
+            "$ref": "#/components/schemas/PackagePullRequest",
+            "description": "Set once accepted work bound to a repository checkout goes out as a pull request."
+          },
           "draft_etag": {
             "type": "string",
             "description": "Strong ETag of the current draft's content; send it as If-Match to edit the draft."

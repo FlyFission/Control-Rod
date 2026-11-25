@@ -2967,7 +2967,8 @@ export interface components {
             project_id?: components["schemas"]["ControlRod.Records.TenancyId"];
             pulled_by: components["schemas"]["ControlRod.Records.TenancyId"];
             reason: string;
-            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+            /** @description The puller's passkey, when they signed the pull. Stopping is always safe, so a press is enough. */
+            assertion?: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
             /** @description Run ids stopped, with their outputs quarantined. */
             quarantine: string[];
             /** @description A practice pull: everything is stopped for real, and the time to stop is recorded as a drill. */
@@ -3283,8 +3284,23 @@ export interface components {
             /** @description For a run a SCRAM holds: that SCRAM, so a view that must not show its reason knows these words carry it. */
             scram_id?: string;
         };
+        /** @description The draft pull request Control Rod opened, or tried to open, for accepted work on a repository checkout. */
+        PackagePullRequest: {
+            /**
+             * @description opening: pushing now; opened: the draft is up; no-changes: the work changed no files; not-opened: it failed, see detail.
+             * @enum {string}
+             */
+            state: "opening" | "opened" | "no-changes" | "not-opened";
+            url?: string;
+            branch?: string;
+            detail?: string;
+            /** Format: date-time */
+            at: string;
+        };
         /** @description What the web app shows for one package: the revision, its runs, output and decisions. */
         PackageView: {
+            /** @description Set once accepted work bound to a repository checkout goes out as a pull request. */
+            pull_request?: components["schemas"]["PackagePullRequest"];
             /** @description Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
             draft_etag?: string;
             /** @description The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1). */

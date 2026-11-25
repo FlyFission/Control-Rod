@@ -27,6 +27,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `runtime.report-status` | agent-via-daemon | none | Probe runtime | `subscriptions.ts` recordSubscriptionReport<br>`usage-limits.ts` recordUsageLimits<br>`work.ts` recordRuntimeStatus | `POST /runner/claim` |
 | `runtime.report-agent-updates` | agent-via-daemon | none | Probe runtime (agent updates) | `agent-updates.ts` recordAgentUpdates | `POST /runner/claim` |
 | `setup.record` | member | none | Record agent setup (seats and check-in) | `setup.ts` recordSeat<br>`setup.ts` recordSetup | `PUT /setup/seats/:runtime`, `PUT /setup` |
+| `package.open-pr` | system | none | Open a draft pull request for accepted work | `work.ts` publishAccepted | no production caller yet (declared seam) |
 | `verification.record-person` | member | direct | Record person verification | `person-verification.ts` recordPersonVerification | `POST /packages/:id/person-verifications` |
 | `preparation.confirm` | member | direct | Confirm requirements | `preparation/subjects.ts` confirmRequirements | `POST /packages/:id/preparation/confirm` |
 | `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |
@@ -53,7 +54,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `admin.runtime-pin` | member | direct | Pin runtime | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.daemon-enroll-key` | member | direct | Enroll daemon signing key | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.daemon-retire-key` | member | direct | Retire daemon signing key | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
-| `admin.scram-pull` | member | direct | SCRAM | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
+| `admin.scram-pull` | member | none | SCRAM (one press; signed when a passkey comes with it) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.scram-review` | member | direct | SCRAM (quarantine review) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.scram-restart` | member | direct | SCRAM (staged restart) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |
 | `admin.runtime-rollback` | member | direct | Pin runtime (rollback) | `admin.ts` runAdmin | `POST /admin/commands/:name/options` |

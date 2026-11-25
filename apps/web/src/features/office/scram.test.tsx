@@ -16,7 +16,7 @@ const digest = (c: string) => c.repeat(64);
 const scram = { id: "scr_1", org_id: "org", scope: "organization", pulled_by: "m", reason: "Bad prompt shipped", assertion: {}, quarantine: ["R-1", "R-2"] };
 
 describe("SCRAM", () => {
-  it("states the scope and what it stops, counted by the pull's own selection, then signs exactly that (OV-12)", async () => {
+  it("states the scope and what it stops, counted by the pull's own selection, then stops with one press and no passkey (OV-12)", async () => {
     const sent: { name: string; body: unknown }[] = [];
     const asked: string[] = [];
     server.use(
@@ -42,10 +42,10 @@ describe("SCRAM", () => {
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
     expect(await within(dialog).findByText(/This stops every running agent in the whole organization where it stands\. Counted at .+: 3 runs running now stop, and 1 queued run is held\./)).toBeTruthy();
-    expect(within(dialog).getByText("SCRAM selects again at the moment it fires, so a run that starts before you sign is stopped too.")).toBeTruthy();
+    expect(within(dialog).getByText("SCRAM selects again at the moment it fires, so a run that starts before you press Stop is stopped too.")).toBeTruthy();
     await user.click(within(dialog).getByText("Which runs"));
     expect(within(dialog).getByText("R-old (running)")).toBeTruthy();
-    const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
+    const sign = within(dialog).getByRole("button", { name: "Stop now" }) as HTMLButtonElement;
     // No reason, no stop.
     expect(sign.disabled).toBe(true);
     await user.click(within(dialog).getByRole("radio", { name: "One project" }));
@@ -55,10 +55,9 @@ describe("SCRAM", () => {
     expect(asked).toContain("scope=project&project_id=p1");
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
     await user.click(sign);
-    await waitFor(() => expect(sent.map((s) => s.name)).toEqual(["scram.pull/options", "scram.pull"]));
+    await waitFor(() => expect(sent.map((s) => s.name)).toEqual(["scram.pull"]));
     const payload = { scope: "project", project_id: "p1", reason: "Bad prompt shipped" };
     expect(sent[0]!.body).toEqual({ payload });
-    expect(sent[1]!.body).toEqual({ payload, assertion: { signed: true } });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
@@ -95,30 +94,32 @@ describe("SCRAM", () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
-  it("cannot be cancelled while the signed stop is in flight", async () => {
-    let release: (v: Record<string, unknown>) => void = () => {};
-    const slow: Passkeys = { get: () => new Promise((r) => (release = r)), create: async () => ({}) };
+  it("cannot be cancelled while the stop is in flight", async () => {
+    let release: () => void = () => {};
+    const answered = new Promise<void>((r) => (release = r));
     server.use(
       http.get("*/scrams/preview", () => HttpResponse.json(preview("organization", ["R-a"], []))),
       http.get("*/admin", () => HttpResponse.json({ projects: [] })),
-      http.post("*/admin/commands/:name/options", () => HttpResponse.json({ subject_digest: { algorithm: "sha256", value: "a".repeat(64) }, options: {} })),
-      http.post("*/admin/commands/:name", () => HttpResponse.json(scram)),
+      http.post("*/admin/commands/:name", async () => {
+        await answered;
+        return HttpResponse.json(scram);
+      }),
     );
-    await renderPage(<ScramControl passkeys={slow} />);
+    await renderPage(<ScramControl passkeys={passkeys} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
-    await user.click(within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Stop now" }));
     const cancel = (await within(dialog).findByRole("button", { name: "Cancel" })) as HTMLButtonElement;
     await waitFor(() => expect(cancel.disabled).toBe(true));
     // The payload is fixed once it is in flight, so the form that states it cannot change either.
     for (const radio of within(dialog).getAllByRole("radio")) expect(radio.matches(":disabled")).toBe(true);
     expect((within(dialog).getByRole("textbox", { name: "Why (required)" }) as HTMLTextAreaElement).disabled).toBe(true);
-    expect(within(dialog).getByRole("button", { name: "Signing and stopping…" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Stopping…" })).toBeTruthy();
     await user.keyboard("{Escape}");
     expect(screen.getByRole("dialog", { name: "Pull SCRAM" })).toBeTruthy();
-    release({ signed: true });
+    release();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
@@ -132,7 +133,7 @@ describe("SCRAM", () => {
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
-    const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
+    const sign = within(dialog).getByRole("button", { name: "Stop now" }) as HTMLButtonElement;
     expect(await within(dialog).findByText(/How many could not be counted just now\./, {}, { timeout: 5000 })).toBeTruthy();
     expect(sign.disabled).toBe(true);
     await user.click(within(dialog).getByRole("checkbox", { name: "Stop without a count" }));
@@ -156,7 +157,7 @@ describe("SCRAM", () => {
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
-    const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
+    const sign = within(dialog).getByRole("button", { name: "Stop now" }) as HTMLButtonElement;
     // While it is still counting, nothing fires.
     expect(within(dialog).getByText("Counting what this stops…")).toBeTruthy();
     expect(sign.disabled).toBe(true);

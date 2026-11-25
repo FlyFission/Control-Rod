@@ -1813,3 +1813,62 @@ export function repoRoutes(
     });
   });
 }
+
+/** What publishing an accepted card's checkout did. */
+export type PublishResult =
+  | { opened: true; url: string; branch: string; head: string; committed: boolean }
+  | { opened: false; reason: "not-github" | "no-changes" | "failed"; detail: string };
+
+/**
+ * Opens a draft pull request for an accepted card's checkout: the bound linked worktree, on its own
+ * branch. Anything the author left uncommitted (outside Control Rod's run folders) is committed
+ * first; then the branch is pushed and a draft pull request is opened with gh. Draft, so the owner's
+ * merge stays the check-in before anything lands. Never force-pushes, never touches another branch.
+ */
+export async function publishCheckout(
+  binding: { repo: string; root: string; path: string; branch: string; head: string },
+  pr: { title: string; body: string },
+  /** Tests push to a local bare repository instead of GitHub. */
+  testing: { pushUrl?: string } = {},
+): Promise<PublishResult> {
+  if (!SAFE_OWNER_REPO.test(binding.repo)) return { opened: false, reason: "not-github", detail: "Only a GitHub repository gets a pull request; the work stays on its local branch." };
+  const branch = assertValidBranch(binding.branch);
+  const root = resolveSafeWorkspaceRoot(binding.root);
+  const path = resolveWithoutSymlinks(binding.path);
+  if (path === root || !isContainedIn(root, path)) return { opened: false, reason: "failed", detail: "The checkout is not inside its workspace root." };
+  const opts = { cwd: path, workspaceRoot: root, timeout: 60_000 };
+  try {
+    const actual = await git(["symbolic-ref", "--short", "HEAD"], opts);
+    if (actual !== branch) return { opened: false, reason: "failed", detail: `The checkout moved to branch ${actual}; nothing was pushed.` };
+    // Commit what the author left in the tree, never Control Rod's own run folders.
+    const dirty = await git(["status", "--porcelain", "--", ".", ":(exclude).controlrod-run-*"], opts);
+    let committed = false;
+    if (dirty) {
+      await git(["add", "-A", "--", ".", ":(exclude).controlrod-run-*"], opts);
+      // The owner's own git identity when they have one; a plain Control Rod one otherwise.
+      const who = await git(["config", "user.email"], opts).catch(() => "");
+      const identity = who ? [] : ["-c", "user.name=Control Rod", "-c", "user.email=controlrod@localhost"];
+      await git([...identity, "commit", "-q", "-m", pr.title.slice(0, 200), "-m", "Accepted in Control Rod."], opts);
+      committed = true;
+    }
+    const head = await git(["rev-parse", "--verify", "HEAD^{commit}"], opts);
+    if (head === binding.head) return { opened: false, reason: "no-changes", detail: "The author made no changes to the repository, so there is nothing to open a pull request for." };
+    // The push carries the owner's GitHub credential, so it goes only to github.com/<repo>, named
+    // here rather than read from the checkout's remote, and only when the repository's own config
+    // cannot redirect it (url rewrites, proxies, credential or include settings an agent could plant).
+    const planted = (await git(["config", "--show-scope", "--name-only", "--get-regexp", "^(url|http|credential|include|includeif)\\."], opts).catch(() => ""))
+      .split("\n").filter((l) => /^(local|worktree)\s/.test(l)).map((l) => l.replace(/^\S+\s+/, "")).join("\n");
+    if (planted) return { opened: false, reason: "failed", detail: `The repository's config sets ${planted.split("\n").slice(0, 3).join(", ")}, which could redirect a push; nothing was pushed.` };
+    const owner = binding.repo.replace(/\.git$/i, "");
+    const target = testing.pushUrl ?? `https://github.com/${owner}.git`;
+    // gh supplies the GitHub credential; the hardened defaults clear every other helper first.
+    await git(["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential", "push", target, `HEAD:refs/heads/${branch}`], { ...opts, timeout: 120_000 });
+    const url = await gh(["pr", "create", "--repo", owner, "--head", branch, "--draft", "--title", pr.title.slice(0, 250), "--body", pr.body.slice(0, 60_000)], { timeout: 60_000, ceilingDir: root });
+    const link = url.split("\n").reverse().find((l) => /^https:\/\/github\.com\/.+\/pull\/\d+$/.test(l.trim()))?.trim();
+    if (!link) return { opened: false, reason: "failed", detail: "gh did not return a pull request link." };
+    return { opened: true, url: link, branch, head, committed };
+  } catch (e) {
+    const msg = (e as { stderr?: string }).stderr || (e as Error).message || String(e);
+    return { opened: false, reason: "failed", detail: msg.replace(/\s+/g, " ").trim().slice(0, 400) };
+  }
+}

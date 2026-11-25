@@ -11,7 +11,7 @@ import { markScram } from "../../lib/scramTiming.js";
 /**
  * SCRAM from the office (specification 22a; plan task 4.10; OV-12). The scope, and what it will stop,
  * is stated before anything fires, counted by the control plane with the pull's own selection; firing
- * needs a reason and the person's passkey; the control plane stops the runs, revokes their credentials
+ * needs a reason and one press (stopping is always safe, so no passkey); the control plane stops the runs, revokes their credentials
  * and quarantines whatever they report. The office then shows the stop as it happens and its recorded
  * latency, and the staged way back: review what each stopped run reported, then restart by package,
  * discipline or everything, each with a reason.
@@ -69,7 +69,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
   const projects = admin.data?.projects ?? [];
   const where = scope === "organization" ? "the whole organization" : `the project ${projects.find((p) => p.id === project)?.name ?? project}`;
   const pull = useMutation({
-    mutationFn: () => signAdmin<ScramEvent>("scram.pull", { scope, ...(scope === "project" ? { project_id: project } : {}), reason: reason.trim(), ...(drill ? { drill: true } : {}) }, passkeys),
+    mutationFn: () => api.adminPress<ScramEvent>("scram.pull", { scope, ...(scope === "project" ? { project_id: project } : {}), reason: reason.trim(), ...(drill ? { drill: true } : {}) }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["scrams"] });
       void qc.invalidateQueries({ queryKey: ["office-figures"] });
@@ -89,7 +89,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
   const waivable = !preview.isSuccess && (preview.isError || stalled);
   const counted = preview.isSuccess || (waivable && uncounted);
   const ready = reason.trim().length > 0 && chosen && counted;
-  // Once the signed stop is in flight its payload is fixed, so nothing in the form may change.
+  // Once the stop is in flight its payload is fixed, so nothing in the form may change.
   const frozen = pull.isPending;
 
   // A native modal: the page behind it is inert. Where showModal is missing it still opens.
@@ -105,7 +105,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
       if (typeof d.close === "function") d.close();
     };
   }, []);
-  // Nothing closes the dialog while the signed stop is in flight: closing would not cancel it.
+  // Nothing closes the dialog while the stop is in flight: closing would not cancel it.
   const dismiss = () => {
     if (!pull.isPending) onClose();
   };
@@ -191,7 +191,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
               {p.running_count === 1 ? "stops" : "stop"}, and {plural(p.queued_count, "queued run is", "queued runs are")} held. Their credentials are revoked at once and
               anything they report afterwards is quarantined, never applied.
             </p>
-            <p className="small">SCRAM selects again at the moment it fires, so a run that starts before you sign is stopped too.</p>
+            <p className="small">SCRAM selects again at the moment it fires, so a run that starts before you press Stop is stopped too.</p>
             {p.presenting ? (
               <p className="small">Which runs is not shown while presenting.</p>
             ) : (
@@ -226,7 +226,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
       )}
       <div className="office-dialog-actions">
         <button type="button" className="btn small danger scram-confirm" disabled={!ready || pull.isPending} onClick={() => pull.mutate()}>
-          {pull.isPending ? "Signing and stopping…" : "Sign with your passkey and stop"}
+          {pull.isPending ? "Stopping…" : "Stop now"}
         </button>
         <button type="button" className="btn small" disabled={pull.isPending} onClick={dismiss}>
           Cancel

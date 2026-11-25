@@ -172,7 +172,7 @@ export async function scramPreview(q: Db, orgId: string, p: { scope?: string; pr
  * Pulls SCRAM (admin command scram.pull, signed). Running runs in scope are stopped and their grants
  * revoked in the same transaction; the ScramEvent lists them, and each is associated with the SCRAM.
  */
-export async function pullScram(c: Tx, orgId: string, memberId: string, p: Json, assertion: Json, actor: Actor) {
+export async function pullScram(c: Tx, orgId: string, memberId: string, p: Json, assertion: Json | undefined, actor: Actor) {
   await holdScramGate(c);
   const scope = p.scope === "project" ? "project" : p.scope === "organization" ? "organization" : null;
   if (!scope) throw new Refusal(400, "invalid", "scope must be organization or project");
@@ -184,7 +184,7 @@ export async function pullScram(c: Tx, orgId: string, memberId: string, p: Json,
   const draft = { org_id: orgId, scope, ...(projectId ? { project_id: projectId } : {}) };
   const quarantine = await runsInReach(c, draft, "running", true);
   const scram = { id: idFor("scr"), ...draft, pulled_by: memberId, reason: reason.slice(0, 2000),
-    assertion, quarantine, ...(p.drill === true ? { drill: true } : {}) };
+    ...(assertion ? { assertion } : {}), quarantine, ...(p.drill === true ? { drill: true } : {}) };
   await recordObject(c, "scram_event", scram as never, actor);
   const at = new Date().toISOString();
   for (const id of quarantine) {
@@ -202,7 +202,7 @@ export async function pullScram(c: Tx, orgId: string, memberId: string, p: Json,
     await c.query(
       "update preparation_grant_state set revoked_at = clock_timestamp() where grant_id in (select id from preparation_grants where run_id = $1) and revoked_at is null", [id]);
   }
-  await appendEvent(c, "scram.pulled", scram.id, actor, { scope, ...(projectId ? { project_id: projectId } : {}), reason: scram.reason, stopping: quarantine.length, drill: p.drill === true });
+  await appendEvent(c, "scram.pulled", scram.id, actor, { scope, ...(projectId ? { project_id: projectId } : {}), reason: scram.reason, stopping: quarantine.length, drill: p.drill === true, signed: Boolean(assertion) });
   await recordStoppedIfDone(c, scram.id);
   return scram;
 }

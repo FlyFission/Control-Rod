@@ -256,6 +256,9 @@ export const api = {
     call<{ subject_digest: Digest; options: Record<string, unknown> }>("POST", `/admin/commands/${enc(name)}/options`, { payload }),
   adminCommand: <T = Record<string, unknown>>(name: string, payload: Record<string, unknown>, assertion: Record<string, unknown>) =>
     call<T>("POST", `/admin/commands/${enc(name)}`, { payload, assertion }),
+  /** An administrative command taken with a press, no passkey (SCRAM pull). */
+  adminPress: <T = Record<string, unknown>>(name: string, payload: Record<string, unknown>) =>
+    call<T>("POST", `/admin/commands/${enc(name)}`, { payload }),
   scrams: (presenting = false) => call<{ scrams: ScramSummary[]; presenting?: boolean }>("GET", presenting ? "/scrams?presenting=true" : "/scrams"),
   scramPreview: (scope: "organization" | "project", projectId?: string, presenting = false) =>
     call<ScramPreview>("GET", `/scrams/preview?scope=${enc(scope)}${projectId ? `&project_id=${enc(projectId)}` : ""}${presenting ? "&presenting=true" : ""}`),

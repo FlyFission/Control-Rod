@@ -550,3 +550,14 @@ test("the controlrod help lists the everyday commands and typos get a suggestion
 });
 
 
+test("controlrod start is the one step: background and browser by default, with opt-outs", () => {
+  const cr = join(repoRoot, "scripts", "cr.mjs");
+  const cliHelp = spawnSync(process.execPath, [cr, "start", "--help"], { encoding: "utf8", env: { ...process.env, CONTROLROD_CLI: "1" } });
+  assert.equal(cliHelp.status, 0);
+  assert.match(cliHelp.stdout, /in the background and open it in your browser/);
+  assert.match(cliHelp.stdout, /--foreground/);
+  assert.match(cliHelp.stdout, /--no-open/);
+  // `pnpm cr start` inside the checkout stays a terminal start.
+  const devHelp = spawnSync(process.execPath, [cr, "start", "--help"], { encoding: "utf8", env: { ...process.env, CONTROLROD_CLI: "" } });
+  assert.match(devHelp.stdout, /in this terminal/);
+});

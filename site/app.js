@@ -382,7 +382,7 @@ bytes of the diff and test output alone.`;
   const SHOTS = {
     board: {
       src: "./assets/readme/app/board.png",
-      alt: "The Control Rod Board with cards across Ready, Implementing, CI / Agent check, Peer review, Needs signature, and Accepted.",
+      alt: "The Control Rod Board with cards across Ready, Agent working, Being checked, Needs a reviewer, Ready to accept, and Accepted.",
       title: "The Board — calm when healthy, unmistakable when waiting on you",
       desc: "Cards move left to right only through signed decisions and recorded checks. Items waiting on you sort to the top in warm amber; healthy work stays quiet.",
       route: "Route: /",

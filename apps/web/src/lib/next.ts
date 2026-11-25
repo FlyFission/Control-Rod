@@ -84,7 +84,7 @@ export function runLine(run: Run | undefined): NextLine {
   if (!run) return { tone: "wait", text: "Author running" };
   const label = run.label?.trim();
   if (run.status === "running") {
-    return { tone: "wait", text: label && label.length > 0 ? label : `${RUN_ROLE_WORD[run.role]} running`, ...(run.started_at ? { since: run.started_at } : {}) };
+    return { tone: "wait", text: label && label.length > 0 ? label : `${RUN_ROLE_WORD[run.role] ?? "Agent"} running`, ...(run.started_at ? { since: run.started_at } : {}) };
   }
   return { tone: "wait", text: label && label.length > 0 ? label : `${RUN_ROLE_WORD[run.role]} queued` };
 }

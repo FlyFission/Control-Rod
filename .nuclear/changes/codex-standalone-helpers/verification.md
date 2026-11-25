@@ -3,6 +3,7 @@
 - `go vet` clean; gofmt clean.
 - `go test ./internal/runner/`: the new test passes. The same 18 bubblewrap and egress tests fail with and without this change in this container (no bubblewrap here).
 - Darwin tests run on a Mac in the platforms workflow on this PR.
+- On the owner's Mac (2026-11-25): `CONTROLROD_REAL_CHECKER=codex go test ./internal/runner/ -count=1` ok (77.7 s), including `TestRealCheckerOnThisMac` (verdict, no error); `controlrod check --checker codex` on a two-line README patch gave pass with checker model verified. The real ~/.codex had no new session file afterwards.
 
 ## Evidence custody and coupling
 
@@ -22,7 +23,7 @@ Claims: SC-01 the staged standalone Codex includes its helpers; SC-02 the digest
 
 ## Exit criteria
 
-A native Codex whose folder holds only codex and codex-* helpers resolves to that folder as one artifact. Its digest covers every helper, and the staged copy includes them. A shared bin folder still resolves to the single file. The npm layout is unchanged. Go vet and the runner tests pass.
+A native Codex whose folder holds only codex and codex-* helpers is staged with them, and a shared bin folder stays a single file. A macOS Codex checker uses a disposable CODEX_HOME, keeps a refreshed sign-in, and names its model from its session rollout. A real Codex check on the owner's Mac ends with a verdict (TestRealCheckerOnThisMac). Go vet and the runner tests pass.
 
 ## Source-lineage note
 

@@ -458,6 +458,12 @@ func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]str
 	for _, d := range outermost(p.Denied(at)) {
 		fs[d] = "deny"
 	}
+	isolated := ws != nil && ws.Checker && ws.IsolatedLoginHome != ""
+	if isolated {
+		// The run's own login home holds a credential copy and the session rollout: Codex reads and
+		// writes it itself, but the agent's commands never see it.
+		fs[ws.IsolatedLoginHome] = "deny"
+	}
 	keys := make([]string, 0, len(fs))
 	for k := range fs {
 		keys = append(keys, k)
@@ -467,10 +473,14 @@ func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]str
 	for _, k := range keys {
 		inline = append(inline, fmt.Sprintf("%s=%q", tomlString(k), fs[k]))
 	}
-	args := []string{
-		"--ignore-user-config", "--ignore-rules", "--ephemeral",
-		"-c", `default_permissions="control-rod"`,
+	args := []string{"--ignore-user-config", "--ignore-rules"}
+	if !isolated {
+		// With no per-run login home, nothing may be recorded in the real one. A checker that has
+		// its own disposable home records its session there instead, because the rollout is the
+		// only place Codex names the model it ran.
+		args = append(args, "--ephemeral")
 	}
+	args = append(args, "-c", `default_permissions="control-rod"`)
 	if !checker {
 		args = append(args, "-c", `permissions.control-rod.extends=":workspace"`)
 	}

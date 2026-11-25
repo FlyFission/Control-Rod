@@ -1,8 +1,12 @@
 package runner
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -107,6 +111,11 @@ func (a codexAdapter) Probe(ctx context.Context, _ string, run CommandRunner) Ru
 }
 
 func (a codexAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
+	if ws != nil && ws.Checker && a.SelfConfinedChecker() {
+		if err := a.prepareIsolatedHome(ws); err != nil {
+			return nil, fmt.Errorf("prepare Codex's disposable login home: %w", err)
+		}
+	}
 	args, err := CodexArgs(ws, RequestedModel(run), p, at)
 	if err != nil {
 		return nil, err
@@ -206,4 +215,113 @@ func codexFeaturesOff(list string) map[string]bool {
 		}
 	}
 	return off
+}
+
+// prepareIsolatedHome gives a self-confined (macOS) Codex checker its own CODEX_HOME beside the
+// workspace: a copy of auth.json and nothing else. Codex keeps its session rollout, its skill
+// sync and its caches there, not in the real ~/.codex, so a check never writes the user's login
+// folder. The folder is outside the workspace (the agent cannot write it) and is denied to the
+// agent's commands by name (CodexPolicyArgs). Without a credential file to copy, the run keeps
+// the real login folder and --ephemeral, and its model stays unknown.
+func (a codexAdapter) prepareIsolatedHome(ws *Workspace) error {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return nil
+	}
+	src := filepath.Join(a.LoginDir(home, os.Getenv), "auth.json")
+	st, err := os.Lstat(src)
+	if err != nil || !st.Mode().IsRegular() {
+		return nil
+	}
+	cred, err := os.ReadFile(src)
+	if err != nil {
+		return nil
+	}
+	dir, err := canonicalPath(ws.Dir)
+	if err != nil {
+		return err
+	}
+	iso := dir + ".codexhome"
+	removeStaleIsolatedHomes(iso)
+	if err := os.RemoveAll(iso); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(iso, 0o700); err != nil {
+		return err
+	}
+	ws.IsolatedLoginHome = iso
+	ws.CredentialCopy = &credentialCopy{Host: src, Copy: filepath.Join(iso, "auth.json"), Original: cred}
+	return os.WriteFile(ws.CredentialCopy.Copy, cred, 0o600)
+}
+
+// removeStaleIsolatedHomes deletes leftover *.codexhome folders from earlier runs beside keep:
+// real directories owned by this user only, never keep itself.
+func removeStaleIsolatedHomes(keep string) {
+	parent := filepath.Dir(keep)
+	entries, err := os.ReadDir(parent)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		p := filepath.Join(parent, e.Name())
+		if p == keep || !strings.HasSuffix(e.Name(), ".codexhome") {
+			continue
+		}
+		st, err := os.Lstat(p)
+		if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		if !fileOwnedByUser(st) {
+			continue
+		}
+		_ = os.RemoveAll(p)
+	}
+}
+
+// PostRunModels reads the models Codex recorded for the run from the session rollout(s) under the
+// run's disposable CODEX_HOME. The JSON stream never names the model; a rollout line of type
+// turn_context carries it as payload.model. Names are cleaned like ReportedModel's. No rollout, or
+// no model in it, gives nothing, and the model stays unknown.
+func (codexAdapter) PostRunModels(home string) []string {
+	if home == "" {
+		return nil
+	}
+	set := map[string]struct{}{}
+	_ = filepath.WalkDir(filepath.Join(home, "sessions"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".jsonl") || !d.Type().IsRegular() {
+			return nil
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return nil
+		}
+		defer f.Close()
+		r := bufio.NewReaderSize(f, 1<<20)
+		for {
+			line, rerr := r.ReadBytes('\n')
+			if bytes.Contains(line, []byte(`"turn_context"`)) {
+				var ev struct {
+					Type    string `json:"type"`
+					Payload struct {
+						Model string `json:"model"`
+					} `json:"payload"`
+				}
+				if json.Unmarshal(line, &ev) == nil && ev.Type == "turn_context" {
+					if m := cleanModelName(ev.Payload.Model); m != "" {
+						set[m] = struct{}{}
+					}
+				}
+			}
+			if rerr != nil {
+				break
+			}
+		}
+		return nil
+	})
+	out := make([]string, 0, len(set))
+	for m := range set {
+		out = append(out, m)
+	}
+	sort.Strings(out)
+	return out
 }

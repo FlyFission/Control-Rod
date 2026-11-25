@@ -1517,3 +1517,50 @@ func applyCheckerMount(cmd *exec.Cmd, ws *Workspace) error {
 	cmd.Args = argv
 	return nil
 }
+
+// credentialCopy is a checker's copy of the host sign-in file: where it came from, where the
+// checker reads it, and the bytes copied in.
+type credentialCopy struct {
+	Host, Copy string
+	Original   []byte
+}
+
+// SaveRefreshedCredential puts a sign-in the checker refreshed back into the host file, so a
+// rotated token is not lost. It writes only when the copy changed, is valid JSON, and the host
+// file still holds what was copied in (another run may have refreshed it meanwhile). The write is
+// a rename of a temporary file beside the host file, keeping the host file's mode.
+func (ws *Workspace) SaveRefreshedCredential() error {
+	c := ws.CredentialCopy
+	if c == nil {
+		return nil
+	}
+	now, err := readCapped(c.Copy)
+	if err != nil || bytes.Equal(now, c.Original) || !json.Valid(now) {
+		return nil
+	}
+	host, err := readCapped(c.Host)
+	if err != nil || !bytes.Equal(host, c.Original) {
+		return nil
+	}
+	st, err := os.Lstat(c.Host)
+	if err != nil || !st.Mode().IsRegular() {
+		return nil
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(c.Host), "."+filepath.Base(c.Host)+".controlrod-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(now); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(st.Mode().Perm()); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), c.Host)
+}

@@ -180,10 +180,13 @@ func TestCheckerStagesInstructionsOutOfDiscovery(t *testing.T) {
 				}
 			}
 		case RuntimeCodex:
-			for _, flag := range []string{"--ignore-user-config", "--ephemeral"} {
-				if !slices.Contains(cmd.Args, flag) {
-					t.Errorf("codex checker lacks %s: %q", flag, cmd.Args)
-				}
+			if !slices.Contains(cmd.Args, "--ignore-user-config") {
+				t.Errorf("codex checker lacks --ignore-user-config: %q", cmd.Args)
+			}
+			// A checker with its own disposable CODEX_HOME records its session there (the
+			// rollout names the model); any other checker stays --ephemeral.
+			if isolated := ws.IsolatedLoginHome != ""; isolated == slices.Contains(cmd.Args, "--ephemeral") {
+				t.Errorf("codex checker --ephemeral does not match its isolated home (%v): %q", isolated, cmd.Args)
 			}
 			if !hasArgPair(cmd.Args, "--disable", "multi_agent") {
 				t.Errorf("codex checker does not disable multi_agent: %q", cmd.Args)

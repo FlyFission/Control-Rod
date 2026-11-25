@@ -151,6 +151,9 @@ func CheckerAdmissionJob(job *Job, cmd *exec.Cmd, artifact *Digest) error {
 	if err := delegationDisabled(harness, cmd.Args); err != nil {
 		return err
 	}
+	if err := ephemeralOrIsolated(harness, cmd.Args, cmd.Env); err != nil {
+		return err
+	}
 	reg, err := DefaultModels()
 	if err != nil {
 		return err
@@ -372,6 +375,36 @@ func delegationDisabled(harness string, args []string) error {
 		}
 		if !slices.Contains(args, "--ignore-user-config") {
 			return errors.New("a counted check must ignore user config")
+		}
+	}
+	return nil
+}
+
+// ephemeralOrIsolated: a counted Codex check records no session (--ephemeral) unless it runs with
+// its own disposable CODEX_HOME, which is never the user's real login folder. A check that records
+// a session in the real one cannot count.
+func ephemeralOrIsolated(harness string, args, env []string) error {
+	a, ok := AdapterFor(harness)
+	if !ok || !slices.Contains(a.Capabilities().ConfigIsolation, "--ephemeral") || slices.Contains(args, "--ephemeral") {
+		return nil
+	}
+	name := isolatedLoginHomeEnv(harness)
+	home := ""
+	for _, kv := range env {
+		if k, v, ok := strings.Cut(kv, "="); ok && k == name && name != "" {
+			home = v
+		}
+	}
+	if home == "" || !filepath.IsAbs(home) {
+		return errors.New("a counted check without --ephemeral needs its own disposable login home, so the check cannot count")
+	}
+	if u, err := os.UserHomeDir(); err == nil {
+		if real, ok := a.(interface {
+			LoginDir(string, func(string) string) string
+		}); ok {
+			if within(home, real.LoginDir(u, os.Getenv)) {
+				return errors.New("a counted check without --ephemeral would record its session in the real login folder, so the check cannot count")
+			}
 		}
 	}
 	return nil

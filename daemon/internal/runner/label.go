@@ -154,9 +154,43 @@ func ReportedModel(line string) string {
 	if m == "" && ev.Type == "assistant" {
 		m = ev.Message.Model
 	}
+	return cleanModelName(m)
+}
+
+// cleanModelName keeps a short run of plain characters.
+func cleanModelName(m string) string {
 	m = modelChars.ReplaceAllString(m, "")
 	if len(m) > 200 {
 		m = m[:200]
 	}
 	return m
+}
+
+// postRunModeler is an adapter whose stream never names the model but whose own records do.
+type postRunModeler interface {
+	PostRunModels(home string) []string
+}
+
+// addPostRunModels adds the models an adapter recorded in the run's disposable login home to the
+// observed set, once the process has exited and before the registry judges it.
+func (b *logBuffer) addPostRunModels(a Adapter, ws *Workspace) {
+	if ws == nil || ws.IsolatedLoginHome == "" {
+		return
+	}
+	p, ok := a.(postRunModeler)
+	if !ok {
+		return
+	}
+	models := p.PostRunModels(ws.IsolatedLoginHome)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, m := range models {
+		if b.model == "" {
+			b.model = m
+		}
+		if b.models == nil {
+			b.models = map[string]struct{}{}
+		}
+		b.models[m] = struct{}{}
+	}
 }

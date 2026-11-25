@@ -401,8 +401,10 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
       const panel = railPanel.current;
       if (!panel) return;
       try {
+        // Open at the saved width first even when it is hidden, so every way of showing it again
+        // (the toggle, `[`, Enter on the handle) comes back at that width.
+        if (saved.width !== RAIL_DEFAULT_PX) panel.resize(`${saved.width}px`);
         if (saved.collapsed) panel.collapse();
-        else if (saved.width !== RAIL_DEFAULT_PX) panel.resize(`${saved.width}px`);
       } catch {
         // A rail that comes back after a phone-width window is registered with its group a frame
         // later than on first load: try again on the next frames.
@@ -502,7 +504,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         setHelpOpen(true);
         return;
       }
-      if (!inField && !hasOpenOverlay && !phoneRef.current && e.key === "[" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (!inField && !hasOpenOverlay && !phoneRef.current && e.key === "[" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         toggleRailRef.current();
         return;

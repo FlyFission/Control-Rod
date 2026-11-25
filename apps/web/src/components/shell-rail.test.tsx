@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
@@ -105,6 +105,15 @@ describe("the navigation rail", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("ignores an auto-repeated [ from a held key", async () => {
+    api();
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    fireEvent.keyDown(window, { key: "[" });
+    fireEvent.keyDown(window, { key: "[", repeat: true });
+    fireEvent.keyDown(window, { key: "[", repeat: true });
+    expect(rail().hasAttribute("inert")).toBe(true);
   });
 
   it("does nothing on [ when single-key shortcuts are turned off", async () => {

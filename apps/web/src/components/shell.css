@@ -526,3 +526,16 @@
 .shell .rail .place-link.active {
   box-shadow: inset 3px 0 0 var(--accent);
 }
+
+/* Keyboard users get the repository too: a focused row shows it, on its own line when the rail is
+   too narrow to keep it beside the name. */
+.shell .rail-proj-btn:focus-visible {
+  flex-wrap: wrap;
+}
+@container (max-width: 340px) {
+  .shell .rail-proj-btn:focus-visible .rail-proj-repo {
+    display: inline-block;
+    max-width: 100%;
+    margin-left: 0;
+  }
+}

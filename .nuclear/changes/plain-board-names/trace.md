@@ -1,10 +1,10 @@
 # Trace: Plain names on the board, one way to add work, a shorter Setup
 
-| Need | Code | Test |
-| --- | --- | --- |
-| Plain column names | `apps/web/src/lib/mode.ts`, `features/board/BoardListView.tsx` | `board.test.tsx` column headings |
-| One way to add work | `features/board/BoardView.tsx`, `QuickAdd.tsx` | `quick-add.test.tsx`, `board.test.tsx`, live `flows.ts` |
-| Shorter Setup | `components/AgentList.tsx` | `setup.test.tsx` "names the agents it cannot run yet in one line" |
+| Claim ID | Need | Code | Test |
+| --- | --- | --- | --- |
+| PB-01 | Plain column names | `apps/web/src/lib/mode.ts`, `features/board/BoardListView.tsx` | `board.test.tsx` column headings |
+| PB-02 | One way to add work | `features/board/BoardView.tsx`, `QuickAdd.tsx` | `quick-add.test.tsx`, `board.test.tsx`, live `flows.ts` |
+| PB-03 | Shorter Setup | `components/AgentList.tsx` | `setup.test.tsx` "names the agents it cannot run yet in one line" |
 
 ## Required links
 

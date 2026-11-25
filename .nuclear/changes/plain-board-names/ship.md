@@ -7,6 +7,7 @@ Release decision: **pending the owner's yes.**
 Owner (sole maintainer): pending.
 
 - Rollback: revert the merge. No data, route or migration.
+- Monitoring after merge: a fresh install shows the Software board columns as Ready, Agent working, Being checked, Needs a reviewer, Ready to accept; Setup lists runnable agents and one "Coming later" line.
 
 ## Required links
 

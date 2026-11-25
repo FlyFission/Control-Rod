@@ -158,18 +158,32 @@ describe("publishCheckout", () => {
     expect(await publishCheckout(accepted({ repo: "app" }), t())).toMatchObject({ opened: false, reason: "not-github" });
   });
 
-  it("refuses when the repository's own config could change what the push sends", async () => {
+  it("never reads the checkout's own config, so nothing in it can redirect or widen the push", async () => {
     writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
-    g(worktree, "config", "push.followTags", "true");
-    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/push\.followtags/i) });
-    g(worktree, "config", "--unset", "push.followTags");
-    g(worktree, "config", "url.https://evil.example/.insteadOf", "https://github.com/");
-    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/could change what a push sends/) });
-    g(worktree, "config", "--remove-section", "url.https://evil.example/");
-    // A remote named like the target, whose pushurl points somewhere else.
+    const elsewhere = join(root, "..", "elsewhere.git");
+    execFileSync("git", ["init", "-q", "--bare", elsewhere]);
+    // Every way a checkout could steer a push: a rewrite, a remote named like the target with
+    // another pushurl, tags and submodules on, a hook, a credential helper.
+    g(worktree, "config", `url.${elsewhere}.insteadOf`, bare);
+    g(worktree, "config", `url.${elsewhere}.pushInsteadOf`, bare);
     g(worktree, "config", `remote.${bare}.url`, bare);
-    g(worktree, "config", `remote.${bare}.pushurl`, "https://evil.example/x.git");
-    expect(await publishCheckout(accepted(), t())).toMatchObject({ opened: false, reason: "failed", detail: expect.stringMatching(/pushurl/) });
+    g(worktree, "config", `remote.${bare}.pushurl`, elsewhere);
+    g(worktree, "config", "push.followTags", "true");
+    g(worktree, "config", "push.recurseSubmodules", "on-demand");
+    g(worktree, "config", "credential.helper", "!echo planted");
+    g(worktree, "config", "user.name", "Planted");
+    g(worktree, "tag", "planted-tag");
+    const r = await publishCheckout(accepted(), t());
+    expect(r).toMatchObject({ opened: true });
+    expect(remoteBranches()).toContain("controlrod/WP-1-r0");
+    expect(execFileSync("git", ["--git-dir", elsewhere, "for-each-ref"], { encoding: "utf8" })).toBe("");
+    expect(execFileSync("git", ["--git-dir", bare, "tag", "--list"], { encoding: "utf8" })).toBe("");
+    expect(execFileSync("git", ["--git-dir", bare, "log", "-1", "--format=%an", "controlrod/WP-1-r0"], { encoding: "utf8" }).trim()).toBe("Control Rod");
+  });
+
+  it("sends nothing once its claim may have run out", async () => {
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    expect(await publishCheckout(accepted({ deadline: Date.now() - 1 }), t())).toMatchObject({ opened: false, detail: expect.stringMatching(/too long/) });
     expect(remoteBranches()).toBe("");
   });
 });

@@ -408,7 +408,7 @@ async function mockBoard(page: import("@playwright/test").Page) {
             id: `R-${id}`,
             package_id: id,
             package_revision: 1,
-            role: id === "WP-0035" ? "checker" : "author",
+            role: id === "WP-0035" ? "pre-check" : "author",
             status: "running",
             round: 1,
             agent_baseline: id === "WP-0035" ? "checker-codex" : "software-author",

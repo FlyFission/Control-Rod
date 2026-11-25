@@ -11,7 +11,7 @@
 
 **Control Rod** is a free, open-source multi-agent harness that runs on your own machine. Bring the command-line subscriptions you already pay for (**Claude Code** and **Codex** today, with zero API keys and zero cloud account), drop in what you want built, and let one agent work inside an isolated git worktree while a **different vendor's agent** checks only the diff and test evidence behind a blind wall. A deterministic **Rust/WASM kernel** decides every state transition, your passkey signs at release and at acceptance, and each accepted change exports a tamper-evident **PR receipt** anyone can verify offline.
 
-![The Control Rod Board: cards move from Ready through Implementing, CI / Agent check, Peer review, and Needs signature to Accepted, with warm amber reserved only for cards waiting on you.](docs/assets/readme/app/board.png)
+![The Control Rod Board: cards move from Ready through Agent working, Being checked, Needs a reviewer, and Ready to accept to Accepted, with warm amber reserved only for cards waiting on you.](docs/assets/readme/app/board.png)
 
 ![Control Rod multi-agent council loop: your passkey release feeds an isolated author worktree, crosses a blind wall that strips author reasoning, enters a cross-vendor blind checker, and seals an offline-verifiable PR receipt under Rust/WASM kernel custody.](docs/assets/readme/council-loop.svg)
 

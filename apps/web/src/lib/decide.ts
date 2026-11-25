@@ -1,4 +1,4 @@
-import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import { WebAuthnAbortService, startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -13,13 +13,78 @@ export interface Passkeys {
   create(options: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
+/**
+ * How long the browser's own passkey window may stay open before Control Rod gives up on it.
+ * The server asks the browser to time out after 60 seconds; this allows that plus a margin, so it
+ * only fires when the browser never answers (seen on macOS Safari, Nov 2026, when Apple's passkey
+ * picker crashed mid-choice and left the window waiting on a sheet that no longer existed).
+ */
+export const PASSKEY_PATIENCE_MS = 90_000;
+
+/** Said when the browser's passkey window never answered and Control Rod cancelled it. */
+export const PASSKEY_STUCK_MESSAGE =
+  "Your browser's passkey window stopped answering, so Control Rod cancelled it. Nothing was signed. " +
+  "If the browser stays frozen, quit and reopen it (on a Mac: Cmd+Option+Esc, then Force Quit), then try again. " +
+  "If it happens again, try a different browser or choose to use a phone on the passkey window.";
+
+export class PasskeyStuckError extends Error {
+  constructor() {
+    super(PASSKEY_STUCK_MESSAGE);
+    this.name = "PasskeyStuckError";
+  }
+}
+
+/**
+ * Runs one passkey ceremony, and if it has not settled after `patienceMs`, asks the browser to
+ * cancel it and rejects with PasskeyStuckError so the page can say what happened and recover.
+ * A late answer from the browser after that is ignored: the page has already told the person
+ * nothing was signed, and the server's challenge stays unused until it expires.
+ */
+export function withPasskeyPatience<T>(
+  ceremony: () => Promise<T>,
+  patienceMs: number = PASSKEY_PATIENCE_MS,
+  cancel: () => void = () => WebAuthnAbortService.cancelCeremony(),
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        cancel();
+      } catch {
+        // The browser may refuse to cancel; the person still needs the message.
+      }
+      reject(new PasskeyStuckError());
+    }, patienceMs);
+    ceremony().then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 export const browserPasskeys: Passkeys = {
   async get(options) {
-    const res = await startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON });
+    const res = await withPasskeyPatience(() =>
+      startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON }),
+    );
     return res as unknown as Record<string, unknown>;
   },
   async create(options) {
-    const res = await startRegistration({ optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON });
+    const res = await withPasskeyPatience(() =>
+      startRegistration({ optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON }),
+    );
     return res as unknown as Record<string, unknown>;
   },
 };

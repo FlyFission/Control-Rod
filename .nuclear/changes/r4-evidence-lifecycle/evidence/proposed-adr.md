@@ -1,6 +1,6 @@
 # ADR 0026: Evidence payloads out of git
 
-- Status: Proposed. Not in `docs/adr/` until the owner records a yes naming that directory. `docs/adr/` already has two files numbered 0025; this proposal takes 0026, the next unused number from `git ls-tree origin/main docs/adr/` on 2026-11-25. It does not renumber the existing pair.
+- Status: Declined 2026-11-25. Not copied to `docs/adr/`. The owner said "Payloads stay in git. Stop the ADR here."
 - Date: 2026-11-25
 - Amends: the change-record convention in `docs/collaboration.md`, for records created after this ADR is accepted
 
@@ -35,4 +35,4 @@ Existing records are grandfathered. History is not rewritten. The convention app
 
 ## Sign-off
 
-The owner has not yet recorded a yes for `docs/adr/`. Copying this file to `docs/adr/0026-evidence-out-of-git.md` waits on that yes, and on the store pick above.
+Declined. The owner's words, in this chat, 2026-11-25T21:32:25Z: "2. Payloads stay in git. Stop the ADR here." Recorded by the agent. Not a yes for `docs/adr/`. Do not copy this file there.

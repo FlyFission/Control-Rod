@@ -29,6 +29,21 @@
   background: var(--surface);
   border: 1px solid var(--line-2);
 }
+.bd-project-settings {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.bd-project-settings > summary {
+  display: inline-flex;
+  list-style: none;
+  cursor: pointer;
+}
+.bd-project-settings > summary::-webkit-details-marker {
+  display: none;
+}
+.bd-project-settings[open] > summary {
+  margin-bottom: 8px;
+}
 .bd-project-bar-left {
   display: flex;
   flex-wrap: wrap;

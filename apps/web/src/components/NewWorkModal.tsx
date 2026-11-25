@@ -92,6 +92,9 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [grade, setGrade] = useState<"general-service" | "safety">(initialDefaults.grade);
   const [author, setAuthor] = useState<AgentRuntimeSelection>(initialDefaults.author);
   const [checker, setChecker] = useState<AgentRuntimeSelection>(initialDefaults.checker);
+  // A card follows the agents picked at the top of each board column unless the person picks
+  // agents for this one card under More settings; only then does the request carry its own.
+  const [agentsChosen, setAgentsChosen] = useState({ author: false, checker: false });
   const [workspaceRoot, setWorkspaceRoot] = useState(initialDefaults.workspaceRoot);
   const [repo, setRepo] = useState(initialDefaults.repo);
   const [repoStrategy, setRepoStrategy] = useState<RepoOutfallStrategy>(initialDefaults.repoStrategy);
@@ -290,6 +293,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       setError(null);
       setDefaultsNotice(null);
       setSettingsOpen(false);
+      setAgentsChosen({ author: false, checker: false });
     }
   }, [open]);
 
@@ -320,6 +324,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   });
 
   function updateRuntimeSelection(role: "author" | "checker", patch: RuntimeSelectionPatch) {
+    setAgentsChosen((prev) => ({ ...prev, [role]: true }));
     const setter = role === "author" ? setAuthor : setChecker;
     setter((prev) => {
       if ("ecosystem" in patch) {
@@ -404,8 +409,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       `[purpose:${purpose}]`,
       discipline && discipline !== "Unspecified" ? `[discipline:${discipline}]` : null,
       `[grade:${grade}]`,
-      `[author:${author.ecosystem}/${author.model}@${author.reasoning}]`,
-      `[checker:${checker.ecosystem}/${checker.model}@${checker.reasoning}]`,
+      agentsChosen.author ? `[author:${author.ecosystem}/${author.model}@${author.reasoning}]` : null,
+      agentsChosen.checker ? `[checker:${checker.ecosystem}/${checker.model}@${checker.reasoning}]` : null,
     ]
       .filter(Boolean)
       .join(" ");
@@ -472,8 +477,14 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
             {repo ? <>{" · "}{repo} · <span className="mono">{captureBranch}</span></> : " · No repository"}
           </div>
           <div className="cr-defaults-summary muted">
-            <span>Author · {ecosystemById(author.ecosystem).label} · {author.model === "default" ? "CLI default" : author.model}</span>
-            <span>Checker · {ecosystemById(checker.ecosystem).label} · {checker.model === "default" ? "CLI default" : checker.model}</span>
+            <span>
+              Author · {ecosystemById(author.ecosystem).label} ·{" "}
+              {agentsChosen.author ? (author.model === "default" ? "CLI default" : author.model) : "board column pick"}
+            </span>
+            <span>
+              Checker · {ecosystemById(checker.ecosystem).label} ·{" "}
+              {agentsChosen.checker ? (checker.model === "default" ? "CLI default" : checker.model) : "board column pick"}
+            </span>
           </div>
           {grade === "safety" && <span className="cr-warn-text">{copy.specialGrade.label}</span>}
           {inferred.reason && !pinnedFields && (

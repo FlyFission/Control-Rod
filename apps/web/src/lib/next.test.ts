@@ -83,12 +83,20 @@ describe("nextLine", () => {
 
 const run = (over: Partial<Run>): Run => ({ id: "R-1", role: "pre-check", status: "failed", queued_at: "2026-11-24T18:13:00Z", ...over }) as Run;
 
+describe("a draft", () => {
+  it("asks for the release, not an edit nobody needs, when both are open", () => {
+    const line = nextLine(input({ status: "draft", actions: [allowed("draft.edit", "Edit draft"), allowed("release", "Release")] }));
+    expect(line).toMatchObject({ tone: "needs", text: "Release", command: "release" });
+    expect(nextLine(input({ status: "draft", actions: [allowed("draft.edit", "Edit draft")] })).text).toBe("Edit draft");
+  });
+});
+
 describe("a run that ended without a result", () => {
   const hatches = [allowed("return", "Return for revision"), allowed("reject", "Reject")];
   it("asks the person to run a failed check again, not to return finished work", () => {
     const line = nextLine(input({ status: "in-verification", actions: hatches, runs: [run({ error: "protected login entry is over the byte limit, so the check cannot count" })] }));
     expect(line).toMatchObject({ tone: "needs", text: "The check could not finish. Run it again", command: "requeue", runId: "R-1" });
-    expect(line.detail).toMatch(/byte limit/);
+    expect(line.detail).toMatch(/sign-in folder was too large/);
   });
   it("names a lost or stopped author run in plain words", () => {
     expect(nextLine(input({ status: "in-work", runs: [run({ role: "author", status: "lost" })] })).text).toBe("The agent stopped answering. Run it again");
@@ -107,6 +115,14 @@ describe("a run that ended without a result", () => {
     expect(line.text).toMatch(/may not have stopped. Open its run log/);
     expect(line.command).toBe("open-run-log");
   });
+  it("does not say the daemon stopped answering when the run reported its end without proof every process stopped", () => {
+    for (const reason of ["process group containment cannot prove every process of the run stopped", "the daemon sent no proof that every process of the run stopped"]) {
+      const line = nextLine(input({ runs: [run({ outcome_unknown: { since: "2026-11-24T18:14:00Z", reason } })] }));
+      expect(line).toMatchObject({ tone: "needs", text: "The check could not finish. Open its run log to run it again", command: "open-run-log" });
+    }
+    const lapsed = nextLine(input({ runs: [run({ outcome_unknown: { since: "2026-11-24T18:14:00Z", reason: "the lease lapsed before the completion arrived" } })] }));
+    expect(lapsed.text).toMatch(/may not have stopped/);
+  });
   it("does not offer Run again when an earlier failed check blocks another check of the same work", () => {
     const line = nextLine(input({ status: "in-verification", runs: [run({})], checkBlocked: { reason: "A check of this deliverable already failed." } }));
     expect(line.command).toBe("open-checks");
@@ -116,8 +132,10 @@ describe("a run that ended without a result", () => {
     const line = nextLine(input({ column: "person-verifies", originators: ["ben"], otherQualifiedVerifier: false, runs: [run({ status: "lost" })] }));
     expect(line.command).toBe("requeue");
   });
-  it("keeps a long runner error short on the card", () => {
-    expect(nextLine(input({ runs: [run({ error: "x".repeat(400) })] })).detail).toHaveLength(160);
+  it("says a runner error in plain words on the card, never the runner's own text", () => {
+    expect(nextLine(input({ runs: [run({ error: "x".repeat(400) })] })).detail).toBe("Something went wrong while it ran.");
+    const schema = nextLine(input({ runs: [run({ error: "verification.json does not match the schema, so the check cannot count: jsonschema validation failed with 'https://controlrod.test/CheckerFile.json#'" })] }));
+    expect(schema.detail).toBe("The checker's answer came back in a form Control Rod could not read, so the check did not count.");
   });
 });
 

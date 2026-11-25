@@ -1286,6 +1286,22 @@ class Grading(Tmp):
         p.write_text(json.dumps({"x": {"patch_successfully_applied": "true", "resolved": 0, "tests_status": {}}}))
         self.assertIsNone(grading.parse_swebench_report(p, "x"))  # verdict fields must be literal booleans
 
+    def test_grader_check_needs_every_flag_and_complete_rows(self):
+        cfg = {"evaluation": {"python": "3.11", "harness": "swebench==5.0.2"}, "snapshot": {"path": str(self.d / "s.jsonl")}}
+        full = " ".join(grading.HARNESS_FLAGS)
+        def ran(out):
+            return mock.patch.object(grading.subprocess, "run", return_value=mock.Mock(stdout=json.dumps(out), returncode=0))
+        with ran({"help": full, "bad_rows": {}}):
+            self.assertTrue(grading.grader_check(cfg, ["a"])["ok"])
+        with ran({"help": full.replace("--run_id", ""), "bad_rows": {}}):
+            self.assertEqual(grading.grader_check(cfg, ["a"])["missing_flags"], ["--run_id"])
+        with ran({"help": full, "bad_rows": {"a": "KeyError: 'image'"}}):
+            r = grading.grader_check(cfg, ["a"])
+            self.assertFalse(r["ok"])
+            self.assertIn("image", r["why"])
+        with ran("not json"):
+            self.assertFalse(grading.grader_check(cfg, ["a"])["ok"])
+
     def test_collection_errors_are_failures(self):
         log = self.d / "test_output.txt"
         body = "==== ERRORS ====\nERROR collecting tests/test_x.py\nImportError while importing test module\n"
@@ -1293,8 +1309,9 @@ class Grading(Tmp):
         self.assertTrue(grading.collection_failed(log))
         log.write_text(body)  # no test-output markers: the harness log is incomplete
         self.assertFalse(grading.collection_failed(log))
-        log.write_text(">>>>> Start Test Output\n" + body + ">>>>> Test timed out\n>>>>> End Test Output\n")
-        self.assertFalse(grading.collection_failed(log))  # a timeout is never a collection verdict
+        for marker in (">>>>> Tests Timed Out", ">>>>> Test timed out"):  # swebench 5, then older spelling
+            log.write_text(">>>>> Start Test Output\n" + body + marker + "\n>>>>> End Test Output\n")
+            self.assertFalse(grading.collection_failed(log))  # a timeout is never a collection verdict
         self.assertTrue(grading.collection_failed(self._w(body), swebench=False))
         log.write_text("1 passed in 0.1s\n")
         self.assertFalse(grading.collection_failed(log))

@@ -50,7 +50,10 @@ json.dump(res, open(out, "w"))
 LOG_MAP = r'''
 import json, sys
 from swebench.harness.grading import get_logs_eval
-from swebench.harness.test_spec.test_spec import make_test_spec
+try:  # swebench 5: built from the dataset row's own image, eval_script and log_parser
+    from swebench.harness.utils import make_test_spec
+except ImportError:  # swebench 4
+    from swebench.harness.test_spec.test_spec import make_test_spec
 snapshot, tid, log = sys.argv[1], sys.argv[2], sys.argv[3]
 row = next(json.loads(l) for l in open(snapshot) if l.strip() and json.loads(l)["instance_id"] == tid)
 status, found = get_logs_eval(make_test_spec(row), log)
@@ -66,8 +69,8 @@ COLLECTION_ERROR = re.compile(rb"ERROR collecting|Interrupted: \d+ errors? durin
 # SWE-bench harness markers: a log without both test-output markers, or with any infrastructure
 # marker, never supports a collection-error verdict.
 TEST_OUTPUT = (b">>>>> Start Test Output", b">>>>> End Test Output")
-INFRA_MARKERS = (b">>>>> Test timed out", b">>>>> Tests errored", b">>>>> Error applying patch", b">>>>> Reset Failed",
-                 b">>>>> Patch Apply Failed")
+INFRA_MARKERS = (b">>>>> Tests Timed Out", b">>>>> Tests Errored", b">>>>> Reset Failed", b">>>>> Patch Apply Failed",
+                 b">>>>> Test timed out", b">>>>> Tests errored", b">>>>> Error applying patch")  # 5.x, then older spellings
 
 
 def collection_failed(log: Path, swebench: bool = True) -> bool:
@@ -159,6 +162,52 @@ def grade_fixture(task: dict, patch: bytes, root: Path, cache: Path, deny: list[
 # ------------------------------------------------------------------ SWE-bench grader (Docker)
 
 
+HARNESS_FLAGS = ("--dataset_name", "--split", "--predictions_path", "--run_id", "--max_workers", "--timeout",
+                 "--instance_ids")
+GRADER_CHECK = r'''
+import json, subprocess, sys
+snapshot, ids = sys.argv[1], set(sys.argv[2:])
+help_text = subprocess.run([sys.executable, "-m", "swebench.harness.run_evaluation", "--help"],
+                           capture_output=True, text=True).stdout
+try:
+    from swebench.harness.utils import make_test_spec
+except ImportError:
+    from swebench.harness.test_spec.test_spec import make_test_spec
+bad = {}
+for line in open(snapshot):
+    if not line.strip():
+        continue
+    row = json.loads(line)
+    if row["instance_id"] in ids:
+        try:
+            make_test_spec(row)
+        except Exception as e:
+            bad[row["instance_id"]] = f"{type(e).__name__}: {e}"
+print(json.dumps({"help": help_text, "bad_rows": bad}))
+'''
+
+
+def grader_check(cfg: dict, task_ids: list[str]) -> dict:
+    """Before any grading: the pinned harness accepts every flag the harness passes, and builds a
+    test spec from each selected row of the snapshot (swebench 5 needs the row's image,
+    eval_script, log_parser and eval_type). No container runs."""
+    ev = cfg["evaluation"]
+    snapshot = Path(cfg["snapshot"]["path"]).expanduser()
+    try:
+        r = subprocess.run(["uv", "run", "--python", ev["python"], "--with", ev["harness"], "python", "-c", GRADER_CHECK,
+                            str(snapshot), *task_ids], capture_output=True, text=True, timeout=900)
+        j = json.loads(r.stdout.strip().splitlines()[-1])
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError, IndexError) as e:
+        return {"ok": False, "why": f"grader check did not run: {type(e).__name__}"}
+    if not isinstance(j, dict) or not isinstance(j.get("help"), str) or not isinstance(j.get("bad_rows"), dict):
+        return {"ok": False, "why": "grader check printed no result"}
+    missing = [f for f in HARNESS_FLAGS if f not in j["help"]]
+    bad = j["bad_rows"]
+    why = "; ".join(([f"harness lacks {missing}"] if missing else []) +
+                    ([f"{len(bad)} rows lack fields the harness needs, e.g. {next(iter(bad.items()))}"] if bad else []))
+    return {"ok": not missing and not bad, "missing_flags": missing, "bad_rows": bad, "why": why or None}
+
+
 def report_paths(eval_dir: Path, run_id: str, model: str, tid: str) -> list[Path]:
     """The harness has written reports under both layouts across versions; phase 0 records which."""
     return [eval_dir / "logs" / layout / run_id / model / tid / "report.json"
@@ -215,8 +264,7 @@ def grade_swebench(cfg: dict, frozen_snapshot_sha: str | None, items: list[tuple
         args = ["uv", "run", "--python", ev["python"], "--with", ev["harness"], "python", "-m",
                 "swebench.harness.run_evaluation", "--dataset_name", str(snapshot), "--split", ev.get("split", "test"),
                 "--predictions_path", str(sub / "preds.jsonl"), "--run_id", rid, "--max_workers", "1",
-                "--timeout", str(ev.get("timeout_s", 1800)), "--cache_level", ev.get("cache_level", "env"),
-                "--instance_ids", tid]
+                "--timeout", str(ev.get("timeout_s", 1800)), "--instance_ids", tid]
         t0 = time.monotonic()
         code, stop = run_proc(args, sub, "", ev.get("timeout_s", 1800) + 900, dict(os.environ),
                               sub / "harness.out", sub / "harness.err", cap=256 * 1024 * 1024)

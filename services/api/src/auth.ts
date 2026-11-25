@@ -19,6 +19,12 @@ export interface AuthConfig {
   origins: string[];
   /** SHA-256 of the daemon token, hex. */
   daemonTokenHash: string;
+  /**
+   * SHA-256 of the command-line token, hex: `controlrod card add` and `controlrod cards` send it.
+   * It lives beside the daemon token in the Control Rod home (owner read-only, hidden from runs) and
+   * only opens the few routes in CLI_ROUTES. None means the command line cannot reach the app.
+   */
+  cliTokenHash?: string;
   /** PEM trust anchors for authenticator attestation (docs/sqa/authenticators.md). None means nothing is attested. */
   trustAnchors?: string[];
 }
@@ -293,6 +299,42 @@ export function isDaemon(cfg: AuthConfig, request: FastifyRequest): boolean {
   const got = Buffer.from(sha256(h.slice(7)), "hex");
   const want = Buffer.from(cfg.daemonTokenHash, "hex");
   return got.length === want.length && timingSafeEqual(got, want);
+}
+
+/**
+ * The routes the command-line token opens: list projects and cards, and add a card the way the
+ * board's quick add does (find the workspace root, make the card's worktree, send the capture).
+ * Nothing that signs, accepts, releases or changes settings.
+ */
+export const CLI_ROUTES: ReadonlySet<string> = new Set([
+  "GET /workspace/projects",
+  "GET /packages",
+  "GET /captures",
+  "POST /captures",
+  "GET /repos",
+  "POST /repos/materialize",
+]);
+
+/** True when the request carries the command-line token and asks for a route it opens. */
+export function isCli(cfg: AuthConfig, request: FastifyRequest): boolean {
+  if (!cfg.cliTokenHash) return false;
+  if (!CLI_ROUTES.has(`${request.method} ${request.routeOptions?.url ?? ""}`)) return false;
+  const h = request.headers.authorization ?? "";
+  if (!h.startsWith("Bearer ")) return false;
+  const got = Buffer.from(sha256(h.slice(7)), "hex");
+  const want = Buffer.from(cfg.cliTokenHash, "hex");
+  return got.length === want.length && timingSafeEqual(got, want);
+}
+
+/**
+ * Who the command line acts as: the installation's first active member, the person who set this
+ * machine up. Only someone who can read the Control Rod home holds the token.
+ */
+export async function cliUser(db: Db): Promise<string | null> {
+  const r = await db.query<{ user_name: string }>(
+    "select user_name from members where body->>'status' = 'active' order by created_at, id limit 1",
+  );
+  return r.rows[0]?.user_name ?? null;
 }
 
 export const hashToken = sha256;

@@ -174,10 +174,10 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
         <div className="bd-reason">
           <label className="field">
             <span>{REASON_PROMPT[pending] ?? "Reason"}</span>
-            <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+            <textarea rows={2} placeholder="Optional" value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
           <div className="bd-actions-row">
-            <button type="button" className="btn small primary" disabled={busy || scramLock.locked || reason.trim().length === 0} title={scramLock.why} onClick={() => void sign(pending, reason.trim())}>
+            <button type="button" className="btn small primary" disabled={busy || scramLock.locked} title={scramLock.why} onClick={() => void sign(pending, reason.trim())}>
               Sign: {DECISION_LABEL[pending]}
             </button>
             <button type="button" className="btn small ghost" disabled={busy} onClick={() => setPending(null)}>

@@ -9,6 +9,8 @@ import {
   assertionVerify,
   endSession,
   isDaemon,
+  isCli,
+  cliUser,
   isRegistered,
   registrationOptions,
   registrationVerify,
@@ -199,6 +201,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.addHook("onRequest", async (req) => {
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
     if (req.url.startsWith("/runner/")) return;
+    // The command line's bearer token, like the daemon's, is never sent by a browser on its own.
+    if (isCli(auth, req)) return;
     const origin = req.headers.origin;
     if (origin !== undefined) {
       if (allowedOrigins.has(origin)) return;
@@ -211,6 +215,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
   const person = async (req: FastifyRequest): Promise<string> => {
     if (isDaemon(auth, req)) throw new Refusal(403, "forbidden", "The daemon cannot act for a person");
+    if (isCli(auth, req)) {
+      const owner = await cliUser(db);
+      if (!owner) throw new Refusal(401, "signed-out", "Set up Control Rod in the browser first");
+      return owner;
+    }
     const user = await sessionUser(db, req);
     if (!user) throw new Refusal(401, "signed-out", "Sign in with your passkey");
     return user;
@@ -388,7 +397,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   app.post<{ Body: { text?: string; source?: string; lane?: string; checkout?: unknown } }>("/captures", async (req, reply) => {
     const user = await person(req);
-    const source = ["web", "cli", "voice", "chat"].includes(String(req.body?.source)) ? String(req.body?.source) : "web";
+    const source = isCli(auth, req) ? "cli" : ["web", "cli", "voice", "chat"].includes(String(req.body?.source)) ? String(req.body?.source) : "web";
     const capture = await createCapture(db, cfg, user, String(req.body?.text ?? ""), source, req.body?.lane, req.body?.checkout);
     return reply.code(201).send(capture);
   });

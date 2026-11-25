@@ -101,6 +101,14 @@ writeFileSync(tokenTmp, token, { mode: 0o600 });
 chmodSync(tokenTmp, 0o600);
 renameSync(tokenTmp, tokenPath);
 
+// The command line's token (controlrod card add, controlrod cards), written the same way.
+const cliTokenPath = join(home, "cli.token");
+const cliTokenTmp = `${cliTokenPath}.tmp.${process.pid}`;
+const cliToken = randomBytes(32).toString("base64url");
+writeFileSync(cliTokenTmp, cliToken, { mode: 0o600 });
+chmodSync(cliTokenTmp, 0o600);
+renameSync(cliTokenTmp, cliTokenPath);
+
 const origin = process.env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`;
 const sourceConfigPath=process.env.CONTROLROD_PREPARATION_CONFIG;
 const sourceConfig=sourceConfigPath?preparationConfig(readFileSync(sourceConfigPath,"utf8")):{};
@@ -118,6 +126,7 @@ const app = buildApp({
     rpName: "Control Rod",
     origins: [origin, "http://localhost:5173"],
     daemonTokenHash: hashToken(token),
+    cliTokenHash: hashToken(cliToken),
     trustAnchors: loadTrustAnchors(join(home, "trust-anchors")),
   },
 });

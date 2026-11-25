@@ -95,6 +95,40 @@ export function staleUnlessDatabaseFault(error: unknown): unknown {
 }
 
 /** Only immutable controlled contract/checks go to a checker; private preparation context is excluded. */
+/**
+ * A schema-valid starting point for the checker's criterion results: every
+ * current criterion and mapped check, with the exact package, revision and
+ * manifest digest, marked "open" until the checker records what it found.
+ * Checkers that cannot read JSON Schema copy this instead of guessing a shape.
+ */
+export function criterionResultsTemplate(
+  run: {
+    package_id: string;
+    package_revision: number;
+    preparation_manifest_digest?: { value: string };
+  },
+  criteria: { id: string; verification_check_ids: string[] }[],
+) {
+  return {
+    package_id: run.package_id,
+    package_revision: run.package_revision,
+    release_manifest_digest: {
+      algorithm: "sha256",
+      value: run.preparation_manifest_digest!.value,
+    },
+    results: criteria.map((c) => ({
+      criterion_id: c.id,
+      outcome: "open",
+      check_results: c.verification_check_ids.map((id) => ({
+        check_id: id,
+        outcome: "open",
+        evidence_refs: [],
+      })),
+      finding_refs: [],
+    })),
+  };
+}
+
 export async function preparedJobInputs(
   c: Tx,
   run: {
@@ -147,6 +181,17 @@ export async function preparedJobInputs(
       ),
     },
   ];
+  if (run.role === "pre-check")
+    inputs.push({
+      name: "criterion-results.template.json",
+      content_base64: Buffer.from(
+        JSON.stringify(
+          criterionResultsTemplate(run, snapshot.criteria),
+          null,
+          2,
+        ),
+      ).toString("base64"),
+    });
   const sources = (
     await c.query(
       "select * from preparation_basis_artifacts where manifest_digest=$1 order by reference",

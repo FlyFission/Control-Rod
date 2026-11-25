@@ -258,13 +258,13 @@ describe("decision flow", () => {
     expect(decided).toBe(false);
   });
 
-  it("asks why before signing a rejection", async () => {
+  it("offers a note before signing a rejection, but never requires one", async () => {
     const signed: unknown[] = [];
     offer(["release", "reject"]);
     await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys(signed)} />);
     await userEvent.setup().click(await screen.findByRole("button", { name: "Reject" }));
     expect(screen.getByRole("textbox", { name: "Why reject this work?" })).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Sign: Reject" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Sign: Reject" }) as HTMLButtonElement).disabled).toBe(false);
     expect(signed).toEqual([]);
   });
 
@@ -324,7 +324,7 @@ describe("decision flow", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Return with direction" }));
     const sign = screen.getByRole("button", { name: "Sign: Return with direction" });
-    expect((sign as HTMLButtonElement).disabled).toBe(true);
+    expect((sign as HTMLButtonElement).disabled).toBe(false);
     expect(signed).toEqual([]);
     await user.type(screen.getByLabelText("What should change in the next revision?"), "Use the 100 ft setback.");
     await user.click(sign);
@@ -655,7 +655,7 @@ describe("pre-check independence", () => {
     await renderPage(<RunCard packageId="WP-7" run={held} passkeys={passkeys} />);
     expect(screen.getByText(held.waiting_reason as string)).toBeTruthy();
     const button = screen.getByRole("button", { name: "Sign with passkey and proceed" });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect((button as HTMLButtonElement).disabled).toBe(false);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Why may this pre-check run on the author's runtime?"), "No Codex yet");
     await user.click(button);

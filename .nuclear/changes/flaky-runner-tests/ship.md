@@ -1,10 +1,10 @@
 # Ship: Fix the flaky daemon runner tests in CI
 
-Release decision: **pending** the owner's yes. Codex round 2 said MERGE (verification E-06) and its two P3s are fixed; CI must be green on the head. No trust surface is touched.
+Release decision: **merge** when CI is green. The owner chose "Merge when CI is green" in the project thread on 2026-11-25 at 03:41 UTC, after Codex round 2 said MERGE (verification E-06) and its two P3s were fixed. No trust surface is touched. 
 
 ## Signature
 
-Owner (sole maintainer): not yet recorded.
+Owner (sole maintainer): yes to merge when CI is green, recorded in the project thread on 2026-11-25.
 
 - Rollback: revert the merge.
 - Monitoring after merge: the Go job stops failing with "never entered scope" and "never seen executing the verified runtime".

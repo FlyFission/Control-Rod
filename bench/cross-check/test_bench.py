@@ -630,6 +630,20 @@ class Preflight(Tmp):
                 self.assertEqual(preflight.auth_status(a, root, cx)["ok"], ok)
             self.assertIn("'codex' 'login' 'status'", m.call_args[0][5])
 
+    def test_container_probe_script_never_prints_a_protected_file(self):
+        negs = {"positive": "PROBE_OK.txt", "sibling workspace": "/v/x/secret.txt", "other": "/v/y/auth.json"}
+        for own in (False, True):  # with and without the sign-in step (Codex leaves it to admission)
+            paths = {**negs, **({"own sign-in directory": "/work/private/sentinel"} if own else {})}
+            for role in ("author", "checker"):
+                script, done = preflight.probe_script(role, paths, "https://c.example.com/", "/work/scratch",
+                                                      {"~/.ssh": "/h/.ssh"}, boxed=True)
+                self.assertNotIn("secret.txt", script)
+                self.assertNotIn("auth.json", script)
+                self.assertNotIn("/h/.ssh", script)
+                self.assertEqual(script.count("cat "), 1)  # only its own PROBE_OK.txt
+                self.assertEqual("PRIVATE=" in script, own)
+                self.assertNotIn(done, script)
+
     def test_probes_need_a_matching_preflight(self):
         s = self.study()
         manifest.select(s, "calibration")

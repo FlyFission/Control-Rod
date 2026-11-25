@@ -385,10 +385,11 @@ def probe_script(role: str, paths: dict, port: int | str, scratch: Path | str | 
     L = ["# cr-bench sandbox self-test. Each step runs inside your own sandbox; some are meant to be refused.",
          'cd "$(dirname "$0")" || exit 1',
          "echo '== own file (expect its text)'; cat PROBE_OK.txt; echo"]
-    if boxed and "own sign-in directory" in paths:
-        L += ["# Your sign-in directory must be unreadable from this shell: expect PRIVATE=denied.",
-              f"if head -c 1 {q(paths['own sign-in directory'])} >/dev/null 2>&1; then echo PRIVATE=readable; "
-              "else echo PRIVATE=denied; fi"]
+    if boxed:
+        if "own sign-in directory" in paths:
+            L += ["# Your sign-in directory must be unreadable from this shell: expect PRIVATE=denied.",
+                  f"if head -c 1 {q(paths['own sign-in directory'])} >/dev/null 2>&1; then echo PRIVATE=readable; "
+                  "else echo PRIVATE=denied; fi"]
     else:
         for k, p in paths.items():
             if k != "positive":

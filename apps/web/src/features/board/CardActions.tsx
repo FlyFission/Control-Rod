@@ -12,9 +12,9 @@ import { MoveMenu } from "./MoveMenu.js";
 import type { BoardCard } from "./useBoardData.js";
 
 const REASON_PROMPT: Partial<Record<DecisionKind, string>> = {
-  return: "Direction for the next revision",
-  reject: "Why reject this work",
-  "accept-with-findings": "Why accept with these findings",
+  return: "What should change in the next revision?",
+  reject: "Why reject this work?",
+  "accept-with-findings": "Why accept with these findings?",
 };
 
 /**

@@ -6,6 +6,7 @@ import { useActionLock } from "../lib/scramLock.js";
 import { isVisible } from "../lib/live.js";
 import { type Passkeys, browserPasskeys, signOverride, signReconcile } from "../lib/decide.js";
 import { time } from "../lib/format.js";
+import { plainError } from "../lib/plainError.js";
 import { modelRouting } from "../lib/modelRouting.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 import { VendorBadge } from "./VendorBadge.js";
@@ -182,6 +183,24 @@ export function RunActions({ packageId, run, showStop = true }: { packageId: str
   );
 }
 
+/** A run's error: the plain sentence first, the runner's own text one click away. */
+function RunError({ raw }: { raw: string }) {
+  const plain = plainError(raw);
+  if (!plain || plain.what === raw.trim()) return <p className="error">{raw}</p>;
+  return (
+    <div className="run-error">
+      <p className="error">
+        {plain.what}
+        {plain.fix && <> {plain.fix}</>}
+      </p>
+      <details className="small">
+        <summary>Technical details</summary>
+        <pre className="log">{raw}</pre>
+      </details>
+    </div>
+  );
+}
+
 export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly = false, focused = false }: { packageId: string; run: Run; passkeys?: Passkeys; readOnly?: boolean; focused?: boolean }) {
   const live = run.status === "running" || run.status === "queued";
   const needsAttention = canRequeue(run) || outcomeUnknown(run) || isIndependenceHold(run);
@@ -230,11 +249,7 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly =
         ) : routing.kind !== "none" ? (
           <p className="muted small">{routing.text}</p>
         ) : null}
-        {run.error !== undefined && (
-          <p className="error" role="alert">
-            {run.error}
-          </p>
-        )}
+        {run.error !== undefined && <RunError raw={run.error} />}
         {run.requeued_as !== undefined && <p className="muted small">Requeued as {run.requeued_as}</p>}
         {run.reconciliation !== undefined && <p className="muted small">Reconciled ({run.reconciliation.disposition}): {run.reconciliation.evidence}</p>}
         {!readOnly && <Reconcile packageId={packageId} run={run} passkeys={passkeys} />}

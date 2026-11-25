@@ -809,6 +809,20 @@ func (b *logBuffer) ended() <-chan struct{} {
 // own result line can say the turn succeeded.
 type exitStatusUntrusted interface{ ExitStatusUntrusted() bool }
 
+// uncontainedLocks holds the release of every run lock kept because its run's processes were not
+// confirmed gone, for the daemon's lifetime: an unreachable lock file would be closed by its
+// finalizer, which releases the lock.
+var (
+	uncontainedMu    sync.Mutex
+	uncontainedLocks []func()
+)
+
+func keepUncontained(release func()) {
+	uncontainedMu.Lock()
+	defer uncontainedMu.Unlock()
+	uncontainedLocks = append(uncontainedLocks, release)
+}
+
 // modelFilter is a runtime that may run only some of the models it offers: a run its stream
 // reports on any other model fails.
 type modelFilter interface{ ModelAllowed(model string) bool }
@@ -1457,9 +1471,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		// Kept while the run's processes are not confirmed gone (ErrUncontained): a surviving agent
 		// must not see another run's folder made after its fence was computed.
 		defer func() {
-			if !errors.Is(resultErr, ErrUncontained) {
-				unlock()
+			if errors.Is(resultErr, ErrUncontained) {
+				keepUncontained(unlock)
+				return
 			}
+			unlock()
 		}()
 	}
 	ws, err := prepareWorkspace(d.cfg.Home, job, a)

@@ -319,9 +319,11 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		}
 		// Kept while the run's processes are not confirmed gone, as in the daemon.
 		defer func() {
-			if !uncontained {
-				unlock()
+			if uncontained {
+				keepUncontained(unlock)
+				return
 			}
+			unlock()
 		}()
 	}
 	ws, err := prepareWorkspace(homeDir, job, a)

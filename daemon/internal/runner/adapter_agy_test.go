@@ -635,3 +635,21 @@ func TestAgyRunsOnlyGeminiModels(t *testing.T) {
 		t.Fatalf("a Gemini run failed: %v", err)
 	}
 }
+
+// A kept lock stays held after a garbage collection: its file is reachable, so no finalizer closes it.
+func TestKeptUncontainedLockSurvivesGC(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "agy.lock")
+	release, err := lockFileWait(context.Background(), path)
+	if err != nil {
+		t.Skipf("no run locks here: %v", err)
+	}
+	keepUncontained(release)
+	release = nil
+	runtime.GC()
+	runtime.GC()
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if _, err := lockFileWait(ctx, path); err == nil {
+		t.Fatal("a kept lock was released by the garbage collector")
+	}
+}

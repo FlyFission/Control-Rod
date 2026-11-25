@@ -1,10 +1,10 @@
 # Ship: A failed run on a Mac runs again with one press, not a passkey
 
-Release decision: **pending the owner's yes.**
+Release decision: **approved by the owner.**
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): Ben Huffer chose "Merge 221" on the merge decision card in the project thread, 2026-11-25 21:29 UTC.
 
 - Rollback: revert the merge. No data, route or migration change; reconciliations already recorded stay as they are.
 - Monitoring after merge: on the owner's Mac with Light signing, a failed check's run log shows "It has stopped. Run it again", one press queues a new check, and the run's reconciliation names the signing policy.

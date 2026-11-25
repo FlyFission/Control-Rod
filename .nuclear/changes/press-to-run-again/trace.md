@@ -10,6 +10,7 @@
 | Cards follow the board's column agents unless overridden | `apps/web/src/components/NewWorkModal.tsx` agentsChosen | `components/newwork.test.tsx` "captures with resolved project preferences", "supports capture settings" |
 | One press settles and runs again | `apps/web/src/components/RunLog.tsx` Reconcile | `components/run-reconcile.test.tsx` |
 | Honest words | RunLog.tsx unknownOutcomeText, `lib/next.ts` stalledLine | `run-reconcile.test.tsx`, `lib/next.test.ts` "does not say the daemon stopped answering" |
+| Cards show plain words, not the runner's text; project settings folded away | `apps/web/src/lib/plainError.ts`, `lib/next.ts`, `features/board/BoardView.tsx` | `lib/next.test.ts` "says a runner error in plain words on the card" |
 
 ## Required links
 

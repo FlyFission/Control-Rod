@@ -107,6 +107,20 @@ describe("the navigation rail", () => {
     }
   });
 
+  it("Enter on the handle hides and shows the rail at the saved width, keeping focus on the handle", async () => {
+    api();
+    saveRailLayout("ben", { width: 450, collapsed: true });
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const sep = screen.getByRole("separator", { name: "Navigation width" });
+    sep.focus();
+    fireEvent.keyDown(sep, { key: "Enter" });
+    expect(rail().hasAttribute("inert")).toBe(false);
+    expect(rail().closest("[data-panel]")?.getAttribute("data-size-px")).toBe("450");
+    expect(document.activeElement).toBe(sep);
+    fireEvent.keyDown(sep, { key: "Enter" });
+    expect(rail().hasAttribute("inert")).toBe(true);
+  });
+
   it("ignores an auto-repeated [ from a held key", async () => {
     api();
     await renderPage(<Shell session={ben}><p>app</p></Shell>);

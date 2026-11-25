@@ -27,10 +27,12 @@ const px = (v: number | string | undefined, fallback: number) => {
 export function Group({
   children,
   className,
+  elementRef,
   onLayoutChanged,
 }: {
   children?: ReactNode;
   className?: string;
+  elementRef?: Ref<HTMLDivElement>;
   orientation?: string;
   onLayoutChanged?: (layout: Record<string, number>, meta: { isUserInteraction: boolean }) => void;
 }) {
@@ -38,7 +40,7 @@ export function Group({
   cb.current = onLayoutChanged;
   return (
     <GroupCtx.Provider value={{ changed: () => cb.current?.({}, { isUserInteraction: false }) }}>
-      <div className={className} data-group="">
+      <div ref={elementRef} className={className} data-group="">
         {children}
       </div>
     </GroupCtx.Provider>

@@ -156,11 +156,20 @@ const truncated = (page) => page.evaluate(() => [...document.querySelectorAll('.
   await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
   await hsep.focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
   check((await railW(page)) === 480, `Enter on the handle after a hidden reload reopens at the saved 480 (got ${await railW(page)})`);
+  // Hidden at 450, loaded at 830, widened while hidden, then shown with Enter: comes back at 450.
+  await page.evaluate(() => localStorage.setItem('cr.rail:ben', JSON.stringify({ width: 450, collapsed: true })));
+  await page.setViewportSize({ width: 830, height: 800 });
+  await page.reload(); await page.waitForSelector('#cr-rail'); await page.waitForTimeout(600);
+  await page.setViewportSize({ width: 1440, height: 900 }); await page.waitForTimeout(300);
+  await hsep.focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(250);
+  const enterFocus = await page.evaluate(() => document.activeElement?.getAttribute('role'));
+  check((await railW(page)) === 450 && enterFocus === 'separator', `hidden at 450, loaded at 830, widened, Enter reopens at 450 with focus on the handle (got ${await railW(page)}, focus ${enterFocus})`);
   // A focused project row shows its repository even on a narrow rail.
   { const bx = await hsep.boundingBox(); await page.mouse.dblclick(bx.x + bx.width / 2, 400); await page.waitForTimeout(300); }
   await page.locator('.rail-proj-btn[title^="Hanford"]').focus(); await page.waitForTimeout(100);
   const repoShown = await page.evaluate(() => { const b = document.querySelector('.rail-proj-btn[title^="Hanford"]'); const c = b.querySelector('.rail-proj-repo'); return { w: Math.round(document.getElementById('rail').getBoundingClientRect().width), vis: !!c && getComputedStyle(c).display !== 'none' }; });
-  check(repoShown.vis, `focused project row shows its repository on a ${repoShown.w} px rail`);
+  const repoFull = await page.evaluate(() => { const c = document.querySelector('.rail-proj-btn[title^="Hanford"] .rail-proj-repo'); return c.scrollWidth <= c.clientWidth + 1; });
+  check(repoShown.vis && repoFull, `focused project row shows its full repository on a ${repoShown.w} px rail`);
   // Focus on the handle survives the phone breakpoint by moving to the workspace.
   await page.locator('[role="separator"][aria-label="Navigation width"]').focus();
   await page.setViewportSize({ width: 700, height: 800 }); await page.waitForTimeout(400);
@@ -203,6 +212,7 @@ const truncated = (page) => page.evaluate(() => [...document.querySelectorAll('.
   check(await page.locator('[role="separator"][aria-label="Navigation width"]').count() === 0, 'phone: no drag handle');
   check(await page.locator('.rail-toggle').count() === 0, 'phone: no rail toggle');
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'phone: no horizontal scroll');
+  check(await page.evaluate(() => getComputedStyle(document.querySelector('.shell-panes')).touchAction === 'auto'), 'phone: the panel group leaves gestures (pinch zoom) to the browser');
   await page.screenshot({ path: `${out}/phone-390.png` });
   await ctx.close();
   await b.close();

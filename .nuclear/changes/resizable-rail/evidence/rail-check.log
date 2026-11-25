@@ -25,11 +25,13 @@ ok   opening at 830 px (rail squeezed to 269) keeps the saved 480 (got 480)
 ok   showing it at 830 px (squeezed to 269) keeps the saved 480 (got 480)
 ok   Enter on the handle hides (0) and shows (269) at 830 px and keeps the saved 480 (got 480)
 ok   Enter on the handle after a hidden reload reopens at the saved 480 (got 480)
-ok   focused project row shows its repository on a 248 px rail
+ok   hidden at 450, loaded at 830, widened, Enter reopens at 450 with focus on the handle (got 450, focus separator)
+ok   focused project row shows its full repository on a 248 px rail
 ok   focus on the handle moves to the workspace when the handle goes away
      830 px top bar: {"out":[],"rail":269,"labels":["Not live","SCRAM: organization"]}
 ok   no top-bar control clipped at 830 px with the rail at 269 px
 ok   phone: no drag handle
 ok   phone: no rail toggle
 ok   phone: no horizontal scroll
+ok   phone: the panel group leaves gestures (pinch zoom) to the browser
 all passed

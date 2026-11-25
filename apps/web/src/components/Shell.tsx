@@ -1,4 +1,4 @@
-import { type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AgentUpdates } from "./AgentUpdates.js";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -434,6 +434,23 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }, [phone]);
   const toggleRailRef = useRef(toggleRail);
   toggleRailRef.current = toggleRail;
+  // Enter on the handle hides or shows the rail like the toggle does, at the saved width, instead of
+  // the library's own memory of the last width that fit. Caught on the group in the capture phase so
+  // it runs before the handle's own listener; focus stays on the handle.
+  const groupCleanup = useRef<(() => void) | null>(null);
+  const groupElRef = useCallback((el: HTMLDivElement | null) => {
+    groupCleanup.current?.();
+    groupCleanup.current = null;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || !(e.target instanceof Element) || !e.target.classList.contains("rail-sep")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleRailRef.current();
+    };
+    el.addEventListener("keydown", onKey, true);
+    groupCleanup.current = () => el.removeEventListener("keydown", onKey, true);
+  }, []);
   const phoneRef = useRef(phone);
   phoneRef.current = phone;
   const [moreOpen, setMoreOpen] = useState(false);
@@ -829,7 +846,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
 
       {/* One tree on every width: the workspace stays mounted (and keeps unsaved drafts and focus) when
           a window crosses the phone breakpoint; on a phone the rail and its handle are simply absent. */}
-      <Group orientation="horizontal" className="shell-panes" onLayoutChanged={(_layout, meta) => persistRailSoon(meta.isUserInteraction)}>
+      <Group orientation="horizontal" className="shell-panes" elementRef={groupElRef} onLayoutChanged={(_layout, meta) => persistRailSoon(meta.isUserInteraction)}>
         {!phone && (
         <Panel
           id="rail"

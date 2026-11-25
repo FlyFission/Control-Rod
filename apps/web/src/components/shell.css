@@ -488,6 +488,8 @@
   height: auto !important;
   max-height: none !important;
   overflow: visible !important;
+  /* No handle on a phone: give gestures back to the browser (pinch zoom, scrolling). */
+  touch-action: auto !important;
 }
 
 /* The resize handle keeps a focus ring in forced-colors mode, where backgrounds and shadows flatten. */
@@ -538,4 +540,10 @@
     max-width: 100%;
     margin-left: 0;
   }
+}
+.shell .rail-proj-btn:focus-visible .rail-proj-repo {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  overflow: visible;
 }

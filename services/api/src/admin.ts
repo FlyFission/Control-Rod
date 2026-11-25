@@ -782,7 +782,8 @@ function translate(error: unknown): unknown {
  * the subject digest its passkey assertion was verified over; anything else refuses.
  */
 export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: Caller, payload: Record<string, unknown>,
-  signed: { subject: string; credentialId: string; nonce?: string; assertion?: Record<string, unknown> } | null) {
+  signed: { subject: string; credentialId: string; nonce?: string; assertion?: Record<string, unknown> } | null,
+  assertionRejected = false) {
   if (signed?.nonce) ctx = { ...ctx, signed: { subject: signed.subject, nonce: signed.nonce } };
   if (signed?.assertion) {
     const a = signed.assertion as { id?: unknown; response?: Record<string, unknown> };
@@ -796,6 +797,8 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
     if (signed.subject !== adminSubject(name, caller, payload)) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
   }
   // A passkey that came with a press-or-sign command must still cover this exact request.
+  // A passkey that came and did not verify is refused, never taken as a press.
+  if (cmd.signature === "press-or-sign" && assertionRejected) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
   if (cmd.signature === "press-or-sign" && signed && signed.subject !== adminSubject(name, caller, payload)) {
     throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
   }

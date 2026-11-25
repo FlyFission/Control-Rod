@@ -81,6 +81,9 @@ describe("pulling SCRAM", () => {
     const o = await post("/admin/commands/scram.pull/options", { payload: { scope: "organization", reason: "One thing" } });
     const swapped = await post("/admin/commands/scram.pull", { payload: { scope: "organization", reason: "Another" }, assertion: key.assert(o.json().options) });
     expect(swapped.json().code).toBe("signature-mismatch");
+    // A passkey that does not verify is refused, never taken as a press.
+    const broken = await post("/admin/commands/scram.pull", { payload: { scope: "organization", reason: "Another" }, assertion: { id: "nope", response: {} } });
+    expect(broken.json().code).toBe("signature-mismatch");
   });
 
   it("stops running work, holds everything in scope, quarantines what stopped runs report, and restarts only once reviewed", async () => {

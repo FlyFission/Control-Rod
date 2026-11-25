@@ -100,7 +100,7 @@ function draft(id: string, extra: Json = {}) {
 
 /** Captures a request and has intake draft it into one package; returns the package id. */
 async function drafted(id: string, extra: Json = {}, lane = "internal"): Promise<string> {
-  expect((await asOwner("POST", "/captures", { lane, text: `Draft ${id}` })).statusCode).toBe(201);
+  expect((await asOwner("POST", "/captures", { lane, text: `[project-id:${project}]\n\nDraft ${id}` })).statusCode).toBe(201);
   const intake = await claimFor("intake");
   const done = await asDaemon(`/runner/runs/${intake.run.id}/complete`, {
     status: "succeeded",
@@ -182,7 +182,7 @@ describe("signing policy on a project", () => {
       git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
       mkdirSync(dirname(path), { recursive: true });
       git(base, "worktree", "add", "-b", "topic", path);
-      expect((await asOwner("POST", "/captures", { lane: "internal", text: "Draft PROUT", checkout: { repo: "demo", branch: "topic", local_path: path, workspace_root: root } })).statusCode).toBe(201);
+      expect((await asOwner("POST", "/captures", { lane: "internal", text: `[project-id:${project}]\n\nDraft PROUT`, checkout: { repo: "demo", branch: "topic", local_path: path, workspace_root: root } })).statusCode).toBe(201);
       const intake = await claimFor("intake");
       await asDaemon(`/runner/runs/${intake.run.id}/complete`, { status: "succeeded", outputs: [{ name: "packages/PROUT.json", content_base64: b64(JSON.stringify(draft("PROUT"))) }] });
       const id = (await asOwner("GET", "/packages")).json().find((p: { id: string }) => p.id.endsWith("-PROUT")).id;
@@ -226,7 +226,10 @@ describe("signing policy on a project", () => {
     expect(v.package.status).not.toBe("accepted");
     const ret = (await actions(id)).find((a) => a.command === "return")!;
     expect(ret).toMatchObject({ signature: "none", step_mode: "click", signing_preset: "light" });
-    const r = await asOwner("POST", `/packages/${id}/decisions`, { kind: "return", package_revision: 0, reason: "Plan needs another look" });
+    // A press must say which version the person saw.
+    const blind = await asOwner("POST", `/packages/${id}/decisions`, { kind: "return", package_revision: 0, reason: "Plan needs another look" });
+    expect(blind.statusCode).toBe(400);
+    const r = await asOwner("POST", `/packages/${id}/decisions`, { kind: "return", package_revision: 0, reason: "Plan needs another look", expected_subject_digest: (await view(id)).subject_digest });
     expect(r.statusCode, r.body).toBe(201);
     expect(r.json()).toMatchObject({ actor: { kind: "human" }, signing_policy: { preset: "light" } });
   });
@@ -238,6 +241,56 @@ describe("signing policy on a project", () => {
     });
     expect(r.statusCode).toBe(409);
     expect(r.json().code).toBe("changed");
+  });
+
+  it("refuses a passkey that does not verify instead of taking it as a press", async () => {
+    const id = await drafted("BADKEY");
+    const o = await asOwner("POST", `/packages/${id}/decisions/options`, { kind: "reject", package_revision: 0 });
+    const r = await asOwner("POST", `/packages/${id}/decisions`, {
+      kind: "return", package_revision: 0, reason: "x", expected_subject_digest: (await view(id)).subject_digest, assertion: passkey.assert(o.json().options),
+    });
+    expect(r.statusCode).toBe(403);
+    expect(r.json().code).toBe("unsigned");
+  });
+
+  it("covers only a card filed under the project its request named", async () => {
+    // The draft says it belongs to the Light project, but the request named no project.
+    expect((await asOwner("POST", "/captures", { lane: "internal", text: "Draft BORROW" })).statusCode).toBe(201);
+    const intake = await claimFor("intake");
+    await asDaemon(`/runner/runs/${intake.run.id}/complete`, { status: "succeeded", outputs: [{ name: "packages/BORROW.json", content_base64: b64(JSON.stringify(draft("BORROW"))) }] });
+    const id = (await asOwner("GET", "/packages")).json().find((p: { id: string }) => p.id.endsWith("-BORROW")).id;
+    expect((await view(id)).package.status).toBe("draft");
+    expect((await actions(id)).find((a) => a.command === "release")).toMatchObject({ step_mode: "passkey" });
+  });
+
+  it("does not cover a request the person marked Nuclear-grade, whatever the draft says", async () => {
+    expect((await asOwner("POST", "/captures", { lane: "internal", text: `[mode:nuclear-grade] [project-id:${project}]\n\nDraft NUKE` })).statusCode).toBe(201);
+    const intake = await claimFor("intake");
+    await asDaemon(`/runner/runs/${intake.run.id}/complete`, { status: "succeeded", outputs: [{ name: "packages/NUKE.json", content_base64: b64(JSON.stringify(draft("NUKE"))) }] });
+    const id = (await asOwner("GET", "/packages")).json().find((p: { id: string }) => p.id.endsWith("-NUKE")).id;
+    const v = await view(id);
+    expect(v.package.status).toBe("draft");
+    // Clearing the profile by an edit does not lift the floor: the request itself said Nuclear-grade.
+    const { context_profile: _drop, ...rest } = v.package;
+    expect((await h.app.inject({ method: "PUT", url: `/packages/${id}`, headers: { cookie, origin: ORIGIN, "if-match": v.draft_etag }, payload: rest })).statusCode).toBe(200);
+    expect((await actions(id)).find((a) => a.command === "release")).toMatchObject({ step_mode: "passkey", signature: "direct" });
+  });
+
+  it("keeps a draft's project and high grade out of an edit's reach", async () => {
+    const id = await drafted("EDITFLOOR", { grade: "safety", discipline: "mechanical" });
+    const v = await view(id);
+    const edited = await h.app.inject({
+      method: "PUT", url: `/packages/${id}`, headers: { cookie, origin: ORIGIN, "if-match": v.draft_etag },
+      payload: { ...v.package, grade: "commercial", project: "PRJ-ELSEWHERE" },
+    });
+    expect(edited.statusCode).toBe(409);
+    expect(edited.json().code).toBe("lowering-needs-change-request");
+    const kept = await h.app.inject({
+      method: "PUT", url: `/packages/${id}`, headers: { cookie, origin: ORIGIN, "if-match": v.draft_etag },
+      payload: { ...v.package, title: "Renamed", project: "PRJ-ELSEWHERE" },
+    });
+    expect(kept.statusCode, kept.body).toBe(200);
+    expect(kept.json()).toMatchObject({ project, title: "Renamed" });
   });
 
   it("does not cover high-consequence work", async () => {
@@ -262,4 +315,17 @@ describe("signing policy on a project", () => {
     const id = await drafted("EVERYTHING");
     expect((await view(id)).package.status).toBe("draft");
   });
+  it("asks for a passkey, on the board and at the server alike, once the policy's passkey is revoked", async () => {
+    await signedAdmin("project.set-signing-policy", { project_id: project, preset: "light" });
+    const id = await drafted("REVOKED");
+    await authorAndCheck(id, "fail");
+    // The policy's passkey is no longer a live credential (as after a revocation).
+    await h.admin.query("update projects set body = jsonb_set(body, '{signing_policy,assertion,credential_id}', '\"gone\"') where id = $1", [project]);
+    {
+      expect((await actions(id)).find((a) => a.command === "return")).toMatchObject({ signature: "direct", step_mode: "passkey" });
+      const r = await asOwner("POST", `/packages/${id}/decisions`, { kind: "return", package_revision: 0, reason: "x", expected_subject_digest: (await view(id)).subject_digest });
+      expect(r.statusCode).toBe(403);
+    }
+  });
+
 });

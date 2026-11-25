@@ -641,6 +641,16 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
     const next = { ...body, id: pkg.id, revision: pkg.revision, status: "draft", schema_version: "0.1.0" };
     next.agent_assignment = pkg.body.agent_assignment;
     next.verification = pkg.body.verification;
+    // What decides how a card is signed is not the draft's to change: the project it is filed under
+    // (whose signing policy governs it) and a Safety or Material grade. A Nuclear-grade request is
+    // read from the capture itself, which no edit changes.
+    for (const key of ["project"] as const) {
+      if (pkg.body[key] === undefined) delete next[key];
+      else next[key] = pkg.body[key];
+    }
+    if (highConsequence(needsOf(pkg.body)) && !highConsequence(needsOf(next))) {
+      throw new Refusal(409, "lowering-needs-change-request", `This package is ${String(pkg.body.grade)} grade; lowering its grade needs a new request, not an edit`);
+    }
     validate(cfg, "WorkPackage.json", next);
     await checkDependsOn(c, id, next);
     // A draft's lane may be raised by editing it; lowering below the effective lane is a declassification.
@@ -3189,12 +3199,17 @@ export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: 
     const scram = await scramHolding(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
     // The owner's signing policy decides which of these need a passkey; work it does not cover
     // (nuclear, high consequence, a restricted lane, or no policy yet) is signed every time.
-    const policy = await governingPolicy(c, pkg);
+    const stored = await governingPolicy(c, pkg);
+    // Offer a press only where the decision would take it: the policy's passkey still valid.
+    const policyCred = stored ? await currentCredential(c, stored.assertion.credential_id) : null;
+    const policy = stored && policyCred && !policyCred.revoked ? stored : null;
     for (const kind of Object.keys(HUMAN_ACTIONS)) {
-      const mode = modeFor(policy, kind);
+      // ...and its signer still holding the authority for this step; otherwise this step is signed.
+      const signerCovers = policy !== null && (await signingGaps(c, policy.signed_by, kind as SignerAction, needsOf(pkg.body))).length === 0;
+      const mode = signerCovers ? modeFor(policy, kind) : "passkey";
       const base = {
         command: kind, label: DECISION_LABELS[kind], signature: mode === "passkey" ? "direct" : "none", authority: ACTION_ROLES[kind as SignerAction],
-        step_mode: mode, ...(policy ? { signing_preset: policy.preset } : {}),
+        step_mode: mode, ...(stored ? { signing_preset: stored.preset } : {}),
       };
       if (kind === "release" && scram) {
         out.push(refused(base, "scram-stopped", `SCRAM ${scram.id} has stopped this work: ${scram.reason}`));
@@ -3232,12 +3247,15 @@ export async function applyDecision(
   cfg: WorkConfig,
   user: string,
   id: string,
-  req: { kind: string; package_revision: number; reason?: string; expected_digest?: string },
+  req: { kind: string; package_revision: number; reason?: string; expected_digest?: string; assertion_rejected?: boolean },
   signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   return command(db, "decision.apply", async (c) => {
     // Lock order everywhere: marking (the executor), administration, the SCRAM gate, then rows.
     if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
+    // A press under the signing policy relies on the policy's passkey and its signer's authority,
+    // so it is serialized with the administrative changes that could revoke either.
+    else await lockOrgOf(c, user);
     if (req.kind === "release") await enterScramGate(c);
     return decideTx(c, cfg, { kind: "human", id: user }, id, req, signed);
   });
@@ -3256,6 +3274,20 @@ export async function autoDecide(c: Tx, cfg: WorkConfig, pkgId: string, revision
   if (!pkg || pkg.revision !== revision) return false;
   const policy = await governingPolicy(c, pkg);
   if (!policy || modeFor(policy, kind) !== "auto") return false;
+  // Serialize with administrative changes (a revoked passkey, a withdrawn qualification) without
+  // waiting: the caller already holds row locks, so blocking here could deadlock. While an
+  // administrative change is in flight, the card waits for a person instead.
+  const owner = await c.query<{ org_id: string }>("select org_id from projects where id = $1", [pkg.body.project]);
+  let got = false;
+  // A short wait covers a signed decision or an admin command that is finishing.
+  for (let i = 0; owner.rows[0] && !got && i < 5; i++) {
+    if (i > 0) await c.query("select pg_sleep(0.05)");
+    got = Boolean((await c.query<{ ok: boolean }>("select pg_try_advisory_xact_lock(hashtext('controlrod-admin:' || $1)) as ok", [owner.rows[0].org_id])).rows[0]?.ok);
+  }
+  if (!got) {
+    await appendEvent(c, "decision.auto-skipped", pkgId, SYSTEM, { kind, revision, policy: policy.id, reason: "busy", detail: "An administrative change was in progress; the card waits for a person." });
+    return false;
+  }
   const stage = { writing: false };
   try {
     await decideTx(c, cfg, { kind: "system", id: `policy:${policy.id}` }, pkgId, { kind, package_revision: revision }, null, stage);
@@ -3273,7 +3305,7 @@ async function decideTx(
   cfg: WorkConfig,
   who: { kind: "human" | "system"; id: string },
   id: string,
-  req: { kind: string; package_revision: number; reason?: string; expected_digest?: string },
+  req: { kind: string; package_revision: number; reason?: string; expected_digest?: string; assertion_rejected?: boolean },
   signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
   stage: { writing: boolean } = { writing: false },
 ) {
@@ -3284,7 +3316,7 @@ async function decideTx(
     if (req.kind === "release") await refuseIfScrammed(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
     // The signing policy, read inside the writer transaction so a change made a moment ago holds.
     // It covers this step only when it does not ask for a passkey here and no passkey came with it.
-    const policy = signed ? null : await governingPolicy(c, pkg);
+    const policy = signed || req.assertion_rejected ? null : await governingPolicy(c, pkg);
     const mode = modeFor(policy, req.kind);
     const byPolicy = policy !== null && (who.kind === "system" ? mode === "auto" : mode !== "passkey");
     if (who.kind === "system" && !byPolicy) throw new Refusal(403, "policy-required", "Control Rod takes this step only when your signing policy lets it");
@@ -3300,6 +3332,9 @@ async function decideTx(
     if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     const s = await subjectOf(c, pkg);
     // A press with no passkey still binds to what the person saw: the digest they were shown.
+    if (who.kind === "human" && byPolicy && req.expected_digest === undefined) {
+      throw new Refusal(400, "invalid", "A decision without a passkey must say which version you saw (expected_subject_digest)");
+    }
     if (who.kind === "human" && !signed && req.expected_digest !== undefined && req.expected_digest !== s.digest) {
       throw new Refusal(409, "changed", "This package changed since you opened it. Reload and review the current version.");
     }
@@ -3726,4 +3761,10 @@ async function pullRequestOf(db: Db, id: string, revision: number) {
   if (e.type === "package.pr-opened") return { pull_request: { state: "opened", url: e.data.url, branch: e.data.branch, at: e.at } };
   if (e.type === "package.pr-not-opened") return { pull_request: { state: e.data.reason === "no-changes" ? "no-changes" : "not-opened", detail: e.data.detail, at: e.at } };
   return { pull_request: { state: "opening", branch: e.data.branch, at: e.at } };
+}
+
+/** Takes the organization's administrative lock for a person, the lock admin commands hold. */
+async function lockOrgOf(c: Tx, user: string): Promise<void> {
+  const m = await c.query<{ org_id: string }>("select org_id from members where user_name = $1", [user]);
+  if (m.rows[0]) await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || $1))", [m.rows[0].org_id]);
 }

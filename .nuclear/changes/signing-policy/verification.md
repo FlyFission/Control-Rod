@@ -19,6 +19,20 @@
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: real PostgreSQL and kernel binding | separated: owner retains merge decision | coupled: local machine | self-check | fake runtimes  [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, mocked API  [Ship limits](ship.md) |
 
+## Independent review
+
+Codex blind review of commit 367366f6, on the owner's Mac (2026-11-25): 3 high, 3 medium, 1 low. All fixed in the follow-up commit:
+
+1. High, policy borrowed across organizations: the governing project is now the one the person's capture named (its project-id tag), in the capture's own organization, never the draft's editable field alone.
+2. High, an edit removing the signature floor: a capture marked Nuclear-grade is read from the capture itself; an edit cannot change a draft's project or lower a Safety or Material grade.
+3. High, racing a revocation: a press under the policy takes the organization's administrative lock; an automatic step takes it without waiting and leaves the card for a person if it cannot.
+4. Medium, a stale press: a press under the policy must send the digest the person saw.
+5. Medium, a failed passkey taken as a press: a passkey that came and did not verify makes the decision unsigned (and SCRAM refuses it).
+6. Medium, the board offering a press the server refuses: actions check the policy's passkey and its signer's authority exactly as the decision does, and fall back to a passkey.
+7. Low, the board offer's dismissal leaking across projects: keyed by project.
+
+Tests added in `signing-policy.test.ts` and `scram.test.ts`; full API suite 1,029 passed, 1 skipped; web 985 passed.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

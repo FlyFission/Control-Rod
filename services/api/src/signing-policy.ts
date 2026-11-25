@@ -4,6 +4,7 @@ import { highConsequence, needsOf } from "./authority.js";
 import { laneOf } from "./markings.js";
 import { Refusal } from "./refusal.js";
 import { resolveWorkspaceMode } from "./workspace-projects.js";
+import { captureTags } from "./workflow.js";
 
 /**
  * The owner's signing policy for a project: which steps on its cards need a passkey of their own.
@@ -94,17 +95,37 @@ export function policyOf(projectBody: Record<string, unknown> | undefined): Sign
 export async function routinePackage(q: Db | Tx, pkg: { id: string; body: Record<string, unknown> }, projectBody?: Record<string, unknown>): Promise<boolean> {
   // Intake stores a Nuclear-grade draft under the software mode with the nuclear context profile.
   if (pkg.body.mode === "nuclear-grade" || pkg.body.context_profile === "nuclear") return false;
+  // The capture itself, which no draft edit changes, can also say Nuclear-grade.
+  const origin = await captureOf(q, pkg.id);
+  if ((captureTags(origin?.text) ?? []).some((t) => t.key === "mode" && t.value.toLowerCase() === "nuclear-grade")) return false;
   if (projectBody && resolveWorkspaceMode(projectBody) === "nuclear-grade") return false;
   if (highConsequence(needsOf(pkg.body as { grade?: unknown; discipline?: unknown }))) return false;
   const lane = await laneOf(q, "package", pkg.id, pkg.body.data_lane);
   return lane !== undefined && ROUTINE_LANES.has(lane);
 }
 
-/** The project body a package belongs to, if its project is one Control Rod knows. */
-async function projectOf(q: Db | Tx, pkg: { body: Record<string, unknown> }): Promise<Record<string, unknown> | undefined> {
+/**
+ * The project body whose policy may govern a package. Never the package's own editable `project`
+ * field alone: the project must be the one the person's capture named (its project-id tag, which
+ * intake files the package under), and it must belong to the same organization as the package.
+ */
+async function projectOf(q: Db | Tx, pkg: { id: string; body: Record<string, unknown> }): Promise<Record<string, unknown> | undefined> {
   if (typeof pkg.body.project !== "string") return undefined;
-  const r = await q.query<{ body: Record<string, unknown> }>("select body from projects where id = $1", [pkg.body.project]);
+  const origin = await captureOf(q, pkg.id);
+  if (!origin?.org_id) return undefined;
+  const named = (captureTags(origin.text) ?? []).filter((t) => t.key === "project-id").map((t) => t.value.trim());
+  if (named.length !== 1 || named[0] !== pkg.body.project) return undefined;
+  const r = await q.query<{ body: Record<string, unknown> }>("select body from projects where id = $1 and org_id = $2", [pkg.body.project, origin.org_id]);
   return r.rows[0]?.body;
+}
+
+/** The capture a package came from, as the person typed it, and the organization that owns it. */
+async function captureOf(q: Db | Tx, packageId: string): Promise<{ text: unknown; org_id: string | null } | undefined> {
+  const r = await q.query<{ text: unknown; org_id: string | null }>(
+    `select c.body->>'text' as text, o.org_id from packages p join captures c on c.id = p.capture_id
+       left join object_owners o on o.object_kind = 'capture' and o.object_id = c.id
+      where p.id = $1 order by p.revision desc limit 1`, [packageId]);
+  return r.rows[0];
 }
 
 /**

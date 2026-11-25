@@ -779,7 +779,7 @@ export function BoardView() {
           </p>
         )}
       </header>
-      {activeProject && <AutonomyOffer project={activeProject} />}
+      {activeProject && <AutonomyOffer key={activeProject.id} project={activeProject} />}
       <p className="sr-only" role="status">
         {jumpNote ?? ""}
       </p>

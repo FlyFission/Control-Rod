@@ -349,7 +349,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       if (ok && ok.user === user && ok.data.command === name && ok.data.member === caller.memberId)
         signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
     }
-    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed);
+    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed, Boolean(req.body?.assertion) && !signed);
   }
   app.post<{ Params: { name: string }; Body: AdminCommandBody }>("/admin/commands/:name", async (req) =>
     executeAdminCommand(req, req.params.name));
@@ -515,6 +515,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       package_revision: Number(body.package_revision),
       ...(body.reason ? { reason: String(body.reason) } : {}),
       ...(typeof body.expected_subject_digest?.value === "string" ? { expected_digest: body.expected_subject_digest.value } : {}),
+      // A passkey that came and did not verify is never taken as a press: the decision is judged unsigned.
+      ...(body.assertion && !signed ? { assertion_rejected: true } : {}),
     }, signed);
     return reply.code(201).send(decision);
   });

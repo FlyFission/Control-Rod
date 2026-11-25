@@ -1,10 +1,10 @@
 # Ship: Let Codex checks run on a default Mac install
 
-Release decision: **pending** the owner's yes. Three Codex blind rounds (verification E-03 to E-05); every finding is fixed, the last by removing tmpfs from the identity allowlist.
+Release decision: **merge.** The owner chose "Merge it now" in the project thread on 2026-11-25 at 00:37 UTC. Three Codex blind rounds (verification E-03 to E-05); every finding is fixed, the last by removing tmpfs from the identity allowlist.
 
 ## Signature
 
-Owner (sole maintainer): pending.
+Owner (sole maintainer): yes to merge, recorded in the project thread on 2026-11-25.
 
 - Rollback: revert the merge. No data, route or migration.
 - Monitoring after merge: the owner's next Codex check on his Mac starts and reports a verdict.

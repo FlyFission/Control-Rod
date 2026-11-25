@@ -64,7 +64,7 @@ type Config struct {
 	// LookPathAgent.
 	LookPath func(string) (string, error)
 	// CodexFeatures lists Codex's effective features for a run; nil means CodexEffectiveFeatures.
-	CodexFeatures func(context.Context) (string, error)
+	CodexFeatures CodexFeatureLister
 	// ManagedCodexConfig are files where an administrator can set sandbox_mode; nil means
 	// ManagedCodexConfig.
 	ManagedCodexConfig []string
@@ -354,12 +354,18 @@ claim:
 
 // preflightedArtifact refuses a launch of an artifact other than the one the last probe found
 // ready, preflight included: a pinned version installed after the probe is checked before it runs.
-func (d *Daemon) preflightedArtifact(runtime string, launched Digest) error {
+// It also refuses one whose command was built with other Codex switches than that preflight found
+// (switchedOff, read from the status before the command was built), so a probe that lands between
+// the two cannot leave a feature on.
+func (d *Daemon) preflightedArtifact(runtime string, launched Digest, switchedOff []string) error {
 	for _, s := range d.runtimeStatus() {
 		if s.Runtime != runtime {
 			continue
 		}
 		if s.Ready && s.Artifact != nil && s.Artifact.Digest.Value == launched.Value {
+			if !slices.Equal(s.SwitchedOff, switchedOff) {
+				return fmt.Errorf("%s was checked again while this run was starting; it starts at the next try", displayName(runtime))
+			}
 			return nil
 		}
 		return fmt.Errorf("%s %s has not passed the sandbox preflight on this host yet; it is checked at the next probe before it runs", runtime, short(launched.Value))
@@ -384,9 +390,20 @@ func (d *Daemon) sandboxPathsFor(home, workspace string) SandboxPaths {
 	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: workspace, Logins: LoginLocations(os.Getenv, home)}
 }
 
-// preflight checks that this host can run rt under its sandbox (plan task 6.3).
-func (d *Daemon) preflight(ctx context.Context, rt string) error {
-	return Preflight(ctx, rt, d.cfg.Probe, d.cfg.LookPath, d.cfg.CodexFeatures, d.cfg.ManagedCodexConfig)
+// preflight checks that this host can run rt under its sandbox (plan task 6.3), and returns the
+// Codex features every launch must switch off.
+func (d *Daemon) preflight(ctx context.Context, rt string) ([]string, error) {
+	return PreflightSwitches(ctx, rt, d.cfg.Probe, d.cfg.LookPath, d.cfg.CodexFeatures, d.cfg.ManagedCodexConfig)
+}
+
+// switchedOff is the Codex switches of the last probe's status for runtime.
+func (d *Daemon) switchedOff(runtime string) []string {
+	for _, s := range d.runtimeStatus() {
+		if s.Runtime == runtime {
+			return slices.Clone(s.SwitchedOff)
+		}
+	}
+	return nil
 }
 
 // probe checks every runtime found on PATH and logs, in one plain sentence each, any that is
@@ -409,8 +426,14 @@ func (d *Daemon) probe(ctx context.Context) {
 		}
 		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
 		if st.Ready {
-			if err := d.preflight(preflightContext(ctx, st), rt); err != nil {
+			off, err := d.preflight(preflightContext(ctx, st), rt)
+			if err != nil {
 				st.Ready, st.Reason = false, err.Error()
+			} else if st.SwitchedOff = off; len(off) > 0 && !slices.Equal(off, last[rt].SwitchedOff) {
+				d.log.Info(displayName(rt)+" "+st.Version+" turns on features Control Rod has not qualified yet; they are switched off for every run.", "runtime", rt, "switched_off", strings.Join(off, ","))
+			}
+			if st.Ready && st.Note != "" && st.Note != last[rt].Note {
+				d.log.Info(st.Note, "runtime", rt, "version", st.Version)
 			}
 		}
 		next = append(next, st)
@@ -1576,6 +1599,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 			frozen = &Captured{Raw: map[string][]byte{}}
 		}
 	}
+	// Only a Codex preflight finds switches; every other runtime's list is empty.
+	ws.CodexSwitchedOff = d.switchedOff(runtime)
 	cmd, err := Command(runtime, job.Run, ws, sandbox, d.sandboxPaths(ws))
 	if ws.RunHome != "" {
 		defer os.RemoveAll(ws.RunHome)
@@ -1596,7 +1621,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 				// Not offered again until the next scheduled probe requalifies it; nothing runs now.
 				d.markNotReady(runtime, verr.Error())
 			}
-		} else if qerr := d.preflightedArtifact(runtime, v.Digest); qerr != nil {
+		} else if qerr := d.preflightedArtifact(runtime, v.Digest, ws.CodexSwitchedOff); qerr != nil {
 			// The sandbox preflight (login, Codex features) passed for a different artifact, or for
 			// none: the launched one has not been checked on this host.
 			v.Close()

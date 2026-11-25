@@ -25,6 +25,11 @@ type RuntimeStatus struct {
 	Artifact *RuntimeArtifact `json:"artifact,omitempty"`
 	// Models are the model names or aliases discovered for this CLI on this host.
 	Models []string `json:"models,omitempty"`
+	// SwitchedOff are Codex features this version turns on that Control Rod has not qualified, so
+	// every launch of Artifact switches them off (PreflightSwitches).
+	SwitchedOff []string `json:"switched_off,omitempty"`
+	// Note is a non-blocking remark on a ready runtime, such as a version newer than tested.
+	Note string `json:"note,omitempty"`
 	// timedOut is set when the probe stopped because one of its commands ran past probeTimeout, not
 	// because the CLI answered. It is never reported: it only lets the daemon tell a slow host from
 	// a runtime that is gone (see Daemon.probe).

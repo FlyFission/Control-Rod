@@ -389,8 +389,9 @@ func ClaudeIsolationArgs() []string {
 
 // CodexDisabledFeatures are Codex features that would give an agent a way to act outside the
 // command sandbox, or bring in configuration the run did not declare. Each is switched off on
-// every run; CodexSafeFeatures lists what may stay on, and a pinned version that enables anything
-// else is refused by the preflight until it is qualified.
+// every run; CodexSafeFeatures lists what may stay on. A newer Codex that turns on anything else
+// has it switched off too (PreflightSwitches), so an update never widens what a run can reach and
+// never takes Codex out of work; one that will not switch off is refused.
 var CodexDisabledFeatures = []string{
 	"apps", "browser_use", "browser_use_external", "browser_use_full_cdp_access",
 	"computer_use", "daemon_auto_start", "deferred_tool_world_state", "goals", "guardian_approval", "hooks", "image_generation",
@@ -485,6 +486,16 @@ func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]str
 	)
 	for _, f := range CodexDisabledFeatures {
 		args = append(args, "--disable", f)
+	}
+	if ws != nil {
+		for _, f := range ws.CodexSwitchedOff {
+			if !codexFeatureName.MatchString(f) || slices.Contains(CodexSafeFeatures, f) {
+				return nil, fmt.Errorf("Codex feature %q cannot be switched off for this run", f)
+			}
+			if !slices.Contains(CodexDisabledFeatures, f) {
+				args = append(args, "--disable", f)
+			}
+		}
 	}
 	return args, nil
 }
@@ -626,19 +637,32 @@ func (e *PreflightError) Error() string { return e.Reason }
 
 func refuse(format string, a ...any) error { return &PreflightError{Reason: fmt.Sprintf(format, a...)} }
 
-// Preflight checks that this host can run rt under its sandbox (PreflightHost), and then, by
-// running the CLI, that it is signed in and, for Codex, that every feature the installed version
-// leaves on is one Control Rod has qualified. It runs with the scheduled probe, which already runs
-// the CLI to read its version; before each launch only PreflightHost runs, so nothing executes a
-// CLI that has not yet been checked against its pin.
+// Preflight is PreflightSwitches for a caller that does not carry switches to a launch: a Codex
+// that needs a feature switched off is refused.
 func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(string) (string, error),
-	codexFeatures func(context.Context) (string, error), managedCodexConfig []string) error {
+	codexFeatures CodexFeatureLister, managedCodexConfig []string) error {
+	off, err := PreflightSwitches(ctx, rt, run, lookPath, codexFeatures, managedCodexConfig)
+	if err == nil && len(off) > 0 {
+		return refuse("This Codex version turns on %s, which Control Rod has not qualified.", strings.Join(off, ", "))
+	}
+	return err
+}
+
+// PreflightSwitches checks that this host can run rt under its sandbox (PreflightHost), and then,
+// by running the CLI, that it is signed in and, for Codex, that every feature the installed version
+// leaves on is one Control Rod has qualified or one Codex reports off once switched off. Those are
+// returned: every launch of the artifact this preflight checked must switch them off too
+// (RuntimeStatus.SwitchedOff, Workspace.CodexSwitchedOff). It runs with the scheduled probe, which
+// already runs the CLI to read its version; before each launch only PreflightHost runs, so nothing
+// executes a CLI that has not yet been checked against its pin.
+func PreflightSwitches(ctx context.Context, rt string, run CommandRunner, lookPath func(string) (string, error),
+	codexFeatures CodexFeatureLister, managedCodexConfig []string) ([]string, error) {
 	if err := PreflightHost(rt, lookPath, managedCodexConfig); err != nil {
-		return err
+		return nil, err
 	}
 	if a, ok := AdapterFor(rt); ok && a.SandboxRequired() {
 		if err := sandboxCheck(lookPath); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	// Bounded like the probe's own commands, so a hung CLI makes its runtime unavailable rather than
@@ -647,15 +671,15 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 	defer cancel()
 	a, ok := AdapterFor(rt)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	if c, ok := a.(codexFeaturePreflight); ok {
-		return c.withFeatures(codexFeatures).PreflightCLI(ctx, run)
+		return c.withFeatures(codexFeatures).PreflightSwitches(ctx, run)
 	}
 	if p, ok := a.(CLIPreflight); ok {
-		return p.PreflightCLI(ctx, run)
+		return nil, p.PreflightCLI(ctx, run)
 	}
-	return nil
+	return nil, nil
 }
 
 // PreflightHost checks what the sandbox needs without running the CLI: the programs it needs are on
@@ -802,16 +826,20 @@ func unqualifiedCodexFeatures(list string) []string {
 	return extra
 }
 
+// CodexFeatureLister lists Codex's features as a run sees them, with off switched off as well as
+// CodexDisabledFeatures.
+type CodexFeatureLister func(ctx context.Context, off []string) (string, error)
+
 // CodexEffectiveFeatures lists Codex's features as a run sees them: Control Rod's switches applied
 // and no user configuration (a run ignores it), so only defaults and managed settings count.
-func CodexEffectiveFeatures(ctx context.Context) (string, error) {
+func CodexEffectiveFeatures(ctx context.Context, off []string) (string, error) {
 	tmp, err := os.MkdirTemp("", "controlrod-codex-features-")
 	if err != nil {
 		return "", err
 	}
 	defer os.RemoveAll(tmp)
 	args := []string{"features", "list"}
-	for _, f := range CodexDisabledFeatures {
+	for _, f := range append(slices.Clone(CodexDisabledFeatures), off...) {
 		args = append(args, "--disable", f)
 	}
 	// Binary() is the PATH name. For Codex it is the same string as the runtime id.

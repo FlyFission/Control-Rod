@@ -6,18 +6,23 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
+
+// codexFeatureName is what a feature name from `codex features list` must look like before it is
+// passed back to Codex as an argument.
+var codexFeatureName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,79}$`)
 
 type codexAdapter struct {
 	sandboxedBase
 	// features is the lister for one preflight. Nil means CodexEffectiveFeatures.
 	// The registry value stays nil; withFeatures returns a copy.
-	features func(context.Context) (string, error)
+	features CodexFeatureLister
 }
 
-func (a codexAdapter) withFeatures(f func(context.Context) (string, error)) CLIPreflight {
+func (a codexAdapter) withFeatures(f CodexFeatureLister) codexSwitchPreflight {
 	if f != nil {
 		a.features = f
 	}
@@ -124,20 +129,47 @@ func (codexAdapter) LaunchNotice(now time.Time) []Event {
 	}}
 }
 
+// PreflightCLI is the preflight for a caller that cannot carry switches to the launch: any feature
+// Control Rod has not qualified is refused, as before. Preflight uses PreflightSwitches instead.
 func (a codexAdapter) PreflightCLI(ctx context.Context, run CommandRunner) error {
+	off, err := a.PreflightSwitches(ctx, run)
+	if err == nil && len(off) > 0 {
+		return refuse("This Codex version turns on %s, which Control Rod has not qualified.", strings.Join(off, ", "))
+	}
+	return err
+}
+
+// PreflightSwitches checks the sign-in and Codex's features. A feature a newer Codex turns on that
+// Control Rod has not qualified is switched off, not refused: the list is read again with it
+// switched off, and only when Codex then reports it off is it returned, for every launch of this
+// artifact to pass as one more --disable (Workspace.CodexSwitchedOff). One that stays on is refused.
+func (a codexAdapter) PreflightSwitches(ctx context.Context, run CommandRunner) ([]string, error) {
 	if _, code, err := run(ctx, a.Binary(), "login", "status"); err != nil || code != 0 {
-		return refuse("Codex is not signed in. Run `codex login`; Control Rod never signs in for you.")
+		return nil, refuse("Codex is not signed in. Run `codex login`; Control Rod never signs in for you.")
 	}
 	listFn := a.features
 	if listFn == nil {
 		listFn = CodexEffectiveFeatures
 	}
-	list, err := listFn(ctx)
+	list, err := listFn(ctx, nil)
 	if err != nil {
-		return refuse("Codex did not list its features (%v), so Control Rod cannot tell what an agent could reach. Reinstall the pinned Codex.", err)
+		return nil, refuse("Codex did not list its features (%v), so Control Rod cannot tell what an agent could reach. Reinstall Codex.", err)
 	}
-	if extra := unqualifiedCodexFeatures(list); len(extra) > 0 {
-		return refuse("This Codex version turns on %s, which Control Rod has not qualified. Pin a qualified Codex version.", strings.Join(extra, ", "))
+	extra := unqualifiedCodexFeatures(list)
+	if len(extra) == 0 {
+		return nil, nil
 	}
-	return nil
+	for _, f := range extra {
+		if !codexFeatureName.MatchString(f) {
+			return nil, refuse("Codex listed its features in a form Control Rod cannot read (%s), so it cannot tell what an agent could reach.", f)
+		}
+	}
+	again, err := listFn(ctx, extra)
+	if err != nil {
+		return nil, refuse("Codex did not list its features with %s switched off (%v), so Control Rod cannot tell what an agent could reach.", strings.Join(extra, ", "), err)
+	}
+	if still := unqualifiedCodexFeatures(again); len(still) > 0 {
+		return nil, refuse("This Codex version turns on %s, which Control Rod has not qualified, and Codex did not switch it off when asked.", strings.Join(still, ", "))
+	}
+	return extra, nil
 }

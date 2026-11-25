@@ -156,7 +156,9 @@ func TestGrokIgnoresInstructionsInDeniedFolders(t *testing.T) {
 }
 
 func TestGrokVersionLoginAndModels(t *testing.T) {
-	for v, ok := range map[string]bool{"grok 1.0.92 (b06756fd6256) [stable]": true, "grok 1.0.93": false, "grok 1.0.92-beta": false, "": false} {
+	// Updates are trusted: the tested build and every newer one are seated.
+	for v, ok := range map[string]bool{"grok 1.0.92 (b06756fd6256) [stable]": true, "grok 1.0.93": true, "grok 1.1.0 [stable]": true,
+		"grok 1.0.91": false, "grok 1.0.92-beta": false, "": false} {
 		if grokQualifiedVersion(v) != ok {
 			t.Errorf("qualified(%q) != %t", v, ok)
 		}

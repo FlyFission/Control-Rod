@@ -125,7 +125,13 @@ type CLIPreflight interface {
 // codexFeaturePreflight copies a Codex adapter with the feature lister Preflight was given.
 // The registry value keeps a nil lister, which means CodexEffectiveFeatures.
 type codexFeaturePreflight interface {
-	withFeatures(func(context.Context) (string, error)) CLIPreflight
+	withFeatures(CodexFeatureLister) codexSwitchPreflight
+}
+
+// codexSwitchPreflight is a preflight that may answer with features to switch off at launch.
+type codexSwitchPreflight interface {
+	CLIPreflight
+	PreflightSwitches(ctx context.Context, run CommandRunner) ([]string, error)
 }
 
 // ArtifactStager launches from a staged copy of the install tree.

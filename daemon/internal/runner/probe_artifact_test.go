@@ -71,7 +71,7 @@ func TestTheCodexFeatureCheckRefusesAnExecutableThatChangedSinceTheProbe(t *test
 	t.Cleanup(func() { resolveArtifact = old })
 
 	probed := RuntimeStatus{Runtime: RuntimeCodex, Ready: true, Artifact: &RuntimeArtifact{Path: native, Digest: digest("a")}}
-	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err == nil || !strings.Contains(err.Error(), "changed after it was probed") {
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed), nil); err == nil || !strings.Contains(err.Error(), "changed after it was probed") {
 		t.Fatalf("a changed executable must be refused: %v", err)
 	}
 	if _, err := os.Stat(ran); err == nil {
@@ -80,14 +80,14 @@ func TestTheCodexFeatureCheckRefusesAnExecutableThatChangedSinceTheProbe(t *test
 	// Same digest at another path (another installation): also refused.
 	probed.Artifact.Digest = digest("b")
 	probed.Artifact.Path = filepath.Join(dir, "elsewhere", "codex")
-	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err == nil {
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed), nil); err == nil {
 		t.Fatal("the same bytes at another path are another installation and must be refused")
 	}
 	if _, err := os.Stat(ran); err == nil {
 		t.Fatal("an executable at another path ran")
 	}
 	probed.Artifact.Path = native
-	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed)); err != nil {
+	if _, err := CodexEffectiveFeatures(preflightContext(context.Background(), probed), nil); err != nil {
 		t.Fatalf("the probed executable, unchanged, must be listed: %v", err)
 	}
 	if _, err := os.Stat(ran); err != nil {

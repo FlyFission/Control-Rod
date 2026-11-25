@@ -78,18 +78,22 @@ func (grokAdapter) Capabilities() Capabilities {
 	}
 }
 
-// grokQualifiedVersions are the Grok CLI builds the bridge was qualified on: the tool ids the
-// allowlist names, the hook method and the log line that proves the allowlist took effect were
-// measured on these exact builds.
-var grokQualifiedVersions = []string{"1.0.92"}
+// grokTestedVersion is the Grok CLI build the bridge was qualified on: the tool ids the allowlist
+// names, the hook method and the log line that proves the allowlist took effect were measured on
+// it. It and every newer build are seated (agent_version.go); a newer build that changed any of
+// them fails its run closed (allowlistApplied, the hook's allowlist), it does not run unfenced.
+const grokTestedVersion = "1.0.92"
 
 func grokQualifiedVersion(v string) bool {
-	m := agyVersionRE.FindStringSubmatch(v)
-	return m != nil && slices.Contains(grokQualifiedVersions, m[1])
+	ok, _ := agentVersionAtLeast(v, grokTestedVersion)
+	return ok
 }
 
 func grokVersionReason(v string) string {
-	return fmt.Sprintf("Grok CLI %q is installed, but Control Rod has qualified its fence only on version %s, so it is not seated yet.", v, strings.Join(grokQualifiedVersions, ", "))
+	if agyVersionRE.FindStringSubmatch(v) == nil {
+		return fmt.Sprintf("Control Rod could not read a version from %s (%q), so it is not seated.", "Grok CLI", v)
+	}
+	return fmt.Sprintf("Grok CLI %q is installed, but it is older than %s, the first version Control Rod can fence. Update Grok CLI.", v, grokTestedVersion)
 }
 
 // grokSignedIn reads `grok models`, which exits 0 whether or not a login is present: its first
@@ -124,6 +128,9 @@ func (a grokAdapter) Probe(ctx context.Context, _ string, run CommandRunner) Run
 		if !grokQualifiedVersion(st.Version) {
 			st.Reason = grokVersionReason(st.Version)
 			return true
+		}
+		if _, newer := agentVersionAtLeast(st.Version, grokTestedVersion); newer {
+			st.Note = newerThanTestedNote("Grok CLI", st.Version, grokTestedVersion)
 		}
 		return false
 	})

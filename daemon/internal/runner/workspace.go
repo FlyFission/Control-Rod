@@ -50,6 +50,9 @@ type Workspace struct {
 	HookFile string
 	// Checker selects the pre-check workspace and the checker launch flags.
 	Checker bool
+	// CodexSwitchedOff are the features the preflight of the launched Codex found on and not yet
+	// qualified (RuntimeStatus.SwitchedOff); a Codex launch switches each off.
+	CodexSwitchedOff []string
 	// Deliverables is the host path of the deliverable tree. It is not the working directory.
 	Deliverables string
 	// Scratch is the checker's write directory, inside Dir.

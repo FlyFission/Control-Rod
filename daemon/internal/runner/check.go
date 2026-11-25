@@ -129,7 +129,7 @@ type CheckConfig struct {
 	LookPath           func(string) (string, error)
 	Getenv             func(string) string
 	Probe              CommandRunner
-	CodexFeatures      func(context.Context) (string, error)
+	CodexFeatures      CodexFeatureLister
 	ManagedCodexConfig []string
 	Container          *Container
 	ExtraInputs        []NamedFile
@@ -343,6 +343,8 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 	if err != nil && a.SandboxRequired() {
 		return CheckResult{}, fmt.Errorf("%w: %v", ErrCheckUsage, err)
 	}
+	// Only a Codex preflight finds switches; every other runtime's list is empty.
+	ws.CodexSwitchedOff = st.SwitchedOff
 	cmd, err := Command(checkerID, job.Run, ws, sandbox, sp)
 	if ws.RunHome != "" {
 		defer os.RemoveAll(ws.RunHome)
@@ -643,9 +645,11 @@ func resolveCheckerRuntime(ctx context.Context, cfg CheckConfig, authorID string
 			return "", RuntimeStatus{}, fmt.Errorf("%w: checker runtime %s is not ready: %s", ErrCheckUsage, checkerID, st.Reason)
 		}
 		if a.SandboxRequired() {
-			if err := Preflight(ctx, checkerID, cfg.Probe, cfg.LookPath, cfg.CodexFeatures, cfg.ManagedCodexConfig); err != nil {
+			off, err := PreflightSwitches(preflightContext(ctx, st), checkerID, cfg.Probe, cfg.LookPath, cfg.CodexFeatures, cfg.ManagedCodexConfig)
+			if err != nil {
 				return "", RuntimeStatus{}, fmt.Errorf("%w: %v", ErrCheckUsage, err)
 			}
+			st.SwitchedOff = off
 		}
 		return checkerID, st, nil
 	}
@@ -672,10 +676,12 @@ func resolveCheckerRuntime(ctx context.Context, cfg CheckConfig, authorID string
 			continue
 		}
 		if a.SandboxRequired() {
-			if err := Preflight(ctx, candidate, cfg.Probe, cfg.LookPath, cfg.CodexFeatures, cfg.ManagedCodexConfig); err != nil {
+			off, err := PreflightSwitches(preflightContext(ctx, st), candidate, cfg.Probe, cfg.LookPath, cfg.CodexFeatures, cfg.ManagedCodexConfig)
+			if err != nil {
 				reasons = append(reasons, fmt.Sprintf("%s: %v", candidate, err))
 				continue
 			}
+			st.SwitchedOff = off
 		}
 		return candidate, st, nil
 	}

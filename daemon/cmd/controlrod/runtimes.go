@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/flyfission/control-rod/daemon/internal/runner"
@@ -21,6 +22,12 @@ func runtimesCheck() int {
 		switch {
 		case st.Ready:
 			fmt.Printf("ok    %s: ready (%s)\n", st.Name, st.Version)
+			if st.Note != "" {
+				fmt.Printf("      %s\n", st.Note)
+			}
+			if len(st.SwitchedOff) > 0 {
+				fmt.Printf("      runs switch off %s: this version turns it on and Control Rod has not qualified it yet\n", strings.Join(st.SwitchedOff, ", "))
+			}
 		case st.NotYet:
 			fmt.Printf("--    %s: found, not supported yet (never started until Control Rod can sandbox it)\n", st.Name)
 		default:

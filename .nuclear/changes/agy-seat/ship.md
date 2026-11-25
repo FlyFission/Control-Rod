@@ -1,10 +1,10 @@
 # Ship: Antigravity CLI as a confined seat
 
-Release decision: **pending the owner**. Merge after the live qualification passes on the owner's Mac, a Codex blind review, and the owner's yes in the project thread. No trust surface is touched.
+Release decision: **merge**. The owner chose "Merge after the live re-test" in the project thread on 2026-11-25 at 11:09 UTC, after two Codex blind-review rounds (the owner's limit) whose findings are fixed except the recorded `/private/var/tmp` residual, and the final live qualification passed (verification E-08). No trust surface is touched.
 
 ## Signature
 
-Owner (sole maintainer): not yet recorded.
+Owner (sole maintainer): yes to merge after the live re-test, recorded in the project thread on 2026-11-25, accepting the residual below.
 
 ## Known limits
 

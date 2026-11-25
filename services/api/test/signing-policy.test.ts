@@ -155,6 +155,13 @@ describe("signing policy on a project", () => {
     expect(ok.json()).toMatchObject({ project_id: project, version: 1, preset: "light", steps: PRESETS.light });
   });
 
+  it("starts the drafts already waiting in the project once Light is turned on", async () => {
+    const id = (await asOwner("GET", "/packages")).json().find((p: { id: string }) => p.id.endsWith("-NOPOLICY")).id;
+    const v = await view(id);
+    expect(v.package.status).toBe("released");
+    expect(v.decisions.find((d: Json) => d.kind === "release").actor).toEqual({ kind: "system", id: expect.stringMatching(/^policy:SP-/) });
+  });
+
   it("under Light, releases a routine card on its own and records the policy it relied on", async () => {
     const id = await drafted("LIGHT");
     const v = await view(id);

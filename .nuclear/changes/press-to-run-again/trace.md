@@ -4,6 +4,7 @@
 | --- | --- | --- |
 | Settle with a press under a policy that presses send-backs | `services/api/src/work.ts` reconcilePressPolicy, reconcileRun | `services/api/test/signing-policy.test.ts` "under Light, settles a failed run's unknown outcome with a press" |
 | Still signed where send-backs are signed or nothing covers the card | same | same file, "asks for a passkey to settle an unknown outcome once the settings sign send-backs"; `supervision.test.ts` "settles an unknown outcome with a person's signed reason" |
+| Turning Light on starts waiting drafts | `services/api/src/admin.ts` project.set-signing-policy | `signing-policy.test.ts` "starts the drafts already waiting in the project once Light is turned on" |
 | One press settles and runs again | `apps/web/src/components/RunLog.tsx` Reconcile | `components/run-reconcile.test.tsx` |
 | Honest words | RunLog.tsx unknownOutcomeText, `lib/next.ts` stalledLine | `run-reconcile.test.tsx`, `lib/next.test.ts` "does not say the daemon stopped answering" |
 

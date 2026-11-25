@@ -1,7 +1,7 @@
 # Verification: A failed run on a Mac runs again with one press, not a passkey
 
 - E-01: `pnpm -C services/api typecheck` and `pnpm -C apps/web typecheck` pass.
-- E-02: `vitest run test/signing-policy.test.ts test/supervision.test.ts` (services/api, embedded PostgreSQL 17): 41 tests pass, 2 new.
+- E-02: `vitest run test/signing-policy.test.ts test/supervision.test.ts test/admin.test.ts test/scram.test.ts` (services/api, embedded PostgreSQL 17): all pass, 3 new.
 - E-03: `vitest run src/components/run-reconcile.test.tsx src/lib/next.test.ts` (apps/web): 30 tests pass, 4 new.
 
 ## Evidence custody and coupling

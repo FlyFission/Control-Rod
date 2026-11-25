@@ -21,7 +21,8 @@ import { pullScram, restartAfterScram, reviewQuarantine } from "./scram.js";
 import { sealChain } from "./seals.js";
 import { checkBudget } from "./budgets.js";
 import { getObject, recordObject, transition } from "./workbench.js";
-import { Refusal } from "./work.js";
+import { Refusal, type WorkConfig, autoDecide } from "./work.js";
+import { enterScramGate } from "./scram.js";
 import { archiveWorkspaceProject, createWorkspaceProject, updateWorkspaceProject } from "./workspace-projects.js";
 import { resolveChoice } from "./work-lanes.js";
 
@@ -57,6 +58,8 @@ export interface AdminContext {
   assertion?: { credential_id: string; authenticator_data: string; client_data_json: string; signature: string };
   /** The signed subject and the challenge nonce, for records whose signature is checked again later (seals). */
   signed?: { subject: string; nonce: string };
+  /** The work configuration, for commands that let Control Rod take a step on a card at once. */
+  work?: WorkConfig;
 }
 
 const str = (p: Record<string, unknown>, k: string, required = true): string | undefined => {
@@ -480,6 +483,17 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       await appendEvent(c, "project.signing-policy-set", id, actorOf(caller), {
         policy: policy.id, version: policy.version, preset, steps, ...(prior ? { from: prior.steps } : {}),
       });
+      // Drafts already waiting in this project start now, as they would had the policy been there
+      // when intake drafted them. autoDecide checks the policy covers each one and leaves the rest.
+      if (ctx.work && steps.release === "auto") {
+        await enterScramGate(c);
+        const drafts = await c.query<{ id: string; revision: number }>(
+          `select p.id, p.revision from packages p
+            where p.status = 'draft' and p.body->>'project' = $1
+              and p.revision = (select max(q.revision) from packages q where q.id = p.id)
+            order by p.created_at, p.id`, [id]);
+        for (const d of drafts.rows) await autoDecide(c, ctx.work, d.id, d.revision, "release");
+      }
       return { project_id: id, ...policyRef(policy) };
     },
   },

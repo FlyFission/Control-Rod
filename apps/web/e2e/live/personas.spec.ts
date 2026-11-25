@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, setUpMachine, signIn, test } from "./fixtures.js";
-import { addCard, classify, column, draftPair, releaseFromBoard } from "./flows.js";
+import { addCard, column, draftPair, releaseFromBoard } from "./flows.js";
 import { installPasskey, SoftPasskey } from "./passkey.js";
 import { startStack } from "./stack.js";
 
@@ -50,9 +50,8 @@ test.describe("@persona", () => {
       await j.note("Finish setting up the machine");
       const request = "Write the scope of work for replacing the lobby lights";
       await addCard(page, request);
-      await classify(page, request);
       await page.waitForTimeout(20000);
-      await j.note("Wait for something to happen after classifying");
+      await j.note("Wait for something to happen after adding the card");
       // Objective check: with no daemon, the person must be told why nothing happens and what to do.
       const told = page.getByText(/daemon|no agent|install (claude|codex)|runtime|pnpm cr start|not running|waiting for/i).first();
       const ok = await told.isVisible().catch(() => false);
@@ -101,7 +100,7 @@ test.describe("@persona", () => {
     }
   });
 
-  test("a keyboard-only person adds and classifies a card", async ({ page, stack, browserName }) => {
+  test("a keyboard-only person adds a card and reaches the board", async ({ page, stack, browserName }) => {
     const j = new Journey(page, "keyboard-only", "Uses no mouse (motor impairment or preference). Tab, Enter, Escape and shortcuts only.");
     try {
       await page.locator("body").press("c");
@@ -110,30 +109,27 @@ test.describe("@persona", () => {
       const request = `Write the scope of work by keyboard ${Date.now()}`;
       await page.keyboard.type(request);
       await page.keyboard.press("Enter");
+      await expect(field, "the card is added with the project's lane, no second step").toHaveValue("");
       await page.keyboard.press("Escape");
       await j.note("Added a card with c, typing and Enter");
-      // Tab to the lane picker of the new card: count the presses a person would need.
+      // Tab to a card: count the presses a person would need. Intake may already have turned the new
+      // card into packages with other titles, so any card on the board counts.
       let presses = 0;
-      const lane = page.getByRole("article", { name: new RegExp(request.slice(0, 40)) }).getByLabel("Data lane");
-      while (presses < 60 && !(await lane.evaluate((el) => el === document.activeElement).catch(() => false))) {
+      const cards = page.locator(".bd-card");
+      await expect(cards.first()).toBeVisible();
+      while (presses < 60 && !(await page.evaluate(() => !!document.activeElement?.closest(".bd-card")))) {
         await page.keyboard.press("Tab");
         presses++;
       }
-      await j.note(`Reached the card's lane picker after ${presses} Tab presses`, presses >= 60 ? "Could not reach the lane picker by Tab." : undefined);
-      expect.soft(presses, "the new card's lane picker is reachable in under 15 Tab presses from the add field").toBeLessThan(15);
-      if (presses < 60) {
-        await page.keyboard.press("ArrowDown");
-        await page.keyboard.press("Tab");
-        await page.keyboard.press("Enter");
-        await j.note("Classified by keyboard");
-      }
+      await j.note(`Reached a card after ${presses} Tab presses`, presses >= 60 ? "Could not reach a card by Tab." : undefined);
+      expect.soft(presses, "a card is reachable in under 15 Tab presses from the add field").toBeLessThan(15);
       const focusVisible = await page.evaluate(() => {
         const el = document.activeElement as HTMLElement | null;
         if (!el || el === document.body) return false;
         const s = getComputedStyle(el);
         return s.outlineStyle !== "none" || s.boxShadow !== "none";
       });
-      expect.soft(focusVisible, "focus stays on something visible after classifying").toBe(true);
+      expect.soft(focusVisible, "focus is visible on the card").toBe(true);
       void stack;
     } finally {
       j.save(browserName);

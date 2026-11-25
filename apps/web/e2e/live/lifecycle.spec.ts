@@ -2,12 +2,12 @@
  * Functional pass (@functional): one card's whole life on the real stack, in each browser, with a
  * screenshot and an axe WCAG 2.2 AA scan at every step a person stops at.
  *
- * capture -> classify lane -> intake drafts two packages -> release (passkey) -> author run ->
+ * capture (in the project's data lane) -> intake drafts two packages -> release (passkey) -> author run ->
  * pre-check held for an independent runtime -> owner override (passkey) -> pre-check passes ->
  * accept (passkey) -> Accepted. Then the dependent package becomes releasable.
  */
 import { expect, test } from "./fixtures.js";
-import { addCard, card, classify, column, decisionsOf, drawer, openCase, SCOPE_REQUEST, signOverride, waitForText, packages } from "./flows.js";
+import { addCard, card, column, decisionsOf, drawer, openCase, SCOPE_REQUEST, signOverride, waitForText, packages } from "./flows.js";
 
 test.describe("@functional card lifecycle", () => {
   test("a request goes from a typed line to an accepted package", async ({ page, journal, stack, owner }) => {
@@ -16,9 +16,8 @@ test.describe("@functional card lifecycle", () => {
 
     const request = `${SCOPE_REQUEST} (lifecycle)`;
     await addCard(page, request);
-    await journal.step("capture-unclassified");
+    await journal.step("capture-added");
 
-    await classify(page, request);
     await expect.poll(async () => (await packages(page, stack)).filter((p) => !before.has(p.id)).length, { timeout: 60000 }).toBe(2);
     const fresh = (await packages(page, stack)).filter((p) => !before.has(p.id));
     const survey = fresh.find((p) => p.id.endsWith("-SURVEY"))!.id;

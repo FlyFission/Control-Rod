@@ -1,10 +1,10 @@
 # Ship: Make the sidebar resizable and collapsible
 
-Release decision: **pending** the owner's yes after a blind check.
+Release decision: **merge** when CI is green. The owner chose "Merge it when CI is green" in the project thread on 2026-11-25 at 00:46 UTC, after six Codex blind-review rounds whose findings are all fixed (verification E-04 to E-09). Codex's last verdict was NO-MERGE on edge cases that are now fixed. No trust surface is touched.
 
 ## Signature
 
-Owner (sole maintainer): not yet recorded.
+Owner (sole maintainer): yes to merge when CI is green, recorded in the project thread on 2026-11-25.
 
 - Rollback: revert the merge. Saved widths are per-browser conveniences under `cr.rail:<user>` and are ignored after a revert.
 - Monitoring after merge: on a real install, the rail opens at the saved width and nothing in the workspace is hard to click near its edge.

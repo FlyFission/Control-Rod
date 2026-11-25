@@ -1448,11 +1448,71 @@ select {
   font-family: var(--mono);
   font-size: var(--fs-small);
   line-height: var(--lh-mono);
-  max-height: 320px;
+  max-height: min(60vh, 640px);
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
+}
+/* The full run log: nearly the whole screen, numbered lines, filter and copy. */
+.log-viewer {
+  width: min(1400px, calc(100vw - 32px));
+  height: calc(100vh - 32px);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--ground);
+  color: var(--text);
+}
+.log-viewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+.log-viewer::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.log-viewer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.log-viewer-head h2 {
+  margin: 0 auto 0 0;
+  font-size: var(--fs-ui);
+}
+.log-viewer-filter {
+  min-width: 200px;
+}
+.log-viewer-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-mono);
+}
+.log-line {
+  display: flex;
+  gap: 12px;
+  padding: 0 14px;
+}
+.log-line:hover {
+  background: var(--line);
+}
+.log-n {
+  flex: none;
+  min-width: 4ch;
+  text-align: right;
+  color: var(--muted);
+  user-select: none;
+}
+.log-t {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .outputs,
 .findings,

@@ -531,6 +531,26 @@ describe("runs that need the owner", () => {
     expect(screen.queryByRole("button",{name:"Requeue this run"})).toBeNull();
   });
 
+  it("opens the whole log full screen, filters it and keeps every line", async () => {
+    const lines = Array.from({ length: 450 }, (_, i) => (i === 7 ? "ERROR: test auth.spec failed" : `line ${i + 1}`));
+    server.use(http.get("*/packages/WP-9/runs/R-lost/log", () => HttpResponse.json({ lines })));
+    await renderPage(<RunCard packageId="WP-9" run={lostRun} />);
+    const user = userEvent.setup();
+    const open = await screen.findByRole("button", { name: "Open full log" });
+    await waitFor(() => expect((open as HTMLButtonElement).disabled).toBe(false));
+    await user.click(open);
+    const dlg = await screen.findByRole("dialog", { name: "Author log, round 1" });
+    // The drawer keeps the last 400 lines; the full log keeps all 450, numbered.
+    expect(within(dlg).getByText("450 lines")).toBeTruthy();
+    expect(within(dlg).getByText("line 1")).toBeTruthy();
+    await user.type(within(dlg).getByLabelText("Filter log lines"), "error");
+    expect(within(dlg).getByText("1 of 450 lines")).toBeTruthy();
+    expect(within(dlg).getByText("ERROR: test auth.spec failed")).toBeTruthy();
+    expect(within(dlg).queryByText("line 1")).toBeNull();
+    await user.click(within(dlg).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("shows a lost run plainly and lets the owner requeue it once", async () => {
     let posted = "";
     server.use(

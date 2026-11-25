@@ -330,8 +330,23 @@ describe("CaptureCard", () => {
     await renderPage(<Page />);
     await screen.findByText("Login redirect fix");
     await screen.findByText("Login redirect tests");
-    expect(screen.queryByText("Fix the login redirect")).toBeNull();
+    // The request's own card is gone; each package card says it is one of two from that request.
+    expect(screen.queryByRole("button", { name: "Fix the login redirect" })).toBeNull();
     expect(screen.queryByText("Classify the data lane")).toBeNull();
+    const first = screen.getByText("Login redirect fix").closest("article")!;
+    const second = screen.getByText("Login redirect tests").closest("article")!;
+    expect(first.textContent).toContain("Card 1 of 2 from one request: Fix the login redirect");
+    expect(second.textContent).toContain("Card 2 of 2 from one request");
+  });
+
+  it("says nothing about a split when a request became one card", async () => {
+    api({
+      captures: [capture({ disposition: "package", package_ids: ["WP-1"] })],
+      packages: [pkg({ id: "WP-1", title: "Login redirect fix" })],
+    });
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Login redirect fix")).closest("article")!;
+    expect(card.textContent).not.toContain("from one request");
   });
 
   it("keeps the board usable and says so when captures cannot be read", async () => {

@@ -1218,7 +1218,7 @@ describe("board lenses (M2)", () => {
     expect(screen.getByText("Protected doc")).toBeTruthy();
   });
 
-  it("hides avatars in compact density while keeping the next line", async () => {
+  it("shrinks a card to its name and a status mark in compact density", async () => {
     api({
       packages: [pkg({ id: "WP-1", title: "Compact card", grade: "general-service", status: "in-verification" })],
       actions: { "WP-1": [accept] },
@@ -1234,8 +1234,12 @@ describe("board lenses (M2)", () => {
     await user.click(screen.getByText("View options", { exact: false }));
     await user.click(screen.getByRole("button", { name: "Compact" }));
     expect(document.querySelector(".bd")!.getAttribute("data-density")).toBe("compact");
-    expect(card.querySelectorAll(".bd-avatar").length).toBe(0);
-    expect(card.querySelector(".bd-next")!.textContent).toContain("Accept");
+    const slim = (await screen.findByRole("button", { name: "Compact card" })).closest("article")!;
+    expect(slim.classList.contains("bd-card-compact")).toBe(true);
+    expect(slim.querySelectorAll(".bd-avatar, .bd-meta, .bd-next, .bd-id").length).toBe(0);
+    // The status is still there for screen readers and on hover, just not as a line of its own.
+    expect(slim.getAttribute("title")).toContain("Accept");
+    expect(slim.querySelector(".sr-only")!.textContent).toContain("Accept");
   });
 
   it("pluralizes the default-view guard notice when multiple protected cards are hidden", async () => {

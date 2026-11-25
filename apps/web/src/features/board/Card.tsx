@@ -72,8 +72,13 @@ export type CardProps = {
   actions?: ReactNode;
   /** Left-edge color from the active `colorBy` lens (never a meaning token). */
   edgeColor?: string;
-  /** Compact density hides avatars and grade/context chips, never the next line. */
+  /**
+   * Compact density is one line: the card's name and a status mark whose words are in its tooltip
+   * and for screen readers. Everything else is in the drawer, one click away.
+   */
   compact?: boolean;
+  /** Set when intake turned one request into several cards: this card's place and the request. */
+  split?: { index: number; total: number; request: string };
   /** An agent run on this card is running now, as last read; queued alone does not count. */
   runRunning?: boolean;
   /** Runtime providers of the author and checker runs, for their icons. */
@@ -82,12 +87,40 @@ export type CardProps = {
 };
 
 /** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false, author, checker }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false, author, checker, split }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
   const check = needsIndependentCheck(pkg);
   const spin = showsRunSpinner({ runRunning, lastKnown }, stream);
+  if (compact) {
+    const live = stream === "live" && !lastKnown;
+    const said = live ? `${tone.word ? `${tone.word}: ` : ""}${next.text}` : stream === "live" ? `Last known: ${next.text}` : next.text;
+    return (
+      <article
+        aria-labelledby={titleId}
+        className={selected ? "bd-card bd-card-compact selected" : "bd-card bd-card-compact"}
+        data-kind={kinds[0]}
+        data-column={column}
+        data-tone={live ? next.tone : "unknown"}
+        style={edgeColor ? { borderLeftColor: edgeColor } : undefined}
+        title={said}
+      >
+        <span className={spin ? "bd-sym bd-live" : "bd-sym"} aria-hidden="true">
+          {spin ? "\u25cf" : tone.symbol}
+        </span>
+        <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
+          {pkg.title}
+        </button>
+        <span className="sr-only">{said}</span>
+        {spin && (
+          <span className="bd-progress" role="img" aria-label="Agent running">
+            <span aria-hidden="true" />
+          </span>
+        )}
+      </article>
+    );
+  }
   return (
     <article
       aria-labelledby={titleId}
@@ -150,6 +183,12 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           )}
         </span>
       </div>
+      {split && (
+        <p className="bd-split small muted" title={split.request ? `From your request: ${split.request}` : undefined}>
+          Card {split.index} of {split.total} from one request
+          {split.request ? <>: <span className="bd-split-request">{split.request}</span></> : null}
+        </p>
+      )}
       <p className="bd-next">
         {stream === "live" && lastKnown ? (
           <span className="muted">Last known: {next.text}</span>

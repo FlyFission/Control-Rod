@@ -96,6 +96,28 @@ def test_a_file_added_to_a_pre_existing_record_does_not_republish_it(tmp_path):
     assert r.stdout.strip() == "- Basis: new record (new-record)"
     assert "old record" not in r.stdout
 
+def test_a_quick_record_without_basis_uses_its_risk_heading(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run = lambda *a: subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True)
+    run("init", "-b", "main")
+    run("config", "user.email", "t@example.test")
+    run("config", "user.name", "Test")
+    run("commit", "--allow-empty", "-m", "start")
+    base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
+    quick = repo / ".nuclear" / "changes" / "quick-one"
+    quick.mkdir(parents=True)
+    (quick / "risk.md").write_text("# Quick Risk: the lock names its holder\n", encoding="utf-8")
+    (quick / "proof.md").write_text("# Quick Proof: the lock names its holder\n", encoding="utf-8")
+    run("add", "-A")
+    run("commit", "-m", "quick")
+    r = subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "release_notes.py"), "--from", base, "--to", "HEAD"],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "- Quick Risk: the lock names its holder (quick-one)"
+
 
 def test_an_unknown_ref_fails():
     out = run_notes("HEAD", "no-such-ref-anywhere")

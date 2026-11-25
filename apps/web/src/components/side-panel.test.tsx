@@ -220,3 +220,36 @@ describe("two owners at once", () => {
     expect(onCloseA).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("a reused drawer with a new selection", () => {
+  it("comes back on top when its page picks something else", () => {
+    function P() {
+      const [card, setCard] = useState("WP-1");
+      const [run, setRun] = useState(false);
+      return (
+        <Host docked>
+          <button type="button" onClick={() => setRun(true)}>
+            run
+          </button>
+          <button type="button" onClick={() => setCard("WP-2")}>
+            card 2
+          </button>
+          <SidePanel label={`Review ${card}`} onClose={() => undefined}>
+            <aside aria-label={card} />
+          </SidePanel>
+          {run && (
+            <SidePanel label="Run" onClose={() => setRun(false)}>
+              <aside aria-label="run panel" />
+            </SidePanel>
+          )}
+        </Host>
+      );
+    }
+    render(<P />);
+    fireEvent.click(screen.getByText("run"));
+    expect(screen.getByRole("complementary", { name: "WP-1", hidden: true }).closest(".side-panel")?.hasAttribute("hidden")).toBe(true);
+    fireEvent.click(screen.getByText("card 2"));
+    expect(screen.getByRole("complementary", { name: "WP-2" }).closest(".side-panel")?.hasAttribute("hidden")).toBe(false);
+    expect(screen.getByRole("complementary", { name: "run panel", hidden: true }).closest(".side-panel")?.hasAttribute("hidden")).toBe(true);
+  });
+});

@@ -99,3 +99,14 @@ describe("ViewerBoundary", () => {
     expect(screen.getByRole("link", { name: /new tab/ }).getAttribute("href")).toBe("/raw");
   });
 });
+
+describe("MarkdownView code blocks", () => {
+  it("keeps a block with no language preformatted, and inline code plain", () => {
+    const { container } = render(<MarkdownView text={"Run `ls`:\n\n```\nmkdir a\n  cd a\n```\n\n    indented\n      more\n"} />);
+    const pres = container.querySelectorAll("pre");
+    expect(pres.length).toBe(2);
+    expect(pres[0]?.textContent?.trimEnd()).toBe("mkdir a\n  cd a");
+    expect(pres[1]?.textContent?.trimEnd()).toBe("indented\n  more");
+    expect(container.querySelector("p code")?.closest("pre")).toBeNull();
+  });
+});

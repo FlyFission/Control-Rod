@@ -33,7 +33,14 @@ const components: Components = {
     if (!lang) return <code className={className}>{children}</code>;
     return <CodeView code={text} lang={lang} numbered={false} />;
   },
-  pre: ({ children }) => <>{children}</>,
+  // Blocks drawn by CodeView bring their own <pre>; a block with no language keeps a plain one, so
+  // its newlines and indentation survive.
+  pre: ({ node, children }) => {
+    const first = node?.children[0];
+    const cls = first?.type === "element" ? first.properties?.className : undefined;
+    const coloured = Array.isArray(cls) && cls.some((c) => String(c).startsWith("language-"));
+    return coloured ? <>{children}</> : <pre>{children}</pre>;
+  },
 };
 
 /** Markdown as GitHub draws it: tables, task lists, strikethrough, autolinks (remark-gfm). Raw HTML is not rendered. */

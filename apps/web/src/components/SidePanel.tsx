@@ -21,6 +21,8 @@ interface Host {
   docked: boolean;
   register: (owner: symbol) => void;
   unregister: (owner: symbol) => void;
+  /** Brings an owner already open to the top (its content changed to something the person just chose). */
+  promote: (owner: symbol) => void;
   /** The owner shown: the one opened last. Two at once (a page's drawer and a card opened from
    * elsewhere) never stack; closing the top one shows the one under it again. */
   top: symbol | undefined;
@@ -64,6 +66,8 @@ export function useSidePanelHost(docked: boolean) {
       docked,
       register: (o) => setOwners((prev) => (prev.includes(o) ? prev : [...prev, o])),
       unregister: (o) => setOwners((prev) => prev.filter((x) => x !== o)),
+      promote: (o) =>
+        setOwners((prev) => (!prev.includes(o) || prev[prev.length - 1] === o ? prev : [...prev.filter((x) => x !== o), o])),
       setWide,
       top: owners[owners.length - 1],
       attached,
@@ -119,6 +123,16 @@ export function SidePanel({ label, onClose, autoFocus = true, children }: { labe
     // Registration follows the host, not its docked flag (the slot is the same element either way).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host?.slot]);
+  // A page that reuses its drawer for a new selection (another card on the Board) shows it, even when
+  // something else was opened over the panel since: the label names what is shown, so a new label is
+  // a new choice by the person.
+  const lastLabel = useRef(label);
+  useLayoutEffect(() => {
+    if (lastLabel.current === label) return;
+    lastLabel.current = label;
+    host?.promote(owner.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label]);
   const top = !host || host.top === owner.current;
   // A pane beside the workspace stays open while the person works on the page; one that covers the
   // page closes on a click outside it, as the drawers did. Only the owner on top listens.

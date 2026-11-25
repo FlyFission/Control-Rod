@@ -27,7 +27,7 @@ import { bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
-import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
+import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
 import { benchedRuntimes } from "./setup.js";
 import { projectRuntimePrefs } from "./workspace-projects.js";
 import { currentCredential, ownerOf } from "./tenancy.js";
@@ -807,6 +807,7 @@ function runtimeName(provider: unknown): string {
   const p = String(provider ?? "").toLowerCase();
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
+  if (p === "agy" || p === "antigravity" || p === "gemini-cli") return "agy";
   return p;
 }
 
@@ -814,7 +815,7 @@ function runtimeName(provider: unknown): string {
 function pickRuntime(have: string[], preferred?: string): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && have.includes(pref)) return pref;
-  return ["claude", "codex", "fake"].find((r) => have.includes(r)) ?? null;
+  return [...RUNNABLE, "fake"].find((r) => have.includes(r)) ?? null;
 }
 
 /**
@@ -825,7 +826,7 @@ function pickRuntime(have: string[], preferred?: string): string | null {
 function pickChecker(have: string[], authorRuntime: string, override: boolean, preferred?: string): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && pref !== authorRuntime && have.includes(pref)) return pref;
-  const other = ["codex", "claude", "fake"].find((r) => have.includes(r) && r !== authorRuntime);
+  const other = [...CHECKER_ORDER, "fake"].find((r) => have.includes(r) && r !== authorRuntime);
   if (other) return other;
   return override && have.includes(authorRuntime) ? authorRuntime : null;
 }
@@ -1430,6 +1431,8 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
 }
 
 const CHECKOUT_DAEMON_KEY = "checkout-daemon";
+const CHECKOUT_RUNTIME_HOLD = "This run is bound to a checkout and waits for Claude Code or Codex on a connected daemon: the runtimes offered here cannot author in a checkout yet.";
+const CHECKOUT_RUNTIME_KEY = "checkout-runtime";
 const CHECKOUT_DAEMON_HOLD = "This run is bound to a checkout and waits for a connected daemon that can hold exclusive custody of it. The daemon that asked cannot (older version or a host without custody).";
 
 export async function claim(
@@ -1517,9 +1520,16 @@ export async function claim(
             continue;
           }
           await releaseHold(c, cfg, row, "lane");
-          const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
+          // A checkout author is pinned only among checkout-capable runtimes, so another runtime's
+          // pin never stands in for theirs (the hold names the real blocker).
+          const seatable = row.body.checkout ? admittedHere.filter((r) => CHECKOUT_AUTHORS.includes(r)) : admittedHere;
+          if (!seatable.length) {
+            await holdRun(c, cfg, row, pkg.id, CHECKOUT_RUNTIME_HOLD, "sandbox", CHECKOUT_RUNTIME_KEY);
+            continue;
+          }
+          const pinned = await pinnedOffer(c, seatable, row.role, artifacts);
           if (pinned.reason) {
-            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin", `runtime-pin:${row.role}:${[...admittedHere].sort().join(",")}`);
+            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin", `runtime-pin:${row.role}:${[...seatable].sort().join(",")}`);
             continue;
           }
           await releaseHold(c, cfg, row, "runtime-pin");
@@ -1530,7 +1540,8 @@ export async function claim(
             await holdRun(c, cfg, row, pkg.id, net.held.slice(0, 300), "sandbox", `sandbox:${row.role}:${lane}`);
             continue;
           }
-          await releaseHold(c, cfg, row, "sandbox");
+          // A checkout-runtime hold is decided below, once the author offer is known.
+          if (row.body.waiting_key !== CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
           const offer = net.offer;
           const project = pkg.body?.project;
           const owner = typeof project === "string" && project ? await ownerOf(c, "package", pkg.id) : null;
@@ -1558,7 +1569,15 @@ export async function claim(
           } else {
             const preferredAuthor =
               capPrefs.author?.ecosystem ?? projPrefs?.laneAgents?.drafting ?? projPrefs?.author;
-            runtime = pickRuntime(offer, preferredAuthor);
+            // A checkout run goes only to a runtime that can author in a checkout.
+            const authors = row.body.checkout ? offer.filter((r) => CHECKOUT_AUTHORS.includes(r)) : offer;
+            if (!authors.length && offer.length) {
+              // Held, not skipped silently: say why on the run, replacing any older hold.
+              await holdRun(c, cfg, row, pkg.id, CHECKOUT_RUNTIME_HOLD, "sandbox", CHECKOUT_RUNTIME_KEY);
+              continue;
+            }
+            if (row.body.waiting_key === CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
+            runtime = pickRuntime(authors, preferredAuthor);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
             }
@@ -3628,7 +3647,7 @@ export async function listCaptures(db: Db, orgId: string) {
 
 /* ---------- runtime readiness ---------- */
 
-const KNOWN_RUNTIMES = ["claude", "codex", "fake"];
+const KNOWN_RUNTIMES = [...RUNNABLE, "fake"];
 
 export interface RuntimeStatus {
   runtime: string;

@@ -111,6 +111,142 @@
       "hosts": ["api.openai.com"],
       "deciding": true,
       "local": false
+    },
+    {
+      "id": "gemini-4-neon-high",
+      "harness": "agy",
+      "names": ["gemini-4-neon-high"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gemini-4-neon-xhigh",
+      "harness": "agy",
+      "names": ["gemini-4-neon-xhigh"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gemini-4-hydrogen-high",
+      "harness": "agy",
+      "names": ["gemini-4-hydrogen-high"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gemini-4-hydrogen-xhigh",
+      "harness": "agy",
+      "names": ["gemini-4-hydrogen-xhigh"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gemini-4-carbon-high",
+      "harness": "agy",
+      "names": ["gemini-4-carbon-high"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gemini-4-argon-high",
+      "harness": "agy",
+      "names": ["gemini-4-argon-high"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gemini-4-neon-medium",
+      "harness": "agy",
+      "names": ["gemini-4-neon-medium"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-4-neon-low",
+      "harness": "agy",
+      "names": ["gemini-4-neon-low"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-4-hydrogen-medium",
+      "harness": "agy",
+      "names": ["gemini-4-hydrogen-medium"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-4-hydrogen-low",
+      "harness": "agy",
+      "names": ["gemini-4-hydrogen-low"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-4-carbon-medium",
+      "harness": "agy",
+      "names": ["gemini-4-carbon-medium"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-4-carbon-low",
+      "harness": "agy",
+      "names": ["gemini-4-carbon-low"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-4-argon-medium",
+      "harness": "agy",
+      "names": ["gemini-4-argon-medium"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-4-argon-low",
+      "harness": "agy",
+      "names": ["gemini-4-argon-low"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-3.8-flash-high",
+      "harness": "agy",
+      "names": ["gemini-3.8-flash-high"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-3.8-flash-medium",
+      "harness": "agy",
+      "names": ["gemini-3.8-flash-medium"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
+    },
+    {
+      "id": "gemini-3.8-flash-low",
+      "harness": "agy",
+      "names": ["gemini-3.8-flash-low"],
+      "hosts": ["daily-cloudcode-pa.googleapis.com"],
+      "deciding": false,
+      "local": false
     }
   ]
 }

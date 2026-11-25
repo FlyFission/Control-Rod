@@ -55,7 +55,7 @@ describe("subscription probes", () => {
         token: secret,
         probes: [
           claude,
-          { ...claude, id: "agy", display_name: "Antigravity" },
+          { ...claude, id: "grok", display_name: "Grok CLI" },
           { ...claude, id: "codex", display_name: "Codex", vendor_family: "OpenAI", auth: "unknown", auth_note: "This CLI has no auth-status command.", token: secret, observed_version: secret },
           { id: "fake", display_name: "fake", installed: true, auth: "signed-in", roles: [] },
         ],
@@ -77,7 +77,7 @@ describe("subscription probes", () => {
     expect(body.checkers.find((c: { id: string }) => c.id === "local-ollama").local).toBe(true);
     const raw = JSON.stringify(body);
     expect(raw).not.toContain(secret);
-    expect(raw).not.toContain("agy");
+    expect(raw).not.toContain("grok");
     expect(raw).not.toContain("api_key");
     expect(raw).not.toContain("token");
   });

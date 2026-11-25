@@ -25,6 +25,8 @@ describe("what a role asks for", () => {
     expect(networkFor({ hosts: [], malformed: [] }, "restricted", "safety")).toEqual({ hosts: [] });
     // Codex can switch network on or off, not limit it to hosts.
     expect(runtimesForHosts(["claude", "codex", "fake"], ["docs.example.org"])).toEqual(["claude", "fake"]);
+    // Antigravity runs with no network, so it cannot hold named hosts either.
+    expect(runtimesForHosts(["agy", "claude"], ["docs.example.org"])).toEqual(["claude"]);
     expect(runtimesForHosts(["claude", "codex"], [])).toEqual(["claude", "codex"]);
   });
 

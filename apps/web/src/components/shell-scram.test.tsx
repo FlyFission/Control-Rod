@@ -65,7 +65,7 @@ describe("the SCRAM banner is app-wide", () => {
     expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("trip");
     // No stop recorded yet: the card says agents are stopping, never that they have stopped.
     expect(screen.getByRole("tooltip").textContent).toMatch(/Agents are stopping/);
-    expect(screen.getByRole("tooltip").textContent).not.toMatch(/stopped and held/);
+    expect(screen.getByRole("tooltip").textContent).not.toMatch(/the work it still holds stays stopped/);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Restart" }));
     const review = within(banner).getByRole("button", { name: "Review and restart" });
@@ -78,7 +78,7 @@ describe("the SCRAM banner is app-wide", () => {
     server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [{ ...summary(org), stopped: { at: new Date().toISOString(), ms_to_stop: 1200, runs: 2 } }] })));
     await renderShell("/board");
     await screen.findByRole("region", { name: "SCRAM in force" });
-    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toMatch(/Agent work is stopped and held/));
+    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toMatch(/the work it still holds stays stopped/));
   });
 
   it("takes stopping from the SCRAM the lamp describes, not from a later project SCRAM", async () => {
@@ -87,7 +87,7 @@ describe("the SCRAM banner is app-wide", () => {
     await renderShell("/board");
     await screen.findByRole("region", { name: "SCRAM in force" });
     await waitFor(() => expect(screen.getByRole("tooltip").textContent).toMatch(/runs stopped at/));
-    expect(screen.getByRole("tooltip").textContent).toMatch(/Agent work is stopped and held/);
+    expect(screen.getByRole("tooltip").textContent).toMatch(/the work it still holds stays stopped/);
     expect(screen.getByRole("tooltip").textContent).not.toMatch(/Agents are stopping/);
   });
 

@@ -68,7 +68,7 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
       ? "Last reading: SCRAM in force. Current status could not be read, so this may be out of date."
       : stopping
         ? "SCRAM in force. Agents are stopping: each stops at its next heartbeat, and work is held until you restart it."
-        : "Agent work is stopped and held. Restart opens the review, where you sign a restart to resume it."
+        : "SCRAM in force: the work it still holds stays stopped until you restart it. Restart opens the review, where you sign a restart."
   return (
     <span
       ref={root}

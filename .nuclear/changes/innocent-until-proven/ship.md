@@ -1,6 +1,6 @@
 # Ship: innocent until proven guilty
 
-Release decision: **pending** the owner's yes.
+Release decision: **approved** by the owner.
 
 - **Proposed:** squash merge to main.
 - **Not claimed:** no compliance claim.
@@ -13,6 +13,7 @@ Rollback: revert the commit; the note boxes require text again and same-CLI proj
 
 | Who | Decision | Where | When |
 |---|---|---|---|
+| Ben Huffer (owner) | "Yes, squash merge #219" on the merge decision card; Codex review could not run (usage limit) | Project thread "Remove needless blocks and guardrails" | 2026-11-25 20:42 UTC |
 
 ## Required links
 

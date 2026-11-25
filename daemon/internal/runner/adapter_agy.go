@@ -271,7 +271,7 @@ var agyCheckerWriteDenies = []string{
 	"rm", "mv", "cp", "touch", "mkdir", "rmdir", "tee", "sed", "awk", "chmod", "chown", "ln", "dd", "truncate",
 	"install", "patch", "git apply", "git checkout", "git reset", "git restore", "git commit", "git add", "git stash",
 	"python", "python3", "node", "perl", "ruby", "sh", "bash", "zsh", "env", "xargs", "find",
-	"chflags", "xattr", "tar", "ditto", "cpio", "pax", "unzip", "swift", "swiftc", "xcrun", "clang", "cc", "gcc", "make",
+	"chflags", "xattr", "php", "tclsh", "wish", "lua", "vim", "vi", "nvim", "emacs", "nano", "ed", "ex", "tar", "ditto", "cpio", "pax", "unzip", "swift", "swiftc", "xcrun", "clang", "cc", "gcc", "make",
 	"git diff --output", "git log --output", "git show --output",
 }
 
@@ -374,6 +374,26 @@ func AgySettings(ws *Workspace, p *SandboxPolicy, at SandboxPaths) (string, erro
 	if err != nil {
 		return "", err
 	}
+	// A checker's plan mode writes its plan into the run home (.gemini/antigravity-cli/brain), and a
+	// run whose first write is refused stops without checking (measured with agy 1.5.16). So for a
+	// checker the run home is not denied whole: only the seat gate, its configuration and the
+	// Keychain link are. The run home is this run's own and is removed with it; what loads from it
+	// is read when Antigravity starts, before the agent can write anything.
+	var runHomeAllow []string
+	if ws.Checker && ws.RunHome != "" {
+		home, err := canonicalPath(ws.RunHome)
+		if err != nil {
+			return "", err
+		}
+		kept := outside[:0]
+		for _, d := range outside {
+			if d != home {
+				kept = append(kept, d)
+			}
+		}
+		outside = append(kept, agyRunHomeDenies(home)...)
+		runHomeAllow = []string{"write_file(" + filepath.Join(home, ".gemini", "antigravity-cli") + ")"}
+	}
 	var reads []string
 	for _, d := range append(denied, outside...) {
 		if within(dir, d) {
@@ -401,6 +421,7 @@ func AgySettings(ws *Workspace, p *SandboxPolicy, at SandboxPaths) (string, erro
 			deny = append(deny, "command("+c+")")
 		}
 		allow = append(allow, "write_file("+filepath.Join(dir, "scratch")+")")
+		allow = append(allow, runHomeAllow...)
 		deny = append(deny, "write_file("+filepath.Join(dir, "out")+")")
 		for _, c := range agyCheckerCommands {
 			allow = append(allow, "command("+c+")")
@@ -431,6 +452,15 @@ const agyAnyCommand = "command(*)"
 var agySystemPaths = []string{
 	"/Applications", "/Library", "/System", "/bin", "/dev", "/etc", "/opt", "/sbin", "/tmp", "/usr", "/var",
 	"/private/etc", "/private/tmp", "/private/var/db", "/private/var/run", "/private/var/select",
+}
+
+// agyRunHomeDenies are the parts of a run home no agent may read or write: the seat gate's
+// scripts, its configuration (hooks.json) and the link to the Keychain folder.
+func agyRunHomeDenies(home string) []string {
+	return []string{
+		filepath.Join(home, ".controlrod-gate.sh"), filepath.Join(home, ".controlrod-nobypass.sh"),
+		filepath.Join(home, ".gemini", "config"), filepath.Join(home, "Library"),
+	}
 }
 
 func agyOutsideDenies(dir string) ([]string, error) {

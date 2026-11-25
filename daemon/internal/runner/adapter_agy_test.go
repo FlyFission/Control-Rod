@@ -615,3 +615,31 @@ func TestAgyPreCheckGetsItsOwnRunFolder(t *testing.T) {
 		t.Fatalf("the shared checker folder is not denied: %v", deny)
 	}
 }
+
+// A checker's run home is open only where plan mode writes its plan; the gate, its configuration
+// and the Keychain link stay denied, and an author's run home stays denied whole.
+func TestAgyCheckerRunHomeIsOpenOnlyForThePlan(t *testing.T) {
+	ws := workspaceWithTools(t, "")
+	ws.Checker = true
+	if err := (agyAdapter{}).PrepareRunHome(ws); err != nil {
+		t.Fatal(err)
+	}
+	home, _ := canonicalPath(ws.RunHome)
+	allow, deny := agySettingsFor(t, ws)
+	if slices.Contains(deny, "read_file("+home+")") {
+		t.Fatalf("the checker's whole run home is denied, so plan mode cannot write its plan: %v", deny)
+	}
+	for _, d := range agyRunHomeDenies(home) {
+		if !slices.Contains(deny, "read_file("+d+")") {
+			t.Fatalf("%s is not denied: %v", d, deny)
+		}
+	}
+	if !slices.Contains(allow, "write_file("+filepath.Join(home, ".gemini", "antigravity-cli")+")") {
+		t.Fatalf("plan folder not writable: %v", allow)
+	}
+	ws.Checker = false
+	_, deny = agySettingsFor(t, ws)
+	if !slices.Contains(deny, "read_file("+home+")") {
+		t.Fatalf("an author's run home is not denied whole: %v", deny)
+	}
+}

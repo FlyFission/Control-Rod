@@ -12,6 +12,17 @@ Rollback: revert the commit. Exact pins and the Codex refusal return.
 
 Monitoring after merge: a newer build observed using a tool outside its sandbox (add it to the gate, or set a floor above the bad build); a Codex feature that will not switch off.
 
+## Signature
+
+| Field | Entry |
+|---|---|
+| Decision | Merge #218 to main |
+| Question | "Merge PR 218 now that it's updated and passing?" (decision card in the owner's project thread, 2026-11-25) |
+| Answer | Ben Huffer chose "Yes, merge 218" at 2026-11-25T21:46:25Z |
+| Head when asked | `c3f95e29` |
+| Later changes | merge of main (#221) and this record only |
+| Recorded by | Claude, from the owner's own choice on the card. No signature or initials are typed for him |
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

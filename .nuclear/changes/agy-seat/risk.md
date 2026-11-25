@@ -14,6 +14,11 @@
 | R-06 | A stopped or refused run reads as success. | The result's status and finish reason decide, not the exit code. Tested on captured lines. | A failed result read as success. |
 | R-07 | A checkout run is sent to Antigravity and fails. | The API offers only checkout-capable runtimes to checkout authors; the daemon refuses it too. | A checkout author run claimed by `agy`. |
 
+## Selected mode
+
+- **Mode:** Standard
+- Basis: new runtime adapter behind existing seat and counting gates, macOS only, qualified live on a Mac, reversible by revert; no trust surface edited.
+
 ## Residual
 
 - The file tools can create a new file directly in `/private/var/tmp` (a world temporary folder on the workspace path, which cannot be denied without denying the workspace). They cannot change existing files there, no later run can read it (each run's folder is beside it and denied), an instruction file planted there makes later runs refuse, and a checker in plan mode cannot do it at all (the run ends). Recorded in [ship](ship.md).

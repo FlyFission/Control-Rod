@@ -228,12 +228,13 @@ func TestCodexTreeRefusesLinks(t *testing.T) {
 	}
 }
 
-// verifiedCopy copies a system executable to a temporary runtime path and verifies it, pinned.
-func verifiedCopy(t *testing.T, name string) (string, *VerifiedLaunch) {
+// verifiedCopy copies this test binary to a temporary runtime path and verifies it, pinned. Run it
+// with sleepRuntime.
+func verifiedCopy(t *testing.T) (string, *VerifiedLaunch) {
 	t.Helper()
-	src, err := exec.LookPath(name)
+	src, err := os.Executable()
 	if err != nil {
-		t.Skipf("needs %s", name)
+		t.Skipf("needs the test binary: %v", err)
 	}
 	b, err := os.ReadFile(src)
 	if err != nil {
@@ -262,8 +263,8 @@ func TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Confirm is Linux only")
 	}
-	path, l := verifiedCopy(t, "sleep")
-	cmd := exec.Command(path, "5")
+	path, l := verifiedCopy(t)
+	cmd := sleepRuntime(path, 60)
 	l.Apply(cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -285,7 +286,7 @@ func TestAWriteBetweenCheckAndStartIsBlockedAndCaught(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("leases are Linux only")
 	}
-	path, l := verifiedCopy(t, "sleep")
+	path, l := verifiedCopy(t)
 	if !l.leased {
 		t.Skip("this filesystem gives no leases")
 	}
@@ -297,7 +298,7 @@ func TestAWriteBetweenCheckAndStartIsBlockedAndCaught(t *testing.T) {
 	} else if !errors.Is(err, syscall.EWOULDBLOCK) {
 		t.Fatalf("expected the open to wait on the lease, got %v", err)
 	}
-	cmd := exec.Command(path, "5")
+	cmd := sleepRuntime(path, 60)
 	l.Apply(cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -342,7 +343,7 @@ func TestConfirmFailsClosedWhenTheProcessNeverRunsTheRuntime(t *testing.T) {
 	old := confirmWait
 	confirmWait = 200 * time.Millisecond
 	defer func() { confirmWait = old }()
-	_, l := verifiedCopy(t, "sleep")
+	_, l := verifiedCopy(t)
 	other := exec.Command("sleep", "5")
 	if err := other.Start(); err != nil {
 		t.Fatal(err)
@@ -357,7 +358,7 @@ func TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("leases are Linux only")
 	}
-	path, l := verifiedCopy(t, "sleep")
+	path, l := verifiedCopy(t)
 	if !l.leased {
 		t.Skip("this filesystem gives no leases")
 	}

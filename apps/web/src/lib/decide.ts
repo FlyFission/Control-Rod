@@ -1,4 +1,4 @@
-import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import { WebAuthnAbortService, startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -13,13 +13,90 @@ export interface Passkeys {
   create(options: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
+/**
+ * How long the browser's own passkey window may stay open before Control Rod stops waiting for it.
+ * This is an application deadline, not the server's: the server asks the browser to time out after
+ * 60 seconds and keeps the challenge for 5 minutes. 90 seconds allows the browser's own timeout plus
+ * a margin, so in practice it ends only a window the browser never answers (seen on macOS Safari,
+ * Nov 2026, when Apple's passkey picker crashed mid-choice and left the window waiting on a sheet
+ * that no longer existed). A very slow ceremony also ends here, and can simply be tried again.
+ */
+export const PASSKEY_PATIENCE_MS = 90_000;
+
+/** Said when the browser's passkey window never answered and Control Rod stopped waiting. */
+export const PASSKEY_STUCK_MESSAGE =
+  "Your browser's passkey window did not answer in time, so Control Rod stopped waiting and did not send this attempt. Nothing was recorded. " +
+  "If the browser is frozen, quit and reopen it (on a Mac: Cmd+Option+Esc, then Force Quit), then try again. " +
+  "If it happens again, try a different browser or choose to use a phone on the passkey window.";
+
+export class PasskeyStuckError extends Error {
+  constructor() {
+    super(PASSKEY_STUCK_MESSAGE);
+    this.name = "PasskeyStuckError";
+  }
+}
+
+/**
+ * The browser runs one passkey ceremony at a time, and the cancel below is shared, so a timer may
+ * only cancel the ceremony it started: a newer one supersedes it.
+ */
+let latestCeremony = 0;
+
+/**
+ * Runs one passkey ceremony, and if it has not settled after `patienceMs`, asks the browser to
+ * cancel it (best effort) and rejects with PasskeyStuckError so the page can say what happened.
+ * A late answer from the browser after that is ignored and never sent, so the attempt is not
+ * recorded; its challenge stays unused until it expires.
+ */
+export function withPasskeyPatience<T>(
+  ceremony: () => Promise<T>,
+  patienceMs: number = PASSKEY_PATIENCE_MS,
+  cancel: () => void = () => WebAuthnAbortService.cancelCeremony(),
+): Promise<T> {
+  const mine = ++latestCeremony;
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      if (mine === latestCeremony) {
+        try {
+          cancel();
+        } catch {
+          // The browser may refuse to cancel; the person still needs the message.
+        }
+      }
+      reject(new PasskeyStuckError());
+    }, patienceMs);
+    const finish = (ok: boolean, value: unknown) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (ok) resolve(value as T);
+      else reject(value);
+    };
+    let running: Promise<T>;
+    try {
+      running = ceremony();
+    } catch (err) {
+      finish(false, err);
+      return;
+    }
+    running.then((v) => finish(true, v), (err: unknown) => finish(false, err));
+  });
+}
+
 export const browserPasskeys: Passkeys = {
   async get(options) {
-    const res = await startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON });
+    const res = await withPasskeyPatience(() =>
+      startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON }),
+    );
     return res as unknown as Record<string, unknown>;
   },
   async create(options) {
-    const res = await startRegistration({ optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON });
+    const res = await withPasskeyPatience(() =>
+      startRegistration({ optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON }),
+    );
     return res as unknown as Record<string, unknown>;
   },
 };

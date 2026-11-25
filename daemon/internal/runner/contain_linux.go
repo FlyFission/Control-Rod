@@ -21,12 +21,32 @@ func cgroupOf(pid int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for _, line := range strings.Split(string(b), "\n") {
+	return parseCgroup(string(b))
+}
+
+// parseCgroup reads the cgroup v2 line of a /proc/<pid>/cgroup file, exactly as the kernel prints
+// it. For a removed cgroup the kernel appends " (deleted)"; that is left in place, since a live
+// cgroup may carry the same text in its own name (see exitedInRemovedScope).
+func parseCgroup(s string) (string, error) {
+	for _, line := range strings.Split(s, "\n") {
 		if rest, ok := strings.CutPrefix(line, "0::"); ok {
 			return filepath.Join("/sys/fs/cgroup", rest), nil
 		}
 	}
 	return "", errors.New("no cgroup v2 membership")
+}
+
+// exitedInRemovedScope reports whether dir, as cgroupOf read it for pid, is the removed scope of
+// unit and pid has exited. A run that exits at once leaves its leader unreaped in an empty scope,
+// which systemd-run --collect removes; the kernel then prints that scope with " (deleted)". Only an
+// exited process is accepted this way: a live one cannot be in a removed cgroup, so a live process
+// whose cgroup reads like this is in a live cgroup that merely has the text in its name.
+func exitedInRemovedScope(pid int, dir, unit string) bool {
+	if !hasSuffix(dir, "/"+unit+".scope (deleted)") {
+		return false
+	}
+	_, err := processStart(pid)
+	return errors.Is(err, errNotRunning)
 }
 
 // DetectContainer picks cgroup containment when a systemd user manager can start a scope here, and

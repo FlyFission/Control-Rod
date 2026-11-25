@@ -25,7 +25,7 @@ describe("passkey patience", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await seen;
     expect(cancel).toHaveBeenCalledTimes(1);
-    expect(PASSKEY_STUCK_MESSAGE).toMatch(/Nothing was signed/);
+    expect(PASSKEY_STUCK_MESSAGE).toMatch(/did not send this attempt/);
   });
 
   it("still reports the stuck window when the browser refuses to cancel", async () => {
@@ -44,5 +44,30 @@ describe("passkey patience", () => {
     await vi.advanceTimersByTimeAsync(10);
     answer("late");
     await seen;
+  });
+
+  it("clears its timer when the ceremony throws before starting", async () => {
+    vi.useFakeTimers();
+    const cancel = vi.fn();
+    const boom = new Error("boom");
+    await expect(withPasskeyPatience(() => { throw boom; }, 10, cancel)).rejects.toBe(boom);
+    await vi.advanceTimersByTimeAsync(20);
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it("never lets an older stuck ceremony cancel a newer one", async () => {
+    vi.useFakeTimers();
+    const cancelA = vi.fn();
+    const cancelB = vi.fn();
+    const a = withPasskeyPatience(() => new Promise<string>(() => {}), 10, cancelA);
+    const seenA = expect(a).rejects.toBeInstanceOf(PasskeyStuckError);
+    const b = withPasskeyPatience(() => new Promise<string>(() => {}), 1000, cancelB);
+    const seenB = expect(b).rejects.toBeInstanceOf(PasskeyStuckError);
+    await vi.advanceTimersByTimeAsync(10);
+    await seenA;
+    expect(cancelA).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1000);
+    await seenB;
+    expect(cancelB).toHaveBeenCalledTimes(1);
   });
 });

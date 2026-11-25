@@ -42,6 +42,13 @@ export type DrawerStep = {
   action?: { kind: "requeue"; runId: string } | { kind: "open-case"; label: string; hash?: string } | { kind: "decide"; decision: DecisionKind };
 };
 
+/** What a step offers, for resetting its notes and toggles only when that changes. */
+export function stepKey(step: DrawerStep): string {
+  const a = step.action;
+  const what = !a ? "none" : a.kind === "requeue" ? `requeue:${a.runId}` : a.kind === "decide" ? `decide:${a.decision}` : `open:${a.label}:${a.hash ?? ""}`;
+  return `${step.tone}:${what}:${step.raw ?? ""}`;
+}
+
 /** The decisions that can be the drawer's one primary button, in order of preference. */
 const PRIMARY: readonly DecisionKind[] = ["release", "accept", "accept-with-findings"];
 
@@ -97,7 +104,6 @@ export function drawerStep(view: PackageView, allowed: readonly DecisionKind[], 
   }
   const primary = PRIMARY.find((k) => allowed.includes(k));
   if (primary) return { tone: "needs", text: PRIMARY_TEXT[primary] ?? "Ready for you.", action: { kind: "decide", decision: primary } };
-  if (allowed.includes("return")) return { tone: "needs", text: "This needs another revision. Send it back with a note.", action: { kind: "decide", decision: "return" } };
   return { tone: "wait", text: refusedReason ? `Nothing for you to do yet. ${refusedReason}` : "Nothing for you to do yet." };
 }
 
@@ -183,8 +189,9 @@ function CalmBody({ view, mode }: { view: PackageView; mode: EngineeringMode }) 
   const pkg = view.package;
   return (
     <>
-      {/* Keyed by the sentence: when where the work stands changes, the old notes and toggles go. */}
-      <NextStep key={step.text} view={view} step={step} d={d} />
+      {/* Keyed by the step it offers (not its wording, which a running label changes): when that
+          changes, the old notes and toggles go, and the live region stays mounted otherwise. */}
+      <NextStep key={stepKey(step)} view={view} step={step} d={d} />
       <DrawerDetails view={view} mode={mode} d={d} />
       <p className="bd-calm-foot small">
         <Link to="/packages/$id" params={{ id: pkg.id }}>
@@ -266,15 +273,15 @@ function NextStep({ view, step, d }: { view: PackageView; step: DrawerStep; d: D
             {stop.isPending ? "Stopping…" : "Stop"}
           </button>
         )}
-        {others.length > 0 && !more && (
-          <button type="button" className="bd-link small" aria-expanded={false} onClick={() => setMore(true)}>
-            Other choices
+        {others.length > 0 && (
+          <button type="button" className="bd-link small" aria-expanded={more} aria-controls="bd-step-more" onClick={() => setMore((v) => !v)}>
+            {more ? "Fewer choices" : "Other choices"}
           </button>
         )}
       </div>
 
       {others.length > 0 && more && (
-        <div className="bd-step-more" role="group" aria-label="Other choices">
+        <div id="bd-step-more" className="bd-step-more" role="group" aria-label="Other choices">
           {others.map((k) => (
             <button key={k} type="button" className={k === "reject" ? "btn ghost small bd-danger-text" : "btn ghost small"} disabled={disabled} title={d.scramLock.why} onClick={() => d.choose(k)} aria-pressed={d.pending === k}>
               {otherLabel(k)}

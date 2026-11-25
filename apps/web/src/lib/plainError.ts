@@ -15,10 +15,18 @@ export interface PlainError {
 const RULES: { test: RegExp; plain: PlainError }[] = [
   {
     // The login-folder fingerprint: a folder (usually ~/.codex with the Codex app's plugins) too large to hash.
-    test: /login directory could not be hashed|login entry .* over the \d+ byte limit|over the \d+ byte limit/i,
+    test: /login (directory|entry)[\s\S]*over the \d+ byte limit/i,
     plain: {
       what: "The agent's sign-in folder was too large for the safety check to read, so the check stopped before it looked at the work.",
       fix: "Update Control Rod (controlrod update), then run it again.",
+    },
+  },
+  {
+    // The same fingerprint failing for another reason: the folder is missing, unreadable or not a folder.
+    test: /login directory could not be hashed/i,
+    plain: {
+      what: "The safety check could not read the agent's sign-in folder, so it stopped before it looked at the work.",
+      fix: "Check that the agent is installed and signed in on Setup, then run it again.",
     },
   },
   {

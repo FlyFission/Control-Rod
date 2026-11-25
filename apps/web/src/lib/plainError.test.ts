@@ -7,6 +7,11 @@ describe("plainError", () => {
     expect(p?.what).toMatch(/sign-in folder was too large/);
     expect(p?.fix).toMatch(/controlrod update/);
   });
+  it("does not blame size when the sign-in folder simply could not be read", () => {
+    const p = plainError("Policy: the login directory could not be hashed, so the check cannot count: open /x/.codex: permission denied");
+    expect(p?.what).toMatch(/could not read the agent's sign-in folder/);
+    expect(p?.fix).not.toMatch(/update/i);
+  });
   it("names sign-in and usage limits", () => {
     expect(plainError("codex: not logged in")?.what).toBe("The agent is not signed in.");
     expect(plainError("HTTP 429 Too Many Requests")?.what).toBe("The agent hit its usage limit.");

@@ -682,14 +682,16 @@ describe("BoardView", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "First card" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-1" });
-    await user.click(await within(drawer).findByRole("button", { name: "Send back with a note" }));
+    // Return alone is never the primary step (it may be a staffing block, not the work): it waits under Other choices.
+    await user.click(await within(drawer).findByRole("button", { name: "Other choices" }));
+    await user.click(within(drawer).getByRole("button", { name: "Send back with a note" }));
     const textarea = within(drawer).getByLabelText(/What should change in the next revision/);
     await user.type(textarea, "Fix valve");
     expect((textarea as HTMLTextAreaElement).value).toBe("Fix valve");
 
     await user.click(screen.getByRole("button", { name: "Second card" }));
     const drawer2 = await screen.findByRole("complementary", { name: "Review WP-2" });
-    await within(drawer2).findByRole("button", { name: "Send back with a note" });
+    expect((await within(drawer2).findByRole("button", { name: "Other choices" })).getAttribute("aria-expanded")).toBe("false");
     expect(within(drawer2).queryByLabelText(/What should change in the next revision/)).toBeNull();
   });
 

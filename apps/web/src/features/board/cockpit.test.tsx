@@ -7,7 +7,7 @@ import { renderPage } from "../../test/render.js";
 import { pkg, view } from "../../test/fixtures.js";
 import type { Run } from "../../api/types.js";
 import { Card } from "./Card.js";
-import { BoardReviewDrawer } from "./BoardReviewDrawer.js";
+import { BoardReviewDrawer, drawerStep, stepKey } from "./BoardReviewDrawer.js";
 import { runLine } from "../../lib/next.js";
 import { latestProviders } from "./useBoardData.js";
 import { elapsedText } from "../../lib/format.js";
@@ -31,6 +31,21 @@ function serve(over: Parameters<typeof view>[0] = {}) {
   );
 }
 afterEach(() => window.localStorage.clear());
+
+describe("drawerStep and stepKey", () => {
+  const v = (over: Parameters<typeof view>[0] = {}) => view({ runs: [], ...over }, { id: "WP-1", status: "in-verification" }) as never;
+  it("never makes Send back the primary step unless the check found problems", () => {
+    expect(drawerStep(v(), ["return", "reject"], "Needs a second qualified person").action).toBeUndefined();
+    expect(drawerStep(v(), ["return"], "Waiting on a person verification").text).toMatch(/Waiting on a person verification/);
+    expect(drawerStep(v({ pre_check: { outcome: "fail", verifier: "v", method: "m", findings: [] } as never }), ["return"], undefined).action).toEqual({ kind: "decide", decision: "return" });
+  });
+  it("keys a running step by what it offers, not by its changing label", () => {
+    const a = drawerStep(v({ runs: [run({ status: "running", label: "Reading files" })] }), [], undefined);
+    const b = drawerStep(v({ runs: [run({ status: "running", label: "Writing tests" })] }), [], undefined);
+    expect(a.text).not.toBe(b.text);
+    expect(stepKey(a)).toBe(stepKey(b));
+  });
+});
 
 describe("the drawer, calm", () => {
   it("leads with the title, one sentence and one primary step; the rest is folded under Details", async () => {
@@ -100,6 +115,10 @@ describe("the drawer, calm", () => {
     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Run again" }));
     await waitFor(() => expect(requeued).toBe("R-2"));
+    // Run history under Details says it plainly too; the raw text stays behind its own toggle, never an alert.
+    await user.click(screen.getByRole("button", { name: /Agent runs/ }));
+    expect(screen.getAllByText(/sign-in folder was too large/).length).toBeGreaterThan(1);
+    expect(screen.queryAllByRole("alert").filter((a) => a.textContent?.includes("20971520"))).toEqual([]);
   });
 
   it("puts Send back and Reject one click away, and opens the note box focused", async () => {
@@ -117,7 +136,13 @@ describe("the drawer, calm", () => {
     const user = userEvent.setup();
     await screen.findByRole("button", { name: "Accept" });
     expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Other choices" }));
+    const more = screen.getByRole("button", { name: "Other choices" });
+    await user.click(more);
+    // The disclosure stays where focus was, says it is open, and the choices follow it in tab order.
+    expect(more.isConnected).toBe(true);
+    expect(more.getAttribute("aria-expanded")).toBe("true");
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Send back with a note" }));
     await user.click(screen.getByRole("button", { name: "Send back with a note" }));
     const box = screen.getByRole("textbox", { name: "What should change in the next revision?" });
     expect(document.activeElement).toBe(box);

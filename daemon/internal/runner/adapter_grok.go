@@ -238,8 +238,26 @@ func grokBridgeFor(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*
 	if within(dir, grokHome) || within(grokHome, dir) {
 		return nil, refuse("The workspace and Grok CLI's login folder %s overlap, so the login could not be kept from the run.", grokHome)
 	}
-	if !slices.ContainsFunc(deny, func(d string) bool { return within(grokHome, d) }) {
-		deny = append(deny, grokHome)
+	// Links in the login folder are denied at their targets too (hiding the folder hides the link,
+	// not what it points to). The Grok process reads its named files by their real paths, so one
+	// that links outside the folder would be denied to Grok as well: such a layout is refused.
+	logins, err := (&SandboxPolicy{}).DeniedChecked(SandboxPaths{Logins: []string{grokHome}})
+	if err != nil {
+		return nil, err
+	}
+	for _, l := range logins {
+		if within(dir, l) || within(l, dir) {
+			return nil, refuse("Grok CLI's login links to %s, which overlaps the workspace, so the login could not be kept from the run.", l)
+		}
+		if !slices.ContainsFunc(deny, func(d string) bool { return within(l, d) }) {
+			deny = append(deny, l)
+		}
+	}
+	for _, name := range append(slices.Clone(grokHomeReadFiles), grokHomeReadDirs...) {
+		real, err := filepath.EvalSymlinks(filepath.Join(grokHome, name))
+		if err == nil && !within(real, grokHome) {
+			return nil, refuse("Grok CLI's %s links outside its login folder (%s). Control Rod fences only a login kept in one folder; move the file into %s to run Grok.", name, real, grokHome)
+		}
 	}
 	slices.Sort(deny)
 	deny = slices.Compact(deny)

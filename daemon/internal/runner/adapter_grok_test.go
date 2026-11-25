@@ -232,8 +232,32 @@ func TestGrokDeniesARelocatedLogin(t *testing.T) {
 	if !strings.Contains(grokCommandProfile(cfg), `(subpath "`+c+`")`) {
 		t.Fatal("the command profile does not deny the login folder")
 	}
-	t.Setenv("GROK_HOME", filepath.Dir(ws.Dir))
+	// A link in the login folder is denied at its target; a named login file that links outside
+	// the folder is refused, since the Grok process could not read it either.
+	elsewhere, _ := canonicalPath(t.TempDir())
+	if err := os.Symlink(elsewhere, filepath.Join(login, "hooks")); err != nil {
+		t.Fatal(err)
+	}
+	ws = workspaceWithTools(t, "")
+	cmd, err = grokAdapter{}.Command(grokRun("author", ""), ws, testPolicy(), testPaths(ws))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(ws.RunHome) })
+	if cfg = bridgeConfigOf(t, cmd.Args); !slices.Contains(cfg.Denied, elsewhere) {
+		t.Fatalf("a link's target %s in the login folder is not denied: %+v", elsewhere, cfg.Denied)
+	}
+	if err := os.WriteFile(filepath.Join(elsewhere, "grok-auth.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(elsewhere, "grok-auth.json"), filepath.Join(login, "auth.json")); err != nil {
+		t.Fatal(err)
+	}
 	var pe *PreflightError
+	if _, err := (grokAdapter{}).Command(grokRun("author", ""), ws, testPolicy(), testPaths(ws)); !errors.As(err, &pe) || !strings.Contains(pe.Reason, "auth.json") {
+		t.Fatalf("a login file linked outside the login folder ran: %v", err)
+	}
+	t.Setenv("GROK_HOME", filepath.Dir(ws.Dir))
 	if _, err := (grokAdapter{}).Command(grokRun("author", ""), ws, testPolicy(), testPaths(ws)); !errors.As(err, &pe) || !strings.Contains(pe.Reason, "overlap") {
 		t.Fatalf("a workspace inside the login folder ran: %v", err)
 	}

@@ -26,8 +26,8 @@ describe("the shell on a phone", () => {
     expect(screen.queryByRole("navigation", { name: "Places" })).toBeNull();
     expect(screen.getByRole("combobox", { name: "Project" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "New change" })).toBeTruthy();
-    // The rod gauge and SCRAM stay in the top bar at every width.
-    expect(screen.getByRole("img", { name: /Control rods/ })).toBeTruthy();
+    // The SCRAM lamp and SCRAM stay in the top bar at every width.
+    expect(screen.getByRole("img", { name: /SCRAM lamp/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: "SCRAM" })).toBeTruthy();
   });
 

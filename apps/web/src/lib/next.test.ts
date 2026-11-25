@@ -107,6 +107,14 @@ describe("a run that ended without a result", () => {
     expect(line.text).toMatch(/may not have stopped. Open its run log/);
     expect(line.command).toBe("open-run-log");
   });
+  it("does not say the daemon stopped answering when the run reported its end without proof every process stopped", () => {
+    for (const reason of ["process group containment cannot prove every process of the run stopped", "the daemon sent no proof that every process of the run stopped"]) {
+      const line = nextLine(input({ runs: [run({ outcome_unknown: { since: "2026-11-24T18:14:00Z", reason } })] }));
+      expect(line).toMatchObject({ tone: "needs", text: "The check could not finish. Open its run log to run it again", command: "open-run-log" });
+    }
+    const lapsed = nextLine(input({ runs: [run({ outcome_unknown: { since: "2026-11-24T18:14:00Z", reason: "the lease lapsed before the completion arrived" } })] }));
+    expect(lapsed.text).toMatch(/may not have stopped/);
+  });
   it("does not offer Run again when an earlier failed check blocks another check of the same work", () => {
     const line = nextLine(input({ status: "in-verification", runs: [run({})], checkBlocked: { reason: "A check of this deliverable already failed." } }));
     expect(line.command).toBe("open-checks");

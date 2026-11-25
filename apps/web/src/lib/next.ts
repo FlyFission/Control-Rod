@@ -48,7 +48,10 @@ export function stalledLine(run: Run, checkBlocked?: { reason?: string }): NextL
   if (run.outcome_unknown !== undefined && run.reconciliation === undefined) {
     return {
       tone: "needs",
-      text: `${what}, and it may not have stopped. Open its run log to confirm, then run it again`,
+      // A run that reported its end is not one that stopped answering: say which.
+      text: /lease|restarted|renewing/.test(run.outcome_unknown.reason ?? "")
+        ? `${what}, and it may not have stopped. Open its run log to confirm, then run it again`
+        : `${what}. Open its run log to run it again`,
       command: "open-run-log",
       runId: run.id,
       ...(detail ? { detail: detail.length > 160 ? `${detail.slice(0, 157)}...` : detail } : {}),

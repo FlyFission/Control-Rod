@@ -31,7 +31,7 @@ import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePi
 import { benchedRuntimes } from "./setup.js";
 import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
 import { currentCredential, ownerOf } from "./tenancy.js";
-import { governingPolicy, modeFor, policyRef } from "./signing-policy.js";
+import { type SigningPolicy, governingPolicy, modeFor, policyRef } from "./signing-policy.js";
 import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
@@ -1953,21 +1953,47 @@ export async function reconcileSubject(db: Db, user: string, packageId: string, 
   return { digest: digest({ act: "reconcile", run_id: runId, generation: row.body.generation ?? 1, reason: why.slice(0, 2000) }), reason: why.slice(0, 2000) };
 }
 
-/** A person's signed reconciliation: the run is abandoned, with the reason as evidence. */
+/**
+ * The signing policy that lets a person settle this package's unknown run outcome with a press: the
+ * one that lets them send the card back with a press (reconciling is the same weight of step, and
+ * as reversible: the work only runs again). Null when a passkey is needed: no policy, work the
+ * policy does not cover (Nuclear, high consequence, a restricted lane), a policy whose passkey is no
+ * longer valid, or one that signs send-backs.
+ */
+export async function reconcilePressPolicy(c: Tx, pkg: PackageRow | null | undefined): Promise<SigningPolicy | null> {
+  if (!pkg) return null;
+  const policy = await governingPolicy(c, pkg);
+  if (!policy || modeFor(policy, "return") !== "click") return null;
+  const cred = await currentCredential(c, policy.assertion.credential_id);
+  if (!cred || cred.revoked) return null;
+  return (await signingGaps(c, policy.signed_by, "reconcile", needsOf(pkg.body))).length === 0 ? policy : null;
+}
+
+/**
+ * A person's reconciliation: the run is abandoned, with the reason as evidence. Signed with their
+ * passkey, or pressed where the project's signing policy lets them send the card back with a press.
+ */
 export async function reconcileRun(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string, reason: unknown,
   signed: { subject_digest: string; assertion: Json } | null) {
   return command(db, "run.reconcile", async (c) => {
-    if (!signed) throw new Refusal(403, "unsigned", "Reconciling an unknown outcome must be signed with your passkey");
-    await lockSigner(c, user, String(signed.assertion.id ?? ""));
+    const pkg = await currentPackage(c, packageId);
+    const policy = signed ? null : await reconcilePressPolicy(c, pkg);
+    if (!signed && !policy) throw new Refusal(403, "unsigned", "Reconciling an unknown outcome must be signed with your passkey");
+    if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
     const row = await lockRun(c, runId);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
     const why = typeof reason === "string" ? reason.trim().slice(0, 2000) : "";
     if (!why) throw new Refusal(400, "reason-required", "Say why the run will not report");
     if (!row.body.outcome_unknown || row.body.reconciliation) throw new Refusal(409, "not-unknown", "This run's outcome is not unknown; there is nothing to reconcile");
-    await requireAuthority(c, user, "reconcile", needsOf((await currentPackage(c, packageId))?.body ?? {}));
-    const expected = digest({ act: "reconcile", run_id: runId, generation: row.body.generation ?? 1, reason: why });
-    if (signed.subject_digest !== expected) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact reconciliation");
-    await reconcileTx(c, cfg, row, "abandoned", `${user} signed that this run will not report: ${why}`, { kind: "human", id: user });
+    await requireAuthority(c, user, "reconcile", needsOf(pkg?.body ?? {}));
+    if (signed) {
+      const expected = digest({ act: "reconcile", run_id: runId, generation: row.body.generation ?? 1, reason: why });
+      if (signed.subject_digest !== expected) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact reconciliation");
+    }
+    const evidence = signed
+      ? `${user} signed that this run will not report: ${why}`
+      : `${user} confirmed that this run will not report, with a press under signing policy ${policy!.id} v${policy!.version}: ${why}`;
+    await reconcileTx(c, cfg, row, "abandoned", evidence, { kind: "human", id: user });
     const after = (await c.query<{ body: Json; status: string }>("select body, status from runs where id = $1", [runId])).rows[0]!;
     return { ...after.body, status: after.status };
   });

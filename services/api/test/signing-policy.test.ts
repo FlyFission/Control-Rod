@@ -253,6 +253,25 @@ describe("signing policy on a project", () => {
     expect(r.json()).toMatchObject({ actor: { kind: "human" }, signing_policy: { preset: "light" } });
   });
 
+  it("under Light, settles a failed run's unknown outcome with a press, so it can run again", async () => {
+    const id = await drafted("UNPROVEN");
+    const author = await claimFor("author", ["fake"], id);
+    // Process group containment (macOS always) can never prove every process of a failed run stopped.
+    const done = await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "failed", error: "boom", outputs: [], containment: "process-group" });
+    expect(done.statusCode, done.body).toBe(200);
+    const held = (await view(id)).runs.find((r: Json) => r.id === author.run.id);
+    expect(held.outcome_unknown.reason).toMatch(/process group/);
+    expect((await asOwner("POST", `/packages/${id}/runs/${author.run.id}/requeue`, {})).json().code).toBe("outcome-unknown");
+    // A reason is still recorded.
+    expect((await asOwner("POST", `/packages/${id}/runs/${author.run.id}/reconcile`, {})).json().code).toBe("reason-required");
+    const r = await asOwner("POST", `/packages/${id}/runs/${author.run.id}/reconcile`, { reason: "Nothing is still running" });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().reconciliation).toMatchObject({ disposition: "abandoned", by: { kind: "human" } });
+    expect(r.json().reconciliation.evidence).toMatch(/with a press under signing policy SP-.* v1: Nothing is still running/);
+    const again = await asOwner("POST", `/packages/${id}/runs/${author.run.id}/requeue`, {});
+    expect(again.statusCode, again.body).toBe(201);
+  });
+
   it("refuses a press made on a card that changed since it was shown", async () => {
     const id = await drafted("CHANGED");
     const r = await asOwner("POST", `/packages/${id}/decisions`, {
@@ -344,11 +363,22 @@ describe("signing policy on a project", () => {
     expect(press.statusCode).toBe(403);
   });
 
+  it("asks for a passkey to settle an unknown outcome once the settings sign send-backs", async () => {
+    const id = await drafted("UNPROVEN-SIGNED");
+    const author = await claimFor("author", ["fake"], id);
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "failed", error: "boom", outputs: [], containment: "process-group" });
+    await signedAdmin("project.set-signing-policy", { project_id: project, preset: "everything" });
+    const r = await asOwner("POST", `/packages/${id}/runs/${author.run.id}/reconcile`, { reason: "Nothing is still running" });
+    expect(r.statusCode).toBe(403);
+    expect(r.json().code).toBe("unsigned");
+  });
+
   it("under Everything, behaves as before", async () => {
     await signedAdmin("project.set-signing-policy", { project_id: project, preset: "everything" });
     const id = await drafted("EVERYTHING");
     expect((await view(id)).package.status).toBe("draft");
   });
+
   it("asks for a passkey, on the board and at the server alike, once the policy's passkey is revoked", async () => {
     await signedAdmin("project.set-signing-policy", { project_id: project, preset: "light" });
     const id = await drafted("REVOKED");

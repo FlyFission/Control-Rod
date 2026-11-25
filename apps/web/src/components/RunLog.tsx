@@ -85,20 +85,66 @@ function usePackageLock(packageId: string) {
   return useActionLock(view.data?.package.project);
 }
 
+/** The reason recorded when the owner confirms with a press that a run is no longer running. */
+export const PRESSED_RECONCILE_REASON = "The owner checked that this run is no longer running.";
+
+/**
+ * Why the outcome is unknown, in plain words. A run that ended and reported, but without proof that
+ * every process it started has stopped (always so on macOS, which has no process scopes), is not one
+ * whose daemon stopped answering, and saying so sends the person after the wrong problem.
+ */
+export function unknownOutcomeText(run: Run): string {
+  const why = run.outcome_unknown?.reason ?? "";
+  if (/lease|restarted|renewing/.test(why)) {
+    return "Outcome unknown: the daemon stopped answering before this run finished, so its process may still be running. Restart the daemon and it reports what happened on its own.";
+  }
+  return "This run ended, but Control Rod cannot prove every process it started has stopped (on macOS it never can). Make sure nothing from it is still running, then run it again.";
+}
+
 function Reconcile({ packageId, run, passkeys }: { packageId: string; run: Run; passkeys: Passkeys }) {
   const qc = useQueryClient();
   const scramLock = usePackageLock(packageId);
   const [reason, setReason] = useState("");
+  // Settling it is a press wherever the project's signing settings let a card be sent back with a press.
+  const actions = useQuery({ queryKey: ["actions", packageId], queryFn: () => api.packageActions(packageId), enabled: outcomeUnknown(run) });
+  const byPress = actions.data?.find((a) => a.command === "return")?.step_mode === "click";
+  const done = () => {
+    void qc.invalidateQueries({ queryKey: ["package", packageId] });
+    void qc.invalidateQueries({ queryKey: ["run", packageId, run.id] });
+    void qc.invalidateQueries({ queryKey: ["active-runs"] });
+  };
   const go = useMutation({
     mutationFn: () => signReconcile({ packageId, runId: run.id, reason }, passkeys),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["package", packageId] }),
+    onSuccess: done,
+  });
+  // One press: confirm it stopped, then queue it again.
+  const press = useMutation({
+    mutationFn: async () => {
+      await api.reconcileRun(packageId, run.id, { reason: PRESSED_RECONCILE_REASON });
+      if (run.requeued_as === undefined && ["intake", "author", "pre-check"].includes(run.role)) await api.requeueRun(packageId, run.id);
+    },
+    onSettled: done,
   });
   if (!outcomeUnknown(run)) return null;
+  if (byPress) {
+    return (
+      <div className="run-hold">
+        <p className="small">{unknownOutcomeText(run)}</p>
+        <button type="button" className="btn small" disabled={press.isPending || scramLock.locked} title={scramLock.why} onClick={() => press.mutate()}>
+          It has stopped. Run it again
+        </button>
+        {press.isError && (
+          <p className="error" role="alert">
+            {explain(press.error, "The run was not settled.")}
+          </p>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="run-hold">
       <p className="small">
-        Outcome unknown: the daemon stopped answering before this run finished, so its process may still be running. Restart the daemon and it
-        reports what happened on its own. If the daemon will never come back, say why and sign.
+        {unknownOutcomeText(run)} If it will never report, say why and sign.
       </p>
       <label className="small" htmlFor={`reconcile-${run.id}`}>
         Why will this run never report?

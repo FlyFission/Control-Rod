@@ -3,7 +3,7 @@
 - E-01: `THEME_TEST_RELEASE=true SHOTS_DIR=... playwright test e2e/readme-shots.spec.ts --project=chromium` passes; six pictures checked by eye.
 - E-02: `node --test scripts/test/site.test.mjs`: 4 pass.
 - E-03: web `vitest run src/lib`: 194 pass.
-- Blind check: pending.
+- Blind check: Codex GitHub review of 886ef21 (the readme-shots workflow's own pictures, matching the local ones by eye): no findings.
 
 ## Evidence custody and coupling
 

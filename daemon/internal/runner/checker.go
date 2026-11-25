@@ -644,6 +644,13 @@ func checkerWriteTargets(ws *Workspace) (files []string, evidence string, err er
 	return files, evidence, nil
 }
 
+// criterionResultsRequested reports whether the brief asked for controlled criterion results:
+// the server sends their schema with a prepared package's check, and only then.
+func criterionResultsRequested(dir string) bool {
+	st, err := os.Lstat(filepath.Join(dir, "inputs", "schemas", "CriterionResultSubmission.json"))
+	return err == nil && st.Mode().IsRegular()
+}
+
 func checkerWriteAllowed(path string) bool {
 	return path == checkerVerificationRel || path == checkerCriterionRel || path == checkerEvidenceRel || strings.HasPrefix(path, checkerEvidenceRel+"/")
 }
@@ -739,7 +746,11 @@ func settleChecker(ws *Workspace, before string, cwdBefore map[string]string, no
 	}
 	var criterion []byte
 	criterionPath := filepath.Join(ws.Dir, filepath.FromSlash(checkerCriterionRel))
-	if st, err := os.Lstat(criterionPath); err == nil && st.Size() > 0 {
+	if st, err := os.Lstat(criterionPath); err == nil && st.Size() > 0 && !criterionResultsRequested(ws.Dir) {
+		// Only a prepared package's brief asks for criterion results (it ships their schema). A
+		// checker that writes one anyway has still given its verdict; the extra file is not sent.
+		events = append(events, policyEvent(now, "the checker wrote criterion-results.json, which this check did not ask for; it was not sent"))
+	} else if err == nil && st.Size() > 0 {
 		if st.Mode()&os.ModeSymlink != 0 || !st.Mode().IsRegular() {
 			void = true
 			msg := "scratch/criterion-results.json is not a regular file, so the check cannot count"

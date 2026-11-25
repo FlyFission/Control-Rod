@@ -58,10 +58,10 @@ test("names the projects when the one asked for does not exist, and refuses empt
 test("lists new captures and cards by column", async () => {
   const { call } = app({
     "GET /workspace/projects": [200, projects],
-    "GET /packages": [200, [{ id: "P-1", title: "README hello", status: "pre_check", project: "PRJ-1" }, { id: "P-2", title: "Other", status: "accepted", project: "PRJ-2" }]],
+    "GET /packages": [200, [{ id: "P-1", title: "README hello", status: "in-verification", project: "PRJ-1" }, { id: "P-3", title: "Odd", status: "something-new-and-long", project: "PRJ-1" }, { id: "P-2", title: "Other", status: "accepted", project: "PRJ-2" }]],
     "GET /captures": [200, [{ id: "C-9", disposition: "pending", text: "[mode:software] [project-id:PRJ-1]\n\nFix it" }]],
   });
-  assert.deepEqual(await listCards(call, { project: "Sandbox" }), ["New            C-9  Fix it", "Being checked  P-1  README hello"]);
+  assert.deepEqual(await listCards(call, { project: "Sandbox" }), ["New              C-9  Fix it", "Being checked    P-1  README hello", "something-new-and-long  P-3  Odd"]);
 });
 
 test("says to start Control Rod when there is no token, and to restart when it is refused", async () => {

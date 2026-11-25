@@ -35,8 +35,34 @@ func checkerInputs(t *testing.T, extra []NamedFile) []NamedFile {
 		{Name: "deliverables/hooks/run.sh", ContentBase64: b64("echo hook\n")},
 		{Name: "deliverables/Claude.Local.md", ContentBase64: b64("local instructions\n")},
 		{Name: "deliverables/agents.override.md", ContentBase64: b64("override\n")},
+		// A prepared package's check: the server sends the criterion results schema with it.
+		{Name: "schemas/CriterionResultSubmission.json", ContentBase64: b64("{}\n")},
 	}
 	return append(in, extra...)
+}
+
+// TestUnrequestedCriterionResultsDoNotVoidTheCheck: a quick-add card's check has no prepared
+// criteria, so its brief never asks for criterion results. A checker that writes the file anyway
+// (Grok did, in its own shape) still gives a verdict that counts; the file is not sent.
+func TestUnrequestedCriterionResultsDoNotVoidTheCheck(t *testing.T) {
+	ws, _ := prepareCheckerFixture(t)
+	if err := os.Remove(filepath.Join(ws.Dir, "inputs", "schemas", "CriterionResultSubmission.json")); err != nil {
+		t.Fatal(err)
+	}
+	before, cwd := checkerBaseline(t, ws)
+	if err := os.WriteFile(filepath.Join(ws.Scratch, "verification.json"), []byte(`{"outcome":"pass","findings":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ws.Scratch, "criterion-results.json"), []byte(`{"results":[{"id":"AC-1","result":"pass"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res := settleChecker(ws, before, cwd, time.Now())
+	if !res.Counts {
+		t.Fatalf("check did not count: %s", res.Error)
+	}
+	if res.Criterion != nil {
+		t.Fatalf("unrequested criterion results were sent: %s", res.Criterion)
+	}
 }
 
 func prepareCheckerFixture(t *testing.T) (*Workspace, string) {

@@ -101,6 +101,23 @@ func (r *ModelRegistry) Admit(model, harness, grade string) (ModelEntry, error) 
 	return e, nil
 }
 
+// DatedSnapshot reports whether name is the pinned id with a release date appended
+// (<id>-YYYYMMDD). The vendor's stream names the dated snapshot that the pinned name serves:
+// a Claude Code check pinned to claude-haiku-4-5 reports claude-haiku-4-5 in its init line and
+// claude-haiku-4-5-20251001 on every message. A shorter alias or another model never matches.
+func (e ModelEntry) DatedSnapshot(name string) bool {
+	rest, ok := strings.CutPrefix(name, e.ID+"-")
+	if !ok || len(rest) != 8 {
+		return false
+	}
+	for _, r := range rest {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // AcceptObserved requires every stream model to be one of the entry's names,
 // and requires the pinned id itself to appear. An alias or a second model is
 // provenance unknown.
@@ -114,7 +131,7 @@ func (e ModelEntry) AcceptObserved(observed []string) error {
 	}
 	seen := false
 	for _, n := range observed {
-		if !allowed[n] {
+		if !allowed[n] && !e.DatedSnapshot(n) {
 			return fmt.Errorf("the stream named %q, which is outside the pinned model, so provenance is unknown and the check cannot count", n)
 		}
 		if n == e.ID {

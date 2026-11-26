@@ -566,3 +566,20 @@ func containsArg(args []string, flag string) bool {
 	}
 	return false
 }
+
+func TestAcceptObservedTakesTheDatedSnapshotOnly(t *testing.T) {
+	e := ModelEntry{ID: "claude-haiku-4-5", Names: []string{"claude-haiku-4-5"}}
+	if err := e.AcceptObserved([]string{"claude-haiku-4-5", "claude-haiku-4-5-20251001"}); err != nil {
+		t.Fatalf("dated snapshot refused: %v", err)
+	}
+	for _, bad := range [][]string{
+		{"claude-haiku-4-5", "claude-haiku-4-5-2025100"},
+		{"claude-haiku-4-5", "claude-haiku-4-5-x0251001"},
+		{"claude-haiku-4-5", "claude-haiku-4-5-1-20251001"},
+		{"claude-haiku-4-5-20251001"},
+	} {
+		if err := e.AcceptObserved(bad); err == nil {
+			t.Fatalf("accepted %v", bad)
+		}
+	}
+}

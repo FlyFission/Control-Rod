@@ -126,6 +126,13 @@ describe("spoofed checks", () => {
     expect(judgeAttestation(facts(baseBody({ observed_models: ["gpt-5-codex", "gpt-5-codex-mini"] }))).code).toBe("provenance-unknown");
   });
 
+  it("accepts the dated snapshot the vendor streams for the pinned name, and nothing looser", () => {
+    expect(judgeAttestation(facts(baseBody({ observed_models: ["gpt-5-codex", "gpt-5-codex-20251001"] }))).verified).toBe(true);
+    expect(judgeAttestation(facts(baseBody({ observed_models: ["gpt-5-codex", "gpt-5-codex-2025100"] }))).code).toBe("provenance-unknown");
+    expect(judgeAttestation(facts(baseBody({ observed_models: ["gpt-5-codex", "gpt-5-codex-mini-20251001"] }))).code).toBe("provenance-unknown");
+    expect(judgeAttestation(facts(baseBody({ observed_models: ["gpt-5-codex-20251001"] }))).code).toBe("provenance-unknown");
+  });
+
   it("refuses an unregistered model and does not pick a vendor", () => {
     const v = judgeAttestation(facts(baseBody(), { model: "default" }));
     expect(v.code).toBe("unregistered-model");

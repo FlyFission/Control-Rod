@@ -701,6 +701,9 @@ func (d *Daemon) timings() StopTimings {
 	return StopTimings{AfterHangup: d.cfg.StopAfterHangup, Grace: d.cfg.StopGrace}
 }
 
+// standaloneCheckRun reports whether a run id is one RunCheck made ("chk-<nanoseconds>").
+func standaloneCheckRun(id string) bool { return strings.HasPrefix(id, "chk-") }
+
 // sweepOrphans settles runs whose spawn receipts outlived the daemon that made them. A run whose
 // completion is already in the outbox needs nothing more: its exit was observed. Otherwise every
 // process left in the run's unit is stopped, and once the unit is empty the control plane is told
@@ -719,6 +722,15 @@ func (d *Daemon) sweepOrphans(ctx context.Context) {
 			return
 		}
 		if d.isActive(r.RunID) {
+			continue
+		}
+		if standaloneCheckRun(r.RunID) {
+			// A `controlrod check` (RunCheck) run shares this home's receipts but is not this
+			// daemon's: it is never stopped here and the control plane has never heard of it. Its
+			// receipt is only removed once its process has gone.
+			if !r.Alive() {
+				d.receipts.Remove(r.RunID)
+			}
 			continue
 		}
 		if d.outbox.HasDurable(r.RunID) {

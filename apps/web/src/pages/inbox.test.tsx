@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
@@ -43,6 +43,20 @@ function mockInboxApi(getItems: () => AttentionItem[]) {
 }
 
 describe("Inbox", () => {
+  it("shows the five most urgent items and folds the rest under Show N more, dropping none", async () => {
+    const items = Array.from({ length: 7 }, (_, i) => attentionItem({ package_id: `WP-${i}`, title: `Item ${i}` }));
+    mockInboxApi(() => items);
+    await renderPage(<Inbox />);
+    const user = userEvent.setup();
+    const list = await screen.findByRole("list", { name: "7 waiting on you" });
+    expect(within(list).getAllByText(/^Item \d$/).map((e) => e.textContent)).toEqual(["Item 0", "Item 1", "Item 2", "Item 3", "Item 4"]);
+    const more = screen.getByText("Show 2 more");
+    expect((more.closest("details") as HTMLDetailsElement).open).toBe(false);
+    await user.click(more);
+    expect(screen.getByText("Item 5")).toBeTruthy();
+    expect(screen.getByText("Item 6")).toBeTruthy();
+  });
+
   it("keeps the list readable until you inspect an item, then opens the signing drawer and closes it on Close/Esc", async () => {
     const items = [
       attentionItem({ package_id: "WP-0001", title: "First item" }),

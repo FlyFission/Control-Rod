@@ -14,7 +14,7 @@ import { PanelScreenContext, PanelScreenView, type PanelScreen } from "../../com
 import { AgentBadge } from "../../components/AgentBadge.js";
 import { RunCard, canStop, runLogScreen } from "../../components/RunLog.js";
 import { projectContextDefault } from "../../lib/context-profile.js";
-import { needsIndependentCheck } from "../../lib/board.js";
+import { needsIndependentCheck, workStep } from "../../lib/board.js";
 import { decisionLabel } from "../../lib/decide.js";
 import { AGENTS } from "../../lib/agents.js";
 import { MODE_COPY, type EngineeringMode } from "../../lib/mode.js";
@@ -190,6 +190,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, autoFocus = tru
               <p className="bd-calm-meta small muted">
                 <span className="mono">{packageId}</span>
                 {pkg && <> {"·"} {columnWord(pkg.status, view?.pre_check?.outcome, mode)}</>}
+                {pkg && <StepOf step={workStep(pkg, view?.pre_check?.outcome)} />}
               </p>
               {view && <PullRequestLine pr={view.pull_request} />}
             </>
@@ -595,6 +596,12 @@ function DrawerDetails({ view, mode, d }: { view: PackageView; mode: Engineering
 }
 
 /** The board column a card sits in, so the drawer and the board use the same words. */
+/** "step 3 of 5" after the column word; nothing for closed work. */
+function StepOf({ step }: { step: { n: number; of: number } | null }) {
+  if (!step) return null;
+  return <span className="bd-step"> {"·"} step {step.n} of {step.of}</span>;
+}
+
 function columnWord(status: WorkPackage["status"], preOutcome: string | undefined, mode: EngineeringMode): string {
   const cols = MODE_COPY[mode].boardColumns;
   if (status === "draft") return cols.ready;

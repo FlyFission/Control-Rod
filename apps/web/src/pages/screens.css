@@ -477,3 +477,29 @@ main.signin .signin-card h1 {
     padding: 36px 8px 44px;
   }
 }
+
+/* Today's one next action (Focus writing rule 1). */
+.today-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.5rem 0 1rem;
+}
+.today-start-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.today-start-title {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* Inbox items past the first five, folded (Focus writing rule 8). */
+.inbox-rest {
+  margin-top: 0.75rem;
+}
+.inbox-rest > summary {
+  cursor: pointer;
+  padding: 0.5rem 0;
+}

@@ -31,6 +31,8 @@ export function Today() {
   const inbox = inboxQuery.data;
   const b = brief(floorQuery.data, inbox, { floor: floorQuery.isError, inbox: inboxQuery.isError });
   const items = inbox?.items ?? [];
+  // The Inbox is most urgent first, so its first item is where to start (unless its read failed).
+  const first = inboxQuery.isError ? undefined : items[0];
   const inInbox = new Set(items.map((i) => i.package_id).filter((id): id is string => id !== undefined));
   // Drafts and packages in verification that no Inbox item already covers: still the person's to look at.
   const awaitingHuman = (packages ?? []).filter((p) => (p.status === "in-verification" || p.status === "draft") && !inInbox.has(p.id));
@@ -58,6 +60,14 @@ export function Today() {
           <div className="today-brief" data-calm={b.calm ? "" : undefined}>
             <div className="today-brief-main">
               <h1 className="today-headline">{b.headline}</h1>
+              {first && (
+                // Focus writing rule 1: the first thing on the page is the one thing to do next.
+                <p className="today-start">
+                  <span className="today-start-label small muted">Start here</span>
+                  <span className="today-start-title">{first.title}</span>
+                  <AttentionTarget item={first} />
+                </p>
+              )}
               <dl className="readouts">
                 <Readout label="Waiting on you" value={b.needs} tone={b.needs ? "needs" : undefined} />
                 <Readout label="Agents working" value={b.working} />

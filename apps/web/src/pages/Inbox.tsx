@@ -82,6 +82,15 @@ export function Inbox() {
     if (opener && (document.activeElement === null || document.activeElement === document.body)) opener.focus();
   }, [activePkgId]);
 
+  const row = (item: AttentionItem) => (
+    <Item
+      key={itemKey(item)}
+      item={item}
+      selected={item.package_id !== undefined && item.package_id === activePkgId}
+      onInspect={item.package_id !== undefined ? () => setSelectedPkgId(item.package_id!) : undefined}
+    />
+  );
+
   return (
     <div className={activePkgId ? "place inbox inbox-has-drawer" : "place inbox"}>
       <div className="inbox-main">
@@ -122,15 +131,19 @@ export function Inbox() {
           )}
           {view !== undefined && view.items.length > 0 && (
             <ol className="office-list inbox-list" aria-label={`${view.items.length} waiting on you`}>
-              {view.items.map((item) => (
-                <Item
-                  key={itemKey(item)}
-                  item={item}
-                  selected={item.package_id !== undefined && item.package_id === activePkgId}
-                  onInspect={item.package_id !== undefined ? () => setSelectedPkgId(item.package_id!) : undefined}
-                />
-              ))}
+              {view.items.slice(0, VISIBLE).map(row)}
             </ol>
+          )}
+          {view !== undefined && view.items.length > VISIBLE && (
+            // Focus writing rule 8: five in view, most urgent first; the rest are one press away, never dropped.
+            <details className="inbox-rest">
+              <summary>
+                Show {view.items.length - VISIBLE} more <span className="muted">(less urgent)</span>
+              </summary>
+              <ol className="office-list inbox-list" start={VISIBLE + 1}>
+                {view.items.slice(VISIBLE).map(row)}
+              </ol>
+            </details>
           )}
           {view !== undefined && view.waiting_on_others.length > 0 && (
             <details className="waiting-others">
@@ -160,6 +173,8 @@ export function Inbox() {
 }
 
 const itemKey = attentionKey;
+/** Items the Inbox shows before folding the rest under "Show N more". */
+const VISIBLE = 5;
 
 function Item({
   item,

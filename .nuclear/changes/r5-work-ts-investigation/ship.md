@@ -1,7 +1,7 @@
 # Ship: work.ts investigation
 
 - **Not a split.** `services/api/src/work.ts` is unchanged. The extraction plan is not started.
-- **Shipped.** Five characterization tests, the boundary map, and the follow-up plan.
+- **Shipped.** Five characterization tests, the boundary map, and the follow-up plan. Task 3 names `checker-attempts.ts` as the sticky-fail leaf. `queueRun` imports `currentDeliverable`, `hasStickyFail`, and `lockNextOverride` from it. It does not copy them.
 
 ## Release decision
 

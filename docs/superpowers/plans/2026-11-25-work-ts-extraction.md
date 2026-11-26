@@ -22,6 +22,7 @@
 
 - A move that calls `decide()` or `requireAuthority` in both the old file and the new one. Expected: one call, in the writer transaction, same refusal code as before.
 - `queueRun` reached by two services importing each other. Expected: both import the leaf, and neither imports the other for it.
+- Sticky-fail checks copied into `work-queue.ts`. Expected: `currentDeliverable`, `hasStickyFail`, and `lockNextOverride` stay in `checker-attempts.ts`. `queueRun` and the other callers import them. `test/checker-attempts.test.ts` still passes.
 - `finishPreCheck` copied into verification while `complete` still has a copy. Expected: one function, called from `complete`.
 - `autoDecide` opened in its own `command()` instead of the caller's transaction. Expected: a refusal still leaves the triggering intake or pre-check written, and the card waiting.
 - Challenge bytes for an independence override or a recheck changed. Expected: `test/work-characterization.test.ts` fails.
@@ -81,15 +82,20 @@ Expected: pass
 **Files:**
 - Create: `services/api/src/work-queue.ts`
 - Modify: `services/api/src/work.ts`
+- Do not modify: `services/api/src/checker-attempts.ts`
+
+**Prerequisite leaf:** `services/api/src/checker-attempts.ts` already holds the sticky-fail checks. It does not import `work.ts`. Its value imports are `./db/index.js`, `./events.js`, `./kernel.js` (`digest`), and `./refusal.js`. Leave it there.
+
+`queueRun` calls `currentDeliverable`, `hasStickyFail`, and `lockNextOverride` from that module, and uses `STICKY_FAIL_REASON`. Those functions are also called from package view, requeue, recheck, `requestCheck`, and completion. Moving a private copy with `queueRun` does not compile as a substitute, and it would duplicate the checks.
 
 **Interfaces:**
-- Consumes: `run-limits.ts`, `budgets.ts`, `events.ts`. Not intake, execution, verification, or acceptance.
-- Produces: `queueRun(c, cfg, packageId, revision, role, round, requeueOf?, demand?)`. Same refusal and event behavior as the private function today.
+- Consumes: `checker-attempts.ts` (`currentDeliverable`, `hasStickyFail`, `lockNextOverride`, `STICKY_FAIL_REASON`), `events.ts` (`appendEvent`), `refusal.ts`. `WorkConfig` is a type-only import. Do not copy the interface. If the move would need a value import of `work.ts`, stop and move `WorkConfig` to a leaf first.
+- Produces: `queueRun(c, cfg, packageId, revision, role, round, requeueOf?, demand?)`. Same refusal and event behavior as the private function today. It does not import `work.ts` for a value.
 
-- [ ] **Step 1: Run** `cd services/api && pnpm test test/runs.test.ts`
+- [ ] **Step 1: Run** `cd services/api && pnpm test test/runs.test.ts test/checker-attempts.test.ts`
 Expected: pass
 
-- [ ] **Step 2: Move `queueRun` and the private helpers only it needs. Callers in `work.ts` import it. It does not import `work.ts`.**
+- [ ] **Step 2: Move `queueRun` only.** Import the sticky-fail functions from `checker-attempts.ts`. Do not copy them. Remaining callers in `work.ts` keep importing `checker-attempts.ts` themselves. `work-queue.ts` does not import `work.ts` for a value.
 
 - [ ] **Step 3: Run the same command.** Expected: pass
 

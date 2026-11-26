@@ -13,7 +13,7 @@ HTTP stays in `services/api/src/app.ts`. It calls the functions below. Persisten
 | Verification | `requestCheck`, `checkerAttempts`, `overrideIndependence`, `recordRecheckOverride`, and `finishPreCheck` (private, called from `complete`) | `check.request`, `run.override-independence`, `check.recheck-override`, inside `run.complete` | `override-independence`; `submit-pre-check`; `revise` when the pre-check does not pass |
 | Acceptance | `applyDecision`, `autoDecide`, `packageActions`, `decisionSubject` | `decision.apply`; `autoDecide` uses the caller's transaction and writes nothing until the kernel allows the step | each of `release`, `accept`, `accept-with-findings`, `return`, `reject`. `packageActions` is `readTx`: it previews the same actions and does not write |
 
-`queueRun` is private and is called from intake, execution, verification, and acceptance. It is the shared write. The four services must import it from a leaf. They must not import each other to reach it.
+`queueRun` is private and is called from intake, execution, verification, and acceptance. It is the shared write. The four services must import it from a leaf. They must not import each other to reach it. Its sticky-fail checks are not private to it: `currentDeliverable`, `hasStickyFail`, and `lockNextOverride` already live in `checker-attempts.ts`, which does not import `work.ts`. `queueRun` and the other callers import that module. They do not copy those functions.
 
 `autoDecide` is called from package drafting inside `complete` (a release) and from `finishPreCheck` (an accept). Those callers import acceptance. Acceptance calls `queueRun` on release. It must not import execution.
 

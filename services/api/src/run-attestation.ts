@@ -376,7 +376,7 @@ export async function verifyCountedAttestation(c: Tx, input: {
     attestation: input.attestation,
     publicKey,
     keyRetired: keyRow != null && keyRow.status !== "active",
-    harness: harnessRow?.runtime ?? null,
+    harness: harnessRow?.runtime ?? (await unpinnedHarness(c, org, input.provider, digestValue)),
   });
   const deliverable = { algorithm: "sha256" as const, value: heldDeliverable };
   if (!verdict.verified) return { ...verdict, deliverable_digest: deliverable };
@@ -387,6 +387,26 @@ export async function verifyCountedAttestation(c: Tx, input: {
     return { ...fail("replay", "This attestation nonce was already used, so the check cannot count", true), deliverable_digest: deliverable };
   }
   return { ...verdict, deliverable_digest: deliverable };
+}
+
+/**
+ * The harness of a check whose executable digest no pin registers. While the organization has no
+ * live pin for that runtime, a passing probe of that exact digest is its registration, the rule the
+ * daemon itself uses (artifact.go, #220): the daemon launches only the file its probe qualified, and
+ * the enrolled daemon key signs the digest it ran. So a fresh install's checks count. Once an
+ * administrator pins the runtime, only a pinned digest counts.
+ */
+export async function unpinnedHarness(c: Tx, org: string, provider: string, digestValue: string): Promise<string | null> {
+  if (!countedProvider(provider) || !digestValue) return null;
+  const harness = harnessName(provider);
+  const pinned = await c.query(
+    "select 1 from runtime_pins where org_id = $1 and runtime = $2 and body->>'status' in ('active', 'suspended') limit 1",
+    [org, harness]);
+  if (pinned.rowCount) return null;
+  const probed = await c.query(
+    "select 1 from runtime_probes where body->>'org_id' = $1 and body->>'runtime' = $2 and body->'artifact_digest'->>'value' = $3 and body->>'outcome' = 'pass' limit 1",
+    [org, harness, digestValue]);
+  return probed.rowCount ? harness : null;
 }
 
 /** Records a daemon public key. The caller has already passed the passkey gate. */

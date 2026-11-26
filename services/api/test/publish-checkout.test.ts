@@ -40,7 +40,7 @@ beforeEach(() => {
   const bin = join(tmp, "bin");
   mkdirSync(bin);
   ghLog = join(tmp, "gh.log");
-  writeFileSync(join(bin, "gh"), `#!/bin/sh\necho "GH_HOST=$GH_HOST" >> "${ghLog}"\nprintf '%s\\n' "$@" >> "${ghLog}"\nif [ "$2" = "list" ]; then cat "${ghLog}.existing" 2>/dev/null || echo "[]"; exit 0; fi\nif [ "$2" = "view" ]; then if [ -f "${ghLog}.view" ]; then cat "${ghLog}.view"; exit 0; fi; oid=$(git --git-dir "${bare}" rev-parse refs/heads/controlrod/WP-1-r0); echo "{\\"headRefOid\\":\\"$oid\\",\\"baseRefName\\":\\"main\\",\\"isDraft\\":true,\\"isCrossRepository\\":false,\\"headRefName\\":\\"controlrod/WP-1-r0\\"}"; exit 0; fi\necho https://github.com/acme/app/pull/7\n`);
+  writeFileSync(join(bin, "gh"), `#!/bin/sh\necho "GH_HOST=$GH_HOST" >> "${ghLog}"\nprintf '%s\\n' "$@" >> "${ghLog}"\nif [ "$1" = "auth" ]; then echo tok-test; exit 0; fi\nif [ "$2" = "list" ]; then cat "${ghLog}.existing" 2>/dev/null || echo "[]"; exit 0; fi\nif [ "$2" = "view" ]; then if [ -f "${ghLog}.view" ]; then cat "${ghLog}.view"; exit 0; fi; oid=$(git --git-dir "${bare}" rev-parse refs/heads/controlrod/WP-1-r0); echo "{\\"headRefOid\\":\\"$oid\\",\\"baseRefName\\":\\"main\\",\\"isDraft\\":true,\\"isCrossRepository\\":false,\\"headRefName\\":\\"controlrod/WP-1-r0\\"}"; exit 0; fi\necho https://github.com/acme/app/pull/7\n`);
   chmodSync(join(bin, "gh"), 0o755);
   process.env.PATH = `${bin}:${saved.PATH ?? ""}`;
 });
@@ -67,13 +67,17 @@ describe("publishCheckout", () => {
     const input = accepted();
     // Edits made after the check never go out.
     writeFileSync(join(worktree, "late.ts"), "export const late = 1;\n");
-    const r = await publishCheckout(input, t());
+    const saved = process.env.GH_TOKEN;
+    process.env.GH_TOKEN = "";
+    const r = await publishCheckout(input, t()).finally(() => { if (saved === undefined) delete process.env.GH_TOKEN; else process.env.GH_TOKEN = saved; });
     expect(r).toMatchObject({ opened: true, url: "https://github.com/acme/app/pull/7", branch: "controlrod/WP-1-r0", reused: false });
     expect(pushed()).not.toContain("late.ts");
     expect(execFileSync("git", ["--git-dir", bare, "show", "controlrod/WP-1-r0:README.md"], { encoding: "utf8" })).toContain("changed");
     expect(remoteBranches()).not.toContain("cr/card");
     const log = readFileSync(ghLog, "utf8");
     expect(log).toContain("GH_HOST=github.com");
+    // The push's git runs with an empty home, so the sign-in is read with the person's own environment first.
+    expect(log).toContain("auth\ntoken\n--hostname\ngithub.com\n");
     expect(log.split("\n")).toEqual(expect.arrayContaining(["create", "--repo", "github.com/acme/app", "--head", "controlrod/WP-1-r0", "--base", "main", "--draft"]));
   });
 

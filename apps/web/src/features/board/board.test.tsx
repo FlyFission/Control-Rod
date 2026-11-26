@@ -236,7 +236,7 @@ describe("BoardView", () => {
     );
     await renderPage(<Page />);
     const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
-    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Waiting on a person verification"));
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Waiting for a reviewer"));
     expect(card.textContent).not.toMatch(/Accept/);
   });
 
@@ -600,7 +600,7 @@ describe("BoardView", () => {
     api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], originators: { "WP-S": ["ben"] } });
     server.use(http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])));
     await renderPage(<Page />);
-    expect(await screen.findByText(/^Needs a second qualified person/)).toBeTruthy();
+    expect(await screen.findByText(/^Needs a qualified reviewer/)).toBeTruthy();
   });
 
   it("tells a viewer who did not originate the work that nobody can verify it, naming the excluded originators", async () => {
@@ -616,7 +616,7 @@ describe("BoardView", () => {
       ),
     );
     await renderPage(<Page />);
-    expect(await screen.findByText("Needs a second qualified person. Originators cannot verify their own work: ana")).toBeTruthy();
+    expect(await screen.findByText("Needs a qualified reviewer other than ana, who wrote it")).toBeTruthy();
   });
 
   it("says nothing definite when person verifications cannot be read", async () => {
@@ -627,8 +627,8 @@ describe("BoardView", () => {
     );
     await renderPage(<Page />);
     expect(await screen.findByText(/Could not read person verifications/)).toBeTruthy();
-    expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
-    expect(screen.queryByText("Waiting on a person verification")).toBeNull();
+    expect(screen.queryByText(/Needs a qualified reviewer/)).toBeNull();
+    expect(screen.queryByText("Waiting for a reviewer")).toBeNull();
     // Ruling 11: the card sits in Person verifies (Needs a reviewer in Software mode), never in Needs signature, while the step is unknown.
     const region = screen.getByText("Relief valve sizing").closest("section")!;
     expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Needs a reviewer");
@@ -675,8 +675,8 @@ describe("BoardView", () => {
     );
     await renderPage(<Page />);
     expect(await screen.findByText("Checking what is next")).toBeTruthy();
-    expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
-    expect(await screen.findByText(/^Needs a second qualified person/)).toBeTruthy();
+    expect(screen.queryByText(/Needs a qualified reviewer/)).toBeNull();
+    expect(await screen.findByText(/^Needs a qualified reviewer/)).toBeTruthy();
   });
 
   it("says it cannot tell who can verify when /admin fails", async () => {
@@ -687,7 +687,7 @@ describe("BoardView", () => {
     );
     await renderPage(<Page />);
     expect(await screen.findByText(/Cannot tell who can verify/)).toBeTruthy();
-    expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
+    expect(screen.queryByText(/Needs a qualified reviewer/)).toBeNull();
   });
 
   it("shows the meaning word beside its symbol", async () => {
@@ -1280,7 +1280,7 @@ describe("board lenses (M2)", () => {
     await renderPage(<Page />);
     const card = (await screen.findByText("Compact card")).closest("article")!;
     await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Accept"));
-    expect(card.querySelectorAll(".bd-avatar").length).toBeGreaterThan(0);
+    expect(card.querySelectorAll(".bd-meta").length).toBeGreaterThan(0);
     expect(card.querySelector(".bd-chip")).toBeNull();
 
     const user = userEvent.setup();

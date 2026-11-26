@@ -68,12 +68,13 @@ export function stalledLine(run: Run, checkBlocked?: { reason?: string }): NextL
   };
 }
 
+/** What a running run is doing, in the board's words ("Agent working", "Being checked"). */
 const RUN_ROLE_WORD: Record<Run["role"], string> = {
-  intake: "Intake",
-  author: "Author",
-  "pre-check": "Pre-check",
-  "requirements-preparer": "Requirements preparation",
-  "technical-preparer": "Technical preparation",
+  intake: "Reading your request",
+  author: "Agent working",
+  "pre-check": "Being checked",
+  "requirements-preparer": "Preparing the requirements",
+  "technical-preparer": "Preparing the technical inputs",
 };
 
 /** The run a card's status line speaks for: one that is running, else the first queued. */
@@ -82,16 +83,16 @@ export function activeRun(runs: readonly Run[] | undefined): Run | undefined {
 }
 
 /**
- * "Writing tests" from the run's label (written by the runner, never raw model text), or
- * "Author running" when it has none; "Author queued" while it only waits for a runtime.
+ * "Writing tests" from the run's label (written by the runner, never raw model text), or what the
+ * role is doing ("Agent working") when it has none; "Waiting for a free agent" while it only waits.
  */
 export function runLine(run: Run | undefined): NextLine {
-  if (!run) return { tone: "wait", text: "Author running" };
+  if (!run) return { tone: "wait", text: "Agent working" };
   const label = run.label?.trim();
   if (run.status === "running") {
-    return { tone: "wait", text: label && label.length > 0 ? label : `${RUN_ROLE_WORD[run.role] ?? "Agent"} running`, ...(run.started_at ? { since: run.started_at } : {}) };
+    return { tone: "wait", text: label && label.length > 0 ? label : RUN_ROLE_WORD[run.role] ?? "Agent working", ...(run.started_at ? { since: run.started_at } : {}) };
   }
-  return { tone: "wait", text: label && label.length > 0 ? label : `${RUN_ROLE_WORD[run.role]} queued` };
+  return { tone: "wait", text: label && label.length > 0 ? label : run.role === "pre-check" ? "Waiting for a free checker" : "Waiting for a free agent" };
 }
 
 export type NextInput = {
@@ -151,8 +152,8 @@ export function nextLine(i: NextInput): NextLine {
   const column = boardColumn(pkg, preCheckState(pkg, i.office), verified);
   // O6: shown to every viewer, since nobody can clear the step, and naming who is excluded and why.
   if (column === "person-verifies" && !i.otherQualifiedVerifier) {
-    const who = i.originators.length > 0 ? `. Originators cannot verify their own work: ${i.originators.join(", ")}` : "";
-    return { tone: "block", text: `Needs a second qualified person${who}` };
+    const who = i.originators.length > 0 ? ` other than ${i.originators.join(", ")}, who wrote it` : "";
+    return { tone: "block", text: `Needs a qualified reviewer${who}` };
   }
 
   const queuedHold = i.runs?.find((r) => r.status === "queued" && (r.waiting_reason !== undefined || r.waiting_cause !== undefined));
@@ -169,7 +170,7 @@ export function nextLine(i: NextInput): NextLine {
   if (isIndependenceHold) {
     return {
       tone: "needs",
-      text: holdReason ? `Pre-check held: ${holdReason}` : "Pre-check held: it needs a runtime independent of the author's, or your signed override",
+      text: holdReason ? `Check waiting: ${holdReason}` : "Check waiting for an agent other than the author's, or your signed override",
     };
   }
 
@@ -183,8 +184,8 @@ export function nextLine(i: NextInput): NextLine {
   const first = forward.find((a) => a.command !== "draft.edit") ?? forward[0];
   if (first) return { tone: "needs", text: first.label, command: first.command };
 
-  if (column === "person-verifies") return { tone: "wait", text: "Waiting on a person verification" };
-  if (preCheckState(pkg, i.office) === "disputed") return { tone: "block", text: "The agent pre-check disputes this work" };
+  if (column === "person-verifies") return { tone: "wait", text: "Waiting for a reviewer" };
+  if (preCheckState(pkg, i.office) === "disputed") return { tone: "block", text: "The check found problems with this work" };
   if (hasExplicitHold) return { tone: "wait", text: holdReason ? `Held: ${holdReason}` : `Held: ${holdCause}` };
   if (i.runActive) return runLine(activeRun(i.runs));
 

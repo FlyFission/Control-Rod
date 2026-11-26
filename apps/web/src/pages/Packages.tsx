@@ -94,7 +94,7 @@ function PackageList() {
             <CardLink id={p.id} className="package-row">
               <span className="package-row-title">{p.title}</span>
               <span className="mono small muted">
-                {p.id} rev {p.revision}
+                {p.id} · version {p.revision + 1}
               </span>
               <span className="small muted">
                 {STATUS_LABEL[p.status]} · {p.project} · {p.rigor_mode}

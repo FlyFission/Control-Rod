@@ -3897,7 +3897,9 @@ export async function runtimeStatus(db: Db, orgId: string): Promise<{ reported_a
 /* ---------- pull request out ---------- */
 
 /** Outcomes after which this revision never tries again. A failed attempt may be retried. */
-const PR_FINAL = new Set(["no-changes", "not-github", "lane", "shared", "changed", "no-checkout"]);
+// "not-github" is tried again when the server starts: a card on a local clone whose origin is on
+// GitHub was refused this way before its origin was read, and the check costs one git call.
+const PR_FINAL = new Set(["no-changes", "lane", "shared", "changed", "no-checkout"]);
 /** When this server started: a claim made before it cannot belong to an attempt that is still running. */
 const STARTED_AT = Date.now();
 

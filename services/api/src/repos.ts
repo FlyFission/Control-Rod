@@ -1873,15 +1873,19 @@ const RUN_DIR_PATH = /(^|\/)\.controlrod-run-[^/]*(\/|$)/i;
  * a slow attempt before it sends anything once its claim could have run out.
  */
 export async function publishCheckout(input: PublishInput, testing: { pushUrl?: string; onBase?: (oid: string, base: string) => Promise<boolean>; defaultBranch?: string } = {}): Promise<PublishResult> {
-  if (!SAFE_OWNER_REPO.test(input.repo)) return { opened: false, reason: "not-github", detail: "Only a GitHub repository gets a pull request; the work stays on its local branch." };
   const branch = assertValidBranch(input.publishBranch);
   const root = resolveSafeWorkspaceRoot(input.root);
   const path = resolveWithoutSymlinks(input.path);
   if (path === root || !isContainedIn(root, path)) return { opened: false, reason: "failed", detail: "The checkout is not inside its workspace root." };
+  // A project bound to a local clone names the clone, not owner/name. When the clone's origin is on
+  // GitHub, that is the repository the pull request goes to (most projects are made this way).
+  let repo = input.repo;
+  if (!SAFE_OWNER_REPO.test(repo)) repo = parseGithubOwnerRepoFromUrl(await getOriginRemoteUrl(path, root)) ?? "";
+  if (!SAFE_OWNER_REPO.test(repo)) return { opened: false, reason: "not-github", detail: "Only a GitHub repository gets a pull request; the work stays on its local branch." };
   if (!/^[0-9a-f]{40,64}$/.test(input.boundHead) || !/^[0-9a-f]{40,64}$/.test(input.finalHead)) return { opened: false, reason: "failed", detail: "The recorded commits are not commit ids." };
   if (input.finalHead !== input.boundHead) return { opened: false, reason: "failed", detail: "The author committed on the branch, and the check reviewed only the patch, so nothing was pushed. Open the pull request yourself after reviewing those commits." };
   if (!input.patch || input.patch.length === 0) return { opened: false, reason: "no-changes", detail: "The accepted work has no patch for the repository, so there is nothing to open a pull request for." };
-  const owner = input.repo.replace(/\.git$/i, "");
+  const owner = repo.replace(/\.git$/i, "");
   const when = new Date(input.acceptedAt);
   if (Number.isNaN(when.getTime())) return { opened: false, reason: "failed", detail: "The accept decision has no usable time." };
   const late = () => input.deadline !== undefined && Date.now() > input.deadline;

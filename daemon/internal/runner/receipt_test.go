@@ -582,3 +582,38 @@ func TestAnOrphanGroupIsNeverSignalledByNumber(t *testing.T) {
 		t.Fatal("a group member was signalled by group number")
 	}
 }
+
+func TestTheSweepLeavesAStandaloneCheckAlone(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("a live run is started through the Linux unit helper")
+	}
+	home := t.TempDir()
+	k := DetectContainer(os.Getenv)
+	live, _ := startUnit(t, k, "chk-1", "sleep 30", t.TempDir())
+	live.RunID = "chk-1"
+	gone := live
+	gone.RunID, gone.ProcessStart, gone.Unit, gone.Cgroup, gone.PGID = "chk-2", "1", UnitName("y", "none", 1), "/nonexistent", 0
+	gone.Containment = ContainGroup
+	store := NewReceipts(home)
+	for _, r := range []SpawnReceipt{live, gone} {
+		if err := store.Put(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var reports int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reports++ }))
+	defer srv.Close()
+	d := New(Config{API: srv.URL, Token: testToken, Home: home, Runtimes: []string{RuntimeFake}, Container: &k,
+		StopAfterHangup: 50 * time.Millisecond, StopGrace: time.Second})
+	d.sweepOrphans(context.Background())
+	if !live.Alive() {
+		t.Fatal("a running `controlrod check` was stopped by the app's daemon")
+	}
+	if reports != 0 {
+		t.Fatalf("a standalone check was reported to the control plane %d times", reports)
+	}
+	left, _ := store.List()
+	if len(left) != 1 || left[0].RunID != "chk-1" {
+		t.Fatalf("want only the live check's receipt kept, got %+v", left)
+	}
+}

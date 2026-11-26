@@ -441,9 +441,9 @@ export async function enrollDaemonKey(c: Tx, orgId: string, memberId: string, p:
 }
 
 /**
- * Enrolls the local daemon's signing key on first use, with the daemon's own token. It enrolls only
- * while the organization has never had a signing key (none active, none retired): the first key a
- * fresh install's daemon presents. After that, a different key still needs an administrator's
+ * Enrolls the local daemon's signing key on first use, with the daemon's own token: while every key
+ * the organization has had was enrolled this way (none by an administrator). A new key retires the
+ * daemon's earlier ones. Once an administrator has enrolled a key, a different key still needs a
  * signed daemon.enroll-key. Returns enrolled, already (this key is active), or needs-admin. With no
  * organization yet (setup not finished), returns no-organization and the daemon tries again later.
  */
@@ -457,11 +457,18 @@ export async function enrollFirstDaemonKey(c: Tx, p: Record<string, unknown>) {
   const orgId = orgs[0]!.id;
   // One first-use enrollment at a time, so two daemons cannot both enroll a "first" key.
   await c.query("select pg_advisory_xact_lock(hashtext('controlrod.daemon_first_key'))");
-  const rows = (await c.query<{ key_id: string; status: string }>(
-    "select key_id, status from daemon_signing_keys where org_id = $1", [orgId])).rows;
+  const rows = (await c.query<{ key_id: string; status: string; enrolled_by: string }>(
+    "select key_id, status, enrolled_by from daemon_signing_keys where org_id = $1", [orgId])).rows;
   const mine = rows.find((r) => r.key_id === keyId);
   if (mine) return { key_id: keyId, status: mine.status === "active" ? "already" : "needs-admin" };
-  if (rows.length > 0) return { key_id: keyId, status: "needs-admin" };
+  // A key an administrator enrolled is never replaced this way. Keys the daemon enrolled itself
+  // are: the daemon's token holder enrolled them, so a new key from it (its store moved from the
+  // keychain to a file, or the file was lost) adds nothing that holder could not already do. The
+  // old ones are retired, so one daemon key counts at a time.
+  if (rows.some((r) => r.enrolled_by !== "daemon-first-use")) return { key_id: keyId, status: "needs-admin" };
+  if (rows.length > 0) {
+    await c.query("update daemon_signing_keys set status = 'retired', retired_at = now() where org_id = $1 and status = 'active' and enrolled_by = 'daemon-first-use'", [orgId]);
+  }
   await c.query(
     "insert into daemon_signing_keys (org_id, key_id, public_key, status, enrolled_by) values ($1, $2, $3, 'active', 'daemon-first-use')",
     [orgId, keyId, raw.toString("base64")],

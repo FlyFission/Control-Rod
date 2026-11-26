@@ -9,12 +9,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
 var (
 	errKeychainUnavailable = errors.New("the OS keychain is not available, so a counted check cannot be signed")
-	errKeyNotFound         = errors.New("the daemon signing key is not in the OS keychain")
+	errKeyNotFound         = errors.New("the daemon signing key has not been created yet")
 )
 
 // keyCommand runs a keychain helper. Tests replace it. Production uses the OS binary.
@@ -39,25 +40,38 @@ func defaultKeyCommand(name string, args []string, stdin []byte) (stdout, stderr
 	return outb.Bytes(), errb.Bytes(), -1, err
 }
 
-// SigningKey returns the daemon's existing Ed25519 private key.
-// It does not create one. A 0600 file is used only when CONTROLROD_ALLOW_FAKE=1
-// and CONTROLROD_TEST_ATTESTATION_KEY names that file. Otherwise the OS keychain
-// is required. A missing key or an unavailable keychain refuses; nothing is written.
+// SigningKey returns the daemon's existing Ed25519 private key. It does not create one.
+//
+// The key lives in <home>/signing.key, mode 0600, beside the daemon's token. The macOS keychain
+// ties an item to the exact binary that made it, so every rebuild (each `controlrod update`)
+// raised a password dialog, and the daemon blocked on it at the moment a passed check was signed:
+// its runs were lost and no card finished (2026-11-26). A headless Linux host has no keychain at
+// all. CONTROLROD_SIGNING_KEY_STORE=keychain keeps the key in the OS keychain instead. Tests may
+// point CONTROLROD_TEST_ATTESTATION_KEY at a 0600 file when CONTROLROD_ALLOW_FAKE=1.
 func SigningKey() (ed25519.PrivateKey, error) {
 	if k, err, used := testFileKey(); used {
 		return k, err
 	}
-	return lookupOSKey()
+	if useKeychain() {
+		return lookupOSKey()
+	}
+	path, err := signingKeyPath()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
+		return nil, errKeyNotFound
+	}
+	return readKeyFile(path)
 }
 
-// InitSigningKey returns the existing key, or creates one when the keychain
-// reports that it is absent. It does not replace a key that is already there,
-// and it does not create one when the keychain is locked or unreachable.
+// InitSigningKey returns the existing key, or creates one when there is none. It never replaces
+// a key that is already there, and it creates none when the store cannot be read.
 func InitSigningKey() (ed25519.PrivateKey, error) {
 	if k, err, used := testFileKey(); used {
 		return k, err
 	}
-	k, err := lookupOSKey()
+	k, err := SigningKey()
 	if err == nil {
 		return k, nil
 	}
@@ -68,10 +82,51 @@ func InitSigningKey() (ed25519.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := storeOSKey(priv); err != nil {
+	if useKeychain() {
+		if err := storeOSKey(priv); err != nil {
+			return nil, err
+		}
+		return priv, nil
+	}
+	path, err := signingKeyPath()
+	if err != nil {
 		return nil, err
 	}
-	return priv, nil
+	if err := writeKeyFile(path, priv); err != nil {
+		return nil, err
+	}
+	// Another daemon may have written its key first: the file on disk is the key.
+	return readKeyFile(path)
+}
+
+func useKeychain() bool { return os.Getenv("CONTROLROD_SIGNING_KEY_STORE") == "keychain" }
+
+func signingKeyPath() (string, error) {
+	home, err := Home(os.Getenv)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, "signing.key"), nil
+}
+
+// writeKeyFile creates the key file with mode 0600, never over an existing one.
+func writeKeyFile(path string, k ed25519.PrivateKey) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("write the signing key: %w", err)
+	}
+	if _, err := f.Write(k); err != nil {
+		f.Close()
+		os.Remove(path)
+		return fmt.Errorf("write the signing key: %w", err)
+	}
+	return f.Close()
 }
 
 // classifyKeychain reads the helper's exit code and stderr, never its stdout.
@@ -121,28 +176,34 @@ func testFileKey() (ed25519.PrivateKey, error, bool) {
 	if os.Getenv("CONTROLROD_ALLOW_FAKE") != "1" {
 		return nil, errors.New("refusing the file signing key: CONTROLROD_TEST_ATTESTATION_KEY is read only when CONTROLROD_ALLOW_FAKE=1"), true
 	}
+	k, err := readKeyFile(path)
+	return k, err, true
+}
+
+// readKeyFile reads a raw Ed25519 private key from a regular 0600 file this user owns.
+func readKeyFile(path string) (ed25519.PrivateKey, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
-		return nil, fmt.Errorf("refusing the file signing key: %w", err), true
+		return nil, fmt.Errorf("refusing the file signing key: %w", err)
 	}
 	if fi.Mode()&os.ModeSymlink != 0 {
-		return nil, errors.New("refusing the file signing key: the path is a symlink"), true
+		return nil, errors.New("refusing the file signing key: the path is a symlink")
 	}
 	if !fi.Mode().IsRegular() {
-		return nil, errors.New("refusing the file signing key: the path is not a regular file"), true
+		return nil, errors.New("refusing the file signing key: the path is not a regular file")
 	}
 	if fi.Mode().Perm() != 0o600 {
-		return nil, fmt.Errorf("refusing the file signing key: mode is %o, want 0600", fi.Mode().Perm()), true
+		return nil, fmt.Errorf("refusing the file signing key: mode is %o, want 0600", fi.Mode().Perm())
 	}
 	if !fileOwnedByUser(fi) {
-		return nil, errors.New("refusing the file signing key: it is not owned by this user"), true
+		return nil, errors.New("refusing the file signing key: it is not owned by this user")
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("refusing the file signing key: %w", err), true
+		return nil, fmt.Errorf("refusing the file signing key: %w", err)
 	}
 	if len(b) != ed25519.PrivateKeySize {
-		return nil, fmt.Errorf("refusing the file signing key: want %d bytes", ed25519.PrivateKeySize), true
+		return nil, fmt.Errorf("refusing the file signing key: want %d bytes", ed25519.PrivateKeySize)
 	}
-	return ed25519.PrivateKey(b), nil, true
+	return ed25519.PrivateKey(b), nil
 }

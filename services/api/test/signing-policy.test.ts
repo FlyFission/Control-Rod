@@ -38,7 +38,7 @@ beforeAll(async () => {
 afterAll(async () => h?.stop());
 
 type Json = Record<string, any>;
-const asOwner = (method: "GET" | "POST", url: string, payload?: unknown) =>
+const asOwner = (method: "GET" | "POST" | "PATCH", url: string, payload?: unknown) =>
   h.app.inject({
     method,
     url,
@@ -318,6 +318,38 @@ describe("signing policy on a project", () => {
     const v = await view(id);
     expect(v.package.status).toBe("accepted");
     expect(v.pre_check.independence.runtime).toBe("shared");
+  });
+
+  it("under Light, follows the board's column picks: Claude writes and Claude checks", async () => {
+    const pick = await asOwner("PATCH", `/workspace/projects/${project}`, { payload: { project_id: project, patch: { laneAgents: { drafting: "claude", "agent-check": "claude" } } } });
+    expect(pick.statusCode, pick.body).toBe(200);
+    const id = await drafted("PICKED");
+    const author = await claimFor("author", ["claude", "codex"], id);
+    expect(author.run.runtime.provider).toBe("claude");
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "report.md", content_base64: b64("done") }] });
+    const check = await claimFor("pre-check", ["claude", "codex"], id);
+    expect(check.run.runtime.provider).toBe("claude");
+  });
+
+  it("under Light, runs an author run again on its own when Control Rod stopped it to restart, each time", async () => {
+    const id = await drafted("RESTART");
+    const first = await claimFor("author", ["fake"], id);
+    await asDaemon(`/runner/runs/${first.run.id}/complete`, { status: "failed", error: "daemon shutdown", outputs: [], containment: "process-group" });
+    let runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+    const old = runs.find((r: Json) => r.id === first.run.id);
+    expect(old.reconciliation).toMatchObject({ disposition: "abandoned", by: { kind: "system" } });
+    expect(old.reconciliation.reason ?? old.reconciliation.why ?? JSON.stringify(old.reconciliation)).toMatch(/restarting/);
+    // A second restart stops the retry too: it comes back again.
+    const second = await claimFor("author", ["fake"], id);
+    expect(second.run.id).toBe(old.requeued_as);
+    await asDaemon(`/runner/runs/${second.run.id}/complete`, { status: "failed", error: "daemon shutdown", outputs: [], containment: "process-group" });
+    runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+    expect(runs.find((r: Json) => r.id === second.run.id).requeued_as).toBeDefined();
+    // An author that failed on its own still stops for the person.
+    const third = await claimFor("author", ["fake"], id);
+    await asDaemon(`/runner/runs/${third.run.id}/complete`, { status: "failed", error: "boom", outputs: [], containment: "process-group" });
+    runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+    expect(runs.find((r: Json) => r.id === third.run.id).requeued_as).toBeUndefined();
   });
 
   it("refuses a press made on a card that changed since it was shown", async () => {

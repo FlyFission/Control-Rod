@@ -1687,7 +1687,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		}
 		if err == nil {
 			ws.CheckerRuntime = a.ID()
-			ws.LoginRoot = loginRoot(a.ID())
+			ws.LoginRoot = checkerLoginRoot(a, ws)
 			sum, herr := hashProtected(ws.LoginRoot)
 			if herr != nil {
 				err = fmt.Errorf("the login directory could not be hashed, so the check cannot count: %w", herr)

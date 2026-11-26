@@ -248,3 +248,19 @@ func TestEveryAgentIsDeniedTheDisposableLoginHomes(t *testing.T) {
 		t.Fatalf("an author run can read other runs' login copies: %v", denied)
 	}
 }
+
+func TestOnlyACheckerThatCanWriteItsLoginIsCompared(t *testing.T) {
+	claude, _ := AdapterFor(RuntimeClaude)
+	if got := checkerLoginRoot(claude, &Workspace{}); got != "" {
+		t.Fatalf("a mounted Claude checker compared its login folder %q, which other runs also write", got)
+	}
+	codex, _ := AdapterFor(RuntimeCodex)
+	if got := checkerLoginRoot(codex, &Workspace{IsolatedLoginHome: t.TempDir()}); got != "" {
+		t.Fatalf("a Codex checker with its own login home compared the real one: %q", got)
+	}
+	grok, _ := AdapterFor(RuntimeGrok)
+	t.Setenv("HOME", t.TempDir())
+	if got := checkerLoginRoot(grok, &Workspace{}); got == "" {
+		t.Fatal("a self-confined checker using the real login folder must still be compared")
+	}
+}

@@ -294,11 +294,20 @@ export function judgeAttestation(f: AttestationFacts): AttestationVerdict {
     return fail("provenance-unknown", "The stream did not name the pinned model, so provenance is unknown and the check cannot count", true);
   }
   for (const name of observed) {
-    if (!allowed.has(name)) {
+    if (!allowed.has(name) && !datedSnapshot(entry.id, name)) {
       return fail("provenance-unknown", `The stream named ${name}, which is outside the pinned model, so provenance is unknown and the check cannot count`, true);
     }
   }
   return { verified: true, code: "ok", reason: "The daemon attestation verified", signatureOk: true };
+}
+
+/**
+ * The pinned id with a release date appended (<id>-YYYYMMDD): the dated snapshot the vendor's
+ * stream names for the pinned name (claude-haiku-4-5 streams claude-haiku-4-5-20251001). A
+ * shorter alias or another model never matches. Same rule as the daemon's DatedSnapshot.
+ */
+export function datedSnapshot(id: string, name: string): boolean {
+  return name.startsWith(`${id}-`) && /^\d{8}$/.test(name.slice(id.length + 1));
 }
 
 async function soleOrg(c: Tx): Promise<string> {

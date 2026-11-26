@@ -1032,6 +1032,21 @@ func loginRoot(runtime string) string {
 	return keep.LoginDir(home, os.Getenv)
 }
 
+// checkerLoginRoot is the login directory whose protected names a check compares before and after:
+// only one the checker process itself could write. A checker inside Control Rod's own mount
+// (bubblewrap on Linux, Seatbelt on macOS) cannot write its login directory at all, and a checker
+// with its own disposable login home (macOS Codex) never uses the real one, so for those the
+// mount or the separate home is the guarantee and nothing is compared. Comparing a folder every
+// other agent CLI on the machine also writes (Claude Code's plugin store, Codex's skill sync) only
+// voided honest checks whenever another run started. A self-confined checker that uses the real
+// login directory (Grok, Antigravity) is still compared.
+func checkerLoginRoot(a Adapter, ws *Workspace) string {
+	if !selfConfined(a) || (ws != nil && ws.IsolatedLoginHome != "") {
+		return ""
+	}
+	return loginRoot(a.ID())
+}
+
 func loginKeep(runtime string) (loginKeeper, bool) {
 	a, ok := AdapterFor(runtime)
 	if !ok {

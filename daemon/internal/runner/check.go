@@ -398,7 +398,7 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 			ws.VerifiedPath = verified.Path
 		}
 		ws.CheckerRuntime = a.ID()
-		ws.LoginRoot = loginRoot(a.ID())
+		ws.LoginRoot = checkerLoginRoot(a, ws)
 		ws.LoginDigest, err = hashProtected(ws.LoginRoot)
 		if err != nil {
 			return CheckResult{}, fmt.Errorf("hash login directory: %w", err)

@@ -16,13 +16,21 @@ const enroll = (public_key: string, headers: Record<string, string> = daemonHead
   h.app.inject({ method: "POST", url: "/runner/signing-key", headers, payload: { public_key } });
 
 describe("the daemon's first signing key", () => {
-  it("enrolls the first key once, and leaves any later key to an administrator", async () => {
+  it("enrolls the daemon's own key, replaces only keys it enrolled itself, and leaves the rest to an administrator", async () => {
     const first = publicKey();
     await signIn(h.app, new VirtualAuthenticator());
     const r = await enroll(first);
     expect(r.statusCode, r.body).toBe(200);
     expect(r.json().status).toBe("enrolled");
     expect((await enroll(first)).json().status).toBe("already");
+    // A new key from the daemon (its store moved, or the file was lost) replaces its own earlier one.
+    const second = publicKey();
+    expect((await enroll(second)).json().status).toBe("enrolled");
+    const keys = (await h.db.query<{ status: string }>("select status from daemon_signing_keys order by enrolled_at")).rows.map((r) => r.status);
+    expect(keys).toEqual(["retired", "active"]);
+    expect((await enroll(first)).json().status).toBe("needs-admin");
+    // Once an administrator has enrolled a key, the daemon cannot replace keys on its own.
+    await h.admin.query("update daemon_signing_keys set enrolled_by = 'member-1' where status = 'active'");
     expect((await enroll(publicKey())).json().status).toBe("needs-admin");
   });
 

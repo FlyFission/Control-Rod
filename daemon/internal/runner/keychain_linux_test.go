@@ -11,6 +11,7 @@ import (
 func TestSecretToolCreatesOnlyWhenStderrIsEmpty(t *testing.T) {
 	t.Setenv("CONTROLROD_TEST_ATTESTATION_KEY", "")
 	t.Setenv("CONTROLROD_ALLOW_FAKE", "")
+	t.Setenv("CONTROLROD_SIGNING_KEY_STORE", "keychain")
 	prev := keyCommand
 	t.Cleanup(func() { keyCommand = prev })
 	var stored []byte

@@ -1935,8 +1935,13 @@ export async function publishCheckout(input: PublishInput, testing: { pushUrl?: 
     if (!(await onBase(input.boundHead, base))) return { opened: false, reason: "failed", detail: `The commit this card started from is not on ${base} on GitHub, so a pull request would carry commits nobody checked. Push or merge the base first.` };
     const target = testing.pushUrl ?? `https://github.com/${owner}.git`;
     const cred = ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"];
+    // These git processes run with an empty home of their own, so `gh auth git-credential` cannot
+    // find the person's GitHub sign-in there and the push is refused. The token is read once with
+    // the person's own environment and given only to these git processes and their helper.
+    const token = process.env.GH_TOKEN || (await gh(["auth", "token", "--hostname", "github.com"], ghOpts).catch(() => ""));
+    const pushOpts = token ? { ...opts, extraEnv: { ...env, GH_TOKEN: token } } : opts;
     // The branch is this package revision's own: absent, or already exactly this commit (a retry).
-    const remote = await git([...pinned, ...cred, "ls-remote", target, `refs/heads/${branch}`], opts);
+    const remote = await git([...pinned, ...cred, "ls-remote", target, `refs/heads/${branch}`], pushOpts);
     const there = remote.split(/\s+/)[0] ?? "";
     if (there && there !== head) return { opened: false, reason: "failed", detail: `The branch ${branch} already exists on GitHub with other work; nothing was pushed.` };
     // Before anything is sent: the lane first, then the deadline, so a slow lane read cannot outlast the claim.
@@ -1948,7 +1953,7 @@ export async function publishCheckout(input: PublishInput, testing: { pushUrl?: 
     if (!there) {
       const stop = await gate("nothing was pushed");
       if (stop) return stop;
-      await git([...pinned, ...cred, "push", "--no-follow-tags", "--no-recurse-submodules", "--no-verify", `--force-with-lease=refs/heads/${branch}:`, target, `${head}:refs/heads/${branch}`], { ...opts, timeout: 90_000 });
+      await git([...pinned, ...cred, "push", "--no-follow-tags", "--no-recurse-submodules", "--no-verify", `--force-with-lease=refs/heads/${branch}:`, target, `${head}:refs/heads/${branch}`], { ...pushOpts, timeout: 90_000 });
     }
     // The base may have moved while the push ran: it must still be the default branch, with the bound commit in its history.
     const baseNow = testing.defaultBranch ?? (await gh(["repo", "view", repoArg, "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], ghOpts)).trim();

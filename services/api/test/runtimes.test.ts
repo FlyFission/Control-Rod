@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { type Harness, ORIGIN, VirtualAuthenticator, daemonHeaders, signIn, startHarness } from "./harness.js";
 import { recordObject, recordSandboxPolicy } from "../src/workbench.js";
+import { unpinnedHarness } from "../src/run-attestation.js";
 
 /** Runtime artifacts, probes and pins (workbench plan task 2.5; specification 21, WB-12). */
 let h: Harness;
@@ -55,8 +56,16 @@ describe("pins", () => {
   it("pins only an artifact a passing probe saw, and only with a passkey", async () => {
     expect((await post("/admin/commands/runtime.pin", { payload: { runtime: "claude", artifact_digest: A } })).json().code).toBe("signature-required");
     expect((await signed("runtime.pin", { runtime: "claude", artifact_digest: C })).json().code).toBe("artifact-not-qualified");
+    const org = (await h.db.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]!.id;
+    // Unpinned, a counted check's signed launch registers its harness, so a fresh install's checks count.
+    expect(await unpinnedHarness(h.db as never, org, "claude", A)).toBe("claude");
+    // A digest no passing probe saw does not count.
+    expect(await unpinnedHarness(h.db as never, org, "claude", C)).toBeNull();
     const ok = await signed("runtime.pin", { runtime: "claude", artifact_digest: A });
     expect(ok.statusCode, ok.body).toBe(200);
+    // Once pinned, only a pinned digest counts; other runtimes stay unpinned.
+    expect(await unpinnedHarness(h.db as never, org, "claude", A)).toBeNull();
+    expect(await unpinnedHarness(h.db as never, org, "opencode", A)).toBeNull();
     expect(ok.json().pins.map((p: Json) => p.role).sort()).toEqual(["author", "intake", "pre-check"]);
     // The roster reads the active pins beside the daemon's report.
     const roster = (await h.app.inject({ method: "GET", url: "/runtimes", headers: { cookie } })).json();

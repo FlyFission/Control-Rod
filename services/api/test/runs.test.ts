@@ -167,6 +167,34 @@ describe("launch inputs", () => {
     }
   });
 
+  it("tells the checker that a checkout card's one patch is the whole change, with the files it touches", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-whole-change-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      const id = await releasedPackage("WHOLE", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+      const author = await claim(["fake"], true);
+      const frozen = (author!.run as unknown as { checkout: { head: string } }).checkout;
+      const patch = "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1,2 @@\n # Demo\n+Hello\n";
+      const done = await asDaemon(`/runner/runs/${author!.run.id}/complete`, { status: "succeeded", trace: trace(author!, { checkout: frozen, checkout_final: { branch: "topic", head: frozen.head } }), outputs: [{ name: "changes.patch", content_base64: b64(patch) }] });
+      expect(done.statusCode, done.body).toBeLessThan(300);
+      const checker = await claim(["codex"], true);
+      expect(checker?.run).toMatchObject({ role: "pre-check", package_id: id });
+      const brief = Buffer.from((checker as unknown as { inputs: { name: string; content_base64: string }[] }).inputs.find((i) => i.name === "BRIEF.md")!.content_base64, "base64").toString();
+      expect(brief).toContain("## The whole change");
+      expect(brief).toContain("inputs/deliverables/changes.patch");
+      expect(brief).toContain("- `README.md`");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a completion whose trace names a different checkout than the one frozen into the run", async () => {
     const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-trace-"));
     const base = join(root, "demo");

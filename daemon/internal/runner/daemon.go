@@ -3,6 +3,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -87,6 +88,10 @@ type Config struct {
 	// the cached report drops any agent whose binary changed since the check read its version, so an
 	// update installed while the daemon runs is never offered again. nil skips that.
 	UpdateStamp func(binary string) string
+	// SigningKey returns the daemon's signing key, creating it when the keychain has none
+	// (InitSigningKey). When set, the daemon offers its public key to the control plane at start,
+	// which enrolls it only while the organization has never had a key. nil skips that.
+	SigningKey func() (ed25519.PrivateKey, error)
 }
 
 // RunCeiling is the longest a run lasts in this daemon: its timeout, then the graceful stop ladder
@@ -291,6 +296,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		go d.checkAgentUpdates(ctx)
 	} else if d.cfg.UpdateCheckOff {
 		d.updates.set(nil)
+	}
+	if d.cfg.SigningKey != nil {
+		go d.enrollSigningKey(ctx)
 	}
 	outboxDone := make(chan struct{})
 	go func() { d.outboxLoop(ctx); close(outboxDone) }()
@@ -614,6 +622,48 @@ func (d *Daemon) usageReport() *UsageLimitsReport {
 
 // outboxLoop sends completions left from an earlier run at once, then retries any still
 // waiting every OutboxInterval until ctx ends.
+// enrollSigningKey makes sure the daemon has a signing key and offers its public half to the
+// control plane, so a check it attests can count without a separate enrollment step. It retries
+// with a growing wait while the keychain or the control plane is not ready, and stops once the
+// control plane says the key is enrolled or that an administrator must enroll it.
+func (d *Daemon) enrollSigningKey(ctx context.Context) {
+	wait := enrollFirstWait
+	for {
+		status, err := d.offerSigningKey(ctx)
+		switch {
+		case err == nil && (status == "enrolled" || status == "already"):
+			d.log.Info("daemon signing key ready", "status", status)
+			return
+		case err == nil && status == "needs-admin":
+			d.log.Warn("this daemon's signing key is not enrolled: another key already is. An administrator can enroll it with `controlrod attestation-public` and the admin page.")
+			return
+		case err != nil:
+			d.log.Warn("signing key not ready yet", "err", err, "next try in", wait)
+		default:
+			d.log.Info("signing key waits for setup", "status", status, "next try in", wait)
+		}
+		if sleepCtx(ctx, wait); ctx.Err() != nil {
+			return
+		}
+		wait = min(wait*2, 5*time.Minute)
+	}
+}
+
+// enrollFirstWait is the wait after the first failed offer; it doubles up to five minutes.
+var enrollFirstWait = 5 * time.Second
+
+func (d *Daemon) offerSigningKey(ctx context.Context) (string, error) {
+	priv, err := d.cfg.SigningKey()
+	if err != nil {
+		return "", err
+	}
+	pub, ok := priv.Public().(ed25519.PublicKey)
+	if !ok {
+		return "", errors.New("signing key has no Ed25519 public key")
+	}
+	return d.client.EnrollSigningKey(ctx, PublicKeyBase64(pub))
+}
+
 func (d *Daemon) outboxLoop(ctx context.Context) {
 	t := time.NewTicker(d.cfg.OutboxInterval)
 	defer t.Stop()

@@ -112,6 +112,8 @@ func daemon(args []string) int {
 		Runtimes:  runner.Detect(exec.LookPath, os.Getenv),
 		Version:   version.Version,
 		Logger:    logger,
+		// A fresh install creates its key here, so its checks can count with no extra step.
+		SigningKey: runner.InitSigningKey,
 	}
 	// Once, at startup, never on a timer: the daemon says which agent CLIs have a newer version.
 	// It never installs; the person runs `controlrod agents update` or the command the app shows.

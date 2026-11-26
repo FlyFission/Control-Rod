@@ -214,6 +214,28 @@ type EvidenceReply struct {
 
 // Evidence reports, after a restart, that a run's process is gone, with the receipt that proves
 // which process it was. A refusal is final: the control plane no longer needs this evidence.
+// EnrollSigningKey offers the daemon's public signing key (base64 of the 32 raw bytes). The
+// control plane enrolls it only while the organization has no key, and answers with a status:
+// enrolled, already, needs-admin, or no-organization (setup has not finished yet).
+func (c *Client) EnrollSigningKey(ctx context.Context, publicKey string) (string, error) {
+	const path = "/runner/signing-key"
+	resp, err := c.post(ctx, path, map[string]string{"public_key": publicKey}, 30*time.Second)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return "", statusError(path, resp)
+	}
+	var r struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<12)).Decode(&r); err != nil {
+		return "", fmt.Errorf("decode %s: %w", path, err)
+	}
+	return r.Status, nil
+}
+
 func (c *Client) Evidence(ctx context.Context, r SpawnReceipt) (EvidenceReply, error) {
 	path := "/runner/runs/" + r.RunID + "/evidence"
 	body := map[string]any{"claim_token": r.ClaimToken, "receipt": r.Wire(), "observation": "process-gone"}

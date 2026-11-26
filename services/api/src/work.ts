@@ -465,6 +465,34 @@ function findingDetail(f: Json): Json {
   return out;
 }
 
+/** The files a unified diff touches, in order, from its `diff --git` and `+++`/`---` headers. */
+export function patchFiles(patch: string): string[] {
+  const seen = new Set<string>();
+  for (const line of patch.split(/\r?\n/)) {
+    const git = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+    if (git) { seen.add(git[2]!); if (git[1] !== git[2]) seen.add(git[1]!); continue; }
+    const hdr = /^(?:\+\+\+|---) [ab]\/(.+?)(?:\t.*)?$/.exec(line);
+    if (hdr) seen.add(hdr[1]!);
+  }
+  return [...seen];
+}
+
+/**
+ * For a card on a repository checkout, the pull request is built from the bound commit plus the
+ * author's one patch and nothing else (publishAccepted). The checker is told so, with the files the
+ * patch touches, so a criterion like "no other files change" can be judged from the patch instead of
+ * coming back inconclusive.
+ */
+async function wholeChangeSection(c: Tx, captureId: string | null | undefined, delivered: { name: string; bytes: Buffer }[]): Promise<string | null> {
+  const patches = delivered.filter((o) => /\.(patch|diff)$/i.test(o.name));
+  if (patches.length !== 1 || !captureId) return null;
+  const cap = await c.query<{ checkout: boolean }>("select (body ? 'checkout') as checkout from captures where id = $1", [captureId]);
+  if (!cap.rows[0]?.checkout) return null;
+  const files = patchFiles(patches[0]!.bytes.toString("utf8"));
+  const list = files.length ? files.map((f) => `- \`${f}\``).join("\n") : "- (no files)";
+  return `## The whole change\n\nControl Rod opens the pull request from the checked-out commit plus inputs/deliverables/${patches[0]!.name} and nothing else, so that patch is the complete change to the repository. Every file and line it does not touch stays exactly as it is. It touches:\n\n${list}\n\nJudge any criterion about other files or lines staying unchanged from this: it is met when the patch touches nothing beyond what the card asked for.\n`;
+}
+
 /** The union of the files a fix may change, from the findings that name any. Sorted. */
 export function fixScope(findings: Json[] | undefined): string[] {
   const all = new Set<string>();
@@ -1379,7 +1407,10 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   let findings: Json[] | undefined;
   if (run.role === "pre-check") {
     const author = await latestAuthorRun(c, pkg.id, pkg.revision);
-    for (const o of author ? await outputsOf(c, author.id) : []) inputs.push(file(`deliverables/${o.name}`, o.bytes));
+    const delivered = author ? await outputsOf(c, author.id) : [];
+    for (const o of delivered) inputs.push(file(`deliverables/${o.name}`, o.bytes));
+    const whole = await wholeChangeSection(c, pkg.capture_id, delivered);
+    if (whole) extra.push(whole);
     const drift = author && author.status === "succeeded" ? await scopeDrift(c, pkg.id, pkg.revision, Number(author.round), author.id) : null;
     if (drift?.outside.length) {
       inputs.push(file("scope-drift.json", Buffer.from(JSON.stringify(drift, null, 2))));

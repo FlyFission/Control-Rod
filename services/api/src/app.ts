@@ -18,6 +18,8 @@ import {
   startSession,
 } from "./auth.js";
 import type { Db } from "./db/index.js";
+import { enrollFirstDaemonKey } from "./run-attestation.js";
+import { command } from "./commands/executor.js";
 import { bus, eventPosition, listEvents, verifyOrganizationEvents } from "./events.js";
 import { verificationEvidence } from "./preparation/results.js";
 import { grantRoutes } from "./preparation/grant-routes.js";
@@ -917,6 +919,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     daemon(req);
     const lines = Array.isArray(req.body?.lines) ? req.body.lines.map(String) : [];
     return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt, req.body?.events, req.body?.events_from);
+  });
+  app.post("/runner/signing-key", async (req) => {
+    daemon(req);
+    return command(db, "daemon.enroll-first-key", (c) => enrollFirstDaemonKey(c, (req.body ?? {}) as Record<string, unknown>));
   });
   app.post<{ Params: { id: string } }>("/runner/runs/:id/evidence", async (req) => {
     daemon(req);

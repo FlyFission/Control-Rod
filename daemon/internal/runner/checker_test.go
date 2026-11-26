@@ -1098,3 +1098,46 @@ func TestCheckerTmpEnvPointsClaudeCodeAtTheRunFolder(t *testing.T) {
 		}
 	}
 }
+
+func TestSeatbeltAtomicWritesAllowOnlyTheToolTempSibling(t *testing.T) {
+	rules, err := seatbeltAtomicWrites([]string{"/private/var/tmp/w/scratch/verification.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `(regex #"^/private/var/tmp/w/scratch/verification\.json\.tmp\.[0-9]+\.[0-9a-f]+$")`
+	if !strings.Contains(rules, want) {
+		t.Fatalf("rules %s", rules)
+	}
+	if _, err := seatbeltAtomicWrites([]string{`/tmp/q"uote`}); err == nil {
+		t.Fatal("a quoted path was accepted")
+	}
+}
+
+// Seatbelt cannot nest, so Claude Code's own command sandbox cannot start inside the macOS
+// checker profile; the macOS Claude checker gets no Bash tool at all.
+func TestClaudeCheckerUnderOuterSeatbeltHasNoBash(t *testing.T) {
+	old := checkerOuterSeatbelt
+	t.Cleanup(func() { checkerOuterSeatbelt = old })
+	if got := withoutBash("Read,Bash,Write,Bash(python3:*),Grep"); got != "Read,Write,Grep" {
+		t.Fatalf("withoutBash = %q", got)
+	}
+	ws, _ := prepareCheckerFixture(t)
+	p := &SandboxPolicy{EnabledTools: []string{"command", "read", "write", "search"}}
+	for _, outer := range []bool{true, false} {
+		checkerOuterSeatbelt = outer
+		args := ClaudeArgs(ws, "", p, SandboxPaths{Workspace: ws.Dir})
+		joined := strings.Join(args, "\n")
+		hasBash := false
+		for i, a := range args {
+			if (a == "--tools" || a == "--allowedTools") && i+1 < len(args) && strings.Contains(args[i+1], "Bash") {
+				hasBash = true
+			}
+		}
+		if outer && hasBash {
+			t.Fatalf("outer Seatbelt checker still offers Bash: %s", joined)
+		}
+		if !outer && !hasBash {
+			t.Fatalf("checker without the outer profile lost Bash: %s", joined)
+		}
+	}
+}

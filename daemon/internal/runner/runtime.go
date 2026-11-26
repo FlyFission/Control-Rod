@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -206,8 +207,12 @@ func ClaudeArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) 
 	if ws != nil && ws.Checker {
 		prompt = CheckerPrompt
 	}
+	tools, allowed := ClaudeToolList(p), allowedTools(ws)
+	if ws != nil && ws.Checker && checkerOuterSeatbelt {
+		tools, allowed = withoutBash(tools), withoutBash(allowed)
+	}
 	args := []string{"-p", prompt, "--output-format", "stream-json", "--verbose",
-		"--permission-mode", ClaudePermissionMode, "--tools", ClaudeToolList(p), "--allowedTools", allowedTools(ws)}
+		"--permission-mode", ClaudePermissionMode, "--tools", tools, "--allowedTools", allowed}
 	args = append(args, ClaudeIsolationArgs()...)
 	// Checker flags only. Author and intake keep the argument list they had.
 	// --setting-sources (above) does not block CLAUDE.md or auto-memory; the clean working
@@ -228,6 +233,23 @@ func ClaudeArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) 
 		settings = checkerClaudeSettings(settings)
 	}
 	return append(args, "--settings", settings)
+}
+
+// checkerOuterSeatbelt is true where the daemon runs a checker inside its own Seatbelt profile
+// (macOS). Seatbelt cannot be applied twice, so Claude Code's command sandbox, which is
+// Seatbelt too, cannot start there: every Bash call ends "sandbox_apply: Operation not
+// permitted". A Claude checker on macOS therefore gets no Bash tool; it reads and searches.
+var checkerOuterSeatbelt = goruntime.GOOS == "darwin"
+
+// withoutBash drops Bash and every Bash(...) rule from a comma-separated tool list.
+func withoutBash(list string) string {
+	var kept []string
+	for _, t := range strings.Split(list, ",") {
+		if name := strings.TrimSpace(t); name != "" && name != "Bash" && !strings.HasPrefix(name, "Bash(") {
+			kept = append(kept, name)
+		}
+	}
+	return strings.Join(kept, ",")
 }
 
 // checkerClaudeSettings turns auto memory off in the --settings payload.

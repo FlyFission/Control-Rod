@@ -57,5 +57,17 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	}
 	setCheckerTmpEnv(cmd, runTmp)
 	denies := sessionReadDenies(plan.Root, loginSessionDirs(ws.CheckerRuntime))
-	return append([]string{bin, "-p", seatbeltProfile(writable, denies)}, cmd.Args...), nil
+	var verdicts []string
+	for _, p := range files {
+		c, err := canonicalPath(p)
+		if err != nil {
+			return nil, fmt.Errorf("cannot canonicalize %s (%v), so the check cannot count", p, err)
+		}
+		verdicts = append(verdicts, c)
+	}
+	atomic, err := seatbeltAtomicWrites(verdicts)
+	if err != nil {
+		return nil, err
+	}
+	return append([]string{bin, "-p", seatbeltProfile(writable, denies) + atomic}, cmd.Args...), nil
 }

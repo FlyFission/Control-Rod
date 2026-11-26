@@ -277,3 +277,35 @@ socket.getaddrinfo(sys.argv[1], 443)
 		t.Fatalf("the checker could not resolve %s: %v: %s", host, err, out)
 	}
 }
+
+// Claude Code's Write and Edit tools replace a file by writing <file>.tmp.<pid>.<hex> beside it
+// and renaming it over the file. A checker must be able to do that for its verdict, and only that.
+func TestSeatbeltCheckerCanReplaceItsVerdictAtomically(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Fatal(err)
+	}
+	ws := seatbeltFixture(t)
+	cmd := exec.Command("python3", "-c", `import os,sys
+v="scratch/verification.json"
+t=v+".tmp.%d.0512e79354d8" % os.getpid()
+open(t,"w").write('{"outcome":"pass","findings":[]}')
+os.rename(t,v)
+try:
+    open("scratch/other.tmp.1.ab","w").write("x")
+except OSError:
+    sys.exit(0)
+sys.exit(3)
+`)
+	cmd.Dir = ws.Dir
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")}
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("atomic verdict write under the profile: %v: %s", err, out)
+	}
+	got, err := os.ReadFile(filepath.Join(ws.Scratch, "verification.json"))
+	if err != nil || !strings.Contains(string(got), `"pass"`) {
+		t.Fatalf("verdict not replaced: %q %v", got, err)
+	}
+}

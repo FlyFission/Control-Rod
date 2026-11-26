@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -977,6 +978,21 @@ func seatbeltProfile(writable, unreadable []string) string {
 		b.WriteString("(allow file-write*\n    (subpath " + sbplString(p) + "))\n")
 	}
 	return b.String()
+}
+
+// seatbeltAtomicWrites lets a file tool replace each verdict file the way Claude Code's
+// Write and Edit tools do: they write <file>.tmp.<pid>.<hex> beside it, then rename it over
+// the file. Only that sibling name is writable; the scratch directory itself stays read-only.
+// Paths must already be canonical. A path holding a quote is refused rather than escaped.
+func seatbeltAtomicWrites(files []string) (string, error) {
+	var b strings.Builder
+	for _, f := range files {
+		if strings.ContainsAny(f, "\"\n") {
+			return "", fmt.Errorf("cannot express %q as a Seatbelt pattern, so the check cannot count", f)
+		}
+		b.WriteString("(allow file-write*\n    (regex #\"^" + regexp.QuoteMeta(f) + `\.tmp\.[0-9]+\.[0-9a-f]+$` + "\"))\n")
+	}
+	return b.String(), nil
 }
 
 // sessionReadDenies lists real session directories the macOS profile must hide.

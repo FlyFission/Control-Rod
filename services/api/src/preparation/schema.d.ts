@@ -3907,6 +3907,8 @@ export interface components {
             lane?: components["schemas"]["ControlRod.Records.DataLane"];
             author?: components["schemas"]["WorkspaceProjects.RuntimeSelection"];
             checker?: components["schemas"]["WorkspaceProjects.RuntimeSelection"];
+            /** @description False stops the daemon installing from the lockfile in a new worktree before the author starts. A press, no passkey. */
+            setup?: boolean;
             /** @description Sets the project's work lanes. On create, absent means the preset proposed from the repository. */
             work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneChoice"];
             laneAgents?: {
@@ -3949,6 +3951,8 @@ export interface components {
             laneAgents?: {
                 [key: string]: string;
             } | null;
+            /** @description False stops the daemon installing from the lockfile in a new worktree before the author starts. A press, no passkey. */
+            setup?: boolean;
             /** @description Sets the project's work lanes. On create, absent means the preset proposed from the repository. */
             work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneChoice"];
         };
@@ -3972,6 +3976,8 @@ export interface components {
             laneAgents?: {
                 [key: string]: string;
             };
+            /** @description False when the project turned off the install from its lockfile in new worktrees; absent means on. */
+            setup?: boolean;
             /** @description The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset). */
             work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneSet"];
             /** @description What needs a passkey on this project's routine cards, once the owner has chosen. Absent: every step is signed. */

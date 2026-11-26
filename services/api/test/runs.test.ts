@@ -376,6 +376,26 @@ describe("launch inputs", () => {
     const plain = await claim();
     expect(input(plain as Job, "TOOLS.txt")).not.toMatch(/^\s*network\s*:/im);
   });
+
+  it("tells the daemon to skip the install from the lockfile only for a project that turned it off", async () => {
+    await h.admin.query("insert into projects (body) values ($1)", [{ id: "prj_no_setup", org_id: "org_local", name: "No setup", status: "active" }]);
+    await h.admin.query(
+      "insert into settings (key, value) values ('workspace_project_prefs:org_local', $1) on conflict (key) do update set value = excluded.value",
+      [JSON.stringify({ prj_no_setup: { setup: false } })],
+    );
+    const id = await releasedPackage("NOSETUP");
+    await h.admin.query("update packages set body = jsonb_set(body, '{project}', '\"prj_no_setup\"') where id = $1", [id]);
+    const off = await claim();
+    expect(off?.run.package_id).toBe(id);
+    expect(input(off as Job, "TOOLS.txt")).toMatch(/^setup: off$/m);
+    await complete(off as Job, { status: "succeeded", outputs: [{ name: "x.md", content_base64: b64("# X") }] });
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+
+    await releasedPackage("WITHSETUP");
+    const on = await claim();
+    expect(input(on as Job, "TOOLS.txt")).not.toMatch(/setup:/i);
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+  });
 });
 
 /** Answers every queued intake, so later claims see only the runs a test made. */

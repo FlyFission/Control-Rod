@@ -15417,6 +15417,10 @@
           "checker": {
             "$ref": "#/components/schemas/WorkspaceProjects.RuntimeSelection"
           },
+          "setup": {
+            "type": "boolean",
+            "description": "False stops the daemon installing from the lockfile in a new worktree before the author starts. A press, no passkey."
+          },
           "work_lanes": {
             "$ref": "#/components/schemas/ControlRod.Records.WorkLaneChoice",
             "description": "Sets the project's work lanes. On create, absent means the preset proposed from the repository."
@@ -15531,6 +15535,10 @@
             ],
             "description": "Null clears the configured lane overrides."
           },
+          "setup": {
+            "type": "boolean",
+            "description": "False stops the daemon installing from the lockfile in a new worktree before the author starts. A press, no passkey."
+          },
           "work_lanes": {
             "$ref": "#/components/schemas/ControlRod.Records.WorkLaneChoice",
             "description": "Sets the project's work lanes. On create, absent means the preset proposed from the repository."
@@ -15613,6 +15621,10 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "setup": {
+            "type": "boolean",
+            "description": "False when the project turned off the install from its lockfile in new worktrees; absent means on."
           },
           "work_lanes": {
             "$ref": "#/components/schemas/ControlRod.Records.WorkLaneSet",

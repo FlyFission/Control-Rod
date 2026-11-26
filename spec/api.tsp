@@ -120,6 +120,9 @@ namespace WorkspaceProjects {
     checker: RuntimeSelection;
     laneAgents?: Record<string>;
 
+    /** False when the project turned off the install from its lockfile in new worktrees; absent means on. */
+    setup?: boolean;
+
     /** The work lanes the Plant's bays follow; always present in a response (an old project reads as the capital-project preset). */
     work_lanes?: ControlRod.Records.WorkLaneSet;
 
@@ -146,6 +149,9 @@ namespace WorkspaceProjects {
 
     /** Null clears the configured lane overrides. */
     laneAgents?: Record<string> | null;
+
+    /** False stops the daemon installing from the lockfile in a new worktree before the author starts. A press, no passkey. */
+    setup?: boolean;
 
     /** Sets the project's work lanes. On create, absent means the preset proposed from the repository. */
     work_lanes?: ControlRod.Records.WorkLaneChoice;

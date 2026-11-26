@@ -231,5 +231,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
 
 /** An agent's short name for a tooltip, as the column pickers say it. */
 function agentWord(provider: string): string {
+  // A run not yet handed out has no agent: the first one free takes it.
+  if (provider === "any") return "The first free agent";
   return AGENTS.find((a) => a.id === provider)?.name.replace(/ (Code|CLI)$/, "") ?? provider;
 }

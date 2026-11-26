@@ -252,3 +252,28 @@ func TestSeatbeltPreparedCheckerSettles(t *testing.T) {
 		t.Fatalf("verification %s", res.Verification)
 	}
 }
+
+// A checker must resolve its model provider's host name. macOS answers lookups over
+// mDNSResponder's Unix socket, which the blanket Unix-socket deny would block (ENOTFOUND).
+func TestSeatbeltCheckerResolvesHostNames(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Fatal(err)
+	}
+	const lookup = `import socket,sys
+socket.getaddrinfo(sys.argv[1], 443)
+`
+	const host = "api.anthropic.com"
+	if out, err := exec.Command("python3", "-c", lookup, host).CombinedOutput(); err != nil {
+		t.Skipf("this machine cannot resolve %s without the sandbox either: %v: %s", host, err, out)
+	}
+	ws := seatbeltFixture(t)
+	cmd := exec.Command("python3", "-c", lookup, host)
+	cmd.Dir = ws.Dir
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")}
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("the checker could not resolve %s: %v: %s", host, err, out)
+	}
+}

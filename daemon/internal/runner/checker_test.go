@@ -405,6 +405,13 @@ func TestSeatbeltProfileDeniesWritesExceptScratch(t *testing.T) {
 	if !strings.Contains(profile, "(deny network-outbound\n    (remote unix-socket))") {
 		t.Fatal("profile still allows outbound Unix sockets")
 	}
+	if !strings.Contains(profile, `(allow network-outbound
+    (remote unix-socket (path-literal "/private/var/run/mDNSResponder")))`) {
+		t.Fatal("profile blocks mDNSResponder, so the checker cannot resolve its provider's host name")
+	}
+	if strings.Count(profile, "(allow network-outbound") != 1 {
+		t.Fatal("profile allows a Unix socket other than mDNSResponder")
+	}
 	if strings.Contains(profile, "mach-lookup") {
 		t.Fatal("profile denies mach-lookup; that was not shown to be safe")
 	}

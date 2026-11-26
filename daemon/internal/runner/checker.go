@@ -950,17 +950,23 @@ func walkJSON(dec *json.Decoder) error {
 // credential file when it is a real file inside the login directory. unreadable
 // paths are the real session directories: Seatbelt cannot mount another
 // directory over them, so the checker may neither read nor write them.
-// Unix-domain sockets are denied. A blanket mach-lookup deny is not applied:
+// Unix-domain sockets are denied, except mDNSResponder's, which name lookups need. A blanket mach-lookup deny is not applied:
 // the process needs the bootstrap server, and no narrower set was shown to be
 // safe without running on a Mac. Paths must already be canonical where a write
 // is allowed. Read denies use the path the process would open, not a symlink
 // target, so a session symlink is not turned into a deny of the home directory.
+// mDNSResponderSocket is the macOS name-resolution socket (/var is a symlink to /private/var).
+const mDNSResponderSocket = "/private/var/run/mDNSResponder"
+
 func seatbeltProfile(writable, unreadable []string) string {
 	var b strings.Builder
 	b.WriteString("(version 1)\n(allow default)\n(deny file-write*)\n")
 	// Shells and both CLIs send output to /dev/null; writing data there reaches nothing.
 	b.WriteString("(allow file-write-data\n    (literal \"/dev/null\"))\n")
 	b.WriteString("(deny network-outbound\n    (remote unix-socket))\n")
+	// macOS resolves host names through mDNSResponder over this one Unix socket. Without it
+	// every lookup fails (ENOTFOUND), so a checker could never reach its model provider.
+	b.WriteString("(allow network-outbound\n    (remote unix-socket (path-literal " + sbplString(mDNSResponderSocket) + ")))\n")
 	for _, p := range unreadable {
 		b.WriteString("(deny file-read*\n    (subpath " + sbplString(p) + "))\n")
 	}

@@ -591,3 +591,55 @@ test("controlrod start is the one step: background and browser by default, with 
   const devHelp = spawnSync(process.execPath, [cr, "start", "--help"], { encoding: "utf8", env: { ...process.env, CONTROLROD_CLI: "" } });
   assert.match(devHelp.stdout, /in this terminal/);
 });
+
+// ---------- doctor exit codes ----------
+
+/** Create a temporary directory of fake tool executables for use in doctor tests. */
+function fakeBinDir(present) {
+  const dir = mkdtempSync(join(tmpdir(), "cr-doctor-"));
+  const tools = {
+    node: "#!/bin/sh\necho v26.13.0\n",
+    pnpm: "#!/bin/sh\necho 10.0.0\n",
+    go: "#!/bin/sh\ncase $1 in version) echo 'go version go1.21.0 darwin/arm64';; *) exit 1;; esac\n",
+  };
+  for (const name of present) {
+    if (tools[name]) writeFileSync(join(dir, name), tools[name], { mode: 0o755 });
+  }
+  return dir;
+}
+
+/** Shared env for all doctor tests: a fresh CONTROLROD_HOME and a real database URL bypass. */
+const doctorEnv = (fakeBin) => ({
+  ...process.env,
+  PATH: `${fakeBin}:/usr/bin:/bin`,
+  CONTROLROD_DATABASE_URL: "postgresql://stub@localhost/stub",
+  CONTROLROD_HOME: mkdtempSync(join(tmpdir(), "cr-doctor-home-")),
+});
+
+test("doctor exits non-zero when a required tool is MISSING (regression: boolean false must become exit code 1)", () => {
+  // Required: go is absent. This test fails if the action passes the boolean directly to exit()
+  // instead of converting it via `? 0 : 1`, since process.exit(false) exits with code 0.
+  const fakeBin = fakeBinDir(["node", "pnpm"]);  // go is missing
+  const cr = join(repoRoot, "scripts", "cr.mjs");
+  const out = spawnSync(process.execPath, [cr, "doctor"], { encoding: "utf8", env: doctorEnv(fakeBin) });
+  assert.match(out.stdout, /MISSING\s+go/, "prints MISSING for the absent required tool");
+  assert.notEqual(out.status, 0, "exits non-zero when at least one MISSING blocking line is printed");
+});
+
+test("doctor exits 0 when every required item is present", () => {
+  const fakeBin = fakeBinDir(["node", "pnpm", "go"]);
+  const cr = join(repoRoot, "scripts", "cr.mjs");
+  const out = spawnSync(process.execPath, [cr, "doctor"], { encoding: "utf8", env: doctorEnv(fakeBin) });
+  assert.doesNotMatch(out.stdout + out.stderr, /^MISSING/m, "no MISSING lines in output");
+  assert.equal(out.status, 0, "exits 0 when every required item is present");
+});
+
+test("doctor exits 0 when only optional items are missing and nothing required is MISSING", () => {
+  // uv, claude, codex are optional (printed with '--'); their absence must not affect the exit code.
+  const fakeBin = fakeBinDir(["node", "pnpm", "go"]);  // no uv / claude / codex
+  const cr = join(repoRoot, "scripts", "cr.mjs");
+  const out = spawnSync(process.execPath, [cr, "doctor"], { encoding: "utf8", env: doctorEnv(fakeBin) });
+  assert.match(out.stdout, /^--\s+/m, "optional-missing items use the '--' prefix");
+  assert.doesNotMatch(out.stdout + out.stderr, /^MISSING/m, "no MISSING lines for blocking items");
+  assert.equal(out.status, 0, "exits 0 when only optional items are missing");
+});

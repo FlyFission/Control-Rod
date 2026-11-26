@@ -178,7 +178,7 @@ func TestCheckerStagesInstructionsOutOfDiscovery(t *testing.T) {
 		}
 		switch rt {
 		case RuntimeClaude:
-			if !hasArgPair(cmd.Args, "--disallowedTools", "mcp__*,Agent") || !hasArgPair(cmd.Args, "--max-turns", checkerMaxTurns) {
+			if !hasArgPair(cmd.Args, "--disallowedTools", "mcp__*,Agent") || slices.Contains(cmd.Args, "--max-turns") {
 				t.Errorf("claude checker flags: %q", cmd.Args)
 			}
 			if !slices.Contains(cmd.Env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1") {
@@ -237,16 +237,13 @@ func TestCheckerBlockedNoticeIsAPolicyEvent(t *testing.T) {
 	}
 }
 
-func TestCheckerMaxTurnsMatchesTheQualificationSpike(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join("..", "..", "..", "spikes", "runtime-confinement", "launch_qualification.py"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytesContains(b, []byte(`"--max-turns", "8"`)) && !bytesContains(b, []byte(`["--max-turns", "8"]`)) {
-		t.Fatal("launch_qualification.py no longer records --max-turns 8")
-	}
-	if checkerMaxTurns != "8" {
-		t.Fatalf("checkerMaxTurns = %q", checkerMaxTurns)
+// Real card checks read 10 to 13 files before they write a verdict; a turn cap cut every one
+// off. The check's deadline bounds a checker instead.
+func TestClaudeCheckerHasNoTurnCap(t *testing.T) {
+	ws, _ := prepareCheckerFixture(t)
+	args := ClaudeArgs(ws, "", &SandboxPolicy{EnabledTools: []string{"read", "write", "search"}}, SandboxPaths{Workspace: ws.Dir})
+	if slices.Contains(args, "--max-turns") {
+		t.Fatalf("checker still capped: %q", args)
 	}
 }
 

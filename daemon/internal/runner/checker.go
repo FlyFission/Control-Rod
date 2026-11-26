@@ -93,7 +93,10 @@ func setCheckerTmpEnv(cmd *exec.Cmd, dir string) {
 		}
 		kept = append(kept, kv)
 	}
-	cmd.Env = withEnv(kept, "TMPDIR="+dir)
+	// Claude Code keeps its own temporary files (one folder per working directory, which its
+	// Bash tool needs) under CLAUDE_CODE_TMPDIR, else /tmp/claude-<uid>, not TMPDIR. Outside
+	// the per-run folder Seatbelt refuses that mkdir and every Bash command fails with EPERM.
+	cmd.Env = withEnv(kept, "TMPDIR="+dir, "CLAUDE_CODE_TMPDIR="+dir)
 }
 
 // prepareWorkspace builds a checker workspace for a sandboxed pre-check and the

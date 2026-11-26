@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -1074,4 +1075,26 @@ func assertPolicy(t *testing.T, res checkerResult, text string) {
 		}
 	}
 	t.Fatalf("no policy event containing %q in %+v", text, res.Events)
+}
+
+// Claude Code's Bash tool makes a folder under CLAUDE_CODE_TMPDIR (else /tmp/claude-<uid>), not
+// TMPDIR. A checker must point both at its own per-run folder, or Seatbelt refuses every command.
+func TestCheckerTmpEnvPointsClaudeCodeAtTheRunFolder(t *testing.T) {
+	cmd := exec.Command("true")
+	cmd.Env = []string{"PATH=/usr/bin", "TMPDIR=/elsewhere", "CLAUDE_CODE_TMPDIR=/elsewhere", "SSH_AUTH_SOCK=/tmp/agent"}
+	setCheckerTmpEnv(cmd, "/private/var/tmp/run")
+	want := map[string]bool{"TMPDIR=/private/var/tmp/run": false, "CLAUDE_CODE_TMPDIR=/private/var/tmp/run": false}
+	for _, kv := range cmd.Env {
+		if strings.HasPrefix(kv, "SSH_AUTH_SOCK=") || kv == "TMPDIR=/elsewhere" || kv == "CLAUDE_CODE_TMPDIR=/elsewhere" {
+			t.Fatalf("kept %s", kv)
+		}
+		if _, ok := want[kv]; ok {
+			want[kv] = true
+		}
+	}
+	for kv, seen := range want {
+		if !seen {
+			t.Fatalf("missing %s in %v", kv, cmd.Env)
+		}
+	}
 }

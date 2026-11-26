@@ -943,6 +943,17 @@ union CheckIn {
   "every-step": "every-step",
 }
 
+/**
+ * How agents write the prose a person reads: answers, the top of a deliverable, RESPONSE.md and
+ * finding text. Focus (the default) leads with the outcome or the next action, numbers steps, ends
+ * with one next step and keeps lists short, without dropping anything the work needs. Standard
+ * leaves each agent's own style. Adapted from i-have-adhd (MIT), see THIRD_PARTY_NOTICES.md.
+ */
+union Writing {
+  focus: "focus",
+  standard: "standard",
+}
+
 @extension("unevaluatedProperties", false)
 model AgentSeat {
   /** A runtime id as the daemon names it (claude, codex, grok, opencode, agy, ollama). */
@@ -961,6 +972,9 @@ model AgentSetupRequest {
 
   /** Left out when the person did not change it; the saved answer stays. */
   check_in?: CheckIn;
+
+  /** Left out when the person did not change it; the saved answer stays. */
+  writing?: Writing;
 }
 
 @extension("unevaluatedProperties", false)
@@ -974,6 +988,9 @@ model AgentSetupView {
   seats: AgentSeat[];
 
   check_in: CheckIn;
+
+  /** How agents write to the person. Focus unless the person chose Standard. */
+  writing: Writing;
 }
 
 /**

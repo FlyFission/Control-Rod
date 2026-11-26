@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { FOCUS_WRITING } from "../src/brief.js";
 import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
@@ -140,6 +141,8 @@ const beforeBrief = (id: string, key: string) =>
     `# Control Rod brief\n\nRole: author · Package ${id} revision 0 · Round 1\n`,
     readFileSync(join(repo, "packs", "general", "roles", "general-author.md"), "utf8"),
     `## The work package\n\nSee inputs/PACKAGE.json. Objective: Produce ${key}\n`,
+    // Focus writing is the install default (setup.ts), so it sits just before the rules.
+    FOCUS_WRITING,
     RULES_BEFORE,
   ].join("\n");
 
@@ -172,9 +175,9 @@ describe("workflows in the brief", () => {
     const brief = input(job, "BRIEF.md") ?? "";
     // Everything before the Nuclear section is the Light brief, and the rules still end it.
     const light = beforeBrief(id, "PLAY2");
-    expect(brief.startsWith(light.slice(0, light.indexOf("## Rules")))).toBe(true);
+    expect(brief.startsWith(light.slice(0, light.indexOf(FOCUS_WRITING)))).toBe(true);
     expect(brief).toContain("## Nuclear-grade context");
-    expect(brief.endsWith(RULES_BEFORE)).toBe(true);
+    expect(brief.endsWith(`${FOCUS_WRITING}\n${RULES_BEFORE}`)).toBe(true);
     expect(brief).not.toContain("Workflow:");
     expect(names(job).filter((n) => n.startsWith("workflow/"))).toEqual([]);
     expect(await workflowEvents(job.run.id)).toEqual([]);

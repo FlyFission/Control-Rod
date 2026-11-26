@@ -1,14 +1,14 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { explain } from "../api/client.js";
-import type { CheckIn } from "../api/types.js";
+import type { CheckIn, Writing } from "../api/types.js";
 import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
 import { AgentList } from "../components/AgentList.js";
 import { SigningSettings } from "../components/SigningSettings.js";
 import { useActiveProject, useProjects } from "../lib/projects.js";
 import { ControlRodVersion } from "../components/UpdateNotice.js";
 import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
-import { CHECK_IN_CHOICES, CHECK_IN_LATER, readBack } from "../lib/agents.js";
+import { CHECK_IN_CHOICES, CHECK_IN_LATER, WRITING_CHOICES, readBack } from "../lib/agents.js";
 import { buildCouncilFlow } from "../lib/councilFlow.js";
 import { SETUP_SKIPPED_KEY } from "../lib/firstRun.js";
 import { writeSession } from "../lib/storage.js";
@@ -26,6 +26,7 @@ export function Setup() {
   // elsewhere since this page loaded is kept, not overwritten by a stale copy.
   const [changed, setChanged] = useState<Record<string, boolean>>({});
   const [checkIn, setCheckIn] = useState<CheckIn | null>(null);
+  const [writing, setWriting] = useState<Writing | null>(null);
   const top = useRef<HTMLHeadingElement>(null);
   const active = useActiveProject();
   const projects = useProjects();
@@ -35,9 +36,11 @@ export function Setup() {
   const rows = agents.rows.map((r) => (r.info.runnable ? { ...r, seated: changed[r.info.id] ?? r.seated } : r));
   const found = rows.filter((r) => r.info.runnable && r.state !== "not-found").length;
   const choice = CHECK_IN_CHOICES.find((c) => c.id === chosenCheckIn)!;
+  const chosenWriting: Writing = writing ?? agents.setup?.writing ?? "focus";
+  const writingChoice = WRITING_CHOICES.find((c) => c.id === chosenWriting)!;
 
   const confirm = () =>
-    agents.save.mutate(setupRequest(changed, checkIn), {
+    agents.save.mutate(setupRequest(changed, checkIn, writing), {
       onSuccess: () => void navigate({ to: "/" }),
     });
 
@@ -47,7 +50,7 @@ export function Setup() {
         <h1 ref={top} tabIndex={-1}>
           {agents.setup?.confirmed ? "Setup" : "Welcome. Let's set up Control Rod."}
         </h1>
-        <p className="muted">Which agents sit at the table, when we check with you, and what needs your passkey. You can change these any time.</p>
+        <p className="muted">Which agents sit at the table, when we check with you, how they write to you, and what needs your passkey. You can change these any time.</p>
       </header>
 
       <section className="seat-panel" aria-labelledby="setup-agents-title">
@@ -92,8 +95,24 @@ export function Setup() {
         {!choice.today && <p className="muted small">{CHECK_IN_LATER}</p>}
       </section>
 
+      <section className="panel" aria-labelledby="setup-writing-title">
+        <h2 id="setup-writing-title">3. How should agents write to you?</h2>
+        <div className="checkin-choices" role="radiogroup" aria-labelledby="setup-writing-title">
+          {WRITING_CHOICES.map((c) => (
+            <label key={c.id} className={`checkin-choice${c.id === chosenWriting ? " chosen" : ""}`}>
+              <input type="radio" name="writing" value={c.id} checked={c.id === chosenWriting} disabled={agents.save.isPending} onChange={() => setWriting(c.id)} />
+              <span>
+                <strong>{c.label}</strong>
+                {c.id === "focus" && <span className="tag">Recommended</span>}
+                <span className="muted small block">{c.detail}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </section>
+
       <section className="panel" id="signing" aria-labelledby="setup-signing-title">
-        <h2 id="setup-signing-title">3. What needs your passkey{signingProject ? ` on ${signingProject.name}` : ""}</h2>
+        <h2 id="setup-signing-title">4. What needs your passkey{signingProject ? ` on ${signingProject.name}` : ""}</h2>
         {signingProject ? (
           <SigningSettings key={`${signingProject.id}:${signingProject.signing?.version ?? 0}`} project={signingProject} />
         ) : (
@@ -108,6 +127,7 @@ export function Setup() {
           Check-in preference: {choice.label.toLowerCase()}.
           {!choice.today && " What actually stops a card for you is set under What needs your passkey."}
         </p>
+        <p>Agents write to you: {writingChoice.label}.</p>
         {!agents.loading && <WorkflowDiagram flow={buildCouncilFlow(rows, chosenCheckIn)} />}
         {agents.save.error && (
           <p role="alert" className="error">

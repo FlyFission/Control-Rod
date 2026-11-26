@@ -15,6 +15,23 @@ How the web app sets type, contrast and live output so people can read it for ho
 | Motion | Pulses rest when the tab is hidden, under `prefers-reduced-motion`, and under the Floor's `quiet` and `still` settings. | `styles.css`, `useFloorMotion.ts` |
 | Live output | A reader can pause a running log, see how many lines arrived meanwhile, and resume. Bursts of events are batched into one refresh. | `RunLog.tsx`, `live.ts` |
 
+## Focus writing
+
+What agents write for a person to read follows the same aim: something they can act on at a glance. Under the Focus writing preference (Setup, "How should agents write to you?", on by default), every intake, author and pre-check brief carries the section `FOCUS_WRITING` in `services/api/src/brief.ts`:
+
+1. Open with the outcome or the next action.
+2. Number steps; one action each, as few as work.
+3. End with one next step the person can take in two minutes.
+4. Stay on what was asked; a second issue goes last, after "Separately:".
+5. Say where things stand.
+6. Show what now works, concretely.
+7. State errors plainly: where, what, the fix.
+8. Keep a visible list to five, most important first, the rest grouped.
+9. Give time only in real units, from something measured.
+10. No preamble, recap or sign-off.
+
+It shapes prose only. Nothing the work needs is dropped, and each role's required files and sections stay as they are. Standard leaves each agent's own style. The rules are adapted from [i-have-adhd](https://github.com/ayghri/i-have-adhd) by Ayoub Ghriss (MIT; see `THIRD_PARTY_NOTICES.md`). People working on this repository, and the agents they run, write replies, PR descriptions and run summaries the same way.
+
 ## Not decided here
 
 - **Light mode.** The brand palette is charcoal with Cherenkov blue, and `floor.css` carries many fixed colours. A light theme that follows the room rather than the clock is a design decision, not a token swap.

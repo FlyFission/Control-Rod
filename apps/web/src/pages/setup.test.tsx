@@ -39,7 +39,7 @@ const subscriptions = {
   local_rule: "",
   pins: [],
 };
-const fresh = { confirmed: false, seats: [], check_in: "start-and-merge" };
+const fresh = { confirmed: false, seats: [], check_in: "start-and-merge", writing: "focus" };
 
 function api(setup: object = fresh, onPut?: (body: unknown) => void) {
   server.use(
@@ -121,6 +121,22 @@ describe("first-run setup", () => {
     await vi.waitFor(() => expect(sent).toHaveLength(1));
     // Only the switch this page changed is sent, so a stale page cannot undo a switch made elsewhere.
     expect(sent[0]).toEqual({ seats: [{ runtime: "claude", seated: false }], check_in: "start" });
+  });
+
+  it("starts agents on Focus writing, reads the choice back, and sends Standard only when the person picks it", async () => {
+    const user = userEvent.setup();
+    const sent: unknown[] = [];
+    api(fresh, (b) => sent.push(b));
+    await renderPage(<Setup />);
+    const focus = await screen.findByRole("radio", { name: /^Focus/ });
+    expect(focus).toHaveProperty("checked", true);
+    const back = screen.getByRole("region", { name: "Here's what you're setting up" });
+    expect(within(back).getByText("Agents write to you: Focus.")).toBeTruthy();
+    await user.click(screen.getByRole("radio", { name: /^Standard/ }));
+    expect(within(back).getByText("Agents write to you: Standard.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Looks right" }));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({ seats: [], writing: "standard" });
   });
 
   it("gives each copy button its command as its name, and says so when copying is not possible", async () => {

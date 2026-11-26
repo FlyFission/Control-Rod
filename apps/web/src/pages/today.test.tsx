@@ -46,12 +46,22 @@ describe("Today, the shift brief", () => {
     expect(list.querySelectorAll(".risk-band")[0]!.getAttribute("data-level")).toBe("4");
   });
 
+  it("puts the one thing to do next right under the headline, and nothing when nothing needs you", async () => {
+    serve({ items: [item({ title: "Accept the pump scope", binds: "Signing accepts revision 1." }), item({ package_id: "WP-2", title: "Second" })] });
+    await renderPage(<Today />);
+    const start = (await screen.findByText("Start here")).closest(".today-start") as HTMLElement;
+    expect(within(start).getByText("Accept the pump scope")).toBeTruthy();
+    expect(within(start).getByRole("link", { name: "Open and decide" }).getAttribute("href")).toBe("/packages/WP-1#decide");
+    expect(within(start).queryByText("Second")).toBeNull();
+  });
+
   it("is calm and finished when nothing needs you, with the plant at rest", async () => {
     serve({ states: ["working"] });
     await renderPage(<Today />);
     await screen.findByRole("heading", { level: 1, name: "Nothing needs you. 1 agent is working." });
     expect(await screen.findByText("Nothing needs you.", { selector: ".calm-title" })).toBeTruthy();
     expect(screen.getByText("Plant at rest")).toBeTruthy();
+    expect(screen.queryByText("Start here")).toBeNull();
   });
 
   it("draws the plant thumbnail as raster art only, never as vector shapes", async () => {

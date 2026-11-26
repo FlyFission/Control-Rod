@@ -19,7 +19,7 @@ import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScramm
 import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "./sandbox.js";
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
-import { RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "./brief.js";
+import { FOCUS_WRITING, RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
@@ -28,7 +28,7 @@ import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
-import { benchedRuntimes } from "./setup.js";
+import { benchedRuntimes, setupView } from "./setup.js";
 import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
 import { currentCredential, ownerOf } from "./tenancy.js";
 import { type SigningPolicy, governingPolicy, modeFor, policyRef } from "./signing-policy.js";
@@ -1397,6 +1397,8 @@ async function projectSetupOn(c: Tx, pkg: { id: string; body: Json }): Promise<b
 async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, hosts: string[]) {
   const inputs: Input[] = fakeScript(run, runtime);
   const header = briefHeader(run);
+  // The install's writing preference (Setup): Focus unless the person chose Standard.
+  const { writing } = await setupView(c);
   if (run.role === "intake") {
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
     const capture = cap.rows[0] ? { ...cap.rows[0].body } : undefined;
@@ -1412,6 +1414,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
       ...workflow.sections,
       `## The request\n\n${capture?.text ?? ""}\n`,
       ...(isNuclearCapture ? [nuclearProStageSkillsSection("intake")] : []),
+      ...(writing === "standard" ? [] : [FOCUS_WRITING]),
       RULES,
     ].join("\n");
     inputs.push(...workflow.inputs);
@@ -1500,6 +1503,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     mode: typeof pkg.body.mode === "string" ? pkg.body.mode : undefined,
     contextProfile: nuclear.profile,
     role: run.role,
+    writing,
   });
   inputs.push(file("BRIEF.md", brief));
   // The role's qualified tools, and its network line only with the hosts the run's sandbox policy

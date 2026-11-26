@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OfficeItem, PersonVerificationEntry } from "../api/types.js";
 import { pkg } from "../test/fixtures.js";
-import { COLUMNS, boardColumn, isVerified, needsIndependentCheck, preCheckState } from "./board.js";
+import { COLUMNS, boardColumn, isVerified, needsIndependentCheck, preCheckState, workStep } from "./board.js";
 
 describe("boardColumn with person verification", () => {
   it("puts Safety work with a passed pre-check and no verification in Person verifies", () => {
@@ -55,5 +55,18 @@ describe("pre-check and verification reads", () => {
     expect(preCheckState(a, office)).toBe("disputed");
     expect(boardColumn(a, preCheckState(a, office), null)).toBe("agent-check");
     expect(boardColumn(a, preCheckState(a, [dispute("A", 1), accept("A", 1)]), true)).toBe("agent-check");
+  });
+});
+
+describe("workStep, where a card stands", () => {
+  it("counts the board's steps, with Person verifies only for work that needs it", () => {
+    expect(workStep(pkg({ status: "draft" }), undefined)).toEqual({ n: 1, of: 5 });
+    expect(workStep(pkg({ status: "in-work" }), undefined)).toEqual({ n: 2, of: 5 });
+    expect(workStep(pkg({ status: "in-verification" }), undefined)).toEqual({ n: 3, of: 5 });
+    expect(workStep(pkg({ status: "in-verification" }), "pass")).toEqual({ n: 4, of: 5 });
+    expect(workStep(pkg({ status: "accepted" }), undefined)).toEqual({ n: 5, of: 5 });
+    expect(workStep(pkg({ status: "accepted", grade: "safety" }), undefined)).toEqual({ n: 6, of: 6 });
+    expect(workStep(pkg({ status: "in-verification", grade: "safety" }), "pass")).toEqual({ n: 5, of: 6 });
+    expect(workStep(pkg({ status: "closed" }), undefined)).toBeNull();
   });
 });

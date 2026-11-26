@@ -13,6 +13,24 @@ export const COLUMNS: { id: ColumnId; title: string }[] = [
 
 export type PreCheck = "none" | "passed" | "disputed";
 
+/**
+ * Where a card stands on its way to Accepted, as "step N of M", so a person never has to hold it in
+ * their head (Focus writing rule 5, docs/reading-comfort.md). The steps are the board's columns; Person
+ * verifies counts only for work that needs it. A passed pre-check counts as Ready to accept, as the
+ * drawer's column word does. Closed work has no step.
+ */
+export function workStep(pkg: WorkPackage, preOutcome: string | undefined): { n: number; of: number } | null {
+  const steps = COLUMNS.map((c) => c.id).filter((id) => id !== "person-verifies" || needsIndependentCheck(pkg));
+  const at: ColumnId | null =
+    pkg.status === "draft" ? "ready"
+    : pkg.status === "released" || pkg.status === "in-work" ? "drafting"
+    : pkg.status === "in-verification" ? (preOutcome === "pass" ? "needs-signature" : "agent-check")
+    : pkg.status === "accepted" ? "reached"
+    : null;
+  if (at === null) return null;
+  return { n: steps.indexOf(at) + 1, of: steps.length };
+}
+
 /** Safety and Material work needs a person verification by someone other than its originator (spec 6.2). */
 export function needsIndependentCheck(pkg: WorkPackage): boolean {
   return pkg.grade === "safety" || pkg.grade === "material";

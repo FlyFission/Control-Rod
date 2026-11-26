@@ -23,16 +23,20 @@ const asDaemon = async (url: string, payload: unknown): Promise<DaemonReply> => 
 async function claim(runtimes: string[]) {
   const r = await asDaemon("/runner/claim", { runtimes });
   if (r.statusCode === 204) return null;
-  const job = r.json() as { run: { id: string; role: string; runtime: { provider: string } }; claim: { token: string } };
+  const job = r.json() as { run: { id: string; role: string; runtime: { provider: string } }; claim: { token: string }; inputs: { name: string; content_base64: string }[] };
   claims.set(job.run.id, job.claim.token);
   return job;
 }
+
+const FOCUS_HEADING = "## Write so the person can act at a glance";
+const brief = (job: { inputs: { name: string; content_base64: string }[] } | null) =>
+  Buffer.from(job?.inputs.find((i) => i.name === "BRIEF.md")?.content_base64 ?? "", "base64").toString();
 
 describe("first-run setup", () => {
   it("is unconfirmed until the person confirms it, with the middle check-in answer preselected", async () => {
     const r = await get();
     expect(r.statusCode).toBe(200);
-    expect(r.json()).toEqual({ confirmed: false, seats: [], check_in: "start-and-merge" });
+    expect(r.json()).toEqual({ confirmed: false, seats: [], check_in: "start-and-merge", writing: "focus" });
   });
 
   it("refuses an unknown agent, an unknown answer, a runtime that is not a name, a duplicate and the test runtime before writing anything", async () => {
@@ -53,7 +57,7 @@ describe("first-run setup", () => {
   it("a roster switch on a fresh install changes that seat and leaves setup unconfirmed", async () => {
     const r = await h.app.inject({ method: "PUT", url: "/setup/seats/codex", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
     expect(r.statusCode, r.body).toBe(200);
-    expect(r.json()).toEqual({ confirmed: false, seats: [{ runtime: "codex", seated: false }], check_in: "start-and-merge" });
+    expect(r.json()).toEqual({ confirmed: false, seats: [{ runtime: "codex", seated: false }], check_in: "start-and-merge", writing: "focus" });
     const back = await h.app.inject({ method: "PUT", url: "/setup/seats/codex", headers: { cookie, origin: ORIGIN }, payload: { seated: true } });
     expect(back.json()).toMatchObject({ confirmed: false });
   });
@@ -110,6 +114,22 @@ describe("first-run setup", () => {
     const job = await claim(["codex"]);
     expect(job?.run.role).toBe("intake");
     expect(job?.run.runtime.provider).toBe("codex");
+    // Focus writing is the default, so the brief carries it.
+    expect(brief(job)).toContain(FOCUS_HEADING);
+  });
+
+  it("keeps the writing answer when it is left out, refuses an unknown one, and Standard drops the section from the brief", async () => {
+    const bad = await put({ seats: [], writing: "terse" });
+    expect(bad.statusCode).toBe(400);
+    expect((await put({ seats: [], writing: "standard" })).json().writing).toBe("standard");
+    expect((await put({ seats: [] })).json().writing).toBe("standard");
+    const c = await h.app.inject({ method: "POST", url: "/captures", headers: { cookie, origin: ORIGIN }, payload: { lane: "internal", text: "What is a valve?" } });
+    expect(c.statusCode, c.body).toBe(201);
+    const job = await claim(["codex"]);
+    expect(job?.run.role).toBe("intake");
+    expect(brief(job)).not.toContain(FOCUS_HEADING);
+    expect(brief(job)).toContain("## Rules");
+    expect((await put({ seats: [], writing: "focus" })).json().writing).toBe("focus");
   });
 
   it("refuses a Member without administrator authority, because seats change dispatch for the whole install", async () => {

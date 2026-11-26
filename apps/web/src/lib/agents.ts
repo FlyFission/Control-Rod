@@ -1,4 +1,4 @@
-import type { AgentSetupView, CheckIn, RuntimeStatus, SubscriptionView } from "../api/types.js";
+import type { AgentSetupView, CheckIn, RuntimeStatus, SubscriptionView, Writing } from "../api/types.js";
 
 /**
  * The agents roster and first-run setup share one view of each agent. It joins three things the app
@@ -106,6 +106,15 @@ export const CHECK_IN_CHOICES: readonly { id: CheckIn; label: string; detail: st
   { id: "start", label: "Just at the start", detail: "You approve the plan, and the agents carry it through.", today: false },
   { id: "start-and-merge", label: "At the start and before merge", detail: "You sign the plan's release, and you sign acceptance before anything merges or ships.", today: true },
   { id: "every-step", label: "At every step", detail: "You see the plan, the work, the check and the merge.", today: false },
+];
+
+/**
+ * How agents write the prose the person reads (answers, the top of a deliverable, finding text).
+ * Focus follows the rules in services/api/src/brief.ts FOCUS_WRITING, adapted from i-have-adhd (MIT).
+ */
+export const WRITING_CHOICES: readonly { id: Writing; label: string; detail: string }[] = [
+  { id: "focus", label: "Focus", detail: "The outcome or next step first, numbered steps, short lists, one next step at the end. Nothing the work needs is left out." },
+  { id: "standard", label: "Standard", detail: "Each agent writes in its own usual style." },
 ];
 
 /** Said under a choice that is saved now but changes nothing yet. */

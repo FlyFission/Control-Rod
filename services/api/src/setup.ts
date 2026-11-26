@@ -25,14 +25,21 @@ export const DISPATCH_LOCK = "select pg_advisory_xact_lock(hashtext('controlrod-
 export const CHECK_IN = ["start", "start-and-merge", "every-step"] as const;
 export type CheckIn = (typeof CHECK_IN)[number];
 
+/**
+ * How agents write the prose a person reads (brief.ts FOCUS_WRITING). Focus is the default; Standard
+ * leaves each agent's own style. A preference like the check-in answer: it stays off the chain.
+ */
+export const WRITING = ["focus", "standard"] as const;
+export type Writing = (typeof WRITING)[number];
+
 /** Runtimes a seat may name: the daemon's known runtimes. The fake runtime is a test double and has no seat. */
 export const SEATABLE = ["claude", "codex", "grok", "opencode", "agy", "ollama"] as const;
 
 export interface AgentSeat { runtime: string; seated: boolean }
-export interface AgentSetupView { confirmed: boolean; confirmed_at?: string; seats: AgentSeat[]; check_in: CheckIn }
+export interface AgentSetupView { confirmed: boolean; confirmed_at?: string; seats: AgentSeat[]; check_in: CheckIn; writing: Writing }
 
 const KEY = "agent_setup";
-const DEFAULT: AgentSetupView = { confirmed: false, seats: [], check_in: "start-and-merge" };
+const DEFAULT: AgentSetupView = { confirmed: false, seats: [], check_in: "start-and-merge", writing: "focus" };
 
 type Json = Record<string, unknown>;
 
@@ -44,11 +51,13 @@ function parse(value: string | undefined): AgentSetupView {
       ? (v.seats as Json[]).filter((s) => SEATABLE.includes(String(s?.runtime) as never)).map((s) => ({ runtime: String(s.runtime), seated: s.seated !== false }))
       : [];
     const check_in = CHECK_IN.includes(v.check_in as CheckIn) ? (v.check_in as CheckIn) : DEFAULT.check_in;
+    const writing = WRITING.includes(v.writing as Writing) ? (v.writing as Writing) : DEFAULT.writing;
     return {
       confirmed: v.confirmed === true,
       ...(typeof v.confirmed_at === "string" ? { confirmed_at: v.confirmed_at } : {}),
       seats,
       check_in,
+      writing,
     };
   } catch {
     return { ...DEFAULT };
@@ -67,7 +76,7 @@ export async function benchedRuntimes(db: Db | Tx): Promise<Set<string>> {
 }
 
 /** Validates the request in full before anything is written; an unknown runtime or answer is refused. */
-export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in?: CheckIn } {
+export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in?: CheckIn; writing?: Writing } {
   const b = (body ?? {}) as Json;
   if (!Array.isArray(b.seats) || b.seats.length > 20) throw new Refusal(400, "invalid-setup", "Setup needs a list of seats");
   const seats: AgentSeat[] = [];
@@ -81,9 +90,13 @@ export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in
     seen.add(runtime);
     seats.push({ runtime, seated: raw.seated });
   }
-  if (b.check_in === undefined) return { seats };
-  if (!CHECK_IN.includes(b.check_in as CheckIn)) throw new Refusal(400, "invalid-setup", "Choose when Control Rod should check with you");
-  return { seats, check_in: b.check_in as CheckIn };
+  if (b.check_in !== undefined && !CHECK_IN.includes(b.check_in as CheckIn)) throw new Refusal(400, "invalid-setup", "Choose when Control Rod should check with you");
+  if (b.writing !== undefined && !WRITING.includes(b.writing as Writing)) throw new Refusal(400, "invalid-setup", "Choose how agents write to you");
+  return {
+    seats,
+    ...(b.check_in !== undefined ? { check_in: b.check_in as CheckIn } : {}),
+    ...(b.writing !== undefined ? { writing: b.writing as Writing } : {}),
+  };
 }
 
 /**
@@ -96,7 +109,7 @@ export async function recordSetup(db: Db, caller: Caller, body: unknown): Promis
   return command(db, "setup.record", async (c) => {
     await lockForSetup(c, caller);
     const before = await setupView(c);
-    const view: AgentSetupView = { confirmed: true, confirmed_at: new Date().toISOString(), seats: merge(before.seats, req.seats), check_in: req.check_in ?? before.check_in };
+    const view: AgentSetupView = { confirmed: true, confirmed_at: new Date().toISOString(), seats: merge(before.seats, req.seats), check_in: req.check_in ?? before.check_in, writing: req.writing ?? before.writing };
     await write(c, view);
     await seatEvent(c, caller, before, view);
     return view;

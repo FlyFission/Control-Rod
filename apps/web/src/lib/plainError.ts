@@ -66,14 +66,31 @@ export function plainError(raw: string | undefined): PlainError | undefined {
 }
 
 /**
+ * The tag for an item, by what it asks of the person rather than the server's gate name ("Standard
+ * gate"), so a glance says what to do (Focus writing, docs/reading-comfort.md). High-consequence work
+ * says so first. An unknown kind keeps the server's label.
+ */
+const KIND_TAG: Record<string, string> = {
+  scram: "Stopped for safety",
+  permission: "An agent is waiting",
+  lost: "Lost track of a run",
+  dispute: "The check found problems",
+  release: "Ready to start",
+  accept: "Ready to accept",
+  confirm: "Confirm the requirements",
+};
+
+/**
  * What the item says, in plain words. A run that failed is not a disagreement about the work, so it
  * is never called a dispute; the runner's own text moves under Details.
  */
-export function plainItem(item: { detail?: string | undefined; risk: { label: string } }): { label: string; detail: string; raw?: string | undefined } {
+export function plainItem(item: { kind?: string; detail?: string | undefined; risk: { label: string } }): { label: string; detail: string; raw?: string | undefined } {
   const failed = /^Run failed: ([\s\S]*)$/.exec(item.detail ?? "");
   if (failed) {
     const plain = plainError(failed[1]);
     return { label: "Did not finish", detail: plain ? `${plain.what}${plain.fix ? ` ${plain.fix}` : ""}` : "A run did not finish.", raw: failed[1] };
   }
-  return { label: item.risk.label, detail: item.detail ?? "" };
+  const tag = item.kind === "lost" && item.risk.label === "Outcome unknown" ? "Not sure the run stopped" : item.kind !== undefined ? KIND_TAG[item.kind] : undefined;
+  const label = tag === undefined ? item.risk.label : /^High consequence/.test(item.risk.label) ? `High risk: ${tag.toLowerCase()}` : tag;
+  return { label, detail: item.detail ?? "" };
 }

@@ -2396,3 +2396,21 @@
   padding: 0;
   border: 0;
 }
+
+/*
+ * Focus order on a card (docs/reading-comfort.md#focus-writing): the quiet facts sit last, and Move to
+ * waits until the card is pointed at, focused or open, on screens that can hover. Touch screens keep it.
+ */
+.bd-meta-quiet {
+  margin-top: 6px;
+}
+@media (hover: hover) {
+  .bd-card:not(:hover):not(:focus-within):not(.selected) .bd-move {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

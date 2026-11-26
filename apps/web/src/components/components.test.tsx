@@ -432,7 +432,7 @@ describe("inbox", () => {
     await screen.findByText("Accept WP-1");
     const mine = screen.getByRole("list", { name: "2 waiting on you" });
     expect([...mine.querySelectorAll(".office-title")].map((n) => n.textContent)).toEqual(["Lost WP-9", "Accept WP-1"]);
-    expect(mine.textContent).toContain("Outcome unknown");
+    expect(mine.textContent).toContain("Not sure the run stopped");
     expect(screen.getByText(/Signing binds revision 1 of WP-1/)).toBeTruthy();
     // The choices live in the drawer, not as a sentence on the row.
     expect(screen.queryByText(/You may/)).toBeNull();

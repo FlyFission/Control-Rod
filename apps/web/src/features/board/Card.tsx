@@ -9,8 +9,6 @@ import { AgentBadge } from "../../components/AgentBadge.js";
 import { elapsedText } from "../../lib/format.js";
 import { showsRunSpinner } from "./boardOrder.js";
 
-const KIND_WORD: Record<Kind, string> = { code: "Code", doc: "Document" };
-const KIND_ICON: Record<Kind, string> = { code: "</>", doc: "☰" };
 
 /** One fixed symbol and word per tone; the symbols belong to the meaning, never to a lens. */
 const TONE: Record<NextLine["tone"], { symbol: string; word?: string }> = {
@@ -26,12 +24,6 @@ export function sinceText(iso: string | undefined): string {
   if (!iso) return "an unknown time";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "an unknown time" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function initials(name: string): string {
-  const parts = name.split(/[\s._-]+/).filter(Boolean);
-  const letters = parts.length > 1 ? parts.slice(0, 2).map((s) => s[0]) : [name.slice(0, 2)];
-  return letters.join("").toUpperCase();
 }
 
 /** "12 min" since a run started, redrawn each 30 s while mounted; nothing ticks in a hidden tab. */
@@ -128,57 +120,6 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
       <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
         {pkg.title}
       </button>
-      <div className="bd-meta">
-        {kinds.map((k) => (
-          <span key={k} className="bd-kind" data-kind={k}>
-            <span aria-hidden="true" className="bd-kind-icon">
-              {KIND_ICON[k]}
-            </span>
-            <span className="bd-kind-word">{KIND_WORD[k]}</span>
-          </span>
-        ))}
-        <span className="bd-id mono">
-          {pkg.id}
-          {pkg.revision > 0 ? ` · version ${pkg.revision + 1}` : ""}
-        </span>
-        {!compact && pkg.grade && pkg.grade !== "general-service" && <span className="bd-grade">{pkg.grade}</span>}
-        {nuclear && <span className="bd-nuclear">Nuclear</span>}
-        {check && (
-          <span className="bd-check">
-            <span aria-hidden="true">{"\u25c6"} </span>
-            Independent check
-          </span>
-        )}
-        <span className="bd-meta-end">
-          {!compact && owner && (
-            <span className="bd-avatar" title={`Owner: ${owner}`}>
-              <span aria-hidden="true">{initials(owner)}</span>
-              <span className="sr-only">Owner {owner}</span>
-            </span>
-          )}
-          {author ? (
-            <span className="bd-agent-icon" title={`${agentWord(author)} does the work`}>
-              <AgentBadge runtime={author} size={18} />
-              <span className="sr-only">Author agent {author}</span>
-            </span>
-          ) : (
-            !compact &&
-            agent &&
-            !checker && (
-              <span className="bd-avatar bd-agent" title={`Agent: ${agent}`}>
-                <span aria-hidden="true">{initials(agent)}</span>
-                <span className="sr-only">Agent {agent}</span>
-              </span>
-            )
-          )}
-          {checker && (
-            <span className="bd-agent-icon bd-agent-checker" title={`${agentWord(checker)} checks it`}>
-              <AgentBadge runtime={checker} size={18} />
-              <span className="sr-only">Checker agent {checker}</span>
-            </span>
-          )}
-        </span>
-      </div>
       {split && (
         <p className="bd-split small muted" title={split.request ? `From your request: ${split.request}` : undefined}>
           Card {split.index} of {split.total} from one request
@@ -225,6 +166,42 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           Retry
         </button>
       )}
+      {/*
+        Focus order (docs/reading-comfort.md): title, what happens next, the one action, then the
+        quiet facts. The kind shows in the filter and the drawer; the owner shows in the drawer.
+      */}
+      <div className="bd-meta bd-meta-quiet">
+        {pkg.grade && pkg.grade !== "general-service" && <span className="bd-grade">{pkg.grade}</span>}
+        {nuclear && <span className="bd-nuclear">Nuclear</span>}
+        {check && (
+          <span className="bd-check">
+            <span aria-hidden="true">{"\u25c6"} </span>
+            Independent check
+          </span>
+        )}
+        <span className="bd-id mono">
+          {pkg.id}
+          {pkg.revision > 0 ? ` · version ${pkg.revision + 1}` : ""}
+        </span>
+        <span className="bd-meta-end">
+          {owner && <span className="sr-only">Owner {owner}</span>}
+          {/* An agent icon only once a real agent has the work; a role's initials ("SA") mean nothing at a glance. */}
+          {author ? (
+            <span className="bd-agent-icon" title={`${agentWord(author)} does the work`}>
+              <AgentBadge runtime={author} size={18} />
+              <span className="sr-only">Author agent {author}</span>
+            </span>
+          ) : (
+            agent && !checker && <span className="sr-only">Agent {agent}</span>
+          )}
+          {checker && (
+            <span className="bd-agent-icon bd-agent-checker" title={`${agentWord(checker)} checks it`}>
+              <AgentBadge runtime={checker} size={18} />
+              <span className="sr-only">Checker agent {checker}</span>
+            </span>
+          )}
+        </span>
+      </div>
     </article>
   );
 }

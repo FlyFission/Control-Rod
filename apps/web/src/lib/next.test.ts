@@ -22,7 +22,7 @@ describe("nextLine", () => {
   it("says a held pre-check needs an independent runtime or an override, not a return for revision", () => {
     const line = nextLine(input({ status: "in-work", actions: [allowed("return", "Return for revision")], heldPreCheck: true }));
     expect(line.tone).toBe("needs");
-    expect(line.text).toMatch(/Pre-check held/);
+    expect(line.text).toMatch(/Check waiting/);
     expect(line.command).toBeUndefined();
   });
   it("does not mark work in progress as Needs you just because Return is open", () => {
@@ -35,8 +35,8 @@ describe("nextLine", () => {
   });
   it("says nobody else can verify, naming who is excluded, to every viewer", () => {
     expect(nextLine(input({ grade: "safety", column: "person-verifies", originators: ["ben", "ana"], otherQualifiedVerifier: false })))
-      .toEqual({ tone: "block", text: "Needs a second qualified person. Originators cannot verify their own work: ben, ana" });
-    expect(nextLine(input({ column: "person-verifies", originators: [], otherQualifiedVerifier: false })).text).toBe("Needs a second qualified person");
+      .toEqual({ tone: "block", text: "Needs a qualified reviewer other than ben, ana, who wrote it" });
+    expect(nextLine(input({ column: "person-verifies", originators: [], otherQualifiedVerifier: false })).text).toBe("Needs a qualified reviewer");
   });
   it("uses the verified value it is given, not one recomputed from the list", () => {
     // The list holds a pass, but the caller says it could not tell: the column is Needs signature, not Person verifies.
@@ -50,11 +50,11 @@ describe("nextLine", () => {
   });
   it("puts the verification before an allowed Accept on unverified independent-check work", () => {
     const acts = [allowed("accept", "Accept"), allowed("accept-with-findings", "Accept with findings")];
-    expect(nextLine(input({ column: "person-verifies", actions: acts }))).toEqual({ tone: "wait", text: "Waiting on a person verification" });
+    expect(nextLine(input({ column: "person-verifies", actions: acts }))).toEqual({ tone: "wait", text: "Waiting for a reviewer" });
     // Unknown verification state is not a pass either.
     expect(nextLine(input({ column: "person-verifies", actions: acts, verified: null })).text).not.toMatch(/^Accept/);
     // Return and Reject are always open; they never make the card read Needs you.
-    expect(nextLine(input({ column: "person-verifies", actions: [...acts, allowed("return", "Return")] })).text).toBe("Waiting on a person verification");
+    expect(nextLine(input({ column: "person-verifies", actions: [...acts, allowed("return", "Return")] })).text).toBe("Waiting for a reviewer");
   });
   it("is not blocked once the work is verified", () => {
     const v = [{ package_revision: 0, outcome: "pass", covers_current_subject: true }] as PersonVerificationEntry[];
@@ -69,7 +69,7 @@ describe("nextLine", () => {
     expect(nextLine(input()).text).toBe("Nothing to do yet");
   });
   it("says an agent is working while a run is active and nothing is allowed", () => {
-    expect(nextLine(input({ status: "in-work", runActive: true, actions: [refused("accept", "no")] }))).toEqual({ tone: "wait", text: "Author running" });
+    expect(nextLine(input({ status: "in-work", runActive: true, actions: [refused("accept", "no")] }))).toEqual({ tone: "wait", text: "Agent working" });
   });
   it("blocks on a disputed pre-check", () => {
     const p = pkg({ status: "in-verification" });

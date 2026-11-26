@@ -254,10 +254,10 @@ describe("the drawer, calm", () => {
 describe("the card's running line", () => {
   it("says what the run is doing from its label, or its role when it has none", () => {
     expect(runLine(run({ status: "running", label: "Writing tests", started_at: "2026-11-24T09:00:00Z" }))).toEqual({ tone: "wait", text: "Writing tests", since: "2026-11-24T09:00:00Z" });
-    expect(runLine(run({ status: "running", started_at: "2026-11-24T09:00:00Z" })).text).toBe("Author running");
-    expect(runLine(run({ status: "running", role: "pre-check" })).text).toBe("Pre-check running");
+    expect(runLine(run({ status: "running", started_at: "2026-11-24T09:00:00Z" })).text).toBe("Agent working");
+    expect(runLine(run({ status: "running", role: "pre-check" })).text).toBe("Being checked");
     // A queued run is waiting, not running: no elapsed time.
-    expect(runLine(run({ status: "queued" }))).toEqual({ tone: "wait", text: "Author queued" });
+    expect(runLine(run({ status: "queued" }))).toEqual({ tone: "wait", text: "Waiting for a free agent" });
   });
 
   it("reads elapsed time the way a card says it", () => {
@@ -290,10 +290,20 @@ describe("the card's running line", () => {
     expect(within(card).queryByText(/Waiting/)).toBeNull();
   });
 
-  it("says a running run without a start time is running, not waiting", async () => {
-    await renderPage(<Card pkg={pkg({ id: "WP-8", title: "Running" })} kinds={["code"]} column="drafting" next={{ tone: "wait", text: "Pre-check running" }} runRunning onOpen={() => {}} />);
+  it("reads title, next step, then the quiet facts, with no kind chip or owner initials on the face", async () => {
+    await renderPage(<Card pkg={pkg({ id: "WP-8", title: "Fix it" })} kinds={["code"]} column="drafting" owner="ben" next={{ tone: "needs", text: "Accept" }} onOpen={() => {}} />);
     const card = screen.getByRole("article");
-    expect(within(card).getByText("Pre-check running")).toBeTruthy();
+    const order = [...card.children].map((e) => e.className);
+    expect(order.indexOf("bd-next")).toBeLessThan(order.findIndex((c) => c.includes("bd-meta")));
+    expect(within(card).queryByText("Code")).toBeNull();
+    expect(card.querySelector(".bd-avatar[title^='Owner']")).toBeNull();
+    expect(within(card).getByText("Owner ben")).toBeTruthy();
+  });
+
+  it("says a running run without a start time is running, not waiting", async () => {
+    await renderPage(<Card pkg={pkg({ id: "WP-8", title: "Running" })} kinds={["code"]} column="drafting" next={{ tone: "wait", text: "Being checked" }} runRunning onOpen={() => {}} />);
+    const card = screen.getByRole("article");
+    expect(within(card).getByText("Being checked")).toBeTruthy();
     expect(within(card).queryByText(/Waiting/)).toBeNull();
   });
 });

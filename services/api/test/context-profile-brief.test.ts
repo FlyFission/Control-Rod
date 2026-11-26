@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { FOCUS_WRITING } from "../src/brief.js";
 import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
@@ -132,6 +133,8 @@ describe("context profiles in the brief", () => {
       `# Control Rod brief\n\nRole: author · Package ${id} revision 0 · Round 1\n`,
       readFileSync(join(repo, "packs", "general", "roles", "general-author.md"), "utf8"),
       `## The work package\n\nSee inputs/PACKAGE.json. Objective: Produce LIGHT1\n`,
+      // Focus writing is the install default (setup.ts), so it sits just before the rules.
+      FOCUS_WRITING,
       RULES_BEFORE,
     ].join("\n");
     expect(input(job, "BRIEF.md")).toBe(before);

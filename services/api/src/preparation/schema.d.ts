@@ -1573,6 +1573,8 @@ export interface components {
             seats: components["schemas"]["AgentSeat"][];
             /** @description Left out when the person did not change it; the saved answer stays. */
             check_in?: components["schemas"]["CheckIn"];
+            /** @description Left out when the person did not change it; the saved answer stays. */
+            writing?: components["schemas"]["Writing"];
         };
         AgentSetupView: {
             /** @description False until the person has confirmed setup once. The app opens on setup until then. */
@@ -1582,6 +1584,8 @@ export interface components {
             /** @description Runtimes not listed here are seated. */
             seats: components["schemas"]["AgentSeat"][];
             check_in: components["schemas"]["CheckIn"];
+            /** @description How agents write to the person. Focus unless the person chose Standard. */
+            writing: components["schemas"]["Writing"];
         };
         ApiError: {
             /** @description A stable reason code (services/api/src/refusals.ts lists every one). */
@@ -3995,6 +3999,14 @@ export interface components {
             /** Format: date-time */
             signed_at: string;
         };
+        /**
+         * @description How agents write the prose a person reads: answers, the top of a deliverable, RESPONSE.md and
+         *     finding text. Focus (the default) leads with the outcome or the next action, numbers steps, ends
+         *     with one next step and keeps lists short, without dropping anything the work needs. Standard
+         *     leaves each agent's own style. Adapted from i-have-adhd (MIT), see THIRD_PARTY_NOTICES.md.
+         * @enum {string}
+         */
+        Writing: "focus" | "standard";
     };
     responses: never;
     parameters: never;

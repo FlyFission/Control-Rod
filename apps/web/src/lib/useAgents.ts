@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
-import type { AgentSetupRequest, AgentSetupView, CheckIn } from "../api/types.js";
+import type { AgentSetupRequest, AgentSetupView, CheckIn, Writing } from "../api/types.js";
 import { AGENTS, type AgentId, type AgentRow, agentRows } from "./agents.js";
 
 /** The three reads the roster and setup share, joined into rows, and the one write that saves a setup. */
@@ -41,13 +41,15 @@ export function useAgents() {
 }
 
 /**
- * The request for what the person changed: the seats they flipped and, if they picked one, the answer.
+ * The request for what the person changed: the seats they flipped and, if they picked them, the
+ * check-in answer and the writing choice.
  * Whatever is left out keeps its saved value on the server. Only agents Control Rod can run carry a seat.
  */
-export function setupRequest(changed: Record<string, boolean>, checkIn: CheckIn | null): AgentSetupRequest {
+export function setupRequest(changed: Record<string, boolean>, checkIn: CheckIn | null, writing: Writing | null = null): AgentSetupRequest {
   return {
     seats: AGENTS.filter((a) => a.runnable && changed[a.id] !== undefined).map((a) => ({ runtime: a.id, seated: changed[a.id]! })),
     ...(checkIn ? { check_in: checkIn } : {}),
+    ...(writing ? { writing } : {}),
   };
 }
 

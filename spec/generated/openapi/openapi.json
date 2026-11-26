@@ -8406,6 +8406,10 @@
           "check_in": {
             "$ref": "#/components/schemas/CheckIn",
             "description": "Left out when the person did not change it; the saved answer stays."
+          },
+          "writing": {
+            "$ref": "#/components/schemas/Writing",
+            "description": "Left out when the person did not change it; the saved answer stays."
           }
         }
       },
@@ -8414,7 +8418,8 @@
         "required": [
           "confirmed",
           "seats",
-          "check_in"
+          "check_in",
+          "writing"
         ],
         "properties": {
           "confirmed": {
@@ -8434,6 +8439,10 @@
           },
           "check_in": {
             "$ref": "#/components/schemas/CheckIn"
+          },
+          "writing": {
+            "$ref": "#/components/schemas/Writing",
+            "description": "How agents write to the person. Focus unless the person chose Standard."
           }
         }
       },
@@ -15674,6 +15683,14 @@
             "format": "date-time"
           }
         }
+      },
+      "Writing": {
+        "type": "string",
+        "enum": [
+          "focus",
+          "standard"
+        ],
+        "description": "How agents write the prose a person reads: answers, the top of a deliverable, RESPONSE.md and\nfinding text. Focus (the default) leads with the outcome or the next action, numbers steps, ends\nwith one next step and keeps lists short, without dropping anything the work needs. Standard\nleaves each agent's own style. Adapted from i-have-adhd (MIT), see THIRD_PARTY_NOTICES.md."
       }
     }
   },

@@ -139,6 +139,7 @@ export type SubscriptionView = S["SubscriptionView"];
 export type AgentSetupView = S["AgentSetupView"];
 export type AgentSetupRequest = S["AgentSetupRequest"];
 export type CheckIn = S["CheckIn"];
+export type Writing = S["Writing"];
 export type PreparationView = S["ControlRod.Preparation.PreparationView"];
 export type PreparationContent = S["ControlRod.Preparation.PreparationContent"];
 export type ResolutionRequest = S["ControlRod.Preparation.ResolutionRequest"];

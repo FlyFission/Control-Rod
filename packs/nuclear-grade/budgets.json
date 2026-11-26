@@ -15,7 +15,7 @@
     },
     {
       "path": "services/api/src/brief.ts",
-      "sha256": "1924c056249dc322df4fd3b537cd9736535ca54cec91f115def37c9bf87b6cb8"
+      "sha256": "70ddbe9bdbcca01e9bffa3a154beb2e6d850d7caebb4859f23eddf0e1064e25e"
     },
     {
       "path": "services/api/src/context-profile.ts",
@@ -34,7 +34,7 @@
       "sha256": "7a9a1ced17dcb7af5c834dac471db423ac0ee3ceceae82ec507a0e911050e3cf"
     }
   ],
-  "inputs_sha256": "13286300b16f8abaeb57988d8877b05f37cb8433ca591236bc13a5eaf315a3fe",
+  "inputs_sha256": "2dc2e73ac2cd87768245fc4d62e08a0d176886eabc8357b08adfc90d9c7e80b6",
   "briefs": [
     {
       "fixture": "general-service-quick",
@@ -48,12 +48,12 @@
       "locked_nuclear": false,
       "clusters": [],
       "light": {
-        "tokens": 338,
-        "budget": 338
+        "tokens": 784,
+        "budget": 784
       },
       "nuclear": {
-        "tokens": 3186,
-        "budget": 3186
+        "tokens": 3632,
+        "budget": 3632
       }
     },
     {
@@ -70,12 +70,12 @@
         "configuration-management"
       ],
       "light": {
-        "tokens": 337,
-        "budget": 337
+        "tokens": 783,
+        "budget": 783
       },
       "nuclear": {
-        "tokens": 5676,
-        "budget": 5676
+        "tokens": 6122,
+        "budget": 6122
       }
     },
     {
@@ -93,12 +93,12 @@
         "review-panel"
       ],
       "light": {
-        "tokens": 338,
-        "budget": 338
+        "tokens": 784,
+        "budget": 784
       },
       "nuclear": {
-        "tokens": 6252,
-        "budget": 6252
+        "tokens": 6698,
+        "budget": 6698
       }
     },
     {
@@ -120,12 +120,12 @@
         "agent-authority"
       ],
       "light": {
-        "tokens": 338,
-        "budget": 338
+        "tokens": 784,
+        "budget": 784
       },
       "nuclear": {
-        "tokens": 6352,
-        "budget": 6352
+        "tokens": 6798,
+        "budget": 6798
       }
     }
   ]

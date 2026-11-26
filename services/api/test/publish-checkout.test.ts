@@ -199,6 +199,18 @@ describe("publishCheckout", () => {
 
   it("opens nothing for a repository that is not on GitHub", async () => {
     expect(await publishCheckout(accepted({ repo: "app" }), t())).toMatchObject({ opened: false, reason: "not-github" });
+    g(join(root, "app"), "remote", "add", "origin", "https://gitlab.com/acme/app.git");
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    expect(await publishCheckout(accepted({ repo: "app" }), t())).toMatchObject({ opened: false, reason: "not-github" });
+  });
+
+  it("opens the pull request on GitHub for a project bound to a local clone whose origin is there", async () => {
+    // Projects made from the Local clones list name the clone ("app"), not owner/name.
+    g(join(root, "app"), "remote", "add", "origin", "https://github.com/acme/app.git");
+    writeFileSync(join(worktree, "README.md"), "# app\nchanged\n");
+    const r = await publishCheckout(accepted({ repo: "app" }), t());
+    expect(r).toMatchObject({ opened: true, url: "https://github.com/acme/app/pull/7", branch: "controlrod/WP-1-r0" });
+    expect(readFileSync(ghLog, "utf8").split("\n")).toEqual(expect.arrayContaining(["create", "--repo", "github.com/acme/app"]));
   });
 
   it("never reads the checkout's own config, so nothing in it can redirect or widen the push", async () => {

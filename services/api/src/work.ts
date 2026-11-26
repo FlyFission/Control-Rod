@@ -901,6 +901,7 @@ type ProjectRuntimePrefs = {
   authorModel?: string;
   checkerModel?: string;
   laneAgents?: Record<string, string>;
+  setup?: boolean;
 };
 
 type CaptureRuntimeTag = {
@@ -1348,6 +1349,18 @@ async function workflowContext(c: Tx, cfg: WorkConfig, run: Json, body: Json | u
   return workflowBriefSections(n.packs, n.resolved.workflow as Workflow, run.role);
 }
 
+/** The TOOLS.txt line that tells the daemon not to install from the lockfile (runner.SetupDirective). */
+export const SETUP_OFF = "setup: off";
+
+/** Whether the package's project leaves the install from its lockfile on (the default). */
+async function projectSetupOn(c: Tx, pkg: { id: string; body: Json }): Promise<boolean> {
+  const project = pkg.body?.project;
+  if (typeof project !== "string" || !project) return true;
+  const owner = await ownerOf(c, "package", pkg.id);
+  if (!owner) return true;
+  return (await projectRuntimePrefs(c, owner.org_id, project))?.setup !== false;
+}
+
 async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, hosts: string[]) {
   const inputs: Input[] = fakeScript(run, runtime);
   const header = briefHeader(run);
@@ -1458,7 +1471,8 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   inputs.push(file("BRIEF.md", brief));
   // The role's qualified tools, and its network line only with the hosts the run's sandbox policy
   // allows (plan task 6.1); the daemon derives each CLI's settings from the policy, not this file.
-  inputs.push(file("TOOLS.txt", toolsFile(readRoleTools(roleToolText(cfg, run, pkg.body)).tools, hosts)));
+  const tools = toolsFile(readRoleTools(roleToolText(cfg, run, pkg.body)).tools, hosts);
+  inputs.push(file("TOOLS.txt", (await projectSetupOn(c, pkg)) ? tools : `${tools}${SETUP_OFF}\n`));
   return { run, package: run.preparation_manifest_digest?pkg.body:{ ...pkg.body, status: pkg.status }, inputs, ...(findings ? { findings } : {}) };
 }
 

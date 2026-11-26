@@ -29,6 +29,8 @@ export interface ProjectWorkspacePrefs {
   author: AgentRuntimeSelection;
   checker: AgentRuntimeSelection;
   laneAgents?: Record<string, string>;
+  /** false turns off the dependency install the daemon runs in a new worktree before the author starts. */
+  setup?: boolean;
 }
 
 export interface WorkspaceProjectView {
@@ -43,6 +45,8 @@ export interface WorkspaceProjectView {
   author: AgentRuntimeSelection;
   checker: AgentRuntimeSelection;
   laneAgents?: Record<string, string>;
+  /** false when the project turned off the install from its lockfile in new worktrees. */
+  setup?: boolean;
   /** The work lanes the Plant's bays follow. An old project reads as the capital-project preset. */
   work_lanes: WorkLaneSet;
   /** What needs a passkey on this project's routine cards, when the owner has chosen. */
@@ -144,6 +148,7 @@ function mergePrefs(raw?: Partial<ProjectWorkspacePrefs>): ProjectWorkspacePrefs
     author: cleanSelection(raw?.author, DEFAULT_PREFS.author),
     checker: cleanSelection(raw?.checker, DEFAULT_PREFS.checker),
     ...(laneAgents ? { laneAgents } : {}),
+    ...(raw?.setup === false ? { setup: false } : {}),
   };
 }
 
@@ -158,6 +163,7 @@ export async function projectRuntimePrefs(
   authorModel?: string;
   checkerModel?: string;
   laneAgents?: Record<string, string>;
+  setup: boolean;
 } | null> {
   const ref = projectRef.trim();
   if (!ref) return null;
@@ -180,6 +186,7 @@ export async function projectRuntimePrefs(
     authorModel: prefs.author?.model,
     checkerModel: prefs.checker?.model,
     ...(prefs.laneAgents ? { laneAgents: prefs.laneAgents } : {}),
+    setup: prefs.setup !== false,
   };
 }
 
@@ -309,7 +316,7 @@ export async function updateWorkspaceProject(
   if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
   const map = await readPrefsMap(c, caller.orgId);
   const current = mergePrefs(map[projectId]);
-  const { laneAgents: currentLaneAgents, ...baseCurrent } = current;
+  const { laneAgents: currentLaneAgents, setup: currentSetup, ...baseCurrent } = current;
   const nextLaneAgents =
     patch.laneAgents === null
       ? undefined
@@ -325,6 +332,7 @@ export async function updateWorkspaceProject(
     ...(patch.author !== undefined ? { author: patch.author as AgentRuntimeSelection } : {}),
     ...(patch.checker !== undefined ? { checker: patch.checker as AgentRuntimeSelection } : {}),
     ...(nextLaneAgents !== undefined ? { laneAgents: nextLaneAgents } : {}),
+    ...((typeof patch.setup === "boolean" ? patch.setup : currentSetup) === false ? { setup: false } : {}),
   });
   // Work lanes live on the project record, beside its other settings, and are checked against the spec.
   const body = r.rows[0].body;
@@ -345,6 +353,7 @@ export async function updateWorkspaceProject(
     checker: next.checker.ecosystem,
     ...(next.laneAgents ? { lane_agents: next.laneAgents } : {}),
     ...(patch.work_lanes !== undefined ? { work_lanes: lanes.preset } : {}),
+    ...(typeof patch.setup === "boolean" ? { setup: patch.setup } : {}),
   });
   return {
     id: projectId,

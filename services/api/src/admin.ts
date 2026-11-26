@@ -33,8 +33,11 @@ import { resolveChoice } from "./work-lanes.js";
  * writer transaction against the Member's latest qualification and active status.
  */
 
-/** Project settings that only pick agents: a press, no passkey. */
-const AGENT_PICK_KEYS = new Set(["laneAgents", "author", "checker"]);
+/**
+ * Project settings that are a press, no passkey: picking agents, and the switch for the install from
+ * the lockfile (it runs no project code, and turning it off only removes work).
+ */
+const AGENT_PICK_KEYS = new Set(["laneAgents", "author", "checker", "setup"]);
 
 export interface Caller { userName: string; memberId: string; orgId: string }
 type Need = "administrator" | "policy" | "administrator+policy" | "lane" | "member";

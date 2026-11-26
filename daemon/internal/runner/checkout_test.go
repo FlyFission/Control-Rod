@@ -5,6 +5,8 @@ package runner
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -218,4 +220,35 @@ func TestDaemonRunsInBoundCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	release()
+}
+
+// A checkout author run installs what the lockfile pins before the agent starts, in the checkout,
+// and a failed install still lets the agent run.
+func TestCheckoutAuthorRunInstallsFromTheLockfileFirst(t *testing.T) {
+	b := checkoutFixture(t)
+	if err := os.WriteFile(filepath.Join(b.Path, "go.sum"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d := New(Config{Home: t.TempDir(), Runtimes: []string{"fake"}, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	var dirs []string
+	edited := false
+	d.setup = func(_ context.Context, dir string, s SetupStep) ([]byte, error) {
+		dirs = append(dirs, dir+"|"+s.Bin)
+		if b, _ := os.ReadFile(filepath.Join(dir, "project.txt")); string(b) != "before\n" {
+			edited = true
+		}
+		return nil, errors.New("exit status 1")
+	}
+	if _, err := d.execute(context.Background(), authorCheckoutJob(t, "setup-first", b, checkoutEditScript)); err != nil {
+		t.Fatal(err)
+	}
+	if len(dirs) != 1 || dirs[0] != b.Path+"|go" {
+		t.Fatalf("setup ran %v, want once in the checkout", dirs)
+	}
+	if edited {
+		t.Fatal("setup ran after the agent")
+	}
+	if got, _ := os.ReadFile(filepath.Join(b.Path, "project.txt")); string(got) != "after\n" {
+		t.Fatalf("the agent did not run after a failed setup: %q", got)
+	}
 }

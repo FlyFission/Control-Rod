@@ -149,6 +149,8 @@ func readTools(ws *Workspace) (tools []string, network bool) {
 			network = true
 		case strings.HasPrefix(strings.ToLower(t), "network:"):
 			// Any other network value means no network.
+		case strings.HasPrefix(strings.ToLower(t), "setup:"):
+			// The checkout setup switch (SetupWanted), read by the daemon.
 		default:
 			tools = append(tools, t)
 		}

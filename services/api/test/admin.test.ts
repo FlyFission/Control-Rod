@@ -257,6 +257,25 @@ describe("commands", () => {
     expect(repo.json().code).toBe("signature-required");
   });
 
+  it("turns the install from the lockfile off and on with a press, and leaves it on by default", async () => {
+    const made = await signed(ben, benKey, "project.workspace-create", { name: "Setup switch" });
+    expect(made.statusCode, made.body).toBe(200);
+    const { id } = made.json();
+    expect(made.json().setup).toBeUndefined();
+    const press = (patch: Json) => h.app.inject({
+      method: "PATCH", url: `/workspace/projects/${id}`, headers: { cookie: ben, origin: ORIGIN }, payload: { payload: { project_id: id, patch } },
+    });
+    const off = await press({ setup: false });
+    expect(off.statusCode, off.body).toBe(200);
+    expect(off.json().setup).toBe(false);
+    // Another pick keeps the switch where it was.
+    const picked = await press({ laneAgents: { drafting: "claude" } });
+    expect(picked.json().setup).toBe(false);
+    const on = await press({ setup: true });
+    expect(on.statusCode, on.body).toBe(200);
+    expect(on.json().setup).toBeUndefined();
+  });
+
   let project: string;
   it("creates and updates a project and refuses unsafe autonomy", async () => {
     const created = await signed(ben, benKey, "project.create", { name: "Plant", mode: "capital-projects", default_rigor: "standard", lanes: ["internal", "proprietary"], qa_overlays: ["nqa-1"] });

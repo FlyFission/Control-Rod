@@ -138,7 +138,9 @@ func Token(getenv func(string) string, home string) (string, error) {
 
 // Daemon claims and runs jobs.
 type Daemon struct {
-	cfg    Config
+	cfg Config
+	// setup runs one checkout setup step; nil runs the real tool (tests replace it).
+	setup  SetupRunner
 	client *Client
 	log    *slog.Logger
 	outbox *Outbox
@@ -1649,6 +1651,13 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		}
 		release(errSettled)
 	}()
+
+	// A fresh worktree has no packages and the agent's sandbox has no network: install what the
+	// lockfile pins first, outside the sandbox. Authors only, so a checker's view of the checkout is
+	// exactly what the author left. Never fails the run.
+	if ws.Checkout != nil && !ws.Checker && SetupWanted(ws) {
+		buf.addEvents(PrepareCheckout(runCtx, ws.Dir, d.setup, time.Now))
+	}
 
 	launch := LaunchFor(runtime, job.Run, ws, sandbox)
 	var spawned *SpawnReceipt

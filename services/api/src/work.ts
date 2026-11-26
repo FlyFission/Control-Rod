@@ -465,6 +465,37 @@ function findingDetail(f: Json): Json {
   return out;
 }
 
+/** The patch name the author is asked for (runner checkoutPrompt). */
+export const CHANGE_PATCH = "changes.patch";
+
+/**
+ * Which of an author's patch outputs make up the change to the repository. Agents often write more
+ * than one: a copy under a work folder, or the fix and its tests as two files. A patch at the top of
+ * the output wins over ones in folders; among top-level patches, one named changes.patch wins;
+ * otherwise patches that touch disjoint files are the change together, in name order. Patches that
+ * touch the same file are refused, since applying both could double a change.
+ */
+export function changePatches<T extends { name: string }>(outputs: T[], filesOf: (o: T) => string[]): { use: T[] } | { refused: string } {
+  const all = outputs.filter((o) => /\.(patch|diff)$/i.test(o.name));
+  if (all.length <= 1) return { use: all };
+  const top = all.filter((o) => !o.name.includes("/"));
+  const pool = top.length ? top : all;
+  if (pool.length === 1) return { use: pool };
+  const named = pool.find((o) => o.name.toLowerCase() === CHANGE_PATCH);
+  if (named) return { use: [named] };
+  const seen = new Map<string, string>();
+  for (const o of pool) {
+    for (const f of filesOf(o)) {
+      const other = seen.get(f);
+      if (other !== undefined && other !== o.name) {
+        return { refused: `The accepted work has ${pool.length} patch files, and ${other} and ${o.name} both change ${f}, so Control Rod cannot tell which is the change to open a pull request for.` };
+      }
+      seen.set(f, o.name);
+    }
+  }
+  return { use: [...pool].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) };
+}
+
 /** The files a unified diff touches, in order, from its `diff --git` and `+++`/`---` headers. */
 export function patchFiles(patch: string): string[] {
   const seen = new Set<string>();
@@ -484,13 +515,15 @@ export function patchFiles(patch: string): string[] {
  * coming back inconclusive.
  */
 async function wholeChangeSection(c: Tx, captureId: string | null | undefined, delivered: { name: string; bytes: Buffer }[]): Promise<string | null> {
-  const patches = delivered.filter((o) => /\.(patch|diff)$/i.test(o.name));
-  if (patches.length !== 1 || !captureId) return null;
+  const picked = changePatches(delivered, (o) => patchFiles(o.bytes.toString("utf8")));
+  if (!("use" in picked) || picked.use.length === 0 || !captureId) return null;
+  const patches = picked.use;
   const cap = await c.query<{ checkout: boolean }>("select (body ? 'checkout') as checkout from captures where id = $1", [captureId]);
   if (!cap.rows[0]?.checkout) return null;
-  const files = patchFiles(patches[0]!.bytes.toString("utf8"));
+  const files = [...new Set(patches.flatMap((p) => patchFiles(p.bytes.toString("utf8"))))];
   const list = files.length ? files.map((f) => `- \`${f}\``).join("\n") : "- (no files)";
-  return `## The whole change\n\nControl Rod opens the pull request from the checked-out commit plus inputs/deliverables/${patches[0]!.name} and nothing else, so that patch is the complete change to the repository. Every file and line it does not touch stays exactly as it is. It touches:\n\n${list}\n\nJudge any criterion about other files or lines staying unchanged from this: it is met when the patch touches nothing beyond what the card asked for.\n`;
+  const named = patches.map((p) => `inputs/deliverables/${p.name}`).join(" and ");
+  return `## The whole change\n\nControl Rod opens the pull request from the checked-out commit plus ${named} and nothing else, so ${patches.length > 1 ? "those patches are" : "that patch is"} the complete change to the repository. Every file and line it does not touch stays exactly as it is. It touches:\n\n${list}\n\nJudge any criterion about other files or lines staying unchanged from this: it is met when the patch touches nothing beyond what the card asked for.\n`;
 }
 
 /** The union of the files a fix may change, from the findings that name any. Sorted. */
@@ -3976,18 +4009,22 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
     return;
   }
   const finalHead = String(s.author.body?.trace?.checkout_final?.head ?? checkout.head ?? "");
-  const patches = s.outputs.filter((o) => /\.(patch|diff)$/i.test(o.name));
-  if (patches.length > 1) {
-    await notOpened("failed", `The accepted work has ${patches.length} patch files, so Control Rod cannot tell which one to open a pull request for.`);
+  const read: { name: string; bytes: Buffer }[] = [];
+  for (const o of s.outputs.filter((o) => /\.(patch|diff)$/i.test(o.name))) {
+    const out = (await db.query<{ bytes: Buffer; sha256: string }>("select bytes, sha256 from outputs where run_id = $1 and name = $2", [s.author.id, o.name])).rows[0];
+    if (!out) { await notOpened("failed", "The accepted patch could not be read."); return; }
+    await verifyRecordedOutput(db, { packageId: id, revision, runId: s.author.id, path: o.name }, out);
+    read.push({ name: o.name, bytes: out.bytes });
+  }
+  const picked = changePatches(read, (o) => patchFiles(o.bytes.toString("utf8")));
+  if (!("use" in picked)) {
+    await notOpened("failed", picked.refused);
     return;
   }
-  let patch: Buffer | null = null;
-  if (patches[0]) {
-    const out = (await db.query<{ bytes: Buffer; sha256: string }>("select bytes, sha256 from outputs where run_id = $1 and name = $2", [s.author.id, patches[0].name])).rows[0];
-    if (!out) { await notOpened("failed", "The accepted patch could not be read."); return; }
-    await verifyRecordedOutput(db, { packageId: id, revision, runId: s.author.id, path: patches[0].name }, out);
-    patch = out.bytes;
-  }
+  // Disjoint patches together; each ends with a newline so the next one's header starts a line.
+  const patch: Buffer | null = picked.use.length
+    ? Buffer.concat(picked.use.flatMap((p) => (p.bytes.at(-1) === 0x0a ? [p.bytes] : [p.bytes, Buffer.from("\n")])))
+    : null;
   const result = await publishCheckout({
     repo: String(checkout.repo ?? ""), root: String(checkout.root ?? ""), path: String(checkout.path ?? ""),
     boundHead: String(checkout.head ?? ""), finalHead, patch, publishBranch: publishBranchOf(id, revision),

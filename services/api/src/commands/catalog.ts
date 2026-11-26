@@ -42,6 +42,7 @@ export const COMMANDS = {
   "run.log": entry("agent-via-daemon", "none", "Submit output (run log)"),
   "run.complete": entry("agent-via-daemon", "none", "Submit output, submit pre-check", "write"),
   "run.record-refused": entry("agent-via-daemon", "none", "Submit output (refused completion record)"),
+  "daemon.enroll-first-key": entry("agent-via-daemon", "none", "Enroll daemon signing key (first use)"),
   "run.sweep-lost": entry("system", "none", "Sweep lost"),
   "run.reconcile-evidence": entry("agent-via-daemon", "none", "Reconcile (daemon restart evidence)"),
   "run.reconcile": entry("member", "direct", "Reconcile"),

@@ -411,6 +411,35 @@ export async function enrollDaemonKey(c: Tx, orgId: string, memberId: string, p:
   return { key_id: keyId, status: "active" };
 }
 
+/**
+ * Enrolls the local daemon's signing key on first use, with the daemon's own token. It enrolls only
+ * while the organization has never had a signing key (none active, none retired): the first key a
+ * fresh install's daemon presents. After that, a different key still needs an administrator's
+ * signed daemon.enroll-key. Returns enrolled, already (this key is active), or needs-admin. With no
+ * organization yet (setup not finished), returns no-organization and the daemon tries again later.
+ */
+export async function enrollFirstDaemonKey(c: Tx, p: Record<string, unknown>) {
+  const raw = Buffer.from(String(p.public_key ?? ""), "base64");
+  if (raw.length !== 32) throw new Refusal(400, "invalid", "public_key must be the base64 of a 32-byte Ed25519 key");
+  const keyId = createHash("sha256").update(raw).digest("hex");
+  const orgs = (await c.query<{ id: string }>("select id from organizations order by id limit 2")).rows;
+  if (orgs.length === 0) return { key_id: keyId, status: "no-organization" };
+  if (orgs.length > 1) return { key_id: keyId, status: "needs-admin" };
+  const orgId = orgs[0]!.id;
+  // One first-use enrollment at a time, so two daemons cannot both enroll a "first" key.
+  await c.query("select pg_advisory_xact_lock(hashtext('controlrod.daemon_first_key'))");
+  const rows = (await c.query<{ key_id: string; status: string }>(
+    "select key_id, status from daemon_signing_keys where org_id = $1", [orgId])).rows;
+  const mine = rows.find((r) => r.key_id === keyId);
+  if (mine) return { key_id: keyId, status: mine.status === "active" ? "already" : "needs-admin" };
+  if (rows.length > 0) return { key_id: keyId, status: "needs-admin" };
+  await c.query(
+    "insert into daemon_signing_keys (org_id, key_id, public_key, status, enrolled_by) values ($1, $2, $3, 'active', 'daemon-first-use')",
+    [orgId, keyId, raw.toString("base64")],
+  );
+  return { key_id: keyId, status: "enrolled" };
+}
+
 /** Retires one enrolled key. Signatures from it stop counting at once. The row stays for the audit. */
 export async function retireDaemonKey(c: Tx, orgId: string, p: Record<string, unknown>) {
   const keyId = String(p.key_id ?? "");

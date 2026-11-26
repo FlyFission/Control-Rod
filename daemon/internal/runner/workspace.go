@@ -74,6 +74,14 @@ type Workspace struct {
 	// RunHome is a per-run home folder a runtime starts with (HOME), outside the workspace and
 	// so not writable by its agent. The daemon removes it after the run.
 	RunHome string
+	// IsolatedLoginHome is a per-run, disposable copy of a self-confined checker's login home
+	// (macOS Codex: CODEX_HOME), in a private folder outside every path the agent may write.
+	// It holds only a copy of the credential file and what the CLI records during the run (its
+	// session rollout, which names the model). The agent's commands are denied its whole folder, and the
+	// daemon removes it after the run.
+	IsolatedLoginHome string
+	// CredentialCopy records the host sign-in file copied into IsolatedLoginHome.
+	CredentialCopy *credentialCopy
 	// RunRoot is a per-run folder a runtime's workspace was made in (workspaceRooter). It holds
 	// only this run's workspace and run home, and the daemon removes it after the run.
 	RunRoot string

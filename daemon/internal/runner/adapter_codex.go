@@ -1,8 +1,12 @@
 package runner
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -107,6 +111,11 @@ func (a codexAdapter) Probe(ctx context.Context, _ string, run CommandRunner) Ru
 }
 
 func (a codexAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
+	if ws != nil && ws.Checker && a.SelfConfinedChecker() {
+		if err := a.prepareIsolatedHome(ws); err != nil {
+			return nil, fmt.Errorf("prepare Codex's disposable login home: %w", err)
+		}
+	}
 	args, err := CodexArgs(ws, RequestedModel(run), p, at)
 	if err != nil {
 		return nil, err
@@ -206,4 +215,156 @@ func codexFeaturesOff(list string) map[string]bool {
 		}
 	}
 	return off
+}
+
+// prepareIsolatedHome gives a self-confined (macOS) Codex checker its own CODEX_HOME: a fresh,
+// uniquely named folder under codexHomesRoot holding a copy of auth.json and nothing else. Codex
+// keeps its session rollout, its skill sync and its caches there, not in the real ~/.codex, so a
+// check never writes the user's login folder. The whole root is denied to every Codex checker's
+// commands (CodexPolicyArgs), so no run's agent can read its own or another run's copy, including
+// homes made after it started. Without a credential file to copy, the run keeps the real login
+// folder and --ephemeral, and its model stays unknown.
+func (a codexAdapter) prepareIsolatedHome(ws *Workspace) error {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return nil
+	}
+	src := filepath.Join(a.LoginDir(home, os.Getenv), "auth.json")
+	st, err := os.Lstat(src)
+	if err != nil || !st.Mode().IsRegular() {
+		return nil
+	}
+	cred, err := os.ReadFile(src)
+	if err != nil {
+		return nil
+	}
+	root, err := codexHomesRoot()
+	if err != nil {
+		return err
+	}
+	removeStaleIsolatedHomes(root, time.Now().Add(-staleIsolatedHomeAge))
+	iso, err := os.MkdirTemp(root, "run-")
+	if err != nil {
+		return err
+	}
+	ws.IsolatedLoginHome = iso
+	ws.CredentialCopy = &credentialCopy{Host: src, Copy: filepath.Join(iso, "auth.json"), Original: cred}
+	return os.WriteFile(ws.CredentialCopy.Copy, cred, 0o600)
+}
+
+// staleIsolatedHomeAge is how old a disposable login home must be before another run may remove
+// it as a crashed run's leftover: far longer than any check runs.
+const staleIsolatedHomeAge = 24 * time.Hour
+
+// codexHomesRoot is the private folder disposable Codex login homes are made in:
+// /tmp/controlrod-codexhomes-<uid> (never TMPDIR), mode 0700 and owned by this user.
+func codexHomesRoot() (string, error) {
+	return codexHomesRootIn("/tmp")
+}
+
+// codexHomesRootPath is where codexHomesRootIn makes the folder, with the temporary folder's
+// links resolved (/tmp is /private/tmp on macOS).
+func codexHomesRootPath(tmp string) string {
+	if real, err := filepath.EvalSymlinks(tmp); err == nil {
+		tmp = real
+	}
+	return filepath.Join(tmp, fmt.Sprintf("controlrod-codexhomes-%d", os.Getuid()))
+}
+
+// LoginCopyLocations are the folders of per-run login copies that exist on this machine, for
+// SandboxPaths.LoginCopies: every agent, author or checker, is denied them.
+func LoginCopyLocations() []string {
+	root := codexHomesRootPath("/tmp")
+	if _, err := os.Lstat(root); err != nil {
+		return nil
+	}
+	return []string{root}
+}
+
+func codexHomesRootIn(tmp string) (string, error) {
+	root := codexHomesRootPath(tmp)
+	if err := os.Mkdir(root, 0o700); err != nil && !os.IsExist(err) {
+		return "", err
+	}
+	fi, err := os.Lstat(root)
+	if err != nil {
+		return "", err
+	}
+	if !fi.IsDir() || !fileOwnedByUser(fi) {
+		return "", fmt.Errorf("%s must be a folder of this user's", root)
+	}
+	if fi.Mode().Perm()&0o077 != 0 {
+		if err := os.Chmod(root, 0o700); err != nil {
+			return "", err
+		}
+	}
+	return root, nil
+}
+
+// removeStaleIsolatedHomes deletes leftover login homes in root last changed before cutoff (a
+// crashed run's copy of auth.json): real directories owned by this user only. A live run's home
+// is far younger than the cutoff, so it is never taken.
+func removeStaleIsolatedHomes(root string, cutoff time.Time) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		p := filepath.Join(root, e.Name())
+		st, err := os.Lstat(p)
+		if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 || !fileOwnedByUser(st) {
+			continue
+		}
+		if st.ModTime().Before(cutoff) {
+			_ = os.RemoveAll(p)
+		}
+	}
+}
+
+// PostRunModels reads the models Codex recorded for the run from the session rollout(s) under the
+// run's disposable CODEX_HOME. The JSON stream never names the model; a rollout line of type
+// turn_context carries it as payload.model. Names are cleaned like ReportedModel's. No rollout, or
+// no model in it, gives nothing, and the model stays unknown.
+func (codexAdapter) PostRunModels(home string) []string {
+	if home == "" {
+		return nil
+	}
+	set := map[string]struct{}{}
+	_ = filepath.WalkDir(filepath.Join(home, "sessions"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".jsonl") || !d.Type().IsRegular() {
+			return nil
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return nil
+		}
+		defer f.Close()
+		r := bufio.NewReaderSize(f, 1<<20)
+		for {
+			line, rerr := r.ReadBytes('\n')
+			if bytes.Contains(line, []byte(`"turn_context"`)) {
+				var ev struct {
+					Type    string `json:"type"`
+					Payload struct {
+						Model string `json:"model"`
+					} `json:"payload"`
+				}
+				if json.Unmarshal(line, &ev) == nil && ev.Type == "turn_context" {
+					if m := cleanModelName(ev.Payload.Model); m != "" {
+						set[m] = struct{}{}
+					}
+				}
+			}
+			if rerr != nil {
+				break
+			}
+		}
+		return nil
+	})
+	out := make([]string, 0, len(set))
+	for m := range set {
+		out = append(out, m)
+	}
+	sort.Strings(out)
+	return out
 }

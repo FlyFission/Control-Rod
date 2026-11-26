@@ -84,7 +84,19 @@ func TestCheckerStagesInstructionsOutOfDiscovery(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
 	t.Setenv("CLAUDE_CODE_OAUTH_TOKEN", "oauth-test")
 	t.Setenv("OPENAI_API_KEY", "sk-openai-test")
+	// A fake Codex login, so a macOS Codex checker's disposable home copies this and never the
+	// real sign-in; the copy is removed when the test ends.
+	codexHome := t.TempDir()
+	if err := os.WriteFile(filepath.Join(codexHome, "auth.json"), []byte(`{"fake":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CODEX_HOME", codexHome)
 	ws, _ := prepareCheckerFixture(t)
+	t.Cleanup(func() {
+		if ws.IsolatedLoginHome != "" {
+			os.RemoveAll(ws.IsolatedLoginHome)
+		}
+	})
 	marker := os.Getenv("CHECKER_HOOK_MARKER")
 
 	for _, name := range []string{"AGENTS.md", "CLAUDE.md", "GEMINI.md", ".claude", ".codex", ".agents", ".grok", ".opencode", ".mcp.json", "hooks"} {
@@ -180,10 +192,13 @@ func TestCheckerStagesInstructionsOutOfDiscovery(t *testing.T) {
 				}
 			}
 		case RuntimeCodex:
-			for _, flag := range []string{"--ignore-user-config", "--ephemeral"} {
-				if !slices.Contains(cmd.Args, flag) {
-					t.Errorf("codex checker lacks %s: %q", flag, cmd.Args)
-				}
+			if !slices.Contains(cmd.Args, "--ignore-user-config") {
+				t.Errorf("codex checker lacks --ignore-user-config: %q", cmd.Args)
+			}
+			// A checker with its own disposable CODEX_HOME records its session there (the
+			// rollout names the model); any other checker stays --ephemeral.
+			if isolated := ws.IsolatedLoginHome != ""; isolated == slices.Contains(cmd.Args, "--ephemeral") {
+				t.Errorf("codex checker --ephemeral does not match its isolated home (%v): %q", isolated, cmd.Args)
 			}
 			if !hasArgPair(cmd.Args, "--disable", "multi_agent") {
 				t.Errorf("codex checker does not disable multi_agent: %q", cmd.Args)

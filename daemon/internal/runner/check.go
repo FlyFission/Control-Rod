@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -349,6 +350,15 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 	if ws.RunHome != "" {
 		defer os.RemoveAll(ws.RunHome)
 	}
+	if ws.IsolatedLoginHome != "" {
+		defer os.RemoveAll(ws.IsolatedLoginHome)
+		// Deferred after the removal, so it runs first: a rotated token is kept.
+		defer func() {
+			if err := ws.SaveRefreshedCredential(); err != nil {
+				slog.Warn("could not save the refreshed sign-in", "error", err)
+			}
+		}()
+	}
 	if err != nil {
 		return CheckResult{}, fmt.Errorf("%w: %v", ErrCheckUsage, err)
 	}
@@ -533,6 +543,7 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 			res.ReceiptMarkdown = FormatCheckReceipt(res)
 			return res, fmt.Errorf("checker settlement rejected result: %s", settled.Error)
 		}
+		buf.addPostRunModels(a, ws)
 		if err := ObservedModelsAllowed(job.Run, job.RuntimePin, grade, buf.observedModels()); err != nil {
 			res.Outcome = "inconclusive"
 			res.Error = err.Error()
@@ -1058,10 +1069,11 @@ func buildSandboxPaths(daemonHome string, ws *Workspace) (SandboxPaths, error) {
 		dh = daemonHome
 	}
 	return SandboxPaths{
-		Home:       home,
-		DaemonHome: dh,
-		Workspace:  ws.Dir,
-		Logins:     LoginLocations(os.Getenv, home),
+		Home:        home,
+		DaemonHome:  dh,
+		Workspace:   ws.Dir,
+		Logins:      LoginLocations(os.Getenv, home),
+		LoginCopies: LoginCopyLocations(),
 	}, nil
 }
 

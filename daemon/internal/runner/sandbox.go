@@ -96,6 +96,9 @@ type SandboxPaths struct {
 	// Logins are where the CLIs keep their logins when moved out of the home folder
 	// (CODEX_HOME, CLAUDE_CONFIG_DIR), resolved; each is denied like the home folder's own.
 	Logins []string
+	// LoginCopies are folders holding per-run copies of a login (the disposable Codex homes),
+	// denied to every agent like a login.
+	LoginCopies []string
 }
 
 // Denied expands the policy's denied reads for this host: `~` is the home folder, and the
@@ -133,6 +136,9 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 		add(at.DaemonHome)
 	}
 	for _, l := range at.Logins {
+		add(l)
+	}
+	for _, l := range at.LoginCopies {
 		add(l)
 	}
 	// A named credential store that is a link, or that holds links, is denied at the real paths
@@ -458,6 +464,13 @@ func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]str
 	for _, d := range outermost(p.Denied(at)) {
 		fs[d] = "deny"
 	}
+	isolated := ws != nil && ws.Checker && ws.IsolatedLoginHome != ""
+	if isolated {
+		// Every run's login home holds a credential copy and a session rollout: Codex reads and
+		// writes its own itself, but the agent's commands see none of them. The folder they are made
+		// in is denied whole, so a home made after this run started is covered too.
+		fs[filepath.Dir(ws.IsolatedLoginHome)] = "deny"
+	}
 	keys := make([]string, 0, len(fs))
 	for k := range fs {
 		keys = append(keys, k)
@@ -467,10 +480,14 @@ func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]str
 	for _, k := range keys {
 		inline = append(inline, fmt.Sprintf("%s=%q", tomlString(k), fs[k]))
 	}
-	args := []string{
-		"--ignore-user-config", "--ignore-rules", "--ephemeral",
-		"-c", `default_permissions="control-rod"`,
+	args := []string{"--ignore-user-config", "--ignore-rules"}
+	if !isolated {
+		// With no per-run login home, nothing may be recorded in the real one. A checker that has
+		// its own disposable home records its session there instead, because the rollout is the
+		// only place Codex names the model it ran.
+		args = append(args, "--ephemeral")
 	}
+	args = append(args, "-c", `default_permissions="control-rod"`)
 	if !checker {
 		args = append(args, "-c", `permissions.control-rod.extends=":workspace"`)
 	}

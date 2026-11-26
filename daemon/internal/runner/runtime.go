@@ -364,6 +364,11 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 	if ws != nil && ws.RunHome != "" {
 		env = withEnv(env, "HOME="+ws.RunHome)
 	}
+	if ws != nil && ws.IsolatedLoginHome != "" {
+		if name := isolatedLoginHomeEnv(runtime); name != "" {
+			env = withEnv(env, name+"="+ws.IsolatedLoginHome)
+		}
+	}
 	return finishCommand(cmd, ws, env), nil
 }
 

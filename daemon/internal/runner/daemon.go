@@ -387,7 +387,7 @@ func (d *Daemon) sandboxPathsFor(home, workspace string) SandboxPaths {
 	}
 	// The deny list names the daemon home as it really resolves, so an alias cannot dodge it.
 	dh = resolveOrClean(dh)
-	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: workspace, Logins: LoginLocations(os.Getenv, home)}
+	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: workspace, Logins: LoginLocations(os.Getenv, home), LoginCopies: LoginCopyLocations()}
 }
 
 // preflight checks that this host can run rt under its sandbox (plan task 6.3), and returns the
@@ -1607,6 +1607,15 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	if ws.RunHome != "" {
 		defer os.RemoveAll(ws.RunHome)
 	}
+	if ws.IsolatedLoginHome != "" {
+		defer os.RemoveAll(ws.IsolatedLoginHome)
+		// Deferred after the removal, so it runs first: a rotated token is kept.
+		defer func() {
+			if err := ws.SaveRefreshedCredential(); err != nil {
+				slog.Warn("could not save the refreshed sign-in", "error", err)
+			}
+		}()
+	}
 	// Nothing starts once the lease has ended (or anything else stopped the run) during preparation.
 	if err == nil && held.Err() != nil {
 		err = context.Cause(held)
@@ -1886,6 +1895,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		finalEvents = append(finalEvents, checkerBlockedNotice(err, time.Now()))
 	}
 	if checkerReady {
+		buf.addPostRunModels(a, ws)
 		result := settleChecker(ws, deliverableBefore, cwdBefore, time.Now())
 		if result.Counts && comp.Status == "succeeded" {
 			if perr := ObservedModelsAllowed(job.Run, job.RuntimePin, packageGrade(job.Package), buf.observedModels()); perr != nil {

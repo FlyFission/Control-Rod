@@ -6,7 +6,9 @@
 | Inbox waits on the reset, not the person | `inbox.ts` holdResolver | same |
 | Hold lifts once the reset has passed | `work.ts` releaseHold usage-limit | same |
 | A run with no seat goes to another agent | `work.ts` spare | "gives a card with no agent chosen to another agent..." |
-| A per-model window holds nothing | `usage-limits.ts` WHOLE_WINDOWS | same |
+| A per-model window holds nothing; a vendor "allowed" outranks a full percent | `usage-limits.ts` exhaustedAgents | same |
+| A blind check waits for a spent independent agent, never moved to the author's | `work.ts` spareOf | "holds a blind check for a spent independent agent..." |
+| Intake goes to an agent not used up, or waits | `work.ts` claim intake | code review (blind reviewer finding 3) |
 
 ## Required links
 

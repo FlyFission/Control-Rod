@@ -1426,5 +1426,23 @@ describe("usage limits hold work until they reset (change record usage-hold)", (
     const opus = await claimWith(["claude"], reading("claude", { id: "seven_day_opus", used_percent: 100, status: "rejected", resets_at: future }));
     expect(opus?.run).toMatchObject({ role: "author", package_id: other });
     await complete(opus!, { status: "failed", error: "test done", outputs: [] });
+    // A vendor status of allowed outranks a percent that reads full.
+    const allowed = await releasedPackage("ALLOWED");
+    const ok = await claimWith(["codex"], reading("codex", { id: "primary", used_percent: 100, status: "allowed", resets_at: future }));
+    expect(ok?.run).toMatchObject({ role: "author", package_id: allowed });
+    await complete(ok!, { status: "failed", error: "test done", outputs: [] });
+  });
+
+  it("holds a blind check for a spent independent agent, never moving it to the author's own agent", async () => {
+    const id = await releasedPackage("SPENTCHK");
+    const author = await claimWith(["fake"], { read_at: new Date().toISOString(), providers: [] });
+    expect(author?.run).toMatchObject({ role: "author", package_id: id });
+    expect((await complete(author!, { status: "succeeded", outputs: [{ name: "p.md", content_base64: b64("# P") }] })).statusCode).toBeLessThan(300);
+    expect(await claimWith(["fake", "codex"], reading("codex", { id: "secondary", used_percent: 100, resets_at: future }))).toBeNull();
+    const check = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'pre-check' order by created_at desc limit 1", [id])).rows[0]!.body;
+    expect(check).toMatchObject({ waiting_cause: "usage-limit", waiting_key: "usage-limit:codex" });
+    const job = await claimWith(["fake", "codex"], reading("codex", { id: "secondary", used_percent: 100, resets_at: past }));
+    expect(job?.run).toMatchObject({ role: "pre-check", package_id: id });
+    await complete(job!, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
   });
 });

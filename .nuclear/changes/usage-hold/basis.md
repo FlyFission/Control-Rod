@@ -11,14 +11,14 @@ When Claude's or Codex's subscription limit was used up, Control Rod still hande
 
 ## Proposal
 
-1. `usage-limits.ts` `exhaustedAgents`: from the stored reading, the agents with a whole-subscription window (five_hour, seven_day, primary, secondary, daily, weekly, monthly) that the vendor marks rejected or that reads 100 percent, and whose reset is still ahead. Per-model windows (seven_day_opus, seven_day_sonnet, tertiary) hold nothing. A window without a reset time holds nothing, so a hold can always end.
-2. Claim (`work.ts`): a run whose chosen agent is used up is held with cause `usage-limit` and key `usage-limit:<agent>`, and a reason such as "Codex's usage limit is used up. This card starts on its own when it resets, at 17:00 UTC on 2026-11-28." A run with no agent chosen (no card tag, column or project pick) is offered the agents that are not used up first. The hold is released on the first claim after the reset. That is time alone, since the reading is not renewed while no run uses the agent. There is no timer.
+1. `usage-limits.ts` `exhaustedAgents`: from the stored reading, the agents with a whole-subscription window (five_hour, seven_day, primary, secondary, daily, weekly, monthly) that the vendor marks rejected or, when the vendor sent no status, that reads 100 percent, and whose reset is still ahead. Per-model windows (seven_day_opus, seven_day_sonnet, tertiary) hold nothing. A window without a reset time holds nothing, so a hold can always end.
+2. Claim (`work.ts`): a run whose chosen agent is used up is held with cause `usage-limit` and key `usage-limit:<agent>`, and a reason such as "Codex's usage limit is used up. This card starts on its own when it resets, at 17:00 UTC on 2026-11-28." A run whose pick came only from the default order (no seat, or a seat that is not offered) goes to an agent that is not used up, when one is offered. A blind check is never moved to the author's own agent. Intake runs follow the same rule. The hold is released on the first claim after the reset. That is time alone, since the reading is not renewed while no run uses the agent. There is no timer.
 3. Inbox: the `usage-limit` cause is waiting on "the agent's usage limit to reset", never on the person.
 4. `spec/work.tsp`: `usage-limit` added to `waiting_cause` (additive).
 
 ## Out of scope
 
-Intake runs (short, and not held). Switching a seated card to another agent (ADR 0024 fallback, separate). Showing the reset in the viewer's own time zone (the server writes UTC).
+Switching a seated card to another agent (ADR 0024 fallback, separate). Showing the reset in the viewer's own time zone (the server writes UTC).
 
 ## Required links
 

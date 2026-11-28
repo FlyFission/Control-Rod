@@ -1,7 +1,7 @@
 # Verification: Hold cards while an agent's usage limit is used up, and start them at the reset
 
 - E-01: `tsc --noEmit` passes for services/api and apps/web.
-- E-02: `tools/test-api.mjs` (PostgreSQL 16, cloud container): runs (52, 2 new), usage-limits, inbox, signing-policy, work-lanes: 131 pass.
+- E-02: `tools/test-api.mjs` (PostgreSQL 16, cloud container): runs (53, 3 new), usage-limits, inbox, signing-policy, work-lanes, checker-attempts: 168 pass.
 - E-03: no daemon change; the daemon already sends the readings.
 - Blind check: a separate Claude Sonnet reviewer on the PR (Codex review quota used up).
 

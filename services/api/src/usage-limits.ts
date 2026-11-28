@@ -196,7 +196,7 @@ const AGENT_NAMES: Readonly<Record<string, string>> = { claude: "Claude", codex:
 
 /**
  * Agents whose last reading says a whole-subscription window is used up (the vendor's own
- * "rejected", or 100 percent), mapped to when the last such window resets. A window without a reset
+ * "rejected", or 100 percent when the vendor sent no status), mapped to when the last such window resets. A window without a reset
  * time, or one whose reset has passed, holds nothing: a reading is not renewed while no run uses
  * the agent, so time alone releases the hold.
  */
@@ -214,7 +214,8 @@ export async function exhaustedAgents(q: Pick<Db, "query">, at: number = Date.no
   for (const p of cleanProviders(stored.providers) ?? []) {
     for (const w of p.windows) {
       if (!WHOLE_WINDOWS.has(w.id) || !w.resets_at || Date.parse(w.resets_at) <= at) continue;
-      if (w.status !== "rejected" && w.used_percent < 100) continue;
+      // The vendor's own status decides when it sent one; the percent alone only when it did not.
+      if (w.status ? w.status !== "rejected" : w.used_percent < 100) continue;
       const seen = out.get(p.id);
       if (!seen || Date.parse(w.resets_at) > Date.parse(seen)) out.set(p.id, w.resets_at);
     }

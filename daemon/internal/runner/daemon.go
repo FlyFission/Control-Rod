@@ -1053,8 +1053,18 @@ func authorEgressHosts(runtime string, sandbox *SandboxPolicy) []string {
 // traffic to chatgpt.com (backend-api/codex) and refreshes its token at auth.openai.com,
 // neither of which is a model endpoint in models.json. Without them the default-on egress
 // filter blocks a ChatGPT-signed-in Codex on its first run.
+//
+// Claude Code signed in with a Claude subscription refreshes its OAuth token at
+// platform.claude.com/v1/oauth/token: the Claude Code 2.1.332 binary names it as its
+// TOKEN_URL. Older builds used console.anthropic.com/v1/oauth/token, so that host stays
+// too. Without them a signed-in Claude run fails once its access token expires.
+// Antigravity signs in with a Google account and refreshes at oauth2.googleapis.com,
+// Google's documented OAuth 2.0 token endpoint. That host was not read from an
+// Antigravity binary, because none was available here.
 var harnessSignInHosts = map[string][]string{
-	"codex": {"chatgpt.com", "auth.openai.com"},
+	RuntimeCodex:  {"chatgpt.com", "auth.openai.com"},
+	RuntimeClaude: {"platform.claude.com", "console.anthropic.com"},
+	RuntimeAgy:    {"oauth2.googleapis.com"},
 }
 
 // setProxyEnv removes any case-insensitive HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, and NO_PROXY

@@ -272,3 +272,95 @@ func TestEgressFilterPlainHTTPForwardingAllowsAndBlocks(t *testing.T) {
 		t.Fatalf("expected 403 X-ControlRod-Egress=blocked, got %d (%q)", blockedResp.StatusCode, blockedResp.Header.Get("X-ControlRod-Egress"))
 	}
 }
+
+// openTunnel starts an echo target and a filter that allows it, and returns a CONNECT tunnel to it.
+func openTunnel(t *testing.T) net.Conn {
+	t.Helper()
+	targetLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = targetLn.Close() })
+	go func() {
+		for {
+			conn, err := targetLn.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer conn.Close()
+				_, _ = io.Copy(conn, conn)
+			}()
+		}
+	}()
+	ef, err := StartEgressFilter([]string{targetLn.Addr().String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ef.Close() })
+	conn, err := net.DialTimeout("tcp", ef.Addr(), 2*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	target := targetLn.Addr().String()
+	if _, err := fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", target, target); err != nil {
+		t.Fatal(err)
+	}
+	br := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(br, nil)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("CONNECT: %v %v", resp, err)
+	}
+	if br.Buffered() != 0 {
+		t.Fatalf("unexpected bytes after the CONNECT reply")
+	}
+	return conn
+}
+
+func echoOnce(t *testing.T, conn net.Conn) {
+	t.Helper()
+	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+	if _, err := conn.Write([]byte("x")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	buf := make([]byte, 1)
+	if _, err := io.ReadFull(conn, buf); err != nil {
+		t.Fatalf("echo: %v", err)
+	}
+}
+
+func TestEgressFilterClosesAnIdleTunnel(t *testing.T) {
+	old := tunnelIdleTimeout
+	tunnelIdleTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { tunnelIdleTimeout = old })
+
+	conn := openTunnel(t)
+	echoOnce(t, conn)
+	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+	start := time.Now()
+	n, err := conn.Read(make([]byte, 1))
+	if err == nil || n != 0 {
+		t.Fatalf("idle tunnel stayed open: n=%d err=%v", n, err)
+	}
+	if ne, ok := err.(net.Error); ok && ne.Timeout() {
+		t.Fatalf("idle tunnel was not closed within 3s")
+	}
+	if waited := time.Since(start); waited < 100*time.Millisecond {
+		t.Fatalf("tunnel closed after %v, before it was idle", waited)
+	}
+}
+
+func TestEgressFilterKeepsABusyTunnelOpen(t *testing.T) {
+	old := tunnelIdleTimeout
+	tunnelIdleTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { tunnelIdleTimeout = old })
+
+	conn := openTunnel(t)
+	// Traffic every 50ms for well past the idle limit keeps the tunnel.
+	deadline := time.Now().Add(1200 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		echoOnce(t, conn)
+		time.Sleep(50 * time.Millisecond)
+	}
+}

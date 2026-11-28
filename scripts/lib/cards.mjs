@@ -36,13 +36,13 @@ export function pickProject(projects, wanted) {
 
 export class CardError extends Error {}
 
-/** A small client for the running app. `fetchImpl` is injectable for tests. */
-export function client({ home, port, fetchImpl = fetch }) {
+/** A small client for the running app. `fetchImpl` is injectable for tests; `me` is the command name its messages use. */
+export function client({ home, port, fetchImpl = fetch, me = "controlrod" }) {
   let token;
   try {
     token = readFileSync(join(home, "cli.token"), "utf8").trim();
   } catch {
-    throw new CardError("Control Rod is not running (or has not started since it was updated). Run `controlrod start` first.");
+    throw new CardError(`Control Rod is not running (or has not started since it was updated). Run \`${me} start\` first.`);
   }
   const base = `http://127.0.0.1:${port}`;
   return async function call(method, path, body) {
@@ -54,12 +54,12 @@ export function client({ home, port, fetchImpl = fetch }) {
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
     } catch {
-      throw new CardError("Control Rod is not running. Run `controlrod start` first.");
+      throw new CardError(`Control Rod is not running. Run \`${me} start\` first.`);
     }
     const text = await r.text();
     const json = text ? JSON.parse(text) : null;
     if (!r.ok) {
-      if (r.status === 401 || r.status === 403) throw new CardError(`${json?.message ?? "Refused"}. If Control Rod was just updated, run \`controlrod restart\`.`);
+      if (r.status === 401 || r.status === 403) throw new CardError(`${json?.message ?? "Refused"}. If Control Rod was just updated, run \`${me} restart\`.`);
       throw new CardError(json?.message ?? `The app answered ${r.status}`);
     }
     return json;
@@ -71,6 +71,8 @@ export async function addCard(call, text, { project: wanted, rand } = {}) {
   const title = text.trim();
   if (!title) throw new CardError("Say what needs doing, for example: controlrod card add \"Fix the login typo\"");
   const projects = (await call("GET", "/workspace/projects")) ?? [];
+  if (!wanted && projects.length > 1)
+    throw new CardError(`There is more than one project; say which with --project. Projects: ${projects.map((p) => p.name).join(", ")}.`);
   const project = pickProject(projects, wanted);
   const mode = project?.mode ?? "software";
   const prefix = `[mode:${mode}]${project ? ` [project-id:${project.id}]${project.repo ? ` [repo:${project.repo}]` : ""}` : ""}\n\n`;

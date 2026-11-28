@@ -275,7 +275,7 @@ func sleepCtx(ctx context.Context, d time.Duration) {
 // killing them. Every claimed job is reported as complete, even on shutdown.
 func (d *Daemon) Run(ctx context.Context) error {
 	if len(d.cfg.Runtimes) == 0 {
-		return errors.New("no agent runtime found: install Claude Code or Codex")
+		return errors.New(NoRuntimeMessage(runtime.GOOS))
 	}
 	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel, "containment", d.container.Mode)
 	if d.container.Mode != ContainCgroup {

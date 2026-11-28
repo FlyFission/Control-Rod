@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EventRecord } from "./events.js";
@@ -768,10 +768,36 @@ export async function prReceiptFromBundleText(
   return { code: 0, markdown, lines: [markdown.trimEnd()] };
 }
 
-async function main(argv: string[]) {
-  const file = argv.find((a) => !a.startsWith("-"));
-  if (!file) {
-    console.error("Usage: pnpm cr receipt <inclusion-proof.json>");
+const USAGE = "Usage: pnpm cr receipt <inclusion-proof.json> [--out pr-receipt.md]";
+
+/**
+ * Only the receipt goes to standard output (or to the --out file), so `> pr-receipt.md` and
+ * `--out pr-receipt.md` both hold exactly the text `pnpm cr verify --receipt` checks. Problems go to
+ * standard error.
+ */
+export async function main(argv: string[]): Promise<number> {
+  let out: string | undefined;
+  const files: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    if (a === "--out" || a === "-o") {
+      out = argv[++i];
+      if (!out) {
+        console.error(`${a} needs a file name. ${USAGE}`);
+        return 2;
+      }
+    } else if (a.startsWith("--out=")) {
+      out = a.slice("--out=".length);
+    } else if (a.startsWith("-")) {
+      console.error(`Unknown option ${a}. ${USAGE}`);
+      return 2;
+    } else {
+      files.push(a);
+    }
+  }
+  const file = files[0];
+  if (!file || files.length > 1) {
+    console.error(USAGE);
     return 2;
   }
   let text: string;
@@ -782,8 +808,22 @@ async function main(argv: string[]) {
     return 2;
   }
   const res = await prReceiptFromBundleText(text, file);
-  for (const l of res.lines) console.log(l);
-  return res.code;
+  if (res.code !== 0 || res.markdown === undefined) {
+    for (const l of res.lines) console.error(l);
+    return res.code;
+  }
+  if (out) {
+    try {
+      writeFileSync(resolve(out), res.markdown);
+    } catch {
+      console.error(`FAIL  ${out}: cannot write the receipt there.`);
+      return 2;
+    }
+    console.error(`Wrote the receipt to ${out}.`);
+  } else {
+    process.stdout.write(res.markdown);
+  }
+  return 0;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

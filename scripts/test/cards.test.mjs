@@ -55,6 +55,12 @@ test("names the projects when the one asked for does not exist, and refuses empt
   await assert.rejects(addCard(call, "  "), CardError);
 });
 
+test("asks which project when there is more than one and none was named", async () => {
+  const { call, calls } = app({ "GET /workspace/projects": [200, projects] });
+  await assert.rejects(addCard(call, "Fix the login typo"), /more than one project; say which with --project\. Projects: Sandbox, Notes\./);
+  assert.equal(calls.some((c) => c.method === "POST"), false);
+});
+
 test("lists new captures and cards by column", async () => {
   const { call } = app({
     "GET /workspace/projects": [200, projects],
@@ -68,4 +74,6 @@ test("says to start Control Rod when there is no token, and to restart when it i
   assert.throws(() => client({ home: mkdtempSync(join(tmpdir(), "cr-none-")), port: 1 }), /controlrod start/);
   const { call } = app({ "GET /packages": [403, { message: "Refused: this request did not come from the Control Rod app" }] });
   await assert.rejects(call("GET", "/packages"), /controlrod restart/);
+  // Inside the checkout the person types `pnpm cr`, so the hint says that.
+  assert.throws(() => client({ home: mkdtempSync(join(tmpdir(), "cr-none-")), port: 1, me: "pnpm cr" }), /`pnpm cr start` first/);
 });

@@ -6,6 +6,7 @@ import { MODE_COPY } from "../../lib/mode.js";
 import type { NextLine } from "../../lib/next.js";
 import { splitAttachments } from "../../lib/attachments.js";
 import { captureLine, captureSummaryText } from "./CaptureCard.js";
+import { useNoAgentReady } from "../../lib/useAgents.js";
 import { sinceText } from "./Card.js";
 import { attentionFirst } from "./boardOrder.js";
 import type { BoardCard } from "./useBoardData.js";
@@ -47,6 +48,7 @@ export function BoardListView({
 }: BoardListViewProps) {
   const copy = MODE_COPY[mode];
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const noAgentReady = useNoAgentReady();
 
   return (
     <div className="bd-list" role="region" aria-label="Work list">
@@ -76,7 +78,7 @@ export function BoardListView({
                 {colCaptures.map((cap) => {
                   const shown = splitAttachments(cap.text);
                   const title = captureSummaryText(shown.text) || shown.files.join(", ");
-                  const line = captureLine(cap);
+                  const line = captureLine(cap, noAgentReady);
                   const g = TONE_GLYPH[line.tone];
                   return (
                     <div

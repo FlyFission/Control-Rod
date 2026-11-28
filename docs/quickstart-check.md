@@ -25,6 +25,10 @@ go -C daemon build -o ~/.local/bin/controlrod ./cmd/controlrod
 
 If `~/.local/bin` is not on your `PATH`, run it as `~/.local/bin/controlrod`.
 
+On Linux the checker runs inside bubblewrap. Install bubblewrap and socat, and on Ubuntu 24.04 and later allow bubblewrap to create a sandbox, as [Linux setup](daemon.md#linux-setup) shows. Without that step `controlrod check` refuses with exit code 2 and says why.
+
+If you also install the full app later, delete this binary first: `pnpm cr link` puts its own `controlrod` at the same path and will not replace a file it did not write. The linked `controlrod check` works the same.
+
 Then, inside **any git repository** where an agent just wrote changes on a branch:
 
 ```sh
@@ -56,12 +60,16 @@ controlrod check \
 ```yaml
 jobs:
   blind-check:
-    runs-on: ubuntu-latest
+    # Pull requests from forks skip the job (see the fork note below).
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    # A self-hosted runner where the checker CLI is installed and signed in.
+    runs-on: [self-hosted, linux]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: FlyFission/Control-Rod/packages/check-action@<pinned-commit-sha>
         with:
           author-runtime: claude
@@ -70,7 +78,7 @@ jobs:
           post-comment: "false"
 ```
 
-The action builds or finds `controlrod`, but it does not install the checker CLI or sign it in: use a runner where the checker CLI (for example `codex`) is installed and authenticated, and where its native sandbox can run. See [`packages/check-action/README.md`](../packages/check-action/README.md) for the full security model and inputs.
+The action builds or finds `controlrod`, but it does not install the checker CLI or sign it in. A GitHub-hosted runner such as `ubuntu-latest` has neither, so use a self-hosted runner where the checker CLI (for example `codex`) is installed and signed in, and where its native sandbox can run. Do not run it on pull requests from forks: the checker runs under your sign-in on your machine and reads the stranger's diff. See [`packages/check-action/README.md`](../packages/check-action/README.md) for what the runner needs, the fork rules, the full security model and the inputs.
 
 ---
 
@@ -81,8 +89,10 @@ When you run work through the full Control Rod workspace (`pnpm cr start`), acce
 Export the package's inclusion proof (`GET /packages/:id/proof` or from the **Records** page) and generate a tamper-evident Markdown PR receipt:
 
 ```sh
-pnpm cr receipt inclusion-proof.json > pr-receipt.md
+pnpm cr receipt inclusion-proof.json --out pr-receipt.md
 ```
+
+Write the file with `--out`. Only the receipt goes into it. A redirect (`> pr-receipt.md`) would also catch a line pnpm prints before the command runs, and that extra line makes the check below fail.
 
 Anyone—a teammate, reviewer, client, or auditor—can verify that receipt **completely offline** without a Control Rod server, database, or account:
 
@@ -92,6 +102,6 @@ pnpm cr verify --receipt pr-receipt.md inclusion-proof.json
 
 If a single character of the verdict, author, accepting person, revision, or `diff_sha256` in `pr-receipt.md` was edited after signing, `pnpm cr verify` fails closed.
 
-What this proves: the receipt matches the sealed event bundle. The seal is checked against the public key carried in the bundle, so on its own it does not prove who owns that key or re-check each passkey assertion; the receipt says so with an **UNVERIFIED SEAL KEY** line (the offline CLI does not take a pinned trusted key yet).
+What this proves: the receipt matches the sealed event bundle. The seal is checked against the public key carried in the bundle, so on its own it does not prove who owns that key or re-check each passkey assertion; the receipt says so with an **UNVERIFIED SEAL KEY** line. If you already trust the signer's key, add `--trusted-key <that key's SHA-256>` and the check also fails unless the seal was made with that key. See [docs/auditing.md](auditing.md#checking-against-a-key-you-already-trust).
 
 > **Honesty note on standalone vs. governed receipts:** A standalone `controlrod check` run has no Control Rod control plane or passkey ceremony behind it, so its output marks `--author-runtime` as `(caller-declared, unverified)` and never claims verified human passkey acceptance. Full governed receipts come from `pnpm cr receipt <inclusion-proof.json>`.

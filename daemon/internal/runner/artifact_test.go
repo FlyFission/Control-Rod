@@ -465,3 +465,91 @@ func TestOutsideLinuxClaudeStartsFromACopyOfTheCheckedBytes(t *testing.T) {
 		t.Fatal("a refused runtime was copied")
 	}
 }
+
+// claudeNpmInstall lays out an npm install of Claude Code whose install step did not run: the
+// package's bin/claude.exe is a script, and PATH has a link to it.
+func claudeNpmInstall(t *testing.T, version string) (dir, pkg, platform string) {
+	t.Helper()
+	arch := map[string]string{"amd64": "x64", "arm64": "arm64"}[runtime.GOARCH]
+	osName := map[string]string{"linux": "linux", "darwin": "darwin"}[runtime.GOOS]
+	if arch == "" || osName == "" {
+		t.Skip("no Claude Code platform package for this platform")
+	}
+	dir = realTempDir(t)
+	pkg = filepath.Join(dir, "lib", "node_modules", "@anthropic-ai", "claude-code")
+	writeFile(t, filepath.Join(pkg, "package.json"), []byte(`{"name":"@anthropic-ai/claude-code","version":"`+version+`"}`), 0o644)
+	writeFile(t, filepath.Join(pkg, "bin", "claude.exe"), []byte("echo \"Error: claude native binary not installed.\" >&2\nexit 1\n"), 0o755)
+	bin := filepath.Join(dir, "bin")
+	if err := os.Mkdir(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(pkg, "bin", "claude.exe"), filepath.Join(bin, "claude")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	return dir, pkg, "claude-code-" + osName + "-" + arch
+}
+
+func writeClaudePlatform(t *testing.T, at, name, version, body string) string {
+	t.Helper()
+	writeFile(t, filepath.Join(at, "package.json"), []byte(`{"name":"@anthropic-ai/`+name+`","version":"`+version+`"}`), 0o644)
+	exe := filepath.Join(at, "claude")
+	writeFile(t, exe, append(append([]byte{}, elf...), body...), 0o755)
+	return exe
+}
+
+func TestResolveArtifactFollowsClaudeCodesNpmPackageToItsNativeBinary(t *testing.T) {
+	for _, nested := range []bool{false, true} {
+		dir, pkg, platform := claudeNpmInstall(t, "2.1.332")
+		at := filepath.Join(dir, "lib", "node_modules", "@anthropic-ai", platform)
+		if nested {
+			at = filepath.Join(pkg, "node_modules", "@anthropic-ai", platform)
+		}
+		exe := writeClaudePlatform(t, at, platform, "2.1.332", "claude")
+		a, err := ResolveArtifact("claude")
+		if err != nil {
+			t.Fatalf("nested=%v: %v", nested, err)
+		}
+		if a.Path != exe || a.Root != "" || len(a.Digest.Value) != 64 {
+			t.Fatalf("nested=%v: the artifact is the platform binary alone: %+v", nested, a)
+		}
+		want, _ := fileDigest(exe)
+		if a.Digest.Value != want {
+			t.Fatalf("nested=%v: the digest is the native binary's own", nested)
+		}
+	}
+}
+
+func TestResolveArtifactRefusesClaudeNpmInstallsItCannotPin(t *testing.T) {
+	t.Run("missing native binary", func(t *testing.T) {
+		claudeNpmInstall(t, "2.1.332")
+		_, err := ResolveArtifact("claude")
+		if !errors.Is(err, ErrUnsupportedLauncher) || !strings.Contains(err.Error(), ClaudeNativeInstall) {
+			t.Fatalf("a stub with no native binary is refused with the install command: %v", err)
+		}
+	})
+	t.Run("another version", func(t *testing.T) {
+		dir, _, platform := claudeNpmInstall(t, "2.1.332")
+		writeClaudePlatform(t, filepath.Join(dir, "lib", "node_modules", "@anthropic-ai", platform), platform, "2.1.300", "old")
+		if _, err := ResolveArtifact("claude"); !errors.Is(err, ErrUnsupportedLauncher) {
+			t.Fatalf("a platform package of another version is never the one that runs: %v", err)
+		}
+	})
+	t.Run("two copies", func(t *testing.T) {
+		dir, pkg, platform := claudeNpmInstall(t, "2.1.332")
+		writeClaudePlatform(t, filepath.Join(dir, "lib", "node_modules", "@anthropic-ai", platform), platform, "2.1.332", "one")
+		writeClaudePlatform(t, filepath.Join(pkg, "node_modules", "@anthropic-ai", platform), platform, "2.1.332", "two")
+		_, err := ResolveArtifact("claude")
+		if !errors.Is(err, ErrUnsupportedLauncher) || !strings.Contains(err.Error(), "two native binaries") {
+			t.Fatalf("two copies are refused rather than one picked: %v", err)
+		}
+	})
+	t.Run("another package", func(t *testing.T) {
+		dir, pkg, platform := claudeNpmInstall(t, "2.1.332")
+		writeFile(t, filepath.Join(pkg, "package.json"), []byte(`{"name":"not-claude","version":"2.1.332"}`), 0o644)
+		writeClaudePlatform(t, filepath.Join(dir, "lib", "node_modules", "@anthropic-ai", platform), platform, "2.1.332", "x")
+		if _, err := ResolveArtifact("claude"); !errors.Is(err, ErrUnsupportedLauncher) {
+			t.Fatalf("only Claude Code's own package is followed: %v", err)
+		}
+	})
+}

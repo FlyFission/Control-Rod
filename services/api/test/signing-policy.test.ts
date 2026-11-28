@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { PRESETS, parseSteps } from "../src/signing-policy.js";
+import { DEFAULT_PRESET, PRESETS, modeFor, parseSteps } from "../src/signing-policy.js";
 import { command } from "../src/commands/executor.js";
 import { appendEvent } from "../src/events.js";
 import { pullRequestWatcher } from "../src/pr-watch.js";
@@ -17,6 +17,12 @@ describe("signing steps", () => {
     expect(parseSteps(undefined, { release: "auto", accept: "passkey", return: "click", reject: "click" }).preset).toBe("balanced");
     expect(parseSteps("light", { accept: "click" })).toEqual({ preset: "custom", steps: { ...PRESETS.light, accept: "click" } });
     expect(parseSteps(undefined, undefined)).toEqual({ preset: "everything", steps: PRESETS.everything });
+  });
+
+  it("defaults new projects to Balanced, which signs every accept, and signs every step with no policy at all", () => {
+    expect(DEFAULT_PRESET).toBe("balanced");
+    expect(PRESETS[DEFAULT_PRESET].accept).toBe("passkey");
+    for (const kind of ["release", "accept", "accept-with-findings", "return", "reject"]) expect(modeFor(null, kind)).toBe("passkey");
   });
 
   it("never lets return or reject happen on their own, and refuses unknown steps", () => {

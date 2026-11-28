@@ -3,7 +3,7 @@ import { AGENTS, type AgentRow } from "../lib/agents.js";
 import { renderPage } from "../test/render.js";
 import { AgentList } from "./AgentList.js";
 
-const rows: AgentRow[] = [{ info: AGENTS[0]!, seated: true, state: "ready", status: "Ready." }];
+const rows: AgentRow[] = [{ info: AGENTS[0]!, seated: true, state: "ready", installed: true, status: "Ready." }];
 
 describe("the seat-on animation", () => {
   it("plays once per seat in a session, not each time the table is shown again", async () => {

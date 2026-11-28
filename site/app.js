@@ -195,7 +195,7 @@ controlrod check \\
 
     s4Detail.innerHTML =
       councilState.checkIn === "start-only"
-        ? 'Saved preference: start-only (coming soon). Today every card still requires your passkey acceptance before sealing <code class="mono">pnpm cr receipt</code>.'
+        ? 'Saved preference: start-only (coming soon). Today each project\'s settings say what needs your passkey; by default you sign each acceptance before sealing <code class="mono">pnpm cr receipt</code>.'
         : 'Your passkey binds the exact revision and SHA-256 diff digest into the sealed event chain. Ready for <code class="mono">pnpm cr receipt</code>.';
   }
 

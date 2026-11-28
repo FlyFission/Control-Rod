@@ -40,8 +40,13 @@ export const PRESETS: Record<Preset, Record<SigningStep, StepMode>> = {
   everything: { release: "passkey", accept: "passkey", return: "passkey", reject: "passkey" },
 };
 
-/** The preset new projects are offered first. */
-export const DEFAULT_PRESET: Preset = "light";
+/**
+ * The preset new projects are created at (the web's create form sends it; lib/signing.ts says the
+ * same). Balanced: cards start on their own and every accept is signed with the passkey, so nothing
+ * is accepted or handed over without it. Light is offered only as a choice the person makes. A
+ * project with no stored policy is not given this default: every step on it is signed.
+ */
+export const DEFAULT_PRESET: Preset = "balanced";
 
 export interface SigningPolicy {
   id: string;

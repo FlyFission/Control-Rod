@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { AgentRow } from "../lib/agents.js";
-import { agentIdForProvider } from "../lib/agents.js";
+import { agentIdForProvider, seatable } from "../lib/agents.js";
 import { useInstrumentMotion } from "../design/instruments/useInstrumentMotion.js";
 import { AgentBadge } from "./AgentBadge.js";
 import { StateMark } from "./StateMark.js";
@@ -34,8 +34,10 @@ export function AgentList({
   const motion = useInstrumentMotion();
   // Agents Control Rod can run stay in the list, found or not, so a missing one shows its install
   // command where the person looks. The ones it cannot run yet are one line, not a row each.
-  const main = rows.filter((r) => r.state !== "not-yet");
+  const main = rows.filter((r) => r.state !== "not-yet" && r.state !== "not-here");
   const later = rows.filter((r) => r.state === "not-yet");
+  // Agents Control Rod starts on another platform only (Antigravity and Grok, macOS): one line, with why.
+  const elsewhere = rows.filter((r) => r.state === "not-here");
   const seatProps = { onToggle, busy, usage, lightUp: lightUp && motion === "full" };
   return (
     <>
@@ -48,9 +50,15 @@ export function AgentList({
           ))}
         </ul>
       )}
+      {elsewhere.length > 0 && (
+        <p className="agent-later small muted" data-state="not-here">
+          Not available on {elsewhere[0]!.unavailableOn ?? "this computer"}: {elsewhere.map((r) => `${r.info.name}${r.installed ? " (installed)" : ""}`).join(", ")}. Control Rod runs{" "}
+          {elsewhere.length === 1 ? "it" : "them"} on macOS only, because {elsewhere.length === 1 ? "its sandbox has" : "their sandboxes have"} been checked there alone.
+        </p>
+      )}
       {later.length > 0 && (
         <p className="agent-later small muted">
-          Coming later: {later.map((r) => r.info.name).join(", ")}. Control Rod can run them once it can hold them in a sandbox.
+          Not available yet: {later.map((r) => r.info.name).join(", ")}. Control Rod can run them once it can hold them in a sandbox.
         </p>
       )}
     </>
@@ -59,17 +67,18 @@ export function AgentList({
 
 function mark(state: AgentRow["state"]) {
   if (state === "ready") return "done" as const;
-  if (state === "not-yet" || state === "not-checked" || state === "not-found") return "idle" as const;
+  if (state === "not-yet" || state === "not-here" || state === "not-checked" || state === "not-found") return "idle" as const;
   return "needs" as const;
 }
 
 const LAMP_WORD: Record<AgentRow["state"], string> = {
   ready: "Ready",
   "not-checked": "Not checked",
-  "not-found": "Not found",
+  "not-found": "Not installed",
   "signed-out": "Signed out",
   held: "Held",
-  "not-yet": "Coming later",
+  "not-here": "macOS only",
+  "not-yet": "Not available yet",
 };
 
 function usageWords(usage: SeatUsage | "unavailable" | undefined, id: string): { text: string; known: boolean } | null {
@@ -103,7 +112,7 @@ function AgentItem({
   lightUp: boolean;
 }) {
   const id = `agent-${row.info.id}`;
-  const canSeat = row.info.runnable;
+  const canSeat = seatable(row);
   const runs = usageWords(usage, row.info.id);
   // This mount plays the seat-on animation only if the seat has not lit before; once it started it keeps its attribute.
   const playing = useRef(false);
@@ -138,7 +147,7 @@ function AgentItem({
         <p className="agent-status small" id={`${id}-status`}>
           {row.status}
         </p>
-        {row.fix && <FixCommand command={row.fix} label={row.state === "signed-out" ? "To sign in, run" : "To install, run"} />}
+        {row.fix && <FixCommand command={row.fix} label={row.fixLabel ?? (row.state === "signed-out" ? "To sign in, run" : "To install, run")} />}
       </div>
       <div className="seat-foot">
         {runs !== null && (
@@ -163,7 +172,7 @@ function AgentItem({
             <span className="seat-word">{row.seated ? "At the table" : "Benched"}</span>
           </button>
         ) : (
-          <span className="tag">Coming later</span>
+          <span className="tag">{row.state === "not-found" ? "Not installed" : LAMP_WORD[row.state]}</span>
         )}
       </div>
     </li>

@@ -18,22 +18,30 @@ describe("council", () => {
     const c = councilOf(rows({ claude: true, codex: true }));
     expect(c.author?.id).toBe("claude");
     expect(c.checker?.id).toBe("codex");
-    expect(c.fallbacks.map((s) => s.id)).toEqual(["codex", "agy", "grok"]);
+    // Antigravity and Grok CLI are not installed here, so they take no seat (RUN-2).
+    expect(c.fallbacks.map((s) => s.id)).toEqual(["codex"]);
     expect(c.later.map((s) => s.id)).toEqual(["opencode", "ollama"]);
+  });
+
+  it("gives an installed agent that is not ready yet a stand-in seat", () => {
+    const c = councilOf(rows({ claude: true, codex: true, agy: false }));
+    expect(c.fallbacks.map((s) => s.id)).toEqual(["codex", "agy"]);
+    expect(c.waiting.map((s) => s.id)).toEqual(["agy"]);
   });
 
   it("never seats the author's own vendor as checker", () => {
     const c = councilOf(rows({ claude: true, codex: false }));
     expect(c.author?.id).toBe("claude");
     expect(c.checker).toBeUndefined();
-    expect(c.waiting.map((s) => s.id)).toEqual(["codex", "agy", "grok"]);
+    expect(c.waiting.map((s) => s.id)).toEqual(["codex"]);
   });
 
   it("leaves a benched agent out of every seat", () => {
     const c = councilOf(rows({ claude: true, codex: true }, [{ runtime: "claude", seated: false }, { runtime: "agy", seated: false }, { runtime: "grok", seated: false }]));
     expect(c.author?.id).toBe("codex");
     expect(c.checker).toBeUndefined();
-    expect(c.benched.map((s) => s.id)).toEqual(["claude", "agy", "grok"]);
+    // Benched is the person's choice; an agent not installed here is not at the table to bench.
+    expect(c.benched.map((s) => s.id)).toEqual(["claude"]);
     expect(c.fallbacks).toEqual([]);
   });
 });

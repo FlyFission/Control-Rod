@@ -12,6 +12,7 @@ import { LanePicker } from "./LanePicker.js";
 import { WORKFLOWS, WORKFLOW_DESCRIPTION, WORKFLOW_LABEL, type Workflow } from "../lib/workflow.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
 import { projectCaptureTag, useActiveProject, useProjects } from "../lib/projects.js";
+import { ALL_SIGNED, cardFlowLine, projectSteps } from "../lib/signing.js";
 import {
   CHECKOUT_AUTHORS,
   CLI_ECOSYSTEMS,
@@ -27,7 +28,10 @@ import {
   type AgentRuntimeSelection,
   type CliEcosystemId,
   type ReasoningLevel,
+  runnableHere,
+  unavailableNote,
 } from "../lib/runtimes.js";
+import { useAgentPlatform } from "../lib/useAgents.js";
 import {
   inferScopeHints,
   loadWorkDefaults,
@@ -109,6 +113,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const targetProject = project.trim();
   const targetEntry = allProjects.find((p) => p.name.toLowerCase() === targetProject.toLowerCase());
   const scramLock = useActionLock(targetEntry ? targetEntry.id : targetProject || null);
+  // The signing settings that will govern this card: the active project's, when the capture is tagged
+  // with its id (projectCaptureTag); any other card is signed at every step (signing-policy.ts).
+  const governing =
+    mode !== "nuclear-grade" && activeProject && targetProject.toLowerCase() === activeProject.name.toLowerCase() ? activeProject : null;
+  const flowLine = cardFlowLine(governing ? projectSteps(governing) : ALL_SIGNED);
 
   const [objective, setObjective] = useState("");
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
@@ -453,7 +462,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       <div className="cr-modal-head">
         <div>
           <h2 id="new-work-title" className="cr-modal-title">{copy.modalTitle}</h2>
-          <p className="small muted" style={{ margin: 0 }}>An agent turns this into a plan. Nothing runs until you approve it.</p>
+          <p className="small muted" style={{ margin: 0 }}>An agent turns this into a plan. {flowLine}</p>
         </div>
         <CloseX onClose={onClose} />
       </div>
@@ -585,7 +594,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                         invalidatePrepared();
                       }}
                       placeholder={reposQuery.data?.workspace_root || "~/projects"}
+                      aria-describedby="nw-working-location-help"
                     />
+                    <span className="small muted" id="nw-working-location-help">
+                      Local clones are looked for in this folder. Empty means {reposQuery.data?.workspace_root || "~/projects"}, set by CONTROLROD_WORKSPACE_ROOT when Control Rod starts.
+                    </span>
                   </label>
                   {repo && (
                     <label className="field">
@@ -772,7 +785,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         )}
         {reposQuery.data?.github_error && (
           <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
-            GitHub repositories unavailable: {reposQuery.data.github_error}
+            {reposQuery.data.github_error}
           </p>
         )}
 
@@ -824,6 +837,7 @@ function RuntimePickerCard({
   liveModels?: readonly string[] | undefined;
   onChange: (patch: RuntimeSelectionPatch) => void;
 }) {
+  const platform = useAgentPlatform();
   const models = modelsForEcosystem(value.ecosystem, liveModels);
   const isCustomModel = !models.includes(value.model);
   const [editingCustom, setEditingCustom] = useState(isCustomModel);
@@ -845,10 +859,10 @@ function RuntimePickerCard({
           }}
         >
           {CLI_ECOSYSTEMS.map((c) => {
-            const noCheckout = checkoutBound && c.runnable && !CHECKOUT_AUTHORS.includes(c.id);
+            const noCheckout = checkoutBound && runnableHere(c, platform) && !CHECKOUT_AUTHORS.includes(c.id);
             return (
-              <option key={c.id} value={c.id} disabled={!c.runnable || noCheckout}>
-                {c.label} ({c.cliCommand}){!c.runnable ? " — Not yet runnable" : noCheckout ? " — Can't work in a checkout yet" : ""}
+              <option key={c.id} value={c.id} disabled={!runnableHere(c, platform) || noCheckout}>
+                {c.label} ({c.cliCommand}){unavailableNote(c, platform) || (noCheckout ? ": can't work in a checkout yet" : "")}
               </option>
             );
           })}

@@ -1,17 +1,18 @@
 # Ship: One vendor-family table for checker independence, and the claim holder checked by the kernel
 
-Release decision: **pending**. This change touches a trust surface (kernel decision functions), so it needs the owner's recorded yes before merge, under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off). Merge is the owner's decision. No merge-on-green permission is claimed for it.
+Release decision: **approved by the owner** under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off) (see Signature below). This change touches a trust surface (kernel decision functions). The open question below on `models.json` is not part of the yes and stays open.
 
 ## Signature
 
 | Field | Entry |
 |---|---|
-| Decision | pending: not yet asked |
-| Trust-surface files | `kernel/src/transition.rs`, `kernel/src/decision.rs`, `kernel/bindings/wasm/src/lib.rs` (and the rebuilt `services/api/kernel/controlrod_kernel_bg.wasm` that compiles them) |
-| Question | pending: to be asked by the session that opens the pull request, naming the pull request and these files |
-| Answer | pending |
-| Head when asked | pending |
-| Recorded by | pending. The agent that records the answer fills this from the owner's own words. No signature or initials are typed for Ben Huffer |
+| Decision | **Approved.** Merge pull request #263 in the agreed order, after it is updated with `main`, once CI is green. |
+| Trust-surface files | `kernel/src/transition.rs`, `kernel/src/decision.rs`, `kernel/bindings/wasm/src/lib.rs`, `kernel/tests/preparation.rs` and the rebuilt `services/api/kernel/controlrod_kernel_bg.wasm` |
+| Question | "Should I merge all 11 in that order, including 263 and 260 with the trust-surface files listed above?" The report it closed listed, for 263: "263 changes kernel/src/transition.rs, kernel/src/decision.rs, kernel/bindings/wasm/src/lib.rs, kernel/tests/preparation.rs and the rebuilt services/api/kernel/controlrod_kernel_bg.wasm", and said each pull request would be updated with main before it merges. |
+| Answer | "Yes, please do." |
+| When and where | 2026-11-28 08:26 America/New_York (13:26 UTC), Ben Huffer's Claude Duet chat with the agent, in the thread for the task "Fix all 10 batches from the Control Rod review". |
+| Head when asked | `251b0a9d8083`. Updated with `main` as the question said, at `83d95012cdaa`: the diff of the trust-surface files against `main` is byte-for-byte the same as when asked (SHA-256 of `git diff -- kernel/ services/api/kernel/` checked before and after). Only this signature-recording commit follows. Any other change to a trust-surface file re-opens the question. |
+| Recorded by | The authoring agent (Claude), from the owner's own words. No signature or initials are typed for Ben Huffer. |
 
 ## Open question for the owner
 

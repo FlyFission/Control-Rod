@@ -732,7 +732,7 @@ describe("sticky checker fails", () => {
     const swappedAssertion = passkey.assert(swappedOptions.json().options);
     const swapped = await asOwner("POST", `/packages/${id}/recheck-overrides`, { reason: "A different reason", assertion: swappedAssertion });
     expect(swapped.statusCode).toBe(403);
-    expect(swapped.json().code).toBe("unsigned");
+    expect(swapped.json().code).toBe("signature-mismatch");
 
     const options = await asOwner("POST", `/packages/${id}/recheck-overrides/options`, { reason });
     expect(options.statusCode, options.body).toBe(200);

@@ -29,6 +29,7 @@ import { DEPENDENCY_PROVENANCE_SQL } from "./migrations/025-dependency-provenanc
 import { DEFAULT_WORKFLOW_SQL } from "./migrations/026-default-workflow.js";
 import { WORK_LANES_SQL } from "./migrations/027-work-lanes.js";
 import { SIGNING_POLICY_SQL } from "./migrations/028-signing-policy.js";
+import { EVENT_SUBJECT_INDEX_SQL } from "./migrations/029-event-subject-index.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -59,6 +60,7 @@ export const MIGRATIONS = [
   { version: "026-default-workflow", sql: DEFAULT_WORKFLOW_SQL },
   { version: "027-work-lanes", sql: WORK_LANES_SQL },
   { version: "028-signing-policy", sql: SIGNING_POLICY_SQL },
+  { version: "029-event-subject-index", sql: EVENT_SUBJECT_INDEX_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

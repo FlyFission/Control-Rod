@@ -196,3 +196,34 @@ describe("the four sign-in states", () => {
     expect(stateOf(container).getAttribute("data-mode")).toBe("sign-in");
   });
 });
+
+describe("passkey failures on the sign-in page (WEB-10)", () => {
+  it("shows a closed passkey window in plain words, never the browser's error name", async () => {
+    const { asPasskeyError } = await import("../lib/passkeyErrors.js");
+    const raw = Object.assign(new Error("The operation either timed out or was not allowed.", { cause: new DOMException("x", "NotAllowedError") }), {
+      name: "NotAllowedError",
+      code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",
+    });
+    const refusing: Passkeys = { get: async () => Promise.reject(asPasskeyError(raw)), create: async () => ({}) };
+    server.use(http.post("*/auth/login/options", () => HttpResponse.json({ options: { challenge: "c" } })));
+    const user = userEvent.setup();
+    await renderPage(<SignIn session={{ registered: true, signed_in: false } as never} passkeys={refusing} />);
+    await user.click(screen.getByRole("button", { name: "Sign in with passkey" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/passkey window closed or timed out/);
+    expect(alert.textContent).not.toMatch(/NotAllowed|operation either/);
+  });
+
+  it("does not promise Touch ID on a computer that has none", async () => {
+    const platform = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(navigator), "platform");
+    Object.defineProperty(navigator, "platform", { configurable: true, get: () => "Win32" });
+    try {
+      await renderPage(<SignIn session={{ registered: true, signed_in: false } as never} passkeys={passkeys} />);
+      expect(screen.getByText("Use the passkey on this computer. Windows Hello works.")).toBeTruthy();
+      expect(screen.queryByText(/Touch ID/)).toBeNull();
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).platform;
+      if (platform) Object.defineProperty(Object.getPrototypeOf(navigator), "platform", platform);
+    }
+  });
+});

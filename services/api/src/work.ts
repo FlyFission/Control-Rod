@@ -11,7 +11,7 @@ import { preparationForSubject, preparedReleaseGuard, persistReleaseManifest } f
 import { enrollPreparationTx, advancePreparationRevision } from "./preparation/store.js";
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
-import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
+import { type DataLane, LANE_ORDER, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
 import { PR_CLAIM_MS, PUBLISH_SEND_BY_MS } from "./publish-claim.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
@@ -23,13 +23,15 @@ import { FOCUS_WRITING, RULES, briefHeader, composeBrief, findingsSection, nucle
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
+import { strictBase64 } from "./base64.js";
+import { captureLimits } from "./schemas.js";
 import { bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { CHANGE_PATCH, changePatches, changedRepoFiles, patchFiles } from "./change-files.js";
 import { pullRequestWatcher } from "./pr-watch.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
-import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
+import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes, withFake } from "./runtimes.js";
 import { exhaustedAgents, usageHoldReason } from "./usage-limits.js";
 import { benchedRuntimes, setupView } from "./setup.js";
 import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
@@ -101,9 +103,19 @@ function validate(cfg: WorkConfig, schema: string, value: unknown): void {
   }
 }
 
+/**
+ * The HTTP status for a kernel denial. Forbidden stays 403; a request that is fine but early or late
+ * for the work's state is a conflict (409); a request missing something it must carry is 422.
+ */
+const KERNEL_STATUS: Readonly<Record<string, 409 | 422>> = {
+  "wrong-state": 409,
+  "missing-pre-check": 409,
+  "reason-required": 422,
+};
+
 function kernel(outcome: KernelOutcome, what: string): Status {
   if (!outcome.allowed || outcome.next === null) {
-    throw new Refusal(403, outcome.reason, `${what}: ${teach(outcome.reason).sentence}`);
+    throw new Refusal(KERNEL_STATUS[outcome.reason] ?? 403, outcome.reason, `${what}: ${teach(outcome.reason).sentence}`);
   }
   return outcome.next;
 }
@@ -111,7 +123,9 @@ function kernel(outcome: KernelOutcome, what: string): Status {
 /* ---------- captures and attachments ---------- */
 
 const FENCE = /```attachment name="([^"\n]{1,200})" encoding="base64"\n([A-Za-z0-9+/=\s]+?)\n```/g;
-const MAX_ATTACHMENT = 5 * 1024 * 1024;
+/** The page reads the same generated limits, so neither side accepts what the other refuses. */
+export const CAPTURE_LIMITS = captureLimits();
+const CAPTURE_SOURCES = ["web", "cli", "voice", "chat"] as const;
 
 function safeName(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
@@ -119,27 +133,58 @@ function safeName(name: string): string {
   return base;
 }
 
+function megabytes(bytes: number): string {
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
+
+export type CaptureRequest = { text: string; source: string; lane?: DataLane; checkout?: unknown };
+
+/**
+ * Reads a POST /captures body against the shared CaptureRequest schema. A lane that is sent must be a
+ * real lane: a misspelt one is refused, so a capture is never left unclassified by a typo.
+ */
+export function captureRequest(cfg: WorkConfig, body: unknown, fromCli: boolean): CaptureRequest {
+  const b = body !== null && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
+  if (typeof b.text !== "string" || !b.text.trim()) throw new Refusal(400, "invalid", "Say what needs doing");
+  if (b.lane !== undefined && !isLane(b.lane)) {
+    throw new Refusal(400, "invalid", `${JSON.stringify(b.lane)} is not a data lane. Choose one of: ${LANE_ORDER.join(", ")}`);
+  }
+  if (b.source !== undefined && !(CAPTURE_SOURCES as readonly unknown[]).includes(b.source)) {
+    throw new Refusal(400, "invalid", `${JSON.stringify(b.source)} is not a capture source. Use one of: ${CAPTURE_SOURCES.join(", ")}`);
+  }
+  validate(cfg, "CaptureRequest.json", b);
+  const source = fromCli ? "cli" : typeof b.source === "string" ? b.source : "web";
+  return { text: b.text, source, ...(b.lane !== undefined ? { lane: b.lane as DataLane } : {}), ...(b.checkout !== undefined ? { checkout: b.checkout } : {}) };
+}
+
 export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, sent?: unknown, checkoutSelection?: unknown) {
   let lane: DataLane | undefined = isLane(sent) ? sent : undefined;
-  const checkout = checkoutSelection === undefined ? undefined : await bindCheckout(checkoutSelection);
+  const limits = CAPTURE_LIMITS;
   const files: { name: string; bytes: Buffer }[] = [];
   const names = new Set<string>();
   const visible = text
     .replace(FENCE, (_m, name: string, b64: string) => {
       const safe = safeName(name);
       if (names.has(safe)) throw new Refusal(400, "invalid", `Duplicate attachment name: ${safe}`);
-      const bytes = Buffer.from(b64.replace(/\s+/g, ""), "base64");
-      if (bytes.length > MAX_ATTACHMENT) throw new Refusal(400, "too-large", `${name} is over 5 MB`);
+      if (files.length >= limits.attachments) {
+        throw new Refusal(400, "too-many-attachments", `A capture can carry up to ${limits.attachments} files`);
+      }
+      const bytes = strictBase64(b64.replace(/\s+/g, ""), safe);
+      if (bytes.length > limits.attachment_bytes) throw new Refusal(400, "too-large", `${safe} is over ${megabytes(limits.attachment_bytes)}`);
       names.add(safe);
       files.push({ name: safe, bytes });
       return `[attachment: ${safe}]`;
     })
     .trim();
   if (!visible) throw new Refusal(400, "invalid", "Say what needs doing");
+  if (visible.length > limits.visible_text) {
+    throw new Refusal(400, "too-large", `The text is ${visible.length.toLocaleString("en-US")} characters. A capture holds up to ${limits.visible_text.toLocaleString("en-US")}, not counting attachments`);
+  }
+  const checkout = checkoutSelection === undefined ? undefined : await bindCheckout(checkoutSelection);
   const capture = {
     schema_version: "0.1.0",
     id: `C-${randomUUID().slice(0, 8)}`,
-    text: visible.slice(0, 20000),
+    text: visible,
     source,
     ...(checkout ? { checkout } : {}),
     created_at: now(),
@@ -858,7 +903,7 @@ function runtimeName(provider: unknown): string {
 function pickRuntime(have: string[], preferred?: string): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && have.includes(pref)) return pref;
-  return [...RUNNABLE, "fake"].find((r) => have.includes(r)) ?? null;
+  return withFake(RUNNABLE).find((r) => have.includes(r)) ?? null;
 }
 
 /**
@@ -871,7 +916,7 @@ function pickChecker(have: string[], authorRuntime: string, override: boolean, p
   if (pref && pref !== authorRuntime && have.includes(pref)) return pref;
   // The owner picked the author's own agent to check, under a signed policy: honour it as picked.
   if (pref && pref === authorRuntime && sameAllowed && have.includes(pref)) return pref;
-  const other = [...CHECKER_ORDER, "fake"].find((r) => have.includes(r) && r !== authorRuntime);
+  const other = withFake(CHECKER_ORDER).find((r) => have.includes(r) && r !== authorRuntime);
   if (other) return other;
   return override && have.includes(authorRuntime) ? authorRuntime : null;
 }
@@ -913,7 +958,12 @@ function concreteModel(m: unknown): string | undefined {
   return trimmed && trimmed !== "default" && trimmed !== "any" ? trimmed : undefined;
 }
 
-/** Normalizes shorthand UI/capture model aliases to registered IDs in daemon/internal/runner/models.json. */
+/**
+ * Expands a family shorthand (sonnet, opus, haiku, codex) to its registered ID in
+ * daemon/internal/runner/models.json. Only shorthands are here. A real model name, such as o3 or
+ * gpt-5.4, is a different model and passes through unchanged, so a person never gets another model
+ * than the one they named.
+ */
 const MODEL_ALIASES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   claude: {
     sonnet: "claude-sonnet-4-6",
@@ -924,15 +974,11 @@ const MODEL_ALIASES: Readonly<Record<string, Readonly<Record<string, string>>>> 
     "claude-haiku": "claude-haiku-4-5",
   },
   codex: {
-    "gpt-5.4": "gpt-5-codex",
-    "gpt-5": "gpt-5-codex",
     codex: "gpt-5-codex",
-    o3: "gpt-5-codex",
-    "o4-mini": "gpt-5-codex",
   },
 };
 
-function normalizeRunModel(runtime: string, model: string | undefined): string | undefined {
+export function normalizeRunModel(runtime: string, model: string | undefined): string | undefined {
   const m = concreteModel(model);
   if (!m) return undefined;
   return MODEL_ALIASES[runtime]?.[m.toLowerCase()] ?? m;
@@ -2924,7 +2970,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
       throw new Refusal(400, "invalid", "An output name is not a plain relative path");
     }
     if(outputs.some(v=>v.name===o.name)) throw new Refusal(400,"duplicate-output","Output names must be unique");
-    outputs.push({ name: o.name, bytes: Buffer.from(String(o.content_base64 ?? ""), "base64") });
+    outputs.push({ name: o.name, bytes: strictBase64(o.content_base64, `The output ${o.name}`) });
   }
   // A bound run's success is evidence only with the trace that names its checkout.
   if (row.body.checkout && body.status === "succeeded" && body.trace === undefined) {

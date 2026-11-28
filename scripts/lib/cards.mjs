@@ -57,7 +57,18 @@ export function client({ home, port, fetchImpl = fetch }) {
       throw new CardError("Control Rod is not running. Run `controlrod start` first.");
     }
     const text = await r.text();
-    const json = text ? JSON.parse(text) : null;
+    let json = null;
+    if (text) {
+      try {
+        json = JSON.parse(text);
+      } catch {
+        // Something other than Control Rod may be answering on this port, or the app sent an error
+        // page. Either way the reply is not one this command can read, so it says that plainly.
+        throw new CardError(
+          `The app on port ${port} answered ${r.status} with a reply that is not JSON. If another program uses that port, stop it or start Control Rod on another port.`,
+        );
+      }
+    }
     if (!r.ok) {
       if (r.status === 401 || r.status === 403) throw new CardError(`${json?.message ?? "Refused"}. If Control Rod was just updated, run \`controlrod restart\`.`);
       throw new CardError(json?.message ?? `The app answered ${r.status}`);

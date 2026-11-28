@@ -470,7 +470,7 @@ describe("signing policy on a project", () => {
       kind: "return", package_revision: 0, reason: "x", expected_subject_digest: (await view(id)).subject_digest, assertion: passkey.assert(o.json().options),
     });
     expect(r.statusCode).toBe(403);
-    expect(r.json().code).toBe("unsigned");
+    expect(r.json().code).toBe("signature-mismatch");
   });
 
   it("covers only a card filed under the project its request named", async () => {

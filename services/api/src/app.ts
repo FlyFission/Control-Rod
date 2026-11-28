@@ -6,15 +6,18 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import {
   type AuthConfig,
   assertionOptions,
-  assertionVerify,
+  checkAssertion,
   endSession,
   isDaemon,
   isCli,
   cliUser,
   isRegistered,
   registrationOptions,
+  passkeyRefused,
   registrationVerify,
+  requireAssertion,
   sessionUser,
+  signatureMismatch,
   startSession,
 } from "./auth.js";
 import type { Db } from "./db/index.js";
@@ -37,7 +40,8 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
-import { RUNNABLE } from "./runtimes.js";
+import { RUNNABLE, withFake } from "./runtimes.js";
+import { sweepNeeded } from "./sweep-check.js";
 import { recordUsageLimits, usageLimitsView } from "./usage-limits.js";
 import { recordSeat, recordSetup, setupView } from "./setup.js";
 import { listWorkspaceProjects } from "./workspace-projects.js";
@@ -51,6 +55,7 @@ import {
   claim,
   complete,
   classifyCapture,
+  captureRequest,
   createCapture,
   dismissCapture,
   decisionChallenge,
@@ -137,6 +142,41 @@ const MIME: Record<string, string> = {
   ".txt": "text/plain; charset=utf-8",
 };
 
+/** Every route reads at most this much body unless it raises its own limit (API-6). */
+export const DEFAULT_BODY_LIMIT = 1024 * 1024;
+/** A capture: up to 30,000,000 characters of text and attachment fences (spec CaptureRequest), plus JSON. */
+export const CAPTURE_BODY_LIMIT = 32 * 1024 * 1024;
+/** A draft package or preparation edit by a signed-in person. */
+export const EDIT_BODY_LIMIT = 8 * 1024 * 1024;
+/** The daemon's reports: run outputs up to 100 MB, base64 encoded, and log lines up to 16 MB each. */
+export const DAEMON_BODY_LIMIT = 150 * 1024 * 1024;
+
+const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
+
+/**
+ * What the kernel's canonical JSON check refused, in words. The kernel reports
+ * NumberNotAllowed("/path"), DuplicateKey("/path"), TooDeep("/path") or InvalidJson("..."); the
+ * path is a JSON pointer, and "" is the whole body.
+ */
+export function canonicalJsonProblem(err: unknown): string {
+  const text = err instanceof Error ? err.message : String(err);
+  const m = /^(\w+)\("((?:[^"\\]|\\.)*)"\)$/.exec(text.trim());
+  const at = (escaped: string) => {
+    const pointer = escaped.replace(/\\(.)/g, "$1");
+    return pointer ? `at ${pointer.length > 120 ? pointer.slice(0, 120) + "..." : pointer}` : "in the body";
+  };
+  switch (m?.[1]) {
+    case "NumberNotAllowed":
+      return `The number ${at(m[2]!)} is not allowed: Control Rod takes only whole numbers up to 9007199254740991 in JSON. Send a fraction or a larger number as a string, for example "37.5"`;
+    case "DuplicateKey":
+      return `The JSON names the same key twice ${at(m[2]!)}. Send each key once`;
+    case "TooDeep":
+      return `The JSON nests too deeply ${at(m[2]!)}. Send at most 64 levels of objects and lists`;
+    default:
+      return "The request body is not valid JSON";
+  }
+}
+
 /**
  * People use a passkey session; the daemon uses its token; grant brokers use narrow
  * per-grant credentials. Package lifecycle decisions still require the kernel.
@@ -149,19 +189,29 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const resumePullRequests = opts.publishPullRequests ?? process.env.CONTROLROD_PUBLISH_PULL_REQUESTS !== "0";
   if (resumePullRequests) cfg.publish = (id, revision) => void publishAccepted(db, id, revision).catch((e) => console.error("[control-rod] pull request:", e));
   const { db, auth } = opts;
-  const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
+  // A small body limit everywhere, so a request nobody signed in for is never read past 1 MB. The
+  // few routes that take large bodies raise it for themselves and check who is asking in onRequest,
+  // before the body is read (the pattern preparation/grant-routes.ts uses).
+  const app = Fastify({ logger: false, bodyLimit: DEFAULT_BODY_LIMIT });
   // Accepted work whose pull request never got an outcome is picked up once at start, not on a timer.
   if (resumePullRequests) app.addHook("onReady", async () => { void resumePublishing(db).catch((e) => console.error("[control-rod] pull request:", e)); });
   const parseJson = app.getDefaultJsonParser("error", "error");
   app.removeContentTypeParser("application/json");
   app.addContentTypeParser("application/json", { parseAs: "buffer" }, (_req, body, done) => {
+    let raw: string;
     try {
-      const raw = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body as Buffer);
-      validateRawJson(raw);
-      parseJson(_req, raw, done);
+      raw = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body as Buffer);
     } catch {
-      done(Object.assign(new Error("JSON violates the canonical record profile"), { statusCode: 400 }));
+      done(Object.assign(new Error("The request body is not valid UTF-8 text"), { statusCode: 400, refusalCode: "not-json" }));
+      return;
     }
+    try {
+      validateRawJson(raw);
+    } catch (e) {
+      done(Object.assign(new Error(canonicalJsonProblem(e)), { statusCode: 400, refusalCode: "not-json" }));
+      return;
+    }
+    parseJson(_req, raw, done);
   });
   app.register(cookie);
   app.setValidatorCompiler(({ schema }) => ajv.compile(schema));
@@ -172,7 +222,15 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       return reply.code(err.status).send({ code: err.code, message: err.message, change: taught.change, ...(taught.floor ? { floor: true } : {}) });
     }
     const status = (err as { statusCode?: number }).statusCode;
-    if (status && status < 500) return reply.code(status).send({ code: "invalid", message: (err as Error).message });
+    if (status === 413) {
+      const limit = reply.request.routeOptions?.bodyLimit ?? DEFAULT_BODY_LIMIT;
+      const taught = teach("too-large");
+      return reply.code(413).send({ code: "too-large", message: `This request is larger than this route accepts (${megabytes(limit)})`, change: taught.change });
+    }
+    if (status && status < 500) {
+      const code = (err as { refusalCode?: string }).refusalCode ?? "invalid";
+      return reply.code(status).send({ code, message: (err as Error).message, change: teach(code).change });
+    }
     // PostgreSQL stores no U+0000 in text or jsonb. Text that carries one (a paste from a terminal or a
     // binary file) is the sender's to fix, not a server failure.
     const pgCode = (err as { code?: unknown }).code;
@@ -240,11 +298,22 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const daemon = (req: FastifyRequest) => {
     if (!isDaemon(auth, req)) throw new Refusal(401, "unauthorized", "Daemon token required");
   };
+  // Routes that take large bodies check who is asking before the body is read (API-6).
+  const asPerson = { onRequest: async (req: FastifyRequest) => void (await person(req)) };
+  const asDaemon = { bodyLimit: DAEMON_BODY_LIMIT, onRequest: async (req: FastifyRequest) => daemon(req) };
 
   // Runs whose daemon stopped renewing its lease are retired as lost: on a timer, and before the
   // office or a claim is read so neither ever shows a dead run as working.
   // A failed sweep is logged, never silent: runs it missed are swept on the next pass.
   const sweep = () => sweepLost(db, cfg).catch((e) => (opts.onError ?? ((err) => console.error("[control-rod] sweep failed:", err)))(e));
+  // A page read sweeps only when the sweep has something to do (a read-only check), and page reads
+  // that arrive together share one sweep, so reads do not queue on the sweep's locks (API-16).
+  let sharedSweep: Promise<unknown> | null = null;
+  const sweepForRead = async () => {
+    if (!(await sweepNeeded(db).catch(() => true))) return;
+    sharedSweep ??= sweep().finally(() => (sharedSweep = null));
+    await sharedSweep;
+  };
   const sweepEvery = opts.sweepSeconds ?? 15;
   cfg.supervision = { startedAt: Date.now(), sweepSeconds: sweepEvery };
   if (sweepEvery > 0) {
@@ -289,8 +358,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (req.body?.name !== undefined && req.body.name !== user)
       throw new Refusal(403, "own-account-only", "You can add a passkey only to your own account; an administrator invites new people");
     if (!req.body?.step_up) throw new Refusal(403, "step-up-required", "Sign with a passkey you already hold to add another");
-    const ok = await assertionVerify(db, auth, "step-up", req.body.step_up as never);
-    if (!ok || ok.user !== user || ok.data.user !== user) throw new Refusal(403, "step-up-failed", "That signature did not come from your account");
+    const ok = await checkAssertion(db, auth, "step-up", req.body.step_up as never);
+    // A passkey from another account says so; any other refusal says why.
+    if (!ok.ok && ok.reason !== "other-person") throw passkeyRefused(ok.reason);
+    if (!ok.ok || ok.user !== user || ok.data.user !== user) throw new Refusal(403, "step-up-failed", "That signature did not come from your account");
     return { options: await registrationOptions(db, auth, user, { kind: "additional", via: ok.credentialId }) };
   });
   app.post("/auth/register/verify", async (req, reply) => {
@@ -311,8 +382,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { options: await assertionOptions(db, auth, "login", {}) };
   });
   app.post("/auth/login/verify", async (req, reply) => {
-    const ok = await assertionVerify(db, auth, "login", req.body as never);
-    if (!ok) throw new Refusal(401, "invalid", "Passkey sign-in failed");
+    const ok = await requireAssertion(db, auth, "login", req.body, 401);
     await startSession(db, reply, ok.user, ok.credentialId, secureSessionCookie).catch(() => { throw new Refusal(401, "invalid", "Passkey sign-in failed"); });
     return { registered: true, signed_in: true, user: ok.user };
   });
@@ -363,13 +433,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     }
     let signed: { subject: string; credentialId: string; nonce: string; assertion: Record<string, unknown> } | null = null;
     // Presence, not truthiness: a null or false assertion is a malformed signature, never a press.
+    // A signature that came and did not verify is refused with its reason, never taken as a press.
     if (req.body !== null && typeof req.body === "object" && "assertion" in req.body) {
-      const ok = req.body.assertion ? await assertionVerify(db, auth, "admin", req.body.assertion as never) : null;
-      if (ok && ok.user === user && ok.data.command === name && ok.data.member === caller.memberId)
-        signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
+      if (!req.body.assertion) throw passkeyRefused("bad-signature");
+      const ok = await requireAssertion(db, auth, "admin", req.body.assertion);
+      if (ok.user !== user || ok.data.command !== name || ok.data.member !== caller.memberId) throw signatureMismatch();
+      signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
     }
-    return runAdmin(db, { root: cfg.root, work: cfg, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed,
-      req.body !== null && typeof req.body === "object" && "assertion" in req.body && !signed);
+    return runAdmin(db, { root: cfg.root, work: cfg, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed);
   }
   app.post<{ Params: { name: string }; Body: AdminCommandBody }>("/admin/commands/:name", async (req) =>
     executeAdminCommand(req, req.params.name));
@@ -397,10 +468,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const caller = await callerFor(db, await person(req));
     return listCaptures(db, caller.orgId);
   });
-  app.post<{ Body: { text?: string; source?: string; lane?: string; checkout?: unknown } }>("/captures", async (req, reply) => {
+  app.post<{ Body: Record<string, unknown> }>("/captures", { ...asPerson, bodyLimit: CAPTURE_BODY_LIMIT }, async (req, reply) => {
     const user = await person(req);
-    const source = isCli(auth, req) ? "cli" : ["web", "cli", "voice", "chat"].includes(String(req.body?.source)) ? String(req.body?.source) : "web";
-    const capture = await createCapture(db, cfg, user, String(req.body?.text ?? ""), source, req.body?.lane, req.body?.checkout);
+    const request = captureRequest(cfg, req.body, isCli(auth, req));
+    const capture = await createCapture(db, cfg, user, request.text, request.source, request.lane, request.checkout);
     return reply.code(201).send(capture);
   });
   app.post<{ Params: { id: string }; Body: { lane?: string } }>("/captures/:id/classify", async (req) => {
@@ -428,7 +499,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const who = row ? await originatorsInOrder(db, row) : [];
     return { ...view, originators: who, preparation_enabled: cfg.guidedPreparation };
   });
-  app.put<{ Params: { id: string } }>("/packages/:id", async (req, reply) => {
+  app.put<{ Params: { id: string } }>("/packages/:id", { ...asPerson, bodyLimit: EDIT_BODY_LIMIT }, async (req, reply) => {
     const user = await packageUser(req, req.params.id);
     const ifMatch = typeof req.headers["if-match"] === "string" ? req.headers["if-match"] : undefined;
     const saved = await updateDraft(db, cfg, user, req.params.id, req.body, ifMatch);
@@ -516,28 +587,26 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const body = req.body ?? ({} as DecisionBody);
     let signed: { subject_digest: string; assertion: Record<string, unknown>; nonce?: string } | null = null;
     const assertionSent = body !== null && typeof body === "object" && "assertion" in body;
+    // A passkey that came and did not verify is refused with its reason, never taken as a press.
     if (assertionSent) {
-      const ok = body.assertion ? await assertionVerify(db, auth, "decision", body.assertion as never) : null;
+      if (!body.assertion) throw passkeyRefused("bad-signature");
+      const ok = await requireAssertion(db, auth, "decision", body.assertion);
       if (
-        ok &&
-        ok.user === user &&
-        ok.data.package_id === req.params.id &&
-        ok.data.kind === body.kind &&
-        Number(ok.data.revision) === Number(body.package_revision)
-      ) {
-        signed = {
-          subject_digest: String(ok.data.subject_digest), assertion: body.assertion as Record<string, unknown>,
-          ...(typeof ok.data.nonce === "string" ? { nonce: ok.data.nonce } : {}),
-        };
-      }
+        ok.user !== user ||
+        ok.data.package_id !== req.params.id ||
+        ok.data.kind !== body.kind ||
+        Number(ok.data.revision) !== Number(body.package_revision)
+      ) throw signatureMismatch();
+      signed = {
+        subject_digest: String(ok.data.subject_digest), assertion: body.assertion as Record<string, unknown>,
+        ...(typeof ok.data.nonce === "string" ? { nonce: ok.data.nonce } : {}),
+      };
     }
     const decision = await applyDecision(db, cfg, user, req.params.id, {
       kind: String(body.kind),
       package_revision: Number(body.package_revision),
       ...(body.reason ? { reason: String(body.reason) } : {}),
       ...(typeof body.expected_subject_digest?.value === "string" ? { expected_digest: body.expected_subject_digest.value } : {}),
-      // A passkey that came and did not verify is never taken as a press: the decision is judged unsigned.
-      ...(assertionSent && !signed ? { assertion_rejected: true } : {}),
     }, signed);
     return reply.code(201).send(decision);
   });
@@ -557,9 +626,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const { assertion, ...body } = req.body ?? {};
     let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
     if (assertion) {
-      const ok = await assertionVerify(db, auth, "person-verification", assertion as never);
-      if (ok && ok.user === user && ok.data.package_id === req.params.id && Number(ok.data.revision) === Number(body.package_revision))
-        signed = { subject_digest: String(ok.data.subject_digest), assertion, ...(typeof ok.data.nonce === "string" ? { nonce: ok.data.nonce } : {}) };
+      const ok = await requireAssertion(db, auth, "person-verification", assertion);
+      if (ok.user !== user || ok.data.package_id !== req.params.id || Number(ok.data.revision) !== Number(body.package_revision)) throw signatureMismatch();
+      signed = { subject_digest: String(ok.data.subject_digest), assertion, ...(typeof ok.data.nonce === "string" ? { nonce: ok.data.nonce } : {}) };
     }
     return reply.code(201).send(await recordPersonVerification(db, user, req.params.id, body, signed));
   });
@@ -592,10 +661,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
       let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
       if (req.body?.assertion) {
-        const ok = await assertionVerify(db, auth, "override", req.body.assertion as never);
-        if (ok && ok.user === user && ok.data.package_id === req.params.id && ok.data.run_id === req.params.runId && ok.data.reason === reason) {
-          signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
-        }
+        const ok = await requireAssertion(db, auth, "override", req.body.assertion);
+        if (ok.user !== user || ok.data.package_id !== req.params.id || ok.data.run_id !== req.params.runId || ok.data.reason !== reason) throw signatureMismatch();
+        signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
       }
       return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, reason, signed);
     },
@@ -636,10 +704,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
     let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
-      const ok = await assertionVerify(db, auth, "recheck-override", req.body.assertion as never);
-      if (ok && ok.user === user && ok.data.package_id === req.params.id && ok.data.reason === reason) {
-        signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
-      }
+      const ok = await requireAssertion(db, auth, "recheck-override", req.body.assertion);
+      if (ok.user !== user || ok.data.package_id !== req.params.id || ok.data.reason !== reason) throw signatureMismatch();
+      signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
     }
     return recordRecheckOverride(db, cfg, user, req.params.id, reason, signed);
   });
@@ -656,9 +723,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const user = await runUser(req, req.params.id, req.params.runId);
     let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
-      const ok = await assertionVerify(db, auth, "reconcile", req.body.assertion as never);
-      if (ok && ok.user === user && ok.data.package_id === req.params.id && ok.data.run_id === req.params.runId)
-        signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
+      const ok = await requireAssertion(db, auth, "reconcile", req.body.assertion);
+      if (ok.user !== user || ok.data.package_id !== req.params.id || ok.data.run_id !== req.params.runId) throw signatureMismatch();
+      signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
     }
     return reconcileRun(db, cfg, user, req.params.id, req.params.runId, req.body?.reason, signed);
   });
@@ -671,20 +738,20 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   /** The Inbox: what waits on the viewer by gate risk then age, what waits on others, and the digest since a sequence. */
   app.get<{ Querystring: { since?: string } }>("/inbox", async (req) => {
     const user = await person(req);
-    await sweep();
+    await sweepForRead();
     const raw = req.query.since;
     return inbox(db, cfg, user, raw === undefined || raw === "" ? undefined : Number(raw));
   });
   app.get("/office", async (req) => {
     // Scoped to the caller's organization, like the package list and views.
     const caller = await callerFor(db, await person(req));
-    await sweep();
+    await sweepForRead();
     return office(db, caller.orgId);
   });
   /** The office floor for the viewer: one AgentFigure per agent, from recorded data only (plan task 4.6). */
   app.get<{ Querystring: { presenting?: string } }>("/office/figures", async (req) => {
     const user = await person(req);
-    await sweep();
+    await sweepForRead();
     return officeFigures(db, cfg, user, req.query.presenting === "true");
   });
   /** A SCRAM, its stopped runs and every quarantine batch with digests, for the people reviewing it. */
@@ -735,7 +802,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   /** Budgets with their use this window, the latest usage records, and which runtimes report tokens (plan task 5.2). */
   app.get("/usage", async (req) => {
     const caller = await callerFor(db, await person(req));
-    await sweep();
+    await sweepForRead();
     return usageView(db, caller.orgId);
   });
   app.get("/runtimes", async (req) => {
@@ -891,7 +958,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", asDaemon, async (req, reply) => {
     daemon(req);
     if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
@@ -903,7 +970,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])
       .map(String)
-      .filter((r) => [...RUNNABLE, "fake"].includes(r) && !notReady.has(r));
+      // The test-only fake runtime is claimable only where CONTROLROD_ALLOW_FAKE=1 (runtimes.ts).
+      .filter((r) => withFake(RUNNABLE).includes(r) && !notReady.has(r));
     await sweep();
     // The daemon's run ceiling sizes budget reservations; one it did not report is never guessed.
     const ceiling = req.body?.run_ceiling_seconds;
@@ -915,7 +983,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (!job) return reply.code(204).send();
     return job;
   });
-  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown; events?: unknown; events_from?: unknown } }>("/runner/runs/:id/log", async (req) => {
+  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown; events?: unknown; events_from?: unknown } }>("/runner/runs/:id/log", asDaemon, async (req) => {
     daemon(req);
     const lines = Array.isArray(req.body?.lines) ? req.body.lines.map(String) : [];
     return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt, req.body?.events, req.body?.events_from);
@@ -924,11 +992,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     daemon(req);
     return command(db, "daemon.enroll-first-key", (c) => enrollFirstDaemonKey(c, (req.body ?? {}) as Record<string, unknown>));
   });
-  app.post<{ Params: { id: string } }>("/runner/runs/:id/evidence", async (req) => {
+  app.post<{ Params: { id: string } }>("/runner/runs/:id/evidence", asDaemon, async (req) => {
     daemon(req);
     return runEvidence(db, cfg, req.params.id, req.body ?? {});
   });
-  app.post<{ Params: { id: string } }>("/runner/runs/:id/complete", async (req) => {
+  app.post<{ Params: { id: string } }>("/runner/runs/:id/complete", asDaemon, async (req) => {
     daemon(req);
     return complete(db, cfg, req.params.id, req.body ?? {});
   });

@@ -153,7 +153,8 @@ export async function startStack(opts: { name: string; env?: Record<string, stri
     log: (w) => (existsSync(logs[w]) ? readFileSync(logs[w], "utf8") : ""),
     daemonRunning: () => !!daemon && daemon.exitCode === null && daemon.signalCode === null,
     async startApi() {
-      api = launch("node", [join(repoRoot, "services/api/dist/server.js")], env, logs.api, as);
+      // The control plane offers the daemon's fake runtime only where this is set, as the daemon does.
+      api = launch("node", [join(repoRoot, "services/api/dist/server.js")], { ...env, CONTROLROD_ALLOW_FAKE: "1" }, logs.api, as);
       await health(true);
     },
     async stopApi(signal = "SIGTERM") {

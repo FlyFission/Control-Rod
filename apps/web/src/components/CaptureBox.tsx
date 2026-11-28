@@ -5,10 +5,10 @@ import { api, explain } from "../api/client.js";
 import type { DataLane } from "../api/types.js";
 import { useActiveProject } from "../lib/projects.js";
 import { LanePicker, defaultLaneFor } from "./LanePicker.js";
-import { FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "../lib/attachments.js";
+import { CAPTURE_LIMITS, FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "../lib/attachments.js";
 
-/** The capture contract caps what a person types at 20,000 characters. Files ride as attachments. */
-export const CAPTURE_LIMIT = 20000;
+/** The capture contract caps what a person types (20,000 characters). Files ride as attachments. */
+export const CAPTURE_LIMIT = CAPTURE_LIMITS.visibleText;
 
 export function CaptureBox() {
   // A capture carries no project, so only an organization SCRAM locks it, never the sidebar's project.
@@ -36,9 +36,14 @@ export function CaptureBox() {
     setError(null);
     if (list === null || list === undefined) return;
     const added: Attached[] = [];
+    const kept = files.filter((c) => !Array.from(list).some((f) => f.name === c.name)).length;
     for (const f of Array.from(list)) {
       if (f.size > FILE_LIMIT) {
-        setError(`${f.name} is over 5 MB.`);
+        setError(`${f.name} is over ${Math.round(FILE_LIMIT / (1024 * 1024))} MB.`);
+        continue;
+      }
+      if (kept + added.length >= CAPTURE_LIMITS.attachments) {
+        setError(`One capture can carry up to ${CAPTURE_LIMITS.attachments} files. ${f.name} was not added.`);
         continue;
       }
       try {

@@ -3,12 +3,21 @@
 //   PD94bWwg...
 //   ```
 
+import limits from "../../../../spec/generated/json-schema/CaptureLimits.json";
+
 export interface Attached {
   name: string;
   base64: string;
 }
 
-export const FILE_LIMIT = 5 * 1024 * 1024;
+/** The capture limits the API also enforces, read from the generated contract (spec/work.tsp). */
+export const CAPTURE_LIMITS = {
+  visibleText: limits.properties.visible_text.const,
+  attachments: limits.properties.attachments.const,
+  attachmentBytes: limits.properties.attachment_bytes.const,
+} as const;
+
+export const FILE_LIMIT = CAPTURE_LIMITS.attachmentBytes;
 
 /** Names cannot carry quotes or line breaks into the fence's info string. */
 export function safeName(name: string): string {

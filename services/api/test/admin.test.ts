@@ -97,7 +97,7 @@ describe("signatures", () => {
   it("refuses a signature issued for another command", async () => {
     const o = await post(ben, "/admin/commands/repo.bind/options", { payload });
     const r = await post(ben, "/admin/commands/project.create", { payload, assertion: benKey.assert(o.json().options) });
-    expect(r.json().code).toBe("signature-required");
+    expect(r.json().code).toBe("signature-mismatch");
   });
 
   it("refuses a replayed signature", async () => {
@@ -105,7 +105,7 @@ describe("signatures", () => {
     const assertion = benKey.assert(o.json().options);
     expect((await post(ben, "/admin/commands/project.create", { payload, assertion })).statusCode).toBe(200);
     const again = await post(ben, "/admin/commands/project.create", { payload, assertion });
-    expect(again.json().code).toBe("signature-required");
+    expect(again.json().code).toBe("passkey-expired");
   });
 
   it("refuses an unknown command", async () => {
@@ -487,7 +487,7 @@ describe("review findings", () => {
     await signed(ben, benKey, "qualification.revoke", { member_id: CAROL, reason: "no longer an administrator" });
     const r = await post(carol, "/admin/commands/project.create", { payload, assertion });
     expect(r.statusCode).toBe(403);
-    expect(["signature-required", "authority-missing"]).toContain(r.json().code);
+    expect(["passkey-expired", "passkey-unknown", "authority-missing"]).toContain(r.json().code);
   });
 
   it("SEC-15: a replayed signature is refused even when the passkey counter stays at zero", async () => {
@@ -496,7 +496,7 @@ describe("review findings", () => {
     const assertion = carolKey.assert(o.json().options);
     await post(carol, "/admin/commands/delegation.revoke", { payload, assertion });
     const again = await post(carol, "/admin/commands/delegation.revoke", { payload, assertion });
-    expect(again.json().code).toBe("signature-required");
+    expect(again.json().code).toBe("passkey-expired");
   });
 
   it("SEC-12: one change request is approved once, even when approved twice at the same moment", async () => {
@@ -507,8 +507,11 @@ describe("review findings", () => {
       post(ben, "/admin/commands/policy.approve", { payload, assertion: benKey.assert(o1.json().options) }),
       post(ben, "/admin/commands/policy.approve", { payload, assertion: benKey.assert(o2.json().options) }),
     ]);
-    const codes = [r1, r2].map((r) => (r.statusCode === 200 ? "ok" : r.json().code)).sort();
-    expect(codes).toEqual(["not-proposed", "ok"]);
+    // The two signatures carry rising counters, so the passkey check can refuse the second before
+    // the approval does. Either way exactly one approval goes through.
+    const codes = [r1, r2].map((r) => (r.statusCode === 200 ? "ok" : r.json().code));
+    expect(codes.filter((c) => c === "ok")).toHaveLength(1);
+    expect(["not-proposed", "passkey-overtaken", "passkey-counter"]).toContain(codes.find((c) => c !== "ok"));
   });
 
   it("SEC-13: policy settings are typed; unknown or invalid values are refused", async () => {
@@ -577,7 +580,7 @@ describe("review round 2", () => {
     const o = await post(ben, "/admin/commands/project.create/options", { payload });
     const assertion = zero.assert(o.json().options);
     expect((await post(ben, "/admin/commands/project.create", { payload, assertion })).statusCode).toBe(200);
-    expect((await post(ben, "/admin/commands/project.create", { payload, assertion })).json().code).toBe("signature-required");
+    expect((await post(ben, "/admin/commands/project.create", { payload, assertion })).json().code).toBe("passkey-expired");
   });
 
   it("two passkeys revoked at once never leaves a member with none", async () => {
@@ -617,7 +620,7 @@ describe("review round 3", () => {
     const payload = { name: "Crossed", mode: "general", default_rigor: "quick", lanes: ["internal"], qa_overlays: [] };
     const o = await post(harryCookie, "/admin/commands/project.create/options", { payload });
     const crossed = await post(ben, "/admin/commands/project.create", { payload, assertion: benKey.assert(o.json().options) });
-    expect(crossed.json().code).toBe("signature-required");
+    expect(crossed.json().code).toBe("passkey-other-person");
   });
 
   it("a policy setting named after a built in property is refused, not a server error", async () => {

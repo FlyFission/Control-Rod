@@ -6,6 +6,7 @@ import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import { DIGEST, view } from "../test/fixtures.js";
 import { CaptureBox, CAPTURE_LIMIT } from "./CaptureBox.js";
+import { CAPTURE_LIMITS } from "../lib/attachments.js";
 import { DecisionBar } from "./DecisionBar.js";
 import { Inbox } from "../pages/Inbox.js";
 import { RecentCaptures } from "./Captures.js";
@@ -64,6 +65,26 @@ describe("capture", () => {
     await user.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() =>
       expect(body.text).toBe('Draft a scope of work from these field notes\n\n```attachment name="field-notes.txt" encoding="base64"\nUC0xMDE=\n```'),
+    );
+  });
+
+  it("reads its limits from the generated capture contract the API also enforces", async () => {
+    const limits = (await import("../../../../spec/generated/json-schema/CaptureLimits.json")).default.properties;
+    expect(CAPTURE_LIMIT).toBe(limits.visible_text.const);
+    expect(CAPTURE_LIMITS.attachments).toBe(limits.attachments.const);
+    expect(CAPTURE_LIMITS.attachmentBytes).toBe(limits.attachment_bytes.const);
+  });
+
+  it("keeps a capture within the attachment count and says which file was left out", async () => {
+    const { container } = await renderPage(<CaptureBox />);
+    const user = userEvent.setup();
+    const input = container.querySelector("#capture-file") as HTMLInputElement;
+    const files = Array.from({ length: CAPTURE_LIMITS.attachments + 1 }, (_, i) => new File(["x"], `note-${i}.txt`, { type: "text/plain" }));
+    await user.upload(input, files);
+    expect(await screen.findByText(`note-${CAPTURE_LIMITS.attachments - 1}.txt`)).toBeTruthy();
+    expect(screen.queryByText(`note-${CAPTURE_LIMITS.attachments}.txt`)).toBeNull();
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      `One capture can carry up to ${CAPTURE_LIMITS.attachments} files. note-${CAPTURE_LIMITS.attachments}.txt was not added.`,
     );
   });
 

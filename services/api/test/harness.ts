@@ -87,10 +87,11 @@ export interface Harness {
 
 /** A real Postgres per test file and the real app. Nothing is mocked but the authenticator and the daemon. */
 export async function startHarness(
-  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"|"streamReplayMax"|"publishPullRequests"|"updateNotice"> & { root?: string; trustAnchors?: string[] } = {},
+  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"|"streamReplayMax"|"publishPullRequests"|"updateNotice"|"practiceDir"> & { root?: string; trustAnchors?: string[] } = {},
 ): Promise<Harness> {
   const { trustAnchors, ...rest } = given;
-  const options = { ...rest, root: rest.root ?? repoRoot };
+  // Never the person's own ~/.controlrod: each harness gets its own practice folder.
+  const options = { ...rest, root: rest.root ?? repoRoot, practiceDir: rest.practiceDir ?? mkdtempSync(join(tmpdir(), "cr-practice-")) };
   const external = process.env.TEST_DATABASE_URL;
   if (external) {
     // A fresh database per test file on a Postgres the caller provides (CI service or local server).

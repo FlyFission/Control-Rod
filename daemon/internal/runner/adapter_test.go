@@ -26,7 +26,7 @@ var runtimeNamePattern = regexp.MustCompile(`case\s+Runtime(Claude|Codex|Fake)\b
 
 func TestRegistry(t *testing.T) {
 	regs := RegisteredAdapters()
-	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama, RuntimeFake}
+	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama, RuntimeFake, RuntimePractice, RuntimePracticeCheck}
 	if len(regs) != len(wantOrder) {
 		t.Fatalf("registry %d", len(regs))
 	}
@@ -65,18 +65,34 @@ func TestRegistry(t *testing.T) {
 		}
 		return "", errors.New("missing")
 	}
-	off := func(string) string { return "" }
-	on := func(k string) string {
-		if k == "CONTROLROD_ALLOW_FAKE" {
-			return "1"
+	// The practice runtimes need nothing installed and are offered unless CONTROLROD_PRACTICE=0.
+	off := func(k string) string {
+		if k == "CONTROLROD_PRACTICE" {
+			return "0"
 		}
 		return ""
 	}
+	on := func(k string) string {
+		switch k {
+		case "CONTROLROD_ALLOW_FAKE":
+			return "1"
+		case "CONTROLROD_PRACTICE":
+			return "0"
+		}
+		return ""
+	}
+	practice := []string{RuntimePractice, RuntimePracticeCheck}
 	if got := Detect(missing, off); len(got) != 0 {
 		t.Fatalf("detect with nothing: %v", got)
 	}
+	if got := Detect(missing, func(string) string { return "" }); !slices.Equal(got, practice) {
+		t.Fatalf("practice is offered with nothing installed: %v", got)
+	}
 	if got := Detect(found, off); !slices.Equal(got, []string{RuntimeClaude, RuntimeCodex}) {
 		t.Fatalf("detect without fake: %v", got)
+	}
+	if got := Detect(found, func(string) string { return "" }); !slices.Equal(got, append([]string{RuntimeClaude, RuntimeCodex}, practice...)) {
+		t.Fatalf("detect with practice, without fake: %v", got)
 	}
 	if got := Detect(found, on); !slices.Equal(got, []string{RuntimeClaude, RuntimeCodex, RuntimeFake}) {
 		t.Fatalf("detect with fake: %v", got)
@@ -91,7 +107,7 @@ func TestRegistry(t *testing.T) {
 	for _, c := range []struct{ provider, runtime string }{
 		{"claude", RuntimeClaude}, {"Anthropic", RuntimeClaude}, {"claude-code", RuntimeClaude},
 		{"codex", RuntimeCodex}, {"OpenAI", RuntimeCodex},
-		{"fake", RuntimeFake}, {"nope", ""}, {"", ""},
+		{"fake", RuntimeFake}, {"practice", RuntimePractice}, {"practice-check", RuntimePracticeCheck}, {"nope", ""}, {"", ""},
 	} {
 		if got := RuntimeFor(c.provider); got != c.runtime {
 			t.Errorf("RuntimeFor %q = %q, want %q", c.provider, got, c.runtime)
@@ -219,7 +235,7 @@ func TestHostNeedsForFakeKeepsBubblewrapOnLinux(t *testing.T) {
 }
 
 func TestMissingOutputCopierIsAnError(t *testing.T) {
-	err := copyRunOutputs(callAdapter{}, &Workspace{}, &logBuffer{})
+	err := copyRunOutputs(context.Background(), callAdapter{}, Run{}, &Workspace{}, &logBuffer{})
 	if err == nil || !strings.Contains(err.Error(), "no output copier") {
 		t.Fatalf("got %v", err)
 	}
@@ -302,10 +318,20 @@ func TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv(t *testing.T) {
 	sawFake := false
 	for _, a := range RegisteredAdapters() {
 		if !a.SandboxRequired() {
-			if a.ID() != RuntimeFake {
-				t.Fatalf("%s reports no sandbox; only %s may", a.ID(), RuntimeFake)
+			switch {
+			case a.ID() == RuntimeFake:
+				sawFake = true
+			case IsPractice(a.ID()):
+				// The practice runtimes take no sandbox because they start no process at all.
+				for _, role := range a.Capabilities().Roles {
+					cmd, err := Command(a.ID(), testRun("gate-"+a.ID(), role), workspaceWithTools(t, ""), nil, SandboxPaths{})
+					if cmd != nil || err != nil {
+						t.Fatalf("%s %s built a process: %v %v", a.ID(), role, cmd, err)
+					}
+				}
+			default:
+				t.Fatalf("%s reports no sandbox; only %s and the practice runtimes may", a.ID(), RuntimeFake)
 			}
-			sawFake = true
 			continue
 		}
 		ws := workspaceWithTools(t, "")

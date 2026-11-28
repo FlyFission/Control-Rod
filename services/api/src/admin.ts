@@ -24,6 +24,7 @@ import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal, type WorkConfig, autoDecide } from "./work.js";
 import { enterScramGate } from "./scram.js";
 import { archiveWorkspaceProject, createWorkspaceProject, updateWorkspaceProject } from "./workspace-projects.js";
+import { defaultPracticeDir, startPracticeProject } from "./practice.js";
 import { resolveChoice } from "./work-lanes.js";
 
 /**
@@ -449,6 +450,16 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     // The signature over the create also signs the signing preset chosen in the same form.
     run: (c, caller, p, ctx) => createWorkspaceProject(c, caller, p, ctx.assertion
       ? { subject: adminSubject("project.workspace-create", caller, p), assertion: ctx.assertion, ...(ctx.signed?.nonce ? { nonce: ctx.signed.nonce } : {}) }
+      : undefined),
+  },
+
+  "project.practice-start": {
+    label: "Start the practice project",
+    // Making the practice project makes a project, so it takes the same passkey as any new project.
+    // It runs once: a second start returns the practice project already there.
+    catalog: "admin.project-create", signature: "direct", need: "administrator",
+    run: (c, caller, _p, ctx) => startPracticeProject(c, caller, ctx.root, ctx.work?.practiceDir ?? defaultPracticeDir(), ctx.assertion
+      ? { subject: adminSubject("project.practice-start", caller, _p), assertion: ctx.assertion, ...(ctx.signed?.nonce ? { nonce: ctx.signed.nonce } : {}) }
       : undefined),
   },
 

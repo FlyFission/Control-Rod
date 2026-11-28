@@ -127,6 +127,8 @@ const app = buildApp({
   db,
   root,
   webDir: join(root, "apps", "web", "dist"),
+  // The practice project's sample copy lives in Control Rod's own data folder, never in a repository.
+  practiceDir: join(home, "practice"),
   updateNotice,
   guidedPreparation: process.env.CONTROLROD_GUIDED_PREPARATION === "1",
   preparedRelease: process.env.CONTROLROD_PREPARED_RELEASE === "1",

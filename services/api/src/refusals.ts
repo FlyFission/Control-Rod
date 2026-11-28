@@ -90,6 +90,9 @@ export const REASONS: Record<string, Reason> = {
   // Workspace project preferences and archive.
   "mode-immutable": r("The project's engineering mode is fixed after creation.", "Create a project in the engineering mode you need."),
   "pending-signatures": r("Work in this project is waiting for verification or signature.", "Resolve the outstanding reviews before archiving the project."),
+  "practice-only": r("The practice agents work only on the practice project.", "Pick a real agent for this project, or try the practice run from Setup."),
+  "practice-fixed": r("The practice project keeps its sample, its agents and its settings.", "Make a project of your own for real work."),
+  "practice-not-started": r("There is no practice project yet.", "Start the practice run from Setup. It needs your passkey, as any new project does."),
 
   // Markings and disclosure.
   "lowering-needs-change-request": r("Lowering a data lane is a declassification.", "Propose a declassification; a person with lane authority approves it with a passkey."),

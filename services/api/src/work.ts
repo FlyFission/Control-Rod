@@ -35,6 +35,7 @@ import { benchedRuntimes, setupView } from "./setup.js";
 import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
 import { currentCredential, ownerOf } from "./tenancy.js";
 import { type SigningPolicy, governingPolicy, modeFor, policyRef } from "./signing-policy.js";
+import { PRACTICE_AUTHOR, PRACTICE_CHECKER, PRACTICE_RUNTIME_HOLD, captureProjectId, guardPracticeCapture, isPracticeProject, isPracticeRuntime, practiceOffer } from "./practice.js";
 import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
 import { mayBeSameRuntime, vendorFamilies } from "./vendor-families.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
@@ -82,6 +83,8 @@ export interface WorkConfig {
   supervision?: { startedAt: number; sweepSeconds: number; lastSweepAt?: number; outage?: boolean; outageUntil?: number; issued?: Set<string> };
   guidedPreparation?: boolean;
   preparedRelease?: boolean;
+  /** Control Rod's own folder for the practice project's sample copy. Default ~/.controlrod/practice. */
+  practiceDir?: string;
   preparationSources?: Record<string,{kind:"document"|"policy";revision:string;path:string}>;
   preparationRepositories?: Record<string,string>;
   /** The data lane the owner classified each configured document, policy and repository source as. */
@@ -149,6 +152,7 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
   return command(db, "capture.create", async (c) => {
     // The disclosure gate: only a classified capture goes on to intake, and only a person with lane
     // authority classifies. Anyone else's capture waits, unclassified, for someone who can.
+    await guardPracticeCapture(c, user, visible, checkout);
     const classified = lane !== undefined && (await hasLaneAuthority(c, user));
     // Never below the lane the named project sets for new cards, read here rather than from the browser.
     if (classified) lane = await atLeastProjectLane(c, user, visible, lane!);
@@ -859,7 +863,8 @@ function runtimeName(provider: unknown): string {
 function pickRuntime(have: string[], preferred?: string): string | null {
   const pref = preferred ? runtimeName(preferred) : "";
   if (pref && have.includes(pref)) return pref;
-  return [...RUNNABLE, "fake"].find((r) => have.includes(r)) ?? null;
+  // The practice author is last: the claim offers it only on the practice project, and only it there.
+  return [...RUNNABLE, "fake", PRACTICE_AUTHOR].find((r) => have.includes(r)) ?? null;
 }
 
 /**
@@ -872,7 +877,7 @@ function pickChecker(have: string[], authorRuntime: string, override: boolean, p
   if (pref && pref !== authorRuntime && have.includes(pref)) return pref;
   // The owner picked the author's own agent to check, under a signed policy: honour it as picked.
   if (pref && pref === authorRuntime && sameAllowed && have.includes(pref)) return pref;
-  const other = [...CHECKER_ORDER, "fake"].find((r) => have.includes(r) && r !== authorRuntime);
+  const other = [...CHECKER_ORDER, "fake", PRACTICE_CHECKER].find((r) => have.includes(r) && r !== authorRuntime);
   if (other) return other;
   return override && have.includes(authorRuntime) ? authorRuntime : null;
 }
@@ -986,6 +991,8 @@ function resolveRunModel(
 
 function runtimeRef(name: string, model?: string) {
   if (name === "fake") return { kind: "local", provider: "fake", model: "fake" };
+  // A practice runtime is a fixed routine in the daemon: no model, so it names itself.
+  if (isPracticeRuntime(name)) return { kind: "local", provider: name, model: name };
   return { kind: "subscription", provider: name, model: concreteModel(model) ?? "default" };
 }
 
@@ -1499,6 +1506,7 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
 }
 
 const CHECKOUT_DAEMON_KEY = "checkout-daemon";
+const PRACTICE_HOLD_KEY = "practice-runtime";
 const CHECKOUT_RUNTIME_HOLD = "This run is bound to a checkout and waits for Claude Code or Codex on a connected daemon: the runtimes offered here cannot author in a checkout yet.";
 const CHECKOUT_RUNTIME_KEY = "checkout-runtime";
 const CHECKOUT_DAEMON_HOLD = "This run is bound to a checkout and waits for a connected daemon that can hold exclusive custody of it. The daemon that asked cannot (older version or a host without custody).";
@@ -1584,13 +1592,27 @@ export async function claim(
           // The disclosure gate: only runtimes that every transmitted source's lane admits may see the
           // job. The claim holds the marking lock shared (command catalog), so no raise lands before it
           // and its job commit.
+          // Practice and real work never meet: a practice project's runs go only to the practice
+          // runtimes, and those get no other project's runs (change record practice-agent).
+          const pkgOwner = await ownerOf(c, "package", pkg.id);
+          const practice = await isPracticeProject(c, pkg.body?.project, pkgOwner?.org_id);
+          const forProject = practiceOffer(runtimes, practice, row.role);
+          if (practice && !forProject.length) {
+            await holdRun(c, cfg, row, pkg.id, PRACTICE_RUNTIME_HOLD, "runtime-pin", PRACTICE_HOLD_KEY);
+            continue;
+          }
+          if (practice && row.body.checkout) {
+            await stopQueuedRun(c, cfg, row, "Stopped because practice work never touches a repository checkout.");
+            continue;
+          }
+          if (row.body.waiting_key === PRACTICE_HOLD_KEY) await releaseHold(c, cfg, row, "runtime-pin");
           const gate = await dispatchLane(c, cfg, pkg, row.body);
           if (!gate.lane) {
             await holdRun(c, cfg, row, pkg.id, gate.reason, "lane");
             continue;
           }
           const lane = gate.lane;
-          const admittedHere = admitted(lane, runtimes);
+          const admittedHere = admitted(lane, forProject);
           if (admittedHere.length === 0) {
             await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane), "lane", `lane-admission:${lane}`);
             continue;
@@ -1738,8 +1760,16 @@ export async function claim(
           await stopQueuedRun(c, cfg, row, "Stopped because the capture is no longer pending.");
           continue;
         }
+        const capOwner = await ownerOf(c, "capture", row.package_id);
+        const practiceIntake = await isPracticeProject(c, captureProjectId(capture.text), capOwner?.org_id);
+        const intakeOffer = practiceOffer(runtimes, practiceIntake, "intake");
+        if (practiceIntake && !intakeOffer.length) {
+          await holdRun(c, cfg, row, row.package_id, PRACTICE_RUNTIME_HOLD, "runtime-pin", PRACTICE_HOLD_KEY);
+          continue;
+        }
+        if (row.body.waiting_key === PRACTICE_HOLD_KEY) await releaseHold(c, cfg, row, "runtime-pin");
         const capLane = await laneOf(c, "capture", row.package_id, capture.lane);
-        const admittedIntake = admitted(capLane, runtimes);
+        const admittedIntake = admitted(capLane, intakeOffer);
         if (admittedIntake.length === 0) {
           // An unclassified capture has no lane to be admitted to: its hold is its own.
           await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane), "lane", capLane ? `lane-admission:${capLane}` : undefined);
@@ -2115,6 +2145,14 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
   const owner = (await c.query<{ org_id: string }>("select org_id from object_owners where object_kind = $1 and object_id = $2",
     [row.role === "intake" ? "capture" : "package", row.package_id])).rows[0];
   if (!owner) throw new Error(`run ${row.id} has no owning organization`);
+  // The last word before a practice runtime gets a run: only work on the practice project.
+  if (isPracticeRuntime(runtime)) {
+    const projectRef = row.role === "intake"
+      ? captureProjectId((await c.query<{ text: string | null }>("select body->>'text' as text from captures where id = $1", [row.package_id])).rows[0]?.text)
+      : (await c.query<{ project: string | null }>("select body->>'project' as project from packages where id = $1 and revision = $2",
+        [row.package_id, row.package_revision])).rows[0]?.project;
+    if (!(await isPracticeProject(c, projectRef, owner.org_id))) throw new Error(`run ${row.id} is not practice work, so no practice runtime may take it`);
+  }
   const sandbox = await resolveSandboxPolicy(c, owner.org_id, hosts);
   const body = {
     ...row.body,

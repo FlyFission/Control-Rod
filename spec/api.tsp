@@ -128,6 +128,10 @@ namespace WorkspaceProjects {
 
     /** What needs a passkey on this project's routine cards, once the owner has chosen. Absent: every step is signed. */
     signing?: WorkspaceSigning;
+
+    /** True for the practice project: its cards run only on the bundled practice agents, and nothing else does. */
+    practice?: boolean;
+
     createdAt: utcDateTime;
   }
 
@@ -263,6 +267,29 @@ namespace Captures {
 
   /** Dismiss a pending capture and stop its queued intake work. The capture record is retained. */
   @route("/{id}/dismiss") @post op dismiss(@path id: string): Capture | Refused;
+}
+
+/**
+ * The practice project: a bundled sample project and two practice agents (a fixed routine inside the
+ * daemon, with no model), so anyone can watch the whole loop without an account. The project itself is
+ * made once with the signed project.practice-start command.
+ */
+@route("/practice")
+namespace Practice {
+  model PracticeCard {
+    project_id: string;
+
+    /** Where Control Rod copied the bundled sample project, inside its own data folder. */
+    sample_dir: string;
+
+    capture: Capture;
+  }
+
+  /** Adds a practice card to the practice project, with the sample project's files attached. */
+  @route("/cards") @post op card(): {
+    @statusCode _: 201;
+    @body card: PracticeCard;
+  } | Refused;
 }
 
 /** The draft pull request Control Rod opened, or tried to open, for accepted work on a repository checkout. */

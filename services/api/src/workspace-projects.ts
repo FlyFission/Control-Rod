@@ -9,6 +9,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { isContainedIn, isSafeRepoIdentifier, resolveSafeWorkspaceRoot } from "./repos.js";
 import { type WorkLaneSet, laneSetOf, proposePreset, resolveChoice } from "./work-lanes.js";
+import { refusePracticePick } from "./practice.js";
 
 const projectIdFor = () => `prj_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
@@ -51,6 +52,8 @@ export interface WorkspaceProjectView {
   work_lanes: WorkLaneSet;
   /** What needs a passkey on this project's routine cards, when the owner has chosen. */
   signing?: { preset: string; steps: Record<string, string>; version: number; signed_by: string; signed_at: string };
+  /** True for the practice project, whose cards run only on the bundled practice agents. */
+  practice?: boolean;
   createdAt: string;
 }
 
@@ -220,6 +223,7 @@ export async function listWorkspaceProjects(db: Db, orgId: string): Promise<Work
       ...prefs,
       work_lanes: laneSetOf(r.body.work_lanes),
       ...policySummary(r.body),
+      ...(r.body.practice === true ? { practice: true } : {}),
       createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     };
   });
@@ -231,7 +235,11 @@ export async function createWorkspaceProject(
   caller: Caller,
   input: Record<string, unknown>,
   signed?: { subject: string; nonce?: string; assertion: SigningPolicy["assertion"] },
+  internal?: { practice?: boolean },
 ): Promise<WorkspaceProjectView> {
+  const practice = internal?.practice === true;
+  // The practice agents belong to the practice project, which only Control Rod makes.
+  if (!practice) refusePracticePick(agentPicks(input));
   const name = typeof input.name === "string" ? input.name.trim() : "";
   if (!name || name.length > 120) throw new Refusal(400, "invalid", "Project name is required (max 120 chars)");
   const mode = typeof input.mode === "string" && VALID_MODES.has(input.mode as EngineeringMode)
@@ -267,6 +275,7 @@ export async function createWorkspaceProject(
     autonomy_level: 0,
     status: "active",
     work_lanes: lanes,
+    ...(practice ? { practice: true } : {}),
   }, actor);
   // A signing preset chosen in the create form is signed by the same passkey as the project.
   // Nuclear-grade projects sign every step whatever is chosen, so none is stored for them.
@@ -294,9 +303,21 @@ export async function createWorkspaceProject(
     status: "active",
     ...prefs,
     work_lanes: lanes,
+    ...(practice ? { practice: true } : {}),
     createdAt: new Date().toISOString(),
   };
 }
+
+/** Every agent a create or update input names: the author, the checker and each lane's agent. */
+function agentPicks(input: Record<string, unknown>): unknown[] {
+  const lanes = input.laneAgents && typeof input.laneAgents === "object" && !Array.isArray(input.laneAgents)
+    ? Object.values(input.laneAgents as Record<string, unknown>)
+    : [];
+  return [input.author, input.checker, ...lanes];
+}
+
+/** What may change on the practice project: its lanes on the board, and nothing that picks an agent or a repository. */
+const PRACTICE_EDITABLE = new Set(["work_lanes"]);
 
 /** Updates a project's workspace defaults (never mutating mode) with an audited hash-chain event. */
 export async function updateWorkspaceProject(
@@ -314,6 +335,14 @@ export async function updateWorkspaceProject(
     [projectId, caller.orgId],
   );
   if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
+  if (r.rows[0].body.practice === true) {
+    const fixed = Object.keys(patch).filter((k) => patch[k] !== undefined && !PRACTICE_EDITABLE.has(k));
+    if (fixed.length) {
+      throw new Refusal(409, "practice-fixed", "The practice project keeps its sample, its agents and its settings. Make a project of your own for real work.");
+    }
+  } else {
+    refusePracticePick(agentPicks(patch));
+  }
   const map = await readPrefsMap(c, caller.orgId);
   const current = mergePrefs(map[projectId]);
   const { laneAgents: currentLaneAgents, setup: currentSetup, ...baseCurrent } = current;
@@ -362,6 +391,7 @@ export async function updateWorkspaceProject(
     status: String(r.rows[0].body.status ?? "active"),
     ...next,
     work_lanes: lanes,
+    ...(r.rows[0].body.practice === true ? { practice: true } : {}),
     createdAt: r.rows[0].created_at instanceof Date ? r.rows[0].created_at.toISOString() : String(r.rows[0].created_at),
   };
 }

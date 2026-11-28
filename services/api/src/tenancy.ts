@@ -43,6 +43,8 @@ export interface Project {
   default_workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
   /** The work lanes the Plant's bays follow. Absent means the capital-project preset. */
   work_lanes?: WorkLaneSet;
+  /** True for the practice project: its cards run only on the bundled practice agents. */
+  practice?: boolean;
   lanes: DataLane[]; qa_overlays: string[]; autonomy_level: number; status: LifecycleStatus;
 }
 export interface RepoBinding { id: string; org_id: string; project_id: string; url: string; default_branch: string; status: LifecycleStatus }

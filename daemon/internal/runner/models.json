@@ -4,7 +4,9 @@
     "codex": "OpenAI",
     "grok": "xAI",
     "agy": "Google",
-    "fake": "Test"
+    "fake": "Test",
+    "practice": "Practice author",
+    "practice-check": "Practice checker"
   },
   "models": [
     {

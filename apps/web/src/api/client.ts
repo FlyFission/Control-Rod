@@ -31,6 +31,7 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, UsageLimitsVie
   Session,
   WorkPackage,
   WorkspaceProject,
+  PracticeCard,
   WorkspaceProjectArchive,
   WorkspaceProjectArchivePayload,
   WorkspaceProjectCreatePayload,
@@ -160,6 +161,8 @@ export const api = {
   classifyCapture: (id: string, lane: DataLane) => call<Capture>("POST", `/captures/${enc(id)}/classify`, { lane }),
   /** Dismisses a pending capture from the board (audited). */
   dismissCapture: (id: string) => call<Capture>("POST", `/captures/${enc(id)}/dismiss`),
+  /** A new practice card on the practice project, with the bundled sample attached. */
+  practiceCard: () => call<PracticeCard>("POST", "/practice/cards"),
   /** Closes a package from the board (audited, preserves audit record). */
 
   refreshPreparationBasis: (id:string,etag:string) => call<PreparationView>("POST",`/packages/${enc(id)}/preparation/basis/refresh`,undefined,{"if-match":etag}),

@@ -21,8 +21,9 @@ type Capabilities struct {
 }
 
 // Adapter is one agent CLI. SandboxRequired is the security gate Command uses: a runtime that
-// returns true is refused without a policy and receives AgentEnv. Only the fake runtime returns
-// false, and Detect offers it only when CONTROLROD_ALLOW_FAKE=1.
+// returns true is refused without a policy and receives AgentEnv. Only the fake runtime and the
+// practice runtimes return false. Detect offers the fake one only when CONTROLROD_ALLOW_FAKE=1. The
+// practice runtimes start no process at all (PracticeRunner).
 type Adapter interface {
 	ID() string
 	Binary() string
@@ -206,6 +207,12 @@ type OutputCopier interface {
 	CopyOutputs(ws *Workspace) error
 }
 
+// PracticeRunner does a run's role inside the daemon when Command returns no process, narrating
+// each step through emit. Only the practice runtimes implement it.
+type PracticeRunner interface {
+	RunPractice(ctx context.Context, run Run, ws *Workspace, emit func([]Event)) error
+}
+
 // loginKeeper names this CLI's login directory, the credential file a checker may
 // refresh, and the session directories that must not be the real ones. A checker
 // gets an empty per-run directory mounted over each session directory. The
@@ -257,6 +264,8 @@ var registry = []Adapter{
 	agyAdapter{},
 	ollamaAdapter{},
 	fakeAdapter{},
+	practiceAuthor,
+	practiceChecker,
 }
 
 // RegisteredAdapters returns a copy of the registry. Mutating the slice does not change it.

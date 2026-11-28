@@ -5,6 +5,7 @@ import type { CheckIn, Writing } from "../api/types.js";
 import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
 import { AgentList } from "../components/AgentList.js";
 import { SigningSettings } from "../components/SigningSettings.js";
+import { PracticeStart } from "../components/PracticeStart.js";
 import { useActiveProject, useProjects } from "../lib/projects.js";
 import { ControlRodVersion } from "../components/UpdateNotice.js";
 import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
@@ -53,6 +54,16 @@ export function Setup() {
         </h1>
         <p className="muted">Which agents sit at the table, when we check with you, how they write to you, and what needs your passkey. You can change these any time.</p>
       </header>
+
+      <section className="panel" aria-labelledby="setup-practice-title">
+        <h2 id="setup-practice-title">New here? Try a practice run</h2>
+        <p className="muted small">
+          See the whole loop in a few minutes, with no agent account. Control Rod makes a practice project with a tiny sample program and one card.
+          A fixed script built into Control Rod plans it, does the work and checks it. You release the plan and accept the work with your passkey, as you
+          would for real work. No model runs, nothing leaves this computer, and none of your repositories is touched.
+        </p>
+        <PracticeStart />
+      </section>
 
       <section className="seat-panel" aria-labelledby="setup-agents-title">
         <div className="panel-head">

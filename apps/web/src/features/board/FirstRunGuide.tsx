@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { PracticeStart } from "../../components/PracticeStart.js";
 import { ProjectModal } from "../../components/ProjectModal.js";
 import type { SigningSteps } from "../../api/types.js";
 import type { EngineeringMode } from "../../lib/mode.js";
@@ -100,6 +101,7 @@ export function FirstRunGuide({
   onOpenCard,
   onHide,
   newChangeLocked,
+  offerPractice,
 }: {
   state: GuideState;
   mode: EngineeringMode;
@@ -110,12 +112,16 @@ export function FirstRunGuide({
   onHide: () => void;
   /** Why adding a change is shut now (a SCRAM), if it is. */
   newChangeLocked?: string | undefined;
+  /** Whether to offer the practice run beside the next step: until the first card exists. */
+  offerPractice?: boolean;
 }) {
   const [projectOpen, setProjectOpen] = useState(false);
   const steps = guideSteps(state);
   const next = steps.find((s) => !s.done);
   if (next === undefined) return null;
   const doneCount = steps.filter((s) => s.done).length;
+  // Before the first card, a practice run shows every step on a sample. It needs no agent and no repository.
+  const practice = (offerPractice ?? true) && !state.hasCard;
 
   const action = (() => {
     switch (next.id) {
@@ -180,7 +186,17 @@ export function FirstRunGuide({
           </li>
         ))}
       </ol>
-      {action && <div className="bd-guide-actions">{action}</div>}
+      {(action || practice) && (
+        <div className="bd-guide-actions">
+          {action}
+          {practice && (
+            <>
+              <span className="small muted">Or watch the whole loop first, with no agent account:</span>
+              <PracticeStart />
+            </>
+          )}
+        </div>
+      )}
       {projectOpen && <ProjectModal open={projectOpen} defaultMode={mode} onClose={() => setProjectOpen(false)} />}
     </section>
   );

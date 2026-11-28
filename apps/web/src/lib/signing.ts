@@ -3,18 +3,23 @@ import type { SigningSteps } from "../api/types.js";
 export type SigningPreset = "light" | "balanced" | "everything";
 export type StepMode = "auto" | "click" | "passkey";
 
-/** The three presets, in the words the Setup page shows. Light is the default for new projects. */
+/**
+ * The three presets, in the words the Setup page shows. Balanced is the default for new projects:
+ * nothing is accepted or handed over without the person's passkey. Light is a choice the person
+ * makes on purpose, and its words say plainly that it starts and accepts work on its own.
+ */
 export const SIGNING_PRESETS: readonly { id: SigningPreset; label: string; detail: string; steps: SigningSteps }[] = [
   {
     id: "light",
     label: "Light",
-    detail: "Cards start and finish on their own. Your passkey is only for big things: these settings, deleting a project, restarting after a SCRAM.",
+    detail:
+      "Cards start on their own, and work that passes its check is accepted and handed over on its own. You are not asked to sign either. Your passkey is only for big things: these settings, deleting a project, restarting after a SCRAM.",
     steps: { release: "auto", accept: "auto", return: "click", reject: "click" },
   },
   {
     id: "balanced",
     label: "Balanced",
-    detail: "Cards start on their own. You sign each accept before the work is handed over.",
+    detail: "Cards start on their own. You sign each accept with your passkey before the work is handed over.",
     steps: { release: "auto", accept: "passkey", return: "click", reject: "click" },
   },
   {
@@ -24,6 +29,47 @@ export const SIGNING_PRESETS: readonly { id: SigningPreset; label: string; detai
     steps: { release: "passkey", accept: "passkey", return: "passkey", reject: "passkey" },
   },
 ];
+
+/** The preset a new project starts at. The server's own default (signing-policy.ts) says the same. */
+export const DEFAULT_SIGNING_PRESET: SigningPreset = "balanced";
+
+/** The preset with this id. */
+export function signingPreset(id: SigningPreset): (typeof SIGNING_PRESETS)[number] {
+  return SIGNING_PRESETS.find((p) => p.id === id)!;
+}
+
+/** What every step is when no settings are saved, or on Nuclear-grade work: signed with the passkey. */
+export const ALL_SIGNED: SigningSteps = signingPreset("everything").steps;
+
+const RELEASE_WORDS: Record<StepMode, string> = {
+  auto: "It starts on its own once the plan is drafted",
+  click: "It starts when you press Release",
+  passkey: "Nothing starts until you sign its release with your passkey",
+};
+
+const ACCEPT_WORDS: Record<StepMode, string> = {
+  auto: "work that passes its check is accepted and handed over on its own",
+  click: "you press Accept before the work is handed over",
+  passkey: "you sign each accept with your passkey before the work is handed over",
+};
+
+/**
+ * One sentence on how a routine card goes under a project's signing steps: who starts it, and who
+ * accepts it. Pass ALL_SIGNED where no settings are saved or the work is Nuclear-grade, since the
+ * server then asks for the passkey at every step.
+ */
+export function cardFlowLine(steps: SigningSteps): string {
+  return `${RELEASE_WORDS[steps.release]}, and ${ACCEPT_WORDS[steps.accept]}.`;
+}
+
+/**
+ * The signing steps the server applies to a project's routine cards: its saved settings, or every
+ * step signed when it has none or is Nuclear-grade.
+ */
+export function projectSteps(project: { mode?: string; signing?: { steps: SigningSteps } | undefined }): SigningSteps {
+  if (project.mode === "nuclear-grade") return ALL_SIGNED;
+  return project.signing?.steps ?? ALL_SIGNED;
+}
 
 export const STEP_LABEL: Record<keyof SigningSteps, string> = {
   release: "Start a card (release)",

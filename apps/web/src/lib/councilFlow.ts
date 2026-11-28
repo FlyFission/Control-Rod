@@ -1,5 +1,6 @@
-import type { CheckIn } from "../api/types.js";
+import type { CheckIn, SigningSteps } from "../api/types.js";
 import type { AgentRow } from "./agents.js";
+import { ALL_SIGNED } from "./signing.js";
 
 /**
  * The person's workflow as a block flow: who plans, who writes, who checks without seeing how it was
@@ -119,7 +120,11 @@ const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 
 export const PREPARED_GATE =
   "A prepared package also has to clear its acceptance checks: current, confirmed preparation, every criterion's result and the required checks";
 
-export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: string): CouncilFlow {
+/**
+ * `signing` is what the project's signing settings make of release and accept (lib/signing.ts
+ * projectSteps). Left out, every step is signed, as the server does for work no settings cover.
+ */
+export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: string, signing: SigningSteps = ALL_SIGNED): CouncilFlow {
   const council = councilOf(rows);
   const { author, checker } = council;
   // The dispatcher takes the first ready stand-in, so a ready one is shown before one still waiting.
@@ -147,7 +152,19 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
     title: "Plan the work",
     detail: author ? "Drafts the work package; intake picks a ready agent" : "Waits for an agent that is ready",
   });
-  steps.push({ id: "approve", kind: "you", stop: "on", title: "You approve the plan", detail: "Signed with your passkey, then released" });
+  const release = signing.release;
+  const accept = signing.accept;
+  steps.push(
+    release === "auto"
+      ? { id: "approve", kind: "you", title: "The plan starts on its own", detail: "Your signed settings release it once it is drafted" }
+      : {
+          id: "approve",
+          kind: "you",
+          stop: "on",
+          title: "You approve the plan",
+          detail: release === "passkey" ? "Signed with your passkey, then released" : "You press Release; no passkey",
+        },
+  );
   steps.push({
     id: "author",
     kind: "agent",
@@ -244,24 +261,44 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
     detail: `After ${CHECK_ROUNDS} checks that did not pass: return to planning, reject, or accept with findings where every result is in and its evidence kept`,
   });
   edge("verdict", "dispute", "no", `${ordinal(CHECK_ROUNDS)} time`);
-  steps.push({
-    id: "merge",
-    kind: "you",
-    stop: "on",
-    title: "You accept the work",
-    detail:
-      checkIn === "start"
-        ? "Stays on: skipping it needs a signed standing acceptance, not built yet. Prepared packages have more checks"
-        : "Signed and recorded. Prepared packages have more checks. Merging or shipping is a separate step",
-  });
+  steps.push(
+    accept === "auto"
+      ? {
+          id: "merge",
+          kind: "you",
+          title: "Accepted on its own",
+          detail: "Your signed settings accept a pass. Accept with findings still needs you. Prepared packages have more checks. Merging or shipping is a separate step",
+        }
+      : {
+          id: "merge",
+          kind: "you",
+          stop: "on",
+          title: "You accept the work",
+          detail:
+            accept === "click"
+              ? "You press Accept; no passkey. Prepared packages have more checks. Merging or shipping is a separate step"
+              : checkIn === "start"
+                ? "Stays on: skipping it needs a signed standing acceptance, not built yet. Prepared packages have more checks"
+                : "Signed and recorded. Prepared packages have more checks. Merging or shipping is a separate step",
+        },
+  );
   edge("verdict", "merge", "yes", "yes");
-  steps.push({ id: "ship", kind: "end", title: "Accepted", detail: `Control Rod records your signed acceptance with who wrote, who checked and who signed. ${PREPARED_GATE}. Merging or shipping is a separate step you take` });
+  const recorded = accept === "passkey" ? "your signed acceptance with who wrote, who checked and who signed" : "the acceptance with who wrote, who checked and the signed settings that allowed it";
+  steps.push({ id: "ship", kind: "end", title: "Accepted", detail: `Control Rod records ${recorded}. ${PREPARED_GATE}. Merging or shipping is a separate step you take` });
   edge("merge", "ship", "flow");
 
   const who = (seat: Seat | undefined): MatrixRow["who"] => seat ?? "nobody";
   const matrix: MatrixRow[] = [
     { step: "Plan the work", who: who(author), does: "Writes the work package you approve", stopsForYou: "no", ifItFails: "You see why on the card and can retry" },
-    { step: "Approve the plan", who: "you", does: "Releases the work, signed with your passkey", stopsForYou: "on", ifItFails: "Nothing starts until you approve" },
+    release === "auto"
+      ? { step: "Approve the plan", who: "control-rod", does: "Releases the work on its own, under your signed settings", stopsForYou: "no", ifItFails: "To approve each plan yourself, change What needs your passkey" }
+      : {
+          step: "Approve the plan",
+          who: "you",
+          does: release === "passkey" ? "Releases the work, signed with your passkey" : "Releases the work with a press; no passkey",
+          stopsForYou: "on",
+          ifItFails: "Nothing starts until you approve",
+        },
     {
       step: "Write the work",
       who: who(author),
@@ -303,8 +340,13 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
     {
       step: "Accept the work",
       who: "you",
-      does: "Signs acceptance; Control Rod records it. Merging or shipping is a separate step you take",
-      stopsForYou: "on",
+      does:
+        accept === "auto"
+          ? "Accepted on its own when the check passes, under your signed settings. Merging or shipping is a separate step you take"
+          : accept === "click"
+            ? "You press Accept; Control Rod records it. Merging or shipping is a separate step you take"
+            : "Signs acceptance; Control Rod records it. Merging or shipping is a separate step you take",
+      stopsForYou: accept === "auto" ? "no" : "on",
       ifItFails:
         (checkIn === "start" ? "Return it or reject it. Skipping this stop needs a signed standing acceptance, which is coming." : "Return it with a note, or reject it.") +
         ` A pass alone does not clear a prepared package. ${PREPARED_GATE}.`,
@@ -314,7 +356,7 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
       who: "you",
       does: "Sees that another author stepped in",
       stopsForYou: "coming",
-      ifItFails: "Until then you still sign acceptance on every card",
+      ifItFails: accept === "passkey" ? "Until then you still sign acceptance on every card" : "Until then the card says which author ran",
     },
     { step: "SCRAM or a tripped interlock", who: "you", does: "Stops the affected work", stopsForYou: "always", ifItFails: "Nothing restarts until you reset it" },
     {
@@ -328,7 +370,7 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
 
   const summary = !author
     ? "No agent at the table is ready yet, so new cards wait after you ask."
-    : `You ask, ${author.name} plans, you approve, ${author.name} writes${
+    : `You ask, ${author.name} plans, ${release === "auto" ? "it starts on its own" : "you approve"}, ${author.name} writes${
         fallback ? ` (${fallback.name} steps in if ${author.name} is signed out or missing${fallback.ready ? "" : `, once ${fallback.name} is ready itself`})` : ""
       }, ${
         checker ? `${checker.name} checks it blind` : "the check waits for a second vendor unless you sign an override"
@@ -338,7 +380,9 @@ export function buildCouncilFlow(rows: AgentRow[], checkIn: CheckIn, method?: st
             ? `, and ${fallbackChecker.name} checks ${fallback.name}'s work${checksOnReturn ? " once it is back" : ""}`
             : `, and ${fallback.name}'s work waits for another vendor's check`
           : ""
-      }. A fail or an inconclusive verdict starts a new round, with the author picked again, at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} checks that do not pass you settle it. You sign acceptance; a prepared package also has to clear its acceptance checks. Merging or shipping is a separate step.`;
+      }. A fail or an inconclusive verdict starts a new round, with the author picked again, at most ${SEND_BACKS} times; after ${CHECK_ROUNDS} checks that do not pass you settle it. ${
+        accept === "auto" ? "A pass is accepted on its own" : accept === "click" ? "You press Accept" : "You sign acceptance"
+      }; a prepared package also has to clear its acceptance checks. Merging or shipping is a separate step.`;
 
   return { council, steps, edges, matrix, summary };
 }

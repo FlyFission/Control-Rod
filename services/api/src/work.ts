@@ -19,7 +19,7 @@ import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScramm
 import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "./sandbox.js";
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
-import { FOCUS_WRITING, RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "./brief.js";
+import { FOCUS_WRITING, RULES, briefHeader, composeBrief, findingsSection, nuclearProStageSkillsSection, scopePathItem } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
@@ -1471,11 +1471,12 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     if (run.round > 1) {
       const prevVer = await latestVerification(c, pkg.id, pkg.revision, run.round - 1);
       findings = prevVer?.body.findings ?? [];
-      extra.push(`## Findings to fix from the pre-check\n\n${JSON.stringify(findings, null, 2)}\n`);
+      inputs.push(file("findings.json", Buffer.from(JSON.stringify(findings, null, 2))));
+      extra.push(findingsSection(findings ?? []));
       const scope = fixScope(findings);
       if (scope.length)
         extra.push(
-          `## Scope of this fix\n\nChange only these files:\n\n${scope.map((p) => `- \`${p}\``).join("\n")}\n\nKeep every other file as it is in previous/. If the fix truly needs another file, change it and say why. Control Rod reports any file changed outside this list to the checker and on the card.\n`,
+          `## Scope of this fix\n\nChange only these files:\n\n${scope.map(scopePathItem).join("\n")}\n\nKeep every other file as it is in previous/. If the fix truly needs another file, change it and say why. Control Rod reports any file changed outside this list to the checker and on the card.\n`,
         );
       const prev = await c.query<{ id: string }>(
         "select id from runs where package_id = $1 and package_revision = $2 and role = 'author' and round = $3 and status = 'succeeded' order by created_at desc, id desc limit 1",

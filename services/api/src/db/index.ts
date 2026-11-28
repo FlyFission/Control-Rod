@@ -109,9 +109,24 @@ export async function tx<T>(db: Db, fn: (c: Tx) => Promise<T>): Promise<T> {
     );
     const out = await fn(c);
     await c.query("commit");
+    // The transaction is committed: nothing after this point may report it as failed. Each piece of
+    // after-commit work runs on its own, so one that throws neither stops the others nor the event
+    // announcements, and never sends the committed work down the rollback path below.
     const { bus, pendingEvents, afterCommits } = await import("../events.js");
-    for (const fn of afterCommits(c).splice(0)) fn();
-    for (const e of pendingEvents(c).splice(0)) bus.emit("event", e);
+    for (const fn of afterCommits(c).splice(0)) {
+      try {
+        fn();
+      } catch (err) {
+        console.error("Work after a commit failed; the commit stands.", err);
+      }
+    }
+    for (const e of pendingEvents(c).splice(0)) {
+      try {
+        bus.emit("event", e);
+      } catch (err) {
+        console.error("Announcing a committed event failed; the event is stored.", err);
+      }
+    }
     return out;
   } catch (e) {
     if ((e as { severity?: string })?.severity === "FATAL") broken = true;

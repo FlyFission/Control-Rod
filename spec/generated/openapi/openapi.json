@@ -634,6 +634,9 @@
                 "properties": {
                   "name": {
                     "type": "string"
+                  },
+                  "setup_code": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1047,9 +1050,20 @@
     "/events": {
       "get": {
         "operationId": "Events_list",
+        "description": "Up to 500 events in sequence order after `after`. With `before`, up to 500 events whose sequence\nis below it, newest first; `before=0` reads the newest page.",
         "parameters": [
           {
             "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "explode": false
+          },
+          {
+            "name": "before",
             "in": "query",
             "required": false,
             "schema": {
@@ -8607,6 +8621,10 @@
           },
           "user": {
             "type": "string"
+          },
+          "setup_code_required": {
+            "type": "boolean",
+            "description": "True before the first passkey when registering it needs the one-time setup code the server printed."
           }
         }
       },

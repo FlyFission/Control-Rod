@@ -209,6 +209,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * @description Up to 500 events in sequence order after `after`. With `before`, up to 500 events whose sequence
+         *     is below it, newest first; `before=0` reads the newest page.
+         */
         get: operations["Events_list"];
         put?: never;
         post?: never;
@@ -1644,6 +1648,8 @@ export interface components {
             registered: boolean;
             signed_in: boolean;
             user?: string;
+            /** @description True before the first passkey when registering it needs the one-time setup code the server printed. */
+            setup_code_required?: boolean;
         };
         /** @description One budget and what it has used in its current rolling window. */
         BudgetStatus: {
@@ -4452,6 +4458,7 @@ export interface operations {
             content: {
                 "application/json": {
                     name: string;
+                    setup_code?: string;
                 };
             };
         };
@@ -4879,6 +4886,7 @@ export interface operations {
         parameters: {
             query?: {
                 after?: number;
+                before?: number;
             };
             header?: never;
             path?: never;

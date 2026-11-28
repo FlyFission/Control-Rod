@@ -46,6 +46,7 @@ export const REASONS: Record<string, Reason> = {
   "registration-refused": r("The passkey registration was refused.", "Register again with an administrator's invitation, or add a passkey to your own account by signing with one you hold."),
   "invitation-invalid": r("The invitation is not valid: it was used, voided or has expired.", "Ask an administrator for a new invitation."),
   "own-account-only": r("You can add a passkey only to your own account.", "Ask an administrator to invite the other person; they register their own passkey."),
+  "setup-code": r("The first passkey needs the one-time setup code Control Rod printed when it started.", "Type the code from the terminal, or from the file setup-code in Control Rod's folder."),
   "step-up-required": r("Adding a passkey needs a signature from a passkey you already hold.", "Sign with your existing passkey first."),
   "step-up-failed": r("That signature did not come from a passkey on your account.", "Sign with one of your own registered passkeys."),
   "signature-required": r("This command needs your passkey.", "Sign it with your passkey."),

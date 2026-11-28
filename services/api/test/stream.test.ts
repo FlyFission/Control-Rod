@@ -10,9 +10,11 @@ let port = 0;
 
 /** A small replay limit, so overflow is exercised with real history rather than stood in for. */
 const REPLAY_MAX = 20;
+/** A small ceiling on open streams, so the refusal past it is exercised with real connections. */
+const STREAM_MAX = 2;
 
 beforeAll(async () => {
-  h = await startHarness({ streamReplayMax: REPLAY_MAX });
+  h = await startHarness({ streamReplayMax: REPLAY_MAX, streamMax: STREAM_MAX });
   cookie = await signIn(h.app, new VirtualAuthenticator());
   await h.app.listen({ port: 0, host: "127.0.0.1" });
   port = (h.app.server.address() as { port: number }).port;
@@ -163,5 +165,46 @@ describe("resume", () => {
     });
     const first = frames.find((f) => f.event === "event")!;
     expect(Number(first.id)).toBe(before + 1);
+  });
+});
+
+describe("open stream ceiling", () => {
+  /** Opens a stream and keeps it open once its first frame arrives; resolves with its status. */
+  const hold = () =>
+    new Promise<{ status: number; body: string; close: () => void }>((resolve, reject) => {
+      const req = request({ host: "127.0.0.1", port, path: "/events/stream", headers: { cookie } }, (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk: string) => {
+          body += chunk;
+          if (res.statusCode === 200 && body.includes("event: checkpoint")) resolve({ status: 200, body, close: () => req.destroy() });
+        });
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body, close: () => req.destroy() }));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+  const settled = async (want: number) => {
+    // The server counts a stream down when its socket closes; give the close a moment to arrive.
+    for (let i = 0; i < 50; i++) {
+      const next = await hold();
+      if (next.status === want) return next;
+      next.close();
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    throw new Error(`no stream answered ${want}`);
+  };
+
+  it("refuses a stream past the ceiling in plain words, and takes one again once another closes", async () => {
+    const a = await settled(200);
+    const b = await hold();
+    expect(b.status).toBe(200);
+    const refused = await hold();
+    expect(refused.status).toBe(503);
+    expect(JSON.parse(refused.body)).toMatchObject({ code: "too-many-streams" });
+    a.close();
+    const c = await settled(200);
+    b.close();
+    c.close();
   });
 });

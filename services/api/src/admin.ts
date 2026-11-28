@@ -151,7 +151,14 @@ export async function authorizeInstallSetting(c: Tx, caller: Caller): Promise<vo
 export function bundledThemes(root: string): Map<string, string> {
   const dir = join(root, "apps", "web", "public", "floor-themes");
   const out = new Map<string, string>();
-  for (const id of readdirSync(dir)) {
+  // An install without the web assets has no themes to offer; it never fails the page that lists them.
+  let ids: string[];
+  try {
+    ids = readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return out;
+  }
+  for (const id of ids) {
     try {
       out.set(id, createHash("sha256").update(readFileSync(join(dir, id, "assets.json"))).digest("hex"));
     } catch {

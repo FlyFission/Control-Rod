@@ -2018,16 +2018,20 @@ export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: 
   });
 }
 
+/** The longest reason a person may sign for an override, a recheck or a reconcile. */
+const REASON_MAX = 2000;
+
 /** What a person signs to settle a run's unknown outcome: the run, its attempt and the reason. */
 export async function reconcileSubject(db: Db, user: string, packageId: string, runId: string, reason: unknown) {
   const why = typeof reason === "string" ? reason.trim() : "";
   if (!why) throw new Refusal(400, "reason-required", "Say why the run will not report, for example that its machine was replaced");
+  if (why.length > REASON_MAX) throw new Refusal(400, "invalid", `The reason must be at most ${REASON_MAX} characters.`);
   const r = await db.query<RunRow>("select * from runs where id = $1", [runId]);
   const row = r.rows[0];
   if (!row || row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
   if (!row.body.outcome_unknown || row.body.reconciliation) throw new Refusal(409, "not-unknown", "This run's outcome is not unknown; there is nothing to reconcile");
   await requireAuthority(db, user, "reconcile", needsOf((await currentPackage(db, packageId))?.body ?? {}));
-  return { digest: digest({ act: "reconcile", run_id: runId, generation: row.body.generation ?? 1, reason: why.slice(0, 2000) }), reason: why.slice(0, 2000) };
+  return { digest: digest({ act: "reconcile", run_id: runId, generation: row.body.generation ?? 1, reason: why }), reason: why };
 }
 
 /**
@@ -2059,8 +2063,9 @@ export async function reconcileRun(db: Db, cfg: WorkConfig, user: string, packag
     if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
     const row = await lockRun(c, runId);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
-    const why = typeof reason === "string" ? reason.trim().slice(0, 2000) : "";
+    const why = typeof reason === "string" ? reason.trim() : "";
     if (!why) throw new Refusal(400, "reason-required", "Say why the run will not report");
+    if (why.length > REASON_MAX) throw new Refusal(400, "invalid", `The reason must be at most ${REASON_MAX} characters.`);
     if (!row.body.outcome_unknown || row.body.reconciliation) throw new Refusal(409, "not-unknown", "This run's outcome is not unknown; there is nothing to reconcile");
     await requireAuthority(c, user, "reconcile", needsOf(pkg?.body ?? {}));
     if (signed) {
@@ -2547,7 +2552,9 @@ async function overrideTarget(q: Db | Tx, packageId: string, runId: string, reas
 const overrideReason = (reason: unknown) => {
   const why = typeof reason === "string" ? reason.trim() : "";
   if (!why) throw new Refusal(400, "reason-required", "Say why the pre-check may share the author's runtime");
-  return why.slice(0, 2000);
+  // Refused, never cut short: what is signed and recorded is exactly what the person wrote.
+  if (why.length > REASON_MAX) throw new Refusal(400, "invalid", `The reason must be at most ${REASON_MAX} characters.`);
+  return why;
 };
 
 /** Step 1 of the override: the digest to sign. Refused for anything but a held pre-check. */
@@ -2629,7 +2636,7 @@ const verifiedOverride = (run: Json) => Boolean(run?.independence_override?.asse
 const recheckReason = (reason: unknown) => {
   const why = typeof reason === "string" ? reason.trim() : "";
   if (!why) throw new Refusal(400, "reason-required", "Say why this deliverable may be checked again after a fail");
-  if (why.length > 2000) throw new Refusal(400, "invalid", "The reason must be at most 2000 characters.");
+  if (why.length > REASON_MAX) throw new Refusal(400, "invalid", `The reason must be at most ${REASON_MAX} characters.`);
   return why;
 };
 

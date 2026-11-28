@@ -80,6 +80,9 @@ namespace Auth {
     registered: boolean;
     signed_in: boolean;
     user?: string;
+
+    /** True before the first passkey when registering it needs the one-time setup code the server printed. */
+    setup_code_required?: boolean;
   }
 
   /** WebAuthn options as JSON, passed straight to the browser API. */
@@ -88,7 +91,7 @@ namespace Auth {
   }
 
   @route("/session") @get op session(): Session;
-  @route("/register/options") @post op registerOptions(@body body: { name: string }): Options | Refused;
+  @route("/register/options") @post op registerOptions(@body body: { name: string; setup_code?: string }): Options | Refused;
   @route("/register/verify") @post op registerVerify(@body body: Record<unknown>): Session | Refused;
   @route("/login/options") @post op loginOptions(): Options | Refused;
   @route("/login/verify") @post op loginVerify(@body body: Record<unknown>): Session | Refused;
@@ -1527,7 +1530,11 @@ op activeRunSummaries(): ActiveRunSummary[] | Refused;
 
 @route("/events")
 namespace Events {
-  @get op list(@query after?: int32): Event[];
+  /**
+   * Up to 500 events in sequence order after `after`. With `before`, up to 500 events whose sequence
+   * is below it, newest first; `before=0` reads the newest page.
+   */
+  @get op list(@query after?: int32, @query before?: int32): Event[];
 
   /** Server-sent events: one `event` message per appended entry. */
   @route("/stream") @get op stream(): {

@@ -106,6 +106,9 @@ describe("ordering", () => {
     // The lost run from the ordering test has an unknown outcome in scope: a restart would be refused, and the item says so.
     expect(box.items[0].detail).toBe("Before a restart: 1 run in scope with an unknown outcome to reconcile. Nothing in scope runs until then.");
     const reason = "Machine checked; nothing running";
+    // A reason past the limit is refused, never cut short: what is signed is what was written.
+    const long = await h.app.inject({ method: "POST", url: "/packages/WP-IN-LOST/runs/R-n-lost/reconcile/options", headers: { cookie, origin: ORIGIN }, payload: { reason: "x".repeat(2001) } });
+    expect(long.statusCode, long.body).toBe(400);
     const ro1 = await h.app.inject({ method: "POST", url: "/packages/WP-IN-LOST/runs/R-n-lost/reconcile/options", headers: { cookie, origin: ORIGIN }, payload: { reason } });
     expect(ro1.statusCode, ro1.body).toBe(200);
     const settled = await h.app.inject({ method: "POST", url: "/packages/WP-IN-LOST/runs/R-n-lost/reconcile", headers: { cookie, origin: ORIGIN }, payload: { reason, assertion: key.assert(ro1.json().options) } });

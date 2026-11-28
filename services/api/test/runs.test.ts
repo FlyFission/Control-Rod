@@ -914,6 +914,10 @@ describe("pre-check independence", () => {
     const queued = (await asOwner("GET", `/packages/${id}`)).json().runs[0];
     const r = await asOwner("POST", `/packages/${id}/runs/${queued.id}/override-independence/options`, { reason: "x" });
     expect(r.statusCode).toBe(409);
+    // A reason past the limit is refused before anything else, never cut short to fit.
+    const long = await asOwner("POST", `/packages/${id}/runs/${queued.id}/override-independence/options`, { reason: "x".repeat(2001) });
+    expect(long.statusCode).toBe(400);
+    expect(long.json().message).toMatch(/at most 2000 characters/);
     const job = (await claim()) as Job;
     await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
   });

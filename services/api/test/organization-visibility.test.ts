@@ -99,6 +99,13 @@ describe("organization visibility", () => {
     expect(rows.map((event) => event.type)).toEqual(["package.edited", "admin.command"]);
     expect(rows.map((event) => event.subject)).toEqual(["WP-local", "qualification.issue"]);
     expect((await get("/events/verify")).json()).toMatchObject({ ok: true, count: (await get("/events")).json().length });
+    // Paging back from the newest entry (the Records page) shows the same visible events, newest first.
+    const newest = (await get("/events?before=0")).json() as EventRecord[];
+    expect(newest.slice(0, 2).map((event) => event.type)).toEqual(["admin.command", "package.edited"]);
+    expect(newest.every((event, i) => i === 0 || event.seq < newest[i - 1]!.seq)).toBe(true);
+    const older = (await get(`/events?before=${newest[1]!.seq}`)).json() as EventRecord[];
+    expect(older[0]!.seq).toBe(newest[2]?.seq);
+    expect(JSON.stringify(newest)).not.toContain("second capture");
     await h.app.listen({ port: 0, host: "127.0.0.1" });
     const port = (h.app.server.address() as { port: number }).port;
     const [client, response] = await new Promise<[ClientRequest, IncomingMessage]>((resolve, reject) => {

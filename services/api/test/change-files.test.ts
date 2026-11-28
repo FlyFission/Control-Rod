@@ -67,4 +67,10 @@ describe("quoted Git paths and hunk whitespace", () => {
     expect(changedRepoFiles([out("changes.patch", plain("new"))], [out("changes.patch", plain("new  "))])).toEqual(["doc.md"]);
     expect(changedRepoFiles([out("changes.patch", plain("new"))], [out("changes.patch", plain("new") + "\n\n")])).toEqual([]);
   });
+
+  it("does not take hunk lines that look like file headers for a new file", () => {
+    const plain = (last: string) => `--- a/docs/guide.md\n+++ b/docs/guide.md\n@@ -1,2 +1,3 @@\n--- a/example.md\n+++ b/example.md\n+${last}\n keep\n`;
+    expect(touchedFiles([out("changes.patch", plain("one"))])).toEqual(["docs/guide.md"]);
+    expect(changedRepoFiles([out("changes.patch", plain("one"))], [out("changes.patch", plain("two"))])).toEqual(["docs/guide.md"]);
+  });
 });

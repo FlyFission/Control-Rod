@@ -3,7 +3,7 @@
 - E-01: `tsc -p services/api/tsconfig.json --noEmit` passes.
 - E-02: `tools/test-api.mjs` with PostgreSQL 16 (cloud container): change-files, figures, figures-race, scoped-send-back, patch-files: 28 tests pass (7 new, 1 extended).
 - E-03: runs, work-lanes, publish-checkout: 89 tests pass.
-- E-04: after the Codex review, change-files, patch-files, figures, scoped-send-back, publish-checkout: 50 tests pass, including a Git-generated patch with quoted paths (é.md, ta"b.md) and trailing spaces on a last added line.
+- E-04: after the Codex reviews, change-files, patch-files, figures, scoped-send-back, publish-checkout, runs, work-lanes: 119 tests pass, including hunk lines that look like file headers, a Git-generated patch with quoted paths (é.md, ta"b.md) and trailing spaces on a last added line.
 - Not covered: an end-to-end checkout card through two rounds with a real daemon; drift for that path is covered by unit tests of changedRepoFiles only.
 - Blind check: the repository's automatic Codex review on the PR.
 

@@ -62,10 +62,40 @@ const GIT_HEADER = new RegExp(`^diff --git (${QUOTED}|a/\\S*?) (${QUOTED}|b/.+)$
 const FILE_HEADER = new RegExp(`^(?:\\+\\+\\+|---) (${QUOTED}|[ab]/.+?)(?:\\t.*)?$`);
 const strip = (p: string): string => p.replace(/^[ab]\//, "");
 
+/**
+ * For each line of a patch, whether it is hunk payload. A hunk header says how many old and new
+ * lines follow, so a removed line reading `-- a/x` or an added one reading `++ b/x` is never taken
+ * for a file header.
+ */
+function inHunk(lines: string[]): boolean[] {
+  const payload = lines.map(() => false);
+  let oldLeft = 0;
+  let newLeft = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (oldLeft > 0 || newLeft > 0) {
+      payload[i] = true;
+      if (line.startsWith("\\")) continue;
+      if (line.startsWith("-")) oldLeft--;
+      else if (line.startsWith("+")) newLeft--;
+      else { oldLeft--; newLeft--; }
+      continue;
+    }
+    const h = /^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/.exec(line);
+    if (h) { oldLeft = h[1] === undefined ? 1 : Number(h[1]); newLeft = h[2] === undefined ? 1 : Number(h[2]); }
+    else if (line.startsWith("\\")) payload[i] = true;
+  }
+  return payload;
+}
+
 /** The files a unified diff touches, in order, from its `diff --git` and `+++`/`---` headers. */
 export function patchFiles(patch: string): string[] {
   const seen = new Set<string>();
-  for (const line of patch.split(/\r?\n/)) {
+  const lines = patch.split(/\r?\n/);
+  const payload = inHunk(lines);
+  for (let i = 0; i < lines.length; i++) {
+    if (payload[i]) continue;
+    const line = lines[i]!;
     const plain = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
     const git = plain && !plain[1]!.startsWith('"') && !plain[2]!.startsWith('"') ? [plain[1]!, plain[2]!] : (() => {
       const q = GIT_HEADER.exec(line);
@@ -110,7 +140,9 @@ export function touchedFiles(outputs: Output[]): string[] {
 export function patchSections(patch: string): Map<string, string> {
   const lines = patch.split(/\r?\n/);
   const starts: number[] = [];
+  const payload = inHunk(lines);
   for (let i = 0; i < lines.length; i++) {
+    if (payload[i]) continue;
     const line = lines[i]!;
     if (line.startsWith("diff --git ")) { starts.push(i); continue; }
     if (line.startsWith("--- ") && (lines[i + 1] ?? "").startsWith("+++ ")) {

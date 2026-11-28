@@ -154,7 +154,7 @@ func prepareCheckerIn(base string, job *Job) (*Workspace, error) {
 	ws := &Workspace{
 		Dir: dir, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out"),
 		Scratch: filepath.Join(dir, "scratch"), Checker: true,
-		Deliverables: filepath.Join(dir, "inputs", "deliverables"),
+		Deliverables: filepath.Join(dir, "inputs", "deliverables"), ownDir: dir,
 	}
 	type placed struct {
 		path string

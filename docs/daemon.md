@@ -101,7 +101,7 @@ A run's provider picks the runtime (`anthropic` or `claude`, `openai` or `codex`
 
 ## Workspace
 
-Each job gets `~/.controlrod/work/<package>/r<revision>/<role>-<round>-<run>/` with `inputs/` written from the job and `out/` for deliverables. Input names that would land outside `inputs/` refuse the whole job before anything is written. The only prompt an author or intake agent receives is: "Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/."
+Each job gets `~/.controlrod/work/<package>/r<revision>/<role>-<round>-<run>/` with `inputs/` written from the job and `out/` for deliverables. The folder is removed once the completion, which carries the outputs, is in the outbox. It is kept while the run's processes are not confirmed gone, and when the outbox write fails. At start the daemon removes folders under `work/` that a crash left behind: older than 24 hours (or twice the run timeout, if that is longer), and not of a run whose receipt is still kept. A link there is removed, never followed. A checker folder under `/var/tmp/controlrod-checker-<uid>` is removed the same way after its run, but it is not swept at start, because every daemon of the user shares it; the system's own `/var/tmp` cleanup covers a crash there. A checkout is never removed. Input names that would land outside `inputs/` refuse the whole job before anything is written. The only prompt an author or intake agent receives is: "Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/."
 
 ### Checkout setup
 

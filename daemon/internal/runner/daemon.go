@@ -169,6 +169,8 @@ type Daemon struct {
 	retry *retryGate
 	// updates is what the startup agent-update check found.
 	updates agentUpdates
+	// workspaces maps a run id to the run folder to remove once its completion is in the outbox.
+	workspaces sync.Map
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -292,6 +294,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	defer unlock()
 	d.sweepOrphans(ctx)
+	d.sweepStaleWorkspaces(time.Now())
 	d.probe(ctx)
 	go d.probeLoop(ctx)
 	if d.cfg.UpdateCheck != nil {
@@ -1497,10 +1500,14 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	putErr := d.outbox.Put(e)
 	if putErr != nil {
 		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", putErr)
+		// Kept: the completion is not in durable custody. The startup sweep removes it later.
+		d.forgetWorkspace(job.Run.ID)
 	} else {
 		// The completion is now in durable custody; the spawn receipt has done its job. If the outbox
 		// write failed the receipt stays, so a restart can still report the exit.
 		d.receipts.Remove(job.Run.ID)
+		// The completion carries the outputs, so the run folder is no longer needed.
+		d.removeWorkspace(job.Run.ID)
 	}
 	wait := d.cfg.RetryBase
 	for attempt := 1; ; attempt++ {
@@ -1523,9 +1530,11 @@ func newKey() string {
 	return hex.EncodeToString(b)
 }
 
-// Execute runs one job and returns its completion without sending it.
+// Execute runs one job and returns its completion without sending it. The run folder is left
+// in place for the caller to read.
 func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 	comp, _ := d.execute(ctx, job)
+	d.forgetWorkspace(job.Run.ID)
 	return comp
 }
 
@@ -1608,6 +1617,13 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	if err != nil {
 		return fail(err.Error()), nil
 	}
+	defer func() {
+		// Removed by Handle once the completion is in the outbox; kept while the run's processes
+		// are not confirmed gone.
+		if !errors.Is(resultErr, ErrUncontained) {
+			d.rememberWorkspace(job.Run.ID, ws)
+		}
+	}()
 	if ws.RunRoot != "" {
 		// The outputs are read into the completion before this returns. Deferred after the lock,
 		// so the folder is gone before the next run of this runtime starts, and kept, like the

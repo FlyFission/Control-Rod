@@ -239,7 +239,16 @@ describe("engineering mode toggle and NewWorkModal", () => {
         captures.push(capture);
         return HttpResponse.json({ id: "cap-launcher", ...capture });
       }),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as { repo: string; branch: string; strategy: string; workspace_root?: string };
+        prepared.push(body);
+        return HttpResponse.json({
+          ok: true, strategy: "worktree", mode: "software", repo: body.repo, branch: body.branch,
+          local_path: `${project.workspaceRoot}/.worktrees/Release/cr-write-release-notes`, repo_path: `${project.workspaceRoot}/Release`, scaffolded_dirs: [],
+        });
+      }),
     );
+    const prepared: { repo: string; branch: string; strategy: string; workspace_root?: string }[] = [];
 
     await renderPage(<Shell session={ben}><p>app</p></Shell>);
     const user = userEvent.setup();
@@ -283,7 +292,12 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(captures[0]!.text).not.toContain("[author:");
     expect(captures[0]!.text).not.toContain("[checker:");
     expect(captures[0]!.text).not.toContain("[workspace:");
-
+    // Add prepared the workspace itself, so the card is bound to its own worktree (WEB-4).
+    expect(prepared).toEqual([{ repo: "FlyFission/Release", branch: "cr/write-release-notes", strategy: "worktree", mode: "software", workspace_root: project.workspaceRoot }]);
+    expect((captures[0] as { checkout?: unknown }).checkout).toEqual({
+      repo: "FlyFission/Release", local_path: `${project.workspaceRoot}/.worktrees/Release/cr-write-release-notes`,
+      branch: "cr/write-release-notes", workspace_root: project.workspaceRoot,
+    });
   });
 
   it("supports capture settings, auto-inference, runnable-only CLIs, and saved defaults", async () => {
@@ -352,7 +366,9 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const repoSelect = screen.getByLabelText("Repository");
     await within(repoSelect).findByRole("option", { name: /FlyFission\/Control-Rod/i });
     await user.selectOptions(repoSelect, "FlyFission/Control-Rod");
-    expect(screen.getByText(/prepares an isolated checkout for author runs/i)).toBeTruthy();
+    expect(screen.getByText(/gets its own git worktree and branch\. It is prepared when you add the change/i)).toBeTruthy();
+    // Only a worktree can be bound to a run, so no other strategy is offered (API-1).
+    expect(screen.queryByLabelText("Outfall strategy")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
     expect(materializeRequests.at(-1)?.mode).toBe("capital-projects");
@@ -398,6 +414,8 @@ describe("engineering mode toggle and NewWorkModal", () => {
     // Save defaults
     await user.click(screen.getByRole("button", { name: "Save as my defaults" }));
     expect(screen.getByText(/Saved defaults for Capital Projects mode/i)).toBeTruthy();
+    // The author was picked here, so it is saved as picked and reaches later cards (WEB-11).
+    expect(loadWorkDefaults("capital-projects").agentsChosen).toEqual({ author: true, checker: false });
 
     // Closing settings preserves the capture fields and the prepared branch
     await user.click(screen.getByRole("button", { name: "More settings" }));
@@ -1054,6 +1072,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
             local_path: "/home/flyfission/projects/.worktrees/Control-Rod/cr-server-assigned-branch",
           });
         }
+        if (attempt === 4) {
+          return HttpResponse.json({
+            ok: true,
+            strategy: "worktree",
+            repo: "Control-Rod",
+            branch: "cr/fix-bug-2",
+            local_path: "/home/flyfission/projects/.worktrees/Control-Rod/cr-fix-bug-2",
+          });
+        }
         return HttpResponse.json({ code: "git_error", message: "git worktree add failed" }, { status: 500 });
       }),
       http.post("*/captures", async ({ request }) => {
@@ -1078,11 +1105,72 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("git worktree add failed");
     expect(screen.queryByText(/Local checkout prepared:/i)).toBeNull();
 
+    // Add prepares again rather than send a card with no checkout. A failed prepare sends nothing (WEB-4).
+    await user.click(screen.getByRole("button", { name: "Add change" }));
+    await waitFor(() => expect(attempt).toBe(3));
+    expect((await screen.findByRole("alert")).textContent).toContain("git worktree add failed");
+    expect(capturedBody).toBeNull();
+
+    // The next Add prepares a fresh checkout and binds the card to it, never to the stale one.
     await user.click(screen.getByRole("button", { name: "Add change" }));
     await waitFor(() => expect(capturedBody).not.toBeNull());
-    expect(capturedBody!.text).not.toContain("[workspace:");
-    expect(capturedBody!.text).toContain("[branch:cr/fix-bug]");
-    expect(capturedBody!.checkout).toBeUndefined();
+    expect(capturedBody!.text).toContain("[branch:cr/fix-bug-2]");
+    expect(capturedBody!.checkout?.local_path).toBe("/home/flyfission/projects/.worktrees/Control-Rod/cr-fix-bug-2");
+    expect(capturedBody!.checkout?.local_path).not.toContain("cr-server-assigned-branch");
+  });
+
+  it("removes the worktree Add made when the box is closed before the change is sent (WEB-4)", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    let release: () => void = () => undefined;
+    const removed: unknown[] = [];
+    let captured = false;
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({ runtimes: [{ runtime: "claude", ready: true, login_checked: false, models: ["default"] }], pins: [] }),
+      ),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/repos/materialize", async () => {
+        await new Promise<void>((r) => { release = r; });
+        return HttpResponse.json({
+          ok: true, strategy: "worktree", repo: "Control-Rod", branch: "cr/fix-bug",
+          local_path: "/home/flyfission/projects/.worktrees/Control-Rod/cr-fix-bug",
+          repo_path: "/home/flyfission/projects/Control-Rod",
+        });
+      }),
+      http.post("*/repos/remove", async ({ request }) => {
+        removed.push(await request.json());
+        return HttpResponse.json({ ok: true });
+      }),
+      http.post("*/captures", () => {
+        captured = true;
+        return HttpResponse.json({ id: "cap-4", received_at: "2026-11-28T12:00:00Z", lane: "internal", source: "web", text: "" });
+      }),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("What do you want done?"), "Fix bug");
+    await openCaptureSettings(user);
+    await user.selectOptions(await screen.findByLabelText("Repository"), "Control-Rod");
+    await user.click(screen.getByRole("button", { name: "Add change" }));
+    expect(await screen.findByText(/Preparing local workspace/i)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    release();
+    await waitFor(() => expect(removed).toHaveLength(1));
+    expect(removed[0]).toMatchObject({ worktree_path: "/home/flyfission/projects/.worktrees/Control-Rod/cr-fix-bug", repo_path: "/home/flyfission/projects/Control-Rod" });
+    expect(captured).toBe(false);
   });
 
   it("defensively validates corrupt localStorage values in loadWorkDefaults and renders NewWorkModal safely", async () => {

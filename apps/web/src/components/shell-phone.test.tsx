@@ -28,7 +28,7 @@ describe("the shell on a phone", () => {
     expect(screen.getByRole("button", { name: "New change" })).toBeTruthy();
     // The SCRAM lamp and SCRAM stay in the top bar at every width.
     expect(screen.getByRole("img", { name: /SCRAM lamp/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "SCRAM" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "SCRAM" })).toBeTruthy();
   });
 
   it("opens More as a dialog with the other places, and Escape closes it and returns focus", async () => {

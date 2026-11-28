@@ -4,7 +4,7 @@ import { api, explain } from "../api/client.js";
 
 /**
  * Snapshots (formerly Explore): private-ref checkpoints and a non-destructive Merkle freeze over a
- * worktree, so Compare can line revisions up. Multi-CLI fan-out is not built, so it is not shown.
+ * worktree. Multi-CLI fan-out is not built, so it is not shown.
  */
 export function Explore() {
   const [repoPath, setRepoPath] = useState("");
@@ -91,9 +91,6 @@ export function Explore() {
           </button>
           <Link to="/packages" className="btn">
             Open Packages
-          </Link>
-          <Link to="/compare" className="btn">
-            Compare
           </Link>
         </div>
 

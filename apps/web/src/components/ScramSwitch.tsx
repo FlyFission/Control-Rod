@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import type { RodState } from "../features/office/plant-instruments.js";
+import { COUNT_PATIENCE_MS, ScramDialog } from "../features/office/Scram.js";
+import { browserPasskeys } from "../lib/decide.js";
 import "./scram-switch.css";
 
 /**
@@ -9,7 +10,8 @@ import "./scram-switch.css";
  * drill and is hatched when the status could not be read, so an unknown is never shown as clear.
  * Hover or focus shows what SCRAM does: it stops every agent where it stands, and the way back is
  * a reviewed restart. While a SCRAM is in force a Restart button sits beside it, since that is the
- * way to resume.
+ * way to resume. Pressing SCRAM opens the stop dialog on this screen (WEB-8): it states the scope
+ * and what it stops, and one press of Stop now fires it. Nothing navigates away.
  */
 
 type Lamp = "off" | "trip" | "drill" | "unknown";
@@ -45,10 +47,12 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
   const lamp: Lamp = failed && LAMP[rods.position] === "off" ? "unknown" : LAMP[rods.position];
   const tipId = useId();
   const [dismissed, setDismissed] = useState(false);
+  const [stopOpen, setStopOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
   const root = useRef<HTMLSpanElement>(null);
   const hovered = useRef(false);
-  // Pressing SCRAM hides the card until focus leaves the button: otherwise it stays up (focused) over
-  // the SCRAM page it just opened and covers the button the person came to press.
+  // Pressing SCRAM hides the card until focus leaves the button: otherwise it stays up (focused) beside
+  // the stop dialog it just opened.
   const pressed = useRef(false);
   // Escape hides the card wherever focus is, but only while the card is open (hovered or focused), so a
   // stray Escape elsewhere never suppresses the next one.
@@ -73,6 +77,7 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
         ? "SCRAM in force. Agents are stopping: each stops at its next heartbeat, and work is held until you restart it."
         : "SCRAM in force: the work it still holds stays stopped until you restart it. Restart opens the review, where you sign a restart."
   return (
+    <>
     <span
       ref={root}
       className="scram-switch"
@@ -86,6 +91,8 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
         if (!pressed.current) setDismissed(false);
       }}
       onBlur={() => {
+        // Focus moving into the stop dialog keeps the card hidden behind it.
+        if (stopOpen) return;
         pressed.current = false;
         setDismissed(false);
       }}
@@ -93,17 +100,20 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
       <span className="scram-lamp" role="img" aria-label={rods.caption ? `${LAMP_WORDS[lamp]}. ${rods.caption}` : LAMP_WORDS[lamp]}>
         <span className="scram-lamp-lens" />
       </span>
-      <Link
-        to="/office"
+      <button
+        ref={trigger}
+        type="button"
         className="btn small danger topbar-scram"
         aria-describedby={tipId}
+        aria-haspopup="dialog"
         onClick={() => {
           pressed.current = true;
           setDismissed(true);
+          setStopOpen(true);
         }}
       >
         SCRAM
-      </Link>
+      </button>
       {held && !presenting && !failed && (
         <button type="button" className="btn small scram-restart" onClick={onRestart} aria-describedby={tipId}>
           Restart
@@ -128,5 +138,18 @@ export function ScramSwitch({ rods, stopping, failed, presenting, onRestart }: {
         <span className="sr-only">Stop at the next heartbeat, then review what each run reported, then sign a restart for all, one discipline or one package; it is refused while anything in that scope is unresolved.</span>
       </span>
     </span>
+    {/* Outside the switch, so focus in the dialog does not hold the switch's card open behind it. */}
+    {stopOpen && (
+      <ScramDialog
+        passkeys={browserPasskeys}
+        presenting={presenting}
+        patienceMs={COUNT_PATIENCE_MS}
+        onClose={() => {
+          setStopOpen(false);
+          queueMicrotask(() => trigger.current?.focus());
+        }}
+      />
+    )}
+    </>
   );
 }

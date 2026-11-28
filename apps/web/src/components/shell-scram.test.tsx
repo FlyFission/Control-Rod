@@ -131,17 +131,34 @@ describe("the SCRAM banner is app-wide", () => {
     expect(screen.getByRole("tooltip").textContent).toMatch(/Last reading: SCRAM in force/);
   });
 
-  it("hides the SCRAM card once SCRAM is pressed, so it never covers the SCRAM page's own button", async () => {
+  it("opens the stop on this screen, and one press of Stop now fires it (WEB-8)", async () => {
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.setAttribute("open", ""); };
     baseApi();
-    server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] })));
-    await renderShell("/board");
+    const pulled: string[] = [];
+    server.use(
+      http.get("*/scrams", () => HttpResponse.json({ scrams: [] })),
+      http.get("*/scrams/preview", () => HttpResponse.json({ scope: "organization", running_count: 1, queued_count: 0, running: ["R-a"], queued: [], counted_at: new Date().toISOString() })),
+      http.post("*/admin/commands/:name", ({ params }) => {
+        pulled.push(String(params["name"]));
+        return HttpResponse.json({ ...org, assertion: {}, quarantine: [] });
+      }),
+    );
+    const { router } = await renderShell("/board");
     await waitFor(() => expect(document.querySelector(".scram-switch")).not.toBeNull());
     const sw = document.querySelector(".scram-switch")!;
     const user = userEvent.setup();
-    await user.click(within(sw as HTMLElement).getByRole("link", { name: "SCRAM" }));
+    await user.click(within(sw as HTMLElement).getByRole("button", { name: "SCRAM" }));
+    // The card steps aside, and the stop opens here: no page change.
     expect(sw.hasAttribute("data-tip-dismissed")).toBe(true);
-    await user.unhover(sw);
-    expect(sw.hasAttribute("data-tip-dismissed")).toBe(true);
+    const dialog = await screen.findByRole("dialog", { name: "Pull SCRAM" });
+    expect(router.state.location.pathname).toBe("/board");
+    expect(pulled).toHaveLength(0);
+    const stop = within(dialog).getByRole("button", { name: "Stop now" });
+    await waitFor(() => expect(stop).toHaveProperty("disabled", false));
+    await user.click(stop);
+    await waitFor(() => expect(pulled).toEqual(["scram.pull"]));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Pull SCRAM" })).toBeNull());
+    expect(router.state.location.pathname).toBe("/board");
   });
 
   it("shows an unknown lamp, not an off one, when a clear reading can no longer be refreshed", async () => {
@@ -163,10 +180,10 @@ describe("the SCRAM banner is app-wide", () => {
     const user = userEvent.setup();
     await user.keyboard("{Escape}");
     expect(document.querySelector(".scram-switch")!.hasAttribute("data-tip-dismissed")).toBe(false);
-    await user.hover(await screen.findByRole("link", { name: "SCRAM" }));
+    await user.hover(await screen.findByRole("button", { name: "SCRAM" }));
     await user.keyboard("{Escape}");
     expect(document.querySelector(".scram-switch")!.hasAttribute("data-tip-dismissed")).toBe(true);
-    await user.unhover(screen.getByRole("link", { name: "SCRAM" }));
+    await user.unhover(screen.getByRole("button", { name: "SCRAM" }));
     expect(document.querySelector(".scram-switch")!.hasAttribute("data-tip-dismissed")).toBe(false);
   });
 
@@ -185,13 +202,13 @@ describe("the SCRAM banner is app-wide", () => {
     await renderShell("/board");
     await waitFor(() => expect(document.querySelector(".scram-switch")!.getAttribute("data-lamp")).toBe("off"));
     // One SCRAM button, a dark lamp, no "No SCRAM" label and no Restart.
-    expect(screen.getAllByRole("link", { name: "SCRAM" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "SCRAM" })).toHaveLength(1);
     expect(screen.queryByText("No SCRAM")).toBeNull();
     expect(screen.queryByRole("button", { name: "Restart" })).toBeNull();
     expect(screen.getByRole("img", { name: /SCRAM lamp off/ })).toBeTruthy();
     // What SCRAM does, on hover or focus: it stops all agent activity, and the way back is a restart.
     const tip = screen.getByRole("tooltip");
-    expect(screen.getByRole("link", { name: "SCRAM" }).getAttribute("aria-describedby")).toBe(tip.id);
+    expect(screen.getByRole("button", { name: "SCRAM" }).getAttribute("aria-describedby")).toBe(tip.id);
     expect(tip.textContent).toMatch(/Stops all agent activity\. Work is held until you restart it/);
     expect(tip.textContent).toMatch(/stops at its next heartbeat/);
     expect(tip.textContent).toMatch(/Restart/);
@@ -224,7 +241,7 @@ describe("the SCRAM banner is app-wide", () => {
       expect(screen.getByText("Its reason, the runs it stopped and the way back are not shown while presenting.")).toBeTruthy();
       // Restart is not offered while presenting; SCRAM itself stays.
       expect(screen.queryByRole("button", { name: "Restart" })).toBeNull();
-      expect(screen.getByRole("link", { name: "SCRAM" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "SCRAM" })).toBeTruthy();
     } finally {
       act(() => setPresenting(false));
     }
@@ -243,7 +260,7 @@ describe("what a SCRAM locks", () => {
     await user.keyboard("c");
     expect(screen.queryByRole("dialog")).toBeNull();
     // SCRAM itself is never locked.
-    expect(screen.getByRole("link", { name: "SCRAM" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "SCRAM" })).toBeTruthy();
   });
 
   it("locks a project SCRAM for that project only", async () => {

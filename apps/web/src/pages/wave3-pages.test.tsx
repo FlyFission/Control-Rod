@@ -4,7 +4,6 @@ import { http, HttpResponse } from "msw/http";
 import { describe, expect, it } from "vitest";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
-import { Compare } from "./Compare.js";
 import { Explore } from "./Explore.js";
 import { Today } from "./Today.js";
 
@@ -100,30 +99,6 @@ describe("Wave 3/4 workbench pages", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText(/Checkpoint saved at/i)).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("Compare renders side-by-side candidates, adds temporary local notes, and shows retry on error", async () => {
-    const user = userEvent.setup();
-    let fail = true;
-    server.use(
-      http.get("*/packages", () =>
-        fail
-          ? HttpResponse.json({ code: "error", message: "Packages unavailable" }, { status: 500 })
-          : HttpResponse.json(SAMPLE_PACKAGES),
-      ),
-    );
-    await renderPage(<Compare />);
-    expect(await screen.findByRole("alert")).toBeTruthy();
-    expect(screen.getByText(/Packages unavailable/i)).toBeTruthy();
-    fail = false;
-    await user.click(screen.getByRole("button", { name: /Try again/i }));
-
-    expect(await screen.findByText("PKG-W3-1")).toBeTruthy();
-    const input = screen.getByPlaceholderText(/Add a temporary local note/i);
-    await user.type(input, "Verified buckling factor");
-    await user.click(screen.getByRole("button", { name: /Add Local Note/i }));
-    expect(screen.getByText(/Verified buckling factor/i)).toBeTruthy();
-    expect(screen.getByText("PKG-W3-1@r2")).toBeTruthy();
   });
 
   it("Today keeps recorded runs available when packages fail and never infers a run from package status", async () => {

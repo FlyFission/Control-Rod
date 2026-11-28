@@ -5,7 +5,7 @@ import { backdropClose } from "../lib/dismiss.js";
 import { suggestBranchName } from "../lib/branch.js";
 import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, explain } from "../api/client.js";
+import { ApiError, api, explain } from "../api/client.js";
 import type { DataLane, NewCapture, WorkspaceProject } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
@@ -29,6 +29,7 @@ import {
   type ReasoningLevel,
 } from "../lib/runtimes.js";
 import {
+  bindableStrategy,
   inferScopeHints,
   loadWorkDefaults,
   resetWorkDefaults,
@@ -39,14 +40,10 @@ import {
 } from "../lib/workDefaults.js";
 
 
-const STRATEGY_NOTE: Record<RepoOutfallStrategy, string> = {
-  worktree:
-    "Selected strategy (worktree) prepares an isolated checkout for author runs.",
-  "fresh-clone":
-    "Selected strategy (fresh-clone) prepares a fresh checkout for author runs.",
-  branch:
-    "Selected strategy (branch in base clone) prepares the local checkout for author runs.",
-};
+// Each card gets its own git worktree and branch. A fresh clone or a branch in the base clone can't
+// be bound to a run yet (services/api/src/repos.ts bindCheckout), so neither is offered.
+const STRATEGY_NOTE =
+  "The change gets its own git worktree and branch. It is prepared when you add the change, or now with Prepare local workspace.";
 
 interface PrepareSnapshot {
   seq: number;
@@ -94,10 +91,13 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [checker, setChecker] = useState<AgentRuntimeSelection>(initialDefaults.checker);
   // A card follows the agents picked at the top of each board column unless the person picks
   // agents for this one card under More settings; only then does the request carry its own.
-  const [agentsChosen, setAgentsChosen] = useState({ author: false, checker: false });
+  // Agents saved as defaults on purpose count as picked, so they reach the card too.
+  const [agentsChosen, setAgentsChosen] = useState(initialDefaults.agentsChosen);
   const [workspaceRoot, setWorkspaceRoot] = useState(initialDefaults.workspaceRoot);
   const [repo, setRepo] = useState(initialDefaults.repo);
   const [repoStrategy, setRepoStrategy] = useState<RepoOutfallStrategy>(initialDefaults.repoStrategy);
+  // Set while Add prepares the workspace itself, before the capture is sent.
+  const [preparingOnSubmit, setPreparingOnSubmit] = useState(false);
   const [branch, setBranch] = useState("");
   const [preparedPath, setPreparedPath] = useState<string | null>(null);
   const [preparedBranch, setPreparedBranch] = useState<string | null>(null);
@@ -138,6 +138,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setWorkspaceRoot(defaults.workspaceRoot);
     setRepo(defaults.repo);
     setRepoStrategy(defaults.repoStrategy);
+    setAgentsChosen(defaults.agentsChosen);
     setBranch("");
     invalidatePrepared();
     setPinnedFields(false);
@@ -146,8 +147,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   function applyProjectPreferences(preferences: WorkspaceProject, defaultRoot: string) {
     setProject(preferences.name);
     setRepo(preferences.repo);
-    setRepoStrategy(preferences.repoStrategy);
+    setRepoStrategy(bindableStrategy(preferences.repoStrategy));
     setWorkspaceRoot(preferences.workspaceRoot || defaultRoot);
+    // The project's own agents are applied on the server; the card names agents only when picked here.
+    setAgentsChosen({ author: false, checker: false });
     setLane(preferences.lane);
     setAuthor(laneRuntimeSelection(
       sanitizeRuntimeSelection(preferences.author, defaultAuthorSelection()), preferences.laneAgents?.drafting,
@@ -293,12 +296,16 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       setError(null);
       setDefaultsNotice(null);
       setSettingsOpen(false);
-      setAgentsChosen({ author: false, checker: false });
+      // A pick for one card ends with it; agents saved as defaults on purpose come back.
+      const saved = loadWorkDefaults(mode);
+      setAgentsChosen(saved.agentsChosen);
+      if (saved.agentsChosen.author) setAuthor(saved.author);
+      if (saved.agentsChosen.checker) setChecker(saved.checker);
     }
   }, [open]);
 
   const send = useMutation({
-    mutationFn: ({ body, lane: submittedLane, checkout }: { body: string; lane: DataLane; session: number; checkout?: NewCapture["checkout"] }) =>
+    mutationFn: ({ body, lane: submittedLane, checkout }: { body: string; lane: DataLane; session: number; checkout?: NewCapture["checkout"]; made?: { local_path: string; repo_path: string } }) =>
       api.capture({ text: body, source: "web", lane: submittedLane, ...(checkout ? { checkout } : {}) }),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["captures"] });
@@ -313,6 +320,14 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       onClose();
     },
     onError: (e, vars) => {
+      // A worktree Add made for this capture is removed only on a clear refusal: after a lost reply or
+      // a server error the capture may have been saved, so the worktree stays.
+      if (vars.made && e instanceof ApiError && e.status >= 400 && e.status < 500) {
+        void api.removeRepo({ worktree_path: vars.made.local_path, repo_path: vars.made.repo_path, ...(vars.checkout?.workspace_root ? { workspace_root: vars.checkout.workspace_root } : {}) })
+          .catch(() => undefined)
+          .finally(() => void qc.invalidateQueries({ queryKey: ["repos"] }));
+        if (vars.session === modalSessionRef.current) invalidatePrepared();
+      }
       if (vars.session !== modalSessionRef.current) return;
       setError(explain(e, "Could not capture work."));
     },
@@ -361,6 +376,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       workspaceRoot: activeWorkspaceRoot,
       repo,
       repoStrategy,
+      agentsChosen,
     });
     setDefaultsNotice(`Saved defaults for ${copy.label} mode.`);
   }
@@ -372,9 +388,9 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setDefaultsNotice(`Reset ${copy.label} defaults.`);
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (pendingCaptureSession !== null || scramLock.locked) return;
+    if (pendingCaptureSession !== null || pendingPrepareSeq !== null || scramLock.locked) return;
     const trimmed = objective.trim();
     if (!trimmed) {
       setError("Enter an objective or scope before capturing.");
@@ -385,6 +401,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     // and could smuggle in another (the API reads only top-level tags). Every free value is checked:
     // what the person typed, the clone's folder name, the branch and the prepared path.
     const bracketed = (v: string | null | undefined) => !!v && /[[\]]/.test(v);
+    const pathRefusal = "This workspace's path contains [ or ], which a request can't carry. Prepare it in a folder without brackets.";
     const refused = bracketed(project)
       ? "A project name can't contain [ or ]."
       : repo && bracketed(repo)
@@ -392,44 +409,96 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         : repo && bracketed(captureBranch)
           ? "A branch name can't contain [ or ]."
           : bracketed(preparedPath)
-            ? "This workspace's path contains [ or ], which a request can't carry. Prepare it in a folder without brackets."
+            ? pathRefusal
             : null;
     if (refused) {
       setError(refused);
       return;
     }
-    const header = [
-      `[mode:${mode}]`,
-      projectCaptureTag(project, activeProject),
-      repo ? `[repo:${repo}]` : null,
-      repo ? `[branch:${captureBranch}]` : null,
-      repo ? `[outfall:${repoStrategy}]` : null,
-      workflow ? `[workflow:${workflow}]` : null,
-      `[stage:${stage}]`,
-      `[purpose:${purpose}]`,
-      discipline && discipline !== "Unspecified" ? `[discipline:${discipline}]` : null,
-      `[grade:${grade}]`,
-      agentsChosen.author ? `[author:${author.ecosystem}/${author.model}@${author.reasoning}]` : null,
-      agentsChosen.checker ? `[checker:${checker.ecosystem}/${checker.model}@${checker.reasoning}]` : null,
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    const body = `${header}\n\n${trimmed}`;
-    if (body.length > CAPTURE_LIMIT) {
-      setError(
-        `Too long for one capture (${body.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters, including metadata header). Shorten the objective or project name.`,
-      );
+    const bodyFor = (cardBranch: string) => {
+      const header = [
+        `[mode:${mode}]`,
+        projectCaptureTag(project, activeProject),
+        repo ? `[repo:${repo}]` : null,
+        repo ? `[branch:${cardBranch}]` : null,
+        repo ? `[outfall:${repoStrategy}]` : null,
+        workflow ? `[workflow:${workflow}]` : null,
+        `[stage:${stage}]`,
+        `[purpose:${purpose}]`,
+        discipline && discipline !== "Unspecified" ? `[discipline:${discipline}]` : null,
+        `[grade:${grade}]`,
+        agentsChosen.author ? `[author:${author.ecosystem}/${author.model}@${author.reasoning}]` : null,
+        agentsChosen.checker ? `[checker:${checker.ecosystem}/${checker.model}@${checker.reasoning}]` : null,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return `${header}\n\n${trimmed}`;
+    };
+    const tooLong = (body: string) =>
+      body.length > CAPTURE_LIMIT
+        ? `Too long for one capture (${body.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters, including metadata header). Shorten the objective or project name.`
+        : null;
+    const longError = tooLong(bodyFor(captureBranch));
+    if (longError) {
+      setError(longError);
       return;
     }
-    if (preparedPath && !CHECKOUT_AUTHORS.includes(author.ecosystem)) {
+    // A repository always means a checkout: the work runs in it, so only an agent that can work in one may author.
+    if (repo && !CHECKOUT_AUTHORS.includes(author.ecosystem)) {
       setError(`${ecosystemById(author.ecosystem).label} can't work in a repository checkout yet. Pick Claude Code or Codex as author.`);
       return;
     }
     const session = modalSessionRef.current;
     setPendingCaptureSession(session);
-    send.mutate({ body, lane, session, ...(preparedPath ? { checkout: {
-      repo, local_path: preparedPath, branch: captureBranch,
+    setError(null);
+    let path = preparedPath;
+    let cardBranch = captureBranch;
+    let made: { local_path: string; repo_path: string } | undefined;
+    if (repo && !path) {
+      // Add prepares the workspace itself, so a card with a repository is always bound to its checkout.
+      setPreparingOnSubmit(true);
+      try {
+        const res = await api.materializeRepo({
+          repo,
+          branch: effectiveBranch,
+          strategy: repoStrategy,
+          mode: mode === "capital-projects" ? "capital-projects" : "software",
+          ...(activeWorkspaceRoot ? { workspace_root: activeWorkspaceRoot } : {}),
+        });
+        path = res.local_path;
+        cardBranch = res.branch || effectiveBranch;
+        if (res.repo_path) made = { local_path: res.local_path, repo_path: res.repo_path };
+        void qc.invalidateQueries({ queryKey: ["repos"] });
+      } catch (err) {
+        if (session === modalSessionRef.current) {
+          setError(explain(err, "Could not prepare local workspace."));
+          setPendingCaptureSession(null);
+        }
+        return;
+      } finally {
+        setPreparingOnSubmit(false);
+      }
+      if (session !== modalSessionRef.current) {
+        // The box was closed while Add prepared, so no card will use this worktree.
+        if (made) {
+          void api.removeRepo({ worktree_path: made.local_path, repo_path: made.repo_path, ...(activeWorkspaceRoot ? { workspace_root: activeWorkspaceRoot } : {}) })
+            .catch(() => undefined)
+            .finally(() => void qc.invalidateQueries({ queryKey: ["repos"] }));
+        }
+        return;
+      }
+      setPreparedPath(path);
+      setPreparedBranch(cardBranch);
+    }
+    const body = bodyFor(cardBranch);
+    const late = bracketed(path) ? pathRefusal : tooLong(body);
+    if (late) {
+      setError(late);
+      setPendingCaptureSession(null);
+      return;
+    }
+    send.mutate({ body, lane, session, ...(made ? { made } : {}), ...(path ? { checkout: {
+      repo, local_path: path, branch: cardBranch,
       ...(activeWorkspaceRoot ? { workspace_root: activeWorkspaceRoot } : {}),
     } } : {}) });
   }
@@ -458,7 +527,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         <CloseX onClose={onClose} />
       </div>
 
-      <form className="cr-modal-body" onSubmit={submit}>
+      <form className="cr-modal-body" onSubmit={(e) => void submit(e)}>
         <label className="field">
           <span>{copy.objectiveLabel}</span>
           <textarea
@@ -495,7 +564,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
               Local checkout prepared: {preparedPath}
             </span>
           )}
-          {isPreparing && !settingsOpen && <span role="status">Preparing local workspace…</span>}
+          {(preparingOnSubmit || (isPreparing && !settingsOpen)) && <span role="status">Preparing local workspace…</span>}
           {!repo && mode === "software" && (
             <span className="cr-warn-text">No repository chosen, so this ends in documents, not a pull request. Pick one under More settings.</span>
           )}
@@ -556,23 +625,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                       )}
                     </select>
                   </label>
-                  {repo && (
-                    <label className="field">
-                      <span>Outfall strategy</span>
-                      <select
-                        aria-label="Outfall strategy"
-                        value={repoStrategy}
-                        onChange={(e) => {
-                          setRepoStrategy(e.target.value as RepoOutfallStrategy);
-                          invalidatePrepared();
-                        }}
-                      >
-                        <option value="worktree">New git worktree (Recommended)</option>
-                        <option value="fresh-clone">Fresh local clone</option>
-                        <option value="branch">New branch in local clone</option>
-                      </select>
-                    </label>
-                  )}
                 </div>
                 <div className="cr-form-grid" style={{ marginTop: 8 }}>
                   <label className="field">
@@ -631,7 +683,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                 )}
           <p className="small muted" style={{ margin: "8px 0 0" }}>
             {repo
-              ? STRATEGY_NOTE[repoStrategy]
+              ? STRATEGY_NOTE
               : "Prepare a repository to use its local checkout for the author run."}
           </p>
               </fieldset>
@@ -731,7 +783,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                     title={copy.custodyRoles[0]}
                     idPrefix="author"
                     value={author}
-                    checkoutBound={preparedPath !== null}
+                    checkoutBound={Boolean(repo)}
                     liveModels={liveModelsByEco[author.ecosystem]}
                     onChange={(patch) => updateRuntimeSelection("author", patch)}
                   />
@@ -793,7 +845,9 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
             Cancel
           </button>
           <button type="submit" className="btn primary" disabled={isCapturing || scramLock.locked} title={scramLock.why}>
-            {isCapturing
+            {preparingOnSubmit
+              ? "Preparing workspace…"
+              : isCapturing
               ? "Adding…"
               : mode === "nuclear-grade"
                 ? "Add packet"

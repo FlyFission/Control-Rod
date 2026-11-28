@@ -14,7 +14,6 @@ import { sessionIdentity, watchSessionIdentity } from "./lib/session.js";
 import { CasePage } from "./features/case/CasePage.js";
 import { Board } from "./pages/Board.js";
 import { ControlRoom } from "./pages/ControlRoom.js";
-import { Compare } from "./pages/Compare.js";
 import { Explore } from "./pages/Explore.js";
 import { Inbox } from "./pages/Inbox.js";
 import { OfficePlace } from "./pages/OfficePlace.js";
@@ -96,7 +95,6 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/registers", component: Registers }),
   createRoute({ getParentRoute: () => rootRoute, path: "/snapshots", component: Explore }),
   createRoute({ getParentRoute: () => rootRoute, path: "/explore", beforeLoad: () => { throw redirect({ to: "/snapshots" }); } }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/compare", component: Compare }),
   createRoute({ getParentRoute: () => rootRoute, path: "/today", component: Today }),
   createRoute({ getParentRoute: () => rootRoute, path: "/setup", component: Setup }),
   createRoute({ getParentRoute: () => rootRoute, path: "/workflow", component: Workflow }),

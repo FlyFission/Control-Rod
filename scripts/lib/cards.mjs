@@ -76,7 +76,8 @@ export async function addCard(call, text, { project: wanted, rand } = {}) {
   const prefix = `[mode:${mode}]${project ? ` [project-id:${project.id}]${project.repo ? ` [repo:${project.repo}]` : ""}` : ""}\n\n`;
   const lane = project?.lane ?? "internal";
   let checkout;
-  if (project?.repo && project.repoStrategy === "worktree") {
+  // Worktree is the only strategy a run can be bound to, so every project with a repository gets one.
+  if (project?.repo) {
     const root = project.workspaceRoot || (await call("GET", "/repos")).workspace_root;
     const made = await call("POST", "/repos/materialize", {
       repo: project.repo,

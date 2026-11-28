@@ -12,9 +12,10 @@ import type { WorkspaceProject } from "../../api/types.js";
 
 /**
  * How a quick-added card goes in. In a project, it takes the project's lane (the person chose it
- * when they made the project, and the field says so), and in a project bound to a repository with
- * the worktree strategy, each card gets its own worktree and branch, so accepted work can go out as
- * a draft pull request with no further steps. Outside a project it takes the standard lane
+ * when they made the project, and the field says so), and in a project bound to a repository each
+ * card gets its own worktree and branch, so accepted work can go out as a draft pull request with no
+ * further steps. Worktree is the only strategy a run can be bound to, so a project saved with another
+ * one prepares a worktree too. Outside a project it takes the standard lane
  * (Internal). The server keeps it at or above its project's lane and classifies only for a sender
  * with lane authority (M-0).
  */
@@ -25,7 +26,7 @@ export async function quickCapture(text: string, title: string, project: Workspa
     return;
   }
   let checkout: { repo: string; local_path: string; branch: string; workspace_root?: string } | undefined;
-  if (project.repo && project.repoStrategy === "worktree") {
+  if (project.repo) {
     const root = project.workspaceRoot || (await api.repos()).workspace_root;
     const made = await api.materializeRepo({
       repo: project.repo,
@@ -282,7 +283,7 @@ export function QuickAdd() {
         </button>
         <span className="muted small">
           {laneLabel(lane)} data lane{activeProject ? " (project default)" : ""}
-          {activeProject?.repo && activeProject.repoStrategy === "worktree" ? `, in its own branch of ${activeProject.repo}` : ""}.
+          {activeProject?.repo ? `, in its own branch of ${activeProject.repo}` : ""}.
           {LOCAL_ONLY.has(lane) ? " Stays on this computer; no cloud agent sees it." : " Cloud agents may work on it."}
         </span>
       </div>

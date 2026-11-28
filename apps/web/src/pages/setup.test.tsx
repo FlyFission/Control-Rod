@@ -110,17 +110,41 @@ describe("first-run setup", () => {
 
     await user.click(screen.getByRole("switch", { name: "Claude Code" }));
     expect(screen.getByRole("switch", { name: "Claude Code" }).getAttribute("aria-checked")).toBe("false");
-    await user.click(screen.getByRole("radio", { name: /Just at the start/ }));
+    // Check-in points that are not built are not offered (WEB-14).
+    expect(screen.queryByRole("radio", { name: /Just at the start/ })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /At every step/ })).toBeNull();
+    expect(screen.queryByText("Coming soon")).toBeNull();
     const back = screen.getByRole("region", { name: "Here's what you're setting up" });
     expect(within(back).getByText(/No agent at the table can work yet/)).toBeTruthy();
-    expect(within(back).getByText(/Check-in preference: just at the start\. What actually stops a card for you is set under What needs your passkey\./)).toBeTruthy();
-    expect(screen.getByText(/Saved for when check-in points arrive/)).toBeTruthy();
+    expect(within(back).getByText(/Check-in preference: at the start and before merge\./)).toBeTruthy();
+    expect(screen.getByText(/Other check-in points are not built yet/)).toBeTruthy();
     expect(sent).toHaveLength(0);
 
     await user.click(screen.getByRole("button", { name: "Looks right" }));
     await vi.waitFor(() => expect(sent).toHaveLength(1));
     // Only the switch this page changed is sent, so a stale page cannot undo a switch made elsewhere.
-    expect(sent[0]).toEqual({ seats: [{ runtime: "claude", seated: false }], check_in: "start" });
+    expect(sent[0]).toEqual({ seats: [{ runtime: "claude", seated: false }] });
+  });
+
+  it("reads a saved check-in that is not built as the built one, and saves that", async () => {
+    const user = userEvent.setup();
+    const sent: unknown[] = [];
+    api({ ...fresh, check_in: "every-step" }, (b) => sent.push(b));
+    await renderPage(<Setup />);
+    expect(await screen.findByRole("radio", { name: /At the start and before merge/ })).toHaveProperty("checked", true);
+    await user.click(screen.getByRole("button", { name: "Looks right" }));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({ seats: [], check_in: "start-and-merge" });
+  });
+
+  it("offers a New project button where signing waits for a project (WEB-13)", async () => {
+    const user = userEvent.setup();
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.setAttribute("open", ""); };
+    api(fresh);
+    await renderPage(<Setup />);
+    expect(await screen.findByText(/Create a project first/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "New project" }));
+    expect(await screen.findByRole("heading", { name: "New project" })).toBeTruthy();
   });
 
   it("starts agents on Focus writing, reads the choice back, and sends Standard only when the person picks it", async () => {

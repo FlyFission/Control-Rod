@@ -6,7 +6,7 @@ import type { RosterView } from "../api/types.js";
 import type { Passkeys } from "../lib/decide.js";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
-import { Roster } from "./Roster.js";
+import { RosterDetails } from "./Roster.js";
 
 /** The Roster (plan task 5.1; specification 12 and 21, WB-12). */
 
@@ -52,7 +52,7 @@ describe("Roster", () => {
   });
 
   it("states each role's recorded baselines and pins, and that a role nothing has run names none", async () => {
-    await renderPage(<Roster passkeys={passkeys} />);
+    await renderPage(<RosterDetails passkeys={passkeys} />);
     const roles = await screen.findByRole("region", { name: "Roles" });
     const author = within(roles).getByRole("row", { name: /Author/ });
     expect(author.textContent).toContain("author-claude on claude");
@@ -63,7 +63,7 @@ describe("Roster", () => {
 
   it("pins a version for exactly the roles chosen, stating what changes, signed", async () => {
     const user = userEvent.setup();
-    await renderPage(<Roster passkeys={passkeys} />);
+    await renderPage(<RosterDetails passkeys={passkeys} />);
     const versions = await screen.findByRole("region", { name: "Versions a pin may name" });
     const row = within(versions).getByRole("row", { name: /2\.2\.0/ });
     expect(row.textContent).toContain("Intake, author and pre-check runs on claude must then launch exactly this file");
@@ -82,7 +82,7 @@ describe("Roster", () => {
       return HttpResponse.json({ code: "pin-changed", message: "The claude author pins changed since you looked; review them again before rolling back" }, { status: 409 });
     }));
     const user = userEvent.setup();
-    await renderPage(<Roster passkeys={passkeys} />);
+    await renderPage(<RosterDetails passkeys={passkeys} />);
     const author = within(await screen.findByRole("region", { name: "Roles" })).getByRole("row", { name: /Author/ });
     expect(author.textContent).toContain(`A rollback restores sha256:${"b".repeat(12)} in place of sha256:${"a".repeat(12)}.`);
     await user.click(within(author).getByRole("button", { name: "Sign and roll back claude for author" }));
@@ -92,7 +92,7 @@ describe("Roster", () => {
 
   it("offers pinning only to someone who may, saying why not", async () => {
     server.use(http.get("*/admin", () => HttpResponse.json({ actions: [allowed("runtime.pin", false), allowed("runtime.rollback", false)], commands: [], projects: [] })));
-    await renderPage(<Roster passkeys={passkeys} />);
+    await renderPage(<RosterDetails passkeys={passkeys} />);
     const versions = await screen.findByRole("region", { name: "Versions a pin may name" });
     await waitFor(() => expect((within(versions).getAllByRole("button")[0] as HTMLButtonElement).disabled).toBe(true));
     expect(within(versions).getByText("This needs administrator authority")).toBeTruthy();
@@ -100,7 +100,7 @@ describe("Roster", () => {
   });
 
   it("says baselines are not yet controlled items, and states a requested sandbox as a request, never as confinement", async () => {
-    await renderPage(<Roster passkeys={passkeys} />);
+    await renderPage(<RosterDetails passkeys={passkeys} />);
     const baselines = await screen.findByRole("region", { name: "Baselines" });
     expect(baselines.textContent).toContain("baselines are not yet controlled items with their own approved revisions");
     expect(within(baselines).getByRole("row", { name: /author-claude/ }).textContent).toContain("1 failed, 2 succeeded");

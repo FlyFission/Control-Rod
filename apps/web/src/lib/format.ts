@@ -106,3 +106,11 @@ export function elapsedText(ms: number): string {
   const m = minutes % 60;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
+
+/**
+ * A package's revision as people count it, the same "version N" the Board's cards show: revision 0
+ * is version 1. The revision number stays beside it, since the signed record and the API use it.
+ */
+export function versionLabel(revision: number): string {
+  return `version ${revision + 1} (revision ${revision})`;
+}

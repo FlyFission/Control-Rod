@@ -337,8 +337,8 @@ describe("decision flow", () => {
     offer(["accept"]);
     await renderPage(<DecisionBar view={view({}, { status: "in-verification", revision: 3 })} passkeys={passkeys([])} />);
     const readout = await screen.findByRole("region", { name: "Signing readout" });
-    expect(within(readout).getByText("rev 3")).toBeTruthy();
-    expect(within(readout).getByText("Bound revision")).toBeTruthy();
+    expect(within(readout).getByText("version 4 (revision 3)")).toBeTruthy();
+    expect(within(readout).getByText("Version")).toBeTruthy();
     const button = await screen.findByRole("button", { name: "Accept" });
     // The readout comes before the buttons in the document, so it is read before the person signs.
     expect(readout.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

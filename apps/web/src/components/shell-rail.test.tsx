@@ -28,6 +28,13 @@ const toggle = () => screen.getByRole("button", { name: /navigation/ });
 afterEach(() => window.localStorage.clear());
 
 describe("the navigation rail", () => {
+  it("marks the Inbox link when the inbox cannot be read, so a failed read never looks like an empty inbox", async () => {
+    api();
+    server.use(http.get("*/inbox", () => HttpResponse.json({ code: "internal", message: "down" }, { status: 500 })));
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    expect((await screen.findAllByLabelText("Inbox could not be read")).length).toBeGreaterThan(0);
+  });
+
   it("hides and shows from the top bar button, keeping the rail out of the tab order while hidden", async () => {
     api();
     await renderPage(<Shell session={ben}><p>app</p></Shell>);

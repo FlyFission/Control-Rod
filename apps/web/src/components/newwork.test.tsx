@@ -279,7 +279,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(captures[0]!.text).toContain("[project-id:proj-launcher]");
     expect(captures[0]!.text).toContain("[repo:FlyFission/Release]");
     // The card follows the board's column picks: nothing pins agents on it unless chosen here.
-    expect(summary.textContent).toContain("board column pick");
+    expect(summary.textContent).toContain("set by the board column");
     expect(captures[0]!.text).not.toContain("[author:");
     expect(captures[0]!.text).not.toContain("[checker:");
     expect(captures[0]!.text).not.toContain("[workspace:");
@@ -390,8 +390,8 @@ describe("engineering mode toggle and NewWorkModal", () => {
     // Live CLI-discovered Codex model from /runtimes is selectable
     expect(Array.from((modelSelects[0] as HTMLSelectElement).options).map((o) => o.value)).toContain("gpt-6.2-sol");
 
-    // Same ecosystem triggers O6 Notice, switching back restores Distinct ecosystems message
-    expect(screen.getByText(/O6 Notice:/i)).toBeTruthy();
+    // Same ecosystem shows the shared-vendor warning, switching back restores Distinct ecosystems message
+    expect(screen.getByText(/both use/i)).toBeTruthy();
     await user.selectOptions(cliSelects[0]!, "claude");
     expect(screen.getByText(/Distinct ecosystems \(baselines checked at run time\)/i)).toBeTruthy();
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { PackageProof, RecordsVerification, SealCheck, WindowExport } from "../api/types.js";
 import { NOTE_FALLBACK, type Passkeys, browserPasskeys, noteOr, signAdmin } from "../lib/decide.js";
@@ -11,6 +11,9 @@ import { shortDigest, time } from "../lib/format.js";
  * it stands; and a package's inclusion proof. Interim tamper evidence: this is a local chain that
  * nothing outside the database witnesses, and every view here says so.
  */
+
+/** The server's page size for the chain (GET /events). A shorter page is the oldest one. */
+const EVENT_PAGE = 500;
 
 const NOT_WITNESSED =
   "Local chain, not witnessed. Nothing outside this database vouches for it yet, and a database alone cannot prove that a sealed stretch was not cut short.";
@@ -30,8 +33,14 @@ const RESULT_WORDS: Record<SealCheck["result"], string> = {
 };
 
 export function Records({ passkeys = browserPasskeys }: { passkeys?: Passkeys } = {}) {
-  const q = useQuery({ queryKey: ["events", "all"], queryFn: () => api.allEvents() });
-  const events = [...(q.data ?? [])].sort((a, b) => b.seq - a.seq);
+  // The chain a page at a time, newest first, so a long history never loads whole.
+  const q = useInfiniteQuery({
+    queryKey: ["events", "pages"],
+    queryFn: ({ pageParam }) => api.eventsBefore(pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (last) => (last.length < EVENT_PAGE ? undefined : last[last.length - 1]?.seq),
+  });
+  const events = (q.data?.pages ?? []).flat();
   return (
     <div className="place">
       <header className="place-head">
@@ -81,6 +90,16 @@ export function Records({ passkeys = browserPasskeys }: { passkeys?: Passkeys } 
             </tbody>
           </table>
         </div>
+        {q.hasNextPage && (
+          <button type="button" className="btn small" onClick={() => void q.fetchNextPage()} disabled={q.isFetchingNextPage}>
+            {q.isFetchingNextPage ? "Loading older entries" : "Show older entries"}
+          </button>
+        )}
+        {q.isFetchNextPageError && (
+          <p className="error" role="alert">
+            The older entries could not be loaded.
+          </p>
+        )}
       </section>
     </div>
   );

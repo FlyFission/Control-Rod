@@ -159,6 +159,9 @@ function WaitingGroup({ id, probe }: { id: NativeId; probe: SubscriptionProbe | 
 
 const CODEXBAR_URL = "https://github.com/steipete/CodexBar";
 
+/** Whether this browser runs on macOS, where CodexBar runs. Control Rod runs locally, so this is usually the daemon's machine too. */
+const onMac = () => typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
+
 /** What the engine adds, and which harnesses still report nothing. */
 function EngineLine({ engine, silent }: { engine: UsageLimitsView["engine"]; silent: UsageProvider[] }) {
   return (
@@ -172,6 +175,7 @@ function EngineLine({ engine, silent }: { engine: UsageLimitsView["engine"]; sil
             CodexBar
           </a>
           , a free open-source usage tracker (MIT). Install it and Control Rod reads its numbers; CodexBar signs in to each tool itself, Control Rod never sees a token.
+          {!onMac() && " CodexBar is built for macOS, so on other systems these limits may stay unreported."}
         </p>
       )}
       {silent.length > 0 && <p>Not reported: {silent.map((p) => providerName(p.id)).join(", ")}.</p>}

@@ -95,7 +95,7 @@ export const MODE_COPY: Record<EngineeringMode, ModeCopy> = {
       "needs-signature": "Ready to accept",
       reached: "Accepted",
     },
-    custodyRoles: ["1. Author (Agent)", "2. Reviewer (fresh ctx)", "3. Maintainer"],
+    custodyRoles: ["1. Author (Agent)", "2. Reviewer (starts fresh)", "3. Maintainer"],
     specialGrade: { value: "safety", label: "High-risk / security" },
     projectStages: [
       "General / Ad-hoc",

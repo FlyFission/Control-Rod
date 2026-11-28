@@ -2912,3 +2912,8 @@ select {
   vertical-align: middle;
   accent-color: var(--accent);
 }
+.badge[data-error] {
+  background: var(--line-2);
+  color: var(--text);
+  box-shadow: none;
+}

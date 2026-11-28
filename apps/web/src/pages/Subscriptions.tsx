@@ -4,22 +4,10 @@ import type { SubscriptionView } from "../api/types.js";
 import { shortDigest, time } from "../lib/format.js";
 
 /**
- * Settings > Subscriptions. Read-only. Every probe is one the daemon reported
- * for a registered provider CLI. There is no field for a token or an API key.
+ * Provider CLI probes and the checker registry, for the Agents page's Advanced section. Read-only.
+ * Every probe is one the daemon reported for a registered provider CLI. There is no field for a
+ * token or an API key.
  */
-export function Subscriptions() {
-  return (
-    <div className="place">
-      <header className="place-head">
-        <p className="muted small">Settings</p>
-        <h1>Subscriptions</h1>
-      </header>
-      <ProviderDetails />
-    </div>
-  );
-}
-
-/** Provider CLI probes and the checker registry, for the Agents roster's Advanced section. */
 export function ProviderDetails() {
   const q = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions });
   return (

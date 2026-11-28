@@ -7,27 +7,11 @@ import { type Passkeys, browserPasskeys, signAdmin } from "../lib/decide.js";
 import { shortDigest, time } from "../lib/format.js";
 
 /**
- * Roster (specification 12 and 21; plan task 5.1): the runtimes the daemon found and the exact
- * artifact each one is; each role, the baselines and runtimes that have run it and its pins; the
- * versions a pin may name, with pinning and rollback as signed commands; and the sandbox each runtime
- * launches with, stated as recorded and never as more than it is.
+ * The runtimes the daemon found and the exact artifact each one is; each role, the baselines and
+ * runtimes that have run it and its pins; the versions a pin may name, with pinning and rollback as
+ * signed commands; and the sandbox each runtime launches with, stated as recorded and never as more
+ * than it is (specification 12 and 21; plan task 5.1). It shows in the Agents page's Advanced section.
  */
-export function Roster({ passkeys = browserPasskeys }: { passkeys?: Passkeys } = {}) {
-  return (
-    <div className="place">
-      <header className="place-head">
-        <h1>Roster</h1>
-        <p className="muted">
-          Which agent runtimes this machine can run, and which version each role must launch. A run launches only the exact file its pin (or,
-          unpinned, the last check) names.
-        </p>
-      </header>
-      <RosterDetails passkeys={passkeys} />
-    </div>
-  );
-}
-
-/** The runtimes, pins, roles, versions, baselines and sandbox, for the Agents roster's Advanced section. */
 export function RosterDetails({ passkeys = browserPasskeys }: { passkeys?: Passkeys } = {}) {
   const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
   const runtimes = q.data?.runtimes ?? [];

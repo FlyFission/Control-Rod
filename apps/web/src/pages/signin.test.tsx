@@ -196,3 +196,29 @@ describe("the four sign-in states", () => {
     expect(stateOf(container).getAttribute("data-mode")).toBe("sign-in");
   });
 });
+
+describe("the first passkey on a machine that asks for a setup code", () => {
+  it("asks for the code Control Rod printed and sends it with the registration", async () => {
+    let sent: unknown;
+    server.use(
+      http.post("*/auth/register/options", async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json({ code: "setup-code", message: "Type the setup code Control Rod printed when it started." }, { status: 403 });
+      }),
+    );
+    const user = userEvent.setup();
+    await renderPage(<SignIn session={{ registered: false, signed_in: false, setup_code_required: true } as never} passkeys={passkeys} />);
+    await user.type(screen.getByRole("textbox", { name: "Your name" }), "Ben");
+    const register = screen.getByRole("button", { name: "Register passkey" }) as HTMLButtonElement;
+    expect(register.disabled).toBe(true);
+    await user.type(screen.getByRole("textbox", { name: "Setup code" }), "AB12-CD34-EF56-7890");
+    expect(register.disabled).toBe(false);
+    await user.click(register);
+    await waitFor(() => expect(sent).toEqual({ name: "Ben", setup_code: "AB12-CD34-EF56-7890" }));
+  });
+
+  it("does not ask for a code when the server needs none", async () => {
+    await renderPage(<SignIn session={firstRun} passkeys={passkeys} />);
+    expect(screen.queryByRole("textbox", { name: "Setup code" })).toBeNull();
+  });
+});

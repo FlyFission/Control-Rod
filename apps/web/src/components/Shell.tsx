@@ -90,12 +90,30 @@ const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(n
 /** The places the phone's bottom bar names; every other place sits under More. */
 const BAR_PLACES = ["/", "/plant", "/inbox", "/today"];
 
+/** The Inbox count beside its place: nothing when empty, and a mark when the Inbox could not be read. */
+function InboxBadge({ needs, failed }: { needs: number; failed: boolean }) {
+  if (failed) {
+    return (
+      <span className="badge" data-error="" aria-label="Inbox could not be read" title="Inbox could not be read">
+        !
+      </span>
+    );
+  }
+  if (needs <= 0) return null;
+  return (
+    <span className="badge" aria-label={`${needs} waiting on you`}>
+      {needs}
+    </span>
+  );
+}
+
 /**
  * The phone's navigation: Board, Plant, Inbox, Today and More along the bottom, each at least 44 px
  * tall. More opens a sheet with every other place, the engineering mode, search, runs and sign out.
  */
 function PhoneBar({
   needs,
+  inboxFailed,
   moreOpen,
   setMoreOpen,
   mode,
@@ -107,6 +125,7 @@ function PhoneBar({
   onNewProject,
 }: {
   needs: number;
+  inboxFailed: boolean;
   moreOpen: boolean;
   setMoreOpen: (open: boolean) => void;
   mode: EngineeringMode;
@@ -239,11 +258,7 @@ function PhoneBar({
             >
               <BarGlyph to={to} />
               <span>{p.label}</span>
-              {to === "/inbox" && needs > 0 && (
-                <span className="badge" aria-label={`${needs} waiting on you`}>
-                  {needs}
-                </span>
-              )}
+              {to === "/inbox" && <InboxBadge needs={needs} failed={inboxFailed} />}
             </Link>
           );
         })}
@@ -325,6 +340,8 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     }
   }, [projectUser, serverProjects.data]);
   const needs = inbox.data?.items.length ?? 0;
+  // A failed read is not an empty Inbox: the badge says it could not count, rather than showing nothing.
+  const inboxFailed = inbox.isError && !inbox.data;
   // SCRAM is app-wide (control room redesign, section 6.6): one read feeds the banner, the SCRAM lamp,
   // the frame and the locks, on every screen.
   const presenting = usePresenting();
@@ -515,6 +532,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const modeProjects = projects.filter((p) => p.mode === mode);
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
+  const onBoard = path === "/";
   useEffect(() => setMoreOpen(false), [path]);
   // A card opened from anywhere (CardPanel.tsx) shows in the side panel; moving to another page
   // closes it, as the page's own selection would.
@@ -633,10 +651,11 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
           onClick={() => setNewWorkOpen(true)}
           disabled={newLock.locked}
           title={newLock.why}
-          aria-keyshortcuts="C"
+          aria-keyshortcuts={onBoard ? undefined : "C"}
         >
           <span>+ {modeCopy.newCta}</span>
-          <kbd>C</kbd>
+          {/* On the Board, C adds a card in Ready (QuickAdd), so this button does not claim it there. */}
+          {!onBoard && <kbd>C</kbd>}
         </button>
 
         <div className="rail-projects" aria-label="Projects">
@@ -714,11 +733,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
                           activeProps={{ className: "place-link active", "aria-current": "page" }}
                         >
                           <span>{p.label}</span>
-                          {p.to === "/inbox" && needs > 0 && (
-                            <span className="badge" aria-label={`${needs} waiting on you`}>
-                              {needs}
-                            </span>
-                          )}
+                          {p.to === "/inbox" && <InboxBadge needs={needs} failed={inboxFailed} />}
                         </Link>
                       </li>
                     ))}
@@ -905,6 +920,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         {phone && (
           <PhoneBar
             needs={needs}
+            inboxFailed={inboxFailed}
             moreOpen={moreOpen}
             setMoreOpen={setMoreOpen}
             mode={mode}

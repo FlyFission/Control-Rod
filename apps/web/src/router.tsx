@@ -4,6 +4,7 @@ import {
   redirect,
   createRoute,
   createRouter,
+  lazyRouteComponent,
 } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,24 +12,30 @@ import { api, setUnauthorizedHandler } from "./api/client.js";
 import { Shell } from "./components/Shell.js";
 import { useLiveEvents } from "./lib/live.js";
 import { sessionIdentity, watchSessionIdentity } from "./lib/session.js";
-import { CasePage } from "./features/case/CasePage.js";
 import { Board } from "./pages/Board.js";
-import { ControlRoom } from "./pages/ControlRoom.js";
-import { Compare } from "./pages/Compare.js";
-import { Explore } from "./pages/Explore.js";
 import { Inbox } from "./pages/Inbox.js";
-import { OfficePlace } from "./pages/OfficePlace.js";
-import { PackagePage } from "./pages/PackagePage.js";
-import { Packages } from "./pages/Packages.js";
-import { Policies } from "./pages/Policies.js";
-import { Records } from "./pages/Records.js";
-import { Registers } from "./pages/Registers.js";
-import { AgentsRoster } from "./pages/AgentsRoster.js";
 import { SignIn } from "./pages/SignIn.js";
-import { Today } from "./pages/Today.js";
-import { Usage } from "./pages/Usage.js";
-import { Setup } from "./pages/Setup.js";
-import { Workflow } from "./pages/Workflow.js";
+
+/**
+ * Places past the Board and the Inbox load when first opened, so the first screen does not wait for
+ * the Plant's scenes, the file viewers or the admin pages (each becomes its own chunk in the build).
+ */
+const ControlRoom = lazyRouteComponent(() => import("./pages/ControlRoom.js"), "ControlRoom");
+const Compare = lazyRouteComponent(() => import("./pages/Compare.js"), "Compare");
+const Explore = lazyRouteComponent(() => import("./pages/Explore.js"), "Explore");
+const PackagePage = lazyRouteComponent(() => import("./pages/PackagePage.js"), "PackagePage");
+const Packages = lazyRouteComponent(() => import("./pages/Packages.js"), "Packages");
+const Policies = lazyRouteComponent(() => import("./pages/Policies.js"), "Policies");
+const Records = lazyRouteComponent(() => import("./pages/Records.js"), "Records");
+const Registers = lazyRouteComponent(() => import("./pages/Registers.js"), "Registers");
+const AgentsRoster = lazyRouteComponent(() => import("./pages/AgentsRoster.js"), "AgentsRoster");
+const Today = lazyRouteComponent(() => import("./pages/Today.js"), "Today");
+const Usage = lazyRouteComponent(() => import("./pages/Usage.js"), "Usage");
+const Setup = lazyRouteComponent(() => import("./pages/Setup.js"), "Setup");
+const Workflow = lazyRouteComponent(() => import("./pages/Workflow.js"), "Workflow");
+const CasePage = lazyRouteComponent(() => import("./features/case/CasePage.js"), "CasePage");
+const PlantPlace = lazyRouteComponent(() => import("./pages/OfficePlace.js").then((m) => ({ PlantPlace: () => <m.OfficePlace view="office" /> })), "PlantPlace");
+const FloorPlace = lazyRouteComponent(() => import("./pages/OfficePlace.js").then((m) => ({ FloorPlace: () => <m.OfficePlace view="floor" /> })), "FloorPlace");
 
 /**
  * Decides between the sign-in page and the app from the session query. Exported so tests can drive
@@ -87,10 +94,10 @@ const rootRoute = createRootRoute({ component: Root });
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: Board }),
   createRoute({ getParentRoute: () => rootRoute, path: "/inbox", component: Inbox }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/plant", component: () => <OfficePlace view="office" /> }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/plant", component: PlantPlace }),
   // The office became the Plant; its old address (the shell's SCRAM banner and the floor link to it) still arrives.
   createRoute({ getParentRoute: () => rootRoute, path: "/office", beforeLoad: () => { throw redirect({ to: "/plant" }); } }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/floor", component: () => <OfficePlace view="floor" /> }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/floor", component: FloorPlace }),
   createRoute({ getParentRoute: () => rootRoute, path: "/board", beforeLoad: () => { throw redirect({ to: "/" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/packages", component: Packages }),
   createRoute({ getParentRoute: () => rootRoute, path: "/registers", component: Registers }),

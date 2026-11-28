@@ -11,19 +11,32 @@
 //!    and may accept work whose pre-check passed. Nothing else: the system never accepts with
 //!    findings, returns, rejects or overrides independence, and the policy never waives the
 //!    signature on an independence override.
-//! 2. Agents can claim released work, submit output and submit a pre-check. Nothing else.
-//! 3. The pre-check comes from a different agent baseline than the author's, on a different
-//!    provider. The same provider counts as the same runtime whatever the models. A pre-check on
-//!    the author's provider is allowed only after the owner's override, a human act signed with
-//!    a passkey over its digest and carrying a written reason.
+//! 2. Agents can claim released work, submit output and submit a pre-check. Nothing else. Only
+//!    the agent that holds the claim may submit output or revise, and only the checker named in
+//!    the request may submit its pre-check.
+//! 3. The pre-check comes from a different agent baseline than the author's, from a different
+//!    vendor family. The server passes the one vendor-family table (`vendor_families`, read from
+//!    `daemon/internal/runner/models.json`), so the kernel, the API and the daemon judge
+//!    independence from the same list. The same provider counts as the same runtime whatever the
+//!    models, two providers of one family count as the same runtime, and a provider the table
+//!    does not name counts as possibly the same. A pre-check that may share the author's runtime
+//!    is allowed only after the owner's override, a human act signed with a passkey over its
+//!    digest and carrying a written reason.
 //! 4. An author may revise only after a pre-check that did not pass.
 //! 5. Acceptance needs a pre-check. A pre-check that did not pass can be accepted only with a
 //!    written reason.
+//!
+//! Accepted and closed are final. Nothing moves a package out of either, so an accepted package
+//! is never closed: closing means the work was turned down (`Reject`), and accepted work is
+//! already finished. Hiding finished cards from a board, or archiving them, is a view of the
+//! record kept outside this function. It never changes the lifecycle status, so it needs no
+//! rule here.
 //!
 //! Trust surface: changes here need the owner's signature (AGENTS.md rule 2).
 
 use crate::decision::{Decision, ReasonCode};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// Package lifecycle states, matching `PackageStatus` in the contracts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,14 +107,43 @@ pub struct RuntimeIdentity {
 }
 
 impl RuntimeIdentity {
-    /// True when both sides count as the same runtime. The provider decides: two models from one
-    /// provider share training, tooling and blind spots, so a different model is not an
-    /// independent check.
+    /// The vendor family of this runtime's provider in `families`. Keys and families compare
+    /// trimmed and without ASCII case. `None` when the table names no family for the provider,
+    /// a blank one, or two different ones.
     #[must_use]
-    pub fn may_be_same(&self, other: &Self) -> bool {
-        self.provider
+    pub fn family<'a>(&self, families: &'a BTreeMap<String, String>) -> Option<&'a str> {
+        let provider = self.provider.trim();
+        let mut found: Option<&'a str> = None;
+        for (key, family) in families {
+            if !key.trim().eq_ignore_ascii_case(provider) {
+                continue;
+            }
+            let family = family.trim();
+            if family.is_empty() || found.is_some_and(|seen| !seen.eq_ignore_ascii_case(family)) {
+                return None;
+            }
+            found = Some(family);
+        }
+        found
+    }
+
+    /// True when both sides may be the same runtime. Two models from one provider, or from two
+    /// providers of one vendor family, share training, tooling and blind spots, so a different
+    /// model is not an independent check. A provider without a known family fails closed: it may
+    /// be the same.
+    #[must_use]
+    pub fn may_be_same(&self, other: &Self, families: &BTreeMap<String, String>) -> bool {
+        if self
+            .provider
             .trim()
             .eq_ignore_ascii_case(other.provider.trim())
+        {
+            return true;
+        }
+        match (self.family(families), other.family(families)) {
+            (Some(a), Some(b)) => a.eq_ignore_ascii_case(b),
+            _ => true,
+        }
     }
 }
 
@@ -113,6 +155,10 @@ pub struct Request {
     pub action: Action,
     pub actor_kind: ActorKind,
     pub actor_id: String,
+    /// Agent baseline that holds the package's claim: the author the server dispatched for the
+    /// current round. `SubmitOutput` and `Revise` are refused unless it is the actor.
+    #[serde(default)]
+    pub claimed_by: Option<String>,
     /// Agent baseline that authored the current output, once there is one.
     #[serde(default)]
     pub author_baseline: Option<String>,
@@ -125,6 +171,11 @@ pub struct Request {
     /// Runtime that ran the pre-check, for `SubmitPreCheck`.
     #[serde(default)]
     pub checker_runtime: Option<RuntimeIdentity>,
+    /// Vendor family of each runtime provider, for `SubmitPreCheck`: the one table in
+    /// `daemon/internal/runner/models.json`, as the server read it. Absent or empty, no provider
+    /// has a known family, so a pre-check needs the owner's override.
+    #[serde(default)]
+    pub vendor_families: BTreeMap<String, String>,
     /// The owner's override for this pre-check was allowed by this kernel as a signed human act
     /// (`OverrideIndependence`) before the pre-check ran. The server sets it only from that
     /// stored, passkey-verified override.
@@ -170,6 +221,41 @@ const fn allow(next: Status) -> Outcome {
     Outcome {
         decision: Decision::allow(),
         next: Some(next),
+    }
+}
+
+/// The actor is the agent the server says holds the claim.
+fn holds_claim(req: &Request) -> bool {
+    req.claimed_by
+        .as_deref()
+        .is_some_and(|holder| !holder.trim().is_empty() && holder == req.actor_id)
+}
+
+/// Floor 3: another baseline than the author's, and another vendor family unless the owner's
+/// override is on record. The submitting agent must be the checker the request names.
+fn decide_pre_check(req: &Request) -> Outcome {
+    if req.checker_baseline.as_deref() != Some(req.actor_id.as_str()) {
+        return refuse(ReasonCode::Forbidden);
+    }
+    match (
+        req.author_baseline.as_deref(),
+        req.checker_baseline.as_deref(),
+        req.author_runtime.as_ref(),
+        req.checker_runtime.as_ref(),
+    ) {
+        (Some(author), Some(checker), _, _) if author == checker => {
+            refuse(ReasonCode::NotIndependent)
+        }
+        (Some(_), Some(_), Some(author), Some(checker))
+            if !author.provider.trim().is_empty() && !checker.provider.trim().is_empty() =>
+        {
+            if author.may_be_same(checker, &req.vendor_families) && !req.owner_override_verified {
+                refuse(ReasonCode::NotIndependent)
+            } else {
+                allow(Status::InVerification)
+            }
+        }
+        _ => refuse(ReasonCode::Forbidden),
     }
 }
 
@@ -227,27 +313,15 @@ pub fn decide(req: &Request) -> Outcome {
     match (req.action, req.status) {
         (A::Release, S::Draft) => allow(S::Released),
         (A::Claim, S::Released) => allow(S::InWork),
-        (A::SubmitOutput, S::InWork) => allow(S::InVerification),
-        (A::SubmitPreCheck, S::InVerification) => match (
-            req.author_baseline.as_deref(),
-            req.checker_baseline.as_deref(),
-            req.author_runtime.as_ref(),
-            req.checker_runtime.as_ref(),
-        ) {
-            (Some(author), Some(checker), _, _) if author == checker => {
-                refuse(ReasonCode::NotIndependent)
+        (A::SubmitOutput, S::InWork) => {
+            if holds_claim(req) {
+                allow(S::InVerification)
+            } else {
+                refuse(ReasonCode::Forbidden)
             }
-            (Some(_), Some(_), Some(author), Some(checker))
-                if !author.provider.trim().is_empty() && !checker.provider.trim().is_empty() =>
-            {
-                if author.may_be_same(checker) && !req.owner_override_verified {
-                    refuse(ReasonCode::NotIndependent)
-                } else {
-                    allow(S::InVerification)
-                }
-            }
-            _ => refuse(ReasonCode::Forbidden),
-        },
+        }
+        (A::SubmitPreCheck, S::InVerification) => decide_pre_check(req),
+        (A::Revise, S::InVerification) if !holds_claim(req) => refuse(ReasonCode::Forbidden),
         (A::Revise, S::InVerification) => match req.pre_check {
             Some(PreCheckOutcome::Fail | PreCheckOutcome::Inconclusive) => allow(S::InWork),
             Some(PreCheckOutcome::Pass) => refuse(ReasonCode::WrongState),
@@ -299,16 +373,33 @@ mod tests {
         }
     }
 
+    /// The shape of the table in daemon/internal/runner/models.json, plus a second provider of
+    /// one family to show that the family decides.
+    fn families() -> BTreeMap<String, String> {
+        [
+            ("claude", "Anthropic"),
+            ("codex", "OpenAI"),
+            ("grok", "xAI"),
+            ("agy", "Google"),
+            ("anthropic-api", "Anthropic"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect()
+    }
+
     fn human(action: Action, status: Status) -> Request {
         Request {
             status,
             action,
             actor_kind: ActorKind::Human,
             actor_id: "ben".into(),
+            claimed_by: Some("author-1".into()),
             author_baseline: Some("author-1".into()),
             checker_baseline: None,
             author_runtime: Some(rt("claude", "default")),
             checker_runtime: Some(rt("codex", "default")),
+            vendor_families: families(),
             owner_override_verified: false,
             pre_check: Some(PreCheckOutcome::Pass),
             assertion_verified: true,
@@ -326,6 +417,15 @@ mod tests {
             assertion_verified: false,
             digest_matches: false,
             ..human(action, status)
+        }
+    }
+
+    /// A pre-check submitted by checker-1, the checker it names.
+    fn checker(status: Status) -> Request {
+        Request {
+            actor_id: "checker-1".into(),
+            checker_baseline: Some("checker-1".into()),
+            ..agent(Action::SubmitPreCheck, status)
         }
     }
 
@@ -397,10 +497,11 @@ mod tests {
             decide(&agent(Action::SubmitOutput, Status::InWork)).next,
             Some(Status::InVerification)
         );
-        let mut check = agent(Action::SubmitPreCheck, Status::InVerification);
-        check.actor_id = "checker-1".into();
-        check.checker_baseline = Some("checker-1".into());
-        assert!(decide(&check).decision.is_allowed());
+        assert!(
+            decide(&checker(Status::InVerification))
+                .decision
+                .is_allowed()
+        );
         assert_eq!(
             decide(&human(Action::Accept, Status::InVerification)).next,
             Some(Status::Accepted)
@@ -424,9 +525,7 @@ mod tests {
 
     #[test]
     fn pre_check_requires_nonblank_runtime_providers_even_with_an_override() {
-        let mut request = agent(Action::SubmitPreCheck, Status::InVerification);
-        request.actor_id = "checker-1".into();
-        request.checker_baseline = Some("checker-1".into());
+        let mut request = checker(Status::InVerification);
         for owner_override_verified in [false, true] {
             request.owner_override_verified = owner_override_verified;
             for (author, checker) in [
@@ -451,8 +550,7 @@ mod tests {
 
     #[test]
     fn a_pre_check_on_the_authors_runtime_needs_an_owner_override() {
-        let mut r = agent(Action::SubmitPreCheck, Status::InVerification);
-        r.checker_baseline = Some("checker-1".into());
+        let mut r = checker(Status::InVerification);
         for (author, checker) in [
             (rt("claude", "default"), rt("claude", "default")),
             (rt("claude", "claude-opus-4-1"), rt("Claude", "default")),
@@ -497,17 +595,98 @@ mod tests {
         r.checker_baseline = Some("author-1".into());
         r.owner_override_verified = true;
         assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
-        r.checker_baseline = Some("checker-1".into());
+        let mut r = checker(Status::InVerification);
+        r.owner_override_verified = true;
         r.checker_runtime = None;
         assert_eq!(decide(&r).decision.reason(), ReasonCode::Forbidden);
     }
 
     #[test]
     fn a_pre_check_without_known_baselines_is_refused() {
-        let mut r = agent(Action::SubmitPreCheck, Status::InVerification);
+        let mut r = checker(Status::InVerification);
         r.author_baseline = None;
-        r.checker_baseline = Some("checker-1".into());
         assert!(!decide(&r).decision.is_allowed());
+    }
+
+    #[test]
+    fn two_providers_of_one_vendor_family_are_not_independent() {
+        let mut r = checker(Status::InVerification);
+        r.author_runtime = Some(rt("claude", "default"));
+        r.checker_runtime = Some(rt("Anthropic-API ", "default"));
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+        r.owner_override_verified = true;
+        assert_eq!(decide(&r).next, Some(Status::InVerification));
+    }
+
+    #[test]
+    fn a_provider_without_a_known_family_needs_an_owner_override() {
+        let mut r = checker(Status::InVerification);
+        for (author, check) in [("claude", "opencode"), ("ollama", "codex")] {
+            r.author_runtime = Some(rt(author, "default"));
+            r.checker_runtime = Some(rt(check, "default"));
+            r.owner_override_verified = false;
+            assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+            r.owner_override_verified = true;
+            assert!(decide(&r).decision.is_allowed());
+        }
+    }
+
+    #[test]
+    fn without_the_family_table_no_pre_check_counts_as_independent() {
+        let mut r = checker(Status::InVerification);
+        r.vendor_families = BTreeMap::new();
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+        r.owner_override_verified = true;
+        assert!(decide(&r).decision.is_allowed());
+    }
+
+    #[test]
+    fn a_blank_or_ambiguous_family_entry_counts_as_unknown() {
+        let mut r = checker(Status::InVerification);
+        r.vendor_families.insert("codex".into(), "  ".into());
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+        let mut r = checker(Status::InVerification);
+        r.vendor_families
+            .insert("CODEX".into(), "Someone Else".into());
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+        let mut r = checker(Status::InVerification);
+        r.vendor_families.insert(" Codex".into(), "openai".into());
+        assert!(decide(&r).decision.is_allowed());
+    }
+
+    #[test]
+    fn only_the_checker_the_request_names_may_submit_its_pre_check() {
+        let mut r = checker(Status::InVerification);
+        r.actor_id = "checker-2".into();
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::Forbidden);
+        r.checker_baseline = None;
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::Forbidden);
+    }
+
+    #[test]
+    fn only_the_claim_holder_may_submit_output_or_revise() {
+        for (action, status) in [
+            (Action::SubmitOutput, Status::InWork),
+            (Action::Revise, Status::InVerification),
+        ] {
+            let mut r = agent(action, status);
+            r.pre_check = Some(PreCheckOutcome::Fail);
+            assert!(decide(&r).decision.is_allowed(), "{action:?}");
+            for holder in [
+                None,
+                Some(""),
+                Some(" "),
+                Some("author-2"),
+                Some("Author-1"),
+            ] {
+                r.claimed_by = holder.map(Into::into);
+                assert_eq!(
+                    decide(&r).decision.reason(),
+                    ReasonCode::Forbidden,
+                    "{action:?} held by {holder:?}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -644,6 +823,8 @@ mod tests {
     #[test]
     fn unknown_fields_in_a_request_are_rejected() {
         let json = r#"{"status":"draft","action":"release","actor_kind":"human","actor_id":"b","approved_by_agent":true}"#;
+        assert!(serde_json::from_str::<Request>(json).is_err());
+        let json = r#"{"status":"draft","action":"release","actor_kind":"human","actor_id":"b","author_runtime":{"provider":"claude","model":"m","family":"OpenAI"}}"#;
         assert!(serde_json::from_str::<Request>(json).is_err());
     }
 }

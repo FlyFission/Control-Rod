@@ -25,15 +25,18 @@ import (
 // independence / preflight refusal before a check can run (CLI exit 2).
 var ErrCheckUsage = errors.New("invalid check configuration")
 
-// fixedVendorFamilies mirrors RUNTIME_FAMILIES in services/api/src/runtimes.ts.
-// OpenCode and Ollama are absent on purpose: either can serve any vendor's
-// model, so the runtime name alone does not identify a vendor family.
-var fixedVendorFamilies = map[string]string{
-	RuntimeClaude: "Anthropic",
-	RuntimeCodex:  "OpenAI",
-	RuntimeGrok:   "xAI",
-	RuntimeAgy:    "Google",
-	RuntimeFake:   "Test",
+// vendorFamilies is the one vendor-family table, the "families" object in models.json. The
+// control plane reads the same file and passes the table to the kernel with every pre-check,
+// so the daemon, the API and the kernel judge checker independence from one list. OpenCode
+// and Ollama are absent on purpose: either can serve any vendor's model, so the runtime name
+// alone does not identify a vendor family. A registry that does not load leaves the table
+// empty, and every family check then fails closed.
+func vendorFamilies() map[string]string {
+	r, err := DefaultModels()
+	if err != nil {
+		return nil
+	}
+	return r.Families
 }
 
 // RuntimeFamily returns the fixed vendor family for a runtime or provider
@@ -43,7 +46,7 @@ func RuntimeFamily(rt string) string {
 	if id == "" {
 		return ""
 	}
-	return fixedVendorFamilies[id]
+	return strings.TrimSpace(vendorFamilies()[id])
 }
 
 // DistinctFamily reports whether authorRuntime and checkerRuntime resolve to
@@ -51,15 +54,15 @@ func RuntimeFamily(rt string) string {
 func DistinctFamily(authorRuntime, checkerRuntime string) (bool, string) {
 	aID := RuntimeFor(strings.TrimSpace(authorRuntime))
 	cID := RuntimeFor(strings.TrimSpace(checkerRuntime))
-	aFam := fixedVendorFamilies[aID]
-	cFam := fixedVendorFamilies[cID]
+	aFam := RuntimeFamily(aID)
+	cFam := RuntimeFamily(cID)
 	if aFam == "" {
 		return false, fmt.Sprintf("author runtime %q has no fixed vendor family, so an independent checker family cannot be verified", authorRuntime)
 	}
 	if cFam == "" {
 		return false, fmt.Sprintf("checker runtime %q has no fixed vendor family, so independence cannot be verified", checkerRuntime)
 	}
-	if aFam == cFam {
+	if strings.EqualFold(aFam, cFam) {
 		return false, fmt.Sprintf("checker %s shares vendor family %s with author %s", cID, cFam, aID)
 	}
 	return true, ""

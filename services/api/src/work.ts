@@ -36,6 +36,7 @@ import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js
 import { currentCredential, ownerOf } from "./tenancy.js";
 import { type SigningPolicy, governingPolicy, modeFor, policyRef } from "./signing-policy.js";
 import { checkerModelAdmitted, countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
+import { mayBeSameRuntime, vendorFamilies } from "./vendor-families.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
   PACKAGE_ATTEMPT_LIMIT,
@@ -887,9 +888,9 @@ function identityOf(run: Json, trace?: Json): RuntimeIdentity {
   };
 }
 
-/** Same rule as the kernel's: the same provider is the same runtime, whatever the models. For the record only. */
-function mayBeSameRuntime(a: RuntimeIdentity, b: RuntimeIdentity): boolean {
-  return a.provider.trim().toLowerCase() === b.provider.trim().toLowerCase();
+/** The kernel's rule: the same provider or vendor family may be the same runtime, whatever the models. For the record only. */
+function sharesRuntime(a: RuntimeIdentity, b: RuntimeIdentity): boolean {
+  return mayBeSameRuntime(a.provider, b.provider);
 }
 
 type ProjectRuntimePrefs = {
@@ -3260,7 +3261,11 @@ async function finishAuthor(c: Tx, cfg: WorkConfig, row: Json, agent: Actor) {
   const pkg = await currentPackage(c, row.package_id, true);
   if (!pkg || pkg.revision !== row.package_revision) return;
   const preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);
-  const next = kernel(decide({ status: pkg.status, action: "submit-output", actor_kind: "agent", actor_id: agent.id, ...(preparation?{preparation}:{}) }), "submit output");
+  // The claim on this round's work is held by the author run the server dispatched for it: the
+  // latest author run of this revision. Any other run, or none, holds no claim.
+  const holder = await latestAuthorRun(c, pkg.id, pkg.revision);
+  const claimed_by = holder && holder.id === row.id ? String(holder.body.agent_baseline) : undefined;
+  const next = kernel(decide({ status: pkg.status, action: "submit-output", actor_kind: "agent", actor_id: agent.id, ...(claimed_by ? { claimed_by } : {}), ...(preparation?{preparation}:{}) }), "submit output");
   await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
   await appendEvent(c, "package.output", pkg.id, agent, { revision: pkg.revision, round: row.round, status: next });
   const drift = await scopeDrift(c, pkg.id, pkg.revision, Number(row.round), row.id);
@@ -3297,7 +3302,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   const authorOutputs = author ? await outputsOf(c, author.id) : [];
   const authorRuntime = identityOf(author?.body, author?.body.trace);
   const checkerRuntime = identityOf(row.body, body.trace);
-  const sharedRuntime = mayBeSameRuntime(authorRuntime, checkerRuntime);
+  const sharedRuntime = sharesRuntime(authorRuntime, checkerRuntime);
   const override = verifiedOverride(row.body) ? row.body.independence_override : undefined;
   // One agent checking its own vendor's work stands only where the owner's signed policy covers the
   // card; the record still says the runtime was shared, and names the policy.
@@ -3363,6 +3368,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       checker_baseline: agent.id,
       author_runtime: authorRuntime,
       checker_runtime: checkerRuntime,
+      vendor_families: vendorFamilies(),
       owner_override_verified: Boolean(override) || samePolicy !== null,
       ...(preparation?{preparation}:{}),
     }),
@@ -3384,7 +3390,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   });
   if (record.outcome !== "pass" && row.round < MAX_ROUNDS) {
     const next = kernel(
-      decide({ status: pkg.status, action: "revise", actor_kind: "agent", actor_id: author?.body.agent_baseline ?? "author", pre_check: record.outcome, ...(preparation?{preparation}:{}) }),
+      decide({ status: pkg.status, action: "revise", actor_kind: "agent", actor_id: author?.body.agent_baseline ?? "author", claimed_by: author?.body.agent_baseline, pre_check: record.outcome, ...(preparation?{preparation}:{}) }),
       "revise",
     );
     await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);

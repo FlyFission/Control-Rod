@@ -17,6 +17,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `output.record-mismatch` | system | none | Submit output (integrity record) | `run-outputs.ts` verifyRecordedOutput | `GET /packages/:id/outputs/*`, `GET /packages/:id/runs/:runId/outputs/preview` |
 | `run.log` | agent-via-daemon | none | Submit output (run log) | `work.ts` runLog | `POST /runner/runs/:id/log` |
 | `run.record-refused` | agent-via-daemon | none | Submit output (refused completion record) | `work.ts` recordRefused | `POST /runner/runs/:id/complete` |
+| `daemon.enroll-first-key` | agent-via-daemon | none | Enroll daemon signing key (first use) | `app.ts` executeAdminCommand | `POST /admin/commands/:name/options`, `POST /admin/commands/:name`, `POST /workspace/projects/:id/archive`, `POST /workspace/projects` |
 | `run.sweep-lost` | system | none | Sweep lost | `work.ts` sweepLost | timer (lease sweep) |
 | `run.reconcile-evidence` | agent-via-daemon | none | Reconcile (daemon restart evidence) | `work.ts` runEvidence | `POST /runner/runs/:id/evidence` |
 | `run.reconcile` | member | direct | Reconcile | `work.ts` reconcileRun | `POST /packages/:id/runs/:runId/reconcile` |

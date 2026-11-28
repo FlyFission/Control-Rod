@@ -1,11 +1,11 @@
 # Working in this repository
 
-This file is the short brief for any agent or person working here. Details live in the files it points to; load them when the task needs them.
+The short brief for any agent or person here. Details live in the files it points to; load them when needed.
 
 ## Rules
 
-1. Start from a change record. Every change has one under `.nuclear/changes/<slug>/`; read it and the files it names before touching anything else.
-2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, everything under `.github/` (workflows, templates and CODEOWNERS), `spec/` major versions, kernel decision functions in `kernel/`, and `docs/adr/`. While CODEOWNERS names a single maintainer, that maintainer's recorded yes is the signature, under the conditions in [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off).
+1. Start from a change record under `.nuclear/changes/<slug>/`; read it and the files it names first.
+2. Never edit a trust surface without a human signature. Trust surfaces are the paths in `.github/CODEOWNERS`, listed with the sign-off rules in [docs/collaboration.md](docs/collaboration.md#who-reviews-what).
 3. Contracts in `spec/` are the source of truth. Regenerate; never hand-edit generated code.
 4. Shipped code uses permissive licenses only. Do not copy code from AGPL, GPL, SSPL, BSL, Elastic or source-available projects; port ideas from pattern notes instead.
 5. No engineering number is typed by a model. Values come from scripts or tools with recorded inputs, outputs and digests.
@@ -15,6 +15,6 @@ This file is the short brief for any agent or person working here. Details live 
 
 - Decisions: `docs/adr/`
 - Threat model: `docs/threat-model.md`
-- Visual references and the per-screen visual bar: `design/references/` (read before any visual change)
-- Software quality assurance: `docs/sqa/`
-- The plan and architecture: the Control Rod Platform Plan (linked from `docs/README.md`)
+- Visual references and the visual bar: `design/references/` (read before any visual change)
+- Quality assurance: `docs/sqa/`
+- Plan and architecture: linked from `docs/README.md`

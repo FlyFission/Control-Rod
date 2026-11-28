@@ -19,7 +19,7 @@ In scope: attention-first order in board and list columns and a spinner only for
 | # | Decision | Owner's words | Given | Reading | Out of scope |
 |---|---|---|---|---|---|
 | D1 | Rework the agent-orchestrator PRs that add value and are not obsolete, rather than close them. | "I mentioned, instead of closing them, that we would rework them. As long as they add value. And are not obsolete." | 2026-11-23, project thread "Rework the agent-orchestrator PRs" | Port what still adds value on main, fix review findings, drop what main already has. | Trust-surface changes. |
-| D2 | Combine #142, #143 and #146 into one board PR; close #140, #144 and #145. | Chose "Yes, go with these calls" on the decision card. | 2026-11-23, same thread | This PR replaces #142, #143 and #146. | The daemon reworks (#139, #141). |
+| D2 | Combine #142, #143 and #146 into one board PR; close #140, #144 and #145. | "Yes, go with these calls" | 2026-11-23, same thread, option chosen on the decision card | This PR replaces #142, #143 and #146. | The daemon reworks (#139, #141). |
 
 ## Assumptions and invalidation triggers
 

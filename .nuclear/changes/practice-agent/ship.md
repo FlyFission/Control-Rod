@@ -21,3 +21,7 @@ On a machine with no agent account, Try a practice run in Setup or in the first-
 ## Source-lineage note
 
 Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.
+
+## After merging main (2026-11-28)
+
+`main` gained #263 (change `kernel-boundary`), so the kernel now judges checker independence from the one family table in `daemon/internal/runner/models.json`, and a runtime with no family there may be the same as any other. The practice author and checker had no family, so the kernel refused the practice pre-check as not independent. This change now gives them two families of their own, "Practice author" and "Practice checker", in that table. Neither is a real vendor's, the standalone `controlrod check` still refuses the practice checker by name, and the practice runtimes still get practice work only. The daemon test that asserted no family now asserts two distinct practice families that match no real runtime's. The spec change is unchanged by this.

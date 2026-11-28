@@ -255,7 +255,16 @@ func TestStandaloneCheckNeverUsesThePracticeChecker(t *testing.T) {
 	if err == nil || strings.Contains(err.Error(), "practice") {
 		t.Fatalf("with only the practice runtimes on the machine the check must find no checker, and not name them: %v", err)
 	}
-	if RuntimeFamily(RuntimePractice) != "" || RuntimeFamily(RuntimePracticeCheck) != "" {
-		t.Fatal("a practice runtime has a vendor family, so a standalone check could count it")
+	// The practice runtimes have their own two families in the one table (models.json), so the
+	// kernel judges the practice author and checker independent of each other. Neither family is a
+	// real vendor's, so neither can stand in for a real runtime's check.
+	author, checker := RuntimeFamily(RuntimePractice), RuntimeFamily(RuntimePracticeCheck)
+	if author == "" || checker == "" || author == checker {
+		t.Fatalf("the practice runtimes need two distinct families of their own: %q, %q", author, checker)
+	}
+	for _, real := range []string{RuntimeClaude, "codex", "grok", "agy"} {
+		if f := RuntimeFamily(real); f == author || f == checker {
+			t.Fatalf("a practice family %q is also %s's", f, real)
+		}
 	}
 }

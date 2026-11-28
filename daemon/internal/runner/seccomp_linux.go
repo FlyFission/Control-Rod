@@ -4,6 +4,7 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -211,7 +212,11 @@ func seccompFilterFile() (*os.File, error) {
 }
 
 func bwrapHasSeccomp(path string) error {
-	out, err := exec.Command(path, "--help").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	help := exec.CommandContext(ctx, path, "--help")
+	help.WaitDelay = probeWaitDelay
+	out, err := help.CombinedOutput()
 	if !bytes.Contains(out, []byte("--seccomp")) {
 		if err != nil {
 			return fmt.Errorf("bubblewrap did not offer --seccomp (%v), so the check cannot count", err)

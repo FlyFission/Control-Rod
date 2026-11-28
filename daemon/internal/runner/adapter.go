@@ -7,8 +7,9 @@ import (
 	"time"
 )
 
-// Capabilities describes an adapter. Nothing reads it to choose a launch, a probe, a sandbox
-// or a model.
+// Capabilities describes an adapter. Attestation reads ConfigIsolation (whether a Codex run kept
+// --ignore-user-config and --ephemeral); the other fields are descriptive and choose no launch,
+// probe, sandbox or model. Each must state only what the adapter really has.
 type Capabilities struct {
 	Roles            []string
 	OutputFormat     string

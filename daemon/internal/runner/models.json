@@ -1,4 +1,11 @@
 {
+  "families": {
+    "claude": "Anthropic",
+    "codex": "OpenAI",
+    "grok": "xAI",
+    "agy": "Google",
+    "fake": "Test"
+  },
   "models": [
     {
       "id": "claude-sonnet-5-5",

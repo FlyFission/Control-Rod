@@ -21,7 +21,7 @@ export type Action =
   | "reject"
   | "override-independence";
 
-/** Provider and model that ran an agent. The kernel treats the same provider as the same runtime. */
+/** Provider and model that ran an agent. The kernel treats the same provider or vendor family as the same runtime. */
 export interface RuntimeIdentity {
   provider: string;
   model: string;
@@ -32,10 +32,14 @@ export interface KernelRequest {
   action: Action;
   actor_kind: "human" | "agent" | "system";
   actor_id: string;
+  /** Agent baseline holding the package's claim; submit-output and revise need it to be the actor. */
+  claimed_by?: string;
   author_baseline?: string;
   checker_baseline?: string;
   author_runtime?: RuntimeIdentity;
   checker_runtime?: RuntimeIdentity;
+  /** The vendor-family table from models.json (vendor-families.ts), for submit-pre-check. */
+  vendor_families?: Readonly<Record<string, string>>;
   owner_override_verified?: boolean;
   pre_check?: "pass" | "fail" | "inconclusive";
   assertion_verified?: boolean;

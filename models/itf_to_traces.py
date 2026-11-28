@@ -19,6 +19,11 @@ VERSION = 1
 PROVIDER_MODEL = "default"
 
 
+def itf_map(value: dict) -> dict:
+    """An ITF map value ({"#map": [[key, value], ...]}) as a plain dict."""
+    return {k: v for k, v in value["#map"]}
+
+
 def kernel_request(r: dict) -> dict:
     """The model's request record as the kernel's Request JSON. Empty strings are absent fields."""
     out = {
@@ -27,6 +32,8 @@ def kernel_request(r: dict) -> dict:
         "actor_kind": r["actor_kind"],
         "actor_id": r["actor_id"],
     }
+    if r["claimed_by"]:
+        out["claimed_by"] = r["claimed_by"]
     if r["author_baseline"]:
         out["author_baseline"] = r["author_baseline"]
     if r["checker_baseline"]:
@@ -41,6 +48,9 @@ def kernel_request(r: dict) -> dict:
             "provider": r["checker_provider"],
             "model": PROVIDER_MODEL,
         }
+    families = itf_map(r["families"])
+    if families:
+        out["vendor_families"] = dict(sorted(families.items()))
     out["owner_override_verified"] = r["owner_override_verified"]
     if r["pre_check"]:
         out["pre_check"] = r["pre_check"]

@@ -47,7 +47,11 @@ type ModelEntry struct {
 
 // ModelRegistry is the admission list. An id that is not here is not a vendor.
 type ModelRegistry struct {
-	Models []ModelEntry `json:"models"`
+	// Families maps a runtime name to the vendor family its models come from. It is the one
+	// vendor-family table: the daemon's checker-independence check reads it, and the control
+	// plane passes it to the kernel with every pre-check.
+	Families map[string]string `json:"families"`
+	Models   []ModelEntry      `json:"models"`
 }
 
 //go:embed models.json

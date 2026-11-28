@@ -11,6 +11,7 @@ import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
 import { CHECK_IN_CHOICES, CHECK_IN_LATER, WRITING_CHOICES, readBack, seatable } from "../lib/agents.js";
 import { buildCouncilFlow } from "../lib/councilFlow.js";
 import { SETUP_SKIPPED_KEY } from "../lib/firstRun.js";
+import { DEFAULT_SIGNING_PRESET, projectSteps, signingPreset } from "../lib/signing.js";
 import { writeSession } from "../lib/storage.js";
 import { setupRequest, useAgents } from "../lib/useAgents.js";
 import "./screens.css";
@@ -116,7 +117,9 @@ export function Setup() {
         {signingProject ? (
           <SigningSettings key={`${signingProject.id}:${signingProject.signing?.version ?? 0}`} project={signingProject} />
         ) : (
-          <p className="muted small">Create a project first. Its signing settings start at Light: cards start and finish on their own.</p>
+          <p className="muted small">
+            Create a project first. New projects start at {signingPreset(DEFAULT_SIGNING_PRESET).label}. {signingPreset(DEFAULT_SIGNING_PRESET).detail}
+          </p>
         )}
       </section>
 
@@ -128,7 +131,7 @@ export function Setup() {
           {!choice.today && " What actually stops a card for you is set under What needs your passkey."}
         </p>
         <p>Agents write to you: {writingChoice.label}.</p>
-        {!agents.loading && <WorkflowDiagram flow={buildCouncilFlow(rows, chosenCheckIn)} />}
+        {!agents.loading && <WorkflowDiagram flow={buildCouncilFlow(rows, chosenCheckIn, undefined, signingProject ? projectSteps(signingProject) : undefined)} />}
         {agents.save.error && (
           <p role="alert" className="error">
             {explain(agents.save.error, "Could not save setup.")}

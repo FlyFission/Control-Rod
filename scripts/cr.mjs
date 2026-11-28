@@ -11,6 +11,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import { homedir, platform } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureApiDist, newer } from "./lib/api-dist.mjs";
 import { checkMachine, machine } from "./lib/doctor.mjs";
 import { commandPath, link, ownerOf, refresh, unlink } from "./lib/link.mjs";
 
@@ -104,14 +105,15 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
     const attempt = Number(process.env.CONTROLROD_DEPS_ATTEMPT ?? 0);
     const installed = attempt < 2;
     if (installed) {
-      console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
+      // Progress goes to standard error, so a command whose output is redirected (`receipt`) stays exact.
+      console.error(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
       const touch = setInterval(() => {
         try {
           if (ownerOf(lock) === mine) utimesSync(lock, new Date(), new Date());
         } catch {}
       }, 3000);
       await new Promise((done) => {
-        const child = spawn("pnpm", ["install", "--frozen-lockfile", ...(attempt ? ["--force"] : [])], { cwd: root, stdio: "inherit" });
+        const child = spawn("pnpm", ["install", "--frozen-lockfile", ...(attempt ? ["--force"] : [])], { cwd: root, stdio: ["inherit", 2, 2] });
         child.on("error", done);
         child.on("exit", done);
       });
@@ -265,19 +267,6 @@ function agentChecks() {
   console.log(out);
 }
 
-function newer(src, out) {
-  if (!existsSync(out)) return true;
-  const outTime = statSync(out).mtimeMs;
-  const stack = [src];
-  while (stack.length) {
-    const p = stack.pop();
-    const s = statSync(p);
-    if (s.isDirectory()) {
-      for (const e of readdirSync(p)) if (e !== "node_modules" && e !== "dist") stack.push(join(p, e));
-    } else if (s.mtimeMs > outTime) return true;
-  }
-  return false;
-}
 function setup() {
   mkdirSync(bin, { recursive: true });
   if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
@@ -498,23 +487,21 @@ async function start() {
  * control plane first if its sources changed, since the check is the control plane's own function.
  */
 function verify(files) {
-  if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
-  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "verify-bundle.js"))) {
-    run("pnpm", ["--filter", "@control-rod/api", "build"]);
-  }
+  const built = ensureApiDist(root, "verify-bundle.js");
+  if (built !== 0) process.exit(built);
   const r = spawnSync("node", [join(root, "services", "api", "dist", "verify-bundle.js"), ...files], { stdio: "inherit" });
   process.exit(r.status ?? 1);
 }
 
 /**
- * Builds an honest Markdown PR receipt from a downloaded package inclusion proof offline.
+ * Builds an honest Markdown PR receipt from a downloaded package inclusion proof offline. The
+ * receipt is the only thing written to standard output (or to `--out <file>`); install and build
+ * progress goes to standard error, because `pnpm cr verify --receipt` wants the receipt exactly.
  */
-function receipt(file) {
-  if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
-  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "pr-receipt.js"))) {
-    run("pnpm", ["--filter", "@control-rod/api", "build"]);
-  }
-  const r = spawnSync("node", [join(root, "services", "api", "dist", "pr-receipt.js"), ...(file ? [file] : [])], { stdio: "inherit" });
+function receipt(args) {
+  const built = ensureApiDist(root, "pr-receipt.js");
+  if (built !== 0) process.exit(built);
+  const r = spawnSync("node", [join(root, "services", "api", "dist", "pr-receipt.js"), ...args], { stdio: "inherit" });
   process.exit(r.status ?? 1);
 }
 
@@ -523,7 +510,7 @@ function resolveCliArgs(argv) {
   const out = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--receipt") {
+    if (a === "--receipt" || a === "--out" || a === "-o") {
       out.push(a);
       if (i + 1 < argv.length) out.push(resolve(cwd, argv[++i]));
       continue;
@@ -716,7 +703,7 @@ async function openCommand() {
 
 function logsCommand(follow) {
   if (!existsSync(logFile)) {
-    console.log(`No log yet. A start in the background (\`controlrod start\`) writes one to ${logFile}; a start in a terminal prints there instead.`);
+    console.log(`No log yet. A start in the background (\`${cli ? "controlrod start" : "pnpm cr start --background"}\`) writes one to ${logFile}; a start in a terminal prints there instead.`);
     return 0;
   }
   if (follow) {
@@ -738,7 +725,7 @@ const runAsync = (cmd, args, opts) =>
 async function cardsCommand(run) {
   const m = await import("./lib/cards.mjs");
   try {
-    await run(m.client({ home, port }), m);
+    await run(m.client({ home, port, me }), m);
     return 0;
   } catch (e) {
     if (e instanceof m.CardError) {
@@ -757,6 +744,7 @@ async function updateCommand(flags) {
       { check: Boolean(flags.check), restart: flags.restart !== false },
       {
         git: gitRunner(root),
+        me,
         log: (m) => console.log(m),
         holdInterrupts: () => {
           process.on("SIGINT", () => console.log("\nFinishing the update safely first; please wait."));
@@ -769,7 +757,7 @@ async function updateCommand(flags) {
         },
         install: () => {
           if (!pnpmCmd) {
-            console.error("pnpm was not found. Install it (https://pnpm.io/installation) and run `controlrod update` again.");
+            console.error(`pnpm was not found. Install it (https://pnpm.io/installation) and run \`${me} update\` again.`);
             return false;
           }
           return runAsync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, env: cleanEnv() });
@@ -813,7 +801,7 @@ function linkCommand() {
     if (r.profile.added) console.log(`Added ${dirname(r.path)} to your PATH in ${r.profile.file}.`);
     console.log(`\nOpen a new terminal (or run: ${r.profile.line}), then:`);
   } else console.log("\nFrom any folder:");
-  console.log("  controlrod start      start Control Rod (add --background to keep this terminal free)");
+  console.log("  controlrod start      start Control Rod in the background and open it (--foreground keeps it here)");
   console.log("  controlrod update     update to the latest version");
   console.log("  controlrod help       every command");
   return 0;
@@ -924,13 +912,14 @@ program.command("doctor").description("check this machine and say what to fix")
   });
 program.command("setup").description("build without starting").action(() => setup());
 program.command("verify").description("check a downloaded inclusion proof or audit export offline").argument("<files...>");
-program.command("receipt").description("write a PR receipt from an inclusion proof").argument("[file]");
+program.command("receipt").description("write a PR receipt from an inclusion proof").argument("[file]")
+  .option("-o, --out <file>", "write the receipt to this file (only the receipt is ever written there)");
 program.command("link").description("install the controlrod command so it works in any folder").action(() => exit(linkCommand()));
 program.command("unlink").description("remove the controlrod command").action(() => {
   const r = unlink();
   console.log(r.status === "removed" ? `Removed ${r.path}.` : r.status === "none" ? "The controlrod command is not installed." : `${r.path} was not written by Control Rod; left alone.`);
 });
-program.command("bench").description("Control Rod's own cross-vendor checking benchmark")
+program.command("bench").description(`Control Rod's own cross-vendor checking benchmark (\`${me} bench --help\` lists its steps)`)
   .argument("[args...]")
   .helpOption(false)
   .allowUnknownOption()
@@ -940,10 +929,11 @@ const DAEMON_COMMANDS = new Set(["agents", "check", "runtimes", "sandbox-args", 
 const args = process.argv.slice(2);
 const known = new Set(program.commands.flatMap((c) => [c.name(), ...c.aliases()]));
 // These pass their own flags through untouched, so they skip the parser.
-const raw = { bench: (rest) => exit(bench(rest)), verify: (rest) => verify(resolveCliArgs(rest)), receipt: (rest) => receipt(rest.length ? resolveCliArgs(rest)[0] : undefined) };
+const raw = { bench: (rest) => exit(bench(rest)), verify: (rest) => verify(resolveCliArgs(rest)), receipt: (rest) => receipt(resolveCliArgs(rest)) };
 if (args.length === 0 && cli) {
   program.outputHelp();
-} else if (raw[args[0]] && !args.slice(1).some((a) => a === "--help" || a === "-h") ) {
+} else if (raw[args[0]] && (args[0] === "bench" || !args.slice(1).some((a) => a === "--help" || a === "-h"))) {
+  // bench has its own help (bench.py), so its --help goes there.
   raw[args[0]](args.slice(1));
 } else if (args.length === 0 && !cli) {
   await program.parseAsync(["start"], { from: "user" });

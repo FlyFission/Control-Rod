@@ -12,6 +12,7 @@ import { LanePicker } from "./LanePicker.js";
 import { WORKFLOWS, WORKFLOW_DESCRIPTION, WORKFLOW_LABEL, type Workflow } from "../lib/workflow.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
 import { projectCaptureTag, useActiveProject, useProjects } from "../lib/projects.js";
+import { ALL_SIGNED, cardFlowLine, projectSteps } from "../lib/signing.js";
 import {
   CHECKOUT_AUTHORS,
   CLI_ECOSYSTEMS,
@@ -112,6 +113,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const targetProject = project.trim();
   const targetEntry = allProjects.find((p) => p.name.toLowerCase() === targetProject.toLowerCase());
   const scramLock = useActionLock(targetEntry ? targetEntry.id : targetProject || null);
+  // The signing settings that will govern this card: the active project's, when the capture is tagged
+  // with its id (projectCaptureTag); any other card is signed at every step (signing-policy.ts).
+  const governing =
+    mode !== "nuclear-grade" && activeProject && targetProject.toLowerCase() === activeProject.name.toLowerCase() ? activeProject : null;
+  const flowLine = cardFlowLine(governing ? projectSteps(governing) : ALL_SIGNED);
 
   const [objective, setObjective] = useState("");
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
@@ -456,7 +462,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       <div className="cr-modal-head">
         <div>
           <h2 id="new-work-title" className="cr-modal-title">{copy.modalTitle}</h2>
-          <p className="small muted" style={{ margin: 0 }}>An agent turns this into a plan. Nothing runs until you approve it.</p>
+          <p className="small muted" style={{ margin: 0 }}>An agent turns this into a plan. {flowLine}</p>
         </div>
         <CloseX onClose={onClose} />
       </div>

@@ -6,6 +6,26 @@ export type UpdateNotice = { running_commit: string; checked_at: string; checkou
   { latest_commit: string; behind: number } | { error: string }
 );
 
+/**
+ * Whether the person turned automatic update checks off: CONTROLROD_UPDATE_CHECK=0 (or off, false,
+ * no). The daemon reads the same variable for its check of the agent CLIs (daemon/cmd/controlrod
+ * agents.go updateCheckOff), so one setting stops both.
+ */
+export function updateCheckOff(env: NodeJS.ProcessEnv = process.env): boolean {
+  const v = (env.CONTROLROD_UPDATE_CHECK ?? "").trim().toLowerCase();
+  return v === "0" || v === "off" || v === "false" || v === "no";
+}
+
+/**
+ * The check the API makes once at start, which fetches main from the repository's origin (GitHub for
+ * a normal clone). Skipped when the person turned checks off; "Check again" on the page still checks,
+ * because the person asked.
+ */
+export function checkAtStart(notice: ReturnType<typeof updateNoticeFor>, env: NodeJS.ProcessEnv = process.env) {
+  if (!notice || updateCheckOff(env)) return undefined;
+  return notice.check();
+}
+
 /** A check that has not finished by then is stopped: a stalled fetch must not hold the API. */
 export const UPDATE_CHECK_DEADLINE_MS = 30_000;
 

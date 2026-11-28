@@ -275,7 +275,7 @@ def build_council_loop_svg() -> str:
         f'<text x="58" y="197" font-family="{MONO}" font-size="11" fill="{ACCENT}">Superpowers / Pocock</text>',
         f'<text x="48" y="216" font-family="{SANS}" font-size="12" fill="{TEXT_2}">• Context: Light | Nuclear</text>',
         f'<rect x="48" y="254" width="162" height="24" rx="4" fill="#261b08" stroke="{NEEDS}"/>',
-        f'<text x="129" y="270" text-anchor="middle" font-family="{MONO}" font-size="10.5" font-weight="600" fill="{NEEDS}">PASSKEY SIGNATURE #1</text>',
+        f'<text x="129" y="270" text-anchor="middle" font-family="{MONO}" font-size="10.5" font-weight="600" fill="{NEEDS}">PASSKEY IF YOU CHOOSE</text>',
         # Arrow 1 -> 2
         f'<line x1="222" y1="194" x2="254" y2="194" stroke="{NEEDS}" stroke-width="2" marker-end="url(#arr-amber)"/>',
         # Stage 2: Author Seat
@@ -330,7 +330,7 @@ def build_council_loop_svg() -> str:
         f'<text x="902" y="200" font-family="{SANS}" font-size="12" fill="{TEXT_2}">• Exports PR receipt</text>',
         f'<text x="902" y="219" font-family="{MONO}" font-size="11" fill="{DONE}">pnpm cr verify</text>',
         f'<rect x="902" y="254" width="170" height="24" rx="4" fill="#261b08" stroke="{NEEDS}"/>',
-        f'<text x="987" y="270" text-anchor="middle" font-family="{MONO}" font-size="10.5" font-weight="600" fill="{NEEDS}">PASSKEY SIGNATURE #2</text>',
+        f'<text x="987" y="270" text-anchor="middle" font-family="{MONO}" font-size="10.5" font-weight="600" fill="{NEEDS}">PASSKEY BY DEFAULT</text>',
         # Bottom Kernel & Roster Bar
         f'<rect x="36" y="344" width="1048" height="64" rx="6" fill="{PANEL}" stroke="{LINE_2}"/>',
         f'<text x="54" y="368" font-family="{MONO}" font-size="11" font-weight="700" fill="{ACCENT}">RUST / WASM KERNEL CUSTODY</text>',

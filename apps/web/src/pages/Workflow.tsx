@@ -3,6 +3,7 @@ import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
 import { CHECK_IN_CHOICES } from "../lib/agents.js";
 import { buildCouncilFlow } from "../lib/councilFlow.js";
 import { useActiveProject } from "../lib/projects.js";
+import { projectSteps } from "../lib/signing.js";
 import { useAgents } from "../lib/useAgents.js";
 
 /**
@@ -14,14 +15,14 @@ export function Workflow() {
   const project = useActiveProject();
   const checkIn = agents.setup?.check_in ?? "start-and-merge";
   const choice = CHECK_IN_CHOICES.find((c) => c.id === checkIn)!;
-  const flow = buildCouncilFlow(agents.rows, checkIn);
+  const flow = buildCouncilFlow(agents.rows, checkIn, undefined, project ? projectSteps(project) : undefined);
   return (
     <div className="place workflow">
       <header className="place-head">
         <h1>Your workflow</h1>
         <p className="muted">
           Who plans, who writes, who checks, and where a card stops for you. Check-ins: {choice.label.toLowerCase()}
-          {choice.today ? "" : " (saved for later; today the live stops are your signed release and your signed acceptance)"}
+          {choice.today ? "" : " (saved for later; today what stops a card for you is set under What needs your passkey)"}
           {project ? `. Project: ${project.name}` : ""}. Change seats and check-ins on <Link to="/setup">Setup</Link>.
         </p>
       </header>

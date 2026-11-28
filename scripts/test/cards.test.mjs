@@ -74,4 +74,6 @@ test("says to start Control Rod when there is no token, and to restart when it i
   assert.throws(() => client({ home: mkdtempSync(join(tmpdir(), "cr-none-")), port: 1 }), /controlrod start/);
   const { call } = app({ "GET /packages": [403, { message: "Refused: this request did not come from the Control Rod app" }] });
   await assert.rejects(call("GET", "/packages"), /controlrod restart/);
+  // Inside the checkout the person types `pnpm cr`, so the hint says that.
+  assert.throws(() => client({ home: mkdtempSync(join(tmpdir(), "cr-none-")), port: 1, me: "pnpm cr" }), /`pnpm cr start` first/);
 });

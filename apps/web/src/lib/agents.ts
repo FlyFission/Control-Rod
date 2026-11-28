@@ -166,7 +166,12 @@ function list(names: string[]): string {
 
 export const CHECK_IN_CHOICES: readonly { id: CheckIn; label: string; detail: string; today: boolean }[] = [
   { id: "start", label: "Just at the start", detail: "You approve the plan, and the agents carry it through.", today: false },
-  { id: "start-and-merge", label: "At the start and before merge", detail: "You sign the plan's release, and you sign acceptance before anything merges or ships.", today: true },
+  {
+    id: "start-and-merge",
+    label: "At the start and before merge",
+    detail: "Cards stop for you where What needs your passkey says. With the default settings, a card starts on its own and you sign acceptance before anything merges or ships.",
+    today: true,
+  },
   { id: "every-step", label: "At every step", detail: "You see the plan, the work, the check and the merge.", today: false },
 ];
 

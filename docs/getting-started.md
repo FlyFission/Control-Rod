@@ -37,6 +37,8 @@ pnpm cr start -b   # checks, builds, starts in the background and opens the app
 
 `controlrod update` checks GitHub, and if `main` has moved on it stops a running Control Rod (running work finishes first), sets any edits you made to Control Rod's own files aside with `git stash`, moves to the new version, installs and builds it, and starts it again the way it was running. If the install or the build fails, it goes back to the version you had and rebuilds that. Your records in `~/.controlrod` are never touched. `controlrod update --check` only lists what is new. It updates the `main` branch only; on another branch it says so and stops.
 
+When it starts, Control Rod checks for updates on its own: the API asks this checkout's git origin whether `main` has moved (the notice in Setup), and the daemon asks the npm registry, or `CONTROLROD_NPM_REGISTRY`, for the newest version of each agent CLI. Set `CONTROLROD_UPDATE_CHECK=0` (or `off`, `false`, `no`) before `controlrod start` to turn both off. `controlrod daemon --no-update-check` turns off the daemon's alone. With the checks off, **Check again** in Setup, `controlrod update --check` and `controlrod agents check` still check when you ask.
+
 ### Adding cards from a terminal
 
 `controlrod card add "Fix the login typo" --project Sandbox` adds a card the way the board's quick add does: the project's lane, and for a project with a repository a worktree and branch of its own. `controlrod cards` lists every card and the column it is in (`--project` narrows it). Neither needs the browser or a passkey, so an agent working in a terminal can use them too. They use a token Control Rod writes to `~/.controlrod/cli.token` each time it starts, which only lists and adds cards; it cannot accept, release, sign or change settings. Runs never see it, because the Control Rod home is hidden from them.
@@ -72,7 +74,7 @@ The project form lists the local clones it finds in that workspace folder. For a
 - In VS Code the app is at <http://localhost:7300> through port forwarding, same as on your own machine.
 - In Codespaces the app is at a forwarded `https://<name>-7300.app.github.dev` address. `pnpm cr start` detects Codespaces and sets the passkey origin to match. A passkey is bound to the address it was created on, so one made in a Codespace does not work anywhere else, and the data goes when the Codespace is deleted. Treat it as a place to build and test, not to keep real records.
 - Agent runs need Claude Code signed in inside the container (`curl -fsSL https://claude.ai/install.sh | bash`, then `claude`). The agent sandbox is bubblewrap, and a container often stops bubblewrap from creating the user namespace it needs. `pnpm cr doctor` tests this and says so; when it fails, the preflight refuses agent runs with the reason. Expect the container to be fine for the web app, the API, and all the tests, and use a Linux machine, a Mac or WSL2 for real agent runs.
-- The configuration was checked by running its setup script on a fresh clone as a non-root user and starting the app with Codespaces-style variables. The container image itself has not yet been built by anyone, so report anything that breaks.
+- The configuration was checked by running its setup script on a fresh clone as a non-root user and starting the app with Codespaces-style variables. No CI job builds the container, and no full build of it has been recorded yet, so report anything that breaks.
 
 ## Check your change
 

@@ -35,6 +35,7 @@ import {
 } from "../../lib/projects.js";
 import { useAgentPlatform, useAgents } from "../../lib/useAgents.js";
 import { FirstRunGuide, type GuideState, guideOpen, useGuideHidden } from "./FirstRunGuide.js";
+import { ALL_SIGNED, cardFlowLine, projectSteps } from "../../lib/signing.js";
 import { sessionGeneration, stillCurrent } from "../../lib/session.js";
 import { BoardListView } from "./BoardListView.js";
 import { BoardReviewDrawer } from "./BoardReviewDrawer.js";
@@ -247,7 +248,11 @@ export function BoardView() {
   const platform = useAgentPlatform();
   const projects = useProjects();
   const [guideHidden, hideGuide] = useGuideHidden(data.me);
+  // The signing settings a new card here would follow: the active project's, or every step signed
+  // when the board is in Nuclear-grade mode. Unknown with no active project: each project has its own.
+  const boardSigning = mode === "nuclear-grade" ? ALL_SIGNED : activeProject ? projectSteps(activeProject) : undefined;
   const guide: GuideState = {
+    ...(boardSigning ? { signing: boardSigning } : {}),
     agentReady: agents.rows.some((r) => r.seated && r.state === "ready"),
     hasRepoProject: projects.some((p) => (p.repo ?? "").trim().length > 0),
     // The change steps read this board's scope, so the button can always reach the card they name.
@@ -898,7 +903,8 @@ export function BoardView() {
                   : "No software changes in flight yet"}
             </h2>
             <p className="small muted">
-              Describe what you want done. An agent drafts a plan, and nothing runs until you approve it.
+              Describe what you want done. An agent drafts a plan.{" "}
+              {boardSigning ? cardFlowLine(boardSigning) : "Each project's settings, under What needs your passkey, say whether it starts on its own and how it is accepted."}
             </p>
           </div>
           <div className="bd-empty-actions">

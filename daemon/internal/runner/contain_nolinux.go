@@ -22,3 +22,9 @@ func (k Container) OrphanScopes() []Unit   { return nil }
 
 // signalLeaderPinned has no stable process handle here, so it never signals.
 func signalLeaderPinned(int, func() bool, syscall.Signal) error { return errNoIdentityToSignal }
+
+// signalOrphan has no stable process handle for the group's members here, so it reaches only what
+// signalLeaderPinned can, which is nothing.
+func signalOrphan(r SpawnReceipt, sig syscall.Signal) error {
+	return signalLeaderPinned(r.PID, r.Matches, sig)
+}

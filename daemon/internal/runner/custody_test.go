@@ -196,7 +196,7 @@ func TestOutboxSnapshotDoesNotResendASettledCompletion(t *testing.T) {
 		t.Fatalf("outbox snapshot: %d entries, error %v", len(snapshot), err)
 	}
 	for _, e := range []OutboxEntry{entry, snapshot[0]} {
-		if done, err := d.deliver(e, true); !done || err != nil {
+		if done, err := d.deliver(context.Background(), e, true); !done || err != nil {
 			t.Fatalf("settling completion: done %v, error %v", done, err)
 		}
 	}

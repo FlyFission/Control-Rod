@@ -565,7 +565,9 @@ func TestAnOrphanGroupIsNeverSignalledByNumber(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Not pinned: as after a daemon restart. Only the leader can be reached safely.
+	// Not pinned: as after a daemon restart. The group is never signalled by number. On Linux each
+	// member is reached through its own pidfd while the live leader proves the group is the run's
+	// (issue #178); elsewhere only the leader could be, and nothing is.
 	old := killWait
 	killWait = 300 * time.Millisecond
 	defer func() { killWait = old }()
@@ -575,11 +577,48 @@ func TestAnOrphanGroupIsNeverSignalledByNumber(t *testing.T) {
 	var pid int
 	_, _ = fmt.Sscan(child, &pid)
 	defer syscall.Kill(pid, syscall.SIGKILL)
+	if runtime.GOOS == "linux" {
+		if !stopped {
+			t.Fatal("a group whose live leader proves it the run's was not stopped member by member")
+		}
+		return
+	}
 	if stopped {
 		t.Fatal("a group whose other members were never reached cannot be reported stopped")
 	}
 	if syscall.Kill(pid, 0) != nil {
 		t.Fatal("a group member was signalled by group number")
+	}
+}
+
+// Once the leader is gone, nothing left in its group can be proven the run's: the group number
+// may have been reused. Such a member is never signalled, and the run is never reported stopped.
+func TestAnOrphanGroupWithoutItsLeaderIsNeverSignalled(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("bash", "-c", `sleep 30 & echo $! > child.pid; sleep 0.3`)
+	cmd.Dir = dir
+	setProcessGroup(cmd)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	waitFile(t, filepath.Join(dir, "child.pid"))
+	r, err := NewReceipt("run-orphan-leaderless", "tok", cmd.Process.Pid, 1, Unit{Mode: ContainGroup})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait() // the leader exits and is reaped; its child stays in the group
+	b, _ := os.ReadFile(filepath.Join(dir, "child.pid"))
+	var pid int
+	_, _ = fmt.Sscan(strings.TrimSpace(string(b)), &pid)
+	defer syscall.Kill(pid, syscall.SIGKILL)
+	old := killWait
+	killWait = 300 * time.Millisecond
+	defer func() { killWait = old }()
+	if StopGracefully(r, StopTimings{AfterHangup: 100 * time.Millisecond, Grace: 100 * time.Millisecond}, nil) {
+		t.Fatal("a group whose leader is gone was reported stopped")
+	}
+	if syscall.Kill(pid, 0) != nil {
+		t.Fatal("a member of a leaderless group was signalled")
 	}
 }
 

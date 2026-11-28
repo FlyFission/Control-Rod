@@ -223,3 +223,101 @@ func (k Container) OrphanScopes() []Unit {
 	}
 	return out
 }
+
+// procStat reads a process's state, process group and start time from /proc/<pid>/stat.
+func procStat(pid int) (state string, pgid int, start string, err error) {
+	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return "", 0, "", err
+	}
+	s := string(b)
+	i := strings.LastIndexByte(s, ')')
+	if i < 0 {
+		return "", 0, "", errors.New("unreadable process status")
+	}
+	f := strings.Fields(s[i+1:])
+	// After the name: state (index 0), process group (index 2), start time (index 19).
+	if len(f) < 20 {
+		return "", 0, "", errors.New("unreadable process status")
+	}
+	pgid, err = strconv.Atoi(f[2])
+	return f[0], pgid, f[19], err
+}
+
+// signalOrphan signals every process of a run whose receipt this daemon does not hold unreaped (an
+// orphan after a restart), each through its own pidfd, never by group number (issue #178). Members
+// of the receipt's group count as the run's only while its leader is proven alive in that group:
+// a group number cannot be reused while a member, here the leader, is in it. So the leader is
+// pinned and checked against the receipt, each member is pinned and checked again after pinning,
+// and the leader is checked once more before anything is sent. When the leader is gone nothing in
+// its group can be proven the run's, so only the (gone) leader is tried, as before.
+func signalOrphan(r SpawnReceipt, sig syscall.Signal) error {
+	lfd, _, errno := syscall.Syscall(sysPidfdOpen, uintptr(r.PID), 0, 0)
+	if errno != 0 {
+		return errNoIdentityToSignal
+	}
+	defer syscall.Close(int(lfd))
+	leaderIn := func() bool {
+		if !r.Matches() {
+			return false
+		}
+		_, pgid, _, err := procStat(r.PID)
+		return err == nil && r.PGID > 0 && pgid == r.PGID
+	}
+	if !leaderIn() {
+		// Not in its group (or not the receipt's process): the leader alone, as signalLeaderPinned does.
+		return signalLeaderPinned(r.PID, r.Matches, sig)
+	}
+	type member struct {
+		pid   int
+		start string
+	}
+	var found []member
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return signalLeaderPinned(r.PID, r.Matches, sig)
+	}
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil || pid == r.PID {
+			continue
+		}
+		st, pgid, start, err := procStat(pid)
+		if err != nil || pgid != r.PGID || st == "Z" || st == "X" {
+			continue
+		}
+		found = append(found, member{pid, start})
+	}
+	var fds []uintptr
+	defer func() {
+		for _, fd := range fds {
+			syscall.Close(int(fd))
+		}
+	}()
+	for _, m := range found {
+		fd, _, errno := syscall.Syscall(sysPidfdOpen, uintptr(m.pid), 0, 0)
+		if errno != 0 {
+			continue // gone already
+		}
+		// Pinned now: the id names this process for as long as the descriptor is open. It must
+		// still be the process read above, still in the run's group.
+		if _, pgid, start, err := procStat(m.pid); err != nil || pgid != r.PGID || start != m.start {
+			syscall.Close(int(fd))
+			continue
+		}
+		fds = append(fds, fd)
+	}
+	// The leader was in the group before and after every member was read, so each was in the
+	// run's group, never a reused one.
+	if !leaderIn() {
+		return signalLeaderPinned(r.PID, r.Matches, sig)
+	}
+	var first error
+	if _, _, e := syscall.Syscall6(sysPidfdSendSignal, lfd, uintptr(sig), 0, 0, 0, 0); e != 0 {
+		first = e
+	}
+	for _, fd := range fds {
+		_, _, _ = syscall.Syscall6(sysPidfdSendSignal, fd, uintptr(sig), 0, 0, 0, 0)
+	}
+	return first
+}

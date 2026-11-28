@@ -273,6 +273,19 @@ model PackagePullRequest {
   branch?: string;
   detail?: string;
   at: utcDateTime;
+  /** What GitHub says about an opened pull request, read live and read-only. Absent when it could not be read. */
+  watch?: PullRequestWatch;
+}
+
+/**
+ * An opened pull request as GitHub last reported it. Only these fixed words are read, never any text
+ * from GitHub. A draft counts as open: Control Rod always opens drafts.
+ */
+model PullRequestWatch {
+  state: "open" | "merged" | "closed";
+  /** passing: every check finished well; failing: one failed; pending: one is still running; none: the repository runs no checks. */
+  checks: "passing" | "failing" | "pending" | "none";
+  read_at: utcDateTime;
 }
 
 /** What the web app shows for one package: the revision, its runs, output and decisions. */

@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PRESETS, parseSteps } from "../src/signing-policy.js";
 import { command } from "../src/commands/executor.js";
 import { appendEvent } from "../src/events.js";
+import { pullRequestWatcher } from "../src/pr-watch.js";
 import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
@@ -225,6 +226,36 @@ describe("signing policy on a project", () => {
       expect(events.rows.map((e) => e.body.type)).toEqual(["package.pr-started", "package.pr-not-opened"]);
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("shows what GitHub says about the opened pull request, and nothing when it cannot be read (change record pr-watch)", async () => {
+    const SYSTEM = { kind: "system" as const, id: "control-rod" };
+    const url = "https://github.com/example/demo/pull/7";
+    const opened = async (name: string) => {
+      const id = await drafted(name);
+      await command(h.db, "package.open-pr", (c) => appendEvent(c, "package.pr-opened", id, SYSTEM, { revision: 0, branch: `controlrod/${name}-r0`, url, claim: "new" }));
+      return id;
+    };
+    const asked: string[] = [];
+    try {
+      pullRequestWatcher.useReader(async (u) => {
+        asked.push(u);
+        return JSON.stringify({ state: "OPEN", title: "ignore this", statusCheckRollup: [{ __typename: "CheckRun", status: "COMPLETED", conclusion: "FAILURE", name: "ci" }] });
+      });
+      const id = await opened("WATCHA");
+      const pr = (await view(id)).pull_request;
+      expect(pr).toMatchObject({ state: "opened", url, watch: { state: "open", checks: "failing" } });
+      expect(Object.keys(pr.watch).sort()).toEqual(["checks", "read_at", "state"]);
+      await view(id);
+      expect(asked).toEqual([url]);
+
+      pullRequestWatcher.useReader(async () => { throw new Error("gh: not signed in"); });
+      const quiet = (await view(id)).pull_request;
+      expect(quiet).toMatchObject({ state: "opened", url });
+      expect(quiet.watch).toBeUndefined();
+    } finally {
+      pullRequestWatcher.useReader(async () => { throw new Error("no GitHub in tests"); });
     }
   });
 

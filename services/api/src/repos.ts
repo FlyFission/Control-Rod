@@ -1826,6 +1826,15 @@ export function repoRoutes(
 }
 
 /** What publishing an accepted card's checkout did. */
+/**
+ * The state and check rollup of a pull request on github.com, read-only, as gh prints them. Only a
+ * plain https://github.com/<owner>/<repo>/pull/<n> link is read; anything else is refused.
+ */
+export async function readPullRequestFacts(url: string, timeout = 8_000): Promise<string> {
+  if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/[0-9]+$/.test(url)) throw new Error("not a GitHub pull request link");
+  return gh(["pr", "view", url, "--json", "state,statusCheckRollup"], { timeout, host: "github.com" });
+}
+
 export type PublishResult =
   | { opened: true; url: string; branch: string; head: string; reused: boolean }
   | { opened: false; reason: "not-github" | "no-changes" | "failed" | "lane"; detail: string };

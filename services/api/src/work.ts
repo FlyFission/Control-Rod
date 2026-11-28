@@ -26,6 +26,7 @@ import { Refusal } from "./refusal.js";
 import { bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { CHANGE_PATCH, changePatches, changedRepoFiles, patchFiles } from "./change-files.js";
+import { pullRequestWatcher } from "./pr-watch.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
@@ -4053,7 +4054,11 @@ async function pullRequestOf(db: Db, id: string, revision: number) {
        and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision]);
   const e = r.rows[0]?.body;
   if (!e) return {};
-  if (e.type === "package.pr-opened") return { pull_request: { state: "opened", url: e.data.url, branch: e.data.branch, at: e.at } };
+  if (e.type === "package.pr-opened") {
+    // What GitHub says now, read-only; left out when it cannot be read, so the line is as before.
+    const watch = typeof e.data.url === "string" ? await pullRequestWatcher.watch(e.data.url) : undefined;
+    return { pull_request: { state: "opened", url: e.data.url, branch: e.data.branch, at: e.at, ...(watch ? { watch } : {}) } };
+  }
   if (e.type === "package.pr-not-opened") return { pull_request: { state: e.data.reason === "no-changes" ? "no-changes" : "not-opened", detail: e.data.detail, at: e.at } };
   return { pull_request: { state: "opening", branch: e.data.branch, at: e.at } };
 }

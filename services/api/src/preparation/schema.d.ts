@@ -3300,6 +3300,8 @@ export interface components {
             detail?: string;
             /** Format: date-time */
             at: string;
+            /** @description What GitHub says about an opened pull request, read live and read-only. Absent when it could not be read. */
+            watch?: components["schemas"]["PullRequestWatch"];
         };
         /** @description What the web app shows for one package: the revision, its runs, output and decisions. */
         PackageView: {
@@ -3410,6 +3412,21 @@ export interface components {
              *     a pass that covers the current subject counts as verified.
              */
             covers_current_subject: boolean;
+        };
+        /**
+         * @description An opened pull request as GitHub last reported it. Only these fixed words are read, never any text
+         *     from GitHub. A draft counts as open: Control Rod always opens drafts.
+         */
+        PullRequestWatch: {
+            /** @enum {string} */
+            state: "open" | "merged" | "closed";
+            /**
+             * @description passing: every check finished well; failing: one failed; pending: one is still running; none: the repository runs no checks.
+             * @enum {string}
+             */
+            checks: "passing" | "failing" | "pending" | "none";
+            /** Format: date-time */
+            read_at: string;
         };
         /** @description A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
         RegistryCredential: {

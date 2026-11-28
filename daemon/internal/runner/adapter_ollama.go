@@ -31,11 +31,12 @@ func (a ollamaAdapter) Available(lookPath func(string) (string, error), _ func(s
 
 func (ollamaAdapter) Capabilities() Capabilities {
 	return Capabilities{
-		Roles:            []string{"author", "intake", "pre-check"},
-		OutputFormat:     "text",
-		ToolAllowlist:    false,
-		NativeSandbox:    "none",
-		NetworkHostLimit: true,
+		Roles:         []string{"author", "intake", "pre-check"},
+		OutputFormat:  "text",
+		ToolAllowlist: false,
+		NativeSandbox: "none",
+		// OLLAMA_HOST points the client at this machine, but nothing limits the hosts the process can reach.
+		NetworkHostLimit: false,
 		MultiVendor:      false,
 		ConfigIsolation:  []string{"OLLAMA_HOST=http://127.0.0.1:11434"},
 	}

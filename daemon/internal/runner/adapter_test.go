@@ -404,6 +404,9 @@ func TestAwaitingConfinementIsRefused(t *testing.T) {
 		if a.Capabilities().NativeSandbox != "none" && id != RuntimeAgy {
 			t.Fatalf("%s claims a sandbox it does not have: %q", id, a.Capabilities().NativeSandbox)
 		}
+		if id == RuntimeOllama && a.Capabilities().NetworkHostLimit {
+			t.Fatalf("%s claims a network host limit it does not have", id)
+		}
 		err := PreflightHost(id, look, nil)
 		var pe *PreflightError
 		if !errors.As(err, &pe) || !strings.Contains(pe.Reason, "cannot run work yet") {

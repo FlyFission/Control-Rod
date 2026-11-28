@@ -33,9 +33,13 @@ type Client struct {
 	tokenFile string
 }
 
+// clientCeiling bounds any one request, body included, even if a caller passes no deadline. Each
+// call also sets its own, shorter limit; the longest (a run's completion) is 5 minutes.
+const clientCeiling = 6 * time.Minute
+
 // NewClient returns a client for the control plane at base.
 func NewClient(base, token string) *Client {
-	return &Client{base: strings.TrimRight(base, "/"), token: token, http: &http.Client{}}
+	return &Client{base: strings.TrimRight(base, "/"), token: token, http: &http.Client{Timeout: clientCeiling}}
 }
 
 // WithTokenFile makes the client re-read its token from path when the control plane refuses it.

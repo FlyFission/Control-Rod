@@ -2,6 +2,24 @@
  * Integrated and planned CLI ecosystems, models, and reasoning effort levels
  * for Author (Originator) and Checker (Verifier) agent assignments.
  */
+import registry from "../../../../daemon/internal/runner/models.json";
+
+/** One entry of the daemon's model registry, the one list of models Control Rod will run. */
+interface RegisteredModel {
+  id: string;
+  harness: string;
+  deciding: boolean;
+}
+
+/**
+ * The models the daemon registers for a runnable CLI, deciding models first, after the CLI's own
+ * default. Read from daemon/internal/runner/models.json at build time, so the pickers never offer a
+ * model the daemon would refuse, and a model added there shows here without a second list.
+ */
+function registered(harness: string): string[] {
+  const own = (registry.models as readonly RegisteredModel[]).filter((m) => m.harness === harness);
+  return ["default", ...own.filter((m) => m.deciding).map((m) => m.id), ...own.filter((m) => !m.deciding).map((m) => m.id)];
+}
 
 export type CliEcosystemId =
   | "claude"
@@ -49,15 +67,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     label: "Claude Code",
     cliCommand: "claude",
     runnable: true,
-    models: [
-      "default",
-      "claude-sonnet-4-6",
-      "claude-opus-4-6",
-      "claude-haiku-4-5",
-      "claude-sonnet-4-5",
-      "claude-opus-4-5",
-      "claude-sonnet-5-5",
-    ],
+    models: registered("claude"),
     reasoningLevels: ["default", "low", "medium", "high", "max"],
     modelReasoningLevels: {
       default: ["default", "low", "medium", "high", "max"],
@@ -90,17 +100,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     label: "Codex CLI",
     cliCommand: "codex",
     runnable: true,
-    models: [
-      "default",
-      "gpt-5-codex",
-      "gpt-6.2-sol",
-      "gpt-6.2-astra",
-      "gpt-6.1-sol",
-      "gpt-6.1-terra",
-      "gpt-6-sol",
-      "gpt-6-astra",
-      "gpt-5.6-sol",
-    ],
+    models: registered("codex"),
     reasoningLevels: ["default", "low", "medium", "high", "xhigh"],
     modelReasoningLevels: {
       default: ["default", "low", "medium", "high", "xhigh"],
@@ -119,16 +119,8 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     label: "Antigravity CLI (AGY)",
     cliCommand: "agy",
     runnable: true,
-    // Antigravity model ids carry their own effort (daemon/internal/runner/models.json).
-    models: [
-      "default",
-      "gemini-4-neon-high",
-      "gemini-4-neon-xhigh",
-      "gemini-4-hydrogen-high",
-      "gemini-4-hydrogen-xhigh",
-      "gemini-4-carbon-high",
-      "gemini-4-argon-high",
-    ],
+    // Antigravity model ids carry their own effort.
+    models: registered("agy"),
     reasoningLevels: ["default"],
     defaultModel: "default",
     defaultReasoning: "default",
@@ -160,8 +152,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     label: "Grok CLI",
     cliCommand: "grok",
     runnable: true,
-    // The deciding Grok models in daemon/internal/runner/models.json.
-    models: ["default", "grok-4.7", "grok-4.6", "grok-4.5"],
+    models: registered("grok"),
     reasoningLevels: ["default"],
     defaultModel: "default",
     defaultReasoning: "default",

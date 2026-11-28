@@ -7,7 +7,7 @@
 // Starts the control plane (with an embedded Postgres unless CONTROLROD_DATABASE_URL is set),
 // the run daemon, and serves the web app at http://localhost:7300.
 import { spawn, spawnSync } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync } from "node:fs";
+import { accessSync, closeSync, constants as fsConstants, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -143,9 +143,24 @@ const cli = process.env.CONTROLROD_CLI === "1";
 const me = cli ? "controlrod" : "pnpm cr";
 const appUrl = () => process.env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`;
 
+// Finds a program on PATH without running `which` or `where`, which some minimal systems lack.
 const which = (cmd) => {
-  const r = spawnSync(platform() === "win32" ? "where" : "which", [cmd], { encoding: "utf8" });
-  return r.status === 0 ? r.stdout.trim().split("\n")[0] : null;
+  const win = platform() === "win32";
+  const exts = win ? ["", ...(process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";").filter(Boolean)] : [""];
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    if (!dir) continue;
+    for (const ext of exts) {
+      const p = join(dir, cmd + ext);
+      try {
+        if (!statSync(p).isFile()) continue;
+        if (!win) accessSync(p, fsConstants.X_OK);
+        return p;
+      } catch {
+        // Not here, or not runnable: keep looking.
+      }
+    }
+  }
+  return null;
 };
 const version = (cmd, args = ["--version"]) => {
   const r = spawnSync(cmd, args, { encoding: "utf8" });
@@ -294,7 +309,7 @@ function doctor({ agents = false, fix = false } = {}) {
   if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
   if (!which("codex")) {
     console.log(
-      "\nWithout Codex, every pre-check waits for an independent runtime. It never runs on the author's runtime on its own." +
+      "\nWithout Codex, a pre-check waits for an independent runtime, unless a signed policy picks the author's own agent to check." +
         "\nTo go ahead with Claude alone, open each held pre-check, write why, and sign the override with your passkey." +
         "\nA different Claude model does not count as independent. The signed override is recorded, and the pre-check" +
         "\nrecord shows a shared runtime with your override.",
@@ -662,11 +677,29 @@ async function startBackground({ open = false } = {}) {
   closeSync(fd);
   child.unref();
   process.stdout.write("\nStarting Control Rod in the background");
-  for (let i = 0; i < 240; i++) {
+  // Two minutes is the usual limit. A first start can take longer (a database to create, a build
+  // to finish), so past it the wait goes on while the launch is still writing to its log, up to
+  // ten minutes in all.
+  const logSize = () => {
+    try {
+      return statSync(logFile).size;
+    } catch {
+      return 0;
+    }
+  };
+  let lastSize = logSize();
+  let lastGrowth = 0;
+  for (let i = 0; i < 1200; i++) {
     if (child.exitCode !== null || !alive(child.pid)) break;
+    const size = logSize();
+    if (size !== lastSize) [lastSize, lastGrowth] = [size, i];
+    if (i >= 240 && i - lastGrowth >= 60) break;
     // Ready means this launch answers: its own record, and the port healthy.
     if (readRecord(home)?.pid === child.pid && (await healthy(port))) {
       console.log(`\nControl Rod is running at ${appUrl()}`);
+      // Before the first passkey, registering it needs the code the server wrote for this person only.
+      const setupCode = existsSync(join(home, "setup-code")) ? readFileSync(join(home, "setup-code"), "utf8").trim() : "";
+      if (setupCode) console.log(`To set it up, open it and type this setup code: ${setupCode}`);
       console.log(`Log: ${logFile}  (\`${me} logs\`)`);
       console.log(`Stop it with \`${me} stop\`.`);
       openWhenInteractive(readRecord(home)?.url ?? appUrl(), open);

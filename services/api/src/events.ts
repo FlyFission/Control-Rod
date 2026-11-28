@@ -18,9 +18,15 @@ export interface EventRecord {
   digest: { algorithm: "sha256"; value: string };
 }
 
-/** In-process fan-out for server-sent events. */
+/**
+ * The most event streams open at once. Each open tab holds one; past this, a new stream is refused
+ * (the page retries) so a runaway client cannot pile up listeners and database reads.
+ */
+export const STREAM_MAX = 200;
+
+/** In-process fan-out for server-sent events: one listener per open stream, plus a few of the app's own. */
 export const bus = new EventEmitter();
-bus.setMaxListeners(100);
+bus.setMaxListeners(STREAM_MAX + 20);
 
 const PENDING = Symbol("pendingEvents");
 
@@ -142,6 +148,15 @@ export async function eventPosition(db: Db, orgId: string, after?: number, repla
     [orgId, Number.isSafeInteger(after) ? after : null, replayLimit ?? null],
   );
   return r.rows[0]!;
+}
+
+/** The page of up to `limit` events whose sequence is below `before`, newest first (the Records page). */
+export async function listEventsBefore(db: Db, orgId: string, before: number, limit = 500): Promise<EventRecord[]> {
+  const r = await db.query<{ body: EventRecord }>(
+    `select e.body ${organizationEvents} and e.seq < $2::bigint order by e.seq desc limit $3`,
+    [orgId, before, limit],
+  );
+  return r.rows.map((x) => x.body);
 }
 
 export async function listEvents(db: Db, orgId: string, after = 0, limit = 500): Promise<EventRecord[]> {

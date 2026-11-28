@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import { projectDisplayName, useProjects } from "../../lib/projects.js";
+import { versionLabel } from "../../lib/format.js";
 import type { DecisionKind, PackageView, Run, WorkPackage } from "../../api/types.js";
 import { AgentPanel, pickRun } from "../../components/AgentPanel.js";
 import { Blocked, PasskeyHint, ReasonBox, useDecisionSigner, type DecisionSigner } from "../../components/DecisionBar.js";
@@ -579,7 +580,7 @@ function DrawerDetails({ view, mode, d }: { view: PackageView; mode: Engineering
         "Signing record",
         `Version ${pkg.revision + 1}`,
         <>
-          <p className="small">{view.binds ?? `A decision here signs revision ${pkg.revision}, its output and its pre-check, bound by this digest.`}</p>
+          <p className="small">{view.binds ?? `A decision here signs ${versionLabel(pkg.revision)}, its output and its pre-check, bound by this digest.`}</p>
           <p className="small muted">
             Digest <span className="mono wrap">{view.subject_digest.algorithm}:{view.subject_digest.value}</span>
           </p>

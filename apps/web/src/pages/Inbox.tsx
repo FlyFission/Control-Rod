@@ -2,6 +2,7 @@ import { plainItem } from "../lib/plainError.js";
 import { AGENTS } from "../lib/agents.js";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { api } from "../api/client.js";
 import type { AttentionItem, InboxView } from "../api/types.js";
 import { StateMark } from "../components/StateMark.js";
@@ -35,7 +36,15 @@ export function Inbox() {
   // Moving the cursor (first visit, Mark as seen) keeps showing the list while the new digest loads.
   const q = useQuery({ queryKey: ["inbox", user ?? "", lastSeen ?? null], queryFn: () => api.inbox(lastSeen), placeholderData: (previous) => previous, enabled: user !== undefined });
   const rt = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
-  const notReady = (rt.data?.runtimes ?? []).filter((r) => !r.ready);
+  const setup = useQuery({ queryKey: ["setup"], queryFn: api.setup });
+  // Only agents that would be given work and can't take it: one Control Rod can't run yet, or one the
+  // person took off the table on Setup, waits on nobody, so it is no alert here (Setup lists it).
+  const notReady = (rt.data?.runtimes ?? []).filter(
+    (r) =>
+      !r.ready &&
+      AGENTS.find((a) => a.id === r.runtime)?.runnable === true &&
+      setup.data?.seats.find((s) => s.runtime === r.runtime)?.seated !== false,
+  );
   const view: InboxView | undefined = q.data;
 
   // A first visit on this browser starts counting from now.
@@ -101,10 +110,11 @@ export function Inbox() {
           </div>
           <NotifyToggle user={user} />
           {notReady.length > 0 && (
-            <ul className="runtime-alerts" aria-label="Runtimes not ready">
+            <ul className="runtime-alerts" aria-label="Agents not ready">
               {notReady.map((r) => (
                 <li key={r.runtime} className="error">
-                  <strong>{agentDisplayName(r.runtime)} can't take work right now.</strong> {r.reason ?? "It did not say why."}
+                  <strong>{agentDisplayName(r.runtime)} can't take work right now.</strong> {sentence(r.reason) ?? "Control Rod's check did not say why."}{" "}
+                  <Link to="/setup">Open Setup</Link> to fix it.
                 </li>
               ))}
             </ul>
@@ -245,8 +255,10 @@ function Digest({ view, lastSeen, onMarkSeen }: { view: InboxView | undefined; l
       <h2 id="since-title">Since you last looked</h2>
       {view === undefined ? (
         <p className="muted">Loading</p>
-      ) : lastSeen === undefined || lines.length === 0 ? (
+      ) : lastSeen === undefined ? (
         <p className="muted">First visit on this browser. What happens from now on collects here.</p>
+      ) : lines.length === 0 ? (
+        <p className="muted">Nothing new since you last looked.</p>
       ) : (
         <ul className="digest">
           {lines.map((l) => (
@@ -266,6 +278,14 @@ function Digest({ view, lastSeen, onMarkSeen }: { view: InboxView | undefined; l
 }
 
 export { plainItem };
+
+/** The daemon's reason as a sentence that ends in a full stop, or undefined when there is none. */
+function sentence(reason: string | undefined): string | undefined {
+  const r = reason?.trim();
+  if (!r) return undefined;
+  const s = r.charAt(0).toUpperCase() + r.slice(1);
+  return /[.!?]$/.test(s) ? s : `${s}.`;
+}
 
 function agentDisplayName(runtime: string): string {
   return AGENTS.find((a) => a.id === runtime)?.name ?? runtime;

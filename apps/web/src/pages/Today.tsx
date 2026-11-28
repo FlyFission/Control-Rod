@@ -34,8 +34,9 @@ export function Today() {
   // The Inbox is most urgent first, so its first item is where to start (unless its read failed).
   const first = inboxQuery.isError ? undefined : items[0];
   const inInbox = new Set(items.map((i) => i.package_id).filter((id): id is string => id !== undefined));
-  // Drafts and packages in verification that no Inbox item already covers: still the person's to look at.
-  const awaitingHuman = (packages ?? []).filter((p) => (p.status === "in-verification" || p.status === "draft") && !inInbox.has(p.id));
+  // Drafts and cards being checked that no Inbox item already covers. None of them waits on the person
+  // yet (that would be in the Inbox), so they are listed as still open, each with its own state.
+  const stillOpen = (packages ?? []).filter((p) => (p.status === "in-verification" || p.status === "draft") && !inInbox.has(p.id));
   const tone = b.stuck !== undefined && b.stuck > 0 ? "trip" : b.needs !== undefined && b.needs > 0 ? "needs" : "normal";
 
   return (
@@ -120,11 +121,12 @@ export function Today() {
               <Link to="/inbox">{items.length - LIST_MAX} more in the Inbox</Link>
             </p>
           )}
-          {awaitingHuman.length > 0 && (
+          {stillOpen.length > 0 && (
             <>
-              <h2 className="today-h2 today-h2-quiet">In review ({awaitingHuman.length})</h2>
+              <h2 className="today-h2 today-h2-quiet">Still open ({stillOpen.length})</h2>
+              <p className="small muted">Drafts and cards being checked. Nothing here waits on you yet.</p>
               <ul className="today-list">
-                {awaitingHuman.map((p) => (
+                {stillOpen.map((p) => (
                   <li key={p.id} className="today-row">
                     <CardLink id={p.id} className="today-link">
                       {p.title || p.id}

@@ -141,8 +141,8 @@ type UpdateNoticeStatus = { running_commit: string; checked_at?: string; checkou
 
 export const api = {
   session: () => call<Session>("GET", "/auth/session"),
-  registerOptions: (name: string) =>
-    call<{ options: Record<string, unknown> }>("POST", "/auth/register/options", { name }),
+  registerOptions: (name: string, setupCode?: string) =>
+    call<{ options: Record<string, unknown> }>("POST", "/auth/register/options", { name, ...(setupCode ? { setup_code: setupCode } : {}) }),
   registerVerify: (body: unknown) => call<Session>("POST", "/auth/register/verify", body),
   /** Registration options for an invited Member, from the invitation an administrator gave them. */
   registerInvitedOptions: (invitation: string) =>
@@ -270,20 +270,8 @@ export const api = {
   scram: (id: string) => call<ScramDetail>("GET", `/scrams/${enc(id)}`),
   packageActions: (id: string) => call<ActionDescriptor[]>("GET", `/packages/${enc(id)}/actions`),
   metrics: () => call<Metrics>("GET", "/metrics"),
-  events: (after?: number) => call<CrEvent[]>("GET", after === undefined ? "/events" : `/events?after=${after}`),
-  /** Every event, following the server's `after` cursor page by page (500 per page, capped). */
-  allEvents: async (maxPages = 200): Promise<CrEvent[]> => {
-    const out: CrEvent[] = [];
-    let after = 0;
-    for (let i = 0; i < maxPages; i++) {
-      const page = await call<CrEvent[]>("GET", after === 0 ? "/events" : `/events?after=${after}`);
-      out.push(...page);
-      if (page.length < 500) break;
-      after = page[page.length - 1]?.seq ?? after;
-    }
-    return out;
-  },
-  verifyEvents: () => call<{ ok: boolean; count: number; broken_at?: number }>("GET", "/events/verify"),
+  /** One page of the chain, newest first: up to 500 entries below `before` (0 reads the newest page). */
+  eventsBefore: (before = 0) => call<CrEvent[]>("GET", `/events?before=${before}`),
   verifyRecords: () => call<RecordsVerification>("GET", "/records/verify"),
   recordsHead: () => call<{ head: ChainHead | null }>("GET", "/records/head"),
   personVerifications: (id: string) => call<PersonVerificationEntry[]>("GET", `/packages/${enc(id)}/person-verifications`),

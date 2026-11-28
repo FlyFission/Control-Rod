@@ -22,7 +22,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
@@ -109,7 +108,7 @@ func daemon(args []string) int {
 		Home:      home,
 		Parallel:  *parallel,
 		Timeout:   *timeout,
-		Runtimes:  runner.Detect(exec.LookPath, os.Getenv),
+		Runtimes:  runner.Detect(runner.LookPathAgent, os.Getenv),
 		Version:   version.Version,
 		Logger:    logger,
 		// A fresh install creates its key here, so its checks can count with no extra step.

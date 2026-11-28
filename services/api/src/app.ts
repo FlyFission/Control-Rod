@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
@@ -20,7 +20,7 @@ import {
 import type { Db } from "./db/index.js";
 import { enrollFirstDaemonKey } from "./run-attestation.js";
 import { command } from "./commands/executor.js";
-import { bus, eventPosition, listEvents, verifyOrganizationEvents } from "./events.js";
+import { STREAM_MAX, bus, eventPosition, listEvents, listEventsBefore, verifyOrganizationEvents } from "./events.js";
 import { verificationEvidence } from "./preparation/results.js";
 import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
@@ -115,8 +115,25 @@ export interface AppOptions {
   sweepSeconds?: number;
   /** The most missed events the stream replays on reconnect. Default STREAM_REPLAY_MAX. */
   streamReplayMax?: number;
+  /** The most event streams open at once. Default STREAM_MAX. */
+  streamMax?: number;
   /** Open a draft pull request when work bound to a repository checkout is accepted. Default on; CONTROLROD_PUBLISH_PULL_REQUESTS=0 turns it off. */
   publishPullRequests?: boolean;
+  /**
+   * A one-time code the very first passkey registration must carry. The server prints it and writes it
+   * to a file only the owner can read, so someone else who can reach the port (another account on the
+   * machine, or a proxy or tunnel in front of it) cannot claim the installation first. Unset, the
+   * first registration needs no code (tests).
+   */
+  setupCode?: string;
+  /** Called once the first passkey is registered, so the code's file can be removed. */
+  onSetupDone?: () => void;
+}
+
+/** Whether a typed setup code matches, ignoring case, spaces and dashes, compared in constant time. */
+export function setupCodeMatches(expected: string, typed: unknown): boolean {
+  const norm = (v: string) => createHash("sha256").update(v.replace(/[\s-]/g, "").toUpperCase()).digest();
+  return typeof typed === "string" && timingSafeEqual(norm(expected), norm(typed));
 }
 
 const OUTPUT_PATH = /^\/packages\/[^/?#]+\/(?:outputs\/|verification-evidence\/[^/?#]+\/)/;
@@ -179,8 +196,13 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (pgCode === "22P05" || pgCode === "22021") {
       return reply.code(400).send({ code: "invalid", message: "The text contains a null character (U+0000), which cannot be stored. Remove it and try again." });
     }
-    (opts.onError ?? ((e) => console.error("[control-rod] unhandled error:", e)))(err);
-    return reply.code(500).send({ code: "error", message: "Something went wrong; it is in the server log." });
+    // A short reference ties what the person sees to the one line in the log that explains it.
+    const ref = randomBytes(4).toString("hex");
+    (opts.onError ?? ((e) => console.error(`[control-rod] unhandled error (reference ${ref}):`, e)))(err);
+    return reply.code(500).send({
+      code: "error",
+      message: `Something went wrong on the server. Its log has the details under reference ${ref} (run controlrod logs to see it).`,
+    });
   });
 
   // Cookies ride along on requests other pages make, including pages on other localhost ports
@@ -258,7 +280,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   /* ---- auth ---- */
   app.get("/auth/session", async (req) => {
     const user = await sessionUser(db, req);
-    return { registered: await isRegistered(db), signed_in: user !== null, ...(user ? { user } : {}) };
+    const registered = await isRegistered(db);
+    return { registered, signed_in: user !== null, ...(user ? { user } : {}), ...(!registered && opts.setupCode ? { setup_code_required: true } : {}) };
   });
   /** Proves a signed-in person holds one of their passkeys right now, before they add another. */
   app.post("/auth/step-up/options", async (req) => {
@@ -271,8 +294,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
    * administrator's invitation; or a signed-in Member adding one to their own account, signed with
    * a passkey they already hold. Nothing else registers.
    */
-  app.post<{ Body: { name?: string; invitation?: string; step_up?: Record<string, unknown> } }>("/auth/register/options", async (req) => {
+  app.post<{ Body: { name?: string; invitation?: string; step_up?: Record<string, unknown>; setup_code?: string } }>("/auth/register/options", async (req) => {
     if (!(await isRegistered(db))) {
+      if (opts.setupCode && !setupCodeMatches(opts.setupCode, req.body?.setup_code))
+        throw new Refusal(403, "setup-code", "Type the setup code Control Rod printed when it started. It is also in the file setup-code in Control Rod's folder.");
       const name = String(req.body?.name ?? "owner").slice(0, 60) || "owner";
       return { options: await registrationOptions(db, auth, name, { kind: "first" }) };
     }
@@ -303,6 +328,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     }
     if (!registered) throw new Refusal(400, "invalid", "Passkey registration failed");
     const { user, credentialId } = registered;
+    opts.onSetupDone?.();
     await startSession(db, reply, user, credentialId, secureSessionCookie).catch(() => { throw new Refusal(403, "member-inactive", "This membership is not active"); });
     return { registered: true, signed_in: true, user };
   });
@@ -786,8 +812,13 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- events ---- */
-  app.get<{ Querystring: { after?: string } }>("/events", async (req) => {
+  app.get<{ Querystring: { after?: string; before?: string } }>("/events", async (req) => {
     const caller = await callerFor(db, await person(req));
+    // `before` pages back from the newest entry (the Records page); `after` reads forward from a cursor.
+    if (req.query.before !== undefined) {
+      const before = Number(req.query.before);
+      return listEventsBefore(db, caller.orgId, Number.isSafeInteger(before) && before > 0 ? before : Number.MAX_SAFE_INTEGER);
+    }
     const after = Number(req.query.after ?? 0) || 0;
     return listEvents(db, caller.orgId, Number.isSafeInteger(after) && after >= 0 ? after : 0);
   });
@@ -808,10 +839,19 @@ export function buildApp(opts: AppOptions): FastifyInstance {
    * reader, because commit notifications from separate connections can arrive out of order.
    */
   const replayMax = opts.streamReplayMax ?? STREAM_REPLAY_MAX;
+  let openStreams = 0;
   app.get<{ Querystring: { after?: string } }>("/events/stream", async (req, reply) => {
     const caller = await callerFor(db, await person(req));
+    if (openStreams >= (opts.streamMax ?? STREAM_MAX))
+      return reply.code(503).send({ code: "too-many-streams", message: "Too many live views are open. Close some tabs, then reconnect." });
     const raw = req.headers["last-event-id"] ?? req.query.after;
     const after = raw === undefined || raw === "" ? undefined : Number(raw);
+    openStreams++;
+    let counted = true;
+    const uncount = () => {
+      if (counted) openStreams--;
+      counted = false;
+    };
     reply.hijack();
     const res = reply.raw;
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
@@ -864,8 +904,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       closed = true;
       clearInterval(ping);
       bus.off("event", onEvent);
+      uncount();
     };
     req.raw.on("close", cleanup);
+    if (req.raw.destroyed || res.destroyed) cleanup();
     try {
       const { head, pending } = await eventPosition(db, caller.orgId, after, replayMax + 1);
       if (closed || res.destroyed) return;

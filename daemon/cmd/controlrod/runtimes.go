@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -17,7 +16,7 @@ import (
 func runtimesCheck() int {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	found := runner.Detect(exec.LookPath, os.Getenv)
+	found := runner.Detect(runner.LookPathAgent, os.Getenv)
 	for _, st := range runner.CheckRuntimes(ctx, found) {
 		switch {
 		case st.Ready:

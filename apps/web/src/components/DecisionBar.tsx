@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { noteSigned, passkeyHint, signedToday } from "../lib/signing.js";
 import { explain } from "../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView } from "../api/types.js";
 import { decisionLabel, NEEDS_REASON, browserPasskeys, decide, type Passkeys } from "../lib/decide.js";
-import { shortDigest } from "../lib/format.js";
+import { shortDigest, versionLabel } from "../lib/format.js";
 import { useOfferedActions } from "../lib/offered.js";
 import { needsIndependentCheck } from "../lib/board.js";
 import { useActionLock } from "../lib/scramLock.js";
@@ -104,7 +105,7 @@ export function PasskeyHint({ d }: { d: DecisionSigner }) {
   if (descriptor?.signing_preset === undefined && descriptor?.step_mode === undefined) return null;
   return (
     <p className="small muted passkey-hint">
-      {passkeyHint(signedKind, decisionLabel(signedKind), descriptor.signing_preset, signedToday(signedKind))} <a href="/setup#signing">Change</a>
+      {passkeyHint(signedKind, decisionLabel(signedKind), descriptor.signing_preset, signedToday(signedKind))} <Link to="/setup" hash="signing">Change</Link>
     </p>
   );
 }
@@ -169,8 +170,8 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
             <dd className="mono">{pkg.id}</dd>
           </div>
           <div className="sign-readout-cell">
-            <dt>Bound revision</dt>
-            <dd className="mono">rev {pkg.revision}</dd>
+            <dt>Version</dt>
+            <dd className="mono">{versionLabel(pkg.revision)}</dd>
           </div>
           <div className="sign-readout-cell sign-readout-digest">
             <dt>Digest</dt>
@@ -185,7 +186,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
         <p className="binds small">{view.binds}</p>
       ) : (
         <p className="muted small">
-          A decision here signs revision {pkg.revision}, its output and its pre-check, bound by the digest above.
+          A decision here signs {versionLabel(pkg.revision)}, its output and its pre-check, bound by the digest above.
         </p>
       )}
       {actions.isLoading && <p className="muted small">Checking what you may sign</p>}

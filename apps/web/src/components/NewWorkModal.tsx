@@ -418,7 +418,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     const body = `${header}\n\n${trimmed}`;
     if (body.length > CAPTURE_LIMIT) {
       setError(
-        `Too long for one capture (${body.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters, including metadata header). Shorten the objective or project name.`,
+        `Too long for one capture (${body.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters, counting the project and settings line added to it). Shorten the objective or project name.`,
       );
       return;
     }
@@ -479,11 +479,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           <div className="cr-defaults-summary muted">
             <span>
               Author · {ecosystemById(author.ecosystem).label} ·{" "}
-              {agentsChosen.author ? (author.model === "default" ? "CLI default" : author.model) : "board column pick"}
+              {agentsChosen.author ? (author.model === "default" ? "CLI default" : author.model) : "set by the board column"}
             </span>
             <span>
               Checker · {ecosystemById(checker.ecosystem).label} ·{" "}
-              {agentsChosen.checker ? (checker.model === "default" ? "CLI default" : checker.model) : "board column pick"}
+              {agentsChosen.checker ? (checker.model === "default" ? "CLI default" : checker.model) : "set by the board column"}
             </span>
           </div>
           {grade === "safety" && <span className="cr-warn-text">{copy.specialGrade.label}</span>}
@@ -501,8 +501,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           )}
           {!independent && (
             <p className="cr-warn-text" role="status" style={{ margin: 0 }}>
-              O6 Notice: Author and Checker share the {ecosystemById(author.ecosystem).cliCommand} CLI.
-              Independent runtime or owner override required before acceptance.
+              The author and the checker both use {ecosystemById(author.ecosystem).label}. Before this can be accepted, pick a
+              checker from another vendor, or the owner records an override.
             </p>
           )}
         </section>

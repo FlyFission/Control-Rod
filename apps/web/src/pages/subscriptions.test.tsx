@@ -5,7 +5,7 @@ import axe from "axe-core";
 import type { SubscriptionView } from "../api/types.js";
 import { renderPage } from "../test/render.js";
 import { server } from "../test/server.js";
-import { Subscriptions } from "./Subscriptions.js";
+import { ProviderDetails } from "./Subscriptions.js";
 
 const digest = (value: string) => ({ algorithm: "sha256" as const, value });
 
@@ -82,7 +82,7 @@ async function expectClean(container: HTMLElement) {
 describe("subscriptions", () => {
   it("shows the daemon's probes, pins, checker list and tiers, and has no token field", async () => {
     serve(view());
-    const { container } = await renderPage(<Subscriptions />);
+    const { container } = await renderPage(<ProviderDetails />);
     const table = await screen.findByRole("table", { name: "Provider CLIs" });
     const claude = row(table, "Claude Code");
     expect(claude.textContent).toContain("Installed");
@@ -110,7 +110,7 @@ describe("subscriptions", () => {
   it("does not invent a probe when the daemon has not reported", async () => {
     const { reported_at: _reportedAt, platform: _platform, ...rest } = view();
     serve({ ...rest, reported: false, probes: [], checkers: [], pins: [] });
-    const { container } = await renderPage(<Subscriptions />);
+    const { container } = await renderPage(<ProviderDetails />);
     expect(await screen.findByText(/No daemon has reported yet/)).toBeTruthy();
     expect(screen.queryByText("Claude Code")).toBeNull();
     expect(screen.queryByText("Codex")).toBeNull();
@@ -120,7 +120,7 @@ describe("subscriptions", () => {
 
   it("says when the probes could not be loaded", async () => {
     serve({ status: 500 });
-    const { container } = await renderPage(<Subscriptions />);
+    const { container } = await renderPage(<ProviderDetails />);
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText("Claude Code")).toBeNull();
     await expectClean(container);

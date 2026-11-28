@@ -625,7 +625,9 @@ func bubblewrapWorks(lookPath func(string) (string, error)) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, bwrap, "--unshare-user", "--unshare-net", "--ro-bind", "/", "/", "--dev", "/dev", "true").CombinedOutput()
+	probe := exec.CommandContext(ctx, bwrap, "--unshare-user", "--unshare-net", "--ro-bind", "/", "/", "--dev", "/dev", "true")
+	probe.WaitDelay = probeWaitDelay
+	out, err := probe.CombinedOutput()
 	if err == nil {
 		return nil
 	}
@@ -873,6 +875,8 @@ func CodexEffectiveFeatures(ctx context.Context, off []string) (string, error) {
 	defer cancel()
 	cmd := exec.CommandContext(c, a.Path, args...)
 	cmd.Env = withEnv(append(AgentEnv(os.Environ()), a.Env...), "CODEX_HOME="+tmp)
+	// As for every probe: a helper holding the output pipe never keeps this past its timeout.
+	cmd.WaitDelay = probeWaitDelay
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

@@ -24,6 +24,8 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
   // Normally taken at startup (capture-invitation.ts); taking it again here is harmless.
   const [invitation] = useState(() => (captureInvitation(), heldInvitation()));
   const [name, setName] = useState("");
+  const [setupCode, setSetupCode] = useState("");
+  const needsCode = session.setup_code_required === true;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
 
   const register = () =>
     run(async () => {
-      const { options } = await api.registerOptions(name.trim());
+      const { options } = await api.registerOptions(name.trim(), needsCode ? setupCode.trim() : undefined);
       const credential = await passkeys.create(options);
       return api.registerVerify(credential);
     });
@@ -125,7 +127,7 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!busy && name.trim().length > 0) void register();
+              if (!busy && name.trim().length > 0 && (!needsCode || setupCode.trim().length > 0)) void register();
             }}
           >
             <h1>Set up this machine</h1>
@@ -136,10 +138,28 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
               <span>Your name</span>
               <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
             </label>
+            {needsCode && (
+              <>
+                <label className="field">
+                  <span>Setup code</span>
+                  <input
+                    value={setupCode}
+                    onChange={(e) => setSetupCode(e.target.value)}
+                    autoComplete="one-time-code"
+                    spellCheck={false}
+                    aria-describedby="setup-code-help"
+                  />
+                </label>
+                <p id="setup-code-help" className="small muted">
+                  Control Rod printed it in the terminal when it started. It is also in the file setup-code in Control Rod's folder
+                  (~/.controlrod unless you moved it). It keeps anyone else who can reach this page from setting it up first.
+                </p>
+              </>
+            )}
             <button
               type="submit"
               className="btn primary"
-              disabled={busy || name.trim().length === 0}
+              disabled={busy || name.trim().length === 0 || (needsCode && setupCode.trim().length === 0)}
             >
               {busy ? "Waiting for your passkey" : "Register passkey"}
             </button>

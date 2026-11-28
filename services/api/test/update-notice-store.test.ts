@@ -4,6 +4,25 @@ import { join } from "node:path";
 import { expect, test } from "vitest";
 import { updateNoticeFor } from "../src/update-notice.js";
 
+/**
+ * Whether the process has ended within a few seconds. A killed process whose parent is gone can
+ * linger as a zombie until something reaps it (in a container whose first process does not reap,
+ * that is never), and signal 0 still reaches a zombie. On Linux its state letter Z counts as ended.
+ */
+async function stopped(pid: number): Promise<boolean> {
+  for (let i = 0; i < 60; i++) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return true;
+    }
+    const stat = await readFile(`/proc/${pid}/stat`, "utf8").catch(() => "");
+    if (/\) Z /.test(stat)) return true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return false;
+}
+
 test("ignores records for other launches and shares an active check with readers and callers", async () => {
   const root = await mkdtemp(join(tmpdir(), "controlrod-notice-"));
   try {
@@ -60,8 +79,7 @@ test("stops a stalled check at its deadline and never shows an older result as f
     expect(result).toMatchObject({ running_commit: running, error: "Could not check for updates." });
     expect(await store.read()).toEqual(result);
     const grandchild = Number(await readFile(pidFile, "utf8"));
-    await new Promise((r) => setTimeout(r, 100));
-    expect(() => process.kill(grandchild, 0)).toThrow();
+    expect(await stopped(grandchild)).toBe(true);
 
     const fails = join(root, "fails.mjs");
     await writeFile(fails, "process.exit(1);");

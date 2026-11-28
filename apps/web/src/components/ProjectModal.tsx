@@ -212,7 +212,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
             )}
           </label>
           <label className="field">
-            <span>Default outfall strategy</span>
+            <span>Where agents work</span>
             <select value={repoStrategy} onChange={(e) => setRepoStrategy(e.target.value as RepoOutfallStrategy)}>
               <option value="worktree">New git worktree (Recommended)</option>
               <option value="fresh-clone">Fresh local clone</option>

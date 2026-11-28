@@ -129,7 +129,7 @@ describe("Wave 3/4 workbench pages", () => {
     fail = false;
     await user.click(screen.getByRole("button", { name: /Try again/i }));
 
-    expect(await screen.findByText(/In review \(1\)/i)).toBeTruthy();
+    expect(await screen.findByText(/Still open \(1\)/i)).toBeTruthy();
     expect(await screen.findByRole("link", { name: /Bridge Load Calculation.*run-example/ })).toHaveProperty("hash", "#run-run-example");
     expect(screen.queryByText("API Hardening")).toBeNull();
     expect(screen.queryByText("Settled Calculation")).toBeNull();

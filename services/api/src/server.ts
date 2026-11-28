@@ -1,12 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import EmbeddedPostgres from "embedded-postgres";
 import { preparationConfig } from "./preparation/config.js";
 import { buildApp } from "./app.js";
-import { hashToken } from "./auth.js";
+import { hashToken, isRegistered } from "./auth.js";
 import { closeDb, openDb } from "./db/index.js";
 import { localRoleSecrets, privateDir, privateFile } from "./db/roles.js";
 import { loadTrustAnchors } from "./attestation.js";
@@ -109,6 +109,23 @@ writeFileSync(cliTokenTmp, cliToken, { mode: 0o600 });
 chmodSync(cliTokenTmp, 0o600);
 renameSync(cliTokenTmp, cliTokenPath);
 
+// Until the first passkey is registered, registering it needs a one-time setup code that only the
+// person who started Control Rod can read: printed below and written to a file only they can open.
+// Anyone else who can reach the port (another account on this machine, a proxy or tunnel in front of
+// it) cannot claim the installation first. A new code each start; the file goes once a passkey exists.
+const setupCodePath = join(home, "setup-code");
+let setupCode: string | undefined;
+if (!(await isRegistered(db))) {
+  const raw = randomBytes(8).toString("hex").toUpperCase();
+  setupCode = `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}-${raw.slice(12)}`;
+  const setupTmp = `${setupCodePath}.tmp.${process.pid}`;
+  writeFileSync(setupTmp, `${setupCode}\n`, { mode: 0o600 });
+  chmodSync(setupTmp, 0o600);
+  renameSync(setupTmp, setupCodePath);
+} else {
+  rmSync(setupCodePath, { force: true });
+}
+
 const origin = process.env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`;
 const sourceConfigPath=process.env.CONTROLROD_PREPARATION_CONFIG;
 const sourceConfig=sourceConfigPath?preparationConfig(readFileSync(sourceConfigPath,"utf8")):{};
@@ -119,6 +136,7 @@ const app = buildApp({
   root,
   webDir: join(root, "apps", "web", "dist"),
   updateNotice,
+  ...(setupCode ? { setupCode, onSetupDone: () => rmSync(setupCodePath, { force: true }) } : {}),
   guidedPreparation: process.env.CONTROLROD_GUIDED_PREPARATION === "1",
   preparedRelease: process.env.CONTROLROD_PREPARED_RELEASE === "1",
   auth: {
@@ -150,3 +168,4 @@ onLauncherGone = stop;
 await app.listen({ host: "127.0.0.1", port });
 void updateNotice?.check();
 console.log(`Control Rod is running at ${origin}`);
+if (setupCode) console.log(`To set it up, open it and type this setup code: ${setupCode} (also saved in ${setupCodePath})`);

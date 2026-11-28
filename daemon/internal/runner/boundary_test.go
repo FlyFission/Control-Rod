@@ -104,3 +104,12 @@ func TestRunCeilingCoversTheTimeoutAndTheStopLadder(t *testing.T) {
 		t.Fatalf("RunCeiling = %v, want %v", got, want)
 	}
 }
+
+// TestTheClientHasACeilingAboveEveryCallLimit: a request with no deadline of its own still ends,
+// and the ceiling never cuts a call short of the limit it sets itself (DMN-31).
+func TestTheClientHasACeilingAboveEveryCallLimit(t *testing.T) {
+	c := NewClient("http://127.0.0.1:1", "token")
+	if c.http.Timeout <= 5*time.Minute {
+		t.Fatalf("client timeout %v; want a ceiling above the 5 minute completion limit", c.http.Timeout)
+	}
+}

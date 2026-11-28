@@ -15,12 +15,13 @@ import (
 	"time"
 
 	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
+	"github.com/flyfission/control-rod/daemon/internal/runner"
 )
 
 // hostEnv is the real host for an agent update check.
 func hostEnv() agentupdate.Env {
 	return agentupdate.Env{
-		LookPath:     exec.LookPath,
+		LookPath:     runner.LookPathAgent,
 		EvalSymlinks: filepath.EvalSymlinks,
 		Stat:         os.Stat,
 		Version: func(ctx context.Context, path string) (string, error) {

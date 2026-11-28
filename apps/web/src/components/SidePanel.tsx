@@ -162,6 +162,48 @@ export function SidePanel({ label, onClose, autoFocus = true, children }: { labe
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [top, onClose]);
+  // Over the page (a narrow window) the panel is a modal dialog: Tab and Shift+Tab stay inside it
+  // until it closes. Beside the page it is a pane the person works next to, so focus moves freely.
+  const modal = host !== null && top && !host.docked;
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = frame.current;
+      if (e.key !== "Tab" || !el || document.querySelector("dialog[open], .palette")) return;
+      const items = focusables(el);
+      if (items.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement;
+      if (!el.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [modal]);
+  // Closing gives focus back to what had it when the panel opened (the card or button clicked), when
+  // focus was in the panel or nowhere, so keyboard users keep their place on the page.
+  const opener = useRef<Element | null>(typeof document === "undefined" ? null : document.activeElement);
+  useEffect(
+    () => () => {
+      const back = opener.current;
+      const active = document.activeElement;
+      const lost = !active || active === document.body || !active.isConnected || frame.current?.contains(active) === true;
+      if (lost && back instanceof HTMLElement && back.isConnected) back.focus();
+    },
+    [],
+  );
   // The content mounts a moment after its owner (once the slot is on the page), so an owner's own
   // focus-on-mount finds nothing yet: move focus in here, the first time the content shows.
   const shown = !host || (top && host.attached);
@@ -175,7 +217,15 @@ export function SidePanel({ label, onClose, autoFocus = true, children }: { labe
   }, [shown, autoFocus]);
   const body = (
     <ActiveCtx.Provider value={top}>
-      <div ref={frame} className="side-panel" hidden={!top} data-docked={host?.docked ? "" : undefined}>
+      <div
+        ref={frame}
+        className="side-panel"
+        hidden={!top}
+        data-docked={host?.docked ? "" : undefined}
+        role={modal ? "dialog" : "region"}
+        aria-modal={modal ? true : undefined}
+        aria-label={label}
+      >
         {children}
       </div>
     </ActiveCtx.Provider>
@@ -183,6 +233,13 @@ export function SidePanel({ label, onClose, autoFocus = true, children }: { labe
   if (!host) return body;
   // Every owner stays mounted in the slot; only the top one is visible.
   return host.attached ? createPortal(body, host.slot) : null;
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+/** The panel's keyboard stops, in page order, leaving out hidden ones. */
+function focusables(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => !x.closest("[hidden], [inert]"));
 }
 
 /** While mounted, the panel takes its widest size (it returns to the person's width after). */

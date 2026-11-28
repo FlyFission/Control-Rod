@@ -138,7 +138,7 @@ function AgentItem({
         <p className="agent-status small" id={`${id}-status`}>
           {row.status}
         </p>
-        {row.fix && <FixCommand command={row.fix} label={row.state === "signed-out" ? "To sign in, run" : "To install, run"} />}
+        {row.fix && <FixCommand command={row.fix} install={row.state !== "signed-out"} />}
       </div>
       <div className="seat-foot">
         {runs !== null && (
@@ -170,7 +170,11 @@ function AgentItem({
   );
 }
 
-function FixCommand({ command, label }: { command: string; label: string }) {
+function FixCommand({ command, install }: { command: string; install: boolean }) {
+  const label = install ? "To install, run" : "To sign in, run";
+  // The daemon looks for agents when it starts and checks the ones it found every few minutes, so a
+  // sign-in shows up on its own while a new install needs a restart (as the Board's notice says).
+  const after = install ? " in a terminal, then restart Control Rod with pnpm cr start so it finds the new agent." : " in a terminal. Control Rod checks again within a few minutes.";
   const [result, setResult] = useState<"" | "copied" | "failed">("");
   const copy = () => {
     const done = navigator.clipboard?.writeText(command);
@@ -187,7 +191,7 @@ function FixCommand({ command, label }: { command: string; label: string }) {
       <button type="button" className="btn small" aria-label={`Copy ${command}`} onClick={copy}>
         Copy
       </button>
-      <span className="muted"> in a terminal. Control Rod checks again within a few minutes.</span>{" "}
+      <span className="muted">{after}</span>{" "}
       <span role="status" className={result === "failed" ? "error" : "muted"}>
         {result === "copied" ? "Copied." : result === "failed" ? "Couldn't copy here. Select the command and copy it by hand." : ""}
       </span>

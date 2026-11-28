@@ -148,7 +148,7 @@ pnpm cr link          # installs the controlrod command (once)
 controlrod start      # checks your setup, builds, starts in the background and opens your browser
 ```
 
-Choose **Set up this machine**, register a passkey, confirm your seated agents, and land on the Board. `controlrod stop` stops everything cleanly; your data stays in `~/.controlrod`. To preview the standalone interactive landing page locally, run `node scripts/serve-site.mjs` (`http://localhost:7310`).
+Choose **Set up this machine**, type the setup code that `controlrod start` printed, register a passkey, confirm your seated agents, and land on the Board. `controlrod stop` stops everything cleanly; your data stays in `~/.controlrod`. To preview the standalone interactive landing page locally, run `node scripts/serve-site.mjs` (`http://localhost:7310`).
 
 After that:
 

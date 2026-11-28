@@ -9,7 +9,7 @@ import type { ActionDescriptor, AdminView, RuntimePin, RuntimeStatus } from "../
 import { Shell } from "../components/Shell.js";
 import { Policies } from "../pages/Policies.js";
 import { Registers } from "../pages/Registers.js";
-import { Roster } from "../pages/Roster.js";
+import { RosterDetails } from "../pages/Roster.js";
 import { filterPackages } from "../pages/Packages.js";
 import { PlaceError } from "../router.js";
 import { DIGEST, pkg } from "../test/fixtures.js";
@@ -295,14 +295,14 @@ describe("places", () => {
     const runtimes: RuntimeStatus[] = [{ runtime: "claude", ready: true, version: "2.1.0", login_checked: false, artifact: { path: "/opt/claude", digest: { algorithm: "sha256", value: "b".repeat(64) } } }];
     const pins: RuntimePin[] = [{ id: "pin_1", org_id: "org_local", role: "author", runtime: "claude", artifact_version_id: "rav_1", artifact_digest: DIGEST, status: "active" }];
     server.use(http.get("*/runtimes", () => HttpResponse.json({ runtimes, pins })));
-    await renderPage(<Roster />);
+    await renderPage(<RosterDetails />);
     expect(await screen.findByText("/opt/claude")).toBeTruthy();
     expect(screen.getByText(/installed claude is a different version, so author work waits/)).toBeTruthy();
   });
 
   it("never claims nothing is pinned when the runtimes could not be loaded", async () => {
     server.use(http.get("*/runtimes", () => HttpResponse.json({ code: "error", message: "down" }, { status: 500 })));
-    await renderPage(<Roster />);
+    await renderPage(<RosterDetails />);
     expect(await screen.findByText("The runtimes could not be loaded.")).toBeTruthy();
     expect(screen.getByText("Pins are unknown until the runtimes load.")).toBeTruthy();
     expect(screen.queryByText(/Nothing is pinned/)).toBeNull();

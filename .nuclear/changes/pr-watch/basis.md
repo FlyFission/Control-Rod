@@ -15,7 +15,14 @@ Found by the 2026-11-28 repo-siphon run over 23 inspiration repositories: 11 of 
 
 1. `spec/api.tsp`: an optional `watch` on `PackagePullRequest` (model `PullRequestWatch`: state open, merged or closed; checks passing, failing, pending or none; read_at). Additive, not a major version. Generated files regenerated.
 2. `services/api/src/repos.ts` `readPullRequestFacts`: `gh pr view <link> --json state,statusCheckRollup`, pinned to github.com, refusing anything that is not a plain pull request link.
-3. `services/api/src/pr-watch.ts`: maps gh's answer to the fixed words and caches it in memory. An open pull request is re-read after five minutes, a failed read after one minute. Merged or closed is not read again. A package view waits at most two seconds for a read in flight. All three are proposed settings, named constants, not measured values.
+3. `services/api/src/pr-watch.ts`: maps gh's answer to the fixed words and caches it in memory. The cache works like this:
+   - An open pull request is re-read after five minutes.
+   - One with no checks yet, or a failed read, is re-read after one minute.
+   - Merged or closed is not read again.
+   - A reading already in hand is answered at once while it refreshes, and only a first read waits, at most two seconds.
+   - A reading that cannot be renewed for thirty minutes is dropped.
+
+   All of these are proposed settings, named constants, not measured values.
 4. `work.ts` pullRequestOf adds `watch` to an opened pull request when it can be read.
 5. Web: `acceptedLine` in `lib/next.ts` (ready or failing is Needs you, running is Waiting, merged or closed is ok, unread is Accepted), and `PullRequestLine` says the state and when it was checked, and keeps the link.
 

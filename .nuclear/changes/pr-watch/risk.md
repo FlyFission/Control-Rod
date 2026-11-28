@@ -3,7 +3,8 @@
 - R-01: a new recurring outbound read from the API to GitHub, through the same gh sign-in, host and program that already open the pull request. It is read-only, made only when someone views a card with an opened pull request, at most once per pull request per five minutes, and never after it merges or closes.
 - R-02: text from GitHub reaching the owner or an agent. Only `state` and the check rollup's status words are requested. They are mapped through fixed lists, and anything unknown counts as still running, never as passing. Nothing else is kept, and nothing reaches an agent.
 - R-03: a stale reading mistaken for a fresh one. The pull request line shows when it was checked.
-- R-04: a slow GitHub slows the package view. The view waits at most two seconds and then answers without the reading. The read has its own eight-second timeout.
+- R-04: a slow GitHub slows the package view. Only a card's first read waits, for at most two seconds; later refreshes run behind the last reading. The read has its own eight-second timeout.
+- R-06: a reading that can no longer be renewed (gh signed out) would go stale. It is dropped after thirty minutes, and the line goes back to "Accepted".
 - R-05: the cache is per API process and is lost on restart. The next view reads again.
 - Trust surface: `spec/api.tsp` gains optional fields only (not a major version, AGENTS rule 2). `/spec/` is under CODEOWNERS, so the owner's merge-on-green permission is the recorded yes for this additive change.
 

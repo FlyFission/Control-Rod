@@ -12,6 +12,8 @@ export type PullRequestWatch = components["schemas"]["PullRequestWatch"];
 export const WATCH_FRESH_MS = 5 * 60_000;
 /** How soon a read that failed is tried again. A proposed setting, not a measured value. */
 export const WATCH_RETRY_MS = 60_000;
+/** How long an open pull request's reading is still shown when it cannot be renewed. A proposed setting. */
+export const WATCH_STALE_MS = 30 * 60_000;
 /** How long a package view waits for a read in flight before it answers without one. A proposed setting. */
 export const WATCH_WAIT_MS = 2_000;
 
@@ -66,17 +68,32 @@ export class PullRequestWatcher {
       this.entries.set(url, entry);
       e = entry;
     }
-    if (e.inflight) await Promise.race([e.inflight, new Promise((r) => setTimeout(r, WATCH_WAIT_MS).unref?.())]);
+    // A reading already in hand is answered at once while it refreshes; only a first read is waited for.
+    if (e.inflight && !e.watch) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([e.inflight, new Promise<void>((r) => { timer = setTimeout(r, WATCH_WAIT_MS); })]);
+      clearTimeout(timer);
+    }
     return e.watch ?? undefined;
+  }
+
+  /** A reading that could not be renewed for a while is dropped, so the card goes back to "Accepted". */
+  private forgetIfOld(e: Entry): void {
+    if (e.watch && e.watch.state === "open" && this.now() - Date.parse(e.watch.read_at) >= WATCH_STALE_MS) e.watch = null;
   }
 
   private async refresh(url: string, e: Entry): Promise<void> {
     try {
       const w = watchFromFacts(await this.read(url), new Date(this.now()));
       if (w) e.watch = w;
-      // A merged or closed pull request does not change back, so it is not read again.
-      e.until = w ? (w.state === "open" ? this.now() + WATCH_FRESH_MS : Number.POSITIVE_INFINITY) : this.now() + WATCH_RETRY_MS;
+      else this.forgetIfOld(e);
+      // A merged or closed pull request does not change back, so it is not read again. An open one
+      // with no checks yet is read again soon: its checks may not have registered.
+      e.until = !w ? this.now() + WATCH_RETRY_MS
+        : w.state !== "open" ? Number.POSITIVE_INFINITY
+        : this.now() + (w.checks === "none" ? WATCH_RETRY_MS : WATCH_FRESH_MS);
     } catch {
+      this.forgetIfOld(e);
       e.until = this.now() + WATCH_RETRY_MS;
     } finally {
       delete e.inflight;

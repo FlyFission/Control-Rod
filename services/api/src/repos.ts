@@ -1831,7 +1831,8 @@ export function repoRoutes(
  * plain https://github.com/<owner>/<repo>/pull/<n> link is read; anything else is refused.
  */
 export async function readPullRequestFacts(url: string, timeout = 8_000): Promise<string> {
-  if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/[0-9]+$/.test(url)) throw new Error("not a GitHub pull request link");
+  const m = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/[1-9][0-9]*$/.exec(url);
+  if (!m || /^\.+$/.test(m[1]!) || /^\.+$/.test(m[2]!)) throw new Error("not a GitHub pull request link");
   return gh(["pr", "view", url, "--json", "state,statusCheckRollup"], { timeout, host: "github.com" });
 }
 

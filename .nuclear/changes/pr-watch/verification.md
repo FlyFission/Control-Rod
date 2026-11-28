@@ -1,10 +1,10 @@
 # Verification: Pull request state on accepted cards
 
 - E-01: `tsc --noEmit` passes for services/api and apps/web.
-- E-02: `tools/test-api.mjs` (PostgreSQL 16, cloud container): pr-watch and signing-policy, 35 tests pass (6 new unit tests, 1 new integration test).
+- E-02: `tools/test-api.mjs` (PostgreSQL 16, cloud container): pr-watch and signing-policy, 36 tests pass (7 new unit tests, 1 new integration test).
 - E-03: web `vitest run` over lib/next, features/board and components: 404 tests pass (3 new tests in pull-request-line, 2 new in next).
 - Not covered: a live `gh pr view` against GitHub. The container has no GitHub sign-in.
-- Blind check: the repository's automatic Codex review on the PR.
+- Blind check: the Codex review on the PR could not run (its review quota was used up). A separate Claude Sonnet reviewer read the diff blind and found no high-severity defects. Its five medium and low findings are fixed: latency on refresh, the no-checks-yet window, stale readings, pull request number zero and dot-only path segments.
 
 ## Evidence custody and coupling
 

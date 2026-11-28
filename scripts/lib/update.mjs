@@ -114,17 +114,20 @@ export class UpdateError extends Error {
 
 /**
  * deps: { git, install(): boolean | Promise<boolean>, build(): boolean | Promise<boolean>, stop(): Promise<{wasRunning, mode} | null>,
- *         restart({mode}): Promise<number|void>, log }. stop resolves null when a running copy
+ *         restart({mode}): Promise<number|void>, log, me? }. me is the command name messages use
+ *         ("controlrod" when omitted, "pnpm cr" inside the checkout). stop resolves null when a running copy
  * could not be stopped (nothing has changed then). Returns an exit code.
  */
 export async function update(root, opts, deps) {
   const { check = false, restart = true } = opts;
   const { git, log, notice } = deps;
+  // The command the person typed: `controlrod` once linked, `pnpm cr` inside the checkout.
+  const me = deps.me ?? "controlrod";
   const short = (sha) => sha.slice(0, 7);
 
   // 1. Look before touching anything.
   const inside = git(["rev-parse", "--is-inside-work-tree"]);
-  if (inside.missing) throw new UpdateError("git is not installed. Install git, then run `controlrod update` again.");
+  if (inside.missing) throw new UpdateError(`git is not installed. Install git, then run \`${me} update\` again.`);
   const top = git(["rev-parse", "--show-toplevel"]);
   const notClone = () =>
     new UpdateError(`${root} is not a git clone, so it cannot be updated in place. Download it again with:\n  git clone https://github.com/FlyFission/Control-Rod.git`);
@@ -155,11 +158,11 @@ export async function update(root, opts, deps) {
   if (!branch.ok || branch.out !== BRANCH) {
     throw new UpdateError(
       `This copy is on ${branch.ok ? `branch "${branch.out}"` : "a detached commit"}, not ${BRANCH}. Updates follow ${BRANCH}.\n` +
-        `Switch with \`git -C ${root} switch ${BRANCH}\`, then run \`controlrod update\` again.`,
+        `Switch with \`git -C ${root} switch ${BRANCH}\`, then run \`${me} update\` again.`,
     );
   }
   const release = check ? async () => undefined : await takeLock(gitDir);
-  if (!release) throw new UpdateError("Another `controlrod update` is running for this copy. Let it finish, then try again.");
+  if (!release) throw new UpdateError(`Another \`${me} update\` is running for this copy. Let it finish, then try again.`);
   // The restart happens after the lock is released: a restart in this terminal runs until the
   // person stops it, and must not hold up the next update.
   let after;
@@ -172,7 +175,7 @@ export async function update(root, opts, deps) {
   const code = await deps.restart({ mode: after.mode });
   if (after.updated && typeof code === "number" && code !== 0) {
     // The new version stays: once it has started, its database may already be upgraded.
-    log("\nThe new version is installed but did not start. See `controlrod logs` and `controlrod doctor`.");
+    log(`\nThe new version is installed but did not start. See \`${me} logs\` and \`${me} doctor\`.`);
   }
   return after.failed ? 1 : typeof code === "number" ? code : 0;
 
@@ -204,7 +207,7 @@ export async function update(root, opts, deps) {
         `This copy has commits of its own that are not on ${BRANCH}, so it cannot simply move forward. Nothing was changed.\n` +
           `See them with \`git -C ${root} log origin/${BRANCH}..HEAD\`. To keep them on a branch and move ${BRANCH} on,\n` +
           `first commit or stash any uncommitted edits (\`git status\` shows them), then:\n` +
-          `  cd ${root} && git branch my-work && git reset --keep origin/${BRANCH} && controlrod setup`,
+          `  cd ${root} && git branch my-work && git reset --keep origin/${BRANCH} && ${me} setup`,
       );
     }
     const listed = resume ? null : git(["log", "--oneline", "--no-decorate", `${old}..${target}`]);
@@ -212,10 +215,10 @@ export async function update(root, opts, deps) {
     const changes = listed?.out.split("\n").filter(Boolean) ?? [];
     if (check) {
       notice?.report(target, changes.length);
-      log(resume ? "The last update did not finish; `controlrod update` finishes it." : `${changes.length} new change${changes.length === 1 ? "" : "s"} on ${BRANCH}:`);
+      log(resume ? `The last update did not finish; \`${me} update\` finishes it.` : `${changes.length} new change${changes.length === 1 ? "" : "s"} on ${BRANCH}:`);
       for (const c of changes.slice(0, 15)) log(`  ${c}`);
       if (changes.length > 15) log(`  ...and ${changes.length - 15} more`);
-      if (changes.length) log("Run `controlrod update` to install them.");
+      if (changes.length) log(`Run \`${me} update\` to install them.`);
       return 0;
     }
     const dirty = git(["status", "--porcelain", "--untracked-files=no"]).out;
@@ -273,7 +276,7 @@ export async function update(root, opts, deps) {
         const tracked = git(["ls-files", "-z"]);
         if (!listed.ok || !tracked.ok) {
           writeState({ pending: head, from: good });
-          log("Not going back automatically: could not list what that would change. Run `controlrod update` again.");
+          log(`Not going back automatically: could not list what that would change. Run \`${me} update\` again.`);
           return 1;
         }
         const known = new Set();
@@ -305,7 +308,7 @@ export async function update(root, opts, deps) {
           const others = git(["ls-files", "--others", "-z", "--", ...changed.slice(i, i + 200).map((c) => `:(literal)${c}`)]);
           if (!others.ok) {
             writeState({ pending: head, from: good });
-            log("Not going back automatically: could not list what that would change. Run `controlrod update` again.");
+            log(`Not going back automatically: could not list what that would change. Run \`${me} update\` again.`);
             return 1;
           }
           for (const o of others.out.split("\0").filter(Boolean)) kept.add(o);
@@ -315,7 +318,7 @@ export async function update(root, opts, deps) {
           log(
             `Not going back automatically: that would replace files you keep here that git does not track:\n` +
               [...kept].slice(0, 10).map((f) => `  ${f}`).join("\n") +
-              `\nMove them somewhere safe, then run \`controlrod update\` again.`,
+              `\nMove them somewhere safe, then run \`${me} update\` again.`,
           );
           return 1;
         }
@@ -328,7 +331,7 @@ export async function update(root, opts, deps) {
         writeState({ pending: git(["rev-parse", "HEAD"]).out, from: good });
         log(
           `Could not rebuild the earlier version either. Your records in ~/.controlrod are untouched.\n` +
-            `Run \`controlrod update\` again once the problem above is fixed.`,
+            `Run \`${me} update\` again once the problem above is fixed.`,
         );
         return 1;
       }
@@ -360,7 +363,7 @@ export async function update(root, opts, deps) {
     if (changes.length > 15) log(`  ...and ${changes.length - 15} more`);
     if (stashed) log(`Your edits are set aside. To get them back: cd ${root} && git stash pop`);
     if (running.wasRunning && restart) return { mode: running.mode, updated: true };
-    log(running.wasRunning ? "Start it again with `controlrod start`." : "Start it with `controlrod start`.");
+    log(running.wasRunning ? `Start it again with \`${me} start\`.` : `Start it with \`${me} start\`.`);
     return 0;
   }
 }

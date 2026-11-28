@@ -56,12 +56,16 @@ controlrod check \
 ```yaml
 jobs:
   blind-check:
-    runs-on: ubuntu-latest
+    # Pull requests from forks skip the job (see the fork note below).
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    # A self-hosted runner where the checker CLI is installed and signed in.
+    runs-on: [self-hosted, linux]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: FlyFission/Control-Rod/packages/check-action@<pinned-commit-sha>
         with:
           author-runtime: claude
@@ -70,7 +74,7 @@ jobs:
           post-comment: "false"
 ```
 
-The action builds or finds `controlrod`, but it does not install the checker CLI or sign it in: use a runner where the checker CLI (for example `codex`) is installed and authenticated, and where its native sandbox can run. See [`packages/check-action/README.md`](../packages/check-action/README.md) for the full security model and inputs.
+The action builds or finds `controlrod`, but it does not install the checker CLI or sign it in. A GitHub-hosted runner such as `ubuntu-latest` has neither, so use a self-hosted runner where the checker CLI (for example `codex`) is installed and signed in, and where its native sandbox can run. Do not run it on pull requests from forks: the checker runs under your sign-in on your machine and reads the stranger's diff. See [`packages/check-action/README.md`](../packages/check-action/README.md) for what the runner needs, the fork rules, the full security model and the inputs.
 
 ---
 
@@ -81,8 +85,10 @@ When you run work through the full Control Rod workspace (`pnpm cr start`), acce
 Export the package's inclusion proof (`GET /packages/:id/proof` or from the **Records** page) and generate a tamper-evident Markdown PR receipt:
 
 ```sh
-pnpm cr receipt inclusion-proof.json > pr-receipt.md
+pnpm cr receipt inclusion-proof.json --out pr-receipt.md
 ```
+
+Write the file with `--out`. Only the receipt goes into it. A redirect (`> pr-receipt.md`) would also catch a line pnpm prints before the command runs, and that extra line makes the check below fail.
 
 Anyone—a teammate, reviewer, client, or auditor—can verify that receipt **completely offline** without a Control Rod server, database, or account:
 

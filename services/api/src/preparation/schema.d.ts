@@ -3673,6 +3673,14 @@ export interface components {
              */
             sandbox_policy?: components["schemas"]["ControlRod.Records.SandboxPolicy"];
             sandbox_policy_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            /**
+             * @description How hard the agent should think, as the person chose it for this run's role in New Work or the
+             *     project's settings. Sent only to a daemon that sets `supports_reasoning_effort` on its claim.
+             *     The daemon passes it to an agent CLI that has a flag for it, and ignores it for any other.
+             *     Absent: the agent CLI's own default.
+             * @enum {string}
+             */
+            reasoning_effort?: "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
         };
         "Runner.LogReply": {
             /** @description End the agent process when the owner has requested a stop. */
@@ -8452,6 +8460,8 @@ export interface operations {
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
                     /** @description Required to claim an author run with a checkout binding; omitted means unsupported. */
                     supports_checkouts?: boolean;
+                    /** @description The daemon reads `reasoning_effort` on a job; omitted means it does not, and none is sent. */
+                    supports_reasoning_effort?: boolean;
                     /** @description Provider CLI probes for Settings. Output of a status command is not included. */
                     subscription_report?: components["schemas"]["SubscriptionReport"];
                     /** @description Usage-limit readings the agent CLIs reported. No token is read to get them. */

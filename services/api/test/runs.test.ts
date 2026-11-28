@@ -1276,6 +1276,54 @@ describe("capture provenance", () => {
     }
   });
 
+  it("sends the chosen reasoning effort only to a daemon that reads it (#175)", async () => {
+    const payload = {
+      name: "Effort defaults",
+      author: { ecosystem: "claude", model: "default", reasoning: "high" },
+    };
+    const options = await asOwner("POST", "/admin/commands/project.workspace-create/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const create = await asOwner("POST", "/workspace/projects", { payload, assertion: passkey.assert(options.json().options) });
+    expect(create.statusCode, create.body).toBe(201);
+    const projectId = create.json().id as string;
+
+    for (const [name, selection, reads, expected] of [
+      // A tag for this runtime decides; the project's pick stands in when there is none.
+      ["EFFORTTAG", " [author:claude/default@low]", true, "low"],
+      ["EFFORTPROJ", "", true, "high"],
+      // "default" leaves the CLI on its own default, and an older daemon is never sent the field.
+      ["EFFORTNONE", " [author:claude/default@default]", true, undefined],
+      ["EFFORTOLD", " [author:claude/default@low]", false, undefined],
+    ] as const) {
+      const captured = await asOwner("POST", "/captures", {
+        lane: "internal", text: `[mode:software] [project-id:${projectId}]${selection}\n\nDraft ${name}.`,
+      });
+      expect(captured.statusCode, captured.body).toBe(201);
+      const intake = await claim();
+      expect(intake?.run.package_id).toBe(captured.json().id);
+      expect(intake as unknown as Record<string, unknown>).not.toHaveProperty("reasoning_effort");
+      const pkg = { ...draft(name), mode: "software", project: projectId };
+      const completion = await asDaemon(`/runner/runs/${intake!.run.id}/complete`, {
+        status: "succeeded", outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(pkg)) }],
+      });
+      expect(completion.json().status, completion.body).toBe("succeeded");
+      const packages = (await asOwner("GET", "/packages")).json() as { id: string }[];
+      const id = packages.find((p) => p.id.endsWith(`-${name}`))?.id;
+      if (!id) throw new Error("package not drafted");
+      expect((await decide(id, "release", 0)).statusCode).toBe(201);
+
+      const r = await asDaemon("/runner/claim", { runtimes: ["claude"], ...(reads ? { supports_reasoning_effort: true } : {}) });
+      expect(r.statusCode, r.body).toBe(200);
+      const author = r.json() as Job & { reasoning_effort?: string };
+      claims.set(author.run.id, author.claim.token);
+      expect(author.run.package_id).toBe(id);
+      expect(author.reasoning_effort).toBe(expected);
+      // The run record itself never carries it, so the daemon's Run decode is unchanged.
+      expect(author.run).not.toHaveProperty("reasoning_effort");
+      await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "failed", error: "fixture complete", outputs: [] });
+    }
+  });
+
   it("keeps captures with the same four-character prefix in distinct package namespaces", async () => {
     for (const captureId of ["C-abcd1111", "C-abcd2222"]) {
       const created = await asOwner("POST", "/captures", { lane: "internal", text: "Same local package name" });

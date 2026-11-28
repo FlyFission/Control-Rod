@@ -120,11 +120,14 @@ func statusError(path string, resp *http.Response) error {
 // for every runtime found, and the longest a run lasts in this daemon (its timeout plus the graceful
 // stop ladder), from which the control plane sizes budget reservations.
 type ClaimRequest struct {
-	SupportsCheckouts  bool                `json:"supports_checkouts"`
-	Runtimes           []string            `json:"runtimes"`
-	RuntimeStatus      []RuntimeStatus     `json:"runtime_status,omitempty"`
-	RunCeilingSeconds  int                 `json:"run_ceiling_seconds,omitempty"`
-	SubscriptionReport *SubscriptionReport `json:"subscription_report,omitempty"`
+	SupportsCheckouts bool `json:"supports_checkouts"`
+	// SupportsReasoningEffort says this daemon reads a job's reasoning_effort, so the control
+	// plane may send it. An older daemon leaves it out and is sent none.
+	SupportsReasoningEffort bool                `json:"supports_reasoning_effort"`
+	Runtimes                []string            `json:"runtimes"`
+	RuntimeStatus           []RuntimeStatus     `json:"runtime_status,omitempty"`
+	RunCeilingSeconds       int                 `json:"run_ceiling_seconds,omitempty"`
+	SubscriptionReport      *SubscriptionReport `json:"subscription_report,omitempty"`
 	// UsageLimits is what each CLI reports about its subscription windows. It never holds a token.
 	UsageLimits *UsageLimitsReport `json:"usage_limits,omitempty"`
 	// AgentUpdates is nil until the startup update check finishes; then always sent, even empty.
@@ -144,7 +147,7 @@ func (c *Client) ClaimWithUsage(ctx context.Context, runtimes []string, status [
 	if runtimes == nil {
 		runtimes = []string{}
 	}
-	req := ClaimRequest{SupportsCheckouts: checkoutCustodySupported(), Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report, UsageLimits: usage}
+	req := ClaimRequest{SupportsCheckouts: checkoutCustodySupported(), SupportsReasoningEffort: true, Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report, UsageLimits: usage}
 	if len(updates) > 0 {
 		list := append([]AgentUpdate{}, updates[0].List...)
 		req.AgentUpdates = &list
@@ -163,6 +166,7 @@ func (c *Client) ClaimWithUsage(ctx context.Context, runtimes []string, status [
 		if err := wire.Decode(resp.Body, "Job.json", 150<<20, &job); err != nil {
 			return nil, fmt.Errorf("decode job: %w", err)
 		}
+		job.Run.ReasoningEffort = job.ReasoningEffort
 		return &job, nil
 	default:
 		return nil, statusError("/runner/claim", resp)

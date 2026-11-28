@@ -891,7 +891,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; supports_reasoning_effort?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
     if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
@@ -910,7 +910,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const reportedModels = new Map(status.filter((s) => s.ready && s.models).map((s) => [s.runtime, s.models!]));
     const job = await claim(
       db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined, reportedModels,
-      req.body?.supports_checkouts === true,
+      req.body?.supports_checkouts === true, req.body?.supports_reasoning_effort === true,
     );
     if (!job) return reply.code(204).send();
     return job;

@@ -1582,7 +1582,18 @@ namespace Runner {
     sandbox_policy?: SandboxPolicy;
 
     sandbox_policy_digest?: Digest;
+
+    /**
+     * How hard the agent should think, as the person chose it for this run's role in New Work or the
+     * project's settings. Sent only to a daemon that sets `supports_reasoning_effort` on its claim.
+     * The daemon passes it to an agent CLI that has a flag for it, and ignores it for any other.
+     * Absent: the agent CLI's own default.
+     */
+    reasoning_effort?: ReasoningEffort;
   }
+
+  /** A reasoning effort an agent CLI can be asked for. Each CLI takes the levels it knows. */
+  alias ReasoningEffort = "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
   /** A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost. */
   @extension("unevaluatedProperties", false)
@@ -1701,6 +1712,9 @@ namespace Runner {
 
     /** Required to claim an author run with a checkout binding; omitted means unsupported. */
     supports_checkouts?: boolean;
+
+    /** The daemon reads `reasoning_effort` on a job; omitted means it does not, and none is sent. */
+    supports_reasoning_effort?: boolean;
 
     /** Provider CLI probes for Settings. Output of a status command is not included. */
     subscription_report?: ControlRod.Api.SubscriptionReport;

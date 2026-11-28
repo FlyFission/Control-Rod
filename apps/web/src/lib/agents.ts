@@ -117,9 +117,9 @@ export const WRITING_CHOICES: readonly { id: Writing; label: string; detail: str
   { id: "standard", label: "Standard", detail: "Each agent writes in its own usual style." },
 ];
 
-/** Said under a choice that is saved now but changes nothing yet. */
+/** Said under the check-in choice: the other check-in points are not built, so they are not offered. */
 export const CHECK_IN_LATER =
-  "Saved for when check-in points arrive. Until then, what stops a card for you is set under What needs your passkey.";
+  "Other check-in points are not built yet. What stops a card for you is set under What needs your passkey.";
 
 /**
  * Which known agent a run's provider names (RuntimeRef.provider), so a figure can show its agent's

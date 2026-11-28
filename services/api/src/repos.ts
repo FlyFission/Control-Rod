@@ -26,6 +26,10 @@ import { Refusal } from "./refusal.js";
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * How a local workspace is prepared. Only "worktree" can be bound to a card's run (bindCheckout); the
+ * other two still prepare a folder but are not offered in the app until they can be bound (API-1).
+ */
 export type MaterializeStrategy = "worktree" | "fresh-clone" | "branch";
 export type WorkspaceMode = "software" | "capital-projects";
 
@@ -1447,8 +1451,11 @@ export async function bindCheckout(selection: unknown) {
   }
   // The author gets write access to the checkout. A base or fresh clone keeps .git inside it, so
   // hooks and config would be writable; only a linked worktree keeps Git administration outside.
+  // The fresh-clone and branch strategies are therefore not offered in the app (API-1). Binding a fresh
+  // clone would need its Git folder kept outside the checkout (for example --separate-git-dir) and the
+  // daemon's custody checks qualified for it; that is a follow-up, not done here.
   if (path !== linked) {
-    throw new Refusal(409, "checkout-not-linked-worktree", "Only a linked worktree can be bound to a run; a base or fresh clone would give the author writable Git administration.");
+    throw new Refusal(409, "checkout-not-linked-worktree", "A card can only work in its own git worktree. A fresh clone or a branch in your main clone keeps Git's own files inside the folder, where the agent could change them.");
   }
   return withGitRefusal(async () => {
     await validateExistingRepoDir(path, root, isGithub);

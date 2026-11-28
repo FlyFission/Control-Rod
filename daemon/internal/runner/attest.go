@@ -242,7 +242,7 @@ func looksLikeFlag(token string) bool {
 
 func valuedFlag(name string) bool {
 	switch name {
-	case "-c", "-m", "--settings", "--config", "--fallback-model", "--disable", "--model", "--disallowedTools", "--setting-sources":
+	case "-c", "-m", "--settings", "--config", "--fallback-model", "--disable", "--model", "--disallowedTools", "--setting-sources", "--effort":
 		return true
 	}
 	return false
@@ -786,6 +786,7 @@ func configMaterial(harness string, args []string) ([]string, error) {
 	valued := map[string]bool{
 		"--setting-sources": true, "--disable": true, "--disallowedTools": true,
 		"-c": true, "-m": true, "--settings": true, "--config": true, "--model": true,
+		"--effort": true,
 	}
 	var out []string
 	err := walkCountedArgs(harness, args, func(name, value string) error {

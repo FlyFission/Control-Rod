@@ -49,7 +49,7 @@ export function ScramControl({ passkeys = browserPasskeys, presenting = false, p
   );
 }
 
-function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: Passkeys; presenting: boolean; patienceMs: number; onClose: () => void }) {
+export function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: Passkeys; presenting: boolean; patienceMs: number; onClose: () => void }) {
   const qc = useQueryClient();
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);

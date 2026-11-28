@@ -15,7 +15,9 @@ export type ModalDetailLevel = "simple" | "advanced";
 export type RepoOutfallStrategy = "worktree" | "fresh-clone" | "branch";
 
 const VALID_DETAIL_LEVELS: readonly ModalDetailLevel[] = ["simple", "advanced"];
-const VALID_STRATEGIES: readonly RepoOutfallStrategy[] = ["worktree", "fresh-clone", "branch"];
+// Only a linked worktree can be bound to a card's run (services/api/src/repos.ts bindCheckout), so the
+// fresh-clone and branch strategies are hidden until they can be bound, and a saved one reads as worktree.
+const VALID_STRATEGIES: readonly RepoOutfallStrategy[] = ["worktree"];
 const VALID_LANES: readonly DataLane[] = [
   "public",
   "internal",
@@ -38,6 +40,11 @@ export interface WorkDefaults {
   workspaceRoot: string;
   repo: string;
   repoStrategy: RepoOutfallStrategy;
+  /**
+   * Whether the saved author and checker were picked on purpose. Only a picked agent goes on a card;
+   * otherwise the board column's pick decides. Defaults saved before this field read as not picked.
+   */
+  agentsChosen: { author: boolean; checker: boolean };
 }
 
 const STORAGE_PREFIX = "cr.work-defaults.";
@@ -57,6 +64,7 @@ export function factoryDefaults(mode: EngineeringMode): WorkDefaults {
     workspaceRoot: "",
     repo: "",
     repoStrategy: "worktree",
+    agentsChosen: { author: false, checker: false },
   };
 }
 
@@ -94,6 +102,16 @@ function pickEnum<T extends string>(val: unknown, allowed: readonly T[], fallbac
     : fallback;
 }
 
+function pickChosen(val: unknown): { author: boolean; checker: boolean } {
+  const o = val && typeof val === "object" && !Array.isArray(val) ? (val as Record<string, unknown>) : {};
+  return { author: o.author === true, checker: o.checker === true };
+}
+
+/** A saved or project strategy the app can bind today: every other one reads as worktree. */
+export function bindableStrategy(val: unknown): RepoOutfallStrategy {
+  return pickEnum(val, VALID_STRATEGIES, "worktree");
+}
+
 export function loadWorkDefaults(mode: EngineeringMode): WorkDefaults {
   const base = factoryDefaults(mode);
   const raw = readString(`${STORAGE_PREFIX}${mode}`);
@@ -117,6 +135,7 @@ export function loadWorkDefaults(mode: EngineeringMode): WorkDefaults {
       workspaceRoot: pickString(obj.workspaceRoot, base.workspaceRoot),
       repo: pickString(obj.repo, base.repo),
       repoStrategy: pickEnum(obj.repoStrategy, VALID_STRATEGIES, base.repoStrategy),
+      agentsChosen: pickChosen(obj.agentsChosen),
     };
   } catch {
     return base;

@@ -1,3 +1,4 @@
+import { useOpenNewWork } from "../../lib/newWork.js";
 import { CLI_ECOSYSTEMS } from "../../lib/runtimes.js";
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AutonomyOffer } from "./AutonomyOffer.js";
@@ -259,9 +260,9 @@ export function BoardView() {
   const guideCard = guide.released
     ? scopedCards.find((c) => c.column === "needs-signature" || c.column === "person-verifies")
     : scopedCards.find((c) => c.pkg.status === "draft");
+  const openNewWork = useOpenNewWork();
   const openNewChange = () => {
-    const cta = document.querySelector<HTMLButtonElement>(".places-cta");
-    if (cta && !cta.disabled) cta.click();
+    if (!scramLock.locked) openNewWork?.();
   };
   // Counts are facts only after a successful read; after a failed refresh, a drop not yet recovered
   // from, or while the stream is unknown they are what was last read, and before any read they are

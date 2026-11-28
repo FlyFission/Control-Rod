@@ -897,6 +897,8 @@ type ProjectRuntimePrefs = {
   checker?: string;
   authorModel?: string;
   checkerModel?: string;
+  authorReasoning?: string;
+  checkerReasoning?: string;
   laneAgents?: Record<string, string>;
   setup?: boolean;
 };
@@ -980,6 +982,24 @@ function resolveRunModel(
   if (!projEco || runtimeName(projEco) === runtime) {
     return normalizeRunModel(runtime, projModel);
   }
+  return undefined;
+}
+
+/** The reasoning efforts a job may carry (spec/api.tsp ReasoningEffort). "default" and "off" are none. */
+const REASONING_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh", "max"]);
+
+/**
+ * The reasoning effort for a run, picked the way its model is: a capture tag for the runtime that
+ * runs it, else the project's pick when the project's agent is that runtime. Undefined leaves the
+ * agent CLI on its own default; the daemon passes it only to a CLI with a flag for it.
+ */
+function resolveRunEffort(runtime: string, capTag?: CaptureRuntimeTag, projEco?: string, projReasoning?: string): string | undefined {
+  const pick = (r: string | undefined) => {
+    const v = r?.trim().toLowerCase();
+    return v && REASONING_EFFORTS.has(v) ? v : undefined;
+  };
+  if (capTag && runtimeName(capTag.ecosystem) === runtime) return pick(capTag.reasoning);
+  if (!projEco || runtimeName(projEco) === runtime) return pick(projReasoning);
   return undefined;
 }
 
@@ -1505,7 +1525,7 @@ const CHECKOUT_DAEMON_HOLD = "This run is bound to a checkout and waits for a co
 export async function claim(
   db: Db, cfg: WorkConfig, offered: string[], artifacts: Map<string, string> = new Map(),
   runCeilingSeconds?: number, reportedModels: ReadonlyMap<string, readonly string[]> = new Map(),
-  supportsCheckouts = false,
+  supportsCheckouts = false, supportsReasoningEffort = false,
 ) {
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
@@ -1627,6 +1647,7 @@ export async function claim(
           const capPrefs = parseCaptureRuntimeTags(capText);
           let runtime: string | null;
           let model: string | undefined;
+          let effort: string | undefined;
           if (row.role === "pre-check") {
             if (pkg.status !== "in-verification") continue;
             const a = await latestAuthorRun(c, pkg.id, pkg.revision);
@@ -1640,6 +1661,7 @@ export async function claim(
               (left) => pickChecker(left, authorRuntime, false, preferredChecker, samePicked), offer);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.checker, projPrefs?.checker, projPrefs?.checkerModel);
+              effort = resolveRunEffort(runtime, capPrefs.checker, projPrefs?.checker, projPrefs?.checkerReasoning);
             }
             if (!runtime && offer.includes(authorRuntime)) {
               // Held, not skipped silently: say why on the run and in the office, replacing any older hold.
@@ -1660,6 +1682,7 @@ export async function claim(
             runtime = spareOf(runtime, Boolean(preferredAuthor) && runtimeName(preferredAuthor) === runtime, (left) => pickRuntime(left), authors);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
+              effort = resolveRunEffort(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorReasoning);
             }
           }
           if (!runtime) {
@@ -1719,7 +1742,9 @@ export async function claim(
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
             await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
           }
-          const started = await startRun(c, cfg, row, runtime, baseline, net.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null, model);
+          const started = await startRun(c, cfg, row, runtime, baseline, net.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null, model,
+            // Only a daemon that said it reads the field is sent it: an older one refuses a job with a field it does not know.
+            supportsReasoningEffort ? effort : undefined);
           if (row.role === "pre-check") {
             await pinDispatchedDigest(c, row.package_id, row.package_revision, row.id);
             await consumeClaimedOverride(c, row.package_id, row.package_revision, row.id);
@@ -2106,7 +2131,7 @@ function sandboxNetwork(cfg: WorkConfig, run: Json, pkgBody: Json | undefined, l
 }
 
 async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string, hosts: string[], budgetCeilingSeconds: number | null = null,
-  reserveMinutes: string | null = null, model?: string) {
+  reserveMinutes: string | null = null, model?: string, reasoningEffort?: string) {
   requireLegacyRun(row as {role:string;body:Json});
   const token = randomBytes(32).toString("base64url");
   const lease = leaseFromNow(cfg);
@@ -2147,7 +2172,8 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
   const pin = await activePin(c, runtime, row.role);
   return { ...job, sandbox_policy: sandbox.body, sandbox_policy_digest: sandbox.ref.digest,
     claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) },
-    ...(pin ? { runtime_pin: { runtime, digest: pin.artifact_digest } } : {}) };
+    ...(pin ? { runtime_pin: { runtime, digest: pin.artifact_digest } } : {}),
+    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}) };
 }
 
 type RunRow = {

@@ -120,6 +120,11 @@ func (a codexAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at Sandb
 	if err != nil {
 		return nil, err
 	}
+	if extra := CodexEffortArgs(run); len(extra) > 0 {
+		// The prompt stays the last argument.
+		last := len(args) - 1
+		args = append(append(append([]string{}, args[:last]...), extra...), args[last])
+	}
 	return exec.Command(a.Binary(), args...), nil
 }
 

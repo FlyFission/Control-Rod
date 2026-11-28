@@ -5,6 +5,8 @@ import type { CheckIn, Writing } from "../api/types.js";
 import { InstrumentFrame } from "../design/instruments/InstrumentFrame.js";
 import { AgentList } from "../components/AgentList.js";
 import { SigningSettings } from "../components/SigningSettings.js";
+import { ProjectModal } from "../components/ProjectModal.js";
+import { useMode } from "../lib/mode.js";
 import { useActiveProject, useProjects } from "../lib/projects.js";
 import { ControlRodVersion } from "../components/UpdateNotice.js";
 import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
@@ -31,8 +33,14 @@ export function Setup() {
   const active = useActiveProject();
   const projects = useProjects();
   const signingProject = active ?? projects[0] ?? null;
+  const mode = useMode();
+  const [projectOpen, setProjectOpen] = useState(false);
 
-  const chosenCheckIn: CheckIn = checkIn ?? agents.setup?.check_in ?? "start-and-merge";
+  // Only check-in points that are built are offered (WEB-14). A saved choice that is not built yet
+  // reads as the built one, and Looks right saves that, so the page never claims what does not happen.
+  const savedCheckIn = agents.setup?.check_in;
+  const savedBuilt = CHECK_IN_CHOICES.some((c) => c.id === savedCheckIn && c.today);
+  const chosenCheckIn: CheckIn = checkIn ?? (savedBuilt ? savedCheckIn! : "start-and-merge");
   const rows = agents.rows.map((r) => (r.info.runnable ? { ...r, seated: changed[r.info.id] ?? r.seated } : r));
   const found = rows.filter((r) => r.info.runnable && r.state !== "not-found").length;
   const choice = CHECK_IN_CHOICES.find((c) => c.id === chosenCheckIn)!;
@@ -40,7 +48,7 @@ export function Setup() {
   const writingChoice = WRITING_CHOICES.find((c) => c.id === chosenWriting)!;
 
   const confirm = () =>
-    agents.save.mutate(setupRequest(changed, checkIn, writing), {
+    agents.save.mutate(setupRequest(changed, checkIn ?? (savedCheckIn && !savedBuilt ? chosenCheckIn : null), writing), {
       onSuccess: () => void navigate({ to: "/" }),
     });
 
@@ -80,19 +88,17 @@ export function Setup() {
       <section className="panel" aria-labelledby="setup-checkin-title">
         <h2 id="setup-checkin-title">2. When should we check with you?</h2>
         <div className="checkin-choices" role="radiogroup" aria-labelledby="setup-checkin-title">
-          {CHECK_IN_CHOICES.map((c) => (
+          {CHECK_IN_CHOICES.filter((c) => c.today).map((c) => (
             <label key={c.id} className={`checkin-choice${c.id === chosenCheckIn ? " chosen" : ""}`}>
               <input type="radio" name="check-in" value={c.id} checked={c.id === chosenCheckIn} disabled={agents.save.isPending} onChange={() => setCheckIn(c.id)} />
               <span>
                 <strong>{c.label}</strong>
-                {c.id === "start-and-merge" && <span className="tag">Recommended</span>}
-                {!c.today && <span className="tag">Coming soon</span>}
                 <span className="muted small block">{c.detail}</span>
               </span>
             </label>
           ))}
         </div>
-        {!choice.today && <p className="muted small">{CHECK_IN_LATER}</p>}
+        <p className="muted small">{CHECK_IN_LATER}</p>
       </section>
 
       <section className="panel" aria-labelledby="setup-writing-title">
@@ -116,7 +122,13 @@ export function Setup() {
         {signingProject ? (
           <SigningSettings key={`${signingProject.id}:${signingProject.signing?.version ?? 0}`} project={signingProject} />
         ) : (
-          <p className="muted small">Create a project first. Its signing settings start at Light: cards start and finish on their own.</p>
+          <>
+            <p className="muted small">Create a project first. Its signing settings start at Light: cards start and finish on their own.</p>
+            <button type="button" className="btn small" onClick={() => setProjectOpen(true)}>
+              New project
+            </button>
+            {projectOpen && <ProjectModal open={projectOpen} defaultMode={mode} onClose={() => setProjectOpen(false)} />}
+          </>
         )}
       </section>
 

@@ -19,8 +19,8 @@ export const PLACES: Place[] = [
   { to: "/plant", label: "Plant", purpose: "Who is working, where, and what needs you", group: "Work" },
   { to: "/control-room", label: "Control room", purpose: "Instruments you can arrange: agent usage limits and how the work is going", group: "Work" },
   { to: "/packages", label: "Packages", purpose: "Capture work and find every package", group: "Work" },
-  { to: "/compare", label: "Compare", purpose: "Side-by-side comparison of frozen revisions", group: "Audit" },
-  { to: "/snapshots", label: "Snapshots", purpose: "Save a checkpoint or freeze a worktree to compare later", group: "Audit" },
+  // Compare is hidden until it can line two revisions' deliverables up: it only showed their headers (WEB-6).
+  { to: "/snapshots", label: "Snapshots", purpose: "Save a checkpoint or freeze a worktree", group: "Audit" },
   { to: "/registers", label: "Registers", purpose: "Deliverables across every package", group: "Audit" },
   { to: "/records", label: "Records", purpose: "The event chain and its verification", group: "Audit" },
   { to: "/usage", label: "Usage", purpose: "Whether the work is earning its place", group: "Audit" },

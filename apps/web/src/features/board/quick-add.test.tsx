@@ -11,6 +11,7 @@ import { resetLiveStatus, useLiveEvents } from "../../lib/live.js";
 import { hydrateServerProjects, selectProject, WorkspaceProjectUser } from "../../lib/projects.js";
 import { saveMode } from "../../lib/mode.js";
 import { BoardView } from "./BoardView.js";
+import { NewWorkContext } from "../../lib/newWork.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { inTypingContext, splitPaste } from "./QuickAdd.js";
 import { captureLine } from "./CaptureCard.js";
@@ -264,6 +265,48 @@ describe("QuickAdd on the board", () => {
     } finally {
       for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
     }
+  });
+
+  it("still gives a card its own worktree when the project was saved with an older strategy (WEB-12)", async () => {
+    const { posted } = api();
+    const made: Record<string, unknown>[] = [];
+    server.use(
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/u/Code", local: [], github: [] })),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        made.push(body);
+        return HttpResponse.json({ ok: true, strategy: "worktree", repo: body.repo, branch: body.branch, local_path: `/home/u/Code/.worktrees/app/${String(body.branch)}` });
+      }),
+    );
+    const principal = "old-strategy-fixture";
+    hydrateServerProjects(principal, [{
+      id: "prj_old", name: "App", mode: "software", status: "active", repo: "acme/app", repoStrategy: "fresh-clone",
+      workspaceRoot: "", lane: "internal", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    }]);
+    selectProject(principal, "prj_old");
+    try {
+      await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "+ Quick add" }));
+      await user.type(screen.getByLabelText("Card title"), "Fix the login redirect{Enter}");
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(made).toEqual([expect.objectContaining({ repo: "acme/app", strategy: "worktree" })]);
+      expect(posted[0]).toMatchObject({ checkout: { repo: "acme/app", branch: made[0]!.branch } });
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
+  });
+
+  it("opens New Work from the empty board's own button through the shell (WEB-2)", async () => {
+    api();
+    const open = vi.fn();
+    await renderPage(<NewWorkContext.Provider value={open}><Page /></NewWorkContext.Provider>);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Hide guide" }));
+    await user.click(await screen.findByRole("button", { name: /^\+ New deliverable/ }));
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it("closes on Escape and returns focus to the opener; a typed draft survives losing focus", async () => {

@@ -77,7 +77,7 @@ func (a claudeAdapter) Probe(ctx context.Context, _ string, run CommandRunner) R
 }
 
 func (a claudeAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
-	return exec.Command(a.Binary(), ClaudeArgs(ws, RequestedModel(run), p, at)...), nil
+	return exec.Command(a.Binary(), append(ClaudeArgs(ws, RequestedModel(run), p, at), ClaudeEffortArgs(run)...)...), nil
 }
 
 func (claudeAdapter) LaunchInfo(run Run, ws *Workspace, p *SandboxPolicy) Launch {

@@ -38,6 +38,9 @@ type Run struct {
 	AttemptID string `json:"checker_attempt_id,omitempty"`
 	// SandboxPolicy is the policy version the control plane recorded on the run (plan task 6.1).
 	SandboxPolicy *PolicyRef `json:"sandbox_policy,omitempty"`
+	// ReasoningEffort is the job's reasoning_effort, copied here after the claim is decoded. It is
+	// never read from the run record itself.
+	ReasoningEffort string `json:"-"`
 }
 
 // CheckoutObserved is the branch and commit read from a bound checkout after its run.
@@ -79,6 +82,9 @@ type Job struct {
 	// the received bytes (VerifyPolicy).
 	SandboxPolicyRaw    json.RawMessage `json:"sandbox_policy,omitempty"`
 	SandboxPolicyDigest *Digest         `json:"sandbox_policy_digest,omitempty"`
+	// ReasoningEffort is the effort the person chose for this run, sent only because the claim
+	// said this daemon reads it. The claim copies it onto Run for the adapters.
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 
 	// claimSent is when the claim that handed out this job was sent; the lease runs from then.
 	claimSent time.Time

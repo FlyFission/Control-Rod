@@ -6150,6 +6150,10 @@
                     "type": "boolean",
                     "description": "Required to claim an author run with a checkout binding; omitted means unsupported."
                   },
+                  "supports_reasoning_effort": {
+                    "type": "boolean",
+                    "description": "The daemon reads `reasoning_effort` on a job; omitted means it does not, and none is sent."
+                  },
                   "subscription_report": {
                     "$ref": "#/components/schemas/SubscriptionReport",
                     "description": "Provider CLI probes for Settings. Output of a status command is not included."
@@ -14655,6 +14659,18 @@
           },
           "sandbox_policy_digest": {
             "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "enum": [
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "description": "How hard the agent should think, as the person chose it for this run's role in New Work or the\nproject's settings. Sent only to a daemon that sets `supports_reasoning_effort` on its claim.\nThe daemon passes it to an agent CLI that has a flag for it, and ignores it for any other.\nAbsent: the agent CLI's own default."
           }
         }
       },

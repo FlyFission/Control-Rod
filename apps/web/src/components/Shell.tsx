@@ -37,6 +37,7 @@ import { readString, writeString } from "../lib/storage.js";
 import { PHONE_QUERY, useMedia } from "../lib/useMedia.js";
 import { SidePanelProvider, SidePanelSlot, useSidePanelHost } from "./SidePanel.js";
 import { CardPanelContext, type CardOpen } from "./CardPanel.js";
+import { NewWorkContext } from "../lib/newWork.js";
 import { BoardReviewDrawer } from "../features/board/BoardReviewDrawer.js";
 import { SIDE_MAX_PX, SIDE_MIN_PX, loadSideWidth, saveSideWidth } from "../lib/sidePanelLayout.js";
 import { Group, Panel, Separator, usePanelRef, type PanelSize } from "react-resizable-panels";
@@ -512,6 +513,10 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   const newLock = lockedFor(lock, activeProject);
   const newLocked = useRef(false);
   newLocked.current = newLock.locked;
+  // The one way a page opens New Work (lib/newWork.ts): the same lock as the rail's button.
+  const openNewWork = useCallback(() => {
+    if (!newLocked.current) setNewWorkOpen(true);
+  }, []);
   const modeProjects = projects.filter((p) => p.mode === mode);
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
@@ -930,6 +935,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     <ScramLockContext.Provider value={lock}>
     <SidePanelProvider host={side.host}>
     <CardPanelContext.Provider value={setPanelCard}>
+    <NewWorkContext.Provider value={openNewWork}>
     <div className="shell" ref={shellRef} data-phone={phone ? "" : undefined} data-look={look} data-mode={mode} data-scram={scramKind} data-tab-hidden={tabHidden ? "" : undefined}>
       <a className="skip" href="#main">
         Skip to content
@@ -980,6 +986,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         />
       )}
     </div>
+    </NewWorkContext.Provider>
     </CardPanelContext.Provider>
     </SidePanelProvider>
     </ScramLockContext.Provider>

@@ -5,13 +5,14 @@ import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import { DIGEST, view } from "../test/fixtures.js";
-import { CaptureBox, CAPTURE_LIMIT } from "./CaptureBox.js";
+import { CaptureBox, CAPTURE_LIMIT, captureBoxHeader } from "./CaptureBox.js";
+import { captureMatchesScope } from "../lib/projects.js";
 import { DecisionBar } from "./DecisionBar.js";
 import { Inbox } from "../pages/Inbox.js";
 import { RecentCaptures } from "./Captures.js";
 import { RunCard, canRequeue, canStop, runStatusText } from "./RunLog.js";
 import { independenceText } from "../lib/format.js";
-import type { Run } from "../api/types.js";
+import type { Run, WorkspaceProject } from "../api/types.js";
 import type { Passkeys } from "../lib/decide.js";
 
 /** What the server says this person may sign on WP-0001: the listed decisions allowed, the rest refused. */
@@ -23,6 +24,18 @@ function offer(allowed: string[], refusal = { reason: "The package is not in a s
 }
 
 describe("capture", () => {
+  it("tags a capture with the open project, so it shows on that project's Board (WEB-5)", () => {
+    const project = { id: "prj_a", name: "Pump house", mode: "capital-projects" } as WorkspaceProject;
+    const other = { id: "prj_b", name: "Other", mode: "capital-projects" } as WorkspaceProject;
+    const text = captureBoxHeader(project) + "Check the sump pump sizing";
+    expect(text.startsWith("[mode:capital-projects] [project-id:prj_a]\n\n")).toBe(true);
+    const cap = { schema_version: "0.1.0", id: "C-9", text, source: "web", created_at: "2026-11-28T10:00:00Z" } as const;
+    expect(captureMatchesScope(cap, "capital-projects", project)).toBe(true);
+    expect(captureMatchesScope(cap, "capital-projects", other)).toBe(false);
+    // With no project open, nothing is added and the capture reads as before.
+    expect(captureBoxHeader(null)).toBe("");
+  });
+
   it("sends the text as a web capture", async () => {
     let body: unknown;
     server.use(

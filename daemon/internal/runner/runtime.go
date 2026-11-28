@@ -306,6 +306,28 @@ func RequestedModel(run Run) string {
 	return m
 }
 
+// ClaudeEffortArgs passes the run's reasoning effort to Claude Code as --effort, for the levels
+// its --help lists (low, medium, high, xhigh, max). Any other level, or none, adds nothing, so
+// Claude Code keeps its own default.
+func ClaudeEffortArgs(run Run) []string {
+	switch e := run.ReasoningEffort; e {
+	case "low", "medium", "high", "xhigh", "max":
+		return []string{"--effort", e}
+	}
+	return nil
+}
+
+// CodexEffortArgs passes the run's reasoning effort to Codex as a model_reasoning_effort config
+// override, for the levels Codex takes (minimal, low, medium, high, xhigh). Any other level, or
+// none, adds nothing, so Codex keeps its own default. config.toml is never written.
+func CodexEffortArgs(run Run) []string {
+	switch e := run.ReasoningEffort; e {
+	case "minimal", "low", "medium", "high", "xhigh":
+		return []string{"-c", `model_reasoning_effort="` + e + `"`}
+	}
+	return nil
+}
+
 // Launch describes how a run was started, for the execution trace.
 type Launch struct {
 	Mode           string

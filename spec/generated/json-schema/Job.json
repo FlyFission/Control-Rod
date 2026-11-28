@@ -39,6 +39,35 @@
         },
         "sandbox_policy_digest": {
             "$ref": "Digest.json"
+        },
+        "reasoning_effort": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "minimal"
+                },
+                {
+                    "type": "string",
+                    "const": "low"
+                },
+                {
+                    "type": "string",
+                    "const": "medium"
+                },
+                {
+                    "type": "string",
+                    "const": "high"
+                },
+                {
+                    "type": "string",
+                    "const": "xhigh"
+                },
+                {
+                    "type": "string",
+                    "const": "max"
+                }
+            ],
+            "description": "How hard the agent should think, as the person chose it for this run's role in New Work or the\nproject's settings. Sent only to a daemon that sets `supports_reasoning_effort` on its claim.\nThe daemon passes it to an agent CLI that has a flag for it, and ignores it for any other.\nAbsent: the agent CLI's own default."
         }
     },
     "required": [

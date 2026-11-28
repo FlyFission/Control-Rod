@@ -4,7 +4,6 @@ import { http, HttpResponse } from "msw/http";
 import { describe, expect, it } from "vitest";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
-import { Compare } from "./Compare.js";
 import { Explore } from "./Explore.js";
 import { Today } from "./Today.js";
 
@@ -78,28 +77,28 @@ describe("Wave 3/4 workbench pages", () => {
     expect(await screen.findByText(/Frozen: deadbeef12345678/i)).toBeTruthy();
   });
 
-  it("Compare renders side-by-side candidates, adds temporary local notes, and shows retry on error", async () => {
+  it("Snapshots clears an earlier success when the next action fails (#206)", async () => {
     const user = userEvent.setup();
-    let fail = true;
     server.use(
-      http.get("*/packages", () =>
-        fail
-          ? HttpResponse.json({ code: "error", message: "Packages unavailable" }, { status: 500 })
-          : HttpResponse.json(SAMPLE_PACKAGES),
+      http.post("*/repos/checkpoint", () =>
+        HttpResponse.json({
+          ok: true,
+          ref: "refs/cr-checkpoints/explore-cp-1",
+          commit_sha: "cafebabe1234567890",
+          tree_sha: "fedcba9876543210",
+        }),
       ),
+      http.post("*/repos/freeze", () => HttpResponse.json({ error: "not a git worktree" }, { status: 400 })),
     );
-    await renderPage(<Compare />);
-    expect(await screen.findByRole("alert")).toBeTruthy();
-    expect(screen.getByText(/Packages unavailable/i)).toBeTruthy();
-    fail = false;
-    await user.click(screen.getByRole("button", { name: /Try again/i }));
+    await renderPage(<Explore />);
+    await user.type(screen.getByLabelText(/Worktree or repository path/i), "/home/flyfission/projects/Control-Rod");
+    await user.click(screen.getByRole("button", { name: /Save checkpoint/i }));
+    expect(await screen.findByText(/Checkpoint saved at/i)).toBeTruthy();
 
-    expect(await screen.findByText("PKG-W3-1")).toBeTruthy();
-    const input = screen.getByPlaceholderText(/Add a temporary local note/i);
-    await user.type(input, "Verified buckling factor");
-    await user.click(screen.getByRole("button", { name: /Add Local Note/i }));
-    expect(screen.getByText(/Verified buckling factor/i)).toBeTruthy();
-    expect(screen.getByText("PKG-W3-1@r2")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /^Freeze$/i }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.queryByText(/Checkpoint saved at/i)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("Today keeps recorded runs available when packages fail and never infers a run from package status", async () => {

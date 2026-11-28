@@ -162,6 +162,8 @@ export async function projectRuntimePrefs(
   checker?: string;
   authorModel?: string;
   checkerModel?: string;
+  authorReasoning?: string;
+  checkerReasoning?: string;
   laneAgents?: Record<string, string>;
   setup: boolean;
 } | null> {
@@ -185,6 +187,8 @@ export async function projectRuntimePrefs(
     checker: prefs.checker.ecosystem,
     authorModel: prefs.author?.model,
     checkerModel: prefs.checker?.model,
+    authorReasoning: prefs.author?.reasoning,
+    checkerReasoning: prefs.checker?.reasoning,
     ...(prefs.laneAgents ? { laneAgents: prefs.laneAgents } : {}),
     setup: prefs.setup !== false,
   };

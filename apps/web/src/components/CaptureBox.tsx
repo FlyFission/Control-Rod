@@ -2,7 +2,7 @@ import { useRef, useState, type DragEvent } from "react";
 import { useActionLock } from "../lib/scramLock.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { DataLane } from "../api/types.js";
+import type { DataLane, WorkspaceProject } from "../api/types.js";
 import { useActiveProject } from "../lib/projects.js";
 import { LanePicker, defaultLaneFor } from "./LanePicker.js";
 import { FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "../lib/attachments.js";
@@ -10,15 +10,24 @@ import { FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "
 /** The capture contract caps what a person types at 20,000 characters. Files ride as attachments. */
 export const CAPTURE_LIMIT = 20000;
 
+/**
+ * The header a capture from this box carries: the sidebar's project, when one is open, so the card
+ * shows on that project's Board (captureMatchesScope). With no project open it carries none and shows
+ * on every Board view of All projects.
+ */
+export function captureBoxHeader(project: WorkspaceProject | null): string {
+  return project ? `[mode:${project.mode}] [project-id:${project.id}]\n\n` : "";
+}
+
 export function CaptureBox() {
-  // A capture carries no project, so only an organization SCRAM locks it, never the sidebar's project.
-  const scramLock = useActionLock(null);
+  const activeProject = useActiveProject();
+  // The capture goes to the sidebar's project when one is open, so that project's SCRAM locks it too.
+  const scramLock = useActionLock(activeProject?.id ?? null);
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<Attached[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
-  const activeProject = useActiveProject();
   const [lane, setLane] = useState<DataLane>(defaultLaneFor(activeProject));
   const input = useRef<HTMLInputElement>(null);
 
@@ -61,7 +70,7 @@ export function CaptureBox() {
       setError(`Too long for one capture (${typed.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters).`);
       return;
     }
-    send.mutate(composeCapture(text, files));
+    send.mutate(captureBoxHeader(activeProject) + composeCapture(text, files));
   }
 
   function onDrop(e: DragEvent<HTMLDivElement>) {

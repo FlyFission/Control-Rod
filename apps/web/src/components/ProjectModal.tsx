@@ -27,7 +27,7 @@ interface ProjectModalProps {
 
 /**
  * Lightweight Claude Projects–style creation modal: names a project, binds its engineering mode
- * (Software, Capital Projects, or Nuclear-Grade), optional default repository + outfall strategy, and Author/Checker CLIs.
+ * (Software, Capital Projects, or Nuclear-Grade), an optional default repository, and Author/Checker CLIs.
  */
 export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) {
   // Creating a project is not tied to one: only an organization SCRAM locks it.
@@ -38,7 +38,9 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
   const [name, setName] = useState("");
   const [mode, setMode] = useState<EngineeringMode>(defaultMode);
   const [repo, setRepo] = useState("");
-  const [repoStrategy, setRepoStrategy] = useState<RepoOutfallStrategy>("worktree");
+  // Each card gets its own git worktree. A fresh clone or a branch in the base clone can't be bound to
+  // a run yet (services/api/src/repos.ts bindCheckout), so the project offers no other choice.
+  const repoStrategy: RepoOutfallStrategy = "worktree";
   const [lane, setLane] = useState<DataLane>("internal");
   // "": the server proposes a preset from the repository's top-level names (a proposal; the project's setting changes it).
   const [bays, setBays] = useState<"" | "software" | "capital-project">("");
@@ -65,7 +67,6 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
     if (!open) {
       setName("");
       setRepo("");
-      setRepoStrategy("worktree");
       setLane("internal");
       setAuthorEco(defaultAuthorSelection().ecosystem);
       setCheckerEco(defaultCheckerSelection().ecosystem);
@@ -210,14 +211,6 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
             {reposQuery.data?.github_error && (
               <span className="small muted">{reposQuery.data.github_error}</span>
             )}
-          </label>
-          <label className="field">
-            <span>Default outfall strategy</span>
-            <select value={repoStrategy} onChange={(e) => setRepoStrategy(e.target.value as RepoOutfallStrategy)}>
-              <option value="worktree">New git worktree (Recommended)</option>
-              <option value="fresh-clone">Fresh local clone</option>
-              <option value="branch">New branch in local clone</option>
-            </select>
           </label>
         </div>
 

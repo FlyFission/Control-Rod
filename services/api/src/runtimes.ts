@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Db, Tx } from "./db/index.js";
 import type { Actor } from "./events.js";
 import { Refusal } from "./refusal.js";
+import { mayBeSameRuntime, vendorFamilies } from "./vendor-families.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 
 /**
@@ -39,22 +40,15 @@ export const CHECKER_ORDER = ["codex", "claude", "agy", "grok"];
 export const CHECKOUT_AUTHORS = ["claude", "codex", "fake"];
 
 /**
- * The model vendor each runtime always reaches. OpenCode and Ollama are absent on purpose: either can
- * serve any vendor's model, so the runtime alone does not name a family.
+ * The model vendor each runtime always reaches, from the one table in models.json
+ * (vendor-families.ts). OpenCode and Ollama are absent on purpose: either can serve any vendor's
+ * model, so the runtime alone does not name a family.
  */
-export const RUNTIME_FAMILIES: Record<string, string> = {
-  claude: "Anthropic",
-  codex: "OpenAI",
-  grok: "xAI",
-  agy: "Google",
-  fake: "Test",
-};
+export const RUNTIME_FAMILIES: Readonly<Record<string, string>> = vendorFamilies();
 
-/** True only when both runtimes have a known family and the families differ. Unknown fails closed. */
+/** True only when both runtimes have a known family and the families differ: the kernel's rule. Unknown fails closed. */
 export function distinctFamily(authorRuntime: string, checkerRuntime: string): boolean {
-  const aFam = RUNTIME_FAMILIES[authorRuntime];
-  const cFam = RUNTIME_FAMILIES[checkerRuntime];
-  return aFam !== undefined && cFam !== undefined && aFam !== cFam;
+  return !mayBeSameRuntime(authorRuntime, checkerRuntime);
 }
 
 /**

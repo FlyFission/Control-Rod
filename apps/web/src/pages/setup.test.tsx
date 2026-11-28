@@ -82,20 +82,67 @@ describe("agent rows", () => {
   it("reads back who writes and who checks, following the dispatcher", () => {
     const ready = runtimes.runtimes.map((r) => ({ ...r, ready: true }));
     expect(readBack(agentRows(ready, subscriptions as never, fresh as never))).toBe(
-      "As things stand, Claude Code would write the work and Codex would check it without seeing how it was written. Antigravity and Grok CLI are seated and will join once they're ready.",
+      "As things stand, Claude Code would write the work and Codex would check it without seeing how it was written.",
     );
     expect(readBack(agentRows(runtimes.runtimes, subscriptions as never, fresh as never))).toBe(
-      "As things stand, Claude Code would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override. Codex, Antigravity and Grok CLI are seated and will join once they're ready.",
+      "As things stand, Claude Code would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override. Codex is seated and will join once it's ready.",
     );
     const benched = { confirmed: true, seats: [{ runtime: "claude", seated: false }], check_in: "start" };
     expect(readBack(agentRows(ready, subscriptions as never, benched as never))).toBe(
-      "As things stand, Codex would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override. Antigravity and Grok CLI are seated and will join once they're ready.",
+      "As things stand, Codex would write the work. Nobody from another vendor can check it yet, so checks wait for a second agent unless you sign an override.",
     );
   });
 
   it("never claims to have found an agent nobody checked", () => {
     const rows = agentRows([], { ...subscriptions, reported: false, probes: [] } as never, fresh as never);
     expect(rows.filter((r) => r.info.runnable).every((r) => r.state === "not-checked")).toBe(true);
+  });
+
+  it("seats only agents installed here, and gives the install step for the rest (RUN-2)", () => {
+    const rows = agentRows(runtimes.runtimes, subscriptions as never, fresh as never);
+    const grok = rows.find((r) => r.info.id === "grok")!;
+    expect(grok.state).toBe("not-found");
+    expect(grok.seated).toBe(false);
+    expect(grok.installed).toBe(false);
+    expect(grok.status).toBe("Not installed on this computer.");
+    expect(grok.fix).toBe("npm install -g @xai-official/grok");
+    // Antigravity has no one-line install: the row says where to get it instead.
+    const agy = rows.find((r) => r.info.id === "agy")!;
+    expect(agy.seated).toBe(false);
+    expect(agy.fix).toBeUndefined();
+    expect(agy.status).toContain("Install Antigravity from Google");
+    // Claude Code's install step is the native build, which Control Rod can identify by digest.
+    const claudeMissing = agentRows([], { ...subscriptions, probes: [] } as never, fresh as never).find((r) => r.info.id === "claude")!;
+    expect(claudeMissing.fix).toBe("curl -fsSL https://claude.ai/install.sh | bash");
+    // A seat the person chose is kept for when the agent is installed.
+    const benched = { confirmed: true, seats: [{ runtime: "grok", seated: false }], check_in: "start" };
+    expect(agentRows(runtimes.runtimes, subscriptions as never, benched as never).find((r) => r.info.id === "grok")!.seated).toBe(false);
+  });
+
+  it("marks Antigravity and Grok not available on Linux, even when installed there (RUN-3)", () => {
+    const linux = { ...subscriptions, platform: "linux", probes: [...subscriptions.probes, probe("grok", "Grok CLI", "xAI", "1.0.92")] };
+    const rt = [...runtimes.runtimes, { runtime: "grok", ready: false, version: "1.0.92", login_checked: true, reason: "Grok CLI cannot run work yet" }];
+    const rows = agentRows(rt, linux as never, fresh as never);
+    for (const id of ["agy", "grok"]) {
+      const row = rows.find((r) => r.info.id === id)!;
+      expect(row.state).toBe("not-here");
+      expect(row.seated).toBe(false);
+      expect(row.unavailableOn).toBe("Linux");
+    }
+    expect(rows.find((r) => r.info.id === "grok")!.status).toMatch(/^Installed, but not available on Linux\. Control Rod runs Grok CLI on macOS only/);
+    expect(rows.find((r) => r.info.id === "agy")!.status).toMatch(/^Not available on Linux\./);
+    expect(agentRows(rt, { ...linux, platform: "wsl2" } as never, fresh as never).find((r) => r.info.id === "agy")!.unavailableOn).toBe("Linux");
+    // On macOS they are ordinary agents.
+    expect(agentRows(rt, subscriptions as never, fresh as never).find((r) => r.info.id === "grok")!.state).toBe("held");
+  });
+
+  it("gives the native install when Claude Code starts through a script Control Rod cannot pin (DMN-3, RM-6)", () => {
+    const rt = [{ runtime: "claude", ready: false, login_checked: false, reason: "claude is installed, but Control Rod can only run a runtime it can identify by digest: unsupported runtime launcher: claude starts through the script /home/u/.local/share/pnpm/claude" }];
+    const claude = agentRows(rt, subscriptions as never, fresh as never).find((r) => r.info.id === "claude")!;
+    expect(claude.state).toBe("held");
+    expect(claude.fix).toBe("curl -fsSL https://claude.ai/install.sh | bash");
+    expect(claude.fixLabel).toBe("To install the native build, run");
+    expect(claude.status).toContain("through a script");
   });
 });
 
@@ -164,10 +211,32 @@ describe("first-run setup", () => {
   it("names the agents it cannot run yet in one line, without switches", async () => {
     api();
     await renderPage(<Setup />);
-    const later = await screen.findByText(/^Coming later:/);
+    const later = await screen.findByText(/^Not available yet:/);
     for (const name of ["OpenCode", "Local model (Ollama)"]) expect(later.textContent).toContain(name);
     for (const name of ["Antigravity", "Grok CLI"]) expect(later.textContent).not.toContain(name);
     expect(screen.queryByText("OpenCode", { selector: "li *" })).toBeNull();
+  });
+
+  it("shows agents that are not installed without a seat switch, with the install step (RUN-2)", async () => {
+    api();
+    await renderPage(<Setup />);
+    await screen.findByText(/won't give it work yet/);
+    expect(screen.getByText("2 found, 1 ready")).toBeTruthy();
+    expect(screen.queryByRole("switch", { name: "Grok CLI" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Antigravity" })).toBeNull();
+    expect(screen.getByRole("switch", { name: "Codex" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("button", { name: "Copy npm install -g @xai-official/grok" })).toBeTruthy();
+    expect(screen.getAllByText("Not installed").length).toBeGreaterThan(0);
+  });
+
+  it("on Linux, lists Antigravity and Grok in one line as macOS only (RUN-3)", async () => {
+    api();
+    server.use(http.get("*/subscriptions", () => HttpResponse.json({ ...subscriptions, platform: "linux" })));
+    await renderPage(<Setup />);
+    const line = await screen.findByText(/^Not available on Linux:/);
+    expect(line.textContent).toContain("Antigravity, Grok CLI");
+    expect(line.textContent).toContain("on macOS only");
+    expect(screen.queryByText("Grok CLI", { selector: "li *" })).toBeNull();
   });
 });
 

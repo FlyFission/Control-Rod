@@ -11,6 +11,8 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import { homedir, platform } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureApiDist, newer } from "./lib/api-dist.mjs";
+import { checkMachine, machine } from "./lib/doctor.mjs";
 import { commandPath, link, ownerOf, refresh, unlink } from "./lib/link.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -103,14 +105,15 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
     const attempt = Number(process.env.CONTROLROD_DEPS_ATTEMPT ?? 0);
     const installed = attempt < 2;
     if (installed) {
-      console.log(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
+      // Progress goes to standard error, so a command whose output is redirected (`receipt`) stays exact.
+      console.error(`Installing Control Rod's dependencies first (missing: ${missing.join(", ")})...`);
       const touch = setInterval(() => {
         try {
           if (ownerOf(lock) === mine) utimesSync(lock, new Date(), new Date());
         } catch {}
       }, 3000);
       await new Promise((done) => {
-        const child = spawn("pnpm", ["install", "--frozen-lockfile", ...(attempt ? ["--force"] : [])], { cwd: root, stdio: "inherit" });
+        const child = spawn("pnpm", ["install", "--frozen-lockfile", ...(attempt ? ["--force"] : [])], { cwd: root, stdio: ["inherit", 2, 2] });
         child.on("error", done);
         child.on("exit", done);
       });
@@ -203,70 +206,15 @@ function databaseOk() {
 }
 
 /**
- * Mirrors QualifiedPlatform and the Linux sandbox preflight in daemon/internal/runner/sandbox.go: agent
- * runs are offered on WSL2, native Linux and macOS. On Linux and WSL2 each CLI's sandbox is bubblewrap,
- * and Claude Code's network proxy needs socat, so say what is missing before setup instead of after.
- * Returns one line per problem, or an empty list when agent runs can start here.
+ * The checks of `doctor`. The machine rows come from scripts/lib/doctor.mjs; the database rows need the
+ * installed packages and stay here. Returns ok (the app can start), agentsOk (agent runs can start
+ * too, which `doctor --strict` requires), blocking (this platform can never run agents) and the rows
+ * that bear on agent runs, which a background start always prints.
  */
-function nodeVersionOk() {
-  const [maj, min] = process.versions.node.split(".").map(Number);
-  return maj > 22 || (maj === 22 && min >= 12);
-}
-
-function agentRunProblems() {
-  const os = platform();
-  if (os === "darwin") {
-    return which("sandbox-exec") ? [] : ["Seatbelt (sandbox-exec) was not found on PATH"];
-  }
-  if (os !== "linux") return [`agent runs are not qualified on ${os} yet; use WSL2 on Windows`];
-  const problems = [];
-  if (!which("bwrap")) problems.push("bubblewrap is missing: sudo apt install bubblewrap");
-  if (!which("socat")) problems.push("socat is missing (Claude Code needs it): sudo apt install socat");
-  if (which("bwrap")) {
-    const r = spawnSync("bwrap", ["--unshare-user", "--unshare-net", "--ro-bind", "/", "/", "--dev", "/dev", "true"], {
-      encoding: "utf8",
-      timeout: 15000,
-    });
-    if (r.status !== 0) {
-      problems.push(
-        "bubblewrap cannot create a sandbox here, usually because Ubuntu 24.04 and later turn off user" +
-          '\n      namespaces by default. Allow it for bubblewrap only: see "Linux setup" in docs/daemon.md',
-      );
-    }
-  }
-  return problems;
-}
-
 function doctor({ agents = false, fix = false } = {}) {
-  // The bundled PostgreSQL refuses to run as root, and it fails with a stack trace well after setup has
-  // built everything. Catch it first, unless the caller brings their own database.
-  if (typeof process.getuid === "function" && process.getuid() === 0 && !process.env.CONTROLROD_DATABASE_URL) {
-    console.log("MISSING  ordinary user: you are running as root");
-    console.log(
-      "\nThe bundled PostgreSQL will not start as root. Run Control Rod from an ordinary user account, or set\n" +
-        "CONTROLROD_DATABASE_URL to your own PostgreSQL 17 superuser connection and run this command again.\n",
-    );
-    return false;
-  }
-  const nodeFound = version("node");
-  const rows = [
-    ["node 22.12+", nodeFound && nodeVersionOk() ? nodeFound : null, true],
-    ["pnpm", version("pnpm"), true],
-    ["go", version("go", ["version"]), true],
-    ["uv (optional, for Python SDK and contributor checks)", version("uv"), false],
-    ["claude (Claude Code, your login)", which("claude") && version("claude"), false],
-    ["codex (optional, for an independent pre-check runtime)", which("codex") && version("codex"), false],
-  ];
-  let ok = true;
-  for (const [name, found, required] of rows) {
-    if (name.startsWith("node ") && nodeFound && !found) {
-      console.log(`MISSING  ${name}: found ${nodeFound}, need >= v22.12.0`);
-      ok = false;
-      continue;
-    }
-    console.log(`${found ? "ok  " : required ? "MISSING" : "--  "}  ${name}${found ? `: ${found}` : ""}`);
-    if (!found && required) ok = false;
-  }
+  const m = checkMachine(machine(), { me });
+  for (const l of m.lines) console.log(l);
+  let ok = m.ok;
   if (!databaseOk()) ok = false;
   if (platform() === "darwin" && !process.env.CONTROLROD_DATABASE_URL) {
     const dead = orphanedSegments();
@@ -281,17 +229,13 @@ function doctor({ agents = false, fix = false } = {}) {
       );
     }
   }
-  const problems = agentRunProblems();
-  if (problems.length === 0) console.log("ok    agent runs: the sandbox can start on this platform");
-  for (const p of problems) console.log(`--    agent runs: ${p}`);
-  if (problems.length) {
-    console.log(
-      "\nThe app, the board, the office view and the records work without this. The daemon will not start an" +
-        "\nagent until the sandbox can hold, and it says why.",
-    );
+  for (const l of m.agentLines) console.log(l);
+  for (const n of m.notes) console.log(`\n${n}`);
+  if (agents && which("go")) {
+    // The first run compiles the daemon, which can take minutes with nothing else on screen.
+    console.log(`\nChecking each agent the way the run daemon will${existsSync(join(bin, "controlrod")) ? "" : " (this compiles the daemon first, which can take a few minutes)"}...`);
+    agentChecks();
   }
-  if (agents && which("go")) agentChecks();
-  if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
   if (!which("codex")) {
     console.log(
       "\nWithout Codex, every pre-check waits for an independent runtime. It never runs on the author's runtime on its own." +
@@ -300,7 +244,7 @@ function doctor({ agents = false, fix = false } = {}) {
         "\nrecord shows a shared runtime with your override.",
     );
   }
-  return ok;
+  return { ok, agentsOk: m.agentsOk, blocking: m.blocking, agentLines: m.agentLines };
 }
 
 /**
@@ -323,19 +267,6 @@ function agentChecks() {
   console.log(out);
 }
 
-function newer(src, out) {
-  if (!existsSync(out)) return true;
-  const outTime = statSync(out).mtimeMs;
-  const stack = [src];
-  while (stack.length) {
-    const p = stack.pop();
-    const s = statSync(p);
-    if (s.isDirectory()) {
-      for (const e of readdirSync(p)) if (e !== "node_modules" && e !== "dist") stack.push(join(p, e));
-    } else if (s.mtimeMs > outTime) return true;
-  }
-  return false;
-}
 function setup() {
   mkdirSync(bin, { recursive: true });
   if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
@@ -429,7 +360,7 @@ async function start() {
     return;
   }
   process.on("exit", () => clearRecord(home));
-  if (!doctor()) process.exit(1);
+  if (!doctor().ok) process.exit(1);
   setup();
   // On a first run the database package was not installed yet when `doctor` looked; look again now.
   if (!databaseOk()) process.exit(1);
@@ -556,23 +487,21 @@ async function start() {
  * control plane first if its sources changed, since the check is the control plane's own function.
  */
 function verify(files) {
-  if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
-  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "verify-bundle.js"))) {
-    run("pnpm", ["--filter", "@control-rod/api", "build"]);
-  }
+  const built = ensureApiDist(root, "verify-bundle.js");
+  if (built !== 0) process.exit(built);
   const r = spawnSync("node", [join(root, "services", "api", "dist", "verify-bundle.js"), ...files], { stdio: "inherit" });
   process.exit(r.status ?? 1);
 }
 
 /**
- * Builds an honest Markdown PR receipt from a downloaded package inclusion proof offline.
+ * Builds an honest Markdown PR receipt from a downloaded package inclusion proof offline. The
+ * receipt is the only thing written to standard output (or to `--out <file>`); install and build
+ * progress goes to standard error, because `pnpm cr verify --receipt` wants the receipt exactly.
  */
-function receipt(file) {
-  if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
-  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "pr-receipt.js"))) {
-    run("pnpm", ["--filter", "@control-rod/api", "build"]);
-  }
-  const r = spawnSync("node", [join(root, "services", "api", "dist", "pr-receipt.js"), ...(file ? [file] : [])], { stdio: "inherit" });
+function receipt(args) {
+  const built = ensureApiDist(root, "pr-receipt.js");
+  if (built !== 0) process.exit(built);
+  const r = spawnSync("node", [join(root, "services", "api", "dist", "pr-receipt.js"), ...args], { stdio: "inherit" });
   process.exit(r.status ?? 1);
 }
 
@@ -581,7 +510,7 @@ function resolveCliArgs(argv) {
   const out = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--receipt") {
+    if (a === "--receipt" || a === "--out" || a === "-o") {
       out.push(a);
       if (i + 1 < argv.length) out.push(resolve(cwd, argv[++i]));
       continue;
@@ -635,20 +564,23 @@ function tail(file, lines) {
  */
 async function startBackground({ open = false } = {}) {
   if (await alreadyRunning({ open })) return 0;
-  // The checks print only when something is missing; the full list is in `doctor`.
+  // The checks print in full only when something the app needs is missing; the full list is in
+  // `doctor`. The rows that bear on agent runs always print, so a missing sandbox is seen now and not
+  // when the first run is refused.
   const said = [];
   const print = console.log;
   console.log = (...a) => said.push(a.join(" "));
-  let ok;
+  let checked;
   try {
-    ok = doctor();
+    checked = doctor();
   } finally {
     console.log = print;
   }
-  if (!ok) {
+  if (!checked.ok) {
     console.log(said.join("\n"));
     return 1;
   }
+  console.log(checked.agentLines.join("\n"));
   setup();
   if (!databaseOk()) return 1;
   freeDeadDatabaseMemory();
@@ -771,7 +703,7 @@ async function openCommand() {
 
 function logsCommand(follow) {
   if (!existsSync(logFile)) {
-    console.log(`No log yet. A start in the background (\`controlrod start\`) writes one to ${logFile}; a start in a terminal prints there instead.`);
+    console.log(`No log yet. A start in the background (\`${cli ? "controlrod start" : "pnpm cr start --background"}\`) writes one to ${logFile}; a start in a terminal prints there instead.`);
     return 0;
   }
   if (follow) {
@@ -793,7 +725,7 @@ const runAsync = (cmd, args, opts) =>
 async function cardsCommand(run) {
   const m = await import("./lib/cards.mjs");
   try {
-    await run(m.client({ home, port }), m);
+    await run(m.client({ home, port, me }), m);
     return 0;
   } catch (e) {
     if (e instanceof m.CardError) {
@@ -812,6 +744,7 @@ async function updateCommand(flags) {
       { check: Boolean(flags.check), restart: flags.restart !== false },
       {
         git: gitRunner(root),
+        me,
         log: (m) => console.log(m),
         holdInterrupts: () => {
           process.on("SIGINT", () => console.log("\nFinishing the update safely first; please wait."));
@@ -824,7 +757,7 @@ async function updateCommand(flags) {
         },
         install: () => {
           if (!pnpmCmd) {
-            console.error("pnpm was not found. Install it (https://pnpm.io/installation) and run `controlrod update` again.");
+            console.error(`pnpm was not found. Install it (https://pnpm.io/installation) and run \`${me} update\` again.`);
             return false;
           }
           return runAsync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, env: cleanEnv() });
@@ -868,7 +801,7 @@ function linkCommand() {
     if (r.profile.added) console.log(`Added ${dirname(r.path)} to your PATH in ${r.profile.file}.`);
     console.log(`\nOpen a new terminal (or run: ${r.profile.line}), then:`);
   } else console.log("\nFrom any folder:");
-  console.log("  controlrod start      start Control Rod (add --background to keep this terminal free)");
+  console.log("  controlrod start      start Control Rod in the background and open it (--foreground keeps it here)");
   console.log("  controlrod update     update to the latest version");
   console.log("  controlrod help       every command");
   return 0;
@@ -926,7 +859,12 @@ program.command("start").description(cli ? "start Control Rod in the background 
   .action(async (o) => {
     const background = o.background || (cli && !o.foreground);
     if (background) exit(await startBackground({ open: o.open }));
-    else start();
+    // A failed start reports its reason in one line, not as an unhandled rejection with a stack.
+    else
+      await start().catch((e) => {
+        console.error(e instanceof Error ? e.message : String(e));
+        process.exit(1);
+      });
   });
 program.command("stop").description("stop Control Rod; running work finishes and is saved first")
   .option("--now", "stop without waiting for running work")
@@ -967,16 +905,21 @@ program.command("cards").description("list cards and where each one is")
 program.command("version").description("show which version this is").action(() => console.log(versionLine()));
 program.command("doctor").description("check this machine and say what to fix")
   .option("--fix", "free shared memory left behind by stopped databases (macOS)")
-  .action((o) => exit(doctor({ agents: true, fix: o.fix }) ? 0 : 1));
+  .option("--strict", "also exit 1 when agent runs can't start on this machine")
+  .action((o) => {
+    const r = doctor({ agents: true, fix: o.fix });
+    exit(r.ok && !r.blocking && (!o.strict || r.agentsOk) ? 0 : 1);
+  });
 program.command("setup").description("build without starting").action(() => setup());
 program.command("verify").description("check a downloaded inclusion proof or audit export offline").argument("<files...>");
-program.command("receipt").description("write a PR receipt from an inclusion proof").argument("[file]");
+program.command("receipt").description("write a PR receipt from an inclusion proof").argument("[file]")
+  .option("-o, --out <file>", "write the receipt to this file (only the receipt is ever written there)");
 program.command("link").description("install the controlrod command so it works in any folder").action(() => exit(linkCommand()));
 program.command("unlink").description("remove the controlrod command").action(() => {
   const r = unlink();
   console.log(r.status === "removed" ? `Removed ${r.path}.` : r.status === "none" ? "The controlrod command is not installed." : `${r.path} was not written by Control Rod; left alone.`);
 });
-program.command("bench").description("Control Rod's own cross-vendor checking benchmark")
+program.command("bench").description(`Control Rod's own cross-vendor checking benchmark (\`${me} bench --help\` lists its steps)`)
   .argument("[args...]")
   .helpOption(false)
   .allowUnknownOption()
@@ -986,10 +929,11 @@ const DAEMON_COMMANDS = new Set(["agents", "check", "runtimes", "sandbox-args", 
 const args = process.argv.slice(2);
 const known = new Set(program.commands.flatMap((c) => [c.name(), ...c.aliases()]));
 // These pass their own flags through untouched, so they skip the parser.
-const raw = { bench: (rest) => exit(bench(rest)), verify: (rest) => verify(resolveCliArgs(rest)), receipt: (rest) => receipt(rest.length ? resolveCliArgs(rest)[0] : undefined) };
+const raw = { bench: (rest) => exit(bench(rest)), verify: (rest) => verify(resolveCliArgs(rest)), receipt: (rest) => receipt(resolveCliArgs(rest)) };
 if (args.length === 0 && cli) {
   program.outputHelp();
-} else if (raw[args[0]] && !args.slice(1).some((a) => a === "--help" || a === "-h") ) {
+} else if (raw[args[0]] && (args[0] === "bench" || !args.slice(1).some((a) => a === "--help" || a === "-h"))) {
+  // bench has its own help (bench.py), so its --help goes there.
   raw[args[0]](args.slice(1));
 } else if (args.length === 0 && !cli) {
   await program.parseAsync(["start"], { from: "user" });

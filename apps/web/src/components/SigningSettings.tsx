@@ -3,7 +3,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { explain } from "../api/client.js";
 import type { SigningSteps, WorkspaceProject } from "../api/types.js";
 import { type Passkeys, browserPasskeys, signAdmin } from "../lib/decide.js";
-import { MODE_LABEL, SIGNING_PRESETS, STEP_LABEL, STEP_MODES, type SigningPreset, type StepMode, presetOf } from "../lib/signing.js";
+import {
+  ALL_SIGNED,
+  DEFAULT_SIGNING_PRESET,
+  MODE_LABEL,
+  SIGNING_PRESETS,
+  STEP_LABEL,
+  STEP_MODES,
+  type SigningPreset,
+  type StepMode,
+  presetOf,
+  signingPreset,
+} from "../lib/signing.js";
 
 /**
  * "What needs your passkey" for one project: three presets and, under Advanced, each step on its
@@ -13,8 +24,9 @@ import { MODE_LABEL, SIGNING_PRESETS, STEP_LABEL, STEP_MODES, type SigningPreset
 export function SigningSettings({ project, passkeys = browserPasskeys }: { project: WorkspaceProject; passkeys?: Passkeys }) {
   const qc = useQueryClient();
   const saved = project.signing;
-  const savedSteps: SigningSteps = saved?.steps ?? SIGNING_PRESETS[2]!.steps;
-  const [steps, setSteps] = useState<SigningSteps>(saved?.steps ?? SIGNING_PRESETS[0]!.steps);
+  // Unsaved, the server signs every step; the form offers the default preset to save.
+  const savedSteps: SigningSteps = saved?.steps ?? ALL_SIGNED;
+  const [steps, setSteps] = useState<SigningSteps>(saved?.steps ?? signingPreset(DEFAULT_SIGNING_PRESET).steps);
   const [done, setDone] = useState<string | null>(null);
   const chosen = presetOf(steps);
   const unchanged = saved !== undefined && (Object.keys(steps) as (keyof SigningSteps)[]).every((k) => steps[k] === savedSteps[k]);
@@ -59,7 +71,7 @@ export function SigningSettings({ project, passkeys = browserPasskeys }: { proje
             />
             <span>
               <strong>{p.label}</strong>
-              {p.id === "light" && <span className="tag">Recommended</span>}
+              {p.id === DEFAULT_SIGNING_PRESET && <span className="tag">Recommended</span>}
               {saved && presetOf(savedSteps) === p.id && <span className="tag">Current</span>}
               <span className="muted small block">{p.detail}</span>
             </span>

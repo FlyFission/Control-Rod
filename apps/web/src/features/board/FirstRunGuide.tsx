@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { PracticeStart } from "../../components/PracticeStart.js";
 import { ProjectModal } from "../../components/ProjectModal.js";
+import type { SigningSteps } from "../../api/types.js";
 import type { EngineeringMode } from "../../lib/mode.js";
 import { readString, writeString } from "../../lib/storage.js";
 
@@ -17,6 +18,11 @@ export interface GuideState {
   released: boolean;
   /** A package has been accepted. */
   accepted: boolean;
+  /**
+   * The signing settings the first card follows (lib/signing.ts projectSteps), when the board knows
+   * them. Left out, the release and accept steps say that the project's settings decide.
+   */
+  signing?: SigningSteps;
 }
 
 export type StepId = "agents" | "project" | "card" | "release" | "accept";
@@ -35,9 +41,37 @@ export function guideSteps(s: GuideState): GuideStep[] {
     { id: "agents", title: "Choose your agents", why: "Pick which installed agents do the work and which one checks it.", done: s.agentReady },
     { id: "project", title: "Connect a repository", why: "Make a project and point it at the repository the changes should land in.", done: s.hasRepoProject },
     { id: "card", title: "Describe your first change", why: "One or two sentences is enough. An agent turns it into a plan you can read.", done: s.hasCard },
-    { id: "release", title: "Approve the plan", why: "Open the card in Ready, read the plan, and press Release. The agents start then, not before.", done: s.released },
-    { id: "accept", title: "Review and accept the work", why: "When the check passes, the card waits for you. Read the result and press Accept.", done: s.accepted },
+    { id: "release", ...releaseStep(s.signing?.release), done: s.released },
+    { id: "accept", ...acceptStep(s.signing?.accept), done: s.accepted },
   ];
+}
+
+/** The release step in the words of the project's settings: on its own, a press, or the passkey. */
+function releaseStep(mode: SigningSteps["release"] | undefined): { title: string; why: string } {
+  switch (mode) {
+    case "auto":
+      return { title: "Read the plan", why: "Open the card to read the plan. Under this project's settings it starts on its own once it is drafted." };
+    case "click":
+      return { title: "Approve the plan", why: "Open the card in Ready, read the plan, and press Release. The agents start then, not before." };
+    case "passkey":
+      return { title: "Approve the plan", why: "Open the card in Ready, read the plan, and sign Release with your passkey. The agents start then, not before." };
+    default:
+      return { title: "Approve the plan", why: "Open the card and read the plan. It starts on its own or waits for you to press Release, as the project's settings say." };
+  }
+}
+
+/** The accept step in the words of the project's settings. */
+function acceptStep(mode: SigningSteps["accept"] | undefined): { title: string; why: string } {
+  switch (mode) {
+    case "auto":
+      return { title: "Review the accepted work", why: "Under this project's settings, work that passes its check is accepted on its own. Open the card to read the result." };
+    case "click":
+      return { title: "Review and accept the work", why: "When the check passes, the card waits for you. Read the result and press Accept." };
+    case "passkey":
+      return { title: "Review and accept the work", why: "When the check passes, the card waits for you. Read the result and sign Accept with your passkey." };
+    default:
+      return { title: "Review and accept the work", why: "When the check passes, read the result. The project's settings say whether you accept it or it is accepted on its own." };
+  }
 }
 
 const HIDDEN_KEY = "cr.firstRunGuide.hidden";

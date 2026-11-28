@@ -28,6 +28,8 @@ func runtimesCheck() int {
 			if len(st.SwitchedOff) > 0 {
 				fmt.Printf("      runs switch off %s: this version turns it on and Control Rod has not qualified it yet\n", strings.Join(st.SwitchedOff, ", "))
 			}
+		case st.MacOSOnly:
+			fmt.Printf("--    %s: found, but Control Rod starts it on macOS only (its sandbox is checked there alone)\n", st.Name)
 		case st.NotYet:
 			fmt.Printf("--    %s: found, not supported yet (never started until Control Rod can sandbox it)\n", st.Name)
 		default:

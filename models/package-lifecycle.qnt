@@ -1,9 +1,10 @@
 // A model of the work package lifecycle, as the kernel decides it
 // (kernel/src/transition.rs). Pattern PL1 in docs/patterns/plannotator.md.
 //
-// The model keeps what the server keeps between requests: the status, who
-// authored the current output and on which provider, the latest pre-check
-// outcome and whether the owner's independence override is on record. Each
+// The model keeps what the server keeps between requests: the status, which
+// agent holds the claim, who authored the current output and on which
+// provider, the latest pre-check outcome and whether the owner's independence
+// override is on record. Each
 // step builds the request the server would send to the kernel from that
 // state plus choices that vary per request (actor, signature, reason,
 // checker, preparation facts), computes the decision the floors require, and
@@ -31,6 +32,7 @@ module package_lifecycle {
     actor_id: str,
     checker_baseline: str,
     checker_provider: str,
+    with_families: bool,
     assertion_verified: bool,
     digest_matches: bool,
     reason_given: bool,
@@ -39,16 +41,19 @@ module package_lifecycle {
   }
 
   // The kernel request (transition::Request), with runtimes reduced to providers.
-  // `act` is the kernel's `action` (a reserved word in Quint).
+  // `act` is the kernel's `action` (a reserved word in Quint). `families` is the
+  // vendor-family table the server passes with a pre-check (empty otherwise).
   type Request = {
     status: str,
     act: str,
     actor_kind: str,
     actor_id: str,
+    claimed_by: str,
     author_baseline: str,
     checker_baseline: str,
     author_provider: str,
     checker_provider: str,
+    families: str -> str,
     owner_override_verified: bool,
     pre_check: str,
     assertion_verified: bool,
@@ -68,11 +73,20 @@ module package_lifecycle {
   pure val HUMAN_ONLY = Set("release", "accept", "accept-with-findings", "return", "reject", "override-independence")
   pure val AGENT_WORK = Set("claim", "submit-output", "submit-pre-check", "revise")
   pure val ACTOR_KINDS = Set("human", "agent", "system")
-  pure val ACTOR_IDS = Set("", "ben", "agent-7")
+  // Agents act under their baseline, as the server sends them; agent-7 holds no claim.
   pure val BASELINES = Set("b1", "b2")
+  pure val ACTOR_IDS = Set("", "ben", "agent-7").union(BASELINES)
   // Provider spellings the server may report. The kernel trims them and ignores ASCII case.
-  pure val PROVIDERS = Set("claude", " Claude", "codex", "CODEX ")
-  pure val CANON = Map("claude" -> "claude", " Claude" -> "claude", "codex" -> "codex", "CODEX " -> "codex")
+  // anthropic-api shares claude's family; opencode has no family in the table.
+  pure val PROVIDERS = Set("claude", " Claude", "codex", "CODEX ", "anthropic-api", "opencode")
+  pure val CANON = Map(
+    "claude" -> "claude", " Claude" -> "claude", "codex" -> "codex", "CODEX " -> "codex",
+    "anthropic-api" -> "anthropic-api", "opencode" -> "opencode",
+  )
+  // The vendor-family table (daemon/internal/runner/models.json in the product), reduced to
+  // the providers above.
+  pure val FAMILIES = Map("claude" -> "Anthropic", "codex" -> "OpenAI", "anthropic-api" -> "Anthropic")
+  pure val NO_FAMILIES: str -> str = Map()
   pure val PRE_CHECKS = Set("pass", "fail", "inconclusive")
   pure val ALL_TRUE: Prep = {
     requirements_confirmed: true, ready_for_release: true, basis_current: true,
@@ -82,6 +96,7 @@ module package_lifecycle {
 
   // The server's record of the package.
   var status: str
+  var claimedBy: str
   var authorBaseline: str
   var authorProvider: str
   var preCheck: str
@@ -95,7 +110,17 @@ module package_lifecycle {
   pure def refuse(reason: str): Outcome = { allowed: false, reason: reason, next: "" }
   pure def allowTo(target: str): Outcome = { allowed: true, reason: "allowed", next: target }
 
-  pure def sameRuntime(a: str, b: str): bool = CANON.get(a) == CANON.get(b)
+  // The family the table names for a provider, or "" when it names none.
+  pure def familyOf(p: str, fam: str -> str): str =
+    if (CANON.keys().contains(p) and fam.keys().contains(CANON.get(p))) fam.get(CANON.get(p)) else ""
+
+  // Two runtimes may be the same: one provider, one family, or a provider of unknown family.
+  pure def sameRuntime(a: str, b: str, fam: str -> str): bool =
+    CANON.get(a) == CANON.get(b) or familyOf(a, fam) == "" or familyOf(b, fam) == ""
+      or familyOf(a, fam) == familyOf(b, fam)
+
+  // The actor holds the package's claim.
+  pure def holdsClaim(r: Request): bool = r.claimed_by != "" and r.claimed_by == r.actor_id
 
   // Floors for an enrolled package: facts the server derives from its preparation records.
   pure def prepAllows(r: Request): bool =
@@ -110,12 +135,14 @@ module package_lifecycle {
         and (r.act == "accept-with-findings" or r.prep.results_pass)
     else true
 
-  // Floor 3: the pre-check comes from another baseline on another provider, unless the owner overrode.
+  // Floor 3: the pre-check comes from the checker it names, another baseline and another
+  // vendor family, unless the owner overrode.
   pure def preCheckDecision(r: Request): Outcome =
-    if (r.author_baseline != "" and r.checker_baseline != "" and r.author_baseline == r.checker_baseline)
+    if (r.checker_baseline != r.actor_id) refuse("forbidden")
+    else if (r.author_baseline != "" and r.checker_baseline != "" and r.author_baseline == r.checker_baseline)
       refuse("not-independent")
     else if (r.author_baseline != "" and r.checker_baseline != "" and r.author_provider != "" and r.checker_provider != "")
-      if (sameRuntime(r.author_provider, r.checker_provider) and not(r.owner_override_verified)) refuse("not-independent")
+      if (sameRuntime(r.author_provider, r.checker_provider, r.families) and not(r.owner_override_verified)) refuse("not-independent")
       else allowTo("in-verification")
     else refuse("forbidden")
 
@@ -125,11 +152,14 @@ module package_lifecycle {
     val s = r.status
     if (a == "release" and s == "draft") allowTo("released")
     else if (a == "claim" and s == "released") allowTo("in-work")
-    else if (a == "submit-output" and s == "in-work") allowTo("in-verification")
+    // Floor 2: only the claim holder submits output or revises.
+    else if (a == "submit-output" and s == "in-work")
+      if (holdsClaim(r)) allowTo("in-verification") else refuse("forbidden")
     else if (a == "submit-pre-check" and s == "in-verification") preCheckDecision(r)
     // Floor 4: revise only after a pre-check that did not pass.
     else if (a == "revise" and s == "in-verification")
-      if (r.pre_check == "") refuse("missing-pre-check")
+      if (not(holdsClaim(r))) refuse("forbidden")
+      else if (r.pre_check == "") refuse("missing-pre-check")
       else if (r.pre_check == "pass") refuse("wrong-state")
       else allowTo("in-work")
     // Floor 5: acceptance needs a pre-check; one that did not pass needs a written reason.
@@ -164,10 +194,12 @@ module package_lifecycle {
     act: k.act,
     actor_kind: k.actor_kind,
     actor_id: k.actor_id,
+    claimed_by: claimedBy,
     author_baseline: authorBaseline,
     checker_baseline: k.checker_baseline,
     author_provider: authorProvider,
     checker_provider: k.checker_provider,
+    families: if (k.act == "submit-pre-check" and k.with_families) FAMILIES else NO_FAMILIES,
     owner_override_verified: overrideVerified,
     pre_check: preCheck,
     assertion_verified: k.assertion_verified,
@@ -183,14 +215,15 @@ module package_lifecycle {
     results_pass: false,
   }
   pure val NO_REQUEST: Request = {
-    status: "", act: "", actor_kind: "", actor_id: "", author_baseline: "",
-    checker_baseline: "", author_provider: "", checker_provider: "",
+    status: "", act: "", actor_kind: "", actor_id: "", claimed_by: "", author_baseline: "",
+    checker_baseline: "", author_provider: "", checker_provider: "", families: NO_FAMILIES,
     owner_override_verified: false, pre_check: "", assertion_verified: false,
     digest_matches: false, reason_given: false, prep_enrolled: false, prep: EMPTY_PREP,
   }
 
   action init = all {
     status' = "draft",
+    claimedBy' = "",
     authorBaseline' = "",
     authorProvider' = "",
     preCheck' = "",
@@ -200,9 +233,9 @@ module package_lifecycle {
     terminal' = "",
   }
 
-  // One request. pc is the pre-check outcome if a pre-check is allowed; b and p are the
-  // baseline and provider of the author if output is submitted.
-  action apply(k: Ask, pc: str, b: str, p: str): bool = {
+  // One request. pc is the pre-check outcome if a pre-check is allowed; p is the author's
+  // provider if output is submitted. The author's baseline is the agent that submitted it.
+  action apply(k: Ask, pc: str, p: str): bool = {
     val r = requestFor(k)
     val out = expected(r)
     val n = if (out.allowed) out.next else status
@@ -210,8 +243,12 @@ module package_lifecycle {
       lastReq' = r,
       lastOut' = out,
       status' = n,
+      claimedBy' =
+        if (out.allowed and k.act == "claim") k.actor_id
+        else if (out.allowed and k.act == "return") ""
+        else claimedBy,
       authorBaseline' =
-        if (out.allowed and k.act == "submit-output") b
+        if (out.allowed and k.act == "submit-output") k.actor_id
         else if (out.allowed and k.act == "return") ""
         else authorBaseline,
       authorProvider' =
@@ -244,7 +281,8 @@ module package_lifecycle {
     else ACTIONS
 
   // Steps are guided or free. A guided step is a well-formed request, signed when a person
-  // acts, for a move the status names; its checker is another baseline than the author's.
+  // acts, for a move the status names. The claim holder submits and revises; the checker is
+  // another baseline than the author's and submits its own pre-check, with the family table.
   // One step in sixteen closes instead (return or reject). One in four is free: any action,
   // actor, checker and facts.
   action step = {
@@ -258,10 +296,19 @@ module package_lifecycle {
     nondet freeKind = oneOf(ACTOR_KINDS)
     val actorKind = if (not(guided)) freeKind else if (HUMAN_ONLY.contains(act)) "human" else "agent"
     nondet freeId = oneOf(ACTOR_IDS)
-    val actorId = if (guided) (if (actorKind == "human") "ben" else "agent-7") else freeId
+    nondet claimant = oneOf(BASELINES)
     nondet freeChecker = oneOf(BASELINES.union(Set("")))
     val checkerBaseline = if (guided) (if (authorBaseline == "b1") "b2" else "b1") else freeChecker
+    val guidedId =
+      if (actorKind == "human") "ben"
+      else if (act == "claim") claimant
+      else if (act == "submit-pre-check") checkerBaseline
+      else if (claimedBy != "") claimedBy
+      else "agent-7"
+    val actorId = if (guided) guidedId else freeId
     nondet checkerProvider = oneOf(PROVIDERS.union(Set("")))
+    nondet freeFamilies = oneOf(Set(true, false))
+    val withFamilies = guided or freeFamilies
     nondet freeAssertion = oneOf(Set(true, false))
     nondet freeDigest = oneOf(Set(true, false))
     val assertion = guided or freeAssertion
@@ -278,7 +325,6 @@ module package_lifecycle {
     nondet rchk = oneOf(Set(true, false))
     nondet rp = oneOf(Set(true, false))
     nondet pc = oneOf(PRE_CHECKS)
-    nondet b = oneOf(BASELINES)
     nondet p = oneOf(PROVIDERS)
     val prep: Prep = if (prepReady) ALL_TRUE else {
       requirements_confirmed: rc, ready_for_release: rr, basis_current: bc,
@@ -288,9 +334,10 @@ module package_lifecycle {
     apply({
       act: act, actor_kind: actorKind, actor_id: actorId,
       checker_baseline: checkerBaseline, checker_provider: checkerProvider,
+      with_families: withFamilies,
       assertion_verified: assertion, digest_matches: digest, reason_given: reason,
       prep_enrolled: enrolled, prep: prep,
-    }, pc, b, p)
+    }, pc, p)
   }
 
   // ---------------------------------------------------------------------------
@@ -308,12 +355,21 @@ module package_lifecycle {
   val AgentWorkByAgents =
     (lastOut.allowed and AGENT_WORK.contains(lastReq.act)) implies lastReq.actor_kind == "agent"
 
-  // Floor 3: an allowed pre-check came from another baseline, and from another provider
-  // unless the owner's override is on record.
+  // Floor 2: only the agent that holds the claim submits output or revises.
+  val WorkByClaimHolder =
+    (allowed("submit-output") or allowed("revise")) implies holdsClaim(lastReq)
+
+  // Floor 2: a pre-check is submitted by the checker the request names.
+  val PreCheckByItsChecker =
+    allowed("submit-pre-check") implies lastReq.actor_id == lastReq.checker_baseline
+
+  // Floor 3: an allowed pre-check came from another baseline, and from another known vendor
+  // family unless the owner's override is on record.
   val PreCheckIndependent =
     allowed("submit-pre-check") implies (
       lastReq.checker_baseline != lastReq.author_baseline
-        and (not(sameRuntime(lastReq.checker_provider, lastReq.author_provider)) or lastReq.owner_override_verified)
+        and (not(sameRuntime(lastReq.checker_provider, lastReq.author_provider, lastReq.families))
+          or lastReq.owner_override_verified)
     )
 
   // Floor 4: a revision follows a pre-check that did not pass.
@@ -340,7 +396,8 @@ module package_lifecycle {
   // An allowed request always moves to a named status; a refused one never does.
   val OutcomeShape = (lastOut.allowed iff lastOut.next != "") and (lastOut.allowed iff lastOut.reason == "allowed")
 
-  val Floors = HumanActsSigned and AgentWorkByAgents and PreCheckIndependent and ReviseAfterNonPass
+  val Floors = HumanActsSigned and AgentWorkByAgents and WorkByClaimHolder and PreCheckByItsChecker
+    and PreCheckIndependent and ReviseAfterNonPass
     and AcceptanceHasPreCheck and EnrolledReleaseReady and TerminalIsFinal and OutcomeShape
 
   // Witnesses: states a useful set of traces should reach (reported with --witnesses).
@@ -349,48 +406,77 @@ module package_lifecycle {
   val RefusedNotIndependent = lastOut.reason == "not-independent"
   val PreCheckAllowedAfterOverride = allowed("submit-pre-check") and lastReq.owner_override_verified
   val RevisedAfterFail = allowed("revise")
+  val RefusedOutsideClaim =
+    Set("submit-output", "revise").contains(lastReq.act) and lastReq.status != "" and lastOut.reason == "forbidden"
+      and lastReq.actor_kind == "agent" and not(holdsClaim(lastReq))
+  val RefusedSameFamily =
+    lastOut.reason == "not-independent" and lastReq.checker_baseline != lastReq.author_baseline
+      and CANON.get(lastReq.checker_provider) != CANON.get(lastReq.author_provider)
 
   // ---------------------------------------------------------------------------
   // Scripted runs: named paths through the lifecycle.
   // ---------------------------------------------------------------------------
 
   pure def ask(a: str, kind: str): Ask = {
-    act: a, actor_kind: kind, actor_id: if (kind == "human") "ben" else "agent-7",
-    checker_baseline: "", checker_provider: "", assertion_verified: true,
+    act: a, actor_kind: kind, actor_id: if (kind == "human") "ben" else "b1",
+    checker_baseline: "", checker_provider: "", with_families: true, assertion_verified: true,
     digest_matches: true, reason_given: false, prep_enrolled: false, prep: EMPTY_PREP,
   }
-  pure def checker(b: str, p: str): Ask = { ...ask("submit-pre-check", "agent"), checker_baseline: b, checker_provider: p }
+  pure def checker(b: str, p: str): Ask =
+    { ...ask("submit-pre-check", "agent"), actor_id: b, checker_baseline: b, checker_provider: p }
   pure def withReason(k: Ask): Ask = { ...k, reason_given: true }
+  pure def by(k: Ask, id: str): Ask = { ...k, actor_id: id }
 
   // Release, claim and submit as b1 on claude: in verification with no pre-check.
   action toVerification =
     init
-      .then(apply(ask("release", "human"), "", "", ""))
-      .then(apply(ask("claim", "agent"), "", "", ""))
-      .then(apply(ask("submit-output", "agent"), "", "b1", "claude"))
+      .then(apply(ask("release", "human"), "", ""))
+      .then(apply(ask("claim", "agent"), "", ""))
+      .then(apply(ask("submit-output", "agent"), "", "claude"))
 
   run sameProviderPreCheckNeedsOverrideTest =
     toVerification
-      .then(apply(checker("b2", " Claude"), "pass", "", ""))
-      .then(all { assert(lastOut == refuse("not-independent")), apply(withReason(ask("override-independence", "human")), "", "", "") })
-      .then(all { assert(lastOut.allowed), apply(checker("b2", " Claude"), "pass", "", "") })
-      .then(all { assert(lastOut == allowTo("in-verification")), apply(ask("accept", "human"), "", "", "") })
-      .then(all { assert(status == "accepted"), apply(withReason(ask("return", "human")), "", "", "") })
+      .then(apply(checker("b2", " Claude"), "pass", ""))
+      .then(all { assert(lastOut == refuse("not-independent")), apply(withReason(ask("override-independence", "human")), "", "") })
+      .then(all { assert(lastOut.allowed), apply(checker("b2", " Claude"), "pass", "") })
+      .then(all { assert(lastOut == allowTo("in-verification")), apply(ask("accept", "human"), "", "") })
+      .then(all { assert(status == "accepted"), apply(withReason(ask("return", "human")), "", "") })
       .then(all { assert(lastOut == refuse("wrong-state")), assert(status == "accepted"), init })
+
+  run sameFamilyOrUnknownFamilyNeedsOverrideTest =
+    toVerification
+      .then(apply(checker("b2", "anthropic-api"), "pass", ""))
+      .then(all { assert(lastOut == refuse("not-independent")), apply(checker("b2", "opencode"), "pass", "") })
+      .then(all { assert(lastOut == refuse("not-independent")), apply({ ...checker("b2", "codex"), with_families: false }, "pass", "") })
+      .then(all { assert(lastOut == refuse("not-independent")), apply(checker("b2", "CODEX "), "pass", "") })
+      .then(all { assert(lastOut == allowTo("in-verification")), init })
+
+  run onlyTheClaimHolderSubmitsTest =
+    init
+      .then(apply(ask("release", "human"), "", ""))
+      .then(apply(by(ask("claim", "agent"), "b2"), "", ""))
+      .then(all { assert(claimedBy == "b2"), apply(ask("submit-output", "agent"), "", "claude") })
+      .then(all { assert(lastOut == refuse("forbidden")), apply(by(ask("submit-output", "agent"), "agent-7"), "", "claude") })
+      .then(all { assert(lastOut == refuse("forbidden")), apply(by(ask("submit-output", "agent"), "b2"), "", "claude") })
+      .then(all { assert(status == "in-verification"), apply({ ...checker("b1", "codex"), actor_id: "agent-7" }, "fail", "") })
+      .then(all { assert(lastOut == refuse("forbidden")), apply(checker("b1", "codex"), "fail", "") })
+      .then(all { assert(lastOut.allowed), apply(ask("revise", "agent"), "", "") })
+      .then(all { assert(lastOut == refuse("forbidden")), apply(by(ask("revise", "agent"), "b2"), "", "") })
+      .then(all { assert(status == "in-work"), init })
 
   run acceptNeedsPreCheckTest =
     toVerification
-      .then(apply(ask("accept", "human"), "", "", ""))
-      .then(all { assert(lastOut == refuse("missing-pre-check")), apply(ask("accept", "agent"), "", "", "") })
-      .then(all { assert(lastOut == refuse("not-human")), apply({ ...ask("accept", "human"), digest_matches: false }, "", "", "") })
+      .then(apply(ask("accept", "human"), "", ""))
+      .then(all { assert(lastOut == refuse("missing-pre-check")), apply(ask("accept", "agent"), "", "") })
+      .then(all { assert(lastOut == refuse("not-human")), apply({ ...ask("accept", "human"), digest_matches: false }, "", "") })
       .then(all { assert(lastOut == refuse("unsigned")), init })
 
   run failedPreCheckRevisesTest =
     toVerification
-      .then(apply(checker("b2", "codex"), "fail", "", ""))
-      .then(all { assert(lastOut.allowed), apply(ask("accept", "human"), "", "", "") })
-      .then(all { assert(lastOut == refuse("reason-required")), apply(ask("revise", "agent"), "", "", "") })
-      .then(all { assert(status == "in-work"), assert(preCheck == ""), apply(ask("submit-output", "agent"), "", "b1", "claude") })
-      .then(all { assert(status == "in-verification"), apply(checker("b1", "codex"), "pass", "", "") })
+      .then(apply(checker("b2", "codex"), "fail", ""))
+      .then(all { assert(lastOut.allowed), apply(ask("accept", "human"), "", "") })
+      .then(all { assert(lastOut == refuse("reason-required")), apply(ask("revise", "agent"), "", "") })
+      .then(all { assert(status == "in-work"), assert(preCheck == ""), apply(ask("submit-output", "agent"), "", "claude") })
+      .then(all { assert(status == "in-verification"), apply(checker("b1", "codex"), "pass", "") })
       .then(all { assert(lastOut == refuse("not-independent")), init })
 }

@@ -556,6 +556,10 @@
   overflow-wrap: anywhere;
   -webkit-line-clamp: 3;
 }
+.bd-capture-setup {
+  margin: 0;
+  font-size: var(--fs-label);
+}
 .bd-capture-classify {
   display: flex;
   flex-direction: column;

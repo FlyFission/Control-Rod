@@ -169,6 +169,8 @@ type Daemon struct {
 	retry *retryGate
 	// updates is what the startup agent-update check found.
 	updates agentUpdates
+	// workspaces maps a run id to the run folder to remove once its completion is in the outbox.
+	workspaces sync.Map
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -273,7 +275,7 @@ func sleepCtx(ctx context.Context, d time.Duration) {
 // killing them. Every claimed job is reported as complete, even on shutdown.
 func (d *Daemon) Run(ctx context.Context) error {
 	if len(d.cfg.Runtimes) == 0 {
-		return errors.New("no agent runtime found: install Claude Code or Codex")
+		return errors.New(NoRuntimeMessage(runtime.GOOS))
 	}
 	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel, "containment", d.container.Mode)
 	if d.container.Mode != ContainCgroup {
@@ -292,6 +294,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	defer unlock()
 	d.sweepOrphans(ctx)
+	d.sweepStaleWorkspaces(time.Now())
 	d.probe(ctx)
 	go d.probeLoop(ctx)
 	if d.cfg.UpdateCheck != nil {
@@ -1058,8 +1061,18 @@ func authorEgressHosts(runtime string, sandbox *SandboxPolicy) []string {
 // traffic to chatgpt.com (backend-api/codex) and refreshes its token at auth.openai.com,
 // neither of which is a model endpoint in models.json. Without them the default-on egress
 // filter blocks a ChatGPT-signed-in Codex on its first run.
+//
+// Claude Code signed in with a Claude subscription refreshes its OAuth token at
+// platform.claude.com/v1/oauth/token: the Claude Code 2.1.332 binary names it as its
+// TOKEN_URL. Older builds used console.anthropic.com/v1/oauth/token, so that host stays
+// too. Without them a signed-in Claude run fails once its access token expires.
+// Antigravity signs in with a Google account and refreshes at oauth2.googleapis.com,
+// Google's documented OAuth 2.0 token endpoint. That host was not read from an
+// Antigravity binary, because none was available here.
 var harnessSignInHosts = map[string][]string{
-	"codex": {"chatgpt.com", "auth.openai.com"},
+	RuntimeCodex:  {"chatgpt.com", "auth.openai.com"},
+	RuntimeClaude: {"platform.claude.com", "console.anthropic.com"},
+	RuntimeAgy:    {"oauth2.googleapis.com"},
 }
 
 // setProxyEnv removes any case-insensitive HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, and NO_PROXY
@@ -1492,10 +1505,14 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	putErr := d.outbox.Put(e)
 	if putErr != nil {
 		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", putErr)
+		// Kept: the completion is not in durable custody. The startup sweep removes it later.
+		d.forgetWorkspace(job.Run.ID)
 	} else {
 		// The completion is now in durable custody; the spawn receipt has done its job. If the outbox
 		// write failed the receipt stays, so a restart can still report the exit.
 		d.receipts.Remove(job.Run.ID)
+		// The completion carries the outputs, so the run folder is no longer needed.
+		d.removeWorkspace(job.Run.ID)
 	}
 	wait := d.cfg.RetryBase
 	for attempt := 1; ; attempt++ {
@@ -1518,9 +1535,11 @@ func newKey() string {
 	return hex.EncodeToString(b)
 }
 
-// Execute runs one job and returns its completion without sending it.
+// Execute runs one job and returns its completion without sending it. The run folder is left
+// in place for the caller to read.
 func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 	comp, _ := d.execute(ctx, job)
+	d.forgetWorkspace(job.Run.ID)
 	return comp
 }
 
@@ -1603,6 +1622,13 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	if err != nil {
 		return fail(err.Error()), nil
 	}
+	defer func() {
+		// Removed by Handle once the completion is in the outbox; kept while the run's processes
+		// are not confirmed gone.
+		if !errors.Is(resultErr, ErrUncontained) {
+			d.rememberWorkspace(job.Run.ID, ws)
+		}
+	}()
 	if ws.RunRoot != "" {
 		// The outputs are read into the completion before this returns. Deferred after the lock,
 		// so the folder is gone before the next run of this runtime starts, and kept, like the
@@ -1686,9 +1712,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 
 	// A fresh worktree has no packages and the agent's sandbox has no network: install what the
 	// lockfile pins first, outside the sandbox. Authors only, so a checker's view of the checkout is
-	// exactly what the author left. Never fails the run.
+	// exactly what the author left. Nothing runs unless the files that can name a program are as in
+	// the bound commit (an earlier round's agent could have written them). Never fails the run.
 	if ws.Checkout != nil && !ws.Checker && SetupWanted(ws) {
-		buf.addEvents(PrepareCheckout(runCtx, ws.Dir, d.setup, time.Now))
+		buf.addEvents(PrepareCheckout(runCtx, ws.Dir, gitBaseline(ws.Dir, ws.Checkout.Head), d.setup, time.Now))
 	}
 
 	launch := LaunchFor(runtime, job.Run, ws, sandbox)

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { updateNoticeFor } from "../src/update-notice.js";
+import { checkAtStart, updateCheckOff, updateNoticeFor } from "../src/update-notice.js";
 
 test("ignores records for other launches and shares an active check with readers and callers", async () => {
   const root = await mkdtemp(join(tmpdir(), "controlrod-notice-"));
@@ -68,6 +68,31 @@ test("stops a stalled check at its deadline and never shows an older result as f
     const again = updateNoticeFor(root, home, running, [fails])!;
     expect(await again.check()).toMatchObject({ error: "Could not check for updates." });
     expect(await again.read()).not.toHaveProperty("behind");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("CONTROLROD_UPDATE_CHECK=0 stops the check at start, and a press still checks", async () => {
+  const root = await mkdtemp(join(tmpdir(), "controlrod-notice-"));
+  try {
+    const home = join(root, "data");
+    await mkdir(home);
+    const ran = join(root, "ran");
+    const helper = join(root, "helper.mjs");
+    await writeFile(helper, `import { appendFileSync } from "node:fs"; appendFileSync(${JSON.stringify(ran)}, "x");`);
+    const running = "a".repeat(40);
+    for (const v of ["0", "off", "FALSE", " no "]) {
+      expect(updateCheckOff({ CONTROLROD_UPDATE_CHECK: v })).toBe(true);
+      expect(checkAtStart(updateNoticeFor(root, home, running, [helper]), { CONTROLROD_UPDATE_CHECK: v })).toBeUndefined();
+    }
+    for (const v of [undefined, "", "1", "on"]) expect(updateCheckOff(v === undefined ? {} : { CONTROLROD_UPDATE_CHECK: v })).toBe(false);
+    await expect(readFile(ran, "utf8")).rejects.toThrow();
+    const store = updateNoticeFor(root, home, running, [helper])!;
+    await checkAtStart(store, {});
+    expect(await readFile(ran, "utf8")).toBe("x");
+    await store.check();
+    expect(await readFile(ran, "utf8")).toBe("xx");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

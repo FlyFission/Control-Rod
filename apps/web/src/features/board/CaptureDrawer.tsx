@@ -9,6 +9,8 @@ import { LanePicker, laneEffect, laneLabel, laneRank, useCaptureDefaultLane } fr
 import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
 import { captureLine, captureSummaryText } from "./CaptureCard.js";
+import { Link } from "@tanstack/react-router";
+import { useNoAgentReady } from "../../lib/useAgents.js";
 
 interface CaptureDrawerProps {
   capture: CaptureView;
@@ -24,7 +26,7 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
   const asideRef = useRef<HTMLElement>(null);
   const shown = splitAttachments(capture.text);
   const summary = captureSummaryText(shown.text) || shown.files.join(", ");
-  const line = captureLine(capture);
+  const line = captureLine(capture, useNoAgentReady());
   const scramLock = useActionLock();
   const fallback = useCaptureDefaultLane(capture.text);
   const current = capture.effective_lane ?? capture.lane;
@@ -105,6 +107,13 @@ export function CaptureDrawer({ capture, onClose }: CaptureDrawerProps) {
           <p className="small" style={{ margin: 0 }}>
             {line.text}
           </p>
+          {line.setup && (
+            <p className="small" style={{ margin: "6px 0 0" }}>
+              <Link to="/setup" className="btn small">
+                Open Setup
+              </Link>
+            </p>
+          )}
         </section>
 
         {capture.disposition === "answered" && capture.answer && (

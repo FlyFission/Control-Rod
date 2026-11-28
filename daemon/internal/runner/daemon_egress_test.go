@@ -238,7 +238,8 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 			runtime   string
 			wantHosts []string
 		}{
-			{runtime: RuntimeClaude, wantHosts: []string{"api.anthropic.com:443"}},
+			// Claude carries its OAuth refresh hosts (harnessSignInHosts).
+			{runtime: RuntimeClaude, wantHosts: []string{"api.anthropic.com:443", "platform.claude.com:443", "console.anthropic.com:443"}},
 			// Codex also carries its ChatGPT sign-in hosts (harnessSignInHosts).
 			{runtime: RuntimeCodex, wantHosts: []string{"api.openai.com:443", "chatgpt.com:443", "auth.openai.com:443"}},
 		} {
@@ -297,7 +298,7 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 		}
 		defer ef.Close()
 
-		want := []string{"docs.example.org:443", "127.0.0.1:11434", "api.anthropic.com:443"}
+		want := []string{"docs.example.org:443", "127.0.0.1:11434", "api.anthropic.com:443", "platform.claude.com:443", "console.anthropic.com:443"}
 		if !slices.Equal(gotHosts, want) {
 			t.Fatalf("hosts=%v want %v", gotHosts, want)
 		}
@@ -404,6 +405,23 @@ func TestAuthorEgressHostsAllowCodexChatGPTSignIn(t *testing.T) {
 	for _, h := range authorEgressHosts("claude", nil) {
 		if strings.HasPrefix(h, "chatgpt.com") || strings.HasPrefix(h, "auth.openai.com") {
 			t.Errorf("claude allowlist carries Codex sign-in host %s", h)
+		}
+	}
+}
+
+// A subscription sign-in refreshes its token at a host that is not a model endpoint, so each
+// harness's refresh host is on the allowlist (review DMN-6).
+func TestAuthorEgressHostsCarryTheSignInRefreshHosts(t *testing.T) {
+	for runtime, want := range map[string][]string{
+		RuntimeClaude: {"platform.claude.com:443", "console.anthropic.com:443"},
+		RuntimeCodex:  {"chatgpt.com:443", "auth.openai.com:443"},
+		RuntimeAgy:    {"oauth2.googleapis.com:443"},
+	} {
+		got := authorEgressHosts(runtime, testPolicy())
+		for _, h := range want {
+			if !slices.Contains(got, h) {
+				t.Errorf("%s: %s missing from %v", runtime, h, got)
+			}
 		}
 	}
 }

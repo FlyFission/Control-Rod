@@ -9,9 +9,10 @@ import { PracticeStart } from "../components/PracticeStart.js";
 import { useActiveProject, useProjects } from "../lib/projects.js";
 import { ControlRodVersion } from "../components/UpdateNotice.js";
 import { WorkflowDiagram } from "../components/WorkflowDiagram.js";
-import { CHECK_IN_CHOICES, CHECK_IN_LATER, WRITING_CHOICES, readBack } from "../lib/agents.js";
+import { CHECK_IN_CHOICES, CHECK_IN_LATER, WRITING_CHOICES, readBack, seatable } from "../lib/agents.js";
 import { buildCouncilFlow } from "../lib/councilFlow.js";
 import { SETUP_SKIPPED_KEY } from "../lib/firstRun.js";
+import { DEFAULT_SIGNING_PRESET, projectSteps, signingPreset } from "../lib/signing.js";
 import { writeSession } from "../lib/storage.js";
 import { setupRequest, useAgents } from "../lib/useAgents.js";
 import "./screens.css";
@@ -34,8 +35,8 @@ export function Setup() {
   const signingProject = active ?? projects[0] ?? null;
 
   const chosenCheckIn: CheckIn = checkIn ?? agents.setup?.check_in ?? "start-and-merge";
-  const rows = agents.rows.map((r) => (r.info.runnable ? { ...r, seated: changed[r.info.id] ?? r.seated } : r));
-  const found = rows.filter((r) => r.info.runnable && r.state !== "not-found").length;
+  const rows = agents.rows.map((r) => (seatable(r) ? { ...r, seated: changed[r.info.id] ?? r.seated } : r));
+  const found = rows.filter((r) => r.installed).length;
   const choice = CHECK_IN_CHOICES.find((c) => c.id === chosenCheckIn)!;
   const chosenWriting: Writing = writing ?? agents.setup?.writing ?? "focus";
   const writingChoice = WRITING_CHOICES.find((c) => c.id === chosenWriting)!;
@@ -74,7 +75,7 @@ export function Setup() {
             Check again
           </button>
         </div>
-        <p className="muted small">Here's what we found. Leave an agent at the table, bench it, or fix what's missing.</p>
+        <p className="muted small">Here's what we found. Only an agent installed on this computer sits at the table. Leave one there, bench it, or fix what's missing.</p>
         {agents.loading && <p className="muted">Looking for agents</p>}
         {agents.error && (
           <p role="alert" className="error">
@@ -127,7 +128,9 @@ export function Setup() {
         {signingProject ? (
           <SigningSettings key={`${signingProject.id}:${signingProject.signing?.version ?? 0}`} project={signingProject} />
         ) : (
-          <p className="muted small">Create a project first. Its signing settings start at Light: cards start and finish on their own.</p>
+          <p className="muted small">
+            Create a project first. New projects start at {signingPreset(DEFAULT_SIGNING_PRESET).label}. {signingPreset(DEFAULT_SIGNING_PRESET).detail}
+          </p>
         )}
       </section>
 
@@ -139,7 +142,7 @@ export function Setup() {
           {!choice.today && " What actually stops a card for you is set under What needs your passkey."}
         </p>
         <p>Agents write to you: {writingChoice.label}.</p>
-        {!agents.loading && <WorkflowDiagram flow={buildCouncilFlow(rows, chosenCheckIn)} />}
+        {!agents.loading && <WorkflowDiagram flow={buildCouncilFlow(rows, chosenCheckIn, undefined, signingProject ? projectSteps(signingProject) : undefined)} />}
         {agents.save.error && (
           <p role="alert" className="error">
             {explain(agents.save.error, "Could not save setup.")}

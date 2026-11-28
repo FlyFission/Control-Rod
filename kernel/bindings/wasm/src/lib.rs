@@ -4,7 +4,9 @@ use controlrod_kernel::transition::{Request, decide};
 use controlrod_kernel::{ReasonCode, canonical_sha256};
 use wasm_bindgen::prelude::*;
 
-fn reason_name(r: ReasonCode) -> &'static str {
+/// The wire name of each reason code. The match is exhaustive on purpose: a new code fails to
+/// compile here until it has its own name, so no code is ever reported as another.
+const fn reason_name(r: ReasonCode) -> &'static str {
     match r {
         ReasonCode::Allowed => "allowed",
         ReasonCode::NotImplemented => "not-implemented",
@@ -16,7 +18,6 @@ fn reason_name(r: ReasonCode) -> &'static str {
         ReasonCode::NotIndependent => "not-independent",
         ReasonCode::MissingPreCheck => "missing-pre-check",
         ReasonCode::ReasonRequired => "reason-required",
-        _ => "forbidden",
     }
 }
 
@@ -57,6 +58,38 @@ pub fn decide_preparation_json(request: &str) -> String {
     let out = controlrod_kernel::preparation::decide_preparation(&req);
     serde_json::json!({"allowed": out.is_allowed(), "reason": reason_name(out.reason())})
         .to_string()
+}
+
+#[cfg(test)]
+mod reason_name_tests {
+    use super::reason_name;
+    use controlrod_kernel::ReasonCode;
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn every_reason_code_has_its_own_wire_name() {
+        let codes = [
+            ReasonCode::Allowed,
+            ReasonCode::NotImplemented,
+            ReasonCode::PolicyError,
+            ReasonCode::Forbidden,
+            ReasonCode::NotHuman,
+            ReasonCode::Unsigned,
+            ReasonCode::WrongState,
+            ReasonCode::NotIndependent,
+            ReasonCode::MissingPreCheck,
+            ReasonCode::ReasonRequired,
+        ];
+        let names: BTreeSet<_> = codes.iter().map(|c| reason_name(*c)).collect();
+        assert_eq!(names.len(), codes.len(), "two codes share a wire name");
+        assert!(!names.contains("invalid-request"));
+        for name in names {
+            assert!(
+                !name.is_empty() && name.bytes().all(|b| b.is_ascii_lowercase() || b == b'-'),
+                "{name}"
+            );
+        }
+    }
 }
 
 #[cfg(test)]

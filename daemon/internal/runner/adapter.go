@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -63,6 +64,61 @@ func confinementRefusal(a Adapter) error {
 		}
 	}
 	return nil
+}
+
+// macOSOnly is a runtime Control Rod confines on macOS alone (its ConfinementGap is empty there and
+// nowhere else). It is found and listed on other platforms, and never started there.
+type macOSOnly interface {
+	MacOSOnly()
+}
+
+// MacOSOnlyRuntime reports whether a runtime runs on macOS only, so setup and doctor can say so.
+func MacOSOnlyRuntime(rt string) bool {
+	a, ok := AdapterFor(rt)
+	if !ok {
+		return false
+	}
+	_, only := a.(macOSOnly)
+	return only
+}
+
+// NoRuntimeMessage is the daemon's refusal when no agent CLI is on PATH. It names every runtime
+// Control Rod can start on this platform, and the ones it starts on macOS only.
+func NoRuntimeMessage(goos string) string {
+	var here, mac []string
+	for _, a := range registry {
+		// Only real vendor CLIs: the ones the subscriptions page lists (the fake runtime is not one).
+		if l, ok := a.(subscriptionCLI); !ok || !l.ListOnSubscriptions() {
+			continue
+		}
+		_, only := a.(macOSOnly)
+		if only && goos != "darwin" {
+			mac = append(mac, a.DisplayName())
+			continue
+		}
+		if w, ok := a.(AwaitingConfinement); ok && !only && w.ConfinementGap() != "" {
+			continue
+		}
+		here = append(here, a.DisplayName())
+	}
+	msg := "no agent runtime found: install " + joinOr(here)
+	if len(mac) > 0 {
+		msg += " (" + joinAnd(mac) + " run on macOS only)"
+	}
+	return msg
+}
+
+func joinOr(names []string) string  { return joinWords(names, "or") }
+func joinAnd(names []string) string { return joinWords(names, "and") }
+
+func joinWords(names []string, word string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " " + word + " " + names[len(names)-1]
 }
 
 // workspaceRooter places a runtime's author and intake workspaces under a root of its own instead
@@ -138,6 +194,12 @@ type codexSwitchPreflight interface {
 // ArtifactStager launches from a staged copy of the install tree.
 type ArtifactStager interface {
 	StagesArtifact() bool
+}
+
+// ExecCopier launches from a staged copy of its single-file executable where the platform
+// starts a runtime by its path after hashing it (not Linux; see copiesBeforeExec).
+type ExecCopier interface {
+	CopiesBeforeExec() bool
 }
 
 // OutputCopier fills out/ when Command returns no process. Only the fake runtime implements it.

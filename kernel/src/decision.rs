@@ -1,8 +1,10 @@
 //! The decision type. Only the kernel can construct an allowing decision.
 
 /// Why the kernel allowed or refused a request. Every decision carries exactly one.
+///
+/// Deliberately not `#[non_exhaustive]`: every binding maps each code with an exhaustive match,
+/// so adding a code without its wire name is a compile error, never a silent "forbidden".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ReasonCode {
     /// Every guard passed.
     Allowed,

@@ -1,4 +1,4 @@
-import { CLI_ECOSYSTEMS } from "../../lib/runtimes.js";
+import { CLI_ECOSYSTEMS, runnableHere, unavailableNote } from "../../lib/runtimes.js";
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AutonomyOffer } from "./AutonomyOffer.js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,9 +33,10 @@ import {
   useProjects,
   WorkspaceProjectUser,
 } from "../../lib/projects.js";
-import { useAgents } from "../../lib/useAgents.js";
+import { useAgentPlatform, useAgents } from "../../lib/useAgents.js";
 import { PRACTICE_NOTE, usePracticeProjectIds } from "../../lib/practice.js";
 import { FirstRunGuide, type GuideState, guideOpen, useGuideHidden } from "./FirstRunGuide.js";
+import { ALL_SIGNED, cardFlowLine, projectSteps } from "../../lib/signing.js";
 import { sessionGeneration, stillCurrent } from "../../lib/session.js";
 import { BoardListView } from "./BoardListView.js";
 import { BoardReviewDrawer } from "./BoardReviewDrawer.js";
@@ -245,10 +246,15 @@ export function BoardView() {
 
   // The guided first run: each step is ticked from what the server and the person's settings say.
   const agents = useAgents();
+  const platform = useAgentPlatform();
   const projects = useProjects();
   const practiceIds = usePracticeProjectIds();
   const [guideHidden, hideGuide] = useGuideHidden(data.me);
+  // The signing settings a new card here would follow: the active project's, or every step signed
+  // when the board is in Nuclear-grade mode. Unknown with no active project: each project has its own.
+  const boardSigning = mode === "nuclear-grade" ? ALL_SIGNED : activeProject ? projectSteps(activeProject) : undefined;
   const guide: GuideState = {
+    ...(boardSigning ? { signing: boardSigning } : {}),
     agentReady: agents.rows.some((r) => r.seated && r.state === "ready"),
     hasRepoProject: projects.some((p) => (p.repo ?? "").trim().length > 0),
     // The change steps read this board's scope, so the button can always reach the card they name.
@@ -523,8 +529,9 @@ export function BoardView() {
                   onChange={(e) => handleLaneAgentChange(laneAgentCol, e.target.value)}
                 >
                   {COLUMN_AGENTS.map((a) => (
-                    <option key={a.id} value={a.id}>
+                    <option key={a.id} value={a.id} disabled={a.id !== laneAgentValue && !runnableHere(a, platform)}>
                       {a.short}
+                      {unavailableNote(a, platform)}
                     </option>
                   ))}
                 </select>
@@ -913,7 +920,8 @@ export function BoardView() {
                   : "No software changes in flight yet"}
             </h2>
             <p className="small muted">
-              Describe what you want done. An agent drafts a plan, and nothing runs until you approve it.
+              Describe what you want done. An agent drafts a plan.{" "}
+              {boardSigning ? cardFlowLine(boardSigning) : "Each project's settings, under What needs your passkey, say whether it starts on its own and how it is accepted."}
             </p>
           </div>
           <div className="bd-empty-actions">
@@ -1033,5 +1041,6 @@ const AGENT_PICK_KEYS = new Set(["laneAgents", "author", "checker"]);
 /** Every agent Control Rod can run, by the short name the column picker shows. */
 const COLUMN_AGENTS = CLI_ECOSYSTEMS.filter((e) => e.runnable).map((e) => ({
   id: e.id,
+  runnable: e.runnable,
   short: e.id === "agy" ? "Antigravity" : e.label.replace(/ (Code|CLI)( \(.*\))?$/, ""),
 }));

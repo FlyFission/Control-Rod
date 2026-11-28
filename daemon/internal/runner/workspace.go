@@ -91,6 +91,11 @@ type Workspace struct {
 	// Seccomp is the Unix-socket filter passed to bubblewrap. The daemon closes
 	// it after the run. It is nil when the platform has no seccomp filter.
 	Seccomp *os.File
+	// ownDir is the run folder this daemon made for the run (WorkspaceDir under the daemon home
+	// or the checker root). Only Prepare and prepareCheckerIn set it, and never for a checkout,
+	// so it never names a user's own folder. The daemon removes it once the completion is in
+	// the outbox.
+	ownDir string
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment
@@ -205,6 +210,7 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 		if err := os.RemoveAll(dir); err != nil {
 			return nil, fmt.Errorf("clear workspace: %w", err)
 		}
+		ws.ownDir = dir
 	}
 	prepared := false
 	defer func() {

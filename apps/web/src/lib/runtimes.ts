@@ -43,6 +43,27 @@ export interface CliEcosystem {
  */
 export const CHECKOUT_AUTHORS: readonly CliEcosystemId[] = ["claude", "codex"];
 
+/**
+ * The runtimes Control Rod starts on macOS only: their sandboxes have been checked there alone
+ * (daemon adapter_agy.go and adapter_grok.go ConfinementGap). Elsewhere the daemon never starts them.
+ */
+export const MACOS_ONLY: readonly CliEcosystemId[] = ["agy", "grok"];
+
+/**
+ * Whether Control Rod can start this runtime on the platform the daemon reported ("darwin", "linux",
+ * "wsl2"). An unknown platform (no daemon report yet) is not gated, so nothing is hidden on a guess.
+ */
+export function runnableHere(eco: Pick<CliEcosystem, "id" | "runnable">, platform: string | undefined): boolean {
+  if (!eco.runnable) return false;
+  return !MACOS_ONLY.includes(eco.id) || platform === undefined || platform === "darwin";
+}
+
+/** Words after a runtime's name in a picker when it cannot be chosen here, or "" when it can. */
+export function unavailableNote(eco: Pick<CliEcosystem, "id" | "runnable">, platform: string | undefined): string {
+  if (!eco.runnable) return ": not yet runnable";
+  return runnableHere(eco, platform) ? "" : ": macOS only";
+}
+
 export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
   {
     id: "claude",

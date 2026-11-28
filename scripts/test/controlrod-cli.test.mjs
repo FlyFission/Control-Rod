@@ -295,6 +295,15 @@ test("not running: updates without restarting and says how to start", async () =
   assert.match(f.logs(), /controlrod start/);
 });
 
+test("inside the checkout, update's messages name `pnpm cr`", async () => {
+  const f = fixture();
+  commit(f.origin, "a.txt", "two\n", "new");
+  f.deps.stop = async () => ({ wasRunning: false });
+  assert.equal(await update(f.root, {}, { ...f.deps, me: "pnpm cr" }), 0);
+  assert.match(f.logs(), /`pnpm cr start`/);
+  assert.doesNotMatch(f.logs(), /controlrod start/);
+});
+
 test("git variables pointing elsewhere never redirect the update", async () => {
   const f = fixture();
   const next = commit(f.origin, "a.txt", "two\n", "new");
@@ -579,6 +588,15 @@ test("the controlrod help lists the everyday commands and typos get a suggestion
   assert.match(typo.stderr, /Did you mean stop\?/);
 });
 
+test("bench --help shows the benchmark's own steps", () => {
+  const cr = join(repoRoot, "scripts", "cr.mjs");
+  for (const flag of ["--help", "-h"]) {
+    const r = spawnSync(process.execPath, [cr, "bench", flag], { encoding: "utf8", env: { ...process.env, CONTROLROD_CLI: "" } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /usage: bench/);
+    assert.match(r.stdout, /preflight/);
+  }
+});
 
 test("controlrod start is the one step: background and browser by default, with opt-outs", () => {
   const cr = join(repoRoot, "scripts", "cr.mjs");

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { DataLane, WorkspaceProjectCreatePayload } from "../api/types.js";
 import { browserPasskeys } from "../lib/decide.js";
+import { DEFAULT_SIGNING_PRESET, signingPreset } from "../lib/signing.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
 import { hydrateServerProjects, loadProjects, selectProject, WorkspaceProjectUser } from "../lib/projects.js";
 import {
@@ -14,7 +15,10 @@ import {
   defaultCheckerSelection,
   ecosystemById,
   type CliEcosystemId,
+  runnableHere,
+  unavailableNote,
 } from "../lib/runtimes.js";
+import { useAgentPlatform } from "../lib/useAgents.js";
 import type { RepoOutfallStrategy } from "../lib/workDefaults.js";
 import { sessionGeneration, stillCurrent } from "../lib/session.js";
 import { LanePicker } from "./LanePicker.js";
@@ -45,12 +49,60 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
   const [authorEco, setAuthorEco] = useState<CliEcosystemId>(defaultAuthorSelection().ecosystem);
   const [checkerEco, setCheckerEco] = useState<CliEcosystemId>(defaultCheckerSelection().ecosystem);
   const [error, setError] = useState<string | null>(null);
+  const platform = useAgentPlatform();
 
+  // Where local clones are listed from: the server's default (CONTROLROD_WORKSPACE_ROOT or ~/projects)
+  // until the person types another folder, or a repository's own path (RUN-4).
+  const [root, setRoot] = useState("");
+  const [lookIn, setLookIn] = useState("");
+  const [lookNote, setLookNote] = useState<{ text: string; error: boolean } | null>(null);
+  const [looking, setLooking] = useState(false);
   const reposQuery = useQuery({
-    queryKey: ["repos", ""],
-    queryFn: () => api.repos(),
+    queryKey: ["repos", root],
+    queryFn: () => api.repos(root || undefined),
     enabled: open,
   });
+
+  /**
+   * Lists the clones in a typed folder, or finds a typed repository in the folder that holds it. The
+   * server checks every path (inside the home folder, no hidden folder, no symbolic link, a real git
+   * repository); this only picks which folder to ask about.
+   */
+  async function lookHere() {
+    const typed = lookIn.trim().replace(/\/+$/, "");
+    setLookNote(null);
+    if (!typed) {
+      setRoot("");
+      return;
+    }
+    setLooking(true);
+    try {
+      const listed = await qc.fetchQuery({ queryKey: ["repos", typed], queryFn: () => api.repos(typed) });
+      if (listed.local.length > 0) {
+        setRoot(typed);
+        setRepo("");
+        setLookNote({ text: `Found ${listed.local.length} ${listed.local.length === 1 ? "repository" : "repositories"} in ${listed.workspace_root}.`, error: false });
+        return;
+      }
+      const cut = typed.lastIndexOf("/");
+      const name = cut >= 0 ? typed.slice(cut + 1) : "";
+      const parent = cut > 0 ? typed.slice(0, cut) : "";
+      if (name && parent && !name.startsWith(".")) {
+        const above = await qc.fetchQuery({ queryKey: ["repos", parent], queryFn: () => api.repos(parent) });
+        if (above.local.some((r) => r.name === name)) {
+          setRoot(parent);
+          setRepo(name);
+          setLookNote({ text: `Found ${name} in ${above.workspace_root}. It is now the default repository.`, error: false });
+          return;
+        }
+      }
+      setLookNote({ text: `No git repository found at ${typed}. Type a folder in your home folder that holds your repositories, or a repository's own folder.`, error: true });
+    } catch (e) {
+      setLookNote({ text: explain(e, "Could not look in that folder."), error: true });
+    } finally {
+      setLooking(false);
+    }
+  }
 
   useEffect(() => {
     setMode(defaultMode);
@@ -65,6 +117,9 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
     if (!open) {
       setName("");
       setRepo("");
+      setRoot("");
+      setLookIn("");
+      setLookNote(null);
       setRepoStrategy("worktree");
       setLane("internal");
       setAuthorEco(defaultAuthorSelection().ecosystem);
@@ -87,8 +142,9 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
         author: { ecosystem: aEco.id, model: aEco.defaultModel, reasoning: aEco.defaultReasoning },
         checker: { ecosystem: cEco.id, model: cEco.defaultModel, reasoning: cEco.defaultReasoning },
         ...(bays ? { work_lanes: { preset: bays } } : {}),
-        // Light: routine cards start and finish on their own. Signed by this same passkey tap.
-        ...(mode !== "nuclear-grade" ? { signing_preset: "light" as const } : {}),
+        // The default preset (Balanced): routine cards start on their own, and the person signs each
+        // accept. Signed by this same passkey tap.
+        ...(mode !== "nuclear-grade" ? { signing_preset: DEFAULT_SIGNING_PRESET } : {}),
       };
       const { options } = await api.adminCommandOptions("project.workspace-create", payload);
       if (!stillCurrent(startedUnder)) return;
@@ -221,13 +277,46 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
           </label>
         </div>
 
+        <div className="field">
+          <p className="small muted" style={{ margin: 0 }} id="project-repo-where">
+            {root
+              ? `Local clones are listed from ${reposQuery.data?.workspace_root ?? root}.`
+              : `Local clones are listed from ${reposQuery.data?.workspace_root ?? "~/projects"}: the folder CONTROLROD_WORKSPACE_ROOT named when Control Rod started, or ~/projects when it named none.`}{" "}
+            Repository somewhere else? Type its folder, or the folder that holds it.
+          </p>
+          <div className="row" style={{ gap: 8 }}>
+            <input
+              type="text"
+              aria-label="Folder or repository path"
+              aria-describedby="project-repo-where"
+              value={lookIn}
+              placeholder="~/Code/my-repo"
+              onChange={(e) => setLookIn(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void lookHere();
+                }
+              }}
+            />
+            <button type="button" className="btn small" disabled={looking} onClick={() => void lookHere()}>
+              {looking ? "Looking" : "Look here"}
+            </button>
+          </div>
+          {lookNote && (
+            <span className={lookNote.error ? "small error" : "small muted"} role={lookNote.error ? "alert" : "status"}>
+              {lookNote.text}
+            </span>
+          )}
+        </div>
+
         <div className="cr-form-grid">
           <label className="field">
             <span>{copy.custodyRoles[0]}</span>
             <select value={authorEco} onChange={(e) => setAuthorEco(e.target.value as CliEcosystemId)}>
               {CLI_ECOSYSTEMS.map((c) => (
-                <option key={c.id} value={c.id} disabled={!c.runnable}>
-                  {c.label} ({c.cliCommand}){c.runnable ? "" : " — Not yet runnable"}
+                <option key={c.id} value={c.id} disabled={!runnableHere(c, platform)}>
+                  {c.label} ({c.cliCommand}){unavailableNote(c, platform)}
                 </option>
               ))}
             </select>
@@ -236,8 +325,8 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
             <span>{copy.custodyRoles[1]}</span>
             <select value={checkerEco} onChange={(e) => setCheckerEco(e.target.value as CliEcosystemId)}>
               {CLI_ECOSYSTEMS.map((c) => (
-                <option key={c.id} value={c.id} disabled={!c.runnable}>
-                  {c.label} ({c.cliCommand}){c.runnable ? "" : " — Not yet runnable"}
+                <option key={c.id} value={c.id} disabled={!runnableHere(c, platform)}>
+                  {c.label} ({c.cliCommand}){unavailableNote(c, platform)}
                 </option>
               ))}
             </select>
@@ -255,7 +344,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
         <p className="small muted">
           {mode === "nuclear-grade"
             ? "Nuclear-grade: every release and accept is signed with your passkey."
-            : "Cards start and finish on their own; your passkey is only for big things. Change it any time in Setup, under What needs your passkey."}
+            : `${signingPreset(DEFAULT_SIGNING_PRESET).detail} Change it any time in Setup, under What needs your passkey.`}
         </p>
 
         {error && (

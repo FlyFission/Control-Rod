@@ -7,8 +7,15 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+// tunnelIdleTimeout ends a CONNECT tunnel when no byte has moved in either direction for this
+// long. Model APIs stream (server-sent events carry pings), so a live call keeps its tunnel;
+// a tunnel left open by a stuck or exited client is closed instead of lasting for the run.
+// A variable so tests can shorten it.
+var tunnelIdleTimeout = 10 * time.Minute
 
 // EgressFilter is a local HTTP and TCP/CONNECT domain-allowlist proxy (ADR 0021 compliant:
 // zero TLS MITM, zero credential injection or relaying). It binds on 127.0.0.1:0
@@ -22,6 +29,7 @@ type EgressFilter struct {
 	listener  net.Listener
 	server    *http.Server
 	transport *http.Transport
+	idle      time.Duration // tunnelIdleTimeout when the filter started
 
 	mu      sync.Mutex
 	closed  bool
@@ -49,6 +57,7 @@ func StartEgressFilter(allowedHosts []string) (*EgressFilter, error) {
 			DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
 		},
 		tunnels: map[net.Conn]struct{}{},
+		idle:    tunnelIdleTimeout,
 	}
 	ef.server = &http.Server{
 		Handler:           ef,
@@ -147,8 +156,13 @@ func (ef *EgressFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if _, err := clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
 		return
 	}
+	var last atomic.Int64
+	last.Store(time.Now().UnixNano())
+	stop := make(chan struct{})
+	defer close(stop)
+	go ef.closeWhenIdle(&last, stop, clientConn, targetConn)
 	copyHalf := func(dst net.Conn, src io.Reader) {
-		_, err := io.Copy(dst, src)
+		_, err := io.Copy(dst, activityReader{src, &last})
 		if err == nil {
 			if half, ok := dst.(interface{ CloseWrite() error }); ok && half.CloseWrite() == nil {
 				return
@@ -166,6 +180,40 @@ func (ef *EgressFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	copyHalf(clientConn, targetConn)
 	<-done
+}
+
+// activityReader records the time of every read that returned bytes.
+type activityReader struct {
+	r    io.Reader
+	last *atomic.Int64
+}
+
+func (a activityReader) Read(p []byte) (int, error) {
+	n, err := a.r.Read(p)
+	if n > 0 {
+		a.last.Store(time.Now().UnixNano())
+	}
+	return n, err
+}
+
+// closeWhenIdle closes both tunnel ends once no byte has moved for the filter's idle limit.
+func (ef *EgressFilter) closeWhenIdle(last *atomic.Int64, stop <-chan struct{}, conns ...net.Conn) {
+	idle := ef.idle
+	tick := time.NewTicker(max(idle/8, time.Millisecond))
+	defer tick.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-tick.C:
+			if time.Since(time.Unix(0, last.Load())) >= idle {
+				for _, c := range conns {
+					_ = c.Close()
+				}
+				return
+			}
+		}
+	}
 }
 
 var hopByHopHeaders = map[string]bool{

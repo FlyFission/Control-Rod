@@ -1,20 +1,29 @@
 import { useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { CaptureView, DataLane } from "../../api/types.js";
 import { LanePicker, useCaptureDefaultLane } from "../../components/LanePicker.js";
 import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
+import { useNoAgentReady } from "../../lib/useAgents.js";
 
 /** Intake states a person can recover from with a retry (as on the Packages page). */
 const RETRYABLE = new Set(["failed", "lost", "stopped"]);
 
-/** The one line on a capture card: what the capture waits for, in the record's own terms. */
-export type CaptureLine = { tone: "needs" | "wait" | "block"; text: string };
+/**
+ * The one line on a capture card: what the capture waits for, in the record's own terms. `setup` marks
+ * a line that waits because no agent is ready, so the card can point to Setup.
+ */
+export type CaptureLine = { tone: "needs" | "wait" | "block"; text: string; setup?: true };
 
-export function captureLine(c: CaptureView): CaptureLine {
+/** Said where a capture would only read "Intake queued" while no agent can take it (RUN-1). */
+export const NO_AGENT_READY = "No agent is ready, so intake can't start. Open Setup to install or sign in to one.";
+
+export function captureLine(c: CaptureView, noAgentReady = false): CaptureLine {
   if (!c.lane) return { tone: "needs", text: "Classify the data lane" };
   const intake = c.intake;
+  if ((intake === undefined || intake.status === "queued") && noAgentReady) return { tone: "wait", text: NO_AGENT_READY, setup: true };
   if (intake === undefined) return { tone: "wait", text: "Waiting for intake" };
   if (RETRYABLE.has(intake.status)) return { tone: "block", text: `Intake ${intake.status}${intake.error ? `: ${intake.error}` : ""}` };
   if (intake.status === "queued") return { tone: "wait", text: "Intake queued" };
@@ -59,7 +68,7 @@ export function CaptureCard({
   const scramLock = useActionLock();
   const shown = splitAttachments(capture.text);
   const displayTitle = captureSummaryText(shown.text);
-  const line = captureLine(capture);
+  const line = captureLine(capture, useNoAgentReady());
   const titleId = `bd-capture-${capture.id}`;
   const [lane, setLane] = useState<DataLane>(useCaptureDefaultLane(capture.text));
   const [showErrorDetail, setShowErrorDetail] = useState(false);
@@ -133,6 +142,11 @@ export function CaptureCard({
         </span>
         <span>{showErrorDetail ? line.text : compactStatus}</span>
       </p>
+      {line.setup && (
+        <p className="bd-capture-setup small">
+          <Link to="/setup">Open Setup</Link>
+        </p>
+      )}
       {hasLongDetail && (
         <button
           type="button"

@@ -28,4 +28,13 @@ describe("PullRequestLine", () => {
     rerender(<PullRequestLine pr={opened({ state: "closed", checks: "none" })} />);
     expect(screen.getByRole("status").textContent).toMatch(/^Pull request closed without merging/);
   });
+
+  it("shows an address that is not https as text, not a link", () => {
+    for (const bad of ["javascript:alert(1)", "data:text/html,x", "http://github.com/o/r/pull/1"]) {
+      const { unmount } = render(<PullRequestLine pr={{ ...opened(), url: bad }} />);
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(screen.getByRole("status").textContent).toContain(bad);
+      unmount();
+    }
+  });
 });

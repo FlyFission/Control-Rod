@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -89,7 +91,108 @@ func ResolveArtifact(name string) (RuntimeArtifact, error) {
 	if a, ok, err := codexFromWrapper(entry); ok || err != nil {
 		return a, err
 	}
+	if a, ok, err := claudeFromWrapper(entry); ok || err != nil {
+		return a, err
+	}
+	if name == "claude" {
+		return RuntimeArtifact{}, fmt.Errorf("%w: claude starts through the script %s, whose digest does not identify what runs; install claude's native build: %s", ErrUnsupportedLauncher, entry, ClaudeNativeInstall)
+	}
 	return RuntimeArtifact{}, fmt.Errorf("%w: %s starts through the script %s, whose digest does not identify what runs; install %s's native build", ErrUnsupportedLauncher, name, entry, name)
+}
+
+// ClaudeNativeInstall is Anthropic's one-line install of Claude Code's native build, said wherever
+// an npm install of Claude Code cannot be resolved to its native binary.
+const ClaudeNativeInstall = "curl -fsSL https://claude.ai/install.sh | bash"
+
+// claudePackage is Claude Code's npm package. Its bin/claude.exe is the native binary once the
+// package's install step has copied it there, and otherwise a small shell script that only prints
+// an error. The binary itself ships in a platform package beside it.
+const claudePackage = "@anthropic-ai/claude-code"
+
+// claudeFromWrapper resolves an npm install of Claude Code whose install step did not run (pnpm's
+// default, or --ignore-scripts): bin/claude.exe is then a script, and the native binary is the
+// platform package's "claude", either beside the package in the enclosing node_modules or in the
+// package's own node_modules. The platform package must name the same version as the package, and
+// exactly one copy may be present, so a stray or second copy is never the one that runs. The
+// artifact is that one native file, identified by its digest like any native install.
+func claudeFromWrapper(entry string) (RuntimeArtifact, bool, error) {
+	if filepath.Base(entry) != "claude.exe" || filepath.Base(filepath.Dir(entry)) != "bin" {
+		return RuntimeArtifact{}, false, nil
+	}
+	pkg := filepath.Dir(filepath.Dir(entry))
+	name, version, ok := packageNameVersion(filepath.Join(pkg, "package.json"))
+	if !ok || name != claudePackage {
+		return RuntimeArtifact{}, false, nil
+	}
+	arch := map[string]string{"amd64": "x64", "arm64": "arm64"}[runtime.GOARCH]
+	osName := map[string]string{"linux": "linux", "darwin": "darwin"}[runtime.GOOS]
+	if arch == "" || osName == "" {
+		return RuntimeArtifact{}, true, fmt.Errorf("%w: Claude Code has no native package for %s/%s here; install the native build: %s", ErrUnsupportedLauncher, runtime.GOOS, runtime.GOARCH, ClaudeNativeInstall)
+	}
+	platforms := []string{claudePackage + "-" + osName + "-" + arch}
+	if osName == "linux" {
+		platforms = append(platforms, claudePackage+"-"+osName+"-"+arch+"-musl")
+	}
+	var dirs []string
+	if filepath.Base(filepath.Dir(pkg)) == "@anthropic-ai" && filepath.Base(filepath.Dir(filepath.Dir(pkg))) == "node_modules" {
+		dirs = append(dirs, filepath.Dir(filepath.Dir(pkg)))
+	}
+	dirs = append(dirs, filepath.Join(pkg, "node_modules"))
+	var found []string
+	for _, dir := range dirs {
+		for _, p := range platforms {
+			cand := filepath.Join(dir, filepath.FromSlash(p))
+			n, v, ok := packageNameVersion(filepath.Join(cand, "package.json"))
+			if !ok || n != p || v != version {
+				continue
+			}
+			exe := filepath.Join(cand, "claude")
+			real, err := filepath.EvalSymlinks(exe)
+			if err != nil {
+				continue
+			}
+			if native, err := isNative(real); err != nil || !native {
+				continue
+			}
+			if !slices.Contains(found, real) {
+				found = append(found, real)
+			}
+		}
+	}
+	switch len(found) {
+	case 0:
+		return RuntimeArtifact{}, true, fmt.Errorf("%w: Claude Code was installed with npm, but its native binary is missing (its install step did not run); install the native build: %s", ErrUnsupportedLauncher, ClaudeNativeInstall)
+	case 1:
+	default:
+		return RuntimeArtifact{}, true, fmt.Errorf("%w: Claude Code's npm install has two native binaries, so Control Rod cannot tell which one runs; install the native build: %s", ErrUnsupportedLauncher, ClaudeNativeInstall)
+	}
+	sum, err := fileDigest(found[0])
+	if err != nil {
+		return RuntimeArtifact{}, true, err
+	}
+	return RuntimeArtifact{Path: found[0], Digest: Digest{Algorithm: "sha256", Value: sum}}, true, nil
+}
+
+// packageNameVersion reads an npm package.json's name and version. A missing, oversized or
+// unreadable manifest reports false.
+func packageNameVersion(path string) (string, string, bool) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", "", false
+	}
+	defer f.Close()
+	body, err := io.ReadAll(io.LimitReader(f, 64<<10+1))
+	if err != nil || len(body) > 64<<10 {
+		return "", "", false
+	}
+	var m struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	}
+	if json.Unmarshal(body, &m) != nil || m.Name == "" || m.Version == "" {
+		return "", "", false
+	}
+	return m.Name, m.Version, true
 }
 
 // codexRelease treats a native Codex that ships helper programs beside it as one artifact: its own
@@ -282,7 +385,7 @@ func StageArtifact(a RuntimeArtifact, base string) (RuntimeArtifact, error) {
 		}
 		fi, err = os.Lstat(base)
 	}
-	if err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
+	if err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 || !fileOwnedByUser(fi) {
 		return a, fmt.Errorf("%s must be a private folder (mode 0700) to stage runtimes in", base)
 	}
 	// One stager per digest at a time, across daemons: a copy another launch is using is never
@@ -408,6 +511,22 @@ func StageRoot() string {
 	return filepath.Join(tmp, fmt.Sprintf("controlrod-runtimes-%d", os.Getuid()))
 }
 
+// copiesBeforeExec reports whether a runtime that is not staged anyway is launched from a staged
+// copy on this platform. Outside Linux the runtime is started by its path after it is hashed, so
+// the bytes that run could be swapped in between at the install path, which the user's other
+// programs can write. The staged copy sits in the daemon's private stage folder (mode 0700,
+// owned by this user) and is hashed again at launch (review DMN-17). On Linux the open, hashed
+// descriptor is what runs, so no copy is needed. Only Claude Code's single-file native build
+// opts in (ExecCopier): a runtime that reads files beside its own program (a tree) is already
+// staged whole (Codex), and Antigravity and Grok are fenced by their own program path.
+// launchGOOS is the platform VerifyLaunch decides the copy for. A variable so a Linux test can
+// take the macOS path.
+var launchGOOS = runtime.GOOS
+
+func copiesBeforeExec(c ExecCopier, a RuntimeArtifact, goos string) bool {
+	return goos != "linux" && c != nil && c.CopiesBeforeExec() && a.Root == ""
+}
+
 // ErrArtifactMismatch means the executable on disk is not the one the run may launch.
 var ErrArtifactMismatch = errors.New("runtime artifact mismatch")
 
@@ -444,9 +563,11 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	// for Claude and Codex that name equals the id.
 	binary := runtimeName
 	var stager ArtifactStager
+	var copier ExecCopier
 	if a, ok := AdapterFor(runtimeName); ok {
 		binary = a.Binary()
 		stager, _ = a.(ArtifactStager)
+		copier, _ = a.(ExecCopier)
 	}
 	got, err := resolveArtifact(binary)
 	if err != nil {
@@ -501,6 +622,26 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 			ErrArtifactMismatch, runtimeName, got.Path, short(digest.Value), short(probed.Digest.Value)))
 	case pin == nil && probed == nil:
 		return fail(fmt.Errorf("%w: %s has not been checked on this machine yet", ErrArtifactMismatch, runtimeName))
+	}
+	if copiesBeforeExec(copier, got, launchGOOS) {
+		// The install passed its checks above, with the same refusals as everywhere else. What runs
+		// is a copy of exactly those bytes in the private stage folder, opened and hashed again.
+		staged, err := StageArtifact(RuntimeArtifact{Path: got.Path, Digest: digest, Env: got.Env}, StageRoot())
+		if err != nil {
+			return fail(fmt.Errorf("%w: %s at %s could not be copied into the private folder it is started from (%s); it is checked again on the next attempt: %v",
+				ErrArtifactMismatch, runtimeName, got.Path, StageRoot(), err))
+		}
+		sf, err := os.Open(staged.Path)
+		if err != nil {
+			return fail(fmt.Errorf("%w: the copy of %s cannot be opened: %v", ErrArtifactMismatch, runtimeName, err))
+		}
+		sum, err := readerDigest(sf)
+		if err != nil || sum != digest.Value {
+			sf.Close()
+			return fail(fmt.Errorf("%w: the copy of %s does not match the checked file; it is checked again on the next attempt", ErrArtifactMismatch, runtimeName))
+		}
+		f.Close()
+		f, got.Path = sf, staged.Path
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return fail(err)

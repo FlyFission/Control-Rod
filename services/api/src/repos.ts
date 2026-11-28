@@ -926,9 +926,31 @@ async function listGithubRepos(ceilingDir?: string): Promise<{ repos: GithubRepo
       error: null,
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Could not query GitHub CLI";
-    return { repos: [], error: msg };
+    return { repos: [], error: githubListError(err) };
   }
+}
+
+/**
+ * Why `gh repo list` failed, in plain words with the fix. The common cases (gh missing, not signed
+ * in, no network) get a sentence of their own; anything else keeps gh's first line, after a plain lead.
+ */
+export function githubListError(err: unknown): string {
+  const e = (err ?? {}) as { code?: unknown; killed?: unknown; signal?: unknown; stderr?: unknown; message?: unknown };
+  const text = `${typeof e.stderr === "string" ? e.stderr : ""}\n${typeof e.message === "string" ? e.message : ""}`;
+  if (e.code === "ENOENT") {
+    return "GitHub repositories can't be listed because the GitHub CLI (gh) isn't installed. Install it from https://cli.github.com, then run gh auth login.";
+  }
+  if (/gh auth login|not logged in|authentication required|HTTP 401|bad credentials|no oauth token/i.test(text)) {
+    return "GitHub repositories can't be listed because the GitHub CLI isn't signed in. Run gh auth login in a terminal, then open this again.";
+  }
+  if (e.killed === true || e.signal === "SIGTERM" || /could not resolve|dial tcp|connection refused|network is unreachable|i\/o timeout|timed out|ENOTFOUND|EAI_AGAIN|ECONNRESET|error connecting to/i.test(text)) {
+    return "GitHub couldn't be reached to list your repositories. Check your internet connection, then open this again.";
+  }
+  const said = (typeof e.stderr === "string" && e.stderr.trim() ? e.stderr : typeof e.message === "string" ? e.message.replace(/^Command failed:[^\n]*\n?/, "") : "")
+    .trim()
+    .split("\n")[0]
+    ?.slice(0, 200);
+  return said ? `GitHub repositories can't be listed. The GitHub CLI said: ${said}` : "GitHub repositories can't be listed right now.";
 }
 
 function resolveSafeRemovalTarget(

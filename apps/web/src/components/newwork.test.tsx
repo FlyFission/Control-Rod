@@ -373,14 +373,14 @@ describe("engineering mode toggle and NewWorkModal", () => {
     for (const id of ["agy", "grok"]) {
       const opt = Array.from(authorCli.options).find((o) => o.value === id);
       expect(opt!.disabled, `${id} author in a checkout`).toBe(true);
-      expect(opt!.textContent).toContain("Can't work in a checkout yet");
+      expect(opt!.textContent).toContain("can't work in a checkout yet");
       expect(Array.from(checkerCli.options).find((o) => o.value === id)!.disabled, `${id} checker`).toBe(false);
     }
     for (const id of ["opencode", "cursor", "copilot", "aider", "cline", "ollama"]) {
       const opt = Array.from(authorCli.options).find((o) => o.value === id);
       expect(opt, id).toBeTruthy();
       expect(opt!.disabled, `${id} disabled`).toBe(true);
-      expect(opt!.textContent).toContain("Not yet runnable");
+      expect(opt!.textContent).toContain("not yet runnable");
     }
 
     await user.selectOptions(cliSelects[0]!, "codex");

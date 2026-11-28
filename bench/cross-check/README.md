@@ -6,6 +6,8 @@ The design is [DESIGN.md](DESIGN.md) (v3.3), agreed after four rounds of blind r
 
 It is started by hand, every time. Nothing here runs on a schedule.
 
+**Status:** the harness is ready and its offline tests pass (they are run by hand; CI does not run them yet), but the first study has not been run, so there are no results yet. The real config (`configs/verified-historical.json`) is not runnable as shipped: `init` refuses until the owner pins the dataset's SHA-256, row count and split and sets the policy values (see Configs below). The offline fixture config (`configs/fixture.json`, stub agents) is what the tests run.
+
 ## What it measures
 
 Two authors, Claude Code and Codex, each solve every task once. Every patch that is nonempty and valid is then checked twice: by a checker on the author's own model ("same") and by one from the other vendor ("cross"). Hidden tests (SWE-bench `FAIL_TO_PASS` and `PASS_TO_PASS`), which no agent sees, grade each patch as hidden-test-failing ("bad") or passing ("good").

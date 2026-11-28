@@ -36,6 +36,9 @@ func (agyAdapter) LoginSessionDirs() []string   { return []string{"antigravity-c
 
 // ConfinementGap is empty on macOS, the one platform the sandbox was measured on. Elsewhere the
 // runtime stays listed and is never started.
+// MacOSOnly: see macOSOnly.
+func (agyAdapter) MacOSOnly() {}
+
 func (agyAdapter) ConfinementGap() string {
 	if runtime.GOOS == "darwin" {
 		return ""

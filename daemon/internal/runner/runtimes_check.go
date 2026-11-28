@@ -18,6 +18,8 @@ type RuntimeCheck struct {
 	SwitchedOff []string
 	// NotYet marks a runtime that is detected but never started until its sandbox is built.
 	NotYet bool
+	// MacOSOnly marks a runtime Control Rod starts on macOS only, found on another platform.
+	MacOSOnly bool
 }
 
 // CheckRuntimes runs the same probe and preflight the daemon runs at startup, with its defaults.
@@ -34,7 +36,8 @@ func CheckRuntimes(ctx context.Context, runtimes []string) []RuntimeCheck {
 			}
 		}
 		out = append(out, RuntimeCheck{Runtime: rt, Name: displayName(rt), Ready: st.Ready, Version: st.Version,
-			Reason: strings.TrimRight(st.Reason, "."), SwitchedOff: st.SwitchedOff, Note: st.Note, NotYet: !st.Ready && awaitingConfinement(rt)})
+			Reason: strings.TrimRight(st.Reason, "."), SwitchedOff: st.SwitchedOff, Note: st.Note, NotYet: !st.Ready && awaitingConfinement(rt),
+			MacOSOnly: !st.Ready && awaitingConfinement(rt) && MacOSOnlyRuntime(rt)})
 	}
 	return out
 }

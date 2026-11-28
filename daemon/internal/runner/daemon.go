@@ -1681,9 +1681,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 
 	// A fresh worktree has no packages and the agent's sandbox has no network: install what the
 	// lockfile pins first, outside the sandbox. Authors only, so a checker's view of the checkout is
-	// exactly what the author left. Never fails the run.
+	// exactly what the author left. Nothing runs unless the files that can name a program are as in
+	// the bound commit (an earlier round's agent could have written them). Never fails the run.
 	if ws.Checkout != nil && !ws.Checker && SetupWanted(ws) {
-		buf.addEvents(PrepareCheckout(runCtx, ws.Dir, d.setup, time.Now))
+		buf.addEvents(PrepareCheckout(runCtx, ws.Dir, gitBaseline(ws.Dir, ws.Checkout.Head), d.setup, time.Now))
 	}
 
 	launch := LaunchFor(runtime, job.Run, ws, sandbox)

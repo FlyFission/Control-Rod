@@ -2,7 +2,7 @@ packages:
   - "spec"
   - "services/*"
   - "apps/*"
-  - "sdk/ts"
+  - "packages/*"
   - "scripts"
 
 overrides:

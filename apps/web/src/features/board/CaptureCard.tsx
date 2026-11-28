@@ -5,6 +5,8 @@ import type { CaptureView, DataLane } from "../../api/types.js";
 import { LanePicker, useCaptureDefaultLane } from "../../components/LanePicker.js";
 import { useActionLock } from "../../lib/scramLock.js";
 import { splitAttachments } from "../../lib/attachments.js";
+import { usePracticeProjectIds } from "../../lib/practice.js";
+import { extractBracketTag } from "../../lib/projects.js";
 
 /** Intake states a person can recover from with a retry (as on the Packages page). */
 const RETRYABLE = new Set(["failed", "lost", "stopped"]);
@@ -64,6 +66,7 @@ export function CaptureCard({
   const [lane, setLane] = useState<DataLane>(useCaptureDefaultLane(capture.text));
   const [showErrorDetail, setShowErrorDetail] = useState(false);
   const self = useRef<HTMLElement>(null);
+  const practice = usePracticeProjectIds().has(extractBracketTag(capture.text, "project-id") ?? "");
   const classify = useMutation({
     mutationFn: () => api.classifyCapture(capture.id, lane),
     onSuccess: () => {
@@ -101,6 +104,7 @@ export function CaptureCard({
       <div className="bd-kinds">
         <span className="bd-kind">Capture</span>
         {capture.effective_lane !== undefined && <span className="bd-chip">{capture.effective_lane}</span>}
+        {practice && <span className="bd-practice">Practice</span>}
         <span className="bd-id mono small muted">{capture.id}</span>
         {onDismiss && (
           <button

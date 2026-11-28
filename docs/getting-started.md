@@ -31,6 +31,10 @@ controlrod start   # checks, builds, starts in the background and opens the app
 
 `pnpm cr link` writes a small script to `~/.local/bin/controlrod` that runs this checkout's `scripts/cr.mjs`. If that folder is not on your `PATH`, it adds one line to your shell's startup file (`~/.zshrc`, `~/.bashrc` or `~/.bash_profile`) and says so; open a new terminal afterwards. It never replaces a `controlrod` it did not write; `CONTROLROD_BIN_DIR` picks another folder, and `pnpm cr unlink` removes it. Every `controlrod <command>` is also `pnpm cr <command>` inside the checkout.
 
+### A practice run first
+
+Setup and the board's first-run guide offer **Try a practice run**. It makes a practice project with a tiny sample program in `~/.controlrod/practice` and adds one card. Two fixed scripts built into Control Rod plan the card, do the work and check it, so you can watch the whole loop in a few minutes with no agent account. You release the plan and accept the work with your passkey, as on real work. No model runs, nothing leaves the computer, no repository is touched and no pull request is opened. Every practice card is labelled Practice.
+
 ### Updating
 
 `controlrod update` checks GitHub, and if `main` has moved on it stops a running Control Rod (running work finishes first), sets any edits you made to Control Rod's own files aside with `git stash`, moves to the new version, installs and builds it, and starts it again the way it was running. If the install or the build fails, it goes back to the version you had and rebuilds that. Your records in `~/.controlrod` are never touched. `controlrod update --check` only lists what is new. It updates the `main` branch only; on another branch it says so and stops.

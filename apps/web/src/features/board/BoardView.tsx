@@ -34,6 +34,7 @@ import {
   WorkspaceProjectUser,
 } from "../../lib/projects.js";
 import { useAgents } from "../../lib/useAgents.js";
+import { PRACTICE_NOTE, usePracticeProjectIds } from "../../lib/practice.js";
 import { FirstRunGuide, type GuideState, guideOpen, useGuideHidden } from "./FirstRunGuide.js";
 import { sessionGeneration, stillCurrent } from "../../lib/session.js";
 import { BoardListView } from "./BoardListView.js";
@@ -245,6 +246,7 @@ export function BoardView() {
   // The guided first run: each step is ticked from what the server and the person's settings say.
   const agents = useAgents();
   const projects = useProjects();
+  const practiceIds = usePracticeProjectIds();
   const [guideHidden, hideGuide] = useGuideHidden(data.me);
   const guide: GuideState = {
     agentReady: agents.rows.some((r) => r.seated && r.state === "ready"),
@@ -252,9 +254,11 @@ export function BoardView() {
     // The change steps read this board's scope, so the button can always reach the card they name.
     hasCard: scopedCards.length > 0 || scopedCaptures.length > 0,
     released: scopedCards.some((c) => c.pkg.status !== "draft"),
-    // Any accepted change anywhere means the person has done the whole loop once.
-    accepted: data.cards.some((c) => c.pkg.status === "accepted"),
+    // Any accepted change anywhere means the person has done the whole loop once. Practice cards do
+    // not count, so the guide stays until the first real change.
+    accepted: data.cards.some((c) => c.pkg.status === "accepted" && !practiceIds.has(String(c.pkg.project ?? ""))),
   };
+  const onPractice = activeProject?.practice === true;
   const showGuide = !data.loading && data.problems.length === 0 && !agents.loading && data.me !== "" && guideOpen(guide, guideHidden);
   const guideCard = guide.released
     ? scopedCards.find((c) => c.column === "needs-signature" || c.column === "person-verifies")
@@ -582,6 +586,7 @@ export function BoardView() {
               {...(x.checker ? { checker: x.checker } : {})}
               lastKnown={x.lastKnown}
               nuclear={x.nuclear}
+              practice={practiceIds.has(String(x.pkg.project ?? ""))}
               selected={selectedId === x.pkg.id}
               edgeColor={edgeColor(x, lens)}
               compact={lens.density === "compact"}
@@ -875,7 +880,19 @@ export function BoardView() {
           </button>
         </div>
       )}
-      {showGuide && (
+      {onPractice && (
+        <section className="bd-practice-note" aria-labelledby="bd-practice-title">
+          <h2 id="bd-practice-title" className="small">Practice run</h2>
+          <p className="small">{PRACTICE_NOTE}</p>
+          <ol className="small muted">
+            <li>The practice agent reads the request and writes a plan. The card then waits in Ready for you.</li>
+            <li>Open the card, read the plan and press Release. Your passkey signs it.</li>
+            <li>The practice agent does the work, and the practice checker checks it.</li>
+            <li>Open the card again, read the result and press Accept. No pull request is opened.</li>
+          </ol>
+        </section>
+      )}
+      {showGuide && !onPractice && (
         <FirstRunGuide
           state={guide}
           mode={mode}
@@ -885,7 +902,7 @@ export function BoardView() {
           onOpenCard={guideCard ? () => setSelectedId(guideCard.pkg.id) : undefined}
         />
       )}
-      {empty && !showGuide && (
+      {empty && !showGuide && !onPractice && (
         <section className="bd-empty-card" aria-label="Getting started">
           <div className="bd-empty-copy">
             <h2>

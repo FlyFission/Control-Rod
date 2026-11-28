@@ -100,6 +100,15 @@ describe("agent rows", () => {
 });
 
 describe("first-run setup", () => {
+  it("offers a practice run in plain words, before any agent is set up", async () => {
+    api(fresh);
+    await renderPage(<Setup />);
+    const practice = screen.getByRole("region", { name: "New here? Try a practice run" });
+    expect(within(practice).getByText(/with no agent account/)).toBeTruthy();
+    expect(within(practice).getByText(/No model runs, nothing leaves this computer, and none of your repositories is touched\./)).toBeTruthy();
+    expect(within(practice).getByRole("button", { name: "Try a practice run" })).toBeTruthy();
+  });
+
   it("states what it found, asks one question, reads it back, and saves nothing until Looks right", async () => {
     const user = userEvent.setup();
     const sent: unknown[] = [];

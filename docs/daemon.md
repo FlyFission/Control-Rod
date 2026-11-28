@@ -15,6 +15,7 @@ CONTROLROD_API=http://localhost:7300 ./bin/controlrod daemon --parallel 3 --time
 | `CONTROLROD_DAEMON_TOKEN` | contents of `~/.controlrod/daemon.token` | Bearer token for the runner API |
 | `CONTROLROD_HOME` | `~/.controlrod` | Home for the token file and workspaces |
 | `CONTROLROD_ALLOW_FAKE` | unset | `1` offers the fake test runtime; never set it on a real machine |
+| `CONTROLROD_PRACTICE` | unset | `0` stops offering the two practice runtimes |
 | `--parallel` | 3 | Jobs run at once |
 | `--timeout` | 45m | Longest a single run may take; the whole process group is killed after it |
 
@@ -27,6 +28,7 @@ The daemon finds runtimes on `PATH` and offers those that pass the probe below:
 - `claude`: Claude Code, in headless print mode under the run's sandbox policy (see "Sandbox" below).
 - `codex`: `codex exec --json --skip-git-repo-check -C <workspace> [-m <model>] <prompt>`, with the run's permission profile (see "Sandbox" below). Run workspaces are not Git repositories, so the repository check is skipped.
 - `fake`: test runtime. Runs `inputs/FAKE.sh` with bash, or copies `inputs/FAKE_OUT/*` into `out/`. It runs no agent CLI and takes no sandbox.
+- `practice` and `practice-check`: the practice runtimes (change record `practice-agent`, `adapter_practice.go`). They are offered on every machine unless `CONTROLROD_PRACTICE=0`. Neither starts a process or runs a model. Each role is a fixed routine compiled into the daemon: `practice` plans and authors, `practice-check` pre-checks. A routine reads only its workspace's `inputs/` and writes only its `out/`, pausing between steps so a person can watch the card. A practice run refuses a repository checkout and any role it does not do. The control plane gives these runtimes work from the practice project only, and gives the practice project's work to nothing else. A practice pre-check is not a counted check, and the standalone `controlrod check` never uses the practice checker.
 
 Each runtime is a registered adapter. `daemon/internal/runner/adapter.go` holds the registry; `adapter_claude.go`, `adapter_codex.go` and `adapter_fake.go` build the launch, probe the CLI and normalize its stream. Detect, Command, LaunchFor, RuntimeFor and Probe dispatch through that registry.
 

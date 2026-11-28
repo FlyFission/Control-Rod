@@ -419,6 +419,21 @@
   font-weight: 600;
   color: var(--accent);
 }
+/* The practice project's cards (change record practice-agent): always labelled, in every density. */
+.bd-practice {
+  padding: 1px 6px;
+  border: 1px dashed var(--text-2);
+  border-radius: 999px;
+  font-size: var(--fs-chip);
+  font-weight: 600;
+  color: var(--text-2);
+}
+.bd-practice-note {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px dashed var(--text-2);
+  border-radius: 8px;
+}
 .bd-ctx {
   margin: 8px 0 4px;
 }

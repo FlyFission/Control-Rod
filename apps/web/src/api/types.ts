@@ -128,6 +128,7 @@ export type ApiErrorBody = S["ApiError"];
 export type RuntimeStatus = S["Runner.RuntimeStatus"];
 export type AgentUpdate = S["Runner.AgentUpdate"];
 export type WorkspaceProject = S["WorkspaceProjects.WorkspaceProject"];
+export type PracticeCard = S["Practice.PracticeCard"];
 export type WorkLaneSet = S["ControlRod.Records.WorkLaneSet"];
 export type WorkLane = S["ControlRod.Records.WorkLane"];
 export type WorkLaneChoice = S["ControlRod.Records.WorkLaneChoice"];

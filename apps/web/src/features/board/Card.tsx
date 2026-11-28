@@ -1,4 +1,5 @@
 import { AGENTS } from "../../lib/agents.js";
+import { PRACTICE_NAMES } from "../../lib/practice.js";
 import { type ReactNode, useEffect, useState } from "react";
 import type { WorkPackage } from "../../api/types.js";
 import type { ColumnId } from "../../lib/board.js";
@@ -61,6 +62,8 @@ export type CardProps = {
   selected?: boolean;
   /** The brief carries the Nuclear context: the card shows one small badge. */
   nuclear?: boolean;
+  /** The card is on the practice project: its agents are fixed scripts, and it is not real work. */
+  practice?: boolean;
   /** The card's actions (primary decision and Move to), shown under the next line. */
   actions?: ReactNode;
   /** Left-edge color from the active `colorBy` lens (never a meaning token). */
@@ -77,7 +80,7 @@ export type CardProps = {
 };
 
 /** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runRunning = false, author, checker, split }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, practice = false, actions, edgeColor, compact = false, runRunning = false, author, checker, split }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
@@ -172,6 +175,11 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
       */}
       <div className="bd-meta bd-meta-quiet">
         {pkg.grade && pkg.grade !== "general-service" && <span className="bd-grade">{pkg.grade}</span>}
+        {practice && (
+          <span className="bd-practice" title="A fixed script built into Control Rod does this card's agent steps. It is not real work.">
+            Practice
+          </span>
+        )}
         {nuclear && <span className="bd-nuclear">Nuclear</span>}
         {check && (
           <span className="bd-check">
@@ -189,7 +197,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           {author ? (
             <span className="bd-agent-icon" title={`${agentWord(author)} does the work`}>
               <AgentBadge runtime={author} size={18} />
-              <span className="sr-only">Author agent {author}</span>
+              <span className="sr-only">Author agent {PRACTICE_NAMES[author] ?? author}</span>
             </span>
           ) : (
             agent && !checker && <span className="sr-only">Agent {agent}</span>
@@ -197,7 +205,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           {checker && (
             <span className="bd-agent-icon bd-agent-checker" title={`${agentWord(checker)} checks it`}>
               <AgentBadge runtime={checker} size={18} />
-              <span className="sr-only">Checker agent {checker}</span>
+              <span className="sr-only">Checker agent {PRACTICE_NAMES[checker] ?? checker}</span>
             </span>
           )}
         </span>
@@ -210,5 +218,6 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
 function agentWord(provider: string): string {
   // A run not yet handed out has no agent: the first one free takes it.
   if (provider === "any") return "The first free agent";
+  if (PRACTICE_NAMES[provider]) return `The ${PRACTICE_NAMES[provider]!.toLowerCase()}`;
   return AGENTS.find((a) => a.id === provider)?.name.replace(/ (Code|CLI)$/, "") ?? provider;
 }

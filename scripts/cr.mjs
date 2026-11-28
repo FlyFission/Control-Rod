@@ -253,6 +253,8 @@ function doctor({ agents = false, fix = false } = {}) {
     ["node 22.12+", nodeFound && nodeVersionOk() ? nodeFound : null, true],
     ["pnpm", version("pnpm"), true],
     ["go", version("go", ["version"]), true],
+    // The web build runs tools/check_theme_assets.py, so the first start needs Python 3.
+    ["python3 (the web build runs a Python check)", version("python3"), true],
     ["uv (optional, for Python SDK and contributor checks)", version("uv"), false],
     ["claude (Claude Code, your login)", which("claude") && version("claude"), false],
     ["codex (optional, for an independent pre-check runtime)", which("codex") && version("codex"), false],
@@ -926,7 +928,12 @@ program.command("start").description(cli ? "start Control Rod in the background 
   .action(async (o) => {
     const background = o.background || (cli && !o.foreground);
     if (background) exit(await startBackground({ open: o.open }));
-    else start();
+    // A failed start reports its reason in one line, not as an unhandled rejection with a stack.
+    else
+      await start().catch((e) => {
+        console.error(e instanceof Error ? e.message : String(e));
+        process.exit(1);
+      });
   });
 program.command("stop").description("stop Control Rod; running work finishes and is saved first")
   .option("--now", "stop without waiting for running work")

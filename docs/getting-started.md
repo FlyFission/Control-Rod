@@ -25,8 +25,8 @@ If `pnpm cr doctor` reports that the database cannot start, it means the bundled
 ```sh
 mise install               # every pinned version, unless you already have the tools
 pnpm install --frozen-lockfile
-pnpm cr link       # installs the controlrod command in ~/.local/bin (once)
-controlrod start   # checks, builds, starts in the background and opens the app
+pnpm cr link       # installs the controlrod command in ~/.local/bin (once; new terminals have it)
+pnpm cr start -b   # checks, builds, starts in the background and opens the app
 ```
 
 `pnpm cr link` writes a small script to `~/.local/bin/controlrod` that runs this checkout's `scripts/cr.mjs`. If that folder is not on your `PATH`, it adds one line to your shell's startup file (`~/.zshrc`, `~/.bashrc` or `~/.bash_profile`) and says so; open a new terminal afterwards. It never replaces a `controlrod` it did not write; `CONTROLROD_BIN_DIR` picks another folder, and `pnpm cr unlink` removes it. Every `controlrod <command>` is also `pnpm cr <command>` inside the checkout.

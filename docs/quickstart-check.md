@@ -25,6 +25,8 @@ go -C daemon build -o ~/.local/bin/controlrod ./cmd/controlrod
 
 If `~/.local/bin` is not on your `PATH`, run it as `~/.local/bin/controlrod`.
 
+If you also install the full app later, delete this binary first: `pnpm cr link` puts its own `controlrod` at the same path and will not replace a file it did not write. The linked `controlrod check` works the same.
+
 Then, inside **any git repository** where an agent just wrote changes on a branch:
 
 ```sh

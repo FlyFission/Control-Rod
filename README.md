@@ -144,8 +144,8 @@ git clone https://github.com/FlyFission/Control-Rod.git
 cd Control-Rod
 mise install     # fetches every pinned tool (Node, pnpm, Go, and friends); skip it if you already have them
 pnpm install
-pnpm cr link          # installs the controlrod command (once)
-controlrod start      # checks your setup, builds, starts in the background and opens your browser
+pnpm cr link          # installs the controlrod command (once; new terminals have it)
+pnpm cr start -b      # checks your setup, builds, starts in the background and opens your browser
 ```
 
 Choose **Set up this machine**, register a passkey, confirm your seated agents, and land on the Board. `controlrod stop` stops everything cleanly; your data stays in `~/.controlrod`. To preview the standalone interactive landing page locally, run `node scripts/serve-site.mjs` (`http://localhost:7310`).

@@ -1438,6 +1438,33 @@ func failText(err error) string {
 	return err.Error()
 }
 
+// failKind places a run's error in the fixed list the control plane knows (spec FailureKind), from
+// the daemon's own error values only. An error it cannot place has no kind.
+func failKind(err error) string {
+	var exit *exec.ExitError
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, ErrTimeout):
+		return "timeout"
+	case errors.Is(err, errShutdown):
+		return "shutdown"
+	case errors.Is(err, errLost):
+		return "lost"
+	case errors.Is(err, errStopped):
+		return "stopped"
+	case errors.Is(err, errOutOfContact):
+		return "out-of-contact"
+	case errors.Is(err, errSettled):
+		return "unfinished-turn"
+	case errors.As(err, new(errBreaker)):
+		return "breaker"
+	case errors.As(err, &exit):
+		return "exited"
+	}
+	return ""
+}
+
 // Handle runs one job and reports its completion. It never returns an error: every failure
 // becomes a failed completion. The completion is written to the outbox first and kept there
 // until the control plane confirms or refuses it.
@@ -1901,7 +1928,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		comp.Receipt, comp.Containment = &w, spawned.Containment
 	}
 	if err != nil {
-		comp.Status, comp.Error = "failed", failText(err)
+		comp.Status, comp.Error, comp.FailureKind = "failed", failText(err), failKind(err)
 		if errors.Is(err, errStopped) {
 			comp.Status = "stopped"
 		}
@@ -1932,6 +1959,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 			comp.Status, comp.Error = "failed", "collect outputs: "+cerr.Error()
 		}
 		captured = c
+	}
+	// The kind names the run's own error. A check after the run that changed the failure (the
+	// checkout, the outputs) leaves no kind, so the control plane never retries on a stale reason.
+	if err != nil && comp.Error != failText(err) {
+		comp.FailureKind = ""
 	}
 	var outArts []Artifact
 	if captured != nil {

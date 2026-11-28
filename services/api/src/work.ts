@@ -26,9 +26,11 @@ import { Refusal } from "./refusal.js";
 import { bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { CHANGE_PATCH, changePatches, changedRepoFiles, patchFiles } from "./change-files.js";
+import { pullRequestWatcher } from "./pr-watch.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
+import { exhaustedAgents, usageHoldReason } from "./usage-limits.js";
 import { benchedRuntimes, setupView } from "./setup.js";
 import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
 import { currentCredential, ownerOf } from "./tenancy.js";
@@ -349,7 +351,7 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
 /** Why a queued run is held, as a code, so the Inbox can route it to whoever may resolve it. */
-type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox" | "usage-limit";
 
 /**
  * Clears a hold whose cause no longer applies, so a stale reason never masks the next one (or
@@ -1518,6 +1520,14 @@ export async function claim(
     // runtime can only make work wait; pickChecker still refuses the author's runtime.
     const benched = await benchedRuntimes(c);
     const runtimes = offered.filter((r) => !benched.has(r));
+    // Agents whose subscription limit is used up, until it resets (change record usage-hold). A run
+    // whose seat names one waits for the reset; a run whose pick was only the default order goes to
+    // an agent that is not used up, when one is offered. `honoured` says the person's seat decided it.
+    const spent = await exhaustedAgents(c);
+    const spareOf = (pick: string | null, honoured: boolean, repick: (left: string[]) => string | null, list: string[]) => {
+      if (!pick || !spent.has(pick) || honoured) return pick;
+      return repick(list.filter((r) => !spent.has(r))) ?? pick;
+    };
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
     let cursor: { at: string; id: string } | null = null;
@@ -1625,6 +1635,9 @@ export async function claim(
               capPrefs.checker?.ecosystem ?? projPrefs?.laneAgents?.["agent-check"] ?? projPrefs?.checker;
             const samePicked = Boolean(preferredChecker) && runtimeName(preferredChecker) === authorRuntime && (await policySameAgentCheck(c, pkg)) !== null;
             runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body), preferredChecker, samePicked);
+            // Another independent agent only: a spent one is never swapped for the author's own.
+            runtime = spareOf(runtime, Boolean(preferredChecker) && runtimeName(preferredChecker) === runtime,
+              (left) => pickChecker(left, authorRuntime, false, preferredChecker, samePicked), offer);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.checker, projPrefs?.checker, projPrefs?.checkerModel);
             }
@@ -1644,11 +1657,21 @@ export async function claim(
             }
             if (row.body.waiting_key === CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
             runtime = pickRuntime(authors, preferredAuthor);
+            runtime = spareOf(runtime, Boolean(preferredAuthor) && runtimeName(preferredAuthor) === runtime, (left) => pickRuntime(left), authors);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
             }
           }
-          if (!runtime) continue;
+          if (!runtime) {
+            await releaseHold(c, cfg, row, "usage-limit");
+            continue;
+          }
+          const resets = spent.get(runtime);
+          if (resets) {
+            await holdRun(c, cfg, row, pkg.id, usageHoldReason(runtime, resets), "usage-limit", `usage-limit:${runtime}`);
+            continue;
+          }
+          await releaseHold(c, cfg, row, "usage-limit");
           if (row.role === "pre-check") {
             if (!model && countedProvider(runtime)) {
               model = defaultCheckerModel(runtime, needsOf(pkg.body).grade, reportedModels.get(runtime));
@@ -1731,8 +1754,14 @@ export async function claim(
           await holdRun(c, cfg, row, row.package_id, netIntake.held.slice(0, 300), "sandbox", `sandbox:intake:${capLane}`);
           continue;
         }
-        const runtime = pickRuntime(netIntake.offer);
+        const runtime = spareOf(pickRuntime(netIntake.offer), false, (left) => pickRuntime(left), netIntake.offer);
         if (!runtime) continue;
+        const intakeResets = spent.get(runtime);
+        if (intakeResets) {
+          await holdRun(c, cfg, row, row.package_id, usageHoldReason(runtime, intakeResets), "usage-limit", `usage-limit:${runtime}`);
+          continue;
+        }
+        await releaseHold(c, cfg, row, "usage-limit");
         // An intake run whose capture is tagged for a workflow needs that pack, or it fails here.
         if (await blockedByWorkflowPack(c, cfg, row, undefined)) continue;
         const budget = await reserveForRun(c, row, `intake-${runtime}`, ceiling);
@@ -2403,13 +2432,38 @@ async function policySameAgentCheck(c: Tx, pkg: Json): Promise<SigningPolicy | n
 /** The daemon's own words when it stops a run because it is shutting down (daemon/internal/runner errShutdown). */
 const DAEMON_SHUTDOWN = "daemon shutdown";
 
-async function retryFailedRun(c: Tx, cfg: WorkConfig, runId: string): Promise<void> {
+/**
+ * Failure kinds after which an author run gets one more try on its own, with what happened in
+ * words. Each is usually passing: the agent CLI quit with an error status (a dropped connection, a
+ * crash), or the daemon lost contact with the control plane and stopped the run. A timeout, the
+ * runaway breaker, a lost run, a failed result and the owner's stop are not retried: running again
+ * would likely end the same way, or the person chose it. Product default (change record failure-kinds).
+ */
+/** The FailureKind enum in spec/work.tsp. */
+const FAILURE_KINDS: ReadonlySet<unknown> = new Set(["shutdown", "timeout", "lost", "out-of-contact", "stopped", "breaker", "unfinished-turn", "exited"]);
+
+const AUTHOR_RETRY_KINDS: ReadonlyMap<string, string> = new Map([
+  ["exited", "quit with an error"],
+  ["out-of-contact", "was stopped when the daemon lost contact with Control Rod"],
+]);
+
+async function retryFailedRun(c: Tx, cfg: WorkConfig, runId: string, containment?: string): Promise<void> {
   const row = (await c.query<RunRow>("select * from runs where id = $1", [runId])).rows[0];
   if (!row || row.status !== "failed") return;
   // A check that failed, or any agent run Control Rod stopped itself while restarting (an update):
   // neither is the work's fault, so it runs again once on its own.
-  const shutdown = String(row.body.error ?? "").startsWith(DAEMON_SHUTDOWN);
-  if (row.role !== "pre-check" && !(row.role === "author" && shutdown)) return;
+  const kind: string | undefined = row.body.failure_kind;
+  const shutdown = kind === "shutdown" || String(row.body.error ?? "").startsWith(DAEMON_SHUTDOWN);
+  // An author whose agent failed in a way that is usually passing gets one more try too, but only
+  // when the daemon accounted for the run's processes (its group or scope is gone, or none started).
+  // A cgroup (cross-checked with the receipt on record) or no process proves every process ended. A
+  // process group cannot see a process that left it; the retry still runs (macOS has no stronger
+  // boundary) and its record says so.
+  const proven = provesEnded(row, { containment });
+  const grouped = !proven && (containment ?? row.body.receipt?.containment) === "process-group";
+  const passing = row.role === "author" && !shutdown && kind !== undefined && AUTHOR_RETRY_KINDS.has(kind)
+    && containment !== undefined && (proven || grouped);
+  if (row.role !== "pre-check" && !(row.role === "author" && (shutdown || passing))) return;
   // Once per run chain for a failure; every time for a restart, which is never the run's doing.
   if (row.body.requeued_as || row.body.stop_requested_at) return;
   if (!shutdown && ((row.body.generation ?? 1) !== 1 || row.body.requeue_of)) return;
@@ -2433,7 +2487,9 @@ async function retryFailedRun(c: Tx, cfg: WorkConfig, runId: string): Promise<vo
     await reconcileTx(c, cfg, row, "abandoned",
       shutdown
         ? `Control Rod stopped this run itself while restarting and ran it again once, under signing policy ${policy.id} v${policy.version}.`
-        : `Control Rod ran this failed check again once, under signing policy ${policy.id} v${policy.version}; a checker works read-only in its sandbox.`, by);
+        : passing
+          ? `The agent ${AUTHOR_RETRY_KINDS.get(kind!)}, and the daemon ${proven ? "proved every process of the run ended" : "stopped the run's process group (which cannot prove a process that left the group stopped)"}, so Control Rod ran it again once, under signing policy ${policy.id} v${policy.version}.`
+          : `Control Rod ran this failed check again once, under signing policy ${policy.id} v${policy.version}; a checker works read-only in its sandbox.`, by);
   }
   const fresh = (await c.query<RunRow>("select * from runs where id = $1", [runId])).rows[0]!;
   try {
@@ -2898,6 +2954,9 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
   delete finished.lease_expires_at;
   if (body.error) finished.error = String(body.error).slice(0, 2000);
+  // The daemon's own placing of the failure (spec FailureKind), never read from agent output.
+  // A kind this server does not know (a newer daemon) is dropped, never a reason to refuse the run.
+  if (FAILURE_KINDS.has(body.failure_kind) && body.status !== "succeeded") finished.failure_kind = body.failure_kind;
   if (body.status === "stopped") {
     if (row.body.stop_requested_at) {
       finished.status = "stopped";
@@ -2997,7 +3056,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     else throw new Refusal(409,"unsupported-run-role","Unsupported completion role");
   }
   await recordCheckerAttempt(c, cfg.ajv, { ...row, status: finished.status, body: finished });
-  if (finished.status === "failed") await retryFailedRun(c, cfg, runId);
+  if (finished.status === "failed") await retryFailedRun(c, cfg, runId, body?.containment);
   const receipt = receiptOf(runId, key, finished.status, outputs);
   await c.query("update runs set completion_key = $2, receipt = $3 where id = $1", [runId, key, receipt]);
   return receipt;
@@ -4053,7 +4112,11 @@ async function pullRequestOf(db: Db, id: string, revision: number) {
        and (body->'data'->>'revision')::int = $2 order by seq desc limit 1`, [id, revision]);
   const e = r.rows[0]?.body;
   if (!e) return {};
-  if (e.type === "package.pr-opened") return { pull_request: { state: "opened", url: e.data.url, branch: e.data.branch, at: e.at } };
+  if (e.type === "package.pr-opened") {
+    // What GitHub says now, read-only; left out when it cannot be read, so the line is as before.
+    const watch = typeof e.data.url === "string" ? await pullRequestWatcher.watch(e.data.url) : undefined;
+    return { pull_request: { state: "opened", url: e.data.url, branch: e.data.branch, at: e.at, ...(watch ? { watch } : {}) } };
+  }
   if (e.type === "package.pr-not-opened") return { pull_request: { state: e.data.reason === "no-changes" ? "no-changes" : "not-opened", detail: e.data.detail, at: e.at } };
   return { pull_request: { state: "opening", branch: e.data.branch, at: e.at } };
 }

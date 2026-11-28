@@ -1454,7 +1454,7 @@ export interface components {
              * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
              * @enum {string}
              */
-            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox" | "usage-limit";
             /** @enum {string} */
             status: "queued" | "running";
             /** @description The beginning of the recorded package title, bounded for the switcher. */
@@ -2421,6 +2421,15 @@ export interface components {
             /** @description The branch and commit the daemon read from that checkout after the run ended, when bound. */
             checkout_final?: components["schemas"]["ControlRod.Records.CheckoutObserved"];
         };
+        /**
+         * @description Why a run failed, as the daemon placed it from its own error values, never from agent output.
+         *     shutdown: the daemon stopped it while restarting; timeout: it ran past its time limit; lost: the
+         *     control plane no longer held it; out-of-contact: the daemon lost contact for a whole lease and
+         *     stopped it; stopped: the owner stopped it; breaker: the runaway breaker tripped; unfinished-turn:
+         *     the runtime reported a failed result and did not exit; exited: the agent exited with an error status.
+         * @enum {string}
+         */
+        "ControlRod.Records.FailureKind": "shutdown" | "timeout" | "lost" | "out-of-contact" | "stopped" | "breaker" | "unfinished-turn" | "exited";
         "ControlRod.Records.Finding": {
             id: string;
             /** @enum {string} */
@@ -2764,6 +2773,8 @@ export interface components {
             /** @description Short label the runner writes for the office view. Never raw model text. */
             label?: string;
             error?: string;
+            /** @description Why the run failed, when the daemon could place it. Absent for older runs and errors it could not place. */
+            failure_kind?: components["schemas"]["ControlRod.Records.FailureKind"];
             trace?: components["schemas"]["ControlRod.Records.ExecutionTrace"];
             /**
              * Format: date-time
@@ -2808,7 +2819,7 @@ export interface components {
              * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
              * @enum {string}
              */
-            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox" | "usage-limit";
             /**
              * @description What the hold waits on, where one decision resolves it for every run that names it: a lane's
              *     admission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is
@@ -3300,6 +3311,8 @@ export interface components {
             detail?: string;
             /** Format: date-time */
             at: string;
+            /** @description What GitHub says about an opened pull request, read live and read-only. Absent when it could not be read. */
+            watch?: components["schemas"]["PullRequestWatch"];
         };
         /** @description What the web app shows for one package: the revision, its runs, output and decisions. */
         PackageView: {
@@ -3410,6 +3423,21 @@ export interface components {
              *     a pass that covers the current subject counts as verified.
              */
             covers_current_subject: boolean;
+        };
+        /**
+         * @description An opened pull request as GitHub last reported it. Only these fixed words are read, never any text
+         *     from GitHub. A draft counts as open: Control Rod always opens drafts.
+         */
+        PullRequestWatch: {
+            /** @enum {string} */
+            state: "open" | "merged" | "closed";
+            /**
+             * @description passing: every check finished well; failing: one failed; pending: one is still running; none: the repository runs no checks.
+             * @enum {string}
+             */
+            checks: "passing" | "failing" | "pending" | "none";
+            /** Format: date-time */
+            read_at: string;
         };
         /** @description A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
         RegistryCredential: {
@@ -3606,6 +3634,8 @@ export interface components {
              * @enum {string}
              */
             containment?: "cgroup" | "process-group" | "none";
+            /** @description Why a failed or stopped run ended, from the daemon's own error values. Absent when it could not place it. */
+            failure_kind?: components["schemas"]["ControlRod.Records.FailureKind"];
             /**
              * @description Events no log post delivered (the last upload failed), carried by the completion, which the
              *     daemon retries until it is recorded. Indexed from events_from like a log batch.

@@ -175,3 +175,26 @@ describe("hasOtherQualified", () => {
     expect(hasOtherQualified(a, safety, new Set())).toBe(false);
   });
 });
+
+describe("an accepted card's pull request (change record pr-watch)", () => {
+  const opened = (watch?: { state: "open" | "merged" | "closed"; checks: "passing" | "failing" | "pending" | "none" }) => ({
+    state: "opened" as const, url: "https://github.com/o/r/pull/1", at: "2026-11-28T01:00:00Z",
+    ...(watch ? { watch: { ...watch, read_at: "2026-11-28T02:00:00Z" } } : {}),
+  });
+  const line = (pr?: NextInput["pullRequest"]) => nextLine(input({ status: "accepted", ...(pr ? { pullRequest: pr } : {}) }));
+
+  it("says Accepted as before when GitHub has not been read", () => {
+    expect(line()).toEqual({ tone: "ok", text: "Accepted" });
+    expect(line(opened())).toEqual({ tone: "ok", text: "Accepted" });
+    expect(line({ state: "not-opened", detail: "x", at: "2026-11-28T01:00:00Z" })).toEqual({ tone: "ok", text: "Accepted" });
+  });
+
+  it("asks for the person only when there is something to do", () => {
+    expect(line(opened({ state: "open", checks: "passing" }))).toEqual({ tone: "needs", text: "Pull request ready for you to merge" });
+    expect(line(opened({ state: "open", checks: "none" })).tone).toBe("needs");
+    expect(line(opened({ state: "open", checks: "failing" }))).toEqual({ tone: "needs", text: "Checks failing on the pull request" });
+    expect(line(opened({ state: "open", checks: "pending" }))).toEqual({ tone: "wait", text: "Checks running on the pull request" });
+    expect(line(opened({ state: "merged", checks: "passing" }))).toEqual({ tone: "ok", text: "Merged" });
+    expect(line(opened({ state: "closed", checks: "failing" }))).toEqual({ tone: "ok", text: "Pull request closed" });
+  });
+});

@@ -75,6 +75,10 @@
             ],
             "description": "What proves the run's processes ended: cgroup (its scope is empty), process-group (the\nleader and its group are gone; a process that left the group is not seen) or none (no\nprocess was started). Absent means no proof: a failed or stopped run then keeps an unknown\noutcome."
         },
+        "failure_kind": {
+            "$ref": "FailureKind.json",
+            "description": "Why a failed or stopped run ended, from the daemon's own error values. Absent when it could not place it."
+        },
         "events": {
             "type": "array",
             "items": {

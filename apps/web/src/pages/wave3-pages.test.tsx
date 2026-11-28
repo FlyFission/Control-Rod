@@ -78,6 +78,30 @@ describe("Wave 3/4 workbench pages", () => {
     expect(await screen.findByText(/Frozen: deadbeef12345678/i)).toBeTruthy();
   });
 
+  it("Snapshots clears an earlier success when the next action fails (#206)", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post("*/repos/checkpoint", () =>
+        HttpResponse.json({
+          ok: true,
+          ref: "refs/cr-checkpoints/explore-cp-1",
+          commit_sha: "cafebabe1234567890",
+          tree_sha: "fedcba9876543210",
+        }),
+      ),
+      http.post("*/repos/freeze", () => HttpResponse.json({ error: "not a git worktree" }, { status: 400 })),
+    );
+    await renderPage(<Explore />);
+    await user.type(screen.getByLabelText(/Worktree or repository path/i), "/home/flyfission/projects/Control-Rod");
+    await user.click(screen.getByRole("button", { name: /Save checkpoint/i }));
+    expect(await screen.findByText(/Checkpoint saved at/i)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /^Freeze$/i }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.queryByText(/Checkpoint saved at/i)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("Compare renders side-by-side candidates, adds temporary local notes, and shows retry on error", async () => {
     const user = userEvent.setup();
     let fail = true;

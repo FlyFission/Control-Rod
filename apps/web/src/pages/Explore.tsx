@@ -17,6 +17,7 @@ export function Explore() {
     if (!repoPath.trim()) return;
     setBusy(true);
     setError(null);
+    setStatus(null);
     try {
       const res = await api.checkpointRepo({
         repo_path: repoPath.trim(),
@@ -34,6 +35,7 @@ export function Explore() {
     if (!repoPath.trim()) return;
     setBusy(true);
     setError(null);
+    setStatus(null);
     try {
       const res = await api.freezeRepo({
         repo_path: repoPath.trim(),

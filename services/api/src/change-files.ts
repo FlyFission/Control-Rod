@@ -36,14 +36,47 @@ export function changePatches<T extends { name: string }>(outputs: T[], filesOf:
   return { use: [...pool].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) };
 }
 
+/**
+ * A path as Git writes it in a header: plain, or in double quotes with C escapes when it has
+ * non-ASCII bytes, tabs, quotes or backslashes (octal escapes are UTF-8 bytes).
+ */
+function gitPath(raw: string): string {
+  if (!raw.startsWith('"') || !raw.endsWith('"') || raw.length < 2) return raw;
+  const bytes: number[] = [];
+  const body = raw.slice(1, -1);
+  const named: Record<string, number> = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13, '"': 34, "\\": 92 };
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i]!;
+    if (c !== "\\") { bytes.push(...Buffer.from(c, "utf8")); continue; }
+    const oct = /^[0-7]{3}/.exec(body.slice(i + 1));
+    if (oct) { bytes.push(parseInt(oct[0], 8)); i += 3; continue; }
+    const n = named[body[i + 1] ?? ""];
+    if (n !== undefined) { bytes.push(n); i += 1; continue; }
+    bytes.push(92);
+  }
+  return Buffer.from(bytes).toString("utf8");
+}
+
+const QUOTED = '"(?:[^"\\\\]|\\\\.)*"';
+const GIT_HEADER = new RegExp(`^diff --git (${QUOTED}|a/\\S*?) (${QUOTED}|b/.+)$`);
+const FILE_HEADER = new RegExp(`^(?:\\+\\+\\+|---) (${QUOTED}|[ab]/.+?)(?:\\t.*)?$`);
+const strip = (p: string): string => p.replace(/^[ab]\//, "");
+
 /** The files a unified diff touches, in order, from its `diff --git` and `+++`/`---` headers. */
 export function patchFiles(patch: string): string[] {
   const seen = new Set<string>();
   for (const line of patch.split(/\r?\n/)) {
-    const git = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
-    if (git) { seen.add(git[2]!); if (git[1] !== git[2]) seen.add(git[1]!); continue; }
-    const hdr = /^(?:\+\+\+|---) [ab]\/(.+?)(?:\t.*)?$/.exec(line);
-    if (hdr) seen.add(hdr[1]!);
+    const plain = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+    const git = plain && !plain[1]!.startsWith('"') && !plain[2]!.startsWith('"') ? [plain[1]!, plain[2]!] : (() => {
+      const q = GIT_HEADER.exec(line);
+      return q ? [strip(gitPath(q[1]!)), strip(gitPath(q[2]!))] : null;
+    })();
+    if (git) { seen.add(git[1]!); if (git[0] !== git[1]) seen.add(git[0]!); continue; }
+    const hdr = FILE_HEADER.exec(line);
+    if (hdr) {
+      const path = gitPath(hdr[1]!);
+      if (/^[ab]\//.test(path)) seen.add(strip(path));
+    }
   }
   return [...seen];
 }
@@ -88,8 +121,11 @@ export function patchSections(patch: string): Map<string, string> {
   }
   const out = new Map<string, string>();
   starts.forEach((s, k) => {
-    // Trailing blank lines differ only by where a section falls in the patch; drop them.
-    const text = lines.slice(s, starts[k + 1] ?? lines.length).join("\n").replace(/\s+$/, "");
+    // Trailing empty lines differ only by where a section falls in the patch; drop them. A hunk line
+    // is never empty (context lines start with a space), so whitespace inside hunks is kept.
+    const section = lines.slice(s, starts[k + 1] ?? lines.length);
+    while (section.length && section[section.length - 1] === "") section.pop();
+    const text = section.join("\n");
     for (const f of patchFiles(text)) out.set(f, (out.get(f) ?? "") + text + "\n");
   });
   return out;

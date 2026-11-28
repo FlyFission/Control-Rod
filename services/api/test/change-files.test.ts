@@ -52,3 +52,19 @@ describe("changedRepoFiles", () => {
     expect(changedRepoFiles([out("a.md", "1"), out("b.md", "2")], [out("a.md", "11"), out("b.md", "2"), out("c.md", "3")])).toEqual(["a.md", "c.md"]);
   });
 });
+
+describe("quoted Git paths and hunk whitespace", () => {
+  // Made by `git diff` after changing é.md and ta"b.md: Git quotes both paths.
+  const quoted = "diff --git \"a/ta\\\"b.md\" \"b/ta\\\"b.md\"\nindex 7898192..6178079 100644\n--- \"a/ta\\\"b.md\"\n+++ \"b/ta\\\"b.md\"\n@@ -1 +1 @@\n-a\n+b\ndiff --git \"a/\\303\\251.md\" \"b/\\303\\251.md\"\nindex 587be6b..975fbec 100644\n--- \"a/\\303\\251.md\"\n+++ \"b/\\303\\251.md\"\n@@ -1 +1 @@\n-x\n+y\n";
+
+  it("decodes the paths Git quotes", () => {
+    expect(touchedFiles([out("changes.patch", quoted)])).toEqual(['ta"b.md', "é.md"]);
+    expect(changedRepoFiles([], [out("changes.patch", quoted)])).toEqual(["é.md", 'ta"b.md'].sort());
+  });
+
+  it("sees a change to trailing spaces on the last added line of a plain diff", () => {
+    const plain = (last: string) => `--- a/doc.md\n+++ b/doc.md\n@@ -1 +1 @@\n-old\n+${last}\n`;
+    expect(changedRepoFiles([out("changes.patch", plain("new"))], [out("changes.patch", plain("new  "))])).toEqual(["doc.md"]);
+    expect(changedRepoFiles([out("changes.patch", plain("new"))], [out("changes.patch", plain("new") + "\n\n")])).toEqual([]);
+  });
+});

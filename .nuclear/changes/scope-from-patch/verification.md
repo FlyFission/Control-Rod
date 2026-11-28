@@ -3,6 +3,7 @@
 - E-01: `tsc -p services/api/tsconfig.json --noEmit` passes.
 - E-02: `tools/test-api.mjs` with PostgreSQL 16 (cloud container): change-files, figures, figures-race, scoped-send-back, patch-files: 28 tests pass (7 new, 1 extended).
 - E-03: runs, work-lanes, publish-checkout: 89 tests pass.
+- E-04: after the Codex review, change-files, patch-files, figures, scoped-send-back, publish-checkout: 50 tests pass, including a Git-generated patch with quoted paths (é.md, ta"b.md) and trailing spaces on a last added line.
 - Not covered: an end-to-end checkout card through two rounds with a real daemon; drift for that path is covered by unit tests of changedRepoFiles only.
 - Blind check: the repository's automatic Codex review on the PR.
 
@@ -13,12 +14,14 @@
 | E-01 | PR-01 | yes | tsc output in the PR session | Implementing agent | tsc | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 | E-02 | PR-01 | yes | vitest output in the PR session | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 | E-03 | PR-01 | yes | vitest output in the PR session | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
+| E-04 | PR-01 | yes | vitest output in the PR session | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | typecheck only [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | unit level, PostgreSQL 16 [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | unit level, no real daemon [Ship limits](ship.md) |
+| E-04 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | unit level, PostgreSQL 16 [Ship limits](ship.md) |
 
 ## Required links
 

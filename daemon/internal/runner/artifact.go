@@ -282,7 +282,7 @@ func StageArtifact(a RuntimeArtifact, base string) (RuntimeArtifact, error) {
 		}
 		fi, err = os.Lstat(base)
 	}
-	if err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
+	if err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 || !fileOwnedByUser(fi) {
 		return a, fmt.Errorf("%s must be a private folder (mode 0700) to stage runtimes in", base)
 	}
 	// One stager per digest at a time, across daemons: a copy another launch is using is never

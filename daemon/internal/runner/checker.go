@@ -239,10 +239,15 @@ func prepareCheckerIn(base string, job *Job) (*Workspace, error) {
 // upward discovery walk from the usual work directory, so a CLAUDE.md or
 // AGENTS.md planted there would be read. User-level ~/.claude and ~/.codex are
 // still read by absolute path because HOME is unchanged.
+// checkerTmp is the shared folder the checker root is made in. $XDG_RUNTIME_DIR is private
+// but cannot be used: the checker mount hides /run/user/<uid> under a tmpfs. A variable so
+// tests can point it at a temporary folder.
+var checkerTmp = "/var/tmp"
+
 func checkerRoot(preferred string) (string, error) {
-	base := filepath.Join("/var/tmp", fmt.Sprintf("controlrod-checker-%d", os.Getuid()))
-	if err := os.MkdirAll(base, 0o700); err != nil {
-		return "", err
+	base := filepath.Join(checkerTmp, fmt.Sprintf("controlrod-checker-%d", os.Getuid()))
+	if err := ensurePrivateDir(base); err != nil {
+		return "", fmt.Errorf("the checker folder cannot be used: %w", err)
 	}
 	real, err := canonicalPath(base)
 	if err != nil {

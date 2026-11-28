@@ -4,7 +4,7 @@ How to run Control Rod on your machine and how to check that your change did not
 
 ## Prerequisites
 
-The toolchain is pinned in [`mise.toml`](../mise.toml). The easiest route is [mise](https://mise.jdx.dev): `mise install` in the repository root gives you every pinned version, and CI uses the same pins.
+The toolchain is pinned in [`mise.toml`](../mise.toml). The easiest route is [mise](https://mise.jdx.dev), and CI uses the same pins. To run Control Rod you need only Node, pnpm, Go and Python: `mise install node pnpm go python` fetches those. A plain `mise install` fetches every pinned tool, the contributor ones too (Rust, cargo-deny, go-licenses, uv). mise puts the tools on `PATH` only in a shell where it is active: run `eval "$(mise activate bash)"` (or `zsh`) in this terminal, and add that line to your shell's startup file for new ones. Without it, `pnpm install` fails with `pnpm: command not found`, or runs a different pnpm.
 
 | Tool | Version | Used for |
 | --- | --- | --- |
@@ -12,9 +12,10 @@ The toolchain is pinned in [`mise.toml`](../mise.toml). The easiest route is [mi
 | pnpm | 10.28.0 | workspace and scripts |
 | Rust | 1.97.0 | kernel (and its WASM binding) |
 | Go | 1.24.7 | run daemon |
-| Python and uv | 3.13, uv 0.11.32 | Optional for running Control Rod; required for Python SDK and repository checks |
+| Python | 3.13 | The web build runs a Python check, so the first start needs `python3` |
+| uv | 0.11.32 | Optional for running Control Rod; required for the Python SDK and repository checks |
 
-Optional, for real agent runs: [Claude Code](https://claude.com/claude-code) signed in (agents run on your own subscription) and Codex (so pre-checks have an independent runtime). Without Codex, a pre-check waits until you sign a written override with your passkey; `pnpm cr doctor` explains this.
+Optional, for real agent runs: [Claude Code](https://claude.com/claude-code) signed in (agents run on your own subscription) and Codex (so pre-checks have an independent runtime). Install Claude Code's native build (`curl -fsSL https://claude.ai/install.sh | bash`). The daemon pins each agent program by its digest, so it refuses a launcher script it cannot identify. In an npm install it finds the native program npm's install step put in place; a pnpm install, or an npm install made with `--ignore-scripts`, has none, and `controlrod doctor` and Setup say to install the native build. On Linux, agent runs also need bubblewrap and socat, and Ubuntu 24.04 needs one AppArmor step: see [Linux setup](daemon.md#linux-setup). `controlrod doctor --strict` exits 1 until agent runs can start. Without Codex, a pre-check waits until you sign a written override with your passkey; `pnpm cr doctor` explains this.
 
 The embedded database refuses to run as root, so use an ordinary user account.
 
@@ -23,7 +24,8 @@ If `pnpm cr doctor` reports that the database cannot start, it means the bundled
 ## Run it
 
 ```sh
-mise install               # every pinned version, unless you already have the tools
+mise install node pnpm go python   # the pinned tools that run it, unless you already have them
+eval "$(mise activate bash)"       # puts them on PATH in this terminal (zsh: mise activate zsh)
 pnpm install --frozen-lockfile
 pnpm cr link       # installs the controlrod command in ~/.local/bin (once; new terminals have it)
 pnpm cr start -b   # checks, builds, starts in the background and opens the app
@@ -53,7 +55,11 @@ Open <http://localhost:7300>, choose **Set up this machine**, and register a pas
 export CONTROLROD_HOME="$HOME/.controlrod-dev"
 ```
 
-Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATABASE_URL` (use your own Postgres instead of the embedded one), `CONTROLROD_EGRESS_FILTER` (outbound egress filtering for real author runs is **on by default**; set `0` or `false` to disable), `CONTROLROD_GUIDED_PREPARATION=1` and `CONTROLROD_PREPARED_RELEASE=1` (turn on guided preparation and prepared release, both off by default). The step-by-step owner run is in [owner-pilot.md](owner-pilot.md).
+Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_PG_PORT` (the bundled PostgreSQL's port, see below), `CONTROLROD_DATABASE_URL` (use your own Postgres instead of the embedded one), `CONTROLROD_WORKSPACE_ROOT` (the folder whose git repositories the project form and New Work list, `~/projects` by default; it must be a folder inside your home folder whose name does not start with a dot), `CONTROLROD_EGRESS_FILTER` (outbound egress filtering for real author runs is **on by default**; set `0` or `false` to disable), `CONTROLROD_GUIDED_PREPARATION=1` and `CONTROLROD_PREPARED_RELEASE=1` (turn on guided preparation and prepared release, both off by default). The step-by-step owner run is in [owner-pilot.md](owner-pilot.md).
+
+The project form lists the local clones it finds in that workspace folder. For a repository somewhere else in your home folder, type its folder, or the folder that holds it, and choose **Look here**.
+
+**The bundled database's port.** A new install puts PostgreSQL on the web port plus 10000 (17300 by default), so moving the web app to a nearby port, such as `CONTROLROD_PORT=7301` when 7300 is busy, never collides with it. The port is written to `pg.port` in the Control Rod home and kept from then on, so scripts and pass files that name it keep working. An install made before `pg.port` existed used 7301 and keeps it. If the web app is then moved to 7301, the database moves to 17301 and the log says so; its data is unchanged, because PostgreSQL is only told its port when it starts. `CONTROLROD_PG_PORT` picks the port yourself.
 
 **Agents run for real.** `pnpm cr start` also starts the daemon, which launches Claude Code or Codex processes under your login, inside the sandbox policy recorded for the run ([ADR 0021](adr/0021-native-cli-sandboxes.md)). If you only want the API and web app, see the pilot guide for starting the API alone.
 
@@ -65,7 +71,7 @@ Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATA
 
 - In VS Code the app is at <http://localhost:7300> through port forwarding, same as on your own machine.
 - In Codespaces the app is at a forwarded `https://<name>-7300.app.github.dev` address. `pnpm cr start` detects Codespaces and sets the passkey origin to match. A passkey is bound to the address it was created on, so one made in a Codespace does not work anywhere else, and the data goes when the Codespace is deleted. Treat it as a place to build and test, not to keep real records.
-- Agent runs need Claude Code signed in inside the container (`npm i -g @anthropic-ai/claude-code`, then `claude`). The agent sandbox is bubblewrap, and a container often stops bubblewrap from creating the user namespace it needs. `pnpm cr doctor` tests this and says so; when it fails, the preflight refuses agent runs with the reason. Expect the container to be fine for the web app, the API, and all the tests, and use a Linux machine, a Mac or WSL2 for real agent runs.
+- Agent runs need Claude Code signed in inside the container (`curl -fsSL https://claude.ai/install.sh | bash`, then `claude`). The agent sandbox is bubblewrap, and a container often stops bubblewrap from creating the user namespace it needs. `pnpm cr doctor` tests this and says so; when it fails, the preflight refuses agent runs with the reason. Expect the container to be fine for the web app, the API, and all the tests, and use a Linux machine, a Mac or WSL2 for real agent runs.
 - The configuration was checked by running its setup script on a fresh clone as a non-root user and starting the app with Codespaces-style variables. The container image itself has not yet been built by anyone, so report anything that breaks.
 
 ## Check your change

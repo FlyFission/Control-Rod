@@ -11,6 +11,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import { homedir, platform } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkMachine, machine } from "./lib/doctor.mjs";
 import { commandPath, link, ownerOf, refresh, unlink } from "./lib/link.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -203,72 +204,15 @@ function databaseOk() {
 }
 
 /**
- * Mirrors QualifiedPlatform and the Linux sandbox preflight in daemon/internal/runner/sandbox.go: agent
- * runs are offered on WSL2, native Linux and macOS. On Linux and WSL2 each CLI's sandbox is bubblewrap,
- * and Claude Code's network proxy needs socat, so say what is missing before setup instead of after.
- * Returns one line per problem, or an empty list when agent runs can start here.
+ * The checks of `doctor`. The machine rows come from scripts/lib/doctor.mjs; the database rows need the
+ * installed packages and stay here. Returns ok (the app can start), agentsOk (agent runs can start
+ * too, which `doctor --strict` requires), blocking (this platform can never run agents) and the rows
+ * that bear on agent runs, which a background start always prints.
  */
-function nodeVersionOk() {
-  const [maj, min] = process.versions.node.split(".").map(Number);
-  return maj > 22 || (maj === 22 && min >= 12);
-}
-
-function agentRunProblems() {
-  const os = platform();
-  if (os === "darwin") {
-    return which("sandbox-exec") ? [] : ["Seatbelt (sandbox-exec) was not found on PATH"];
-  }
-  if (os !== "linux") return [`agent runs are not qualified on ${os} yet; use WSL2 on Windows`];
-  const problems = [];
-  if (!which("bwrap")) problems.push("bubblewrap is missing: sudo apt install bubblewrap");
-  if (!which("socat")) problems.push("socat is missing (Claude Code needs it): sudo apt install socat");
-  if (which("bwrap")) {
-    const r = spawnSync("bwrap", ["--unshare-user", "--unshare-net", "--ro-bind", "/", "/", "--dev", "/dev", "true"], {
-      encoding: "utf8",
-      timeout: 15000,
-    });
-    if (r.status !== 0) {
-      problems.push(
-        "bubblewrap cannot create a sandbox here, usually because Ubuntu 24.04 and later turn off user" +
-          '\n      namespaces by default. Allow it for bubblewrap only: see "Linux setup" in docs/daemon.md',
-      );
-    }
-  }
-  return problems;
-}
-
 function doctor({ agents = false, fix = false } = {}) {
-  // The bundled PostgreSQL refuses to run as root, and it fails with a stack trace well after setup has
-  // built everything. Catch it first, unless the caller brings their own database.
-  if (typeof process.getuid === "function" && process.getuid() === 0 && !process.env.CONTROLROD_DATABASE_URL) {
-    console.log("MISSING  ordinary user: you are running as root");
-    console.log(
-      "\nThe bundled PostgreSQL will not start as root. Run Control Rod from an ordinary user account, or set\n" +
-        "CONTROLROD_DATABASE_URL to your own PostgreSQL 17 superuser connection and run this command again.\n",
-    );
-    return false;
-  }
-  const nodeFound = version("node");
-  const rows = [
-    ["node 22.12+", nodeFound && nodeVersionOk() ? nodeFound : null, true],
-    ["pnpm", version("pnpm"), true],
-    ["go", version("go", ["version"]), true],
-    // The web build runs tools/check_theme_assets.py, so the first start needs Python 3.
-    ["python3 (the web build runs a Python check)", version("python3"), true],
-    ["uv (optional, for Python SDK and contributor checks)", version("uv"), false],
-    ["claude (Claude Code, your login)", which("claude") && version("claude"), false],
-    ["codex (optional, for an independent pre-check runtime)", which("codex") && version("codex"), false],
-  ];
-  let ok = true;
-  for (const [name, found, required] of rows) {
-    if (name.startsWith("node ") && nodeFound && !found) {
-      console.log(`MISSING  ${name}: found ${nodeFound}, need >= v22.12.0`);
-      ok = false;
-      continue;
-    }
-    console.log(`${found ? "ok  " : required ? "MISSING" : "--  "}  ${name}${found ? `: ${found}` : ""}`);
-    if (!found && required) ok = false;
-  }
+  const m = checkMachine(machine(), { me });
+  for (const l of m.lines) console.log(l);
+  let ok = m.ok;
   if (!databaseOk()) ok = false;
   if (platform() === "darwin" && !process.env.CONTROLROD_DATABASE_URL) {
     const dead = orphanedSegments();
@@ -283,17 +227,13 @@ function doctor({ agents = false, fix = false } = {}) {
       );
     }
   }
-  const problems = agentRunProblems();
-  if (problems.length === 0) console.log("ok    agent runs: the sandbox can start on this platform");
-  for (const p of problems) console.log(`--    agent runs: ${p}`);
-  if (problems.length) {
-    console.log(
-      "\nThe app, the board, the office view and the records work without this. The daemon will not start an" +
-        "\nagent until the sandbox can hold, and it says why.",
-    );
+  for (const l of m.agentLines) console.log(l);
+  for (const n of m.notes) console.log(`\n${n}`);
+  if (agents && which("go")) {
+    // The first run compiles the daemon, which can take minutes with nothing else on screen.
+    console.log(`\nChecking each agent the way the run daemon will${existsSync(join(bin, "controlrod")) ? "" : " (this compiles the daemon first, which can take a few minutes)"}...`);
+    agentChecks();
   }
-  if (agents && which("go")) agentChecks();
-  if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
   if (!which("codex")) {
     console.log(
       "\nWithout Codex, every pre-check waits for an independent runtime. It never runs on the author's runtime on its own." +
@@ -302,7 +242,7 @@ function doctor({ agents = false, fix = false } = {}) {
         "\nrecord shows a shared runtime with your override.",
     );
   }
-  return ok;
+  return { ok, agentsOk: m.agentsOk, blocking: m.blocking, agentLines: m.agentLines };
 }
 
 /**
@@ -431,7 +371,7 @@ async function start() {
     return;
   }
   process.on("exit", () => clearRecord(home));
-  if (!doctor()) process.exit(1);
+  if (!doctor().ok) process.exit(1);
   setup();
   // On a first run the database package was not installed yet when `doctor` looked; look again now.
   if (!databaseOk()) process.exit(1);
@@ -637,20 +577,23 @@ function tail(file, lines) {
  */
 async function startBackground({ open = false } = {}) {
   if (await alreadyRunning({ open })) return 0;
-  // The checks print only when something is missing; the full list is in `doctor`.
+  // The checks print in full only when something the app needs is missing; the full list is in
+  // `doctor`. The rows that bear on agent runs always print, so a missing sandbox is seen now and not
+  // when the first run is refused.
   const said = [];
   const print = console.log;
   console.log = (...a) => said.push(a.join(" "));
-  let ok;
+  let checked;
   try {
-    ok = doctor();
+    checked = doctor();
   } finally {
     console.log = print;
   }
-  if (!ok) {
+  if (!checked.ok) {
     console.log(said.join("\n"));
     return 1;
   }
+  console.log(checked.agentLines.join("\n"));
   setup();
   if (!databaseOk()) return 1;
   freeDeadDatabaseMemory();
@@ -974,7 +917,11 @@ program.command("cards").description("list cards and where each one is")
 program.command("version").description("show which version this is").action(() => console.log(versionLine()));
 program.command("doctor").description("check this machine and say what to fix")
   .option("--fix", "free shared memory left behind by stopped databases (macOS)")
-  .action((o) => exit(doctor({ agents: true, fix: o.fix }) ? 0 : 1));
+  .option("--strict", "also exit 1 when agent runs can't start on this machine")
+  .action((o) => {
+    const r = doctor({ agents: true, fix: o.fix });
+    exit(r.ok && !r.blocking && (!o.strict || r.agentsOk) ? 0 : 1);
+  });
 program.command("setup").description("build without starting").action(() => setup());
 program.command("verify").description("check a downloaded inclusion proof or audit export offline").argument("<files...>");
 program.command("receipt").description("write a PR receipt from an inclusion proof").argument("[file]");

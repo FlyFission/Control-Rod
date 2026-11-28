@@ -15,60 +15,122 @@ export interface AgentInfo {
   vendor: string;
   /** Control Rod can launch it under a sandbox today. The others are listed so people know they are coming. */
   runnable: boolean;
+  /** Control Rod starts it on macOS only: its sandbox has been checked there alone (daemon ConfinementGap). */
+  macOSOnly?: boolean;
   /** How to install it, for a runnable agent that was not found. From each vendor's own install page. */
   install?: string;
+  /** Where to get it when there is no one-line install command. */
+  installWhere?: string;
   /** How to sign in, for a runnable agent that is installed and signed out. */
   signIn?: string;
 }
 
+/**
+ * Anthropic's install of Claude Code's native build. Control Rod runs the native executable it can
+ * identify by digest; an npm install works only when npm's install step copied that executable in.
+ */
+export const CLAUDE_NATIVE_INSTALL = "curl -fsSL https://claude.ai/install.sh | bash";
+
 /** Built-in agents, in the order the dispatcher prefers them (services/api/src/work.ts pickRuntime). */
 export const AGENTS: readonly AgentInfo[] = [
-  { id: "claude", name: "Claude Code", vendor: "Anthropic", runnable: true, install: "npm install -g @anthropic-ai/claude-code", signIn: "claude" },
+  { id: "claude", name: "Claude Code", vendor: "Anthropic", runnable: true, install: CLAUDE_NATIVE_INSTALL, signIn: "claude" },
   { id: "codex", name: "Codex", vendor: "OpenAI", runnable: true, install: "npm install -g @openai/codex", signIn: "codex login" },
-  { id: "agy", name: "Antigravity", vendor: "Google", runnable: true, signIn: "agy" },
-  { id: "grok", name: "Grok CLI", vendor: "xAI", runnable: true, install: "npm install -g @xai-official/grok", signIn: "grok" },
+  { id: "agy", name: "Antigravity", vendor: "Google", runnable: true, macOSOnly: true, installWhere: "Install Antigravity from Google's Antigravity download page, then run agy once to sign in.", signIn: "agy" },
+  { id: "grok", name: "Grok CLI", vendor: "xAI", runnable: true, macOSOnly: true, install: "npm install -g @xai-official/grok", signIn: "grok" },
   { id: "opencode", name: "OpenCode", vendor: "any provider", runnable: false },
   { id: "ollama", name: "Local model (Ollama)", vendor: "runs on this computer", runnable: false },
 ];
 
-export type AgentState = "ready" | "not-checked" | "not-found" | "signed-out" | "held" | "not-yet";
+/**
+ * "not-here": Control Rod does not start this agent on this platform (Antigravity and Grok run on
+ * macOS only). "not-yet": Control Rod cannot run it anywhere yet.
+ */
+export type AgentState = "ready" | "not-checked" | "not-found" | "signed-out" | "held" | "not-here" | "not-yet";
 
 export interface AgentRow {
   info: AgentInfo;
+  /** At the table. An agent that is not installed, or not available here, is never seated. */
   seated: boolean;
   state: AgentState;
+  /** The daemon or the CLI's own status found it on this computer. */
+  installed: boolean;
   /** One plain sentence: why it can or cannot work now. */
   status: string;
   /** A command the person can run to fix it, when there is one. */
   fix?: string;
+  /** What running the fix does, when it is not the usual install or sign-in. */
+  fixLabel?: string;
+  /** For "not-here": the platform it is not available on, in words ("Linux"). */
+  unavailableOn?: string;
   version?: string;
   path?: string;
 }
 
 const NOT_YET =
-  "Control Rod can't run this one yet: it needs a sandbox Control Rod can hold, and that isn't built. It joins the table when it is.";
+  "Not available yet. Control Rod can't run this one: it needs a sandbox Control Rod can hold, and that isn't built. It joins the table when it is.";
+
+/** The platform as the daemon reported it, in words; undefined when it was not reported. */
+export function platformWords(platform: string | undefined): string | undefined {
+  if (platform === undefined) return undefined;
+  if (platform === "darwin") return "macOS";
+  if (platform === "linux" || platform === "wsl2") return "Linux";
+  return "this computer";
+}
+
+/** Whether Control Rod starts this agent on the reported platform. Unknown platforms are not gated. */
+export function availableHere(info: Pick<AgentInfo, "macOSOnly">, platform: string | undefined): boolean {
+  return !info.macOSOnly || platform === undefined || platform === "darwin";
+}
+
+/** A reason that says the CLI starts through a script Control Rod cannot pin (daemon ErrUnsupportedLauncher). */
+const SCRIPT_LAUNCHER = /identify (it )?by digest|starts through the script/i;
 
 export function agentRows(runtimes: RuntimeStatus[] | undefined, subs: SubscriptionView | undefined, setup: AgentSetupView | undefined): AgentRow[] {
   const reported = runtimes !== undefined && (runtimes.length > 0 || subs?.reported === true);
-  return AGENTS.map((info) => {
+  const platform = subs?.platform;
+  return AGENTS.map((info): AgentRow => {
     const seat = setup?.seats.find((s) => s.runtime === info.id);
-    const seated = info.runnable ? (seat?.seated ?? true) : false;
     const rt = runtimes?.find((r) => r.runtime === info.id);
     const probe = subs?.probes.find((p) => p.id === info.id);
     const version = probe?.observed_version ?? rt?.version;
     const path = probe?.path ?? rt?.artifact?.path;
-    const base = { info, seated, ...(version ? { version } : {}), ...(path ? { path } : {}) };
-    if (!info.runnable) return { ...base, state: "not-yet", status: NOT_YET };
-    if (!reported) return { ...base, state: "not-checked", status: "Not checked yet. Control Rod checks each agent when it starts, then every few minutes." };
-    if (rt?.ready) return { ...base, state: "ready", status: "Ready. Installed, signed in, and passing Control Rod's checks." };
-    const installed = probe?.installed ?? rt !== undefined;
-    if (!installed)
-      return { ...base, state: "not-found", status: "Not found on this computer.", ...(info.install ? { fix: info.install } : {}) };
-    if (probe?.auth === "signed-out")
-      return { ...base, state: "signed-out", status: "Installed, but not signed in.", ...(info.signIn ? { fix: info.signIn } : {}) };
+    const installed = reported && (probe?.installed ?? rt !== undefined);
+    const extra = { ...(version ? { version } : {}), ...(path ? { path } : {}) };
+    const off = (state: AgentState, status: string, more: Partial<AgentRow> = {}): AgentRow => ({ info, seated: false, state, installed, status, ...extra, ...more });
+    const on = (state: AgentState, status: string, more: Partial<AgentRow> = {}): AgentRow => ({ info, seated: seat?.seated ?? true, state, installed, status, ...extra, ...more });
+    if (!info.runnable) return off("not-yet", NOT_YET);
+    if (!availableHere(info, platform)) {
+      const where = platformWords(platform)!;
+      return off(
+        "not-here",
+        `${installed ? "Installed, but n" : "N"}ot available on ${where}. Control Rod runs ${info.name} on macOS only, because its sandbox has been checked there alone.`,
+        { unavailableOn: where },
+      );
+    }
+    if (!reported) return on("not-checked", "Not checked yet. Control Rod checks each agent when it starts, then every few minutes.");
+    if (rt?.ready) return on("ready", "Ready. Installed, signed in, and passing Control Rod's checks.");
+    if (!installed) {
+      return off("not-found", info.install ? "Not installed on this computer." : `Not installed on this computer. ${info.installWhere ?? ""}`.trim(), {
+        ...(info.install ? { fix: info.install } : {}),
+      });
+    }
+    if (probe?.auth === "signed-out") return on("signed-out", "Installed, but not signed in.", info.signIn ? { fix: info.signIn } : {});
+    const signedIn = probe?.auth === "signed-in" ? " and signed in" : "";
+    if (rt?.reason && SCRIPT_LAUNCHER.test(rt.reason) && info.id === "claude") {
+      return on(
+        "held",
+        `Installed${signedIn}, but Control Rod won't give it work yet. This install starts Claude Code through a script (an npm or pnpm install), and Control Rod only runs the native program it can identify. The native build fixes it.`,
+        { fix: CLAUDE_NATIVE_INSTALL, fixLabel: "To install the native build, run" },
+      );
+    }
     const why = rt?.reason ? plainReason(rt.reason, info.id) : "Control Rod's last check did not pass, and the check gave no reason.";
-    return { ...base, state: "held", status: `Installed${probe?.auth === "signed-in" ? " and signed in" : ""}, but Control Rod won't give it work yet. ${why}` };
+    return on("held", `Installed${signedIn}, but Control Rod won't give it work yet. ${why}`);
   });
+}
+
+/** The person can seat or bench this agent: Control Rod can run it here and it is installed (or not checked yet). */
+export function seatable(row: AgentRow): boolean {
+  return row.info.runnable && row.state !== "not-found" && row.state !== "not-here" && row.state !== "not-yet";
 }
 
 /** The daemon's reason, as one sentence ending in a full stop. It is already written in plain words. */

@@ -137,16 +137,19 @@ Switch between **Software**, **Capital Projects**, and **Nuclear-Grade** modes o
 
 ## Install the full workspace
 
-Control Rod runs locally on your own account and sign-ins. Install [mise](https://mise.jdx.dev) (`mise install` fetches the pinned toolchain), or bring [Node 22.12+](https://nodejs.org), [pnpm](https://pnpm.io/installation), and [Go](https://go.dev/dl/) (plus [uv](https://docs.astral.sh/uv/getting-started/installation/) if running Python checks or the Python SDK). Sign in to [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex), or both, and use a non-root user account (embedded PostgreSQL refuses root).
+Control Rod runs locally on your own account and sign-ins. Install [mise](https://mise.jdx.dev) to fetch the pinned toolchain, or bring [Node 22.12+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and Python 3 (the first build runs a Python check), plus [uv](https://docs.astral.sh/uv/getting-started/installation/) if you run the Python checks or the Python SDK. Sign in to [Claude Code](https://claude.com/claude-code) (its native build: `curl -fsSL https://claude.ai/install.sh | bash`), [Codex](https://github.com/openai/codex), or both, and use a non-root user account (embedded PostgreSQL refuses root). On Linux, agent runs also need bubblewrap and socat; `controlrod doctor` checks both.
 
 ```sh
 git clone https://github.com/FlyFission/Control-Rod.git
 cd Control-Rod
-mise install     # fetches every pinned tool (Node, pnpm, Go, and friends); skip it if you already have them
+mise install node pnpm go python   # the pinned tools that run Control Rod; skip it if you already have them
+eval "$(mise activate bash)"       # puts them on PATH in this terminal (zsh: mise activate zsh)
 pnpm install
 pnpm cr link          # installs the controlrod command (once; new terminals have it)
 pnpm cr start -b      # checks your setup, builds, starts in the background and opens your browser
 ```
+
+A plain `mise install` also fetches the contributor tools (Rust, cargo-deny, go-licenses, uv); you need those only to change Control Rod itself. Add the `mise activate` line to your shell's startup file so new terminals find pnpm too.
 
 Choose **Set up this machine**, register a passkey, confirm your seated agents, and land on the Board. `controlrod stop` stops everything cleanly; your data stays in `~/.controlrod`. To preview the standalone interactive landing page locally, run `node scripts/serve-site.mjs` (`http://localhost:7310`).
 
@@ -158,7 +161,7 @@ After that:
 | `controlrod stop` / `restart` / `status` / `logs -f` / `open` | what they say; `stop` lets running work finish first |
 | `controlrod update` | gets the latest version, rebuilds, and restarts it; goes back to your version if anything fails |
 | `controlrod agents update` | updates Claude Code, Codex and the other agent CLIs, asking before each |
-| `controlrod doctor` | lists anything missing on this machine |
+| `controlrod doctor` | lists anything missing on this machine; `--strict` also exits 1 when agent runs cannot start yet |
 | `controlrod help` | everything else |
 
 `pnpm cr <command>` inside the folder does the same if you'd rather not install the command (`pnpm cr start` stays in that terminal).

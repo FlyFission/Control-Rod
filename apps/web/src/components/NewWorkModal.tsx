@@ -27,7 +27,10 @@ import {
   type AgentRuntimeSelection,
   type CliEcosystemId,
   type ReasoningLevel,
+  runnableHere,
+  unavailableNote,
 } from "../lib/runtimes.js";
+import { useAgentPlatform } from "../lib/useAgents.js";
 import {
   inferScopeHints,
   loadWorkDefaults,
@@ -585,7 +588,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                         invalidatePrepared();
                       }}
                       placeholder={reposQuery.data?.workspace_root || "~/projects"}
+                      aria-describedby="nw-working-location-help"
                     />
+                    <span className="small muted" id="nw-working-location-help">
+                      Local clones are looked for in this folder. Empty means {reposQuery.data?.workspace_root || "~/projects"}, set by CONTROLROD_WORKSPACE_ROOT when Control Rod starts.
+                    </span>
                   </label>
                   {repo && (
                     <label className="field">
@@ -772,7 +779,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         )}
         {reposQuery.data?.github_error && (
           <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
-            GitHub repositories unavailable: {reposQuery.data.github_error}
+            {reposQuery.data.github_error}
           </p>
         )}
 
@@ -824,6 +831,7 @@ function RuntimePickerCard({
   liveModels?: readonly string[] | undefined;
   onChange: (patch: RuntimeSelectionPatch) => void;
 }) {
+  const platform = useAgentPlatform();
   const models = modelsForEcosystem(value.ecosystem, liveModels);
   const isCustomModel = !models.includes(value.model);
   const [editingCustom, setEditingCustom] = useState(isCustomModel);
@@ -845,10 +853,10 @@ function RuntimePickerCard({
           }}
         >
           {CLI_ECOSYSTEMS.map((c) => {
-            const noCheckout = checkoutBound && c.runnable && !CHECKOUT_AUTHORS.includes(c.id);
+            const noCheckout = checkoutBound && runnableHere(c, platform) && !CHECKOUT_AUTHORS.includes(c.id);
             return (
-              <option key={c.id} value={c.id} disabled={!c.runnable || noCheckout}>
-                {c.label} ({c.cliCommand}){!c.runnable ? " — Not yet runnable" : noCheckout ? " — Can't work in a checkout yet" : ""}
+              <option key={c.id} value={c.id} disabled={!runnableHere(c, platform) || noCheckout}>
+                {c.label} ({c.cliCommand}){unavailableNote(c, platform) || (noCheckout ? ": can't work in a checkout yet" : "")}
               </option>
             );
           })}

@@ -75,10 +75,11 @@ Expected: the missing inputs stay as owner-assigned holds, no author run is queu
 
 ## 6. Recovery drill
 
-Keep the pilot instance running; its embedded database listens on `127.0.0.1:7301`. Put the database password in a protected pass file instead of typing it into commands:
+Keep the pilot instance running. Its embedded database listens on `127.0.0.1`, on the port written in `$CONTROLROD_HOME/pg.port` (`CONTROLROD_PG_PORT` when you set it). Put the database password in a protected pass file instead of typing it into commands:
 
 ```sh
-printf '127.0.0.1:7301:*:controlrod:%s\n' "$(cat "$CONTROLROD_HOME/pg.password")" > "$CONTROLROD_HOME/pgpass"
+export PGPORT="${CONTROLROD_PG_PORT:-$(cat "$CONTROLROD_HOME/pg.port")}"
+printf '127.0.0.1:%s:*:controlrod:%s\n' "$PGPORT" "$(cat "$CONTROLROD_HOME/pg.password")" > "$CONTROLROD_HOME/pgpass"
 chmod 600 "$CONTROLROD_HOME/pgpass"
 export PGPASSFILE="$CONTROLROD_HOME/pgpass" PG17=/opt/homebrew/opt/postgresql@17/bin
 ```
@@ -86,7 +87,7 @@ export PGPASSFILE="$CONTROLROD_HOME/pgpass" PG17=/opt/homebrew/opt/postgresql@17
 Back up, then restore into a new, empty database:
 
 ```sh
-"$PG17/pg_dump" -h 127.0.0.1 -p 7301 -U controlrod --format=custom --no-owner --no-privileges --file "$CONTROLROD_HOME/pilot.dump" postgres
+"$PG17/pg_dump" -h 127.0.0.1 -p "$PGPORT" -U controlrod --format=custom --no-owner --no-privileges --file "$CONTROLROD_HOME/pilot.dump" postgres
 ```
 
 ```sh
@@ -94,11 +95,11 @@ shasum -a 256 "$CONTROLROD_HOME/pilot.dump"
 ```
 
 ```sh
-"$PG17/createdb" -h 127.0.0.1 -p 7301 -U controlrod pilot_restore
+"$PG17/createdb" -h 127.0.0.1 -p "$PGPORT" -U controlrod pilot_restore
 ```
 
 ```sh
-"$PG17/pg_restore" -h 127.0.0.1 -p 7301 -U controlrod --exit-on-error --no-owner --no-privileges --dbname pilot_restore "$CONTROLROD_HOME/pilot.dump"
+"$PG17/pg_restore" -h 127.0.0.1 -p "$PGPORT" -U controlrod --exit-on-error --no-owner --no-privileges --dbname pilot_restore "$CONTROLROD_HOME/pilot.dump"
 ```
 
 The restored copy shares this cluster's two database logins, so give the second API the same login passwords, or it refuses to start because the logins already exist with other passwords:
@@ -110,7 +111,7 @@ mkdir -m 700 "$HOME/.controlrod-pilot-restore" && cp -p "$CONTROLROD_HOME/db-rol
 Start a second API on the restored copy, with both flags off and no daemon. It grants those logins their access again on start, since the restore left out privileges:
 
 ```sh
-CONTROLROD_HOME="$HOME/.controlrod-pilot-restore" CONTROLROD_PORT=7310 CONTROLROD_DATABASE_URL=postgres://controlrod@127.0.0.1:7301/pilot_restore node services/api/dist/server.js
+CONTROLROD_HOME="$HOME/.controlrod-pilot-restore" CONTROLROD_PORT=7310 CONTROLROD_DATABASE_URL="postgres://controlrod@127.0.0.1:$PGPORT/pilot_restore" node services/api/dist/server.js
 ```
 
 Open http://localhost:7310 and sign in with the same passkey. Expected: the scenario A package, its confirmations, release, results and evidence open with the same history; http://localhost:7310/events/verify reports an intact chain; scenario B is still held. Record the dump's SHA-256 and the tool and server versions.

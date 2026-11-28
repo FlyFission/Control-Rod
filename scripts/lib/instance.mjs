@@ -1,7 +1,7 @@
 // The running Control Rod on this machine: a small record the launcher writes while it runs, so
 // `controlrod stop`, `status`, `restart` and `update` can find it from any terminal.
 import { spawnSync } from "node:child_process";
-import { readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import lockfile from "proper-lockfile";
 import { join } from "node:path";
 
@@ -38,16 +38,119 @@ export function alive(pid) {
   }
 }
 
+// Slim Linux images can lack ps and lsof. There, each lookup below reads /proc instead, so `stop`
+// still finds its own launcher. Only a missing command falls back: when ps runs, its answer stands.
+const missing = (r) => r.error?.code === "ENOENT" && process.platform === "linux";
+
 /** The process's command line, or null when it is gone. Works on macOS and Linux. */
 export function commandOf(pid) {
   const r = spawnSync("ps", ["-o", "command=", "-p", String(pid)], { encoding: "utf8" });
+  if (missing(r)) return procCommand(pid);
   return r.status === 0 ? r.stdout.trim() || null : null;
 }
 
 /** When the process started, as ps prints it: with the pid, it names one process for good. */
 export function startedOf(pid) {
   const r = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } });
+  if (missing(r)) return procStarted(pid);
   return r.status === 0 ? r.stdout.trim() || null : null;
+}
+
+/** The arguments in /proc/<pid>/cmdline, joined with spaces as ps prints them. */
+export function procCommand(pid, proc = "/proc") {
+  try {
+    const args = readFileSync(join(proc, String(pid), "cmdline"), "utf8").split("\0");
+    if (args.at(-1) === "") args.pop();
+    return args.join(" ").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** The fields of /proc/<pid>/stat after the command name, which may itself hold spaces and parentheses. */
+function procStat(pid, proc) {
+  try {
+    const stat = readFileSync(join(proc, String(pid), "stat"), "utf8");
+    return stat.slice(stat.lastIndexOf(")") + 2).trim().split(" ");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The process's start time in clock ticks since boot (stat field 22), with the boot's id, so the
+ * pair names one process for good, as ps's start time does.
+ */
+export function procStarted(pid, proc = "/proc") {
+  const f = procStat(pid, proc);
+  if (!f || !/^\d+$/.test(f[19] ?? "")) return null;
+  let boot = "";
+  try {
+    boot = readFileSync(join(proc, "sys", "kernel", "random", "boot_id"), "utf8").trim();
+  } catch {
+    // Without a boot id the tick count alone still tells two processes with one pid apart.
+  }
+  return `boot ${boot || "unknown"} tick ${f[19]}`;
+}
+
+/** The parent pid (stat field 4). */
+export function procParent(pid, proc = "/proc") {
+  const ppid = Number(procStat(pid, proc)?.[1]);
+  return Number.isInteger(ppid) && ppid > 1 ? ppid : null;
+}
+
+/** The process that listens on a local TCP port: the socket's inode from /proc/net/tcp, then the process holding it. */
+export function procListener(port, proc = "/proc") {
+  const inodes = new Set();
+  for (const table of ["tcp", "tcp6"]) {
+    let text;
+    try {
+      text = readFileSync(join(proc, "net", table), "utf8");
+    } catch {
+      continue;
+    }
+    for (const line of text.split("\n").slice(1)) {
+      const f = line.trim().split(/\s+/);
+      // f[1] is the local address as HEXADDR:HEXPORT, f[3] the state (0A is LISTEN), f[9] the inode.
+      if (f.length < 10 || f[3] !== "0A") continue;
+      if (Number.parseInt(f[1].split(":").at(-1), 16) === port && f[9] !== "0") inodes.add(f[9]);
+    }
+  }
+  if (!inodes.size) return null;
+  let pids;
+  try {
+    pids = readdirSync(proc).filter((d) => /^\d+$/.test(d));
+  } catch {
+    return null;
+  }
+  for (const p of pids) {
+    let fds;
+    try {
+      fds = readdirSync(join(proc, p, "fd"));
+    } catch {
+      continue; // another user's process, or gone
+    }
+    for (const fd of fds) {
+      let target;
+      try {
+        target = readlinkSync(join(proc, p, "fd", fd));
+      } catch {
+        continue;
+      }
+      const m = /^socket:\[(\d+)\]$/.exec(target);
+      if (m && inodes.has(m[1]) && Number(p) > 1) return Number(p);
+    }
+  }
+  return null;
+}
+
+/** The working directory, from the /proc/<pid>/cwd link. */
+export function procCwd(pid, proc = "/proc") {
+  try {
+    return readlinkSync(join(proc, String(pid), "cwd"));
+  } catch {
+    return null;
+  }
 }
 
 // `node /path/to/scripts/cr.mjs start`, or under pnpm `node scripts/cr.mjs start` (or bare
@@ -107,6 +210,7 @@ export async function releaseClaim() {
 /** The working directory of a process, via lsof (macOS and Linux). */
 function cwdOf(pid) {
   const r = spawnSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8" });
+  if (missing(r)) return procCwd(pid);
   const line = r.status === 0 ? r.stdout.split("\n").find((l) => l.startsWith("n")) : null;
   return line ? line.slice(1) : null;
 }
@@ -119,9 +223,10 @@ const samePath = (a, b) => {
   }
 };
 
-/** The process listening on a local TCP port, via lsof when it is installed. */
+/** The process listening on a local TCP port, via lsof, or /proc on Linux without it. */
 function listenerOf(port) {
   const r = spawnSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8" });
+  if (missing(r)) return procListener(port);
   if (r.status !== 0) return null;
   const pid = Number(r.stdout.trim().split("\n")[0]);
   return Number.isInteger(pid) && pid > 1 ? pid : null;
@@ -129,6 +234,7 @@ function listenerOf(port) {
 
 function parentOf(pid) {
   const r = spawnSync("ps", ["-o", "ppid=", "-p", String(pid)], { encoding: "utf8" });
+  if (missing(r)) return procParent(pid);
   const ppid = Number(r.stdout?.trim());
   return r.status === 0 && Number.isInteger(ppid) && ppid > 1 ? ppid : null;
 }

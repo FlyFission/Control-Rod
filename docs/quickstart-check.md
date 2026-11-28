@@ -92,6 +92,6 @@ pnpm cr verify --receipt pr-receipt.md inclusion-proof.json
 
 If a single character of the verdict, author, accepting person, revision, or `diff_sha256` in `pr-receipt.md` was edited after signing, `pnpm cr verify` fails closed.
 
-What this proves: the receipt matches the sealed event bundle. The seal is checked against the public key carried in the bundle, so on its own it does not prove who owns that key or re-check each passkey assertion; the receipt says so with an **UNVERIFIED SEAL KEY** line (the offline CLI does not take a pinned trusted key yet).
+What this proves: the receipt matches the sealed event bundle. The seal is checked against the public key carried in the bundle, so on its own it does not prove who owns that key or re-check each passkey assertion; the receipt says so with an **UNVERIFIED SEAL KEY** line. If you already trust the signer's key, add `--trusted-key <that key's SHA-256>` and the check also fails unless the seal was made with that key. See [docs/auditing.md](auditing.md#checking-against-a-key-you-already-trust).
 
 > **Honesty note on standalone vs. governed receipts:** A standalone `controlrod check` run has no Control Rod control plane or passkey ceremony behind it, so its output marks `--author-runtime` as `(caller-declared, unverified)` and never claims verified human passkey acceptance. Full governed receipts come from `pnpm cr receipt <inclusion-proof.json>`.

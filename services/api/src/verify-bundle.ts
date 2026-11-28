@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBundleReceiptBinding, type ReceiptBindingExpectation } from "./pr-receipt.js";
-import { type InclusionBundle, NOT_WITNESSED, type WindowBundle, verifyInclusion, verifyWindow } from "./seals.js";
+import { type InclusionBundle, NOT_WITNESSED, type WindowBundle, keyDigest, verifyInclusion, verifyWindow } from "./seals.js";
 import { evidenceRecordDir, isEvidenceRecordArg, verifyEvidenceRecord } from "./verify-evidence.js";
 
 /**
@@ -16,9 +16,14 @@ import { evidenceRecordDir, isEvidenceRecordArg, verifyEvidenceRecord } from "./
  * When `--receipt`, `--diff-sha256`, `--head-sha`, or `--revision` are supplied, it also verifies that
  * an active, authenticated human acceptance in the bundle actually covers that PR revision and diff.
  *
- * What it cannot settle, and says so: that the key in the bundle belongs to the person named as the
- * signer (confirm that outside the bundle), and that nothing after the seal was cut, because nothing
- * outside the installation witnesses the chain yet.
+ * On its own, the seal is checked against the public key the bundle carries, so it proves the file is
+ * whole and was sealed by whoever holds that key. With `--trusted-key <sha256>` (the SHA-256 of a key
+ * the reader already trusts, got from somewhere other than this file), it also checks that the seal's
+ * key is that key, and fails when it differs.
+ *
+ * What it cannot settle, and says so: without `--trusted-key`, that the key in the bundle belongs to
+ * the person named as the signer; and that nothing after the seal was cut, because nothing outside the
+ * installation witnesses the chain yet.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the file is untrusted JSON */
@@ -30,7 +35,25 @@ export interface BundleReport {
   lines: string[];
 }
 
-export type VerifyBundleOptions = ReceiptBindingExpectation;
+/** A key the reader already trusts: the SHA-256 of its public key, optionally tied to one signer. */
+export interface TrustedKey {
+  digest: string;
+  signer?: string;
+}
+
+export type VerifyBundleOptions = ReceiptBindingExpectation & {
+  /** From `--trusted-key`: the seal's key must be one of these, or the check fails. */
+  trustedKeys?: TrustedKey[];
+};
+
+/** Whether the seal's key is one the reader trusts: the problem when it is not, or null. */
+function trustedKeyProblem(trusted: TrustedKey[], actual: string, signer: string): string | null {
+  if (trusted.some((t) => t.digest === actual && (t.signer === undefined || t.signer === signer))) return null;
+  const sameKey = trusted.find((t) => t.digest === actual);
+  if (sameKey) return `the seal's key is the trusted key you gave, but you gave it for signer ${sameKey.signer}, and this seal names signer ${signer}`;
+  const given = trusted.map((t) => (t.signer ? `${t.signer}=${t.digest}` : t.digest)).join(", ");
+  return `the seal's key (SHA-256 ${actual}) is not the trusted key you gave (${given}), so this file was not sealed with that key`;
+}
 
 type Bundle = { kind: "package"; b: InclusionBundle } | { kind: "window"; b: WindowBundle };
 
@@ -53,6 +76,7 @@ export async function verifyBundleText(text: string, opts?: VerifyBundleOptions)
   const found = asBundle(parsed);
   if (!found) return { code: 2, lines: ["This file is not an inclusion proof or an audit export: it has no segment with a package_id or a window."] };
   const b = found.b;
+  const trusted = opts?.trustedKeys?.length ? opts.trustedKeys : undefined;
   const name = found.kind === "package" ? found.b.package_id : `window ${found.b.window.from} to ${found.b.window.to}`;
   let check: Awaited<ReturnType<typeof verifyInclusion>>;
   try {
@@ -73,11 +97,22 @@ export async function verifyBundleText(text: string, opts?: VerifyBundleOptions)
     if (found.kind !== "package") {
       return { code: 1, lines: [`FAIL  ${name}: a time-window audit export cannot prove acceptance of a PR revision or diff.`] };
     }
-    const link = checkBundleReceiptBinding(found.b, check.authenticated, { ...opts, bundleDigest: createHash("sha256").update(text, "utf8").digest("hex") });
+    // The receipt was made without a trusted key, so it is compared as made; the key is checked below.
+    const { trustedKeys: _trusted, ...binding } = opts;
+    const link = checkBundleReceiptBinding(found.b, check.authenticated, { ...binding, bundleDigest: createHash("sha256").update(text, "utf8").digest("hex") });
     if (link.problem) {
       return { code: 1, lines: [`FAIL  ${name}: ${link.problem}.`] };
     }
     bindingLine = link.summary;
+  }
+
+  if (trusted && !check.authenticated) {
+    return { code: 1, lines: [`FAIL  ${name}: no seal covers these entries, so there is no key to check against the trusted key you gave.`] };
+  }
+  const sealKey = check.authenticated && b.seal_evidence ? keyDigest(Buffer.from(b.seal_evidence.public_key, "base64url")) : undefined;
+  if (trusted && sealKey) {
+    const problem = trustedKeyProblem(trusted, sealKey, String(b.seal.payload.signer_id));
+    if (problem) return { code: 1, lines: [`FAIL  ${name}: ${problem}.`] };
   }
 
   const n = check.events.length;
@@ -89,7 +124,9 @@ export async function verifyBundleText(text: string, opts?: VerifyBundleOptions)
     const s = b.seal.payload;
     lines.push(
       `      Sealed by seal ${b.seal.id} at entry ${s.head_seq} on ${s.sealed_at} (${s.purpose}); its passkey signature checks against the key in the bundle.`,
-      `      Still to confirm outside this file: that the key belongs to signer ${s.signer_id}.`,
+      trusted
+        ? `      That key is the trusted key you gave (SHA-256 ${sealKey}), so the seal was made with it by signer ${s.signer_id}.`
+        : `      Still to confirm outside this file: that the key belongs to signer ${s.signer_id}. Its SHA-256 is ${sealKey}; to check it against a key you already trust, run again with --trusted-key <that key's SHA-256>.`,
     );
   } else {
     lines.push("      No seal covers these entries, so nothing in the bundle authenticates them: the chain head it ends at is only stated.");
@@ -132,6 +169,13 @@ export function parseVerifyCliArgs(argv: string[]): { files: string[]; opts: Ver
       opts.expectedRevision = num;
       continue;
     }
+    if (a === "--trusted-key") {
+      const val = argv[++i]?.trim();
+      const m = val ? /^(?:([^=\s]+)=)?([0-9a-f]{64})$/i.exec(val) : null;
+      if (!m) return { files, opts, error: "--trusted-key requires the SHA-256 of a key you trust (64 hex digits), or signer=<sha256> to tie it to one signer" };
+      (opts.trustedKeys ??= []).push({ digest: m[2]!.toLowerCase(), ...(m[1] ? { signer: m[1] } : {}) });
+      continue;
+    }
     if (a.startsWith("-")) {
       return { files, opts, error: `unknown option ${a}` };
     }
@@ -147,7 +191,9 @@ async function main(argv: string[]) {
     return 2;
   }
   if (!files.length) {
-    console.error("Usage: pnpm cr verify [--receipt <receipt-or-verdict>] [--diff-sha256 <sha256>] [--head-sha <sha>] [--revision <n>] <inclusion-proof-or-audit-export.json | change-record-dir> [more ...]");
+    console.error(
+      "Usage: pnpm cr verify [--trusted-key [<signer>=]<sha256>] [--receipt <receipt-or-verdict>] [--diff-sha256 <sha256>] [--head-sha <sha>] [--revision <n>] <inclusion-proof-or-audit-export.json | change-record-dir> [more ...]",
+    );
     return 2;
   }
   let worst = 0;

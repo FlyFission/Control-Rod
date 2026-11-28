@@ -33,6 +33,113 @@ const bundle = {
 // Hand-written receipts below are standalone summaries (binding marker, no bundle claims).
 const SA = "### Control Rod check summary (standalone, unaccepted)\n- **Accepted by:** not accepted in Control Rod (standalone check)\n";
 
+/** A package accepted on revision A, used by the sealed cases below. */
+const diffA = "1".repeat(64);
+const diffB = "2".repeat(64);
+const headA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const headB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+const mkSpecs = (withHead: boolean) => [
+  { type: "package.created", subject: "PR-42" },
+  { type: "run.started", subject: "R-1", actor: { kind: "agent" as const, id: "author-claude" }, data: { package: "PR-42", role: "author", round: 1 } },
+  {
+    type: "run.succeeded",
+    subject: "R-1",
+    actor: { kind: "agent" as const, id: "author-claude" },
+    data: { package: "PR-42", role: "author", round: 1, ...(withHead ? { head_sha: headA } : {}), outputs: [{ name: "diff.patch", sha256: diffA }] },
+  },
+  {
+    type: "package.pre-checked",
+    subject: "PR-42",
+    actor: { kind: "agent" as const, id: "checker-codex" },
+    data: { revision: 1, round: 1, outcome: "pass", findings: 0, shared_runtime: false },
+  },
+  {
+    type: "decision.accept",
+    subject: "PR-42",
+    actor: { kind: "human" as const, id: "mem_owner" },
+    data: { revision: 1, decision: "D-revA", subject_digest: { algorithm: "sha256", value: "3".repeat(64) } },
+  },
+];
+/** A sealed inclusion proof over these events, signed with a fresh P-256 key; returns the key's SHA-256 too. */
+const buildKeyed = (specs: ReturnType<typeof mkSpecs>): { bundle: InclusionBundle; key: string } => {
+  const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const jwk = publicKey.export({ format: "jwk" }) as { x: string; y: string };
+  const cose = Buffer.from(
+    isoCBOR.encode(
+      new Map<number, number | Uint8Array>([
+        [1, 2],
+        [3, -7],
+        [-1, 1],
+        [-2, Buffer.from(jwk.x, "base64url")],
+        [-3, Buffer.from(jwk.y, "base64url")],
+      ]),
+    ),
+  );
+  const chainWithActors = (): EventRecord[] => {
+    const out: EventRecord[] = [];
+    for (const [i, s] of specs.entries()) {
+      const prev = out.at(-1)?.digest;
+      const rest = {
+        seq: i + 1,
+        at: `2026-11-22T00:00:0${i}.000Z`,
+        type: s.type,
+        subject: s.subject,
+        actor: s.actor ?? { kind: "system" as const, id: "test" },
+        ...(s.data ? { data: s.data } : {}),
+        ...(prev ? { prev } : {}),
+      };
+      out.push({ ...rest, digest: { algorithm: "sha256", value: eventDigest(rest) } });
+    }
+    return out;
+  };
+  const baseEvents = chainWithActors();
+  const head = baseEvents[baseEvents.length - 1]!;
+  const sealedAt = new Date().toISOString();
+  const subjectDigest = sealSubject("mem_owner", "org_test", { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", sealed_at: sealedAt });
+  const nonce = "0123456789abcdef0123456789abcdef";
+  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: sealChallenge(subjectDigest, nonce), origin: "http://localhost:7300" }));
+  const rpHash = createHash("sha256").update("localhost").digest();
+  const counter = Buffer.alloc(4);
+  counter.writeUInt32BE(1);
+  const authData = Buffer.concat([rpHash, Buffer.from([0x05]), counter]);
+  const signature = sign("sha256", Buffer.concat([authData, createHash("sha256").update(clientData).digest()]), privateKey);
+  const seal = {
+    id: "seal_revA",
+    org_id: "org_test",
+    payload: { head_seq: head.seq, head_digest: head.digest, org_id: "org_test", sealed_at: sealedAt, signer_id: "mem_owner", purpose: "PR bundle" },
+    subject_digest: { algorithm: "sha256", value: subjectDigest },
+    nonce,
+    assertion: {
+      credential_id: Buffer.from(randomBytes(16)).toString("base64url"),
+      authenticator_data: authData.toString("base64url"),
+      client_data_json: clientData.toString("base64url"),
+      signature: signature.toString("base64url"),
+    },
+  };
+  const lastPrev = head.digest;
+  const sealRecRest = {
+    seq: head.seq + 1,
+    at: "2026-11-22T00:00:10.000Z",
+    type: "chain.sealed",
+    subject: seal.id,
+    actor: { kind: "human" as const, id: "mem_owner" },
+    data: { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", seal_digest: digest(seal), key_digest: keyDigest(cose) },
+    prev: lastPrev,
+  };
+  const segment: EventRecord[] = [...baseEvents, { ...sealRecRest, digest: { algorithm: "sha256", value: eventDigest(sealRecRest) } }];
+  const proofA: InclusionBundle = {
+    package_id: "PR-42",
+    segment,
+    seal,
+    seal_evidence: { public_key: cose.toString("base64url"), rp_id: "localhost", origins: ["http://localhost:7300"] },
+    witnessed: false,
+    statement: "Local chain, not witnessed",
+  };
+  return { bundle: proofA, key: keyDigest(cose) };
+};
+const build = (specs: ReturnType<typeof mkSpecs>): InclusionBundle => buildKeyed(specs).bundle;
+
 describe("pnpm cr verify", () => {
   it("passes an untouched unsealed bundle and says nothing authenticates it", async () => {
     const r = await verifyBundleText(JSON.stringify(bundle));
@@ -85,109 +192,6 @@ describe("pnpm cr verify", () => {
   });
 
   it("rejects a proof accepted on revision A when verified against an Action receipt for revision B", async () => {
-    const diffA = "1".repeat(64);
-    const diffB = "2".repeat(64);
-    const headA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const headB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-
-    const mkSpecs = (withHead: boolean) => [
-      { type: "package.created", subject: "PR-42" },
-      { type: "run.started", subject: "R-1", actor: { kind: "agent" as const, id: "author-claude" }, data: { package: "PR-42", role: "author", round: 1 } },
-      {
-        type: "run.succeeded",
-        subject: "R-1",
-        actor: { kind: "agent" as const, id: "author-claude" },
-        data: { package: "PR-42", role: "author", round: 1, ...(withHead ? { head_sha: headA } : {}), outputs: [{ name: "diff.patch", sha256: diffA }] },
-      },
-      {
-        type: "package.pre-checked",
-        subject: "PR-42",
-        actor: { kind: "agent" as const, id: "checker-codex" },
-        data: { revision: 1, round: 1, outcome: "pass", findings: 0, shared_runtime: false },
-      },
-      {
-        type: "decision.accept",
-        subject: "PR-42",
-        actor: { kind: "human" as const, id: "mem_owner" },
-        data: { revision: 1, decision: "D-revA", subject_digest: { algorithm: "sha256", value: "3".repeat(64) } },
-      },
-    ];
-    const build = (specs: ReturnType<typeof mkSpecs>): InclusionBundle => {
-      const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
-      const jwk = publicKey.export({ format: "jwk" }) as { x: string; y: string };
-      const cose = Buffer.from(
-        isoCBOR.encode(
-          new Map<number, number | Uint8Array>([
-            [1, 2],
-            [3, -7],
-            [-1, 1],
-            [-2, Buffer.from(jwk.x, "base64url")],
-            [-3, Buffer.from(jwk.y, "base64url")],
-          ]),
-        ),
-      );
-      const chainWithActors = (): EventRecord[] => {
-        const out: EventRecord[] = [];
-        for (const [i, s] of specs.entries()) {
-          const prev = out.at(-1)?.digest;
-          const rest = {
-            seq: i + 1,
-            at: `2026-11-22T00:00:0${i}.000Z`,
-            type: s.type,
-            subject: s.subject,
-            actor: s.actor ?? { kind: "system" as const, id: "test" },
-            ...(s.data ? { data: s.data } : {}),
-            ...(prev ? { prev } : {}),
-          };
-          out.push({ ...rest, digest: { algorithm: "sha256", value: eventDigest(rest) } });
-        }
-        return out;
-      };
-      const baseEvents = chainWithActors();
-      const head = baseEvents[baseEvents.length - 1]!;
-      const sealedAt = new Date().toISOString();
-      const subjectDigest = sealSubject("mem_owner", "org_test", { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", sealed_at: sealedAt });
-      const nonce = "0123456789abcdef0123456789abcdef";
-      const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: sealChallenge(subjectDigest, nonce), origin: "http://localhost:7300" }));
-      const rpHash = createHash("sha256").update("localhost").digest();
-      const counter = Buffer.alloc(4);
-      counter.writeUInt32BE(1);
-      const authData = Buffer.concat([rpHash, Buffer.from([0x05]), counter]);
-      const signature = sign("sha256", Buffer.concat([authData, createHash("sha256").update(clientData).digest()]), privateKey);
-      const seal = {
-        id: "seal_revA",
-        org_id: "org_test",
-        payload: { head_seq: head.seq, head_digest: head.digest, org_id: "org_test", sealed_at: sealedAt, signer_id: "mem_owner", purpose: "PR bundle" },
-        subject_digest: { algorithm: "sha256", value: subjectDigest },
-        nonce,
-        assertion: {
-          credential_id: Buffer.from(randomBytes(16)).toString("base64url"),
-          authenticator_data: authData.toString("base64url"),
-          client_data_json: clientData.toString("base64url"),
-          signature: signature.toString("base64url"),
-        },
-      };
-      const lastPrev = head.digest;
-      const sealRecRest = {
-        seq: head.seq + 1,
-        at: "2026-11-22T00:00:10.000Z",
-        type: "chain.sealed",
-        subject: seal.id,
-        actor: { kind: "human" as const, id: "mem_owner" },
-        data: { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", seal_digest: digest(seal), key_digest: keyDigest(cose) },
-        prev: lastPrev,
-      };
-      const segment: EventRecord[] = [...baseEvents, { ...sealRecRest, digest: { algorithm: "sha256", value: eventDigest(sealRecRest) } }];
-      const proofA: InclusionBundle = {
-        package_id: "PR-42",
-        segment,
-        seal,
-        seal_evidence: { public_key: cose.toString("base64url"), rp_id: "localhost", origins: ["http://localhost:7300"] },
-        witnessed: false,
-        statement: "Local chain, not witnessed",
-      };
-      return proofA;
-    };
     const proofA = build(mkSpecs(true));
     const proofNoHead = build(mkSpecs(false));
     const segment = proofA.segment;
@@ -254,5 +258,67 @@ describe("pnpm cr verify", () => {
     const badUnsealed = await verifyBundleText(JSON.stringify(unsealedA), { receiptText: receiptA });
     expect(badUnsealed.code).toBe(1);
     expect(badUnsealed.lines[0]).toContain("unsealed");
+  });
+});
+
+describe("pnpm cr verify --trusted-key", () => {
+  it("passes when the seal's key is the trusted key, and says so", async () => {
+    const { bundle: sealed, key } = buildKeyed(mkSpecs(true));
+    const r = await verifyBundleText(JSON.stringify(sealed), { trustedKeys: [{ digest: key }] });
+    expect(r.code, r.lines.join("\n")).toBe(0);
+    expect(r.lines.join("\n")).toContain(`That key is the trusted key you gave (SHA-256 ${key}), so the seal was made with it by signer mem_owner.`);
+    expect(r.lines.join("\n")).not.toContain("Still to confirm outside this file");
+    const bySigner = await verifyBundleText(JSON.stringify(sealed), { trustedKeys: [{ digest: key, signer: "mem_owner" }] });
+    expect(bySigner.code).toBe(0);
+  });
+
+  it("without it, names the bundle's key and says its owner is still to confirm", async () => {
+    const { bundle: sealed, key } = buildKeyed(mkSpecs(true));
+    const r = await verifyBundleText(JSON.stringify(sealed));
+    expect(r.code).toBe(0);
+    expect(r.lines.join("\n")).toContain(`Still to confirm outside this file: that the key belongs to signer mem_owner. Its SHA-256 is ${key}`);
+  });
+
+  it("fails clearly when the bundle carries another key, even one that checks", async () => {
+    // A forger re-seals the same events with a key of their own: everything inside the file holds.
+    const { bundle: forged } = buildKeyed(mkSpecs(true));
+    const { key: trusted } = buildKeyed(mkSpecs(true));
+    expect((await verifyBundleText(JSON.stringify(forged))).code).toBe(0);
+    const r = await verifyBundleText(JSON.stringify(forged), { trustedKeys: [{ digest: trusted }] });
+    expect(r.code).toBe(1);
+    expect(r.lines).toHaveLength(1);
+    expect(r.lines[0]).toMatch(/^FAIL  PR-42: the seal's key \(SHA-256 [0-9a-f]{64}\) is not the trusted key you gave \([0-9a-f]{64}\), so this file was not sealed with that key\.$/);
+  });
+
+  it("fails when the key was given for another signer", async () => {
+    const { bundle: sealed, key } = buildKeyed(mkSpecs(true));
+    const r = await verifyBundleText(JSON.stringify(sealed), { trustedKeys: [{ digest: key, signer: "mem_other" }] });
+    expect(r.code).toBe(1);
+    expect(r.lines[0]).toContain("you gave it for signer mem_other, and this seal names signer mem_owner");
+  });
+
+  it("fails an unsealed bundle, which has no key to check", async () => {
+    const r = await verifyBundleText(JSON.stringify(bundle), { trustedKeys: [{ digest: "a".repeat(64) }] });
+    expect(r).toEqual({ code: 1, lines: ["FAIL  WP-1: no seal covers these entries, so there is no key to check against the trusted key you gave."] });
+  });
+
+  it("still checks a receipt as it was made when a trusted key is given", async () => {
+    const { bundle: sealed, key } = buildKeyed(mkSpecs(true));
+    const receipt = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"standalone":true,"package_id":"PR-42","revision":1,"head_sha":"${headA}","diff_sha256":"${diffA}","outcome":"pass"} -->\n${SA}`;
+    const r = await verifyBundleText(JSON.stringify(sealed), { receiptText: receipt, trustedKeys: [{ digest: key }] });
+    expect(r.code, r.lines.join("\n")).toBe(0);
+    expect(r.lines.join("\n")).toContain("Acceptance link holds");
+  });
+
+  it("reads the option, upper or lower case, with or without a signer, and refuses anything else", () => {
+    const d = "AB".repeat(32);
+    expect(parseVerifyCliArgs(["--trusted-key", d, "p.json"])).toEqual({ files: ["p.json"], opts: { trustedKeys: [{ digest: d.toLowerCase() }] } });
+    expect(parseVerifyCliArgs(["--trusted-key", `mem_owner=${d}`, "--trusted-key", "c".repeat(64), "p.json"]).opts.trustedKeys).toEqual([
+      { digest: d.toLowerCase(), signer: "mem_owner" },
+      { digest: "c".repeat(64) },
+    ]);
+    for (const bad of [[], ["abc"], ["=" + d], [`a b=${d}`], ["g".repeat(64)]]) {
+      expect(parseVerifyCliArgs(["--trusted-key", ...bad]).error).toMatch(/--trusted-key requires/);
+    }
   });
 });

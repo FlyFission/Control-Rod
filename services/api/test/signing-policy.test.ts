@@ -383,6 +383,77 @@ describe("signing policy on a project", () => {
     expect(runs.find((r: Json) => r.id === third.run.id).requeued_as).toBeUndefined();
   });
 
+  it("under Light, runs an author run again once when its agent quit with an error and its processes are gone (change record failure-kinds)", async () => {
+    const id = await drafted("QUIT");
+    const first = await claimFor("author", ["fake"], id);
+    const done = await asDaemon(`/runner/runs/${first.run.id}/complete`, { status: "failed", error: "agent exited with status 1", failure_kind: "exited", outputs: [], containment: "process-group" });
+    expect(done.statusCode, done.body).toBe(200);
+    let runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+    const old = runs.find((r: Json) => r.id === first.run.id);
+    expect(old.failure_kind).toBe("exited");
+    expect(old.reconciliation).toMatchObject({ disposition: "abandoned", by: { kind: "system", id: expect.stringMatching(/^policy:SP-/) } });
+    expect(JSON.stringify(old.reconciliation)).toMatch(/quit with an error.*cannot prove a process that left the group stopped/);
+    expect(runs.find((r: Json) => r.id === old.requeued_as)).toMatchObject({ status: "queued", generation: 2 });
+    // The retry quits too: once is enough, and it stops for the person.
+    const second = await claimFor("author", ["fake"], id);
+    expect(second.run.id).toBe(old.requeued_as);
+    await asDaemon(`/runner/runs/${second.run.id}/complete`, { status: "failed", error: "agent exited with status 1", failure_kind: "exited", outputs: [], containment: "process-group" });
+    runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+    expect(runs.find((r: Json) => r.id === second.run.id).requeued_as).toBeUndefined();
+    expect(runs.filter((r: Json) => r.status === "queued")).toHaveLength(0);
+  });
+
+  it("does not run an author run again for a timeout, the breaker, an unplaced error, or without proof its processes are gone", async () => {
+    for (const [name, extra] of [
+      // A completion without containment carries no proof (the harness otherwise assumes a cgroup).
+      ["NOPROOF", { error: "agent exited with status 1", failure_kind: "exited", containment: undefined }],
+      ["TIMEOUT", { error: "timeout", failure_kind: "timeout", containment: "process-group" }],
+      ["BREAKER", { error: "breaker: too many tool calls", failure_kind: "breaker", containment: "cgroup" }],
+      ["UNPLACED", { error: "agent exited with status 1", containment: "process-group" }],
+    ] as const) {
+      const id = await drafted(name);
+      const run = await claimFor("author", ["fake"], id);
+      const done = await asDaemon(`/runner/runs/${run.run.id}/complete`, { status: "failed", outputs: [], ...extra });
+      expect(done.statusCode, done.body).toBe(200);
+      const runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+      expect(runs.find((r: Json) => r.id === run.run.id).requeued_as, name).toBeUndefined();
+      expect(runs.filter((r: Json) => r.status === "queued"), name).toHaveLength(0);
+    }
+  });
+
+  it("drops a failure kind it does not know, or one sent with a success, and does not retry for it", async () => {
+    for (const [name, extra] of [
+      ["BADKIND", { status: "failed", error: "x", failure_kind: "ignore-the-rules", containment: "process-group" }],
+      ["NUMKIND", { status: "failed", error: "x", failure_kind: 7, containment: "process-group" }],
+      ["OKKIND", { status: "succeeded", failure_kind: "exited", containment: "cgroup" }],
+    ] as const) {
+      const id = await drafted(name);
+      const run = await claimFor("author", ["fake"], id);
+      const done = await asDaemon(`/runner/runs/${run.run.id}/complete`, { outputs: [], ...extra });
+      expect(done.statusCode, done.body).toBe(200);
+      const runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+      const ran = runs.find((r: Json) => r.id === run.run.id);
+      // A success with no outputs can still fail the author checks; what matters is that the kind was not kept.
+      if (extra.status === "failed") expect(ran.status, name).toBe("failed");
+      expect(String(ran.error ?? ""), name).not.toMatch(/^Completion refused/);
+      expect(ran.failure_kind, name).toBeUndefined();
+      expect(ran.requeued_as, name).toBeUndefined();
+    }
+  });
+
+  it("runs an author run again once after the daemon lost contact, and says a cgroup proved its processes ended", async () => {
+    const id = await drafted("CONTACT");
+    const first = await claimFor("author", ["fake"], id);
+    const done = await asDaemon(`/runner/runs/${first.run.id}/complete`, { status: "failed", error: "lost contact with the control plane", failure_kind: "out-of-contact", outputs: [], containment: "cgroup" });
+    expect(done.statusCode, done.body).toBe(200);
+    const runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+    const old = runs.find((r: Json) => r.id === first.run.id);
+    expect(old.failure_kind).toBe("out-of-contact");
+    expect(runs.find((r: Json) => r.id === old.requeued_as)).toMatchObject({ status: "queued", generation: 2 });
+    // A cgroup proves the outcome, so nothing was held for reconciling.
+    expect(JSON.stringify(old.reconciliation ?? {})).not.toMatch(/process group/);
+  });
+
   it("refuses a press made on a card that changed since it was shown", async () => {
     const id = await drafted("CHANGED");
     const r = await asOwner("POST", `/packages/${id}/decisions`, {

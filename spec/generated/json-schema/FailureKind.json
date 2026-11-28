@@ -1,0 +1,16 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "FailureKind.json",
+    "type": "string",
+    "enum": [
+        "shutdown",
+        "timeout",
+        "lost",
+        "out-of-contact",
+        "stopped",
+        "breaker",
+        "unfinished-turn",
+        "exited"
+    ],
+    "description": "Why a run failed, as the daemon placed it from its own error values, never from agent output.\nshutdown: the daemon stopped it while restarting; timeout: it ran past its time limit; lost: the\ncontrol plane no longer held it; out-of-contact: the daemon lost contact for a whole lease and\nstopped it; stopped: the owner stopped it; breaker: the runaway breaker tripped; unfinished-turn:\nthe runtime reported a failed result and did not exit; exited: the agent exited with an error status."
+}

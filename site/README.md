@@ -19,3 +19,10 @@ node --test scripts/test/site.test.mjs
 ## Deploy
 
 See [`deploy/github-pages.yml`](../deploy/github-pages.yml) for the SHA-pinned GitHub Pages workflow.
+
+The site is not live yet. Two steps publish it, and both are the maintainer's:
+
+1. Copy `deploy/github-pages.yml` to `.github/workflows/pages.yml`. `.github/` is a trust surface, so that pull request needs the maintainer's recorded yes (see `docs/collaboration.md`).
+2. In the repository's Settings, under Pages, set Source to "GitHub Actions".
+
+Until then, build and preview it locally with the commands above.

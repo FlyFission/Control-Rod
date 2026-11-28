@@ -47,7 +47,7 @@ controlrod start   # checks, builds, starts in the background and opens the app
 
 The control plane prints what PostgreSQL said and the likely fix. On macOS, the most common cause is shared memory: macOS has only 32 System V shared memory segments in all, and a PostgreSQL that is killed outright leaves its segment behind. When they run out, PostgreSQL fails with `could not create shared memory segment: No space left on device`, which has nothing to do with disk space. When the Mac is close to that limit, `controlrod start` frees the segments that are certainly left behind (your own, PostgreSQL's 56-byte size, nothing attached, the process that made them gone) and says how many. `controlrod doctor` lists them at any time, and `controlrod doctor --fix` frees them. Restarting the Mac also clears them.
 
-Open <http://localhost:7300>, choose **Set up this machine**, and register a passkey. Your data lives in `~/.controlrod` unless you set `CONTROLROD_HOME`; use a separate home for experiments so you never touch real records:
+Open <http://localhost:7300>, choose **Set up this machine**, type the setup code that Control Rod printed when it started (it is also in the file `setup-code` in its folder), and register a passkey. Your data lives in `~/.controlrod` unless you set `CONTROLROD_HOME`; use a separate home for experiments so you never touch real records:
 
 ```sh
 export CONTROLROD_HOME="$HOME/.controlrod-dev"

@@ -29,7 +29,9 @@ if [ "$version" != "$QUINT_VERSION" ]; then
   echo "quint $version found; this script is pinned to $QUINT_VERSION" >&2
   exit 1
 fi
-echo "quint $version, model sha256 $(sha256sum "$MODEL" | cut -d' ' -f1)"
+# sha256sum is not on macOS; shasum -a 256 is, and prints the same.
+if command -v sha256sum >/dev/null 2>&1; then sha256() { sha256sum "$@"; }; else sha256() { shasum -a 256 "$@"; }; fi
+echo "quint $version, model sha256 $(sha256 "$MODEL" | cut -d' ' -f1)"
 
 $QUINT typecheck "$MODEL"
 $QUINT test "$MODEL" --backend typescript

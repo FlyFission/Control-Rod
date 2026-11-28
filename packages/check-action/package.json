@@ -1,0 +1,10 @@
+{
+  "name": "@control-rod/check-action",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node ../../scripts/lib/api-dist.mjs && node --test action.test.mjs"
+  }
+}

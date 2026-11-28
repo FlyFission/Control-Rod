@@ -1454,7 +1454,7 @@ export interface components {
              * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
              * @enum {string}
              */
-            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox" | "usage-limit";
             /** @enum {string} */
             status: "queued" | "running";
             /** @description The beginning of the recorded package title, bounded for the switcher. */
@@ -2819,7 +2819,7 @@ export interface components {
              * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
              * @enum {string}
              */
-            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox" | "usage-limit";
             /**
              * @description What the hold waits on, where one decision resolves it for every run that names it: a lane's
              *     admission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is

@@ -30,6 +30,7 @@ import { pullRequestWatcher } from "./pr-watch.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
+import { exhaustedAgents, usageHoldReason } from "./usage-limits.js";
 import { benchedRuntimes, setupView } from "./setup.js";
 import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
 import { currentCredential, ownerOf } from "./tenancy.js";
@@ -350,7 +351,7 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
 /** Why a queued run is held, as a code, so the Inbox can route it to whoever may resolve it. */
-type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox" | "usage-limit";
 
 /**
  * Clears a hold whose cause no longer applies, so a stale reason never masks the next one (or
@@ -1519,6 +1520,13 @@ export async function claim(
     // runtime can only make work wait; pickChecker still refuses the author's runtime.
     const benched = await benchedRuntimes(c);
     const runtimes = offered.filter((r) => !benched.has(r));
+    // Agents whose subscription limit is used up, until it resets (change record usage-hold). A run
+    // the person seated on one waits for the reset; a run with no seat chosen goes to another agent.
+    const spent = await exhaustedAgents(c);
+    const spare = (list: string[]) => {
+      const left = list.filter((r) => !spent.has(r));
+      return left.length ? left : list;
+    };
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
     let cursor: { at: string; id: string } | null = null;
@@ -1625,7 +1633,7 @@ export async function claim(
             const preferredChecker =
               capPrefs.checker?.ecosystem ?? projPrefs?.laneAgents?.["agent-check"] ?? projPrefs?.checker;
             const samePicked = Boolean(preferredChecker) && runtimeName(preferredChecker) === authorRuntime && (await policySameAgentCheck(c, pkg)) !== null;
-            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body), preferredChecker, samePicked);
+            runtime = pickChecker(preferredChecker ? offer : spare(offer), authorRuntime, verifiedOverride(row.body), preferredChecker, samePicked);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.checker, projPrefs?.checker, projPrefs?.checkerModel);
             }
@@ -1644,12 +1652,18 @@ export async function claim(
               continue;
             }
             if (row.body.waiting_key === CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
-            runtime = pickRuntime(authors, preferredAuthor);
+            runtime = pickRuntime(preferredAuthor ? authors : spare(authors), preferredAuthor);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
             }
           }
           if (!runtime) continue;
+          const resets = spent.get(runtime);
+          if (resets) {
+            await holdRun(c, cfg, row, pkg.id, usageHoldReason(runtime, resets), "usage-limit", `usage-limit:${runtime}`);
+            continue;
+          }
+          await releaseHold(c, cfg, row, "usage-limit");
           if (row.role === "pre-check") {
             if (!model && countedProvider(runtime)) {
               model = defaultCheckerModel(runtime, needsOf(pkg.body).grade, reportedModels.get(runtime));

@@ -199,7 +199,7 @@ model Run {
   waiting_reason?: string;
 
   /** The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it). */
-  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox" | "usage-limit";
 
   /**
    * What the hold waits on, where one decision resolves it for every run that names it: a lane's

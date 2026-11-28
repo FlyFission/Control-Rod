@@ -184,3 +184,46 @@ export async function usageLimitsView(db: Db): Promise<UsageLimitsView> {
   const engine = cleanEngine(stored.engine);
   return { reported: true, ...(readAt ? { read_at: readAt } : {}), ...(engine ? { engine } : {}), providers: cleanProviders(stored.providers) ?? [] };
 }
+
+/**
+ * Windows that limit the whole subscription. A per-model window (Claude's seven_day_opus or
+ * seven_day_sonnet) or an unnamed third one (tertiary) limits only part of it, so it holds nothing.
+ */
+const WHOLE_WINDOWS: ReadonlySet<string> = new Set(["five_hour", "seven_day", "primary", "secondary", "daily", "weekly", "monthly"]);
+
+/** Plain names for the agents the control room can hold work for. */
+const AGENT_NAMES: Readonly<Record<string, string>> = { claude: "Claude", codex: "Codex", agy: "Antigravity", grok: "Grok" };
+
+/**
+ * Agents whose last reading says a whole-subscription window is used up (the vendor's own
+ * "rejected", or 100 percent), mapped to when the last such window resets. A window without a reset
+ * time, or one whose reset has passed, holds nothing: a reading is not renewed while no run uses
+ * the agent, so time alone releases the hold.
+ */
+export async function exhaustedAgents(q: Pick<Db, "query">, at: number = Date.now()): Promise<Map<string, string>> {
+  const row = (await q.query<{ value: string }>("select value from settings where key = 'usage_limits'")).rows[0];
+  const out = new Map<string, string>();
+  if (!row) return out;
+  let stored: unknown;
+  try {
+    stored = JSON.parse(row.value);
+  } catch {
+    return out;
+  }
+  if (!isRecord(stored)) return out;
+  for (const p of cleanProviders(stored.providers) ?? []) {
+    for (const w of p.windows) {
+      if (!WHOLE_WINDOWS.has(w.id) || !w.resets_at || Date.parse(w.resets_at) <= at) continue;
+      if (w.status !== "rejected" && w.used_percent < 100) continue;
+      const seen = out.get(p.id);
+      if (!seen || Date.parse(w.resets_at) > Date.parse(seen)) out.set(p.id, w.resets_at);
+    }
+  }
+  return out;
+}
+
+/** What a card held for a used-up limit says, in plain words. */
+export function usageHoldReason(agent: string, resetsAt: string): string {
+  const iso = new Date(resetsAt).toISOString();
+  return `${AGENT_NAMES[agent] ?? agent}'s usage limit is used up. This card starts on its own when it resets, at ${iso.slice(11, 16)} UTC on ${iso.slice(0, 10)}.`;
+}

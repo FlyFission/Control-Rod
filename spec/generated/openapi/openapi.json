@@ -5176,6 +5176,85 @@
         }
       }
     },
+    "/practice/cards": {
+      "post": {
+        "operationId": "Practice_card",
+        "description": "Adds a practice card to the practice project, with the sample project's files attached.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Practice.PracticeCard"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/records/export": {
       "get": {
         "operationId": "recordsExport",
@@ -11161,9 +11240,10 @@
             "enum": [
               "print",
               "acp",
-              "fake"
+              "fake",
+              "practice"
             ],
-            "description": "How the runtime was driven. \"print\" is a headless, one-prompt run (`claude -p`, `codex exec`)\nwhere no ACP permission binding is in force; \"acp\" is reserved for ACP sessions."
+            "description": "How the runtime was driven. \"print\" is a headless, one-prompt run (`claude -p`, `codex exec`)\nwhere no ACP permission binding is in force; \"acp\" is reserved for ACP sessions. \"practice\" is\nthe bundled practice runtime: a fixed routine inside the daemon, with no process and no model."
           },
           "requested_model": {
             "type": "string",
@@ -11914,6 +11994,10 @@
           "signing_policy": {
             "$ref": "#/components/schemas/ControlRod.Records.SigningPolicy",
             "description": "What needs the owner's passkey on this project's routine cards. Absent means every step is signed."
+          },
+          "practice": {
+            "type": "boolean",
+            "description": "True for the practice project, set only when Control Rod makes it from its bundled sample. Its\ncards run only on the practice agents, and the practice agents run nothing else."
           },
           "status": {
             "$ref": "#/components/schemas/ControlRod.Records.LifecycleStatus"
@@ -13885,6 +13969,26 @@
         },
         "description": "A recorded person verification with the package revision it verified."
       },
+      "Practice.PracticeCard": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "sample_dir",
+          "capture"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "sample_dir": {
+            "type": "string",
+            "description": "Where Control Rod copied the bundled sample project, inside its own data folder."
+          },
+          "capture": {
+            "$ref": "#/components/schemas/ControlRod.Records.Capture"
+          }
+        }
+      },
       "PullRequestWatch": {
         "type": "object",
         "required": [
@@ -15703,6 +15807,10 @@
           "signing": {
             "$ref": "#/components/schemas/WorkspaceProjects.WorkspaceSigning",
             "description": "What needs a passkey on this project's routine cards, once the owner has chosen. Absent: every step is signed."
+          },
+          "practice": {
+            "type": "boolean",
+            "description": "True for the practice project: its cards run only on the bundled practice agents, and nothing else does."
           },
           "createdAt": {
             "type": "string",

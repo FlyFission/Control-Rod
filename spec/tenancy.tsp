@@ -352,6 +352,12 @@ model Project {
   /** What needs the owner's passkey on this project's routine cards. Absent means every step is signed. */
   signing_policy?: ControlRod.Records.SigningPolicy;
 
+  /**
+   * True for the practice project, set only when Control Rod makes it from its bundled sample. Its
+   * cards run only on the practice agents, and the practice agents run nothing else.
+   */
+  practice?: boolean;
+
   status: LifecycleStatus;
 }
 

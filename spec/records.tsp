@@ -305,9 +305,10 @@ model ExecutionTrace {
 
   /**
    * How the runtime was driven. "print" is a headless, one-prompt run (`claude -p`, `codex exec`)
-   * where no ACP permission binding is in force; "acp" is reserved for ACP sessions.
+   * where no ACP permission binding is in force; "acp" is reserved for ACP sessions. "practice" is
+   * the bundled practice runtime: a fixed routine inside the daemon, with no process and no model.
    */
-  runtime_mode?: "print" | "acp" | "fake";
+  runtime_mode?: "print" | "acp" | "fake" | "practice";
 
   /** The model the run asked for, or "default" when it left the choice to the runtime. */
   @maxLength(200)

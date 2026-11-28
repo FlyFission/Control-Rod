@@ -902,6 +902,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/practice/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a practice card to the practice project, with the sample project's files attached. */
+        post: operations["Practice_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/records/export": {
         parameters: {
             query?: never;
@@ -2398,10 +2415,11 @@ export interface components {
             finished_at: string;
             /**
              * @description How the runtime was driven. "print" is a headless, one-prompt run (`claude -p`, `codex exec`)
-             *     where no ACP permission binding is in force; "acp" is reserved for ACP sessions.
+             *     where no ACP permission binding is in force; "acp" is reserved for ACP sessions. "practice" is
+             *     the bundled practice runtime: a fixed routine inside the daemon, with no process and no model.
              * @enum {string}
              */
-            runtime_mode?: "print" | "acp" | "fake";
+            runtime_mode?: "print" | "acp" | "fake" | "practice";
             /** @description The model the run asked for, or "default" when it left the choice to the runtime. */
             requested_model?: string;
             /** @description The model the runtime said it used, read from its own event stream. Absent when it did not say. */
@@ -2681,6 +2699,11 @@ export interface components {
             autonomy_level: number;
             /** @description What needs the owner's passkey on this project's routine cards. Absent means every step is signed. */
             signing_policy?: components["schemas"]["ControlRod.Records.SigningPolicy"];
+            /**
+             * @description True for the practice project, set only when Control Rod makes it from its bundled sample. Its
+             *     cards run only on the practice agents, and the practice agents run nothing else.
+             */
+            practice?: boolean;
             status: components["schemas"]["ControlRod.Records.LifecycleStatus"];
         };
         /** @description An engineering quantity. The value is a decimal string so no precision is lost. */
@@ -3424,6 +3447,12 @@ export interface components {
              */
             covers_current_subject: boolean;
         };
+        "Practice.PracticeCard": {
+            project_id: string;
+            /** @description Where Control Rod copied the bundled sample project, inside its own data folder. */
+            sample_dir: string;
+            capture: components["schemas"]["ControlRod.Records.Capture"];
+        };
         /**
          * @description An opened pull request as GitHub last reported it. Only these fixed words are read, never any text
          *     from GitHub. A draft counts as open: Control Rod always opens drafts.
@@ -4016,6 +4045,8 @@ export interface components {
             work_lanes?: components["schemas"]["ControlRod.Records.WorkLaneSet"];
             /** @description What needs a passkey on this project's routine cards, once the owner has chosen. Absent: every step is signed. */
             signing?: components["schemas"]["WorkspaceProjects.WorkspaceSigning"];
+            /** @description True for the practice project: its cards run only on the bundled practice agents, and nothing else does. */
+            practice?: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -7867,6 +7898,80 @@ export interface operations {
                     "application/json": {
                         revoked: boolean;
                     };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Practice_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Practice.PracticeCard"];
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */

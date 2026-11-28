@@ -194,6 +194,21 @@ describe("round 2 rules", () => {
     expect((await post(`/packages/WP-SUP-PG/runs/${job.run.id}/requeue`, {})).json().code).toBe("outcome-unknown");
   });
 
+  it("says on the run when a restarted daemon could not stop its processes, and leaves the outcome unknown (#178)", async () => {
+    const job = await claimed("WP-SUP-REMAIN");
+    const pg = { ...receipt(), containment: "process-group" };
+    delete (pg as Json).unit;
+    await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], receipt: pg });
+    const r = await daemon(`/runner/runs/${job.run.id}/evidence`, { observation: "processes-remain", receipt: pg });
+    expect(r.json()).toEqual({ run_id: job.run.id, reconciled: false });
+    const after = await run(job.run.id);
+    expect(after.status).toBe("lost");
+    expect(after.body.outcome_unknown).toBeDefined();
+    expect(after.body.reconciliation).toBeUndefined();
+    expect(after.body.error).toBe("Processes of this run are still running after the daemon restarted, and the daemon could not stop them (leader 4242, process group 4242). Stop them yourself, then reconcile the run.");
+    expect((await daemon(`/runner/runs/${job.run.id}/evidence`, { observation: "something-else", receipt: pg })).statusCode).toBe(400);
+  });
+
   it("honors heartbeats that return from an outage before the sweep sees it", async () => {
     const jobs = [await claimed("WP-HBO-1"), await claimed("WP-HBO-2"), await claimed("WP-HBO-3")];
     await h.admin.query("update runs set status = 'stopped' where status = 'running' and id <> all($1::text[])", [jobs.map((j) => j.run.id)]);

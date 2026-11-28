@@ -6140,6 +6140,12 @@
                     },
                     "description": "Runtimes ready for work. The control plane picks only from these."
                   },
+                  "claim_protocol": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 1,
+                    "description": "The claim exchange version the daemon speaks: the Job it can read. Absent means 1. The control\nplane refuses a daemon older than the jobs it hands out (409 daemon-outdated) and says what to do."
+                  },
                   "runtime_status": {
                     "type": "array",
                     "items": {
@@ -6611,8 +6617,10 @@
                   "observation": {
                     "type": "string",
                     "enum": [
-                      "process-gone"
-                    ]
+                      "process-gone",
+                      "processes-remain"
+                    ],
+                    "description": "process-gone: the run's processes are gone. processes-remain: some are still running and would not stop."
                   }
                 },
                 "required": [

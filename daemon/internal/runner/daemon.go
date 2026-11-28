@@ -332,7 +332,20 @@ claim:
 				sleepCtx(ctx, d.cfg.PollInterval)
 				continue
 			}
-			d.log.Warn("claim failed", "err", err)
+			var bad *UndecodableJobError
+			var outdated *OutdatedError
+			switch {
+			case errors.As(err, &bad) && bad.RunID != "" && bad.ClaimToken != "" && safeSegment.MatchString(bad.RunID):
+				// The run is this daemon's now: fail it with the reason, so it does not wait out its lease.
+				d.log.Error("this daemon could not read a job the control plane sent; the run fails with the reason", "run", bad.RunID, "err", bad.Err)
+				wg.Add(1)
+				go func() { defer wg.Done(); d.report(bad.RunID, bad.ClaimToken, undecodableCompletion(bad.Err)) }()
+			case errors.As(err, &outdated):
+				// Said once per backoff step at most; the claim waits until the daemon is updated.
+				d.log.Error(outdated.Message)
+			default:
+				d.log.Warn("claim failed", "err", err)
+			}
 			sleepCtx(ctx, backoff)
 			backoff = min(backoff*2, 30*time.Second)
 			continue
@@ -360,6 +373,13 @@ claim:
 	drainCancel()
 	d.log.Info("daemon stopped")
 	return nil
+}
+
+// undecodableCompletion fails a run whose job this daemon could not read. Nothing was started.
+func undecodableCompletion(err error) Completion {
+	why := oneLine(err.Error())
+	return Completion{Status: "failed", Outputs: []NamedFile{}, Containment: "none",
+		Error: "The daemon could not read this run's job, so nothing was started. The daemon is likely older than Control Rod: restart Control Rod so its daemon is the same version, then run the card again. What the daemon found: " + why}
 }
 
 // preflightedArtifact refuses a launch of an artifact other than the one the last probe found
@@ -695,7 +715,19 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 		if !d.retry.due(key, time.Now()) {
 			continue
 		}
-		done, err := d.deliver(e, true)
+		// A send under way is not cut off the moment the daemon stops: it gets shutdownCompleteWait,
+		// so a completion the control plane already recorded also leaves the outbox.
+		// The final drain's own deadline still bounds it.
+		sendCtx, cancel := d.completionContext()
+		if deadline, ok := ctx.Deadline(); ok {
+			var cancelSend context.CancelFunc
+			sendCtx, cancelSend = context.WithDeadline(sendCtx, deadline)
+			cancel = func(stop context.CancelFunc) context.CancelFunc {
+				return func() { cancelSend(); stop() }
+			}(cancel)
+		}
+		done, err := d.deliver(sendCtx, e, true)
+		cancel()
 		switch {
 		case done:
 			d.retry.forget(key)
@@ -710,7 +742,7 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 // it for good; either way the entry leaves the outbox. A transient failure returns its error; an
 // entry another goroutine is sending returns false with no error. A persisted entry may
 // already have been settled since the caller read it.
-func (d *Daemon) deliver(e OutboxEntry, persisted bool) (bool, error) {
+func (d *Daemon) deliver(parent context.Context, e OutboxEntry, persisted bool) (bool, error) {
 	if !d.outbox.take(e.RunID) {
 		return false, nil
 	}
@@ -726,7 +758,7 @@ func (d *Daemon) deliver(e OutboxEntry, persisted bool) (bool, error) {
 			return false, err
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, completeWait)
 	defer cancel()
 	receipt, err := d.client.Complete(ctx, e.RunID, e.Completion)
 	var refused *RefusedError
@@ -790,11 +822,23 @@ func (d *Daemon) sweepOrphans(ctx context.Context) {
 			continue
 		}
 		if r.Alive() {
-			d.log.Warn("stopping a run left by an earlier daemon", "run", r.RunID, "pid", r.PID, "containment", r.Containment)
-			if !StopGracefully(r, d.timings(), nil) {
-				d.log.Error("a run left by an earlier daemon would not stop; keeping its receipt", "run", r.RunID, "pid", r.PID)
+			// A run that would not stop is tried again less and less often, so it does not fill the
+			// log every pass (review DMN-10, issue #178); after uncontainedAfter tries the control
+			// plane is told its processes remain, so a person sees it.
+			stopKey := "stop:" + r.RunID
+			if !d.retry.due(stopKey, time.Now()) {
 				continue
 			}
+			d.log.Warn("stopping a run left by an earlier daemon", "run", r.RunID, "pid", r.PID, "containment", r.Containment)
+			if !StopGracefully(r, d.timings(), nil) {
+				n, wait := d.retry.failed(stopKey, time.Now())
+				d.log.Error("a run left by an earlier daemon would not stop; keeping its receipt", "run", r.RunID, "pid", r.PID, "pgid", r.PGID, "attempts", n, "next try in", wait)
+				if n == uncontainedAfter {
+					d.reportUncontained(ctx, r)
+				}
+				continue
+			}
+			d.retry.forget(stopKey)
 		}
 		key := "evidence:" + r.RunID
 		if !d.retry.due(key, time.Now()) {
@@ -821,6 +865,26 @@ func (d *Daemon) sweepOrphans(ctx context.Context) {
 		}
 		d.log.Warn("ending a run scope that has no receipt", "unit", u.Name)
 		StopGracefully(SpawnReceipt{Containment: ContainCgroup, Unit: u.Name, Cgroup: u.Cgroup}, d.timings(), nil)
+	}
+}
+
+// uncontainedAfter is how many failed stops of a run left by an earlier daemon come before the
+// control plane is told its processes remain.
+var uncontainedAfter = 3
+
+// reportUncontained tells the control plane that processes of a run left by an earlier daemon are
+// still running and could not be stopped, so the run shows it to a person. Its receipt stays, and
+// the sweep keeps trying to stop it. A failure to report is logged; the next pass does not resend.
+func (d *Daemon) reportUncontained(ctx context.Context, r SpawnReceipt) {
+	reply, err := d.client.EvidenceOf(ctx, r, ObservationProcessesRemain)
+	var refused *RefusedError
+	switch {
+	case err == nil:
+		d.log.Warn("told the control plane that processes of this run remain", "run", r.RunID, "reconciled", reply.Reconciled)
+	case errors.As(err, &refused):
+		d.log.Info("control plane no longer needs word of this run", "run", r.RunID, "err", err)
+	default:
+		d.log.Warn("could not tell the control plane that processes of this run remain", "run", r.RunID, "err", err)
 	}
 }
 
@@ -875,6 +939,10 @@ type logBuffer struct {
 	// turnOver is set by the runtime's own end-of-turn report (TurnEnd), and endCh is closed then.
 	turnOver, turnFailed bool
 	endCh                chan struct{}
+	// turnErr is what the CLI's failed end-of-turn report said, lastErr its latest error event, and
+	// stderrErr the latest stderr line naming a known reason (turnerror.go). They only explain a
+	// failure the daemon already found.
+	turnErr, lastErr, stderrErr *TurnError
 
 	// adapt parses this run's stream. execute sets it to the runtime's adapter. A nil value uses
 	// the shared Normalize and TurnEnd, which is what those adapters call.
@@ -945,6 +1013,23 @@ func turnFailure(a Adapter, buf *logBuffer) error {
 		return fmt.Errorf("%w: it ended without a result", errTurnFailed)
 	}
 	return nil
+}
+
+// turnError is what the agent CLI itself said about why its turn failed, best source first: its
+// failed end-of-turn report, then its latest error event, then (after an error exit only) a stderr
+// line that names a known reason. ok is false when it said nothing usable.
+func (b *logBuffer) turnError(exited bool) (TurnError, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, te := range []*TurnError{b.turnErr, b.lastErr} {
+		if te != nil && (te.Reason != "" || te.Said != "") {
+			return *te, true
+		}
+	}
+	if exited && b.stderrErr != nil {
+		return *b.stderrErr, true
+	}
+	return TurnError{}, false
 }
 
 // endedFailed reports whether the runtime's end-of-turn report said the turn failed.
@@ -1157,10 +1242,24 @@ func (b *logBuffer) add(line string) {
 	if !b.turnOver {
 		if over, failed := b.turnEnd(line); over {
 			b.turnOver, b.turnFailed = true, failed
+			if failed {
+				if te, ok := TurnErrorOf(line); ok {
+					b.turnErr = &te
+				}
+			}
 			if b.endCh == nil {
 				b.endCh = make(chan struct{})
 			}
 			close(b.endCh)
+		}
+	}
+	if strings.HasPrefix(line, "[stderr] ") {
+		if te, ok := stderrTurnError(line); ok {
+			b.stderrErr = &te
+		}
+	} else if strings.Contains(line, `"error`) || strings.Contains(line, `"is_error"`) {
+		if te, ok := TurnErrorOf(line); ok {
+			b.lastErr = &te
 		}
 	}
 	b.dirty = true
@@ -1402,6 +1501,60 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 	}
 }
 
+// heartbeatWhile keeps a run's lease with empty log posts, labelled, until the returned stop is
+// called, for a wait before the run's log buffer exists. It stops the run as flushLoop does when
+// the control plane no longer holds it, the owner asked to stop, or the lease ran out. The stop
+// returns once no post is in flight.
+func (d *Daemon) heartbeatWhile(job *Job, lease *leaseClock, stop context.CancelCauseFunc, label string) func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		hb := d.heartbeat(job)
+		t := time.NewTicker(min(d.cfg.LogInterval, hb))
+		defer t.Stop()
+		last := time.Now()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+			if time.Since(last) < hb {
+				continue
+			}
+			sent := time.Now()
+			end := lease.deadline()
+			if !sent.Before(end) {
+				stop(errOutOfContact)
+				return
+			}
+			postCtx, cancelPost := context.WithDeadline(ctx, end)
+			reply, err := d.client.Log(postCtx, job.Run.ID, LogBatch{ClaimToken: job.Claim.Token, Lines: []string{}, Label: label})
+			cancelPost()
+			switch {
+			case ctx.Err() != nil:
+				return
+			case errors.Is(err, ErrRunGone):
+				d.log.Warn("run no longer held; stopping it", "run", job.Run.ID, "err", err)
+				stop(errLost)
+				return
+			case err != nil:
+				d.log.Warn("heartbeat failed while the run waits", "run", job.Run.ID, "err", err)
+			case reply.Stop:
+				lease.renew(sent, reply.LeaseExpiresAt)
+				d.log.Info("owner asked to stop the run", "run", job.Run.ID)
+				stop(errStopped)
+				return
+			default:
+				last = time.Now()
+				lease.renew(sent, reply.LeaseExpiresAt)
+			}
+		}
+	}()
+	return func() { cancel(); <-done }
+}
+
 // heartbeat is how often a run's daemon must post; the lease is three of them.
 func (d *Daemon) heartbeat(job *Job) time.Duration {
 	hb := time.Duration(job.Claim.HeartbeatSeconds) * time.Second
@@ -1436,6 +1589,23 @@ func failText(err error) string {
 		return fmt.Sprintf("agent exited with status %d", exit.ExitCode())
 	}
 	return err.Error()
+}
+
+// turnErrorFor is what the agent CLI said about a run that failed in its own turn: a failed result,
+// an error exit, or a failed result it did not exit after. Failures the daemon made itself (a
+// timeout, a stop, the breaker, lost contact) are not the agent's to explain.
+func turnErrorFor(err error, buf *logBuffer) (TurnError, bool) {
+	var exit *exec.ExitError
+	switch {
+	case errors.Is(err, errTurnFailed), errors.Is(err, errSettled):
+		return buf.turnError(false)
+	case errors.Is(err, ErrTimeout), errors.Is(err, errShutdown), errors.Is(err, errLost), errors.Is(err, errStopped),
+		errors.Is(err, errOutOfContact), errors.As(err, new(errBreaker)):
+		return TurnError{}, false
+	case errors.As(err, &exit):
+		return buf.turnError(true)
+	}
+	return TurnError{}, false
 }
 
 // failKind places a run's error in the fixed list the control plane knows (spec FailureKind), from
@@ -1481,30 +1651,74 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 		d.log.Error("run completion withheld because its processes could not be confirmed stopped", "run", job.Run.ID, "err", err)
 		return
 	}
-	comp.ClaimToken = job.Claim.Token
+	d.report(job.Run.ID, job.Claim.Token, comp)
+}
+
+// report puts a run's completion in the outbox and sends it, retrying a few times. What is not
+// delivered by then stays in the outbox for the outbox loop, or, when the outbox could not keep it,
+// is left to the spawn receipt, which a restart reports.
+func (d *Daemon) report(runID, token string, comp Completion) {
+	comp.ClaimToken = token
 	comp.IdempotencyKey = newKey()
-	e := OutboxEntry{RunID: job.Run.ID, Completion: comp}
+	e := OutboxEntry{RunID: runID, Completion: comp}
 	putErr := d.outbox.Put(e)
 	if putErr != nil {
-		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", putErr)
+		d.log.Warn("outbox write failed; sending without it", "run", runID, "err", putErr)
 	} else {
 		// The completion is now in durable custody; the spawn receipt has done its job. If the outbox
 		// write failed the receipt stays, so a restart can still report the exit.
-		d.receipts.Remove(job.Run.ID)
+		d.receipts.Remove(runID)
 	}
 	wait := d.cfg.RetryBase
 	for attempt := 1; ; attempt++ {
-		done, err := d.deliver(e, putErr == nil)
+		ctx, cancel := d.completionContext()
+		done, err := d.deliver(ctx, e, putErr == nil)
+		cancel()
 		if done {
 			return
 		}
 		if attempt >= d.cfg.CompleteRetries || d.quit.Err() != nil {
-			d.log.Warn("completion kept in the outbox for a later retry", "run", job.Run.ID, "attempts", attempt, "err", err)
+			if putErr != nil {
+				// Nothing on disk holds it (review DMN-12): only the spawn receipt, if the run had one.
+				d.log.Error("completion not delivered, and the outbox could not keep it; a restart reports the run from its spawn receipt, if it has one", "run", runID, "attempts", attempt, "err", err, "outbox_err", putErr)
+			} else {
+				d.log.Warn("completion kept in the outbox for a later retry", "run", runID, "attempts", attempt, "err", err)
+			}
 			return
 		}
 		sleepCtx(d.quit, wait)
 		wait = min(wait*2, 30*time.Second)
 	}
+}
+
+// completeWait bounds one completion upload; shutdownCompleteWait bounds it once the daemon is
+// shutting down, so a slow control plane cannot hold a shutdown for minutes (review DMN-11). A
+// completion cut short stays in the outbox.
+var (
+	completeWait         = 5 * time.Minute
+	shutdownCompleteWait = 10 * time.Second
+)
+
+// completionContext is the context of one completion upload: completeWait, cut to
+// shutdownCompleteWait from the moment the daemon starts to shut down.
+func (d *Daemon) completionContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), completeWait)
+	quit := d.quit
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-quit.Done():
+		}
+		t := time.NewTimer(shutdownCompleteWait)
+		defer t.Stop()
+		select {
+		case <-ctx.Done():
+		case <-t.C:
+			cancel()
+		}
+	}()
+	return ctx, cancel
 }
 
 func newKey() string {
@@ -1580,7 +1794,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		}
 	}
 	if s, ok := a.(runSerializer); ok {
+		// The wait for this runtime's other run can be longer than a lease, so the run keeps its
+		// lease with heartbeats while it waits (review DMN-8).
+		stopWaiting := d.heartbeatWhile(job, lease, release, "Waiting for this agent's other run on this machine")
 		unlock, lerr := s.SerializeRuns(held)
+		stopWaiting()
 		if lerr != nil {
 			return fail("wait for this runtime's other run on this machine: " + lerr.Error()), nil
 		}
@@ -1881,6 +2099,15 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	if err == nil {
 		err = turnFailure(a, buf)
 	}
+	// The run's error in words: the daemon's own text, then what the agent CLI said about why its
+	// turn failed (rate limit, sign-in, refusal, context), when it said something usable.
+	runErr := ""
+	if err != nil {
+		runErr = failText(err)
+		if why, ok := turnErrorFor(err, buf); ok {
+			runErr += ". " + why.Words()
+		}
+	}
 	stopFlush()
 	<-flushed
 	// The flush loop has stopped; finish reading the hook file from where it left off.
@@ -1890,7 +2117,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		exit.Text = "ended by the daemon after the end of its turn"
 	}
 	if err != nil {
-		exit.Text = failText(err)
+		exit.Text = runErr
 	}
 	buf.addEvents([]Event{exit})
 	// The final flush is bounded: an unresponsive control plane must not hold the completion back,
@@ -1928,7 +2155,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		comp.Receipt, comp.Containment = &w, spawned.Containment
 	}
 	if err != nil {
-		comp.Status, comp.Error, comp.FailureKind = "failed", failText(err), failKind(err)
+		comp.Status, comp.Error, comp.FailureKind = "failed", runErr, failKind(err)
 		if errors.Is(err, errStopped) {
 			comp.Status = "stopped"
 		}
@@ -1962,7 +2189,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	}
 	// The kind names the run's own error. A check after the run that changed the failure (the
 	// checkout, the outputs) leaves no kind, so the control plane never retries on a stale reason.
-	if err != nil && comp.Error != failText(err) {
+	if err != nil && comp.Error != runErr {
 		comp.FailureKind = ""
 	}
 	var outArts []Artifact

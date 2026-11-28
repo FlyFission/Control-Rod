@@ -39,6 +39,7 @@ export const COMMANDS = {
   "draft.edit": entry("member", "none", "Edit draft", "write"),
   "output.record-mismatch": entry("system", "none", "Submit output (integrity record)"),
   "run.claim": entry("agent-via-daemon", "none", "Claim", "read"),
+  "run.claim-failed": entry("agent-via-daemon", "none", "Claim (a queued run that cannot be handed out fails with its reason)", "read"),
   "run.log": entry("agent-via-daemon", "none", "Submit output (run log)"),
   "run.complete": entry("agent-via-daemon", "none", "Submit output, submit pre-check", "write"),
   "run.record-refused": entry("agent-via-daemon", "none", "Submit output (refused completion record)"),

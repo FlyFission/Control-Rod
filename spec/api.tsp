@@ -1697,6 +1697,12 @@ namespace Runner {
     /** Runtimes ready for work. The control plane picks only from these. */
     runtimes: string[];
 
+    /**
+     * The claim exchange version the daemon speaks: the Job it can read. Absent means 1. The control
+     * plane refuses a daemon older than the jobs it hands out (409 daemon-outdated) and says what to do.
+     */
+    @minValue(1) claim_protocol?: int32;
+
     runtime_status?: RuntimeStatus[];
 
     /** Required to claim an author run with a checkout binding; omitted means unsupported. */
@@ -1750,7 +1756,9 @@ namespace Runner {
   @route("/runs/{id}/evidence") @post op evidence(@path id: string, @body body: {
     claim_token: string;
     receipt: OwnershipReceipt;
-    observation: "process-gone";
+
+    /** process-gone: the run's processes are gone. processes-remain: some are still running and would not stop. */
+    observation: "process-gone" | "processes-remain";
   }): {
     run_id: string;
     reconciled: boolean;

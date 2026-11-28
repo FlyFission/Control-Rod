@@ -26,6 +26,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -99,7 +100,7 @@ func daemon(args []string) int {
 	if api == "" {
 		api = "http://localhost:7300"
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := shutdownContext(func(msg string) { logger.Warn(msg) }, os.Exit)
 	defer stop()
 	ctx = stopWhenLauncherGone(ctx, os.Getenv("CONTROLROD_LAUNCHER_PID"), os.Getppid)
 	cfg := runner.Config{
@@ -229,7 +230,7 @@ func runCheckCLIWith(args []string, base runner.CheckConfig, stdin io.Reader, st
 		return 2
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := shutdownContext(func(msg string) { fmt.Fprintln(stderr, msg) }, os.Exit)
 	defer stop()
 
 	cfg := base
@@ -317,4 +318,49 @@ func stopWhenLauncherGone(ctx context.Context, launcherPID string, getppid func(
 		}
 	}()
 	return ctx
+}
+
+// shutdownSignals end the daemon: Ctrl-C, a stop request, and a closed terminal (SIGHUP).
+var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
+
+// shutdownContext is cancelled by the first shutdown signal, which starts a graceful stop. A
+// second signal exits at once with status 130 (review DMN-20): running agents are then left to the
+// next start, which stops them from their spawn receipts.
+func shutdownContext(say func(string), exit func(int)) (context.Context, context.CancelFunc) {
+	return shutdownContextOn(make(chan os.Signal, 2), true, say, exit)
+}
+
+// shutdownContextOn is shutdownContext on a given signal channel; notify false leaves the channel
+// to the caller (tests).
+func shutdownContextOn(sigs chan os.Signal, notify bool, say func(string), exit func(int)) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	if notify {
+		signal.Notify(sigs, shutdownSignals...)
+	}
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-sigs:
+		case <-done:
+			return
+		}
+		say("Stopping: running agents get time to finish. Press Ctrl-C again to stop at once.")
+		cancel()
+		select {
+		case <-sigs:
+			say("Stopping at once. Agents still running are stopped the next time Control Rod starts.")
+			exit(130)
+		case <-done:
+		}
+	}()
+	var once sync.Once
+	return ctx, func() {
+		once.Do(func() {
+			if notify {
+				signal.Stop(sigs)
+			}
+			close(done)
+			cancel()
+		})
+	}
 }

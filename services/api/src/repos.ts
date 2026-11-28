@@ -1025,11 +1025,16 @@ async function hasInitializedSubmodule(
   return false;
 }
 
+/** A checkout a queued or running run is bound to: the run's id and the checkout's path. */
+export type HeldCheckout = { run: string; path: string };
+
 export async function removeWorktreeSafely(opts: {
   worktreePath: string;
   repoPath: string;
   workspaceRoot?: string;
   force?: boolean;
+  /** The checkouts runs hold now; a worktree that is one of them, or holds one, is not removed. */
+  held?: () => Promise<HeldCheckout[]>;
 }): Promise<{ removed: string }> {
   const workspaceRoot = resolveSafeWorkspaceRoot(opts.workspaceRoot);
   if (isDangerousWorktreeRemovalPath(opts.worktreePath, opts.repoPath, workspaceRoot)) {
@@ -1043,6 +1048,19 @@ export async function removeWorktreeSafely(opts: {
   const resolvedWt = resolveSafeRemovalTarget(opts.worktreePath, home, workspaceRoot)!;
   const resolvedRepo = resolveSafeRemovalTarget(opts.repoPath, home, workspaceRoot)!;
   const force = opts.force === true;
+  // A run's agent works in its checkout: removing it mid-run loses the work and fails the run
+  // without a clear reason, so the worktree waits until no queued or running run holds it.
+  if (opts.held) {
+    const target = canonicalPathOrResolve(resolvedWt);
+    const holder = (await opts.held()).find((h) => isWithinOrEqual(target, canonicalPathOrResolve(h.path)) !== null);
+    if (holder) {
+      throw new Refusal(
+        409,
+        "worktree-in-use",
+        `Run ${holder.run} is working in this worktree, so it was not removed. Wait for the run to finish, or stop it, then remove the worktree.`,
+      );
+    }
+  }
 
   if (!pathExistsAny(resolvedRepo)) {
     throw new Refusal(404, "repo-not-found", `Repository not found at ${resolvedRepo}`);
@@ -1704,6 +1722,7 @@ function parseRepoSnapshotRequest(rawBody: unknown): {
 export function repoRoutes(
   app: FastifyInstance,
   person: (req: FastifyRequest) => Promise<string>,
+  held?: () => Promise<HeldCheckout[]>,
 ): void {
   app.get<{ Querystring: { workspace_root?: unknown } }>("/repos", async (req) => {
     await person(req);
@@ -1819,6 +1838,7 @@ export function repoRoutes(
         repoPath,
         ...(workspaceRootInput !== undefined ? { workspaceRoot: workspaceRootInput } : {}),
         force,
+        ...(held ? { held } : {}),
       });
       return { ok: true, ...result };
     });

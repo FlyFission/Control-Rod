@@ -23,7 +23,7 @@ import { FOCUS_WRITING, RULES, briefHeader, composeBrief, findingsSection, nucle
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
-import { bindCheckout, publishCheckout } from "./repos.js";
+import { type PublishResult, bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
 import { CHANGE_PATCH, changePatches, changedRepoFiles, patchFiles } from "./change-files.js";
 import { pullRequestWatcher } from "./pr-watch.js";
@@ -1478,6 +1478,23 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   return { run, package: run.preparation_manifest_digest?pkg.body:{ ...pkg.body, status: pkg.status }, inputs, ...(findings ? { findings } : {}) };
 }
 
+/**
+ * The version of the claim exchange this server speaks: the Job a daemon must be able to read. Raise
+ * it when a daemon of the version before could get a job it cannot read (the daemon's Job schema
+ * refuses fields it does not know), together with ClaimProtocol in daemon/internal/runner/client.go.
+ * A test pins the Job schema's digest to this number, so a changed Job is looked at (review DMN-4).
+ */
+export const CLAIM_PROTOCOL = 1;
+
+/** The refusal for a daemon older than the jobs this server hands out; null when it may claim. */
+export function claimProtocolRefusal(sent: unknown): Refusal | null {
+  // A daemon from before the version was sent speaks version 1.
+  const speaks = sent === undefined ? 1 : sent;
+  if (Number.isInteger(speaks) && (speaks as number) >= CLAIM_PROTOCOL) return null;
+  return new Refusal(409, "daemon-outdated",
+    "The daemon on this computer is older than Control Rod and could not read the work it would be handed, so nothing was handed out. Restart Control Rod so its daemon is the same version; the waiting work then starts.");
+}
+
 const CLAIM_PAGE = 50;
 const MAX_LOG_LINES = 500;
 
@@ -1510,6 +1527,64 @@ export async function claim(
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
   const ceiling = runCeilingSeconds === undefined ? undefined : { runSeconds: runCeilingSeconds, marginSeconds: heartbeatSeconds(cfg) + leaseSeconds(cfg) };
+  // One queued run that cannot be handed out (its job cannot be built, a record it reads is broken)
+  // fails with its reason, and the claim goes on to the next run, so it never stops all work
+  // (review API-3). The failing claim rolled back, so the run is failed in its own command.
+  const skip = new Set<string>();
+  for (let tries = 0; ; tries++) {
+    try {
+      return await claimOnce(db, cfg, offered, artifacts, ceiling, reportedModels, supportsCheckouts, skip);
+    } catch (e) {
+      if (!(e instanceof BadQueuedRun) || tries >= MAX_BAD_RUNS_PER_CLAIM) throw e instanceof BadQueuedRun ? e.cause : e;
+      skip.add(e.runId);
+      await failBadQueuedRun(db, cfg, e.runId, e.cause);
+    }
+  }
+}
+
+/** At most this many broken queued runs are failed in one claim; the next claim goes on from there. */
+const MAX_BAD_RUNS_PER_CLAIM = 10;
+
+/** A queued run whose claim threw: the claim rolled back, and this names the run and why. */
+class BadQueuedRun extends Error {
+  constructor(readonly runId: string, override readonly cause: unknown) {
+    super(`queued run ${runId} could not be handed out: ${cause instanceof Error ? cause.message : String(cause)}`);
+  }
+}
+
+/**
+ * Whether an error that stopped a claim belongs to the server, not to the run being claimed: the
+ * database lost its connection, cancelled the statement, found a deadlock or a serialization
+ * conflict, or ran out of room. Such a claim is tried again later; the run is not failed for it.
+ */
+function serverFault(e: unknown): boolean {
+  const code = (e as { code?: unknown })?.code;
+  if (typeof code !== "string" || code.length !== 5) return false;
+  return ["08", "40", "53", "57", "58", "XX"].includes(code.slice(0, 2)) || code === "55P03";
+}
+
+/** Fails a queued run whose claim threw, with the reason in words. Logged when even that fails. */
+async function failBadQueuedRun(db: Db, cfg: WorkConfig, runId: string, cause: unknown): Promise<void> {
+  const why = (cause instanceof Error ? cause.message : String(cause)).replace(/\s+/g, " ").slice(0, 600);
+  try {
+    await command(db, "run.claim-failed", async (c) => {
+      const owner = (await c.query<{ package_id: string; role: string }>("select package_id, role from runs where id = $1", [runId])).rows[0];
+      if (owner && owner.role !== "intake") await currentPackage(c, owner.package_id, true);
+      const row = (await c.query<RunLike & { status: string }>("select id, package_id, package_revision, role, round, body, status from runs where id = $1 for update", [runId])).rows[0];
+      if (!row || row.status !== "queued") return;
+      await failQueuedRun(c, cfg, row,
+        `Not started: Control Rod could not hand this run to the daemon. ${why}. Fix what that names, then run the card again.`.slice(0, 2000));
+    });
+  } catch (e) {
+    console.error(`[control-rod] claim: queued run ${runId} could not be handed out, and could not be failed either; it is skipped:`, cause, e);
+  }
+}
+
+async function claimOnce(
+  db: Db, cfg: WorkConfig, offered: string[], artifacts: Map<string, string>,
+  ceiling: { runSeconds: number; marginSeconds: number } | undefined, reportedModels: ReadonlyMap<string, readonly string[]>,
+  supportsCheckouts: boolean, skip: ReadonlySet<string>,
+) {
   return command(db, "run.claim", async (c) => {
     await enterScramGate(c);
     // The budget lock, before any event is written here: every claim takes it in this order, so two
@@ -1544,6 +1619,8 @@ export async function claim(
       // The key is the timestamp as text, at full microsecond precision; a JS Date would round it.
       if (last) cursor = { at: last.created_key, id: last.id };
       for (const candidate of queued.rows) {
+       if (skip.has(candidate.id)) continue;
+       try {
         let row=candidate;
         if(!legacyRun(row)) continue;
         // SCRAM holds everything in its scope: nothing there is handed out until a restart lifts it.
@@ -1771,7 +1848,12 @@ export async function claim(
         }
         await releaseHold(c, cfg, row, "budget");
         await releaseHold(c, cfg, row, "sandbox");
-        return startRun(c, cfg, row, runtime, `intake-${runtime}`, netIntake.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
+        return await startRun(c, cfg, row, runtime, `intake-${runtime}`, netIntake.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
+       } catch (e) {
+        // The claim rolls back; the caller fails this run in its own command and claims again.
+        if (e instanceof BadQueuedRun || serverFault(e)) throw e;
+        throw new BadQueuedRun(candidate.id, e);
+       }
       }
     }
     return null;
@@ -1851,7 +1933,29 @@ const PG_INT_MAX = 2147483647;
  * a run.waiting event naming the tool and the digest of its input (plan task 2.9), and a breaker
  * notice becomes run.breaker, so both reach the office and the stream.
  */
+/**
+ * Text from a run with every U+0000 replaced by U+FFFD. PostgreSQL stores no U+0000 in text or jsonb,
+ * so one in an agent's output would fail every log post after it and the run would lose its lease
+ * (review API-10). Applies to strings inside arrays and objects too.
+ */
+export function withoutNul<T>(v: T): T {
+  if (typeof v === "string") return (v.includes("\u0000") ? v.replace(/\u0000/g, "\uFFFD") : v) as T;
+  if (Array.isArray(v)) return v.map(withoutNul) as T;
+  if (v && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v)) out[withoutNul(k)] = withoutNul(x);
+    return out as T;
+  }
+  return v;
+}
+
+/** At most this many raw log lines are kept for a run; past it, the oldest go and a marker says so. */
+export const MAX_RUN_LOG_LINES = 5000;
+/** The first line of a run log that reached MAX_RUN_LOG_LINES. */
+export const LOG_TRIMMED = `[Control Rod kept only the last ${MAX_RUN_LOG_LINES - 1} lines of this log. The run's events are all kept.]`;
+
 async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown, from?: unknown): Promise<void> {
+  raw = withoutNul(raw);
   if (!Array.isArray(raw)) throw new Refusal(400, "invalid", "events must be a list");
   if (raw.length > 500) throw new Refusal(400, "too-many-lines", "Send at most 500 events per batch");
   for (const e of raw) validate(cfg, "NormalizedEvent.json", e);
@@ -1981,7 +2085,8 @@ async function reconcileTx(c: Tx, cfg: WorkConfig, row: RunRow, disposition: "co
  * as lost and settled at once; a lost run's unknown outcome is settled.
  */
 export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: Json) {
-  if (body?.observation !== "process-gone") throw new Refusal(400, "invalid", "observation must be process-gone");
+  const observation = body?.observation;
+  if (observation !== "process-gone" && observation !== "processes-remain") throw new Refusal(400, "invalid", "observation must be process-gone or processes-remain");
   validate(cfg, "OwnershipReceipt.json", body?.receipt);
   return command(db, "run.reconcile-evidence", async (c) => {
     await enterScramGate(c);
@@ -1992,6 +2097,26 @@ export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: 
     if (r.generation !== (row.body.generation ?? 1)) throw new Refusal(409, "receipt-mismatch", "The receipt names another attempt of this run");
     if (row.body.receipt && !sameReceipt(row.body.receipt, r)) throw new Refusal(409, "receipt-mismatch", "The receipt does not match the one on record for this run");
     const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
+    if (observation === "processes-remain") {
+      // The daemon could not stop what an earlier daemon left of this run (issue #178): say so on the
+      // run, so a person sees it and can end those processes. The outcome stays unknown.
+      const said = `Processes of this run are still running after the daemon restarted, and the daemon could not stop them (leader ${r.pid}, process group ${r.pgid}). Stop them yourself, then reconcile the run.`;
+      if (row.status === "running" || (row.body.outcome_unknown && !row.body.reconciliation)) {
+        const next = { ...row.body, error: said,
+          ...(row.status === "running" ? { status: "lost", finished_at: now(), label: "Lost",
+            outcome_unknown: { since: now(), reason: "the daemon restarted and could not stop the run's processes" } } : {}) };
+        delete next.lease_expires_at;
+        validate(cfg, "Run.json", next);
+        await c.query("update runs set status = $3, body = $2 where id = $1", [row.id, next, row.status === "running" ? "lost" : row.status]);
+        if (row.status === "running") {
+          await appendEvent(c, "run.lost", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+          await recordCheckerAttempt(c, cfg.ajv, { ...row, status: "lost", body: next });
+          await scramRunEnded(c, row.id);
+        }
+      }
+      await appendEvent(c, "run.evidence", row.id, agent, { package: row.package_id, observation, containment: r.containment, evidence: said });
+      return { run_id: runId, reconciled: false };
+    }
     // Only a cgroup proves every process of the run gone; process group evidence cannot see a
     // process that left the group, so it is recorded but leaves the outcome unknown for a person.
     const whole = r.containment === "cgroup";
@@ -2195,7 +2320,7 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
       throw new Refusal(400, "too-many-lines", `Send at most ${MAX_LOG_LINES} lines per batch`);
     }
     const lease = leaseFromNow(cfg);
-    const body = { ...row.body, lease_expires_at: lease, ...(label ? { label: label.slice(0, LABEL_MAX) } : {}) };
+    const body = { ...row.body, lease_expires_at: lease, ...(label ? { label: withoutNul(label).slice(0, LABEL_MAX) } : {}) };
     issuedLease(c, cfg, runId);
     // A heartbeat proves the run alive: the grace bound starts over.
     delete body.grace_renewals;
@@ -2211,11 +2336,16 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
     }
     validate(cfg, "Run.json", body);
     if (events !== undefined) await recordRunEvents(c, cfg, row, events, eventsFrom);
-    await c.query("update runs set log = log || $2::text[], body = $3, lease_expires_at = $4 where id = $1", [
+    // Bounded: past MAX_RUN_LOG_LINES the oldest lines go, and the first line says so (review API-10).
+    await c.query(`update runs set log = case when cardinality(log) + cardinality($2::text[]) <= $5 then log || $2::text[]
+        else array[$6::text] || (log || $2::text[])[cardinality(log) + cardinality($2::text[]) - $5 + 2:] end,
+      body = $3, lease_expires_at = $4 where id = $1`, [
       runId,
-      lines.map((l) => l.slice(0, 4000)),
+      lines.map((l) => withoutNul(l).slice(0, 4000)),
       body,
       lease,
+      MAX_RUN_LOG_LINES,
+      LOG_TRIMMED,
     ]);
     if (label && label !== row.body.label) {
       await appendEvent(c, "run.label", runId, { kind: "agent", id: row.body.agent_baseline }, { label: body.label, package: row.body.package_id });
@@ -2953,7 +3083,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   }
   const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
   delete finished.lease_expires_at;
-  if (body.error) finished.error = String(body.error).slice(0, 2000);
+  if (body.error) finished.error = withoutNul(String(body.error)).slice(0, 2000);
   // The daemon's own placing of the failure (spec FailureKind), never read from agent output.
   // A kind this server does not know (a newer daemon) is dropped, never a reason to refuse the run.
   if (FAILURE_KINDS.has(body.failure_kind) && body.status !== "succeeded") finished.failure_kind = body.failure_kind;
@@ -3134,14 +3264,20 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   if (!pendingIntake(capture)) throw new Refusal(409, "stopped", "The capture is no longer pending; the intake result was not applied");
   const answer = outputs.find((o) => o.name === "answer.md");
   const drafts: Json[] = [];
+  const unreadable: string[] = [];
   for (const o of outputs) {
     if (o.name === "package.json" || /^packages\/[^/]+\.json$/.test(o.name)) {
       try {
         drafts.push(JSON.parse(o.bytes.toString("utf8")));
-      } catch {
-        /* an unparseable draft is reported below */
+      } catch (e) {
+        unreadable.push(`${o.name} (${(e as Error).message.slice(0, 120)})`);
       }
     }
+  }
+  // A card file that is not JSON is never dropped quietly (review API-15): the whole result is
+  // refused with the file named, so the request is not answered with fewer cards than were drafted.
+  if (unreadable.length) {
+    throw new Refusal(400, "invalid", `Intake wrote a card file that is not valid JSON, so no card was made: ${unreadable.slice(0, 5).join("; ")}. Run the request again.`);
   }
   // The daemon also sends out/package.json as body.package; use it only when no output file
   // already carried a draft, so one draft is never inserted twice.
@@ -3920,6 +4056,17 @@ function cleanModels(raw: unknown): string[] | undefined {
 
 /** Keeps the daemon's latest probe of each runtime, cleaned to plain short fields. */
 export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<RuntimeStatus[]> {
+  const list = parseRuntimeStatus(raw);
+  const value = JSON.stringify({ reported_at: now(), runtimes: list });
+  await command(db, "runtime.report-status", async (c) => {
+    await c.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]);
+    await recordProbes(c, list);
+  });
+  return list;
+}
+
+/** The runtime status a daemon reported, read and bounded, without storing it. */
+export function parseRuntimeStatus(raw: unknown): RuntimeStatus[] {
   if (!Array.isArray(raw)) return [];
   const list: RuntimeStatus[] = [];
   for (const r of raw.slice(0, 10)) {
@@ -3936,11 +4083,6 @@ export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<Runtime
       ...(models ? { models } : {}),
     });
   }
-  const value = JSON.stringify({ reported_at: now(), runtimes: list });
-  await command(db, "runtime.report-status", async (c) => {
-    await c.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]);
-    await recordProbes(c, list);
-  });
   return list;
 }
 
@@ -3972,13 +4114,12 @@ const STARTED_AT = Date.now();
  * while the attempt may still send. A failed attempt (or one that never reported in 15 minutes) may be
  * tried again; the publisher then finds the branch and pull request it already made.
  */
-export async function publishAccepted(db: Db, id: string, revision: number, atStart = false): Promise<void> {
+export async function publishAccepted(db: Db, id: string, revision: number, atStart = false, testing: PublishTesting = {}): Promise<void> {
   const r = await db.query<{ body: Json; status: string; capture_id: string | null; checkout: Json | null }>(
     `select p.body, p.status, p.capture_id, c.body->'checkout' as checkout from packages p join captures c on c.id = p.capture_id
       where p.id = $1 and p.revision = $2`, [id, revision]);
   const row = r.rows[0];
   if (!row || row.status !== "accepted" || !row.checkout) return;
-  const checkout = row.checkout;
   // Pushing to GitHub discloses the work, so only the public and internal lanes go out on their own.
   const routine = async (q: Db | Tx = db) => {
     const lane = await laneOf(q, "package", id, row.body.data_lane);
@@ -4012,10 +4153,37 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
   });
   if (!first) return;
   const { claim } = first;
-  // The send budget counts from the claim's own time, the same clock the barrier measures.
-  const sendBy = new Date(first.at).getTime() + PUBLISH_SEND_BY_MS;
   const notOpened = (reason: string, detail: string) =>
     command(db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason, detail, claim }));
+  // Every attempt ends with an outcome, so the card never stays at "opening": a thrown error or an
+  // attempt still going when its claim runs out is recorded as not opened, with the reason in plain words.
+  try {
+    await publishClaimed(db, id, revision, row, claim, first.at, routine, notOpened, testing);
+  } catch (e) {
+    const why = oneLineReason(e);
+    console.error("[control-rod] pull request:", e);
+    await notOpened("failed", `Control Rod could not open the pull request: ${why}. It tries again the next time it starts.`)
+      .catch((e2) => console.error("[control-rod] pull request: the failure could not be recorded:", e2));
+  }
+}
+
+/** Test seams for publishAccepted: the publisher, and how long an attempt may take. */
+export type PublishTesting = { publish?: typeof publishCheckout; attemptMs?: number };
+
+/** An error's message on one short line, for a person to read. */
+function oneLineReason(e: unknown): string {
+  const text = (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim().replace(/[.\s]+$/, "");
+  return (text.length > 200 ? `${text.slice(0, 200)}…` : text) || "an unexpected error";
+}
+
+/** What an attempt does once it holds its claim (publishAccepted). */
+async function publishClaimed(
+  db: Db, id: string, revision: number, row: { body: Json; capture_id: string | null; checkout: Json | null }, claim: string, claimedAt: string,
+  routine: () => Promise<{ ok: boolean }>, notOpened: (reason: string, detail: string) => Promise<unknown>, testing: PublishTesting,
+): Promise<void> {
+  const checkout = row.checkout!;
+  // The send budget counts from the claim's own time, the same clock the barrier measures.
+  const sendBy = new Date(claimedAt).getTime() + PUBLISH_SEND_BY_MS;
   // Cards drafted from one request share its checkout, so one card's pull request could carry another's unaccepted work.
   const siblings = (await db.query<{ n: number }>("select count(distinct id)::int as n from packages where capture_id = $1", [row.capture_id])).rows[0]?.n ?? 0;
   if (siblings > 1) {
@@ -4051,13 +4219,13 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
   const patch: Buffer | null = picked.use.length
     ? Buffer.concat(picked.use.flatMap((p) => (p.bytes.at(-1) === 0x0a ? [p.bytes] : [p.bytes, Buffer.from("\n")])))
     : null;
-  const result = await publishCheckout({
+  const attempt = (testing.publish ?? publishCheckout)({
     repo: String(checkout.repo ?? ""), root: String(checkout.root ?? ""), path: String(checkout.path ?? ""),
     boundHead: String(checkout.head ?? ""), finalHead, patch, publishBranch: publishBranchOf(id, revision),
     title: String(pkg.body.title ?? id), body: prBody(pkg.body, s.verification ?? undefined), acceptedAt: String(accepted.decided_at),
     stillAllowed: async () => (await routine()).ok, deadline: sendBy,
   });
-  await command(db, "package.open-pr", async (c) => {
+  const record = (result: PublishResult) => command(db, "package.open-pr", async (c) => {
     // A late failure from an overlapping attempt never hides a pull request already opened.
     const opened = await c.query("select 1 from events where body->>'subject' = $1 and body->>'type' = 'package.pr-opened' and (body->'data'->>'revision')::int = $2 limit 1", [id, revision]);
     if (!result.opened && opened.rowCount) return;
@@ -4067,6 +4235,30 @@ export async function publishAccepted(db: Db, id: string, revision: number, atSt
       await appendEvent(c, "package.pr-not-opened", id, SYSTEM, { revision, reason: result.reason, detail: result.detail, claim });
     }
   });
+  // The attempt may run until its claim runs out and no longer: a git or GitHub call that never
+  // answers would otherwise leave the card at "opening" for good.
+  const budget = testing.attemptMs ?? Math.max(0, new Date(claimedAt).getTime() + PR_CLAIM_MS - Date.now());
+  let timer: NodeJS.Timeout | undefined;
+  const late = Symbol("late");
+  const result = await Promise.race([
+    attempt,
+    new Promise<typeof late>((resolve) => { timer = setTimeout(() => resolve(late), budget); timer.unref?.(); }),
+  ]).finally(() => clearTimeout(timer));
+  if (result === late) {
+    await notOpened("failed", `Opening the pull request took longer than ${Math.round(PR_CLAIM_MS / 60_000)} minutes, so Control Rod stopped waiting for it. It tries again the next time it starts.`);
+    // Should the attempt still open it, the card shows the pull request it opened.
+    void attempt.then((r) => (r.opened ? record(r) : undefined)).catch(() => undefined);
+    return;
+  }
+  await record(result);
+}
+
+/** The checkouts queued and running runs are bound to, so a worktree a run holds is not removed (review API-11). */
+export async function checkoutsHeld(db: Db): Promise<{ run: string; path: string }[]> {
+  const r = await db.query<{ id: string; path: string }>(
+    `select id, body->'checkout'->>'path' as path from runs
+      where status in ('queued', 'running') and body->'checkout'->>'path' is not null`);
+  return r.rows.map((row) => ({ run: row.id, path: row.path }));
 }
 
 /** The branch only this package revision publishes to. */
@@ -4118,6 +4310,10 @@ async function pullRequestOf(db: Db, id: string, revision: number) {
     return { pull_request: { state: "opened", url: e.data.url, branch: e.data.branch, at: e.at, ...(watch ? { watch } : {}) } };
   }
   if (e.type === "package.pr-not-opened") return { pull_request: { state: e.data.reason === "no-changes" ? "no-changes" : "not-opened", detail: e.data.detail, at: e.at } };
+  // An attempt whose claim ran out with no outcome stopped without an answer (the server stopped mid-way).
+  if (Date.now() - new Date(String(e.at)).getTime() >= PR_CLAIM_MS) {
+    return { pull_request: { state: "not-opened", detail: "Opening the pull request stopped without an answer. Control Rod tries again the next time it starts.", at: e.at } };
+  }
   return { pull_request: { state: "opening", branch: e.data.branch, at: e.at } };
 }
 

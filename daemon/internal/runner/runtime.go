@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -469,6 +470,45 @@ type ExecHooks struct {
 	Linger time.Duration
 }
 
+// maxOutputLine bounds one line of a run's output. A longer line is left out with a notice, and
+// reading goes on: a reader that stopped would leave the agent blocked writing to a full pipe.
+var maxOutputLine = 16 << 20
+
+// pumpLines reads r to its end, sending each line (without its line ending) to emit. A line longer
+// than max is never held whole: it is skipped to its end and tooLong gets the bytes it had.
+func pumpLines(r io.Reader, max int, emit func(string), tooLong func(n int)) {
+	br := bufio.NewReaderSize(r, 64<<10)
+	var line []byte
+	over, n := false, 0
+	for {
+		frag, err := br.ReadSlice('\n')
+		n += len(frag)
+		if !over {
+			if len(line)+len(frag) > max+1 { // +1: the line ending is not part of the line
+				over, line = true, line[:0]
+			} else {
+				line = append(line, frag...)
+			}
+		}
+		if errors.Is(err, bufio.ErrBufferFull) {
+			continue
+		}
+		if err == nil || len(frag) > 0 || len(line) > 0 || over {
+			switch {
+			case over:
+				tooLong(n)
+			case err == nil || len(line) > 0:
+				l := bytes.TrimSuffix(line, []byte("\n"))
+				emit(string(bytes.TrimSuffix(l, []byte("\r"))))
+			}
+		}
+		line, over, n = line[:0], false, 0
+		if err != nil {
+			return
+		}
+	}
+}
+
 // ErrUncontained means processes of the run could not be confirmed gone. The run is not over: its
 // receipt must be kept and no completion sent, so its outcome stays unknown until a later sweep
 // confirms the unit empty.
@@ -507,11 +547,10 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	var wg sync.WaitGroup
 	pump := func(r io.Reader, prefix string) {
 		defer wg.Done()
-		sc := bufio.NewScanner(r)
-		sc.Buffer(make([]byte, 64<<10), 16<<20)
-		for sc.Scan() {
-			sink(prefix + sc.Text())
-		}
+		pumpLines(r, maxOutputLine, func(line string) { sink(prefix + line) }, func(n int) {
+			// Said on the run's stderr stream, so it shows in the raw log beside where the line was.
+			sink(fmt.Sprintf("[daemon] an output line of more than %d bytes (%d read) was left out; the rest of the output is kept", maxOutputLine, n))
+		})
 	}
 	wg.Add(2)
 	go pump(stdout, "")

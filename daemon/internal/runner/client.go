@@ -116,10 +116,35 @@ func statusError(path string, resp *http.Response) error {
 	return fmt.Errorf("POST %s: HTTP %d: %s", path, resp.StatusCode, strings.TrimSpace(string(msg)))
 }
 
+// ClaimProtocol is the version of the claim exchange this daemon speaks: the Job it can read. The
+// control plane refuses a claim from a daemon whose version is older than the jobs it hands out, so
+// an API ahead of the daemon is explained rather than every run stalling (review DMN-4). It goes up
+// with the control plane's CLAIM_PROTOCOL (services/api/src/work.ts).
+const ClaimProtocol = 1
+
+// UndecodableJobError is a job the control plane handed out that this daemon could not read. RunID
+// and ClaimToken are set when they could still be read, so the run can be failed with the reason at
+// once instead of waiting for its lease to lapse.
+type UndecodableJobError struct {
+	RunID, ClaimToken string
+	Err               error
+}
+
+func (e *UndecodableJobError) Error() string { return "decode job: " + e.Err.Error() }
+func (e *UndecodableJobError) Unwrap() error { return e.Err }
+
+// OutdatedError is the control plane's refusal of a claim from a daemon older than it: its message
+// says what to do.
+type OutdatedError struct{ Message string }
+
+func (e *OutdatedError) Error() string { return e.Message }
+
 // ClaimRequest is the body of POST /runner/claim: the runtimes ready for work, the probe result
 // for every runtime found, and the longest a run lasts in this daemon (its timeout plus the graceful
 // stop ladder), from which the control plane sizes budget reservations.
 type ClaimRequest struct {
+	// ClaimProtocol is the claim exchange version this daemon speaks.
+	ClaimProtocol      int                 `json:"claim_protocol"`
 	SupportsCheckouts  bool                `json:"supports_checkouts"`
 	Runtimes           []string            `json:"runtimes"`
 	RuntimeStatus      []RuntimeStatus     `json:"runtime_status,omitempty"`
@@ -144,7 +169,7 @@ func (c *Client) ClaimWithUsage(ctx context.Context, runtimes []string, status [
 	if runtimes == nil {
 		runtimes = []string{}
 	}
-	req := ClaimRequest{SupportsCheckouts: checkoutCustodySupported(), Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report, UsageLimits: usage}
+	req := ClaimRequest{ClaimProtocol: ClaimProtocol, SupportsCheckouts: checkoutCustodySupported(), Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report, UsageLimits: usage}
 	if len(updates) > 0 {
 		list := append([]AgentUpdate{}, updates[0].List...)
 		req.AgentUpdates = &list
@@ -159,11 +184,37 @@ func (c *Client) ClaimWithUsage(ctx context.Context, runtimes []string, status [
 	case http.StatusNoContent:
 		return nil, ErrNoWork
 	case http.StatusOK, http.StatusCreated:
+		const limit = 150 << 20
+		raw, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+		if err != nil {
+			return nil, fmt.Errorf("read job: %w", err)
+		}
 		var job Job
-		if err := wire.Decode(resp.Body, "Job.json", 150<<20, &job); err != nil {
-			return nil, fmt.Errorf("decode job: %w", err)
+		if err := wire.Decode(bytes.NewReader(raw), "Job.json", limit, &job); err != nil {
+			// The run was handed to this daemon: say which, when it can still be read, so it fails
+			// with this reason now.
+			var ids struct {
+				Run struct {
+					ID string `json:"id"`
+				} `json:"run"`
+				Claim struct {
+					Token string `json:"token"`
+				} `json:"claim"`
+			}
+			_ = json.Unmarshal(raw, &ids)
+			return nil, &UndecodableJobError{RunID: ids.Run.ID, ClaimToken: ids.Claim.Token, Err: err}
 		}
 		return &job, nil
+	case http.StatusConflict:
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		var r struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(msg, &r) == nil && r.Code == "daemon-outdated" && r.Message != "" {
+			return nil, &OutdatedError{Message: r.Message}
+		}
+		return nil, fmt.Errorf("POST /runner/claim: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(msg)))
 	default:
 		return nil, statusError("/runner/claim", resp)
 	}
@@ -237,8 +288,21 @@ func (c *Client) EnrollSigningKey(ctx context.Context, publicKey string) (string
 }
 
 func (c *Client) Evidence(ctx context.Context, r SpawnReceipt) (EvidenceReply, error) {
+	return c.EvidenceOf(ctx, r, ObservationProcessGone)
+}
+
+// What a restarted daemon observed of a run left by an earlier one.
+const (
+	// ObservationProcessGone: every process of the run it could see is gone.
+	ObservationProcessGone = "process-gone"
+	// ObservationProcessesRemain: processes of the run are still running and would not stop.
+	ObservationProcessesRemain = "processes-remain"
+)
+
+// EvidenceOf is Evidence with the observation named.
+func (c *Client) EvidenceOf(ctx context.Context, r SpawnReceipt, observation string) (EvidenceReply, error) {
 	path := "/runner/runs/" + r.RunID + "/evidence"
-	body := map[string]any{"claim_token": r.ClaimToken, "receipt": r.Wire(), "observation": "process-gone"}
+	body := map[string]any{"claim_token": r.ClaimToken, "receipt": r.Wire(), "observation": observation}
 	resp, err := c.post(ctx, path, body, 30*time.Second)
 	if err != nil {
 		return EvidenceReply{}, err

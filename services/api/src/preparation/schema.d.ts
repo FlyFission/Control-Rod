@@ -8449,6 +8449,12 @@ export interface operations {
                 "application/json": {
                     /** @description Runtimes ready for work. The control plane picks only from these. */
                     runtimes: string[];
+                    /**
+                     * Format: int32
+                     * @description The claim exchange version the daemon speaks: the Job it can read. Absent means 1. The control
+                     *     plane refuses a daemon older than the jobs it hands out (409 daemon-outdated) and says what to do.
+                     */
+                    claim_protocol?: number;
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
                     /** @description Required to claim an author run with a checkout binding; omitted means unsupported. */
                     supports_checkouts?: boolean;
@@ -8803,8 +8809,11 @@ export interface operations {
                 "application/json": {
                     claim_token: string;
                     receipt: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
-                    /** @enum {string} */
-                    observation: "process-gone";
+                    /**
+                     * @description process-gone: the run's processes are gone. processes-remain: some are still running and would not stop.
+                     * @enum {string}
+                     */
+                    observation: "process-gone" | "processes-remain";
                 };
             };
         };

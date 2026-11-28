@@ -429,7 +429,7 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 
 	var execErr error
 	if cmd == nil {
-		execErr = copyRunOutputs(a, ws, buf)
+		execErr = copyRunOutputs(runCtx, a, job.Run, ws, buf)
 	} else {
 		container := DetectContainer(cfg.Getenv)
 		if cfg.Container != nil {
@@ -638,6 +638,9 @@ func populateVerdict(res *CheckResult, raw []byte) error {
 func resolveCheckerRuntime(ctx context.Context, cfg CheckConfig, authorID string) (string, RuntimeStatus, error) {
 	if strings.TrimSpace(cfg.CheckerRuntime) != "" {
 		checkerID := RuntimeFor(strings.TrimSpace(cfg.CheckerRuntime))
+		if IsPractice(checkerID) {
+			return "", RuntimeStatus{}, fmt.Errorf("%w: the practice checker works only on Control Rod's practice project, never on a real change", ErrCheckUsage)
+		}
 		if ok, reason := DistinctFamily(authorID, checkerID); !ok {
 			return "", RuntimeStatus{}, fmt.Errorf("%w: %s", ErrCheckUsage, reason)
 		}
@@ -668,6 +671,10 @@ func resolveCheckerRuntime(ctx context.Context, cfg CheckConfig, authorID string
 	avail := Detect(cfg.LookPath, cfg.Getenv)
 	var reasons []string
 	for _, candidate := range avail {
+		if IsPractice(candidate) {
+			// Never a checker of real work: it only knows the practice project's sample.
+			continue
+		}
 		ok, reason := DistinctFamily(authorID, candidate)
 		if !ok {
 			reasons = append(reasons, reason)

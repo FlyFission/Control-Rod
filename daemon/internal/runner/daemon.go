@@ -977,9 +977,14 @@ func (b *logBuffer) receiptSent(r *OwnershipReceipt) {
 	}
 }
 
-// copyRunOutputs copies deliverables when Command returned no process. A runtime that
-// does not implement OutputCopier is an error; the fake runtime is the copier.
-func copyRunOutputs(a Adapter, ws *Workspace, buf *logBuffer) error {
+// copyRunOutputs fills out/ when Command returned no process: a practice runtime does its role
+// here, and the fake runtime copies. Any other runtime with no process is an error.
+func copyRunOutputs(ctx context.Context, a Adapter, run Run, ws *Workspace, buf *logBuffer) error {
+	if p, ok := a.(PracticeRunner); ok {
+		err := p.RunPractice(ctx, run, ws, buf.addEvents)
+		buf.add(`{"type":"result","subtype":"practice"}`)
+		return err
+	}
 	copier, ok := a.(OutputCopier)
 	if !ok {
 		return fmt.Errorf("runtime %q returned no process and has no output copier", a.ID())
@@ -1806,7 +1811,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 	}
 	if err == nil {
 		if cmd == nil {
-			err = copyRunOutputs(a, ws, buf)
+			err = copyRunOutputs(runCtx, a, job.Run, ws, buf)
 		} else {
 			unit := UnitName(d.ns, job.Run.ID, job.Run.Generation)
 			d.container.Wrap(cmd, unit)

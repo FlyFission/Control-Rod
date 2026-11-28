@@ -1,0 +1,53 @@
+{
+  "acceptance_criteria": [
+    "README.md has a section headed Getting started",
+    "The section gives the command that runs the program: python3 hello.py",
+    "Everything that was in README.md before is still there"
+  ],
+  "agent_assignment": [
+    {
+      "agent_baseline": "author",
+      "baseline_revision": 0,
+      "role": "general-author"
+    }
+  ],
+  "data_lane": "public",
+  "deliverables": [
+    {
+      "format": [
+        "md"
+      ],
+      "id": "README-1",
+      "type": "document"
+    }
+  ],
+  "depends_on": [],
+  "design_inputs": [
+    {
+      "doc": "attachment:README.md",
+      "revision": "0",
+      "use": "the sample project's README as it is now"
+    }
+  ],
+  "discipline": "software",
+  "id": "README",
+  "mode": "software",
+  "objective": "Add a short Getting started section to the sample project's README.md that says how to run the program, and change nothing else.",
+  "project": "practice",
+  "revision": 0,
+  "rigor_mode": "quick",
+  "schema_version": "0.1.0",
+  "status": "draft",
+  "title": "Add a Getting started section to the sample README",
+  "verification": {
+    "method": "agent-pre-check",
+    "required_custody": {
+      "decisive_evidence_generated_by": "verifier",
+      "preparer_may_present": false
+    },
+    "verifier": "checker",
+    "verifier_receives": [
+      "deliverables"
+    ]
+  }
+}

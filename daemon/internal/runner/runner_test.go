@@ -633,7 +633,7 @@ func TestTokenFromFileAndChildEnv(t *testing.T) {
 	if !slices.Equal(env, []string{"PATH=/bin", "HOME=/h"}) {
 		t.Errorf("child env %v", env)
 	}
-	if got := Detect(func(string) (string, error) { return "", errors.New("no") }, get); len(got) != 0 {
+	if got := Detect(func(string) (string, error) { return "", errors.New("no") }, get); slices.Contains(got, RuntimeFake) {
 		t.Errorf("fake offered without CONTROLROD_ALLOW_FAKE: %v", got)
 	}
 }

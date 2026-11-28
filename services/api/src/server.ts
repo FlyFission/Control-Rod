@@ -11,6 +11,7 @@ import { closeDb, openDb } from "./db/index.js";
 import { localRoleSecrets, privateDir, privateFile } from "./db/roles.js";
 import { loadTrustAnchors } from "./attestation.js";
 import { PgLogTail, pgStartFailure } from "./pg-start-error.js";
+import { choosePgPort } from "./pg-port.js";
 import { checkAtStart, updateNoticeFor } from "./update-notice.js";
 
 /**
@@ -42,8 +43,16 @@ if (Number.isInteger(launcher) && launcher > 1) {
 let dbUrl = process.env.CONTROLROD_DATABASE_URL ?? "";
 if (!dbUrl) {
   const pgPassword = privateFile(join(home, "pg.password"), () => randomBytes(24).toString("hex"));
-  const pgPort = Number(process.env.CONTROLROD_PG_PORT ?? 7301);
   const pgDir = join(home, "pg");
+  let pgPort: number;
+  try {
+    const choice = choosePgPort({ home, webPort: port, env: process.env.CONTROLROD_PG_PORT, dataExists: existsSync(join(pgDir, "PG_VERSION")) });
+    pgPort = choice.port;
+    if (choice.moved) console.log(choice.moved);
+  } catch (error) {
+    console.error(`\n${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
   // Kept so a failed start can say what PostgreSQL said, not just that it stopped.
   const pgLog = new PgLogTail();
   pgServer = new EmbeddedPostgres({

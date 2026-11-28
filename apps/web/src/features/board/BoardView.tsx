@@ -1,4 +1,4 @@
-import { CLI_ECOSYSTEMS } from "../../lib/runtimes.js";
+import { CLI_ECOSYSTEMS, runnableHere, unavailableNote } from "../../lib/runtimes.js";
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AutonomyOffer } from "./AutonomyOffer.js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,7 +33,7 @@ import {
   useProjects,
   WorkspaceProjectUser,
 } from "../../lib/projects.js";
-import { useAgents } from "../../lib/useAgents.js";
+import { useAgentPlatform, useAgents } from "../../lib/useAgents.js";
 import { FirstRunGuide, type GuideState, guideOpen, useGuideHidden } from "./FirstRunGuide.js";
 import { ALL_SIGNED, cardFlowLine, projectSteps } from "../../lib/signing.js";
 import { sessionGeneration, stillCurrent } from "../../lib/session.js";
@@ -245,6 +245,7 @@ export function BoardView() {
 
   // The guided first run: each step is ticked from what the server and the person's settings say.
   const agents = useAgents();
+  const platform = useAgentPlatform();
   const projects = useProjects();
   const [guideHidden, hideGuide] = useGuideHidden(data.me);
   // The signing settings a new card here would follow: the active project's, or every step signed
@@ -524,8 +525,9 @@ export function BoardView() {
                   onChange={(e) => handleLaneAgentChange(laneAgentCol, e.target.value)}
                 >
                   {COLUMN_AGENTS.map((a) => (
-                    <option key={a.id} value={a.id}>
+                    <option key={a.id} value={a.id} disabled={a.id !== laneAgentValue && !runnableHere(a, platform)}>
                       {a.short}
+                      {unavailableNote(a, platform)}
                     </option>
                   ))}
                 </select>
@@ -1022,5 +1024,6 @@ const AGENT_PICK_KEYS = new Set(["laneAgents", "author", "checker"]);
 /** Every agent Control Rod can run, by the short name the column picker shows. */
 const COLUMN_AGENTS = CLI_ECOSYSTEMS.filter((e) => e.runnable).map((e) => ({
   id: e.id,
+  runnable: e.runnable,
   short: e.id === "agy" ? "Antigravity" : e.label.replace(/ (Code|CLI)( \(.*\))?$/, ""),
 }));

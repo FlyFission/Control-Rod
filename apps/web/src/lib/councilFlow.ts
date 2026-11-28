@@ -1,5 +1,5 @@
 import type { CheckIn, SigningSteps } from "../api/types.js";
-import type { AgentRow } from "./agents.js";
+import { type AgentRow, seatable } from "./agents.js";
 import { ALL_SIGNED } from "./signing.js";
 
 /**
@@ -101,7 +101,8 @@ export function councilOf(rows: AgentRow[]): Council {
     // Any other seated agent can take the author's seat when it comes back, ready or not yet.
     fallbacks: seated.filter((r) => r !== author).map(seatOf),
     waiting: seated.filter((r) => r.state !== "ready").map(seatOf),
-    benched: rows.filter((r) => r.info.runnable && !r.seated).map(seatOf),
+    // Benched is the person's choice; an agent that is not installed, or not available here, is not at the table at all.
+    benched: rows.filter((r) => seatable(r) && !r.seated).map(seatOf),
     later: rows.filter((r) => !r.info.runnable).map(seatOf),
   };
 }

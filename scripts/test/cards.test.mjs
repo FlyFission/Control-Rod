@@ -55,6 +55,12 @@ test("names the projects when the one asked for does not exist, and refuses empt
   await assert.rejects(addCard(call, "  "), CardError);
 });
 
+test("asks which project when there is more than one and none was named", async () => {
+  const { call, calls } = app({ "GET /workspace/projects": [200, projects] });
+  await assert.rejects(addCard(call, "Fix the login typo"), /more than one project; say which with --project\. Projects: Sandbox, Notes\./);
+  assert.equal(calls.some((c) => c.method === "POST"), false);
+});
+
 test("lists new captures and cards by column", async () => {
   const { call } = app({
     "GET /workspace/projects": [200, projects],

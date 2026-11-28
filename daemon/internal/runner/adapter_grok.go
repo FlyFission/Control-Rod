@@ -44,6 +44,9 @@ func (grokAdapter) LoginSessionDirs() []string   { return []string{"sessions", "
 
 // ConfinementGap is empty on macOS, the one platform the bridge's Seatbelt profiles were measured
 // on. Elsewhere the runtime stays listed and is never started.
+// MacOSOnly: see macOSOnly.
+func (grokAdapter) MacOSOnly() {}
+
 func (grokAdapter) ConfinementGap() string {
 	if runtime.GOOS == "darwin" {
 		return ""

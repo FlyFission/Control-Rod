@@ -71,6 +71,8 @@ export async function addCard(call, text, { project: wanted, rand } = {}) {
   const title = text.trim();
   if (!title) throw new CardError("Say what needs doing, for example: controlrod card add \"Fix the login typo\"");
   const projects = (await call("GET", "/workspace/projects")) ?? [];
+  if (!wanted && projects.length > 1)
+    throw new CardError(`There is more than one project; say which with --project. Projects: ${projects.map((p) => p.name).join(", ")}.`);
   const project = pickProject(projects, wanted);
   const mode = project?.mode ?? "software";
   const prefix = `[mode:${mode}]${project ? ` [project-id:${project.id}]${project.repo ? ` [repo:${project.repo}]` : ""}` : ""}\n\n`;

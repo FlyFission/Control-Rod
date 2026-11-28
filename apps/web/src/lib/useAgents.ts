@@ -56,3 +56,23 @@ export function setupRequest(changed: Record<string, boolean>, checkIn: CheckIn 
 export function seatsOf(rows: AgentRow[]): Record<AgentId, boolean> {
   return Object.fromEntries(rows.map((r) => [r.info.id, r.seated])) as Record<AgentId, boolean>;
 }
+
+/** The platform the daemon reported ("darwin", "linux", "wsl2"), or undefined until it has reported. */
+export function useAgentPlatform(): string | undefined {
+  const subs = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions });
+  return subs.data?.reported ? subs.data.platform : undefined;
+}
+
+/**
+ * True when Control Rod has said which agents it found and none of them can take work: no seated agent
+ * is ready, and no other runtime (the test-only fake) is ready either. False while that is loading or
+ * could not be read, so a card never claims "no agent is ready" on a guess.
+ */
+export function useNoAgentReady(): boolean {
+  const agents = useAgents();
+  const runtimes = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
+  if (agents.loading || agents.error) return false;
+  const known = new Set<string>(AGENTS.map((a) => a.id));
+  const otherReady = (runtimes.data?.runtimes ?? []).some((r) => r.ready && !known.has(r.runtime));
+  return !otherReady && !agents.rows.some((r) => r.seated && r.state === "ready");
+}

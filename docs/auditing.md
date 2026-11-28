@@ -41,11 +41,24 @@ A bundle that holds:
 ```text
 OK    WP-0001: 6 entries (3, 4, 9, 10, 11, 14) recompute and link through the chain from entry 1 to entry 17.
       Sealed by seal seal_… at entry 15 on 2026-11-21T16:00:00.000Z (Weekly seal); its passkey signature checks against the key in the bundle.
-      Still to confirm outside this file: that the key belongs to signer mem_….
+      Still to confirm outside this file: that the key belongs to signer mem_…. Its SHA-256 is 3f9a…; to check it against a key you already trust, run again with --trusted-key <that key's SHA-256>.
       Local chain, not witnessed: nothing outside this installation shows that later entries were not cut.
 ```
 
 A bundle that does not hold names the first problem it finds, for example `FAIL  WP-0001: event 9 does not match its digest.`, and the command exits with status 1. It exits with 2 for a file that isn't a bundle.
+
+### Checking against a key you already trust
+
+On its own, the command checks the seal against the key carried inside the file. That shows the file is whole and was sealed by whoever holds that key. It does not show whose key it is: someone could rebuild the same entries and seal them with a key of their own, and the file would still check.
+
+If you already trust a signer's key, pass its SHA-256:
+
+```sh
+pnpm cr verify --trusted-key 3f9a…e1 WP-0001-inclusion-proof.json
+pnpm cr verify --trusted-key mem_…=3f9a…e1 WP-0001-inclusion-proof.json   # tie the key to one signer
+```
+
+Get that SHA-256 from somewhere other than the file. For example, the Member runs `pnpm cr verify` on a bundle exported from their own installation and sends you the SHA-256 it prints, over a channel you already trust. With `--trusted-key`, the command fails with status 1 when the seal's key is a different key, when you tied the key to another signer, or when no seal covers the entries. You can give `--trusted-key` more than once.
 ## Checking a change record's evidence
 
 `pnpm cr verify <record-directory>` reads `evidence/manifest.json` when the argument is a change-record directory rather than an inclusion proof. Git keeps the digest and the manifest row. The payload may still be in the record, or in the store the manifest names. `CONTROLROD_EVIDENCE_STORE`, when set, is a local directory of files named by their SHA-256.
@@ -58,7 +71,8 @@ Missing payload bytes print `INCOMPLETE`, name the manifest row, and name the st
 Keep these limits in your findings.
 
 - **Nothing outside the installation witnesses the chain.** Someone with control of the database could cut off entries after the last seal, or rebuild the whole chain from scratch before anyone sealed it. The outside-witnessed transparency log ([ADR 0009](adr/0009-evidence-format.md)) is decided but not built.
-- **The bundle carries the signer's key but does not prove whose key it is.** Confirm that the key belongs to the named Member from somewhere outside the bundle, such as the Member's own passkey enrollment.
+- **The bundle carries the signer's key but does not prove whose key it is.** Confirm that the key belongs to the named Member from somewhere outside the bundle, and check the bundle against it with `--trusted-key`.
+- **The offline check does not re-check each decision's own passkey assertion.** It checks the seal, which covers the decisions as recorded.
 - **An unsealed bundle authenticates nothing.** It shows the entries are consistent with each other, up to a head that is only stated.
 - **An export trusts each event's recorded time to place it in the window.** Moving an event's time breaks its digest, so the check catches it. But the times come from the control plane's own clock.
 - **There is no retention schedule.** How long records are kept is up to you.

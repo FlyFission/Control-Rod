@@ -11,7 +11,7 @@ import { closeDb, openDb } from "./db/index.js";
 import { localRoleSecrets, privateDir, privateFile } from "./db/roles.js";
 import { loadTrustAnchors } from "./attestation.js";
 import { PgLogTail, pgStartFailure } from "./pg-start-error.js";
-import { updateNoticeFor } from "./update-notice.js";
+import { checkAtStart, updateNoticeFor } from "./update-notice.js";
 
 /**
  * Starts Control Rod on this machine: an embedded Postgres in ~/.controlrod/pg, the control
@@ -148,5 +148,5 @@ process.on("SIGTERM", stop);
 onLauncherGone = stop;
 
 await app.listen({ host: "127.0.0.1", port });
-void updateNotice?.check();
+void checkAtStart(updateNotice);
 console.log(`Control Rod is running at ${origin}`);

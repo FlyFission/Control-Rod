@@ -9,11 +9,13 @@
 
 [Why Control Rod](#why-builders-use-control-rod) · [30s Standalone Check](#try-the-blind-checker-in-30-seconds) · [Empirical Evidence](#the-evidence-behind-it) · [Council & Workflows](#the-council--dynamic-workflows) · [Workspace Tour](#inside-the-control-room) · [Compare](#how-control-rod-compares) · [Install](#install-the-full-workspace)
 
-**Control Rod** is a free, open-source multi-agent harness that runs on your own machine. Bring the command-line subscriptions you already pay for (**Claude Code** and **Codex** today, with zero API keys and zero cloud account), drop in what you want built, and let one agent work inside an isolated git worktree while a **different vendor's agent** checks only the diff and test evidence behind a blind wall. A deterministic **Rust/WASM kernel** decides every state transition, your passkey signs at release and at acceptance, and each accepted change exports a tamper-evident **PR receipt** anyone can verify offline.
+**Control Rod** is a free, open-source multi-agent harness that runs on your own machine. Bring the command-line subscriptions you already pay for (**Claude Code** and **Codex** today, with zero API keys and zero cloud account), drop in what you want built, and let one agent work inside an isolated git worktree while a **different vendor's agent** checks only the diff and test evidence behind a blind wall. A deterministic **Rust/WASM kernel** decides every state transition, and by default your passkey signs every acceptance before the work is handed over (you can also sign each release, or choose to let routine work through on its own). Each accepted change exports a tamper-evident **PR receipt** anyone can check offline: on its own, that the record is whole and sealed with the key it carries; with `--trusted-key`, that the seal was made with a key they already trust.
 
-![The Control Rod Board: cards move from Ready through Agent working, Being checked, Needs a reviewer, and Ready to accept to Accepted, with warm amber reserved only for cards waiting on you.](docs/assets/readme/app/board.png)
+![The Control Rod Board with sample data: cards move from Ready through Agent working, Being checked, Needs a reviewer, and Ready to accept to Accepted, with warm amber reserved only for cards waiting on you.](docs/assets/readme/app/board.png)
 
-![Control Rod multi-agent council loop: your passkey release feeds an isolated author worktree, crosses a blind wall that strips author reasoning, enters a cross-vendor blind checker, and seals an offline-verifiable PR receipt under Rust/WASM kernel custody.](docs/assets/readme/council-loop.svg)
+*The Board, shown with sample data.*
+
+![Control Rod multi-agent council loop: your released brief feeds an isolated author worktree, crosses a blind wall that strips author reasoning, enters a cross-vendor blind checker, and seals an offline-verifiable PR receipt under Rust/WASM kernel custody.](docs/assets/readme/council-loop.svg)
 
 > **Pre-alpha, built in the open.** Works end to end on one machine for one person. Public wording is linted by script for unqualified claims, and every research figure is read from recorded inputs. Read [what works today and what is stubbed](docs/status.md), or explore the [200-perspective front-door review](docs/research/outside-perspectives-2026-11/README.md) (a scripted rubric over modeled personas, not real user interviews).
 
@@ -25,8 +27,8 @@
 - **Blind cross-vendor verification on by default.** Every deliverable is checked by an agent from a different vendor family before it reaches your Inbox. Author prompts, chain-of-thought, and self-justification are stripped at the blind wall so the author cannot talk the checker into agreeing. If you only have one vendor installed, you can write a reason and sign an explicit override on the record.
 - **Dynamic council routing & logged stand-in failover.** View your active council as a live block flow diagram or decision matrix (`/workflow`). When an author CLI is signed out or missing at dispatch, a seated stand-in can take the author role on the record (`Fallback: ran as …`), while checker seats never fail over to shop for a pass.
 - **Per-card skill workflows (`Superpowers`, `Matt Pocock`, `Nuclear`).** Run a card on the plain Playbook, Jesse Vincent's **Superpowers**, **Matt Pocock's** skill stages, or their **Pocock Superpowers** hybrid—generated from pinned MIT commits and SHA-256 locked—paired independently with **Light** or **Nuclear** context depth.
-- **You choose where you step in.** Each project's settings say what needs your passkey (Touch ID, Windows Hello, or a hardware security key): nothing routine (*Light*, the default, where a card releases itself, an agent-checked pass is accepted on its own and the work opens as a draft pull request), accepts only (*Balanced*), or every step (*Everything*). Safety work, restricted lanes and Nuclear-grade projects always ask. **SCRAM** stops everything with one press, and restarting after it is always signed.
-- **A shareable PR receipt anyone can verify offline.** Export a provenance receipt (`pnpm cr receipt`) and check it against its sealed inclusion proof anywhere, without a server, via `pnpm cr verify`—or run the standalone blind checker on any git branch in 30 seconds.
+- **You choose where you step in.** Each project's settings say what needs your passkey (Touch ID, Windows Hello, or a hardware security key). *Balanced* is the default for new projects: a card starts on its own once its plan is drafted, and you sign each accept before the work is handed over. *Everything* signs every step. *Light* is there if you choose it: a card starts on its own, a pass from the checker is accepted on its own, and the work opens as a draft pull request, all without your passkey. A project with no saved settings asks at every step. Safety work, restricted lanes and Nuclear-grade projects always ask. **SCRAM** stops everything with one press, and restarting after it is always signed.
+- **A shareable PR receipt anyone can check offline.** Export a provenance receipt (`pnpm cr receipt`) and check it against its sealed inclusion proof anywhere, without a server, via `pnpm cr verify`. On its own, that shows the record is whole and was sealed with the key the file carries. Add `--trusted-key <sha256>` with the signer's key from a source you trust, and it also shows the seal is theirs ([how](docs/auditing.md#checking-against-a-key-you-already-trust)). Or run the standalone blind checker on any git branch in 30 seconds.
 
 ---
 
@@ -75,7 +77,9 @@ Control Rod's architecture—**one locked brief**, **a blind cross-vendor checke
 
 Seat the CLIs on your machine once on **Setup**; Control Rod shows your exact routing as both a **Block Flow Diagram** and a **Decision Matrix**:
 
-![Your workflow in Control Rod: Claude Code plans and writes in an isolated worktree, Codex steps in as stand-in author if Claude is signed out, Codex checks Claude's work blind, and passkey gates hold release and acceptance.](docs/assets/readme/app/workflow.png)
+![Your workflow in Control Rod: Claude Code plans and writes in an isolated worktree, Codex steps in as stand-in author if Claude is signed out, Codex checks Claude's work blind, and passkey gates hold release and acceptance, shown with sample data and every step signed.](docs/assets/readme/app/workflow.png)
+
+*The workflow view, shown with sample data.*
 
 | Seat | Vendor family | Status on `main` today |
 | --- | --- | --- |
@@ -96,19 +100,25 @@ Seat the CLIs on your machine once on **Setup**; Control Rod shows your exact ro
 
 Arrange movable console instruments showing your **5-hour and 7-day subscription windows** (read from CLI session logs and run streams—never by reading login tokens; optional [CodexBar](https://github.com/steipete/CodexBar) integration covers 12+ external tools) alongside **Is it earning its place?** (first-pass acceptances and findings caught before your review).
 
-![The Control Room: Claude Code and Codex 5-hour and 7-day reserve meters with pace markers above the work metrics module.](docs/assets/readme/app/control-room.png)
+![The Control Room with sample data: Claude Code and Codex 5-hour and 7-day reserve meters with pace markers above the work metrics module.](docs/assets/readme/app/control-room.png)
+
+*The Control Room, shown with sample data.*
 
 ### 2. Inbox & passkey sign-off (`/inbox`)
 
 Items sort **riskiest first**: security holds, lost leases, checker disputes, then gates by consequence. Signing binds the exact package revision, deliverable SHA-256 digest, and blind pre-check verdict (`Accept`, `Accept with findings`, `Return with direction`, or `Reject`).
 
-![The Inbox open on WP-0042 Fix OAuth PKCE state validation under the Superpowers workflow, showing SHA-256 digest binding and passkey decision buttons.](docs/assets/readme/app/inbox.png)
+![The Inbox with sample data, open on WP-0042 Fix OAuth PKCE state validation under the Superpowers workflow, showing SHA-256 digest binding and passkey decision buttons.](docs/assets/readme/app/inbox.png)
+
+*The Inbox, shown with sample data.*
 
 ### 3. The Plant & guarded SCRAM (`/plant`)
 
 Watch 1 to 40 agents across an isometric nuclear facility built to ISA-101 high-performance display rules: calm and dark when healthy, warm amber only where something waits on you. Pulling the guarded **SCRAM** switch halts scoped runs, revokes active preparation grants in the same transaction, drops the reactor's control rods, and quarantines mid-flight outputs with digests until you review them. **Presenting mode** hides spend on shared screens.
 
-![The Plant: four ISA-101 annunciator windows over an isometric reactor core surrounded by lit discipline stations, with a warm beacon in Your office.](docs/assets/readme/app/office.png)
+![The Plant with sample data: four ISA-101 annunciator windows over an isometric reactor core surrounded by lit discipline stations, with a warm beacon in Your office.](docs/assets/readme/app/office.png)
+
+*The Plant, shown with sample data.*
 
 ### 4. Powerhouse second act: Capital Projects & high-consequence deliverables
 
@@ -128,10 +138,10 @@ Switch between **Software**, **Capital Projects**, and **Nuclear-Grade** modes o
 | **5h / 7d subscription gauges** | **Token-free Control Room meters** | Blind until rate-limited | Single vendor only | Dollar estimates |
 | **State transitions** | **Deterministic Rust/WASM kernel** | Unstructured shells | Click-to-apply | Drag card to Done |
 | **Human authority & emergency stop** | **WebAuthn passkey + scoped SCRAM** | `Ctrl+C` (unrecorded) | Local button | Cloud account click |
-| **Offline-verifiable PR receipt** | **`pnpm cr receipt` + `pnpm cr verify`** | None | None | Locked in vendor DB |
+| **Offline-checkable PR receipt** | **`pnpm cr receipt` + `pnpm cr verify` (`--trusted-key` pins the signer's key)** | None | None | Locked in vendor DB |
 | **Per-card skill workflows** | **Playbook, Superpowers, Matt Pocock** | Manual prompts | Editor rules | Custom templates |
 | **Deliverables** | **Code patches + engineering packages** | Code only | Code only | Code / tickets |
-| **License & telemetry** | **Apache-2.0 · zero phone-home** | Mixed (often AGPL) | Proprietary | Source-available / SaaS |
+| **License & telemetry** | **Apache-2.0 · no telemetry; update checks can be turned off** | Mixed (often AGPL) | Proprietary | Source-available / SaaS |
 
 ---
 
@@ -175,6 +185,8 @@ Stuck? See **[docs/getting-started.md](docs/getting-started.md)** for step-by-st
 ## Custody under the hood—and what Control Rod is not
 
 Every state change is decided by pure Rust functions in [`kernel/`](kernel/) compiled to WASM. Agents never hold authority to release their own brief, accept their own patch, weaken base-branch acceptance criteria, or clear a SCRAM. Author runs launch with a native OS sandbox preflight (no unsandboxed fallback) and outbound egress filtering on by default (`CONTROLROD_EGRESS_FILTER`). Known bypass vectors are tracked in [`tests/redteam/catalog.yaml`](tests/redteam/catalog.yaml), where each entry is built toward a failing-closed test (many still pending).
+
+**What Control Rod contacts:** it sends no telemetry. When it starts, the API asks this checkout's git origin (GitHub, for a normal clone) whether main has moved, and the daemon asks the npm registry (or `CONTROLROD_NPM_REGISTRY`) for the newest version of each agent CLI. Set `CONTROLROD_UPDATE_CHECK=0` to turn both off; `controlrod daemon --no-update-check` turns off the daemon's alone. With checks off, **Check again** in Setup and `controlrod agents check` still check when you press or run them. Through `gh`, it contacts GitHub only for what you ask for, such as listing your repositories, opening a pull request for accepted work, and reading that pull request's state. The agent CLIs you sign in to talk to their own vendors as they always do.
 
 **What it is not:** Control Rod is **not** a quality assurance program, a certification, or a substitute for qualified engineering judgment, and the full web app is not yet air-gap ready. Nothing here claims compliance with any standard; if you work under 10 CFR 50 Appendix B, NQA-1, or ISO 9001, **[docs/qa-standards.md](docs/qa-standards.md)** maps how its controls line up with every gap marked plainly.
 

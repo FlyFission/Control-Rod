@@ -76,6 +76,24 @@ enum RunRole {
   technical_preparer: "technical-preparer",
 }
 
+/**
+ * Why a run failed, as the daemon placed it from its own error values, never from agent output.
+ * shutdown: the daemon stopped it while restarting; timeout: it ran past its time limit; lost: the
+ * control plane no longer held it; out-of-contact: the daemon lost contact for a whole lease and
+ * stopped it; stopped: the owner stopped it; breaker: the runaway breaker tripped; unfinished-turn:
+ * the runtime reported a failed result and did not exit; exited: the agent exited with an error status.
+ */
+enum FailureKind {
+  shutdown: "shutdown",
+  timeout: "timeout",
+  lost: "lost",
+  `out-of-contact`: "out-of-contact",
+  stopped: "stopped",
+  breaker: "breaker",
+  `unfinished-turn`: "unfinished-turn",
+  exited: "exited",
+}
+
 enum RunStatus {
   queued: "queued",
   running: "running",
@@ -131,6 +149,8 @@ model Run {
   label?: string;
 
   error?: string;
+  /** Why the run failed, when the daemon could place it. Absent for older runs and errors it could not place. */
+  failure_kind?: FailureKind;
   trace?: ExecutionTrace;
 
   /** While running: when the claim lapses unless the daemon renews it with a log post. */

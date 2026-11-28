@@ -146,6 +146,9 @@ type Completion struct {
 	// "process-group" (the leader and its group are gone; a process that left the group is not
 	// seen) or "none" (no process was started). Absent means no proof at all.
 	Containment string `json:"containment,omitempty"`
+	// FailureKind says why a failed or stopped run ended, placed from the daemon's own error
+	// values (failKind), never from agent output. Empty when it could not be placed.
+	FailureKind string `json:"failure_kind,omitempty"`
 	// Events no log post delivered, indexed from EventsFrom; the completion outbox retries them.
 	Events     []Event `json:"events,omitempty"`
 	EventsFrom int     `json:"events_from"`

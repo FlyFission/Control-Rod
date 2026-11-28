@@ -64,6 +64,10 @@
         "error": {
             "type": "string"
         },
+        "failure_kind": {
+            "$ref": "FailureKind.json",
+            "description": "Why the run failed, when the daemon could place it. Absent for older runs and errors it could not place."
+        },
         "trace": {
             "$ref": "ExecutionTrace.json"
         },

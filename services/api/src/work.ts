@@ -2404,13 +2404,30 @@ async function policySameAgentCheck(c: Tx, pkg: Json): Promise<SigningPolicy | n
 /** The daemon's own words when it stops a run because it is shutting down (daemon/internal/runner errShutdown). */
 const DAEMON_SHUTDOWN = "daemon shutdown";
 
-async function retryFailedRun(c: Tx, cfg: WorkConfig, runId: string): Promise<void> {
+/**
+ * Failure kinds after which an author run gets one more try on its own, with what happened in
+ * words. Each is usually passing: the agent CLI quit with an error status (a dropped connection, a
+ * crash), or the daemon lost contact with the control plane and stopped the run. A timeout, the
+ * runaway breaker, a lost run, a failed result and the owner's stop are not retried: running again
+ * would likely end the same way, or the person chose it. Product default (change record failure-kinds).
+ */
+const AUTHOR_RETRY_KINDS: ReadonlyMap<string, string> = new Map([
+  ["exited", "quit with an error"],
+  ["out-of-contact", "was stopped when the daemon lost contact with Control Rod"],
+]);
+
+async function retryFailedRun(c: Tx, cfg: WorkConfig, runId: string, containment?: string): Promise<void> {
   const row = (await c.query<RunRow>("select * from runs where id = $1", [runId])).rows[0];
   if (!row || row.status !== "failed") return;
   // A check that failed, or any agent run Control Rod stopped itself while restarting (an update):
   // neither is the work's fault, so it runs again once on its own.
-  const shutdown = String(row.body.error ?? "").startsWith(DAEMON_SHUTDOWN);
-  if (row.role !== "pre-check" && !(row.role === "author" && shutdown)) return;
+  const kind: string | undefined = row.body.failure_kind;
+  const shutdown = kind === "shutdown" || String(row.body.error ?? "").startsWith(DAEMON_SHUTDOWN);
+  // An author whose agent failed in a way that is usually passing gets one more try too, but only
+  // when the daemon accounted for the run's processes (its group or scope is gone, or none started).
+  const passing = row.role === "author" && !shutdown && kind !== undefined && AUTHOR_RETRY_KINDS.has(kind)
+    && (containment === "cgroup" || containment === "process-group" || containment === "none");
+  if (row.role !== "pre-check" && !(row.role === "author" && (shutdown || passing))) return;
   // Once per run chain for a failure; every time for a restart, which is never the run's doing.
   if (row.body.requeued_as || row.body.stop_requested_at) return;
   if (!shutdown && ((row.body.generation ?? 1) !== 1 || row.body.requeue_of)) return;
@@ -2434,7 +2451,9 @@ async function retryFailedRun(c: Tx, cfg: WorkConfig, runId: string): Promise<vo
     await reconcileTx(c, cfg, row, "abandoned",
       shutdown
         ? `Control Rod stopped this run itself while restarting and ran it again once, under signing policy ${policy.id} v${policy.version}.`
-        : `Control Rod ran this failed check again once, under signing policy ${policy.id} v${policy.version}; a checker works read-only in its sandbox.`, by);
+        : passing
+          ? `The agent ${AUTHOR_RETRY_KINDS.get(kind!)}, and the daemon found its processes gone, so Control Rod ran it again once, under signing policy ${policy.id} v${policy.version}.`
+          : `Control Rod ran this failed check again once, under signing policy ${policy.id} v${policy.version}; a checker works read-only in its sandbox.`, by);
   }
   const fresh = (await c.query<RunRow>("select * from runs where id = $1", [runId])).rows[0]!;
   try {
@@ -2899,6 +2918,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
   delete finished.lease_expires_at;
   if (body.error) finished.error = String(body.error).slice(0, 2000);
+  // The daemon's own placing of the failure (spec FailureKind), never read from agent output.
+  if (body.failure_kind && body.status !== "succeeded") finished.failure_kind = body.failure_kind;
   if (body.status === "stopped") {
     if (row.body.stop_requested_at) {
       finished.status = "stopped";
@@ -2998,7 +3019,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     else throw new Refusal(409,"unsupported-run-role","Unsupported completion role");
   }
   await recordCheckerAttempt(c, cfg.ajv, { ...row, status: finished.status, body: finished });
-  if (finished.status === "failed") await retryFailedRun(c, cfg, runId);
+  if (finished.status === "failed") await retryFailedRun(c, cfg, runId, body?.containment);
   const receipt = receiptOf(runId, key, finished.status, outputs);
   await c.query("update runs set completion_key = $2, receipt = $3 where id = $1", [runId, key, receipt]);
   return receipt;

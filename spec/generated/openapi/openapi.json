@@ -11202,6 +11202,20 @@
         },
         "description": "Proof of where outputs came from. Recorded by the runner, never by the agent."
       },
+      "ControlRod.Records.FailureKind": {
+        "type": "string",
+        "enum": [
+          "shutdown",
+          "timeout",
+          "lost",
+          "out-of-contact",
+          "stopped",
+          "breaker",
+          "unfinished-turn",
+          "exited"
+        ],
+        "description": "Why a run failed, as the daemon placed it from its own error values, never from agent output.\nshutdown: the daemon stopped it while restarting; timeout: it ran past its time limit; lost: the\ncontrol plane no longer held it; out-of-contact: the daemon lost contact for a whole lease and\nstopped it; stopped: the owner stopped it; breaker: the runaway breaker tripped; unfinished-turn:\nthe runtime reported a failed result and did not exit; exited: the agent exited with an error status."
+      },
       "ControlRod.Records.Finding": {
         "type": "object",
         "required": [
@@ -12145,6 +12159,10 @@
           },
           "error": {
             "type": "string"
+          },
+          "failure_kind": {
+            "$ref": "#/components/schemas/ControlRod.Records.FailureKind",
+            "description": "Why the run failed, when the daemon could place it. Absent for older runs and errors it could not place."
           },
           "trace": {
             "$ref": "#/components/schemas/ControlRod.Records.ExecutionTrace"
@@ -14535,6 +14553,10 @@
               "none"
             ],
             "description": "What proves the run's processes ended: cgroup (its scope is empty), process-group (the\nleader and its group are gone; a process that left the group is not seen) or none (no\nprocess was started). Absent means no proof: a failed or stopped run then keeps an unknown\noutcome."
+          },
+          "failure_kind": {
+            "$ref": "#/components/schemas/ControlRod.Records.FailureKind",
+            "description": "Why a failed or stopped run ended, from the daemon's own error values. Absent when it could not place it."
           },
           "events": {
             "type": "array",

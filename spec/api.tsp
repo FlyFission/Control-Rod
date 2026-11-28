@@ -1789,6 +1789,9 @@ namespace Runner {
      */
     containment?: "cgroup" | "process-group" | "none";
 
+    /** Why a failed or stopped run ended, from the daemon's own error values. Absent when it could not place it. */
+    failure_kind?: ControlRod.Records.FailureKind;
+
     /**
      * Events no log post delivered (the last upload failed), carried by the completion, which the
      * daemon retries until it is recorded. Indexed from events_from like a log batch.

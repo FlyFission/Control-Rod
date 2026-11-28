@@ -736,7 +736,9 @@ func TestClaudeRunsFromAPrivateCopyOutsideLinux(t *testing.T) {
 		{RuntimeGrok, single, "darwin", false},
 		{RuntimeAgy, single, "darwin", false},
 	} {
-		if got := copiesBeforeExec(tc.runtime, tc.a, tc.goos); got != tc.want {
+		a, _ := AdapterFor(tc.runtime)
+		c, _ := a.(ExecCopier)
+		if got := copiesBeforeExec(c, tc.a, tc.goos); got != tc.want {
 			t.Errorf("%s %s root=%q: got %v", tc.runtime, tc.goos, tc.a.Root, got)
 		}
 	}

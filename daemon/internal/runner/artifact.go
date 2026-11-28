@@ -414,10 +414,10 @@ func StageRoot() string {
 // programs can write. The staged copy sits in the daemon's private stage folder (mode 0700,
 // owned by this user) and is hashed again at launch (review DMN-17). On Linux the open, hashed
 // descriptor is what runs, so no copy is needed. Only Claude Code's single-file native build
-// opts in: a runtime that reads files beside its own program (a tree) is already staged whole
-// (Codex), and Antigravity and Grok are fenced by their own program path.
-func copiesBeforeExec(runtimeName string, a RuntimeArtifact, goos string) bool {
-	return goos != "linux" && runtimeName == RuntimeClaude && a.Root == ""
+// opts in (ExecCopier): a runtime that reads files beside its own program (a tree) is already
+// staged whole (Codex), and Antigravity and Grok are fenced by their own program path.
+func copiesBeforeExec(c ExecCopier, a RuntimeArtifact, goos string) bool {
+	return goos != "linux" && c != nil && c.CopiesBeforeExec() && a.Root == ""
 }
 
 // ErrArtifactMismatch means the executable on disk is not the one the run may launch.
@@ -456,15 +456,17 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	// for Claude and Codex that name equals the id.
 	binary := runtimeName
 	var stager ArtifactStager
+	var copier ExecCopier
 	if a, ok := AdapterFor(runtimeName); ok {
 		binary = a.Binary()
 		stager, _ = a.(ArtifactStager)
+		copier, _ = a.(ExecCopier)
 	}
 	got, err := resolveArtifact(binary)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s cannot be found or read: %v", ErrArtifactMismatch, runtimeName, err)
 	}
-	if stager != nil && stager.StagesArtifact() || copiesBeforeExec(runtimeName, got, runtime.GOOS) {
+	if stager != nil && stager.StagesArtifact() || copiesBeforeExec(copier, got, runtime.GOOS) {
 		// Launched from its staged copy, checked below exactly as the install would be.
 		if got, err = StageArtifact(got, StageRoot()); err != nil {
 			return nil, fmt.Errorf("%w: %s cannot be staged outside the home folder: %v", ErrArtifactMismatch, runtimeName, err)

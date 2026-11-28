@@ -717,3 +717,65 @@ func TestCodexCheckerProfileCarriesTheCheckersLimits(t *testing.T) {
 		t.Error("a checker must not extend the writable workspace profile")
 	}
 }
+
+// Outside Linux a runtime starts by its path after it is hashed. Claude Code's single-file
+// build is copied into the private stage folder first, so the bytes that were checked are the
+// bytes that run (review DMN-17). Linux runs the hashed descriptor and needs no copy.
+func TestClaudeRunsFromAPrivateCopyOutsideLinux(t *testing.T) {
+	single := RuntimeArtifact{Path: "/x/claude"}
+	tree := RuntimeArtifact{Path: "/x/bin/codex", Root: "/x"}
+	for _, tc := range []struct {
+		runtime string
+		a       RuntimeArtifact
+		goos    string
+		want    bool
+	}{
+		{RuntimeClaude, single, "darwin", true},
+		{RuntimeClaude, single, "linux", false},
+		{RuntimeClaude, tree, "darwin", false},
+		{RuntimeGrok, single, "darwin", false},
+		{RuntimeAgy, single, "darwin", false},
+	} {
+		if got := copiesBeforeExec(tc.runtime, tc.a, tc.goos); got != tc.want {
+			t.Errorf("%s %s root=%q: got %v", tc.runtime, tc.goos, tc.a.Root, got)
+		}
+	}
+
+	src := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(src, []byte("\xcf\xfa\xed\xfe claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sum, err := fileDigest(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := RuntimeArtifact{Path: src, Digest: Digest{Algorithm: "sha256", Value: sum}}
+	base := filepath.Join(t.TempDir(), "stage")
+	got, err := StageArtifact(a, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Path != filepath.Join(base, sum, "claude") || got.Digest != a.Digest {
+		t.Fatalf("staged %+v", got)
+	}
+	// The install changing after the copy does not reach the copy.
+	if err := os.WriteFile(src, []byte("swapped"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(got.Path); string(b) != "\xcf\xfa\xed\xfe claude" {
+		t.Fatalf("copy is %q", b)
+	}
+	// A stage folder another user made is refused.
+	if os.Getuid() == 0 {
+		theirs := filepath.Join(t.TempDir(), "theirs")
+		if err := os.Mkdir(theirs, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chown(theirs, 54321, 54321); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := StageArtifact(a, theirs); err == nil {
+			t.Fatal("staged into another user's folder")
+		}
+	}
+}

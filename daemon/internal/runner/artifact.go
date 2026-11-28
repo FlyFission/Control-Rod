@@ -408,6 +408,18 @@ func StageRoot() string {
 	return filepath.Join(tmp, fmt.Sprintf("controlrod-runtimes-%d", os.Getuid()))
 }
 
+// copiesBeforeExec reports whether a runtime that is not staged anyway is launched from a staged
+// copy on this platform. Outside Linux the runtime is started by its path after it is hashed, so
+// the bytes that run could be swapped in between at the install path, which the user's other
+// programs can write. The staged copy sits in the daemon's private stage folder (mode 0700,
+// owned by this user) and is hashed again at launch (review DMN-17). On Linux the open, hashed
+// descriptor is what runs, so no copy is needed. Only Claude Code's single-file native build
+// opts in: a runtime that reads files beside its own program (a tree) is already staged whole
+// (Codex), and Antigravity and Grok are fenced by their own program path.
+func copiesBeforeExec(runtimeName string, a RuntimeArtifact, goos string) bool {
+	return goos != "linux" && runtimeName == RuntimeClaude && a.Root == ""
+}
+
 // ErrArtifactMismatch means the executable on disk is not the one the run may launch.
 var ErrArtifactMismatch = errors.New("runtime artifact mismatch")
 
@@ -452,7 +464,7 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s cannot be found or read: %v", ErrArtifactMismatch, runtimeName, err)
 	}
-	if stager != nil && stager.StagesArtifact() {
+	if stager != nil && stager.StagesArtifact() || copiesBeforeExec(runtimeName, got, runtime.GOOS) {
 		// Launched from its staged copy, checked below exactly as the install would be.
 		if got, err = StageArtifact(got, StageRoot()); err != nil {
 			return nil, fmt.Errorf("%w: %s cannot be staged outside the home folder: %v", ErrArtifactMismatch, runtimeName, err)

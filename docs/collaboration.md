@@ -15,7 +15,19 @@ How work moves from an idea to `main`. The rules that cannot bend are in [AGENTS
 
 ## Who reviews what
 
-[CODEOWNERS](../.github/CODEOWNERS) lists the trust surfaces: `policies/`, `tests/redteam/`, `.github/`, `kernel/`, `spec/` and `docs/adr/`. A change there needs a maintainer who did not author it. That includes agent-authored changes: the person who prompted the agent counts as the author. The one exception is [sole-maintainer sign-off](#sole-maintainer-sign-off) below.
+[CODEOWNERS](../.github/CODEOWNERS) lists the trust surfaces, and this list matches it:
+
+- `policies/` and `tests/redteam/`.
+- Everything under `.github/`: workflows, templates and CODEOWNERS.
+- `kernel/`, where the decision functions live, and `services/api/kernel/`, the WebAssembly build of the kernel that the control plane runs. CI rebuilds that build from the Rust source and fails if it differs.
+- `spec/` major versions. CODEOWNERS asks for review on every change under `spec/`.
+- `docs/adr/`.
+- `daemon/internal/runner/`, which starts agents and holds their sandbox.
+- `scripts/`, which sets up, starts and updates Control Rod on a person's machine.
+- `packages/check-action/action.yml`, the check other repositories run in their own CI.
+- `services/api/src/auth.ts`, passkey sign-in.
+
+A change there needs a maintainer who did not author it. That includes agent-authored changes: the person who prompted the agent counts as the author. The one exception is [sole-maintainer sign-off](#sole-maintainer-sign-off) below.
 
 The same rule works as a team habit: with two people building, each reviews the other's pull requests. Neither approves their own.
 

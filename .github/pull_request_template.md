@@ -7,7 +7,7 @@
 ## Trust surfaces touched
 
 - [ ] None
-- [ ] `policies/`, `tests/redteam/`, anything under `.github/`, `spec/` major version, kernel decision functions, or `docs/adr/` (needs a maintainer who did not author this change, or the sole maintainer's recorded yes: see `docs/collaboration.md`)
+- [ ] A path in `.github/CODEOWNERS`: `policies/`, `tests/redteam/`, anything under `.github/`, `spec/` major version, the kernel or its WebAssembly build, `docs/adr/`, `daemon/internal/runner/`, `scripts/`, the check action or `services/api/src/auth.ts` (needs a maintainer who did not author this change, or the sole maintainer's recorded yes: see `docs/collaboration.md`)
 
 ## Evidence
 

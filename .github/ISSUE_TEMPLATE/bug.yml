@@ -38,7 +38,7 @@ body:
     id: trust
     attributes:
       label: Does the fix likely touch a trust surface?
-      description: policies/, tests/redteam/, .github/workflows/, spec/ major versions or kernel decision functions. These need a second maintainer.
+      description: A path in .github/CODEOWNERS, such as policies/, tests/redteam/, .github/, spec/ major versions, the kernel, the daemon's runner, scripts/ or passkey sign-in. These need a maintainer who did not author the change, or the sole maintainer's recorded yes (docs/collaboration.md).
       options:
         - No
         - Yes

@@ -133,14 +133,22 @@ echo '{"type":"result","subtype":"success"}'
 	}
 
 	envText := mustRead(t, filepath.Join(home, "work", "WP-0007", "r2", "author-1-run-egress-author", "out", "env.txt"))
+	// Match whole variable names: YARN_HTTPS_PROXY or GLOBAL_AGENT_NO_PROXY in
+	// the host environment are other variables, not a second HTTPS_PROXY.
+	values := map[string][]string{}
+	for _, line := range strings.Split(envText, "\n") {
+		if k, v, ok := strings.Cut(line, "="); ok {
+			values[k] = append(values[k], v)
+		}
+	}
 	for _, key := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"} {
-		if strings.Count(envText, key+"=") != 1 || !strings.Contains(envText, key+"="+proxyURL) {
+		if got := values[key]; len(got) != 1 || got[0] != proxyURL {
 			t.Fatalf("expected single %s=%s in child env:\n%s", key, proxyURL, envText)
 		}
 	}
-	for _, stripped := range []string{"NO_PROXY=", "no_proxy="} {
-		if strings.Contains(envText, stripped) {
-			t.Fatalf("child env still contains %s:\n%s", stripped, envText)
+	for _, stripped := range []string{"NO_PROXY", "no_proxy"} {
+		if _, ok := values[stripped]; ok {
+			t.Fatalf("child env still contains %s=:\n%s", stripped, envText)
 		}
 	}
 }

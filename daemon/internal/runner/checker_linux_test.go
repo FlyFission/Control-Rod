@@ -77,9 +77,7 @@ func TestCheckerMountFailsClosedWithoutBubblewrap(t *testing.T) {
 }
 
 func TestBubblewrapMountsDeliverablesReadOnly(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal("bubblewrap is not installed; the read-only mount was not run")
-	}
+	requireBwrap(t)
 	ws, _ := prepareCheckerFixture(t)
 	before, err := TreeDigest(ws.Deliverables)
 	if err != nil {
@@ -131,6 +129,7 @@ func TestBubblewrapMountsDeliverablesReadOnly(t *testing.T) {
 }
 
 func TestCheckerMountBindsTheVerifiedDescriptor(t *testing.T) {
+	requireBwrap(t)
 	f, err := os.Open("/bin/sleep")
 	if err != nil {
 		t.Fatal(err)
@@ -161,9 +160,7 @@ func TestCheckerMountBindsTheVerifiedDescriptor(t *testing.T) {
 }
 
 func TestConfirmSandboxSeesTheBubblewrapChild(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	ws, _ := prepareCheckerFixture(t)
 	// /bin/sleep is often a symlink to /usr/bin/sleep. Mounting the descriptor
 	// onto that symlink path does not make the child execute the opened inode.
@@ -205,9 +202,7 @@ func TestConfirmSandboxSeesTheBubblewrapChild(t *testing.T) {
 }
 
 func TestCheckerMountBlocksWritesOutsideScratch(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	ws, _ := prepareCheckerFixture(t)
 	home := os.Getenv("HOME")
 	if home == "" {
@@ -426,9 +421,7 @@ func TestSocketMaskFollowsASymlinkParent(t *testing.T) {
 }
 
 func TestCheckerCannotReachAHostUnixSocket(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	if _, err := exec.LookPath("python3"); err != nil {
 		t.Fatal(err)
 	}
@@ -485,9 +478,7 @@ raise SystemExit(2)
 }
 
 func TestCheckerCannotReachAnAbstractUnixSocket(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	if _, err := exec.LookPath("python3"); err != nil {
 		t.Fatal(err)
 	}
@@ -535,9 +526,7 @@ raise SystemExit(2)
 }
 
 func TestCheckerKeepsSocketpairAndTCP(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	if _, err := exec.LookPath("python3"); err != nil {
 		t.Fatal(err)
 	}
@@ -581,9 +570,7 @@ s.connect(("127.0.0.1", int(sys.argv[1])))
 }
 
 func TestCheckerRejectsX32AndIoUring(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	if _, err := exec.LookPath("python3"); err != nil {
 		t.Fatal(err)
 	}
@@ -623,9 +610,7 @@ raise SystemExit(0)
 }
 
 func TestCheckerRefusesADatagramSocketpair(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	if _, err := exec.LookPath("python3"); err != nil {
 		t.Fatal(err)
 	}
@@ -684,9 +669,7 @@ raise SystemExit(0)
 }
 
 func TestCheckerProcDoesNotReachHostProcesses(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	ws, _ := prepareCheckerFixture(t)
 	marker := filepath.Join("/tmp", fmt.Sprintf("controlrod-proc-marker-%d", os.Getpid()))
 	if err := os.WriteFile(marker, []byte("host-marker\n"), 0o600); err != nil {
@@ -720,6 +703,7 @@ echo "$found" > scratch/evidence/status
 }
 
 func TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath(t *testing.T) {
+	requireBwrap(t)
 	if err := os.MkdirAll(StageRoot(), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -747,6 +731,7 @@ func TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath(t *test
 // The login directory stays read-only; the credential file is bound writable, so a sign-in a
 // checker refreshes reaches the host (main's custody; see four-cli-workspace landing-review L3).
 func TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential(t *testing.T) {
+	requireBwrap(t)
 	for _, tc := range []struct {
 		runtime, env, name string
 	}{
@@ -816,9 +801,7 @@ func TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential(
 }
 
 func TestCheckerCannotRewriteLoginInstructions(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	outside, err := os.MkdirTemp("/var/tmp", "cr-login-")
 	if err != nil {
 		t.Fatal(err)
@@ -931,9 +914,7 @@ printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 }
 
 func TestCheckerSessionSymlinkDoesNotGrantHomeWrites(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	home := t.TempDir()
 	codexDir := filepath.Join(home, ".codex")
 	if err := os.MkdirAll(codexDir, 0o700); err != nil {
@@ -980,9 +961,7 @@ printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 }
 
 func TestPreparedCheckerThroughTheMount(t *testing.T) {
-	if _, err := exec.LookPath("bwrap"); err != nil {
-		t.Fatal(err)
-	}
+	requireBwrap(t)
 	ws, _ := prepareCheckerFixture(t)
 	before, cwd := checkerBaseline(t, ws)
 	criterion := `{"package_id":"WP-0007","package_revision":2,"release_manifest_digest":{"algorithm":"sha256","value":"` + strings.Repeat("ab", 32) + `"},"results":[{"criterion_id":"C1","outcome":"pass","check_results":[{"check_id":"K1","outcome":"pass","evidence_refs":[]}],"finding_refs":[]}]}`
@@ -1012,4 +991,19 @@ func TestPreparedCheckerThroughTheMount(t *testing.T) {
 	if err != nil || string(raw) != "Independent review log" {
 		t.Fatalf("evidence bytes %q %v", raw, err)
 	}
+}
+
+// requireBwrap skips a test that needs bubblewrap when it is not installed, so
+// a contributor's `go test ./...` passes and says what to install. In CI (CI
+// set) or with CONTROLROD_REQUIRE_BWRAP=1 a missing bwrap still fails, so the
+// sandbox tests can never be skipped there by accident.
+func requireBwrap(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("bwrap"); err == nil {
+		return
+	}
+	if os.Getenv("CI") != "" || os.Getenv("CONTROLROD_REQUIRE_BWRAP") == "1" {
+		t.Fatal("bubblewrap is not installed; this test needs it (apt install bubblewrap)")
+	}
+	t.Skip("bubblewrap is not installed; install it (apt install bubblewrap) to run this sandbox test")
 }

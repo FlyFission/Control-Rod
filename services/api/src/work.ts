@@ -30,6 +30,7 @@ import { pullRequestWatcher } from "./pr-watch.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
+import { exhaustedAgents, usageHoldReason } from "./usage-limits.js";
 import { benchedRuntimes, setupView } from "./setup.js";
 import { projectDefaultLane, projectRuntimePrefs } from "./workspace-projects.js";
 import { currentCredential, ownerOf } from "./tenancy.js";
@@ -350,7 +351,7 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
 /** Why a queued run is held, as a code, so the Inbox can route it to whoever may resolve it. */
-type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox" | "usage-limit";
 
 /**
  * Clears a hold whose cause no longer applies, so a stale reason never masks the next one (or
@@ -1519,6 +1520,14 @@ export async function claim(
     // runtime can only make work wait; pickChecker still refuses the author's runtime.
     const benched = await benchedRuntimes(c);
     const runtimes = offered.filter((r) => !benched.has(r));
+    // Agents whose subscription limit is used up, until it resets (change record usage-hold). A run
+    // whose seat names one waits for the reset; a run whose pick was only the default order goes to
+    // an agent that is not used up, when one is offered. `honoured` says the person's seat decided it.
+    const spent = await exhaustedAgents(c);
+    const spareOf = (pick: string | null, honoured: boolean, repick: (left: string[]) => string | null, list: string[]) => {
+      if (!pick || !spent.has(pick) || honoured) return pick;
+      return repick(list.filter((r) => !spent.has(r))) ?? pick;
+    };
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
     let cursor: { at: string; id: string } | null = null;
@@ -1626,6 +1635,9 @@ export async function claim(
               capPrefs.checker?.ecosystem ?? projPrefs?.laneAgents?.["agent-check"] ?? projPrefs?.checker;
             const samePicked = Boolean(preferredChecker) && runtimeName(preferredChecker) === authorRuntime && (await policySameAgentCheck(c, pkg)) !== null;
             runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body), preferredChecker, samePicked);
+            // Another independent agent only: a spent one is never swapped for the author's own.
+            runtime = spareOf(runtime, Boolean(preferredChecker) && runtimeName(preferredChecker) === runtime,
+              (left) => pickChecker(left, authorRuntime, false, preferredChecker, samePicked), offer);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.checker, projPrefs?.checker, projPrefs?.checkerModel);
             }
@@ -1645,11 +1657,21 @@ export async function claim(
             }
             if (row.body.waiting_key === CHECKOUT_RUNTIME_KEY) await releaseHold(c, cfg, row, "sandbox");
             runtime = pickRuntime(authors, preferredAuthor);
+            runtime = spareOf(runtime, Boolean(preferredAuthor) && runtimeName(preferredAuthor) === runtime, (left) => pickRuntime(left), authors);
             if (runtime) {
               model = resolveRunModel(runtime, capPrefs.author, projPrefs?.author, projPrefs?.authorModel);
             }
           }
-          if (!runtime) continue;
+          if (!runtime) {
+            await releaseHold(c, cfg, row, "usage-limit");
+            continue;
+          }
+          const resets = spent.get(runtime);
+          if (resets) {
+            await holdRun(c, cfg, row, pkg.id, usageHoldReason(runtime, resets), "usage-limit", `usage-limit:${runtime}`);
+            continue;
+          }
+          await releaseHold(c, cfg, row, "usage-limit");
           if (row.role === "pre-check") {
             if (!model && countedProvider(runtime)) {
               model = defaultCheckerModel(runtime, needsOf(pkg.body).grade, reportedModels.get(runtime));
@@ -1732,8 +1754,14 @@ export async function claim(
           await holdRun(c, cfg, row, row.package_id, netIntake.held.slice(0, 300), "sandbox", `sandbox:intake:${capLane}`);
           continue;
         }
-        const runtime = pickRuntime(netIntake.offer);
+        const runtime = spareOf(pickRuntime(netIntake.offer), false, (left) => pickRuntime(left), netIntake.offer);
         if (!runtime) continue;
+        const intakeResets = spent.get(runtime);
+        if (intakeResets) {
+          await holdRun(c, cfg, row, row.package_id, usageHoldReason(runtime, intakeResets), "usage-limit", `usage-limit:${runtime}`);
+          continue;
+        }
+        await releaseHold(c, cfg, row, "usage-limit");
         // An intake run whose capture is tagged for a workflow needs that pack, or it fails here.
         if (await blockedByWorkflowPack(c, cfg, row, undefined)) continue;
         const budget = await reserveForRun(c, row, `intake-${runtime}`, ceiling);

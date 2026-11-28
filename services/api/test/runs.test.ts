@@ -1382,3 +1382,67 @@ describe("stranded intake", () => {
     if (again) await asDaemon(`/runner/runs/${again.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
   });
 });
+
+describe("usage limits hold work until they reset (change record usage-hold)", () => {
+  const future = new Date(Date.now() + 3 * 3600_000).toISOString();
+  const past = new Date(Date.now() - 60_000).toISOString();
+  const reading = (provider: string, window: Record<string, unknown>) => ({
+    read_at: new Date().toISOString(),
+    providers: [{ id: provider, source: "cli-log", windows: [window] }],
+  });
+  const claimWith = async (runtimes: string[], usage: unknown): Promise<Job | null> => {
+    const r = await asDaemon("/runner/claim", { runtimes, usage_limits: usage });
+    if (r.statusCode === 204) return null;
+    const job = r.json() as Job;
+    claims.set(job.run.id, job.claim.token);
+    return job;
+  };
+  const authorBody = async (id: string) =>
+    (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'author' order by created_at desc limit 1", [id])).rows[0]!.body;
+  afterAll(async () => { await claimWith([], { read_at: new Date().toISOString(), providers: [] }); });
+
+  it("holds a card whose only agent has used up its limit, says when it resets, and starts it once the reset has passed", async () => {
+    const id = await releasedPackage("SPENT");
+    expect(await claimWith(["codex"], reading("codex", { id: "primary", used_percent: 100, resets_at: future }))).toBeNull();
+    const held = await authorBody(id);
+    expect(held).toMatchObject({ waiting_cause: "usage-limit", waiting_key: "usage-limit:codex" });
+    expect(held.waiting_reason).toBe(`Codex's usage limit is used up. This card starts on its own when it resets, at ${future.slice(11, 16)} UTC on ${future.slice(0, 10)}.`);
+    // The Inbox does not ask the person for anything: it waits on the reset.
+    const inbox = (await asOwner("GET", "/inbox")).json();
+    expect(JSON.stringify(inbox.items)).not.toContain("usage limit is used up");
+    expect(inbox.waiting_on_others).toContainEqual(expect.objectContaining({ waiting_on: "the agent's usage limit to reset", detail: held.waiting_reason }));
+    const job = await claimWith(["codex"], reading("codex", { id: "primary", used_percent: 100, resets_at: past }));
+    expect(job?.run).toMatchObject({ role: "author", package_id: id });
+    expect((await authorBody(id)).waiting_cause).toBeUndefined();
+    await complete(job!, { status: "failed", error: "test done", outputs: [] });
+  });
+
+  it("gives a card with no agent chosen to another agent, and ignores a per-model window", async () => {
+    const id = await releasedPackage("SPARE");
+    const job = await claimWith(["claude", "codex"], reading("claude", { id: "five_hour", used_percent: 40, status: "rejected", resets_at: future }));
+    expect(job?.run).toMatchObject({ role: "author", package_id: id, runtime: { provider: expect.stringMatching(/codex|openai/i) } });
+    await complete(job!, { status: "failed", error: "test done", outputs: [] });
+    const other = await releasedPackage("OPUSONLY");
+    const opus = await claimWith(["claude"], reading("claude", { id: "seven_day_opus", used_percent: 100, status: "rejected", resets_at: future }));
+    expect(opus?.run).toMatchObject({ role: "author", package_id: other });
+    await complete(opus!, { status: "failed", error: "test done", outputs: [] });
+    // A vendor status of allowed outranks a percent that reads full.
+    const allowed = await releasedPackage("ALLOWED");
+    const ok = await claimWith(["codex"], reading("codex", { id: "primary", used_percent: 100, status: "allowed", resets_at: future }));
+    expect(ok?.run).toMatchObject({ role: "author", package_id: allowed });
+    await complete(ok!, { status: "failed", error: "test done", outputs: [] });
+  });
+
+  it("holds a blind check for a spent independent agent, never moving it to the author's own agent", async () => {
+    const id = await releasedPackage("SPENTCHK");
+    const author = await claimWith(["fake"], { read_at: new Date().toISOString(), providers: [] });
+    expect(author?.run).toMatchObject({ role: "author", package_id: id });
+    expect((await complete(author!, { status: "succeeded", outputs: [{ name: "p.md", content_base64: b64("# P") }] })).statusCode).toBeLessThan(300);
+    expect(await claimWith(["fake", "codex"], reading("codex", { id: "secondary", used_percent: 100, resets_at: future }))).toBeNull();
+    const check = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'pre-check' order by created_at desc limit 1", [id])).rows[0]!.body;
+    expect(check).toMatchObject({ waiting_cause: "usage-limit", waiting_key: "usage-limit:codex" });
+    const job = await claimWith(["fake", "codex"], reading("codex", { id: "secondary", used_percent: 100, resets_at: past }));
+    expect(job?.run).toMatchObject({ role: "pre-check", package_id: id });
+    await complete(job!, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+  });
+});

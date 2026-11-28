@@ -145,6 +145,10 @@
                 {
                     "type": "string",
                     "const": "sandbox"
+                },
+                {
+                    "type": "string",
+                    "const": "usage-limit"
                 }
             ],
             "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."

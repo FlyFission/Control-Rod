@@ -69,7 +69,7 @@ Control Rod's architecture—**one locked brief**, **a blind cross-vendor checke
 3. **Why the checker is blind and from another vendor:** GPT-4 distinguished its own generations **73.5%** of the time, and stronger self-recognition tracked stronger self-preference ([Panickssery et al., 2024](https://arxiv.org/abs/2404.13076)). Challenged on a right answer, Claude 1.3 wrongly admitted error **98%** of the time and suggestive pushback cut LLaMA 2 accuracy by up to **27%** ([Sharma et al., 2023](https://arxiv.org/abs/2310.13548)). AI judge scores correlate strongly with overlap in mistakes (average Pearson **r = 0.84**, [Goel et al., 2025](https://arxiv.org/abs/2502.04313)).
 4. **Why a human still signs off:** Maintainers of `scikit-learn`, `Sphinx`, and `pytest` reviewed **296** AI-generated pull requests from SWE-bench Verified tasks; roughly **half** of the ones that passed the tests would not have been merged even after adjusting for maintainer noise ([METR, 2026](https://metr.org/notes/2026-03-10-many-swe-bench-passing-prs-would-not-be-merged-into-main/)).
 
-> **Honesty on what is and isn't measured yet:** The outside checker in Stechly et al. (2024) is an exact program verifier, not a second LLM, and none of these papers measures one vendor's coding CLI reviewing another vendor's code. To measure that directly in the open at $0 API spend, Control Rod includes a frozen, repeatable SWE-bench evaluation harness: **[`pnpm cr bench`](bench/cross-check/README.md)**. Every figure above and the script that draws the SVGs live in [`docs/research/second-checker/`](docs/research/second-checker/).
+> **Honesty on what is and isn't measured yet:** The outside checker in Stechly et al. (2024) is an exact program verifier, not a second LLM, and none of these papers measures one vendor's coding CLI reviewing another vendor's code. To measure that directly in the open at $0 API spend, Control Rod includes a frozen, repeatable SWE-bench evaluation harness: **[`pnpm cr bench`](bench/cross-check/README.md)**. The harness is ready and tested offline; the first study has not been run yet, so it has no results to report. Every figure above and the script that draws the SVGs live in [`docs/research/second-checker/`](docs/research/second-checker/).
 
 ---
 
@@ -175,7 +175,7 @@ After that:
 
 | Surface | Windows (WSL2) | Linux | macOS |
 | --- | --- | --- | --- |
-| **Web workspace (`pnpm cr start`)** | Verified live | Scripted CI | Expected to work; not yet verified live |
+| **Web workspace (`pnpm cr start`)** | Verified live | Unit tests in CI; the app start is not yet run in CI | Expected to work; not yet verified live |
 | **Native CLI sandbox confinement** | Verified with live logins | Scripted CI ([Ubuntu 24.04 AppArmor step](docs/daemon.md#linux-setup)) | Scripted CI (`sandbox-exec`) |
 
 Stuck? See **[docs/getting-started.md](docs/getting-started.md)** for step-by-step troubleshooting.
@@ -207,7 +207,7 @@ Every state change is decided by pure Rust functions in [`kernel/`](kernel/) com
 | `daemon/` | Go runner daemon, `controlrod check` standalone CLI, worktree & native sandbox confinement |
 | `packages/check-action/` | Reusable composite GitHub Action for cross-vendor blind PR checks |
 | `packs/` | Role baselines and digest-locked `Superpowers`, `Matt Pocock`, and `Nuclear-Grade` packs |
-| `bench/cross-check/` | Repeatable $0-API-spend SWE-bench cross-vendor checking benchmark (`pnpm cr bench`) |
+| `bench/cross-check/` | Repeatable $0-API-spend SWE-bench cross-vendor checking benchmark (`pnpm cr bench`); harness ready, first study not yet run |
 | `spec/` | Contract-first TypeSpec definitions generating OpenAPI and JSON Schemas |
 
 ## License

@@ -68,7 +68,7 @@ Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATA
 - In VS Code the app is at <http://localhost:7300> through port forwarding, same as on your own machine.
 - In Codespaces the app is at a forwarded `https://<name>-7300.app.github.dev` address. `pnpm cr start` detects Codespaces and sets the passkey origin to match. A passkey is bound to the address it was created on, so one made in a Codespace does not work anywhere else, and the data goes when the Codespace is deleted. Treat it as a place to build and test, not to keep real records.
 - Agent runs need Claude Code signed in inside the container (`npm i -g @anthropic-ai/claude-code`, then `claude`). The agent sandbox is bubblewrap, and a container often stops bubblewrap from creating the user namespace it needs. `pnpm cr doctor` tests this and says so; when it fails, the preflight refuses agent runs with the reason. Expect the container to be fine for the web app, the API, and all the tests, and use a Linux machine, a Mac or WSL2 for real agent runs.
-- The configuration was checked by running its setup script on a fresh clone as a non-root user and starting the app with Codespaces-style variables. The container image itself has not yet been built by anyone, so report anything that breaks.
+- The configuration was checked by running its setup script on a fresh clone as a non-root user and starting the app with Codespaces-style variables. No CI job builds the container, and no full build of it has been recorded yet, so report anything that breaks.
 
 ## Check your change
 

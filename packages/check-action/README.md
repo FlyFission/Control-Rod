@@ -14,17 +14,33 @@ Reusable composite GitHub Action that runs `controlrod check` on a pull request 
 - **No secret forwarding to agents:** `github-token` is passed only to the `gh pr comment` step when `post-comment: "true"`. `controlrod check` strips secrets via `AgentEnv` and launches agents inside their native sandbox with no bypass/skip-permissions flags. Comment failures on fork PRs warn without bypassing verdict enforcement.
 - **Standalone output limits:** Without a verified `inclusion-proof` bundle, standalone Action runs do not connect to a Control Rod control plane, so their output carries **no human passkey acceptance** and **no Control Rod inclusion proof** for `pnpm cr verify`.
 
+## What the runner needs
+
+The checker runs on the runner, under your sign-in to the checker CLI. A GitHub-hosted runner such as `ubuntu-latest` has no checker CLI and no sign-in, so the example below cannot work there as written. Use a self-hosted runner that has:
+
+- The checker CLI (for example `codex`) installed and signed in as the runner's user.
+- Its native sandbox working: on Linux, bubblewrap and socat, plus the AppArmor step on Ubuntu 24.04 and later ([Linux setup](../../docs/daemon.md#linux-setup)); on macOS, `sandbox-exec`, which ships with the system.
+- `git`, and Go to build `controlrod` from `daemon/` (or a built `controlrod` on `PATH`, or the `controlrod-bin` input).
+- Node 22 and a built `services/api/dist/verify-bundle.js`, only if you pass `inclusion-proof`.
+
 ## Example usage
 
 ```yaml
+on:
+  pull_request:
+
 jobs:
   blind-check:
-    runs-on: ubuntu-latest
+    # Pull requests from forks never run here; see "Pull requests from forks" below.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    # A self-hosted runner where the checker CLI is installed and signed in.
+    runs-on: [self-hosted, linux]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@<pinned-sha>
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: FlyFission/Control-Rod/packages/check-action@<pinned-sha>
         with:
           author-runtime: claude
@@ -32,3 +48,11 @@ jobs:
           criteria: docs/acceptance.md
           post-comment: "false"
 ```
+
+## Pull requests from forks
+
+Be careful before you run this Action on a pull request from a fork. The job runs on your self-hosted runner, where the checker CLI is signed in as you, and the checker reads the fork's diff. A stranger's pull request can carry text written to steer the checker, and any other step you add to the job (an install, a build, a test) runs the stranger's code on your machine.
+
+- Keep the `if:` line in the example, so pull requests from forks skip the job. If the repository is public, also set Settings > Actions > General to require approval before workflows run for outside contributors.
+- Never run it on `pull_request_target`. That event runs with the base repository's token and secrets, which a fork's pull request must never reach.
+- On a fork's pull request, GitHub gives the job a read-only token, so `post-comment: "true"` cannot post. The Action warns and still applies the verdict.

@@ -29,7 +29,7 @@ Control Rod gives you records and a way to check them. Whether they count as qua
 You need a clone of the repository and Node 22. You don't need a database, a sign-in or access to the installation.
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm cr verify WP-0001-inclusion-proof.json
 pnpm cr verify audit-export-2026-11-01-to-2026-11-08.json
 ```

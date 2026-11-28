@@ -4,13 +4,18 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Run by hand from the Actions tab on a branch, for example after the readme-shots bot pushed a
+  # commit that started no run of its own (see readme-shots-commit.yml).
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # A newer push to a pull request cancels that pull request's older run. Runs on main, and runs
+  # started by hand, each get their own group, so every commit on main keeps its own result.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Pinned nuclear-grade commit used to validate Control Rod's own change records.
@@ -25,11 +30,26 @@ jobs:
       - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
       - run: pnpm install --frozen-lockfile
       - name: Contracts regenerate with no drift
+        # pnpm spec writes all three outputs: the generated contracts, the runner schemas embedded
+        # in the daemon, and the API's preparation types. Untracked new files count as drift too.
         run: |
-          pnpm --filter @control-rod/spec run build
-          git diff --exit-code -- spec/generated
+          pnpm spec
+          git diff --exit-code -- spec/generated daemon/internal/wire/schemas services/api/src/preparation/schema.d.ts
+          test -z "$(git status --porcelain -- spec/generated daemon/internal/wire/schemas services/api/src/preparation/schema.d.ts)"
+      - name: PostgreSQL 17 client tools for the backup and restore rehearsal
+        # The API tests run on the bundled PostgreSQL, as `controlrod start` does. Only the backup
+        # and restore rehearsal needs pg_dump and pg_restore, which the bundle does not ship.
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q --no-install-recommends postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
       - run: pnpm -r run typecheck
       - run: pnpm -r run test
+        env:
+          CONTROLROD_TEST_PG_BIN: /usr/lib/postgresql/17/bin
+          CONTROLROD_TEST_REQUIRE_PG_CLIENT: "1"
 
   rust:
     runs-on: ubuntu-latest
@@ -44,7 +64,7 @@ jobs:
 
   go:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: daemon
@@ -53,7 +73,122 @@ jobs:
       - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
       - run: test -z "$(gofmt -l .)"
       - run: go vet ./...
-      - run: go test ./...
+      # The daemon runs many goroutines at once (runs, leases, outbox, streams), so the tests run
+      # under the race detector.
+      - run: go test -race ./...
+
+  kernel-wasm:
+    # The control plane runs the kernel's WebAssembly build in services/api/kernel/, not the Rust
+    # crate itself. Rebuild it from the Rust source with the pinned tools and fail on any
+    # difference, so a pull request cannot change decisions there without changing kernel/.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - run: rustup target add wasm32-unknown-unknown
+      - name: wasm-bindgen CLI, the version the wasm-bindgen crate is pinned to
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.104 --locked --root "$RUNNER_TEMP/wasm-bindgen"
+          echo "$RUNNER_TEMP/wasm-bindgen/bin" >> "$GITHUB_PATH"
+      - run: bash scripts/build-kernel-wasm.sh
+      - name: The committed build matches the source
+        run: |
+          git diff --exit-code -- services/api/kernel
+          test -z "$(git status --porcelain -- services/api/kernel)"
+      - name: The build decides every row of the kernel table as Rust does
+        run: node --test kernel/tests/transition_table.test.mjs
+
+  product:
+    # What a person runs: install, link the command, start in the background, open the app, stop.
+    # As an ordinary user on Linux, with the bundled PostgreSQL.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CONTROLROD_PORT: "7300"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - name: Not root
+        run: test "$(id -u)" -ne 0
+      - run: pnpm install --frozen-lockfile
+      - name: Install the controlrod command
+        run: |
+          pnpm cr link
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Start in the background
+        run: controlrod start --no-open
+      - name: The app answers
+        run: |
+          for _ in $(seq 1 60); do
+            if body="$(curl -fsS "http://127.0.0.1:$CONTROLROD_PORT/health")"; then break; fi
+            sleep 1
+          done
+          echo "health: ${body:-no answer}"
+          printf '%s' "${body:-}" | grep -q '"status":"ok"'
+          curl -fsS "http://127.0.0.1:$CONTROLROD_PORT/" | grep -q '<div id="root"'
+          controlrod status
+      - name: Stop
+        run: |
+          controlrod stop
+          if curl -fsS "http://127.0.0.1:$CONTROLROD_PORT/health"; then
+            echo "::error::Control Rod still answers after controlrod stop."; exit 1
+          fi
+      - name: The log, when something failed
+        if: failure()
+        run: tail -n 200 "$HOME/.controlrod/logs/controlrod.log" || true
+
+  gates:
+    # The repository's own checks that the docs rely on, in one cheap job.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The release-notes tests read change records out of older commits.
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: FlyFission/nuclear-grade-context-engineering
+          ref: ${{ env.NUCLEAR_GRADE_SHA }}
+          path: .ng
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - run: pnpm install --frozen-lockfile
+      - name: tools/ tests
+        run: uv run --no-project --with pytest==9.1.1 python -m pytest -q tools
+      - name: Repository checks
+        run: |
+          python3 tools/check_public_claims.py
+          python3 tools/check_originality.py
+          python3 tools/check_offline_assets.py
+          python3 tools/check_agents_map.py
+          python3 tools/check_owner_decisions.py
+          python3 tools/check_evidence_manifest.py
+          python3 tools/generate_command_inventory.py --check
+      - name: Benchmark harness tests
+        run: python3 -m unittest bench/cross-check/test_bench.py
+      - name: Check action tests
+        run: |
+          pnpm --filter @control-rod/api build
+          node --test packages/check-action/action.test.mjs
+      - name: SPDX and kernel table tests
+        run: node --test tools/spdx.test.mjs kernel/tests/transition_table.test.mjs
+      - name: Script tests that compare with nuclear-grade
+        # The rest of scripts/test runs in the typescript job; these need the pinned checkout.
+        env:
+          NGCE_DIR: .ng
+        run: node --test scripts/test/nuclear-pack.test.mjs scripts/test/token-count.test.mjs
+      - name: Lifecycle model checks and its traces are current
+        run: |
+          bash models/generate.sh
+          git diff --exit-code -- models/traces
+          test -z "$(git status --porcelain -- models/traces)"
 
   python:
     runs-on: ubuntu-latest
@@ -96,7 +231,7 @@ jobs:
           path: .ng
       - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
       - name: Red-team catalog is well formed
-        run: uv run --with pyyaml python tools/check_redteam.py
+        run: uv run --no-project --with pyyaml==6.0.3 python tools/check_redteam.py
       - name: Validate every change record
         run: |
           for record in .nuclear/changes/*/; do
@@ -114,3 +249,5 @@ jobs:
         with:
           format: cyclonedx-json
           artifact-name: control-rod-sbom.cdx.json
+          # The Syft version this action release uses by default, stated so it cannot float.
+          syft-version: v1.54.0

@@ -114,13 +114,15 @@ Seed the backlog from [status.md](status.md) (the stubbed and planned list) and 
 Settings, then Branches, then a rule for `main`. Recommended:
 
 - Require a pull request, with at least 1 approving review and review from Code Owners.
-- Require the seven CI checks to pass: `typescript`, `rust`, `go`, `python`, `licenses`, `change-records` and `sbom`.
+- Require the ten CI checks to pass: `typescript`, `rust`, `go`, `kernel-wasm`, `product`, `gates`, `python`, `licenses`, `change-records` and `sbom`. The owner adds the three new ones (`kernel-wasm`, `product`, `gates`) to the rule by hand once they have passed on `main`.
 - Require conversation resolution before merging.
 - Require branches to be up to date before merging.
 - Do not allow bypassing the above, including for administrators.
 - Allow squash merging only.
 
 A pull request that shows as `blocked` with green CI is usually waiting on one of these requirements, most often a review. Check the merge box on the PR before assuming CI is at fault.
+
+When the readme-shots workflow pushes new pictures to a pull request, that commit starts no CI run, because GitHub does not start workflows for pushes made with a workflow's own token. The pull request then waits on checks that never come. Start them by hand: open *Actions*, choose *ci*, *Run workflow*, and pick the pull request's branch. Closing and reopening the pull request also starts them.
 
 ## Dependabot
 

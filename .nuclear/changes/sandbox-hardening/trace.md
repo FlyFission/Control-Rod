@@ -13,7 +13,7 @@
 | The checker root is a private folder (DMN-2) | `private_dir.go`, `checker.go` | `private_dir_unix_test.go` |
 | Run folders removed after the outbox, stale ones at start (DMN-9) | `workspace_cleanup.go`, `daemon.go` Handle, Run | `workspace_cleanup_test.go`, `runner_test.go` TestDaemonRunsAFakeJobEndToEnd |
 | Agents start in their own session (DMN-21) | `proc_unix.go` | `proc_unix_session_test.go` |
-| macOS starts Claude from a verified copy (DMN-17) | `artifact.go` copiesBeforeExec, `adapter_claude.go` | `sandbox_test.go` TestClaudeRunsFromAPrivateCopyOutsideLinux |
+| macOS starts Claude from a verified copy (DMN-17) | `artifact.go` copiesBeforeExec, `adapter_claude.go` | `sandbox_test.go` TestClaudeRunsFromAPrivateCopyOutsideLinux, `artifact_test.go` TestOutsideLinuxClaudeStartsFromACopyOfTheCheckedBytes |
 | Sign-in refresh hosts allowed (DMN-6) | `daemon.go` harnessSignInHosts | `daemon_egress_test.go` TestAuthorEgressHostsCarryTheSignInRefreshHosts |
 | Idle tunnels closed; filter documented (DMN-14) | `egress_proxy.go`, `docs/daemon.md` | `egress_proxy_test.go` TestEgressFilterClosesAnIdleTunnel, TestEgressFilterKeepsABusyTunnelOpen |
 | Only https or a site path is a link (WEB-26) | `apps/web/src/lib/links.ts`, CheckerHistory.tsx, PullRequestLine.tsx | `links.test.ts`, `checker-history.test.tsx`, `pull-request-line.test.tsx` |

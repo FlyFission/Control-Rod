@@ -160,8 +160,17 @@ func TestLaunchIsRefusedWhenTheExecutableIsNotTheExpectedArtifact(t *testing.T) 
 	}
 	pinned.Digest.Value = sum
 	l, err := VerifyLaunch("claude", pinned, nil)
-	if err != nil || l.Path != path || l.Digest.Value != sum || l.File == nil {
-		t.Fatalf("the pinned artifact launches from an open descriptor: %+v %v", l, err)
+	// On Linux the install's own descriptor runs. Elsewhere a runtime starts by its path, so Claude
+	// Code starts from a copy of the checked bytes in the private stage folder (review DMN-17).
+	want := path
+	if launchGOOS != "linux" {
+		want = filepath.Join(StageRoot(), sum, "claude")
+	}
+	if err != nil || l.Path != want || l.Digest.Value != sum || l.File == nil {
+		t.Fatalf("the pinned artifact launches from an open descriptor of %s: %+v %v", want, l, err)
+	}
+	if b, rerr := os.ReadFile(l.Path); rerr != nil || hexsum(b) != sum {
+		t.Fatalf("the launched file is not the checked bytes: %v", rerr)
 	}
 	l.Close()
 	probed := &RuntimeArtifact{Path: path, Digest: Digest{Algorithm: "sha256", Value: strings.Repeat("c", 64)}}
@@ -424,5 +433,35 @@ func TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart(t *testing.T) {
 	}
 	if err := l.Ready(); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "opened the runtime for writing") {
 		t.Fatalf("a broken lease must refuse the start: %v", err)
+	}
+}
+
+// The macOS launch path, taken on any platform: the install is checked first with the usual
+// refusals, then a copy of exactly those bytes in the private stage folder is what starts
+// (review DMN-17).
+func TestOutsideLinuxClaudeStartsFromACopyOfTheCheckedBytes(t *testing.T) {
+	oldOS := launchGOOS
+	launchGOOS = "darwin"
+	t.Cleanup(func() { launchGOOS = oldOS })
+	TestLaunchIsRefusedWhenTheExecutableIsNotTheExpectedArtifact(t)
+
+	// A runtime that changed since its probe is refused as changed, before anything is copied.
+	path := filepath.Join(t.TempDir(), "claude")
+	writeFile(t, path, append(append([]byte{}, elf...), "claude-changed"...), 0o755)
+	sum, err := fileDigest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) {
+		return RuntimeArtifact{Path: path, Digest: Digest{Algorithm: "sha256", Value: strings.Repeat("a", 64)}}, nil
+	}
+	defer func() { resolveArtifact = old }()
+	probed := &RuntimeArtifact{Path: path, Digest: Digest{Algorithm: "sha256", Value: strings.Repeat("a", 64)}}
+	if _, err := VerifyLaunch("claude", nil, probed); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "changed after it was last checked") {
+		t.Fatalf("a changed runtime must be refused as changed: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(StageRoot(), sum)); err == nil {
+		t.Fatal("a refused runtime was copied")
 	}
 }

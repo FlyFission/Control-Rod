@@ -6,6 +6,7 @@
 - E-04: apps/web `vitest run`: 98 files, 1073 tests pass (3 files, 11 tests for this change). `pnpm -r run typecheck` passes.
 - E-05: repo gates. `check_public_claims.py` passes. `check_agents_map.py` (AGENTS.md size), `check_owner_decisions.py` (four older records), `pytest -q tools` (command inventory stale, release notes need history this clone lacks) report problems in files this change does not touch; each is the same on main. `node --test scripts/test/*.test.mjs`: 71 pass, 4 skip.
 - E-06: the Claude Code 2.1.332 binary names `TOKEN_URL:"https://platform.claude.com/v1/oauth/token"`. The Antigravity host is Google's documented OAuth token endpoint; no Antigravity binary was available.
+- The first macOS CI run (PR 266) failed two tests, because the copy was made before the install was checked. The copy is now made after the checks, and a test takes the macOS path on Linux; `GOOS=darwin go test -c` compiles.
 - Not run: a Mac (the macOS copy of Claude Code, E-01 covers only the build), a signed-in Claude or Antigravity run behind the filter with an expired token.
 
 ## Evidence custody and coupling

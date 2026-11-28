@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { assertionOptions, assertionVerify, type AuthConfig } from "../auth.js";
+import { assertionOptions, requireAssertion, signatureMismatch, type AuthConfig } from "../auth.js";
 import {
   confirmationSubject,
   confirmationChallenge,
@@ -88,18 +88,14 @@ export function preparationRoutes(
     { schema: { body: { $ref: "ConfirmationRequest.json" } } },
     async (req, reply) => {
       const user = await person(req);
-      const ok = await assertionVerify(
+      // A signature that does not verify says why; one from another account does not cover this.
+      const ok = await requireAssertion(
         db,
         auth,
         "preparation-confirmation",
-        req.body.assertion as never,
+        req.body.assertion,
       );
-      if (!ok || ok.user !== user)
-        throw new Refusal(
-          403,
-          "unsigned",
-          "A current requirements confirmation passkey assertion is required",
-        );
+      if (ok.user !== user) throw signatureMismatch();
       if (
         typeof ok.data.package_id !== "string" ||
         typeof ok.data.package_revision !== "number" ||
@@ -145,6 +141,8 @@ export function preparationRoutes(
   );
   app.put<{ Params: Params; Body: PreparationContent }>(
     "/packages/:id/preparation",
+    // Larger than the default limit, so the sender is checked before the body is read.
+    { bodyLimit: 8 * 1024 * 1024, onRequest: async (req) => void (await person(req)) },
     async (req, reply) =>
       send(
         reply,

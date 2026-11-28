@@ -69,3 +69,16 @@ test("says to start Control Rod when there is no token, and to restart when it i
   const { call } = app({ "GET /packages": [403, { message: "Refused: this request did not come from the Control Rod app" }] });
   await assert.rejects(call("GET", "/packages"), /controlrod restart/);
 });
+
+test("a reply that is not JSON gives a plain sentence, never a raw parse error", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cr-html-"));
+  writeFileSync(join(home, "cli.token"), "tok\n");
+  const fetchImpl = async () => ({ ok: false, status: 502, text: async () => "<html>Bad gateway</html>" });
+  const call = client({ home, port: 7300, fetchImpl });
+  await assert.rejects(call("GET", "/packages"), (e) => {
+    assert.ok(e instanceof CardError);
+    assert.match(e.message, /port 7300 answered 502 with a reply that is not JSON/);
+    assert.doesNotMatch(e.message, /Unexpected token|SyntaxError/);
+    return true;
+  });
+});

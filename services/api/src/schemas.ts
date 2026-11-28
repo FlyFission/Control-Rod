@@ -17,3 +17,14 @@ export function loadValidator(): Ajv2020 {
   }
   return ajv;
 }
+
+/** The limits on one capture, read from the generated CaptureLimits schema the page also reads. */
+export type CaptureLimits = { visible_text: number; attachments: number; attachment_bytes: number };
+
+export function captureLimits(): CaptureLimits {
+  const schema = JSON.parse(readFileSync(schemaDir + "CaptureLimits.json", "utf8")) as {
+    properties: Record<keyof CaptureLimits, { const: number }>;
+  };
+  const p = schema.properties;
+  return { visible_text: p.visible_text.const, attachments: p.attachments.const, attachment_bytes: p.attachment_bytes.const };
+}

@@ -92,20 +92,21 @@ describe("decisions", () => {
     const r = await post(ben, "/packages/WP-GS/decisions", { kind: "release", package_revision: 0, assertion });
     // Refused at assertion verification; lockSigner covers a revocation landing after verification.
     expect(r.statusCode).toBe(403);
-    expect(["unsigned", "signature-revoked"]).toContain(r.json().code);
+    // Revoking a passkey ends its open prompts, so the signature reads as an expired prompt.
+    expect(["passkey-expired", "passkey-unknown", "signature-revoked"]).toContain(r.json().code);
     expect((await h.db.query("select count(*)::int as n from decisions where package_id = 'WP-GS'")).rows[0].n).toBe(0);
   });
 
   it("checks again inside the decision, so a revocation after the prompt is honored", async () => {
     const o = await options(ben, "WP-GS", "release");
     expect(o.statusCode).toBe(200);
-    const assertion = benKey.assert(o.json().options);
     // Ben's qualification is replaced by one without the approver role before he signs.
     const changed = await signed(ben, benKey, "qualification.issue", {
       member_id: memberIdFor("ben"), licenses: [], disciplines: [], grades: ["general-service"], roles: ["checker"],
       authorities: ["administrator", "lane", "policy"], reason: "approver role handed over",
     });
     expect(changed.statusCode, changed.body).toBe(200);
+    const assertion = benKey.assert(o.json().options);
     const r = await post(ben, "/packages/WP-GS/decisions", { kind: "release", package_revision: 0, assertion });
     expect(r.statusCode).toBe(403);
     expect(r.json().code).toBe("qualification-missing");

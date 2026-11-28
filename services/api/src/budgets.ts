@@ -341,15 +341,23 @@ export async function budgetStatuses(q: Db | Tx, orgId: string, now = new Date()
 }
 
 /** Records that a budget crossed into near or over, once per window, so alert budgets reach people. */
-export async function noteBudgetCrossings(c: Tx, orgId: string): Promise<void> {
-  for (const s of await budgetStatuses(c, orgId)) {
+/** The crossings into near or over not yet recorded this window. Read only. */
+export async function pendingCrossings(q: Db | Tx, orgId: string) {
+  const out: Awaited<ReturnType<typeof budgetStatuses>> = [];
+  for (const s of await budgetStatuses(q, orgId)) {
     // A suspended budget governs nothing, so it alerts no one.
     if (s.budget.status !== "active" || (s.state !== "near" && s.state !== "over")) continue;
     // Once per window: the window rolls, so a crossing already recorded within it is the same crossing.
-    const seen = await c.query(
+    const seen = await q.query(
       "select 1 from events where body->>'type' = 'budget.crossed' and body->>'subject' = $1 and body->'data'->>'state' = $2 and (body->>'at')::timestamptz > $3::timestamptz limit 1",
       [s.budget.id, s.state, s.since]);
-    if (seen.rowCount) continue;
+    if (!seen.rowCount) out.push(s);
+  }
+  return out;
+}
+
+export async function noteBudgetCrossings(c: Tx, orgId: string): Promise<void> {
+  for (const s of await pendingCrossings(c, orgId)) {
     await appendEvent(c, "budget.crossed", s.budget.id, SYSTEM, { state: s.state, since: s.since, used: String(s.used), limit: s.budget.limit.value, unit: s.budget.limit.unit, mode: s.budget.mode });
   }
 }

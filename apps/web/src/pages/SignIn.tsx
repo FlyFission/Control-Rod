@@ -4,6 +4,7 @@ import { api, ApiError, explain } from "../api/client.js";
 import { adoptSession, sessionGeneration } from "../lib/session.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
+import { passkeyHint } from "../lib/passkeyErrors.js";
 import { TileGlyphIcon } from "../design/instruments/AnnunciatorTile.js";
 import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invitation.js";
 import "./screens.css";
@@ -116,7 +117,7 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
         ) : session.registered ? (
           <>
             <h1>Sign in</h1>
-            <p className="muted">Use the passkey on this machine. Touch ID works.</p>
+            <p className="muted">{passkeyHint()}</p>
             <button type="button" className="btn primary" onClick={signIn} disabled={busy}>
               {busy ? "Waiting for your passkey" : "Sign in with passkey"}
             </button>

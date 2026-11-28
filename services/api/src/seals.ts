@@ -97,6 +97,30 @@ export interface SealEvidence {
   origins: string[];
 }
 
+/**
+ * The origin a seal was signed at, when it belongs to the relying party. A later check accepts it
+ * as well as today's origins: the origin was checked when the seal was made, and the signed
+ * authenticator data still binds the seal to the RP ID. Without this, moving the app to another
+ * port or address would turn every earlier seal into a failed signature.
+ */
+export function sealedOrigin(clientDataJson: unknown, rpId: string): string | null {
+  if (typeof clientDataJson !== "string") return null;
+  try {
+    const origin = (JSON.parse(Buffer.from(clientDataJson, "base64url").toString("utf8")) as { origin?: unknown }).origin;
+    if (typeof origin !== "string") return null;
+    const u = new URL(origin);
+    if (u.origin !== origin) return null;
+    const host = u.hostname.toLowerCase();
+    const rp = rpId.toLowerCase();
+    if (host !== rp && !host.endsWith(`.${rp}`)) return null;
+    // A secure context, as WebAuthn itself requires: https, or plain http on this machine only.
+    if (u.protocol !== "https:" && !(u.protocol === "http:" && host === "localhost")) return null;
+    return origin;
+  } catch {
+    return null;
+  }
+}
+
 /** Checks a seal's subject and signature from the seal and its evidence alone. */
 export async function checkSealSignature(seal: Json, ev: SealEvidence): Promise<"valid" | "subject-mismatch" | "signature-invalid"> {
   const p = seal?.payload;
@@ -112,7 +136,7 @@ export async function checkSealSignature(seal: Json, ev: SealEvidence): Promise<
         response: { authenticatorData: seal.assertion.authenticator_data, clientDataJSON: seal.assertion.client_data_json, signature: seal.assertion.signature },
       },
       expectedChallenge: sealChallenge(sd, seal.nonce),
-      expectedOrigin: ev.origins,
+      expectedOrigin: [...new Set([...ev.origins, ...[sealedOrigin(seal.assertion.client_data_json, ev.rp_id)].filter((o): o is string => o !== null)])],
       expectedRPID: ev.rp_id,
       requireUserVerification: true,
       // A later check of an earlier signature: the counter was checked when it was made.

@@ -1,0 +1,28 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CaptureLimits.json",
+    "type": "object",
+    "properties": {
+        "visible_text": {
+            "type": "number",
+            "const": 20000,
+            "description": "Characters a person may type, after attachment fences are taken out (Capture.text)."
+        },
+        "attachments": {
+            "type": "number",
+            "const": 20,
+            "description": "Files one capture may carry."
+        },
+        "attachment_bytes": {
+            "type": "number",
+            "const": 5242880,
+            "description": "Bytes one attached file may hold (5 MB)."
+        }
+    },
+    "required": [
+        "visible_text",
+        "attachments",
+        "attachment_bytes"
+    ],
+    "description": "The limits on one capture, shared by the page and the API. Each value is fixed."
+}

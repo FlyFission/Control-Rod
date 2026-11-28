@@ -213,25 +213,8 @@ namespace WorkspaceProjects {
 
 @route("/captures")
 namespace Captures {
-  model NewCapture {
-    /** Typed text plus any attachment fences; the visible text is capped at 20,000 characters. */
-    @minLength(1)
-    @maxLength(30000000)
-    text: string;
-
-    source?: "web" | "cli" | "voice" | "chat";
-
-    /** An explicitly prepared checkout. The API validates it and records its Git identity. */
-    checkout?: {
-      repo: string;
-      local_path: string;
-      branch: string;
-      workspace_root?: string;
-    };
-
-    /** Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
-    lane?: ControlRod.Records.DataLane;
-  }
+  /** The capture request and its limits are defined once, in work.tsp (CaptureRequest, CaptureLimits). */
+  model NewCapture is ControlRod.Records.CaptureRequest;
 
   /** Classifies a capture's data lane. Needs lane authority; a capture's lane can be raised, never lowered here. */
   model Classification {

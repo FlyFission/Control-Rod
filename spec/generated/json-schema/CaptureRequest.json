@@ -1,0 +1,64 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CaptureRequest.json",
+    "type": "object",
+    "properties": {
+        "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30000000,
+            "description": "Typed text plus any attachment fences. The visible text is capped by CaptureLimits."
+        },
+        "source": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "web"
+                },
+                {
+                    "type": "string",
+                    "const": "cli"
+                },
+                {
+                    "type": "string",
+                    "const": "voice"
+                },
+                {
+                    "type": "string",
+                    "const": "chat"
+                }
+            ]
+        },
+        "checkout": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string"
+                },
+                "local_path": {
+                    "type": "string"
+                },
+                "branch": {
+                    "type": "string"
+                },
+                "workspace_root": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "repo",
+                "local_path",
+                "branch"
+            ],
+            "description": "An explicitly prepared checkout. The API validates it and records its Git identity."
+        },
+        "lane": {
+            "$ref": "DataLane.json",
+            "description": "Classifies the capture at once when the sender holds lane authority. A lane that is not one of these is refused."
+        }
+    },
+    "required": [
+        "text"
+    ],
+    "description": "What a person or the command line sends to make a capture (POST /captures). The page and the API\nboth check a capture against this and CaptureLimits, so neither accepts what the other refuses."
+}

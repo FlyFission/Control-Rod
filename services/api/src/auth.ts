@@ -12,6 +12,7 @@ import type { Db } from "./db/index.js";
 import { attestationAnchored } from "./attestation.js";
 import { command } from "./commands/executor.js";
 import { LOCAL_ORG, grantFoundingAuthorities, recordRegistration } from "./tenancy.js";
+import { Refusal } from "./refusal.js";
 
 export interface AuthConfig {
   rpID: string;
@@ -195,16 +196,50 @@ export async function assertionOptions(
   return options;
 }
 
-/** Verifies an assertion and consumes its challenge. Returns the user and the challenge data. */
-export async function assertionVerify(
+/**
+ * Why a passkey signature was refused, for the person to read. Only the cause is typed here; every
+ * check is the same as it always was.
+ * - expired: the prompt it answers was never issued, has expired, or was already used.
+ * - unknown-passkey: no usable passkey here has this id (never registered, or revoked).
+ * - other-person: the prompt was issued to someone else.
+ * - inactive: the passkey's owner is not an active member.
+ * - origin: it was signed for another web address or relying party.
+ * - counter: its use count did not go forward, which can mean a copied passkey.
+ * - not-verified: the authenticator did not confirm the person (fingerprint, face or PIN).
+ * - bad-signature: anything else that failed verification, including a malformed response.
+ */
+export type AssertionFailure = "expired" | "unknown-passkey" | "other-person" | "inactive" | "origin" | "counter" | "not-verified" | "bad-signature";
+
+export type AssertionCheck =
+  | { ok: true; user: string; credentialId: string; data: Record<string, unknown> }
+  | { ok: false; reason: AssertionFailure };
+
+/** The cause, read from what @simplewebauthn/server threw. Unrecognised errors are a bad signature. */
+function failureOf(err: unknown): AssertionFailure {
+  const code = (err as { code?: unknown })?.code;
+  const message = err instanceof Error ? err.message : "";
+  if (code === "UNEXPECTED_ORIGIN" || code === "UNEXPECTED_RP_ID" || /origin|RP ID/i.test(message)) return "origin";
+  if (/counter/i.test(message)) return "counter";
+  if (/user verification|user could not be verified|not present/i.test(message)) return "not-verified";
+  if (/challenge/i.test(message)) return "expired";
+  return "bad-signature";
+}
+
+/**
+ * Verifies an assertion and consumes its challenge, saying why when it is refused. The counter only
+ * moves forward: two answers verified at once cannot set it back (compare and swap).
+ */
+export async function checkAssertion(
   db: Db,
   cfg: AuthConfig,
   purpose: string,
   body: AuthenticationResponseJSON,
-): Promise<{ user: string; credentialId: string; data: Record<string, unknown> } | null> {
+): Promise<AssertionCheck> {
   const challenge = clientChallenge(body);
+  // A response that names no challenge at all is malformed; no stored challenge is ever empty.
+  if (!challenge) return { ok: false, reason: "bad-signature" };
   const taken = await takeChallengeFor(db, challenge, purpose);
-  if (taken === null) return null;
+  if (taken === null) return { ok: false, reason: "expired" };
   const { data, issuedTo } = taken;
   const r = await db.query<{ id: string; user_name: string; public_key: Buffer; counter: string; transports: string[] }>(
     // A revoked passkey cannot sign in or sign anything.
@@ -212,12 +247,12 @@ export async function assertionVerify(
     [body.id],
   );
   const row = r.rows[0];
-  if (!row) return null;
+  if (!row) return { ok: false, reason: "unknown-passkey" };
   // A challenge issued to one person can be answered only by that person's passkey.
-  if (issuedTo !== undefined && issuedTo !== row.user_name) return null;
+  if (issuedTo !== undefined && issuedTo !== row.user_name) return { ok: false, reason: "other-person" };
   // Only an active Member's passkey signs in or signs anything.
   const active = await db.query("select 1 from members where user_name = $1 and body->>'status' = 'active'", [row.user_name]);
-  if (!active.rowCount) return null;
+  if (!active.rowCount) return { ok: false, reason: "inactive" };
   let result;
   try {
     result = await verifyAuthenticationResponse({
@@ -233,14 +268,65 @@ export async function assertionVerify(
         transports: row.transports as AuthenticatorTransportFuture[],
       },
     });
-  } catch {
-    return null;
+  } catch (e) {
+    return { ok: false, reason: failureOf(e) };
   }
-  if (!result.verified) return null;
-  await command(db, "auth.record-assertion", (c) =>
-    c.query("update credentials set counter = $2 where id = $1", [row.id, result.authenticationInfo.newCounter]),
+  if (!result.verified) return { ok: false, reason: "bad-signature" };
+  const next = result.authenticationInfo.newCounter;
+  // The same rule the verification applied, held at the write: forward, or zero for a passkey that
+  // never counts. A concurrent answer that moved the counter past this one wins, and this one is refused.
+  const moved = await command(db, "auth.record-assertion", (c) =>
+    c.query("update credentials set counter = $2 where id = $1 and (counter < $2 or (counter = 0 and $2 = 0))", [row.id, next]),
   );
-  return { user: row.user_name, credentialId: row.id, data };
+  if (!moved.rowCount) return { ok: false, reason: "counter" };
+  return { ok: true, user: row.user_name, credentialId: row.id, data };
+}
+
+/** The refusal for a passkey signature that came and was not accepted, said for the person. */
+const FAILURE_REFUSAL: Record<AssertionFailure, [code: string, message: string]> = {
+  expired: ["passkey-expired", "This passkey prompt has expired or was already used, so the signature was not accepted"],
+  "unknown-passkey": ["passkey-unknown", "That passkey is not registered here, or it has been revoked"],
+  "other-person": ["passkey-other-person", "That passkey belongs to a different account from the one this prompt was for"],
+  inactive: ["member-inactive", "The account this passkey belongs to is not active"],
+  origin: ["passkey-origin", "The passkey signed for a different web address from this Control Rod"],
+  counter: ["passkey-counter", "Your passkey's use count went backwards, so the signature was refused. That can mean the passkey was copied"],
+  "not-verified": ["passkey-not-verified", "Your passkey did not confirm it was you with a fingerprint, face or PIN"],
+  "bad-signature": ["passkey-bad-signature", "The passkey signature did not check out"],
+};
+
+export function passkeyRefused(reason: AssertionFailure, status: 401 | 403 = 403): Refusal {
+  const [code, message] = FAILURE_REFUSAL[reason];
+  return new Refusal(status, code, message);
+}
+
+/**
+ * Verifies a passkey signature that came with a request, refusing with the reason when it does not
+ * verify. "Needs your passkey" is kept for a request that carried no signature at all.
+ */
+export async function requireAssertion(
+  db: Db,
+  cfg: AuthConfig,
+  purpose: string,
+  body: unknown,
+  status: 401 | 403 = 403,
+): Promise<{ user: string; credentialId: string; data: Record<string, unknown> }> {
+  const r = await checkAssertion(db, cfg, purpose, body as AuthenticationResponseJSON);
+  if (!r.ok) throw passkeyRefused(r.reason, status);
+  return { user: r.user, credentialId: r.credentialId, data: r.data };
+}
+
+/** A verified signature over something other than this request. */
+export const signatureMismatch = () => new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
+
+/** Verifies an assertion and consumes its challenge. Returns the user and the challenge data, or null. */
+export async function assertionVerify(
+  db: Db,
+  cfg: AuthConfig,
+  purpose: string,
+  body: AuthenticationResponseJSON,
+): Promise<{ user: string; credentialId: string; data: Record<string, unknown> } | null> {
+  const r = await checkAssertion(db, cfg, purpose, body);
+  return r.ok ? { user: r.user, credentialId: r.credentialId, data: r.data } : null;
 }
 
 /** The passkey is the person's own and its latest version is not revoked. */

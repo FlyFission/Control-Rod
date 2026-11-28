@@ -1716,8 +1716,9 @@ export interface components {
             status: components["schemas"]["ControlRod.Records.RunStatus"];
             error?: string;
         };
+        /** @description The capture request and its limits are defined once, in work.tsp (CaptureRequest, CaptureLimits). */
         "Captures.NewCapture": {
-            /** @description Typed text plus any attachment fences; the visible text is capped at 20,000 characters. */
+            /** @description Typed text plus any attachment fences. The visible text is capped by CaptureLimits. */
             text: string;
             /** @enum {string} */
             source?: "web" | "cli" | "voice" | "chat";
@@ -1728,7 +1729,7 @@ export interface components {
                 branch: string;
                 workspace_root?: string;
             };
-            /** @description Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
+            /** @description Classifies the capture at once when the sender holds lane authority. A lane that is not one of these is refused. */
             lane?: components["schemas"]["ControlRod.Records.DataLane"];
         };
         /**

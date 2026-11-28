@@ -6,6 +6,7 @@ import type {
 import { api, type Api } from "../api/client.js";
 import type { Decision, DecisionKind, Digest } from "../api/types.js";
 import { ACCEPT_COMMANDS, ACCEPT_WAITS_FOR_VERIFICATION } from "./board.js";
+import { asPasskeyError } from "./passkeyErrors.js";
 
 /** The browser passkey calls, injectable so tests can stand in for the authenticator. */
 export interface Passkeys {
@@ -86,17 +87,18 @@ export function withPasskeyPatience<T>(
   });
 }
 
+// A failed passkey call is said in plain words (passkeyErrors.ts), never as the browser's error code.
 export const browserPasskeys: Passkeys = {
   async get(options) {
     const res = await withPasskeyPatience(() =>
       startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON }),
-    );
+    ).catch((e: unknown) => Promise.reject(asPasskeyError(e)));
     return res as unknown as Record<string, unknown>;
   },
   async create(options) {
     const res = await withPasskeyPatience(() =>
       startRegistration({ optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON }),
-    );
+    ).catch((e: unknown) => Promise.reject(asPasskeyError(e)));
     return res as unknown as Record<string, unknown>;
   },
 };

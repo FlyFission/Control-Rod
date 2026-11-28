@@ -31,6 +31,10 @@ const openDbRaw = async (url: string) => {
   return c;
 };
 
+// The API offers the test-only fake runtime only where this is set, as the daemon does (API-19).
+// Tests that check the production behaviour unset it for their own case.
+process.env.CONTROLROD_ALLOW_FAKE ??= "1";
+
 export const ORIGIN = "http://localhost:7300";
 export const RP_ID = "localhost";
 export const DAEMON_TOKEN = "test-daemon-token-0123456789";

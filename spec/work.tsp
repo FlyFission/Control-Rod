@@ -67,6 +67,42 @@ model Capture {
   classified_at?: utcDateTime;
 }
 
+/**
+ * What a person or the command line sends to make a capture (POST /captures). The page and the API
+ * both check a capture against this and CaptureLimits, so neither accepts what the other refuses.
+ */
+model CaptureRequest {
+  /** Typed text plus any attachment fences. The visible text is capped by CaptureLimits. */
+  @minLength(1)
+  @maxLength(30000000)
+  text: string;
+
+  source?: "web" | "cli" | "voice" | "chat";
+
+  /** An explicitly prepared checkout. The API validates it and records its Git identity. */
+  checkout?: {
+    repo: string;
+    local_path: string;
+    branch: string;
+    workspace_root?: string;
+  };
+
+  /** Classifies the capture at once when the sender holds lane authority. A lane that is not one of these is refused. */
+  lane?: DataLane;
+}
+
+/** The limits on one capture, shared by the page and the API. Each value is fixed. */
+model CaptureLimits {
+  /** Characters a person may type, after attachment fences are taken out (Capture.text). */
+  visible_text: 20000;
+
+  /** Files one capture may carry. */
+  attachments: 20;
+
+  /** Bytes one attached file may hold (5 MB). */
+  attachment_bytes: 5242880;
+}
+
 enum RunRole {
   intake: "intake",
   author: "author",

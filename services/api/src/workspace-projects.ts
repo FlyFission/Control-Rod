@@ -69,21 +69,37 @@ const DEFAULT_PREFS: ProjectWorkspacePrefs = {
 
 const prefsKey = (orgId: string) => `workspace_project_prefs:${orgId}`;
 
-async function readPrefsMap(q: { query: Db["query"] }, orgId: string): Promise<Record<string, Partial<ProjectWorkspacePrefs>>> {
-  const r = await q.query<{ value: string }>("select value from settings where key = $1", [prefsKey(orgId)]);
-  if (!r.rows[0]) return {};
+type PrefsMap = Record<string, Partial<ProjectWorkspacePrefs>>;
+
+/** The stored map, or null when the stored text is not a JSON object. */
+function parsePrefsMap(raw: string): PrefsMap | null {
   try {
-    const parsed = JSON.parse(r.rows[0].value) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, Partial<ProjectWorkspacePrefs>>)
-      : {};
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as PrefsMap) : null;
   } catch {
-    return {};
+    return null;
   }
 }
 
+async function readPrefsMap(q: { query: Db["query"] }, orgId: string): Promise<PrefsMap> {
+  const r = await q.query<{ value: string }>("select value from settings where key = $1", [prefsKey(orgId)]);
+  if (!r.rows[0]) return {};
+  return parsePrefsMap(r.rows[0].value) ?? {};
+}
+
+/** Where an unreadable map is kept before a write replaces it. */
+export const unreadablePrefsKey = (orgId: string, at: string) => `${prefsKey(orgId)}:unreadable:${at}`;
+
 // Creation and update hold runAdmin's organization lock across the map read and write.
-async function writePrefsMap(c: Tx, orgId: string, map: Record<string, Partial<ProjectWorkspacePrefs>>): Promise<void> {
+// A stored map that cannot be read is copied aside first, so one damaged value never wipes every
+// project's preferences without a trace.
+async function writePrefsMap(c: Tx, orgId: string, map: PrefsMap): Promise<void> {
+  const stored = (await c.query<{ value: string }>("select value from settings where key = $1 for update", [prefsKey(orgId)])).rows[0];
+  if (stored && parsePrefsMap(stored.value) === null) {
+    const aside = unreadablePrefsKey(orgId, new Date().toISOString());
+    await c.query("insert into settings (key, value) values ($1, $2) on conflict (key) do nothing", [aside, stored.value]);
+    console.error(`[control-rod] project preferences for ${orgId} could not be read; the stored value was kept under ${aside}`);
+  }
   await c.query(
     "insert into settings (key, value) values ($1, $2) on conflict (key) do update set value = excluded.value",
     [prefsKey(orgId), JSON.stringify(map)],

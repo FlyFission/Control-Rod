@@ -13,6 +13,7 @@ import { DEPENDENCY_PROVENANCE_DOWN_SQL } from "../src/db/migrations/025-depende
 import { DEFAULT_WORKFLOW_DOWN_SQL } from "../src/db/migrations/026-default-workflow.js";
 import { WORK_LANES_DOWN_SQL } from "../src/db/migrations/027-work-lanes.js";
 import { SIGNING_POLICY_DOWN_SQL } from "../src/db/migrations/028-signing-policy.js";
+import { EVENT_SUBJECT_INDEX_DOWN_SQL } from "../src/db/migrations/029-event-subject-index.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import { loadValidator } from "../src/schemas.js";
@@ -289,6 +290,7 @@ describe("classes", () => {
 // Last in the file: it takes 019 off and puts it back over the rows the tests above stored.
 describe("migration 019", () => {
   it("refuses startup naming rows 010 allowed to cross links, changes nothing, and runs once they are removed", async () => {
+    await h.admin.query(EVENT_SUBJECT_INDEX_DOWN_SQL);
     await h.admin.query(SIGNING_POLICY_DOWN_SQL);
     await h.admin.query(WORK_LANES_DOWN_SQL);
     await h.admin.query(DEFAULT_WORKFLOW_DOWN_SQL);

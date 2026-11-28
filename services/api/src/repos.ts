@@ -451,6 +451,9 @@ function safeSlug(branch: string): string {
   return branch.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64) || "work";
 }
 
+/** The most text one git or gh call may print. Past it the call stops and gives a plain refusal. */
+const GIT_OUTPUT_LIMIT = 16 * 1024 * 1024;
+
 interface GitOptions {
   cwd?: string | undefined;
   timeout?: number | undefined;
@@ -464,6 +467,7 @@ async function git(args: string[], options: GitOptions = {}): Promise<string> {
   const { stdout } = await execFileAsync("git", [...HOST_GIT_ARGS, ...args], {
     ...(cwd ? { cwd } : {}),
     timeout,
+    maxBuffer: GIT_OUTPUT_LIMIT,
     env: hostGitEnv(ceilingDir, extraEnv),
   });
   return stdout.trim();
@@ -516,7 +520,7 @@ async function gh(args: string[], options: GhOptions = {}): Promise<string> {
     delete env.GH_ENTERPRISE_TOKEN;
     delete env.GITHUB_ENTERPRISE_TOKEN;
   }
-  const { stdout } = await execFileAsync("gh", args, { timeout, env });
+  const { stdout } = await execFileAsync("gh", args, { timeout, maxBuffer: GIT_OUTPUT_LIMIT, env });
   return stdout.trim();
 }
 
@@ -599,8 +603,7 @@ async function assertSafeGitConfigFile(configPath: string, workspaceRoot: string
       { timeout: 10_000, env: hostGitEnv(workspaceRoot) },
     ));
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    throw new Refusal(400, "invalid-workspace-root", `Unreadable repository git config ${configPath}: ${detail}`);
+    throw new Refusal(400, "invalid-workspace-root", `Unreadable repository git config ${configPath}: ${gitProblem(err)}`);
   }
 
   for (const entry of stdout.split("\0")) {
@@ -697,8 +700,7 @@ async function assertSafeWorkingTree(repoDir: string, workspaceRoot: string): Pr
       workspaceRoot,
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    throw new Refusal(400, "invalid-workspace-root", `Invalid git working tree at ${repoDir}: ${detail}`);
+    throw new Refusal(400, "invalid-workspace-root", `Invalid git working tree at ${repoDir}: ${gitProblem(err)}`);
   }
 
   const lines = out.split(/\r?\n/);
@@ -926,8 +928,7 @@ async function listGithubRepos(ceilingDir?: string): Promise<{ repos: GithubRepo
       error: null,
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Could not query GitHub CLI";
-    return { repos: [], error: msg };
+    return { repos: [], error: gitProblem(err, "The GitHub CLI") };
   }
 }
 
@@ -1602,11 +1603,25 @@ async function checkoutOrCreateBranch(
   await git(args, { cwd: repoDir, workspaceRoot, extraEnv: filterEnv });
 }
 
+/**
+ * Why a checkout folder cannot be made. Folder names come from the branch name with symbols turned
+ * into dashes, so "feat/a" and "feat-a" share one folder, and a fresh clone "app-web" can meet a
+ * repository named "app-web". The folder is never reused; the refusal says what holds it.
+ */
+async function folderTaken(dir: string, branch: string, workspaceRoot: string): Promise<string> {
+  const held = await git(["symbolic-ref", "--short", "HEAD"], { cwd: dir, workspaceRoot, timeout: 5_000 }).catch(() => "");
+  if (held && held !== branch) {
+    return `The folder ${dir} already holds branch ${held}. Branch names that differ only in symbols share one folder. Use another branch name, or remove that checkout first.`;
+  }
+  if (held) return `Branch ${branch} is already checked out at ${dir}. Use that checkout, or remove it first.`;
+  return `The folder ${dir} already exists and is not a checkout of ${branch}. Move it away, or use another branch name.`;
+}
+
 async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
   const targetDir = join(ctx.workspaceRoot, `${ctx.repoName}-${safeSlug(ctx.branch)}`);
   assertContainedIn(ctx.workspaceRoot, targetDir, "Target path must stay inside workspace root.");
   if (pathExistsAny(targetDir)) {
-    throw new Refusal(409, "workspace-exists", `Target folder already exists: ${targetDir}`);
+    throw new Refusal(409, "workspace-exists", await folderTaken(targetDir, ctx.branch, ctx.workspaceRoot));
   }
   if (ctx.isGithub) {
     await gh(["repo", "clone", ctx.repo, targetDir], { timeout: 60_000, ceilingDir: ctx.workspaceRoot });
@@ -1664,7 +1679,7 @@ async function materializeWorktree(ctx: MaterializeContext): Promise<string> {
   const targetDir = join(worktreesRoot, safeSlug(ctx.branch));
   assertContainedIn(ctx.workspaceRoot, targetDir, "Worktree target must stay inside workspace root.");
   if (pathExistsAny(targetDir)) {
-    throw new Refusal(409, "workspace-exists", `Worktree already exists at ${targetDir}`);
+    throw new Refusal(409, "workspace-exists", await folderTaken(targetDir, ctx.branch, ctx.workspaceRoot));
   }
   ensureDirectorySafe(worktreesRoot, "Worktree directory");
 
@@ -1675,13 +1690,34 @@ async function materializeWorktree(ctx: MaterializeContext): Promise<string> {
   return targetDir;
 }
 
+/**
+ * A plain sentence for a failed git or gh call. Node's own message starts "Command failed:" with the
+ * whole command line, which carries internal -c settings and paths, so it is never shown. Git's own
+ * error line is kept, since it says what went wrong.
+ */
+export function gitProblem(err: unknown, tool = "Git"): string {
+  const e = (err ?? {}) as { code?: unknown; killed?: boolean; signal?: unknown; stderr?: unknown; message?: unknown };
+  if (e.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return `${tool} printed more output than this step can read`;
+  if (e.code === "ENOENT") return `${tool} is not installed on this machine, or is not on the PATH`;
+  if (e.killed || e.signal === "SIGTERM") return `${tool} took too long and was stopped`;
+  const stderr = Buffer.isBuffer(e.stderr) ? e.stderr.toString("utf8") : typeof e.stderr === "string" ? e.stderr : "";
+  const lines = stderr.split("\n").map((l) => l.trim()).filter(Boolean);
+  const line = lines.find((l) => /^(fatal|error):/i.test(l)) ?? lines[0];
+  if (line) {
+    const text = line.replace(/^(fatal|error):\s*/i, "");
+    return `${tool} refused: ${text.length > 300 ? `${text.slice(0, 300)}...` : text}`;
+  }
+  const message = typeof e.message === "string" ? e.message : "";
+  if (message && !message.startsWith("Command failed")) return message.slice(0, 300);
+  return `${tool} could not finish this step`;
+}
+
 async function withGitRefusal<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
     if (err instanceof Refusal) throw err;
-    const msg = err instanceof Error ? err.message : "Git operation failed";
-    throw new Refusal(400, "git-failed", msg);
+    throw new Refusal(400, "git-failed", gitProblem(err));
   }
 }
 

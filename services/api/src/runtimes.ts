@@ -32,6 +32,20 @@ export const RUNNABLE = ["claude", "codex", "agy", "grok"];
 export const CHECKER_ORDER = ["codex", "claude", "agy", "grok"];
 
 /**
+ * The test-only fake runtime is claimed and picked only where CONTROLROD_ALLOW_FAKE=1, the switch
+ * the daemon already needs before it offers it. Read on each call, so a test can turn it on or off.
+ * Only the runtime named "fake" is gated: every other name is judged by the lists above.
+ */
+export function fakeAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.CONTROLROD_ALLOW_FAKE === "1";
+}
+
+/** The list, with the fake runtime after it only where it is switched on. */
+export function withFake(list: readonly string[]): string[] {
+  return fakeAllowed() ? [...list, "fake"] : [...list];
+}
+
+/**
  * Runtimes that can author in a repository checkout. Antigravity cannot yet: its file tools can
  * only be fenced for a workspace outside the home folder (change record agy-seat). Grok CLI cannot
  * yet either: its commands are fenced to the workspace folder (change record grok-seat).

@@ -17,7 +17,7 @@ import random
 from datetime import timedelta
 
 from .common import Refused, Study, digest, now, parse_time, read_json, sha256_file, write_json
-from .ledger import Ledger
+from .ledger import Ledger, pause_of
 from .manifest import load_manifest, load_snapshot, pool_for
 from .score import pairs
 from .stats import Z95, wilson80_lower
@@ -90,74 +90,123 @@ def simulate(N: int, q: list[float], g: list[float], p_d: float, rho: float, mis
 
 
 def mc_lower(p: float, sims: int) -> float:
-    """Lower 95% Monte Carlo bound on a simulated power."""
-    return p - Z95 * math.sqrt(max(p * (1 - p), 1e-12) / sims)
+    """Wilson 95% lower bound on a simulated power of p over sims runs (sound near 0 and 1)."""
+    z2 = Z95 * Z95
+    centre = (p + z2 / (2 * sims)) / (1 + z2 / sims)
+    half = Z95 * math.sqrt(p * (1 - p) / sims + z2 / (4 * sims * sims)) / (1 + z2 / sims)
+    return centre - half
 
 
 def required_n(q, g, grid, miss, margins, sims=SIMS, seed=0, f_both=0.5) -> tuple[int | None, dict]:
-    """Smallest N whose simulated power, less its Monte Carlo error, reaches the target at every grid
-    point. N_CAP itself is evaluated before giving up."""
+    """Smallest N whose simulated power, at its Wilson lower bound, reaches the target at every grid
+    point, then confirmed by an independent simulation with another seed; if the confirmation fails
+    the count steps up until both agree. N_CAP itself is evaluated before giving up."""
     power = margins.get("power", 0.8)
 
-    def meets(N):
+    def meets(N, sd):
         out = {f"p_d={p},rho={r}": simulate(N, q, g, p, r, miss, margins["delta_catch"], margins["delta_fr"], sims,
-                                            seed, f_both) for p, r in grid}
+                                            sd, f_both) for p, r in grid}
         return all(mc_lower(v, sims) >= power for v in out.values()), out
 
     lo, hi = 2, 8
-    while not meets(hi)[0]:
+    while not meets(hi, seed)[0]:
         if hi >= N_CAP:
             return None, {"searched_to": N_CAP}
         lo, hi = hi, min(hi * 2, N_CAP)
     while hi - lo > 1:
         mid = (lo + hi) // 2
-        if meets(mid)[0]:
+        if meets(mid, seed)[0]:
             hi = mid
         else:
             lo = mid
-    return hi, meets(hi)[1]
+    check = seed + 1_000_003  # independent stream
+    n = hi
+    while True:
+        ok1, out = meets(n, seed)
+        ok2, out2 = meets(n, check)
+        if ok1 and ok2:
+            return n, {"search": out, "confirmation": out2, "confirmation_seed": check}
+        if n >= N_CAP:
+            return None, {"searched_to": N_CAP, "confirmation_failed_at": n}
+        n = min(N_CAP, math.ceil(n * 1.05) + 1)
+
+
+def repeats(n_patches: int) -> int:
+    """Stability repeats for n checked patches (§7), as run.stability_sample draws them."""
+    return min(n_patches, max(12, math.ceil(0.10 * n_patches)))
+
+
+def _split(call: str) -> str:
+    """first (author calls and first checks) or repeat (stability re-checks), from the call name."""
+    return "repeat" if "--r1" in call.split("/")[-1] else "first"
 
 
 def throughput(study: Study, cfg: dict, n_cal: int) -> dict:
-    """Phase-1 task capacity from phase 0: busy call time per task (probes and idle gaps left out),
-    slowed to wall-clock pace for a vendor that hit a quota pause, and bounded by the remaining call
-    and token caps."""
+    """Phase-1 task capacity from phase 0, per vendor. First-pass work (author calls and first
+    checks) is measured per task and stability re-checks per repeated patch, then projected at the
+    phase-1 repeat count for each N. Busy call time is slowed to wall-clock pace for a vendor that
+    hit a quota pause. Calls and tokens are bounded by what is left under the caps; the largest N
+    that fits every bound is N_feasible."""
     lg = Ledger(study)
     st = lg.state()
     caps = cfg["caps"]
     dones = [d for d in st["dones"].values() if d["phase"] == "calibration" and not d.get("probe")]
     launches = [e for e in st["launches"] if e["phase"] == "calibration" and not e["call"].startswith("probe")]
+    rep_patches = {tuple(d["call"].split("/")[-1].split("--")[:2]) for d in dones if _split(d["call"]) == "repeat"}
+    n_rep = len(rep_patches)
+    paused = {q["vendor"] for e in st["events"] if (q := pause_of(e))}
+    p95 = lg.calibration_p95() or {}
     per_vendor = {}
     for d in dones:
-        v = per_vendor.setdefault(d["vendor"], {"calls": 0, "busy_s": 0.0, "known_tokens": 0, "unknown_usage": 0})
-        v["calls"] += 1
-        v["busy_s"] += d.get("seconds") or 0
-        if (d.get("usage") or {}).get("known"):
-            v["known_tokens"] += d["usage"]["total"]
-        else:
-            v["unknown_usage"] += 1
-    busy = sum(v["busy_s"] for v in per_vendor.values())
-    per_day_busy = 86400 * n_cal / busy if busy > 0 else None
-    paused = {e["vendor"] for e in st["events"] if e["event"] == "quota_paused"}
-    per_day = per_day_busy
-    if paused and launches:
-        span = (parse_time(dones[-1]["at"]) - parse_time(launches[0]["at"])).total_seconds() / 86400 if dones else 0
-        wall = n_cal / max(span, 1 / 24)
-        per_day = min(per_day_busy or wall, wall)
+        v = per_vendor.setdefault(d["vendor"], {k: {"calls": 0, "busy_s": 0.0, "tokens_p95": 0.0}
+                                                for k in ("first", "repeat")} | {"unknown_usage": 0, "first_at": None,
+                                                                                  "last_at": None})
+        b = v[_split(d["call"])]
+        b["busy_s"] += d.get("seconds") or 0
+        b["tokens_p95"] += p95.get(f"{d['vendor']}/{d['role']}") or 0
+        v["unknown_usage"] += not (d.get("usage") or {}).get("known")
+        v["first_at"] = min(filter(None, [v["first_at"], d["at"]]), key=parse_time)
+        v["last_at"] = max(filter(None, [v["last_at"], d["at"]]), key=parse_time)
+    for e in launches:
+        per_vendor.get(e["vendor"], {}).get(_split(e["call"]), {"calls": 0})["calls"] += 1
+    for name, v in per_vendor.items():
+        busy = v["first"]["busy_s"] + v["repeat"]["busy_s"]
+        span = (parse_time(v["last_at"]) - parse_time(v["first_at"])).total_seconds() if v["first_at"] else 0
+        v["slowdown"] = max(1.0, span / busy) if name in paused and busy > 0 else 1.0
+        v["per_task"] = {k: v["first"][k] / n_cal for k in ("calls", "busy_s", "tokens_p95")} if n_cal else None
+        v["per_repeat"] = {k: v["repeat"][k] / n_rep for k in ("calls", "busy_s", "tokens_p95")} if n_rep else None
     days_left = max((lg.deadline() - parse_time(now())) / timedelta(days=1), 0)
-    by_time = None if per_day is None else per_day * days_left
-    calls_per_task = len(launches) / n_cal if n_cal else None
-    by_calls = (caps["max_calls"] - len(st["launches"])) / calls_per_task if calls_per_task else None
-    p95 = lg.calibration_p95()
-    tok_task = None
-    if p95 and all(p95.values()):
-        tok_task = sum(p95.get(f"{d['vendor']}/{d['role']}") or 0 for d in dones) / n_cal
-    by_tokens = (caps["max_tokens"] - lg.known_tokens(st)) / tok_task if tok_task else None
-    bounds = {"time": by_time, "calls": by_calls, "tokens": by_tokens}
-    known = [b for b in bounds.values() if b is not None]
-    return {"per_vendor": per_vendor, "quota_paused_vendors": sorted(paused), "tasks_per_day": per_day,
-            "days_left": days_left, "bounds": bounds, "n_feasible": int(min(known)) if known else 0,
-            "token_p95": p95}
+    calls_left = caps["max_calls"] - len(st["launches"])
+    tokens_left = caps["max_tokens"] - lg.known_tokens(st)
+    tokens_known = bool(p95) and all(p95.values())
+
+    def need(N):
+        k = repeats(2 * N)
+        t = c = tok = 0.0
+        for v in per_vendor.values():
+            pt, pr = v["per_task"] or {}, v["per_repeat"] or {}
+            t += (N * pt.get("busy_s", 0) + k * pr.get("busy_s", 0)) * v["slowdown"]  # calls run one at a time
+            c += N * pt.get("calls", 0) + k * pr.get("calls", 0)
+            tok += N * pt.get("tokens_p95", 0) + k * pr.get("tokens_p95", 0)
+        return {"days": t / 86400, "calls": c, "tokens": tok if tokens_known else None}
+
+    def fits(N):
+        x = need(N)
+        return x["days"] <= days_left and x["calls"] <= calls_left and (x["tokens"] is None or x["tokens"] <= tokens_left)
+
+    n_feasible = 0
+    if n_cal and per_vendor and any((v["per_task"] or {}).get("busy_s") for v in per_vendor.values()):
+        lo, hi = 0, N_CAP
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            lo, hi = (mid, hi) if fits(mid) else (lo, mid - 1)
+        n_feasible = lo
+    for v in per_vendor.values():
+        v.pop("first_at"), v.pop("last_at")
+    return {"per_vendor": per_vendor, "quota_paused_vendors": sorted(paused), "repeated_patches": n_rep,
+            "days_left": days_left, "left": {"calls": calls_left, "tokens": tokens_left},
+            "need_at_feasible": need(n_feasible), "n_feasible": n_feasible, "token_p95": p95 or None,
+            "tokens_bound_known": tokens_known}
 
 
 def size(study: Study, sims: int = SIMS) -> dict:
@@ -194,7 +243,9 @@ def size(study: Study, sims: int = SIMS) -> dict:
                            "each checker is inconclusive with the phase-0 share of inconclusive checks; an "
                            "inconclusive is a non-rejection and stays in the denominator",
                            "a concordant pair is a double rejection with the phase-0 share f_both",
-                           "power must clear the target after subtracting 1.96 Monte Carlo standard errors"],
+                           "power must clear the target at its Wilson 95% Monte Carlo lower bound, confirmed by an "
+                           "independent simulation with another seed",
+                           "calls run one at a time; phase-1 stability repeats follow §7's count at each N"],
            "token_p95": Ledger(study).calibration_p95()}
     gate = None
     if any(v["eligible_bad"] == 0 for v in per.values()):

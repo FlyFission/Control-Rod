@@ -11,6 +11,7 @@ import secrets
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 from .common import HERE, ROOT, Refused
@@ -20,11 +21,26 @@ GENERIC = {"GIT_AUTHOR_NAME": "bench", "GIT_AUTHOR_EMAIL": "bench@invalid", "GIT
            "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"}
 SAFE = ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "commit.gpgsign=false",
         "-c", "core.autocrlf=false", "-c", "core.symlinks=true", "-c", "safe.directory=*",
-        "-c", "advice.detachedHead=false", "-c", "init.defaultBranch=main"]
+        "-c", "advice.detachedHead=false", "-c", "init.defaultBranch=main",
+        # no background repack or maintenance: a detached `gc --auto` after a large commit (a Django
+        # export) writes pack temp files while the harness removes the tree
+        "-c", "gc.auto=0", "-c", "gc.autoDetach=false", "-c", "maintenance.auto=false"]
+
+
+SYSTEM_PATH = "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"
+
+
+def trusted_git() -> str:
+    """Git by absolute path from system locations only, never a `git` that an earlier PATH
+    entry (a workspace, a project's bin directory) could supply."""
+    g = shutil.which("git", path=SYSTEM_PATH)
+    if not g:
+        raise Refused("§5 trusted git", f"no git in {SYSTEM_PATH}")
+    return os.path.realpath(g)
 
 
 def git_env(extra: dict | None = None) -> dict:
-    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+    env = {"PATH": SYSTEM_PATH, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
            "GIT_TERMINAL_PROMPT": "0", "HOME": "/nonexistent", "LC_ALL": "C", **GENERIC}
     if extra:
         env.update(extra)
@@ -32,7 +48,7 @@ def git_env(extra: dict | None = None) -> dict:
 
 
 def _gitb(args, cwd, stdin: bytes | None = None, env: dict | None = None) -> bytes:
-    r = subprocess.run(["git", *SAFE, *args], cwd=cwd, input=stdin, capture_output=True, env=git_env(env))
+    r = subprocess.run([trusted_git(), *SAFE, *args], cwd=cwd, input=stdin, capture_output=True, env=git_env(env))
     if r.returncode != 0:
         raise SystemExit(f"git {' '.join(map(str, args))} failed: {r.stderr.decode(errors='replace').strip()}")
     return r.stdout
@@ -42,9 +58,14 @@ def _git(args, cwd, env: dict | None = None) -> str:
     return _gitb(args, cwd, env=env).decode(errors="replace")
 
 
-def workspace_root(cfg: dict, study_dir: Path | None = None) -> Path:
+def workspace_root_path(cfg: dict) -> Path:
+    """Where the workspace root is, with no side effect."""
     raw = cfg["caps"].get("workspace_root") or f"/var/tmp/cr-bench-{os.getuid()}"
-    root = Path(os.path.expanduser(raw)).resolve(strict=False)
+    return Path(os.path.expanduser(raw)).resolve(strict=False)
+
+
+def workspace_root(cfg: dict, study_dir: Path | None = None) -> Path:
+    root = workspace_root_path(cfg)
     forbidden = [ROOT.resolve(), Path.home().resolve(strict=False)]
     if study_dir is not None:
         forbidden.append(Path(study_dir).resolve(strict=False))
@@ -70,7 +91,7 @@ def mirror(task: dict, cache: Path) -> Path:
         tmp = m.parent / f".{m.name}.{secrets.token_hex(4)}"
         _gitb(["clone", "-q", "--mirror", f"https://github.com/{task['repo']}.git", str(tmp)], cache)
         os.replace(tmp, m)
-    r = subprocess.run(["git", *SAFE, "--git-dir", str(m), "cat-file", "-e", f"{task['base_commit']}^{{commit}}"],
+    r = subprocess.run([trusted_git(), *SAFE, "--git-dir", str(m), "cat-file", "-e", f"{task['base_commit']}^{{commit}}"],
                        capture_output=True, env=git_env())
     if r.returncode != 0:
         _gitb(["--git-dir", str(m), "fetch", "-q", "origin", task["base_commit"]], cache)
@@ -133,14 +154,20 @@ def tree_hash(repo: Path) -> str:
     return h.hexdigest()
 
 
-def make_read_only(repo: Path) -> None:
-    """Defense in depth only; the read-only guarantee is the OS confinement (confine.py)."""
+def make_read_only(repo: Path, files_only: bool = False) -> None:
+    """Defense in depth only; the read-only guarantee is the OS confinement (confine.py), or in a
+    container the read-only mount. files_only leaves every directory's mode alone for a container
+    call: Claude Code's sandbox puts mount points for absent protected names (.claude,
+    .git/config.lock, ...) under its working directory and skips one only when its directory
+    refuses as read-only (EROFS); a mode-only refusal (EACCES) from the owner makes it try, and
+    bubblewrap then aborts the shell before any command runs."""
     for dirpath, dirnames, filenames in os.walk(repo, followlinks=False):
-        for name in [*dirnames, *filenames]:
+        for name in [*([] if files_only else dirnames), *filenames]:
             p = Path(dirpath) / name
             if not p.is_symlink():
                 p.chmod(p.lstat().st_mode & ~0o222)
-    repo.chmod(repo.stat().st_mode & ~0o222)
+    if not files_only:
+        repo.chmod(repo.stat().st_mode & ~0o222)
 
 
 def apply_patch(repo: Path, patch: bytes, index: bool = True) -> None:
@@ -152,7 +179,7 @@ def apply_patch(repo: Path, patch: bytes, index: bool = True) -> None:
         pf.unlink()
 
 
-def checker_tree(task: dict, patch: bytes, root: Path, cache: Path) -> tuple[Path, Path]:
+def checker_tree(task: dict, patch: bytes, root: Path, cache: Path, files_only: bool = False) -> tuple[Path, Path]:
     """The base commit with the patch applied to the index and tree (so `git diff HEAD` shows
     every change, new files included), plus a separate writable scratch directory."""
     repo = export_base(task, root, cache)
@@ -160,7 +187,7 @@ def checker_tree(task: dict, patch: bytes, root: Path, cache: Path) -> tuple[Pat
         apply_patch(repo, patch)
     scratch = repo.parent / "scratch"
     scratch.mkdir()
-    make_read_only(repo)
+    make_read_only(repo, files_only)
     return repo, scratch
 
 
@@ -181,4 +208,18 @@ def remove(d: Path) -> None:
         d.chmod(d.stat().st_mode | 0o700)
     except OSError:
         pass
-    shutil.rmtree(d)
+
+    def gone(func, path, exc):  # an entry that vanished on its own is already removed
+        e = exc if isinstance(exc, BaseException) else exc[1]
+        if not isinstance(e, FileNotFoundError):
+            raise e
+    kw = {"onexc": gone} if sys.version_info >= (3, 12) else {"onerror": gone}
+    for attempt in range(3):  # a directory that gained an entry mid-walk is walked again
+        try:
+            shutil.rmtree(d, **kw)
+            return
+        except OSError:
+            if attempt == 2 or not d.exists():
+                if d.exists():
+                    raise
+                return

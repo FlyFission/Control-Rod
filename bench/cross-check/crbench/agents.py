@@ -8,47 +8,56 @@ Rod's daemon; it can never read the other vendor's."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import secrets
 import shutil
 import signal
 import subprocess
+import threading
 import time
 from pathlib import Path
 
 from . import confine
-from .common import HERE, read_json
+from . import container as ctr
+from .common import HERE, Refused, read_json
 
 BILLING_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "OPENAI_API_KEY", "OPENAI_BASE_URL",
                "CODEX_API_KEY", "AZURE_OPENAI_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
                "CLAUDE_CODE_USE_FOUNDRY", "AWS_BEARER_TOKEN_BEDROCK")
 KEEP_ENV = ("PATH", "LANG", "LC_ALL", "TERM", "USER", "LOGNAME")
-LOCAL_KEYS = {"config", "login_store", "bin", "read_allow"}
+CREDENTIAL_ENV = ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY",
+                  "CODEX_API_KEY")
+LOCAL_KEYS = {"config", "login_store"}
+LOCAL_LOGIN_KEYS = {"source"}
 QUOTA = [r"usage limit", r"limit reached", r"rate.?limit", r"\b429\b", r"too many requests", r"quota"]
 AUTH = re.compile(r"not (signed|logged) in|log ?in required|please (run )?(/)?login|unauthori[sz]ed|\b401\b|"
                   r"invalid (api key|token|bearer)|token (has )?expired|authentication_error|oauth token", re.I)
 VERDICT = re.compile(r"<verdict>\s*(\{.*?\})\s*</verdict>", re.S)
-OUTPUT_CAP = 256 * 1024 * 1024
+OUTPUT_CAP = 64 * 1024 * 1024
 
 
 # ------------------------------------------------------------------ local overrides
 
 
 def load_local(name: str, agent: dict | None = None) -> dict:
-    """agents.local.json: sign-in store, CLI path, extra readable install dirs and allowlisted
-    transport values only. Never model, effort, tools or sandbox (§9)."""
+    """agents.local.json: where the sign-in store lives and allowlisted transport values only.
+    Never the store's mode, model, effort, tools, sandbox or CLI binary (the CLI is in the pinned
+    image) (§9)."""
     p = HERE / "agents.local.json"
     if not p.exists():
         return {}
     extra = read_json(p).get(name, {})
     bad = set(extra) - LOCAL_KEYS
+    bad |= {f"login_store.{k}" for k in set(extra.get("login_store", {})) - LOCAL_LOGIN_KEYS}
     allow = (agent or {}).get("transport_allow", {})
     for k, v in extra.get("config", {}).items():
         if k not in allow or v not in allow[k]:
             bad.add(f"config.{k}={v}")
     if bad:
-        raise SystemExit(f"agents.local.json may set only sign-in, CLI path and allowlisted transport for {name} "
+        raise SystemExit(f"agents.local.json may set only the sign-in source and allowlisted transport for {name} "
                          f"(§9); refused: {sorted(bad)}")
     return extra
 
@@ -57,9 +66,8 @@ def effective(agent: dict, name: str) -> dict:
     """The frozen spec plus its local sign-in, binary and readable install dirs."""
     ex = load_local(name, agent)
     out = dict(agent)
-    for k in ("login_store", "bin", "read_allow"):
-        if k in ex:
-            out[k] = ex[k]
+    if "login_store" in ex:
+        out["login_store"] = {**(agent.get("login_store") or {}), **ex["login_store"]}
     out["_local_config"] = ex.get("config", {})
     out["_name"] = name
     return out
@@ -69,8 +77,8 @@ def local_record(name: str, agent: dict | None = None) -> dict:
     """What the record keeps from agents.local.json: allowlisted transport values and the sign-in
     mode; never paths or secrets."""
     ex = load_local(name, agent)
-    return {"config": ex.get("config", {}), "login_mode": ex.get("login_store", {}).get("mode"),
-            "custom_bin": "bin" in ex, "extra_read_dirs": len(ex.get("read_allow", []))}
+    return {"config": ex.get("config", {}), "login_mode": (agent or {}).get("login_store", {}).get("mode"),
+            "custom_sign_in_source": "source" in ex.get("login_store", {})}
 
 
 def resolve_bin(agent: dict) -> str | None:
@@ -91,6 +99,144 @@ def clean_env(extra: dict) -> dict:
     return keep
 
 
+TOKEN_PREFIX = "sk-ant-oat"  # a subscription OAuth token; an API key starts "sk-ant-api"
+
+
+def read_token_file(src: Path) -> str:
+    if src.is_symlink() or not src.is_file() or src.stat().st_mode & 0o077:
+        raise SystemExit(f"{src} must be a regular file readable by its owner only (chmod 600)")
+    tok = src.read_text().strip()
+    if not tok.startswith(TOKEN_PREFIX) or any(c.isspace() for c in tok):
+        raise SystemExit(f"{src} does not hold a subscription token from `claude setup-token`")
+    return tok
+
+
+def write_claude_credentials(cdir: Path, tok: str) -> Path:
+    """Claude Code's own credentials file (`.credentials.json` in its config directory), holding
+    the long-lived setup token as the access token. No refresh token: nothing rotates."""
+    cdir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    f = cdir / ".credentials.json"
+    body = {"claudeAiOauth": {"accessToken": tok, "refreshToken": None,
+                              "expiresAt": int((time.time() + 300 * 86400) * 1000), "scopes": ["user:inference"]}}
+    fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump(body, fh)
+    return f
+
+
+def synthetic_login(agent: dict, private: Path, sentinel: str) -> dict:
+    """The same layout as login_store, holding a sentinel instead of a credential: admission and
+    the boundary probes never copy a real sign-in."""
+    ls = agent.get("login_store") or {}
+    home, tmp = private / "home", private / "tmp"
+    home.mkdir(parents=True, exist_ok=True)
+    tmp.mkdir(parents=True, exist_ok=True)
+    env = {"HOME": str(home), "TMPDIR": str(tmp)}
+    if ls.get("mode") == "files":
+        dst = private / "login"
+        dst.mkdir(parents=True)
+        for f in ls["files"]:
+            (dst / f).write_text(json.dumps({"sentinel": sentinel}))
+        return {**env, ls["env"]: str(dst)}
+    if ls.get("mode") == "token_file":
+        cdir = private / "claude"
+        write_claude_credentials(cdir, sentinel)
+        return {**env, ls["config_env"]: str(cdir)}
+    return env
+
+
+WRITE_BACK_MAX = 256 * 1024
+_CHECKOUT: dict[str, dict[str, str]] = {}  # private dir -> digest of each store file when it was copied
+
+
+def _store_ok_for_write_back(src: Path) -> bool:
+    """Write-back goes only to a dedicated store: never the owner's everyday ~/.codex, never a link."""
+    try:
+        everyday = (Path.home() / ".codex").resolve(strict=False)
+        return not src.is_symlink() and src.resolve(strict=False) != everyday and everyday not in src.resolve().parents
+    except OSError:
+        return False
+
+
+def _valid_codex_auth(j) -> bool:
+    if not isinstance(j, dict) or not isinstance(j.get("tokens"), dict):
+        return False
+    t = j["tokens"]
+    if not (isinstance(t.get("access_token"), str) and t["access_token"] and isinstance(t.get("refresh_token"), str)
+            and t["refresh_token"]):
+        return False
+    if j.get("OPENAI_API_KEY") or j.get("api_key") or str(j.get("auth_mode", "")).lower().startswith("api"):
+        return False  # a refreshed sign-in never turns into a billed API key
+    return True
+
+
+def write_back_login(agent: dict, private: Path) -> str:
+    """A CLI may refresh its sign-in during a call (Codex rotates its refresh token). For a store
+    marked write_back (the benchmark's own sign-in, never the owner's everyday one), the refreshed
+    copy replaces the store atomically after the container is gone, so the next call starts from
+    the live token. Guards: no link anywhere on the path, a size cap, the expected shape with no
+    API key, and no overwrite if the store changed since this call's copy was taken (a conflict
+    is reported, never resolved by rolling back). The compare and the replace happen under an
+    exclusive lock on the store. Returns "updated", "unchanged", "conflict", "refused" or "n/a";
+    the record keeps it, never a credential."""
+    ls = agent.get("login_store") or {}
+    if ls.get("mode") != "files" or not ls.get("write_back"):
+        return "n/a"
+    src = Path(os.path.expanduser(ls["source"]))
+    checkout = _CHECKOUT.get(str(private))
+    login = private / "login"
+    if checkout is None or not _store_ok_for_write_back(src) or login.is_symlink() or not login.is_dir():
+        return "refused"
+    import fcntl
+    lock_fd = os.open(src / ".cr-bench.lock", os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        return _write_back_locked(ls, src, login, checkout)
+    finally:
+        os.close(lock_fd)
+
+
+def _write_back_locked(ls: dict, src: Path, login: Path, checkout: dict) -> str:
+    status = "unchanged"
+    for f in ls["files"]:
+        new, old = login / f, src / f
+        if new.is_symlink() or old.is_symlink() or not new.is_file() or not old.is_file():
+            status = "refused"
+            continue
+        if new.stat().st_size > WRITE_BACK_MAX:
+            status = "refused"
+            continue
+        data = new.read_bytes()
+        cur = old.read_bytes()
+        if data == cur:
+            continue
+        if hashlib.sha256(cur).hexdigest() != checkout.get(f):
+            status = "conflict"  # the store moved on since this copy was taken: never roll it back
+            continue
+        try:
+            j = json.loads(data)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            status = "refused"  # a half-written or foreign file never replaces a working sign-in
+            continue
+        if not _valid_codex_auth(j):
+            status = "refused"
+            continue
+        tmp = src / f".{f}.{secrets.token_hex(4)}"
+        try:
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(data)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, old)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
+        if status == "unchanged":
+            status = "updated"
+    return status
+
+
 def login_store(agent: dict, private: Path) -> dict:
     """A minimal, isolated login store in the call's private directory. Returns env additions."""
     ls = agent.get("login_store") or {}
@@ -104,16 +250,24 @@ def login_store(agent: dict, private: Path) -> dict:
     if ls["mode"] == "files":  # e.g. an isolated CODEX_HOME holding only auth.json
         dst = private / "login"
         dst.mkdir(parents=True)
+        digests = {}
         for f in ls["files"]:
             if not (src / f).is_file() or (src / f).is_symlink():
                 raise SystemExit(f"sign-in file {f} not found (or a link) for {agent['kind']}")
-            shutil.copyfile(src / f, dst / f)
+            data = (src / f).read_bytes()
+            digests[f] = hashlib.sha256(data).hexdigest()
+            (dst / f).write_bytes(data)
             os.chmod(dst / f, 0o600)
+        _CHECKOUT[str(private)] = digests
         return {**env, ls["env"]: str(dst)}
     if ls["mode"] == "token_file":  # a `claude setup-token` subscription token in a 0600 file
-        if src.is_symlink() or src.stat().st_mode & 0o077:
-            raise SystemExit(f"{src} must be a regular file readable by its owner only (chmod 600)")
-        return {**env, ls["env"]: src.read_text().strip()}
+        tok = read_token_file(src)
+        # The token goes into a credentials file in the CLI's own config directory, never into the
+        # environment: every tool process inherits the environment, and the CLI's sandbox denies
+        # this directory to tool processes (preflight admission proves it with a sentinel).
+        cdir = private / "claude"
+        write_claude_credentials(cdir, tok)
+        return {**env, ls["config_env"]: str(cdir)}
     raise SystemExit(f"unknown login_store mode {ls['mode']!r}")
 
 
@@ -196,9 +350,11 @@ def norm_usage(kind: str, usage: dict | None) -> dict:
         return unknown
     need = {"claude": ("input_tokens", "output_tokens"), "codex": ("input_tokens", "output_tokens"),
             "stub": ("input", "output")}[kind]
-    if any(not isinstance(usage.get(k), int) or usage[k] < 0 for k in need):
+    def num(v):  # bool is an int subclass; True is not a token count
+        return isinstance(v, int) and not isinstance(v, bool) and v >= 0
+    if any(not num(usage.get(k)) for k in need):
         return unknown
-    g = lambda k: usage.get(k) if isinstance(usage.get(k), int) and usage[k] >= 0 else 0  # noqa: E731
+    g = lambda k: usage.get(k) if num(usage.get(k)) else 0  # noqa: E731
     if kind == "claude":
         inp, cached, out = g("input_tokens") + g("cache_creation_input_tokens"), g("cache_read_input_tokens"), g("output_tokens")
     elif kind == "codex":
@@ -298,31 +454,110 @@ def quota_reset_hours(text: str) -> float | None:
 
 
 def classify_failure(text: str, agent: dict) -> dict:
-    if AUTH.search(text):
-        return {"status": "infra_error", "auth": True}
+    """text is the CLI's own error output (stderr and its error event), never the transcript, whose
+    tool output can mention 401 or quota for reasons of its own. A usage limit is checked first."""
     if any(re.search(p, text, re.I) for p in (agent.get("quota_patterns") or QUOTA)):
         return {"status": "quota_paused", "reset_hours": quota_reset_hours(text)}
+    if AUTH.search(text):
+        return {"status": "infra_error", "auth": True}
     return {"status": "infra_error"}
 
 
 # ------------------------------------------------------------------ the call
 
 
-def run_proc(args: list[str], cwd: Path, stdin: str, timeout: int, env: dict, out: Path, err: Path) -> tuple[int | None, bool]:
-    """Run in its own process group with output spooled to files. Returns (exit code, timed out)."""
-    with out.open("wb") as fo, err.open("wb") as fe:
-        p = subprocess.Popen(args, cwd=cwd, stdin=subprocess.PIPE, stdout=fo, stderr=fe, env=env,
-                             start_new_session=True)
+def kill_group(pgid: int) -> None:
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
+def run_proc(args: list[str], cwd: Path, stdin: str, timeout: int, env: dict, out: Path, err: Path,
+             cap: int = OUTPUT_CAP, pid_file: Path | None = None) -> tuple[int | None, str | None]:
+    """Run in its own process group. Output is read through pipes and written to files by the
+    harness, which stops writing at the cap, so no file ever grows past it. The group is killed on
+    every exit, so no child outlives the call. pid_file records the group for recovery after a crash
+    of the harness itself. Returns (exit code, None | "timeout" | "output cap")."""
+    written = [0]
+    over = threading.Event()
+    lock = threading.Lock()
+
+    def pump(src, dst: Path):
+        with dst.open("wb") as f:
+            for chunk in iter(lambda: src.read(65536), b""):
+                with lock:
+                    room = cap - written[0]
+                    take = chunk[:max(room, 0)]
+                    written[0] += len(take)
+                if take:
+                    f.write(take)
+                if len(take) < len(chunk):
+                    over.set()
+                    break
+        src.close()
+
+    p = subprocess.Popen(args, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         env=env, start_new_session=True)
+    if pid_file is not None:
+        pid_file.write_text(str(p.pid))
+    pumps = [threading.Thread(target=pump, args=(p.stdout, out), daemon=True),
+             threading.Thread(target=pump, args=(p.stderr, err), daemon=True)]
+    for t in pumps:
+        t.start()
+    stop = None
+    try:
         try:
-            p.communicate(stdin.encode(), timeout=timeout)
-            return p.returncode, False
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(p.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            p.wait()
-            return None, True
+            p.stdin.write(stdin.encode())
+            p.stdin.close()
+        except BrokenPipeError:
+            pass
+        deadline = time.monotonic() + timeout
+        while p.poll() is None:
+            if over.is_set():
+                stop = "output cap"
+                break
+            if time.monotonic() > deadline:
+                stop = "timeout"
+                break
+            time.sleep(0.05)
+    finally:
+        kill_group(p.pid)
+        p.wait()
+        for t in pumps:
+            t.join(timeout=10)
+        if pid_file is not None:
+            pid_file.unlink(missing_ok=True)
+    if stop is None and over.is_set():
+        stop = "output cap"
+    return (None if stop else p.returncode), stop
+
+
+def read_capped(p: Path, cap: int = 4 * 1024 * 1024) -> str:
+    with p.open("rb") as f:
+        return f.read(cap).decode("utf-8", errors="replace")
+
+
+def cli_denies(ws: dict) -> list[str]:
+    """The read denials handed to a CLI's own sandbox: every outer denial that does not contain the
+    call's own directories (those are left to the outer layer and to the opaque names), plus every
+    other directory already in the workspace root, by name. Runs are sequential under the run lock,
+    so no sibling appears during a call."""
+    own = [confine.canonical(ws["workspace"]), confine.canonical(ws["private"])]
+    if ws.get("scratch"):
+        own.append(confine.canonical(ws["scratch"]))
+
+    def contains(d, p):
+        return p == d or p.startswith(d.rstrip("/") + "/")
+    keep = [d for d in (confine.canonical(x) for x in ws["deny"]) if not any(contains(d, o) for o in own)]
+    wsdir = Path(ws["workspace"]).parent
+    root = wsdir.parent
+    mine = {confine.canonical(wsdir), confine.canonical(ws["private"])}
+    try:
+        sibs = [confine.canonical(p) for p in root.iterdir() if confine.canonical(p) not in mine]
+    except OSError:
+        sibs = []
+    return sorted(set(keep + sibs))
 
 
 def confinement_for(role: str, ws: dict) -> dict:
@@ -356,30 +591,91 @@ def run_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, time
     return rec
 
 
-def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, timeout: int) -> dict:
-    kind = agent["kind"]
-    priv = Path(ws["private"])
-    last = priv / "last-message.txt"
-    env = clean_env(login_store(agent, priv))
+IMAGE_PATH = "/usr/local/bin:/usr/bin:/bin"
+
+
+def container_env(agent: dict, priv: Path, sentinel: str | None = None) -> dict:
+    """The call's environment inside its container: built from nothing, never from the host's.
+    The sign-in copy and HOME live under /work/private, which each CLI's own sandbox denies to
+    tool processes; TMPDIR is the container's tmpfs."""
+    host = synthetic_login(agent, priv, sentinel) if sentinel is not None else login_store(agent, priv)
+    env = {"PATH": IMAGE_PATH, "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": "/tmp"}
+    for k, v in host.items():
+        if k == "TMPDIR":
+            continue
+        env[k] = v.replace(str(priv), ctr.PRIVATE, 1) if isinstance(v, str) and v.startswith(str(priv)) else v
     env.update(agent.get("isolation", {}).get("env", {}))
-    binp = resolve_bin(agent)
-    if not binp:
-        return {"status": "infra_error", "why": f"{kind} CLI not found", "usage": norm_usage(kind, None)}
-    deny = [confine.canonical(d) for d in ws["deny"]]
-    if kind == "claude":
-        args = [binp, *claude_args(agent, role, ws["workspace"], ws.get("scratch"), deny)]
-    elif kind == "codex":
-        args = [binp, *codex_args(agent, role, ws["workspace"], ws.get("scratch"), deny, last)]
-    else:
-        raise SystemExit(f"unknown agent kind {kind}")
-    c = confinement_for(role, ws)
-    argv, conf = confine.wrap(args, deny_read=c["deny_read"], allow_read=c["allow_read"] + [str(Path(binp).parent)],
-                              writable=c["writable"], read_only=c["read_only"], network=True)
+    for k in BILLING_ENV:
+        env.pop(k, None)
+    for k, v in env.items():  # no credential ever travels in the environment: every tool inherits it
+        if k in CREDENTIAL_ENV or str(v).startswith("sk-"):
+            raise Refused("§4 sign-in", f"a credential would reach the call's environment as {k}")
+    return env
+
+
+def container_args(agent: dict, role: str, scratch: bool) -> list[str]:
+    """The CLI's argv inside the container: fixed paths, and its own sandbox denying /work/private
+    (sign-in copy, HOME, session files) to every tool process."""
+    sc = Path(ctr.SCRATCH) if scratch else None
+    if agent["kind"] == "claude":
+        return ["claude", *claude_args(agent, role, Path(ctr.REPO), sc, [ctr.PRIVATE])]
+    if agent["kind"] == "codex":
+        return ["codex", *codex_args(agent, role, Path(ctr.REPO), sc, [ctr.PRIVATE],
+                                     Path(ctr.PRIVATE) / "last-message.txt")]
+    raise SystemExit(f"unknown agent kind {agent['kind']}")
+
+
+def _container_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, timeout: int) -> dict:
+    """One real call in its own container (container.py). Returns after the container, its proxy
+    and its network are removed, so nothing it started can still write."""
+    cx = agent["_container"]
+    priv = Path(ws["private"])
+    if ctr.image_id(cx["image"]) != cx["image"]:
+        raise Refused("§9 versions", "the agent image differs from the one preflight pinned; the run stops")
+    env = container_env(agent, priv)
+    args = container_args(agent, role, bool(ws.get("scratch")))
     (call_dir / "argv.json").write_text(json.dumps(args[1:], indent=1))
     so, se = call_dir / "stdout.jsonl", call_dir / "stderr.txt"
-    code, timed_out = run_proc(argv, ws["workspace"], prompt, timeout, env, so, se)
+    env_file = Path(cx["root"]) / f"env-{cx['lid']}"  # read by the docker client only, never mounted
+    refreshed = "not attempted"
+    call = ctr.Call(cx["cfg"], cx["image"], cx["lid"], cx["label"], call_dir, agent.get("egress") or [],
+                    cx["root"], systempaths=agent["kind"] == "claude")
+    try:
+        with call as c:
+            env.update(c.proxy_env())
+            ctr.write_env_file(env_file, env)
+            argv = c.argv(role, ws, env_file, args)
+            code, stop = run_proc(argv, call_dir, prompt, timeout, ctr.docker_env(), so, se, pid_file=call_dir / "pgid")
+    finally:  # the container is confirmed gone (or never started): keep a refreshed sign-in even on interrupt
+        env_file.unlink(missing_ok=True)
+        if call.removed:  # only once removal is confirmed can nothing in the container still write
+            refreshed = write_back_login(agent, priv)
+    audit = ctr.egress_audit(call_dir)
+    log = audit["records"]
+    conf = {"mechanism": "container", "image": cx["image"], "apparmor": ctr.APPARMOR,
+            "egress_complete": audit["complete"], "egress_incomplete_why": audit["why"],
+            "egress": {"allowed": sorted({e["host"] for e in log if e.get("decision") == "allowed"}),
+                       "denied": sorted({f"{e.get('host')}: {e.get('reason')}" for e in log
+                                         if e.get("decision") in ("denied", "error", "log_cap")})}}
+    conf["sign_in_write_back"] = refreshed
+    rec = finish_real(agent, role, timeout, priv / "last-message.txt", so, se, code, stop, conf)
+    if not audit["complete"] and rec.get("status") == "ok":  # a call whose traffic is not fully on record is not scored
+        rec.update({"status": "infra_error", "why": f"egress log incomplete: {audit['why']}"})
+    return rec
+
+
+def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, timeout: int) -> dict:
+    if agent.get("_container"):
+        return _container_call(agent, role, prompt, ws, call_dir, timeout)
+    raise Refused("§4 container", "real agent calls run only in the per-call container (DESIGN-v3.4-proposal.md)")
+
+
+def finish_real(agent: dict, role: str, timeout: int, last: Path, so: Path, se: Path, code, stop, conf: dict) -> dict:
+    """Parse a finished CLI call's output into a record (§5 failure taxonomy)."""
+    kind = agent["kind"]
+    timed_out = stop == "timeout"
     rec: dict = {"exit": code, "confinement": conf}
-    if so.stat().st_size + se.stat().st_size > OUTPUT_CAP:
+    if stop == "output cap":
         return {**rec, "status": "infra_error", "why": "output over the cap", "usage": norm_usage(kind, None)}
     stdout, stderr = so.read_text(errors="replace"), se.read_text(errors="replace")
     text, usage, failed = None, None, None
@@ -405,8 +701,8 @@ def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, ti
         rec["model_resolved"] = p["model"]
         usage = p["usage"]
         failed = p["failed"]
-        if last.exists():
-            text = last.read_text(errors="replace")
+        if last.exists() and not last.is_symlink():
+            text = read_capped(last)
     rec["usage"] = norm_usage(kind, usage)
     if timed_out:
         return {**rec, "status": "author_timeout" if role == "author" else "inconclusive",
@@ -414,7 +710,7 @@ def _real_call(agent: dict, role: str, prompt: str, ws: dict, call_dir: Path, ti
     if rec.get("max_turns"):
         return {**rec, "status": "author_timeout" if role == "author" else "inconclusive", "why": "turn limit reached"}
     if code != 0 or failed:
-        return {**rec, **classify_failure(stdout[-4000:] + stderr[-4000:] + (failed or ""), agent),
+        return {**rec, **classify_failure((failed or "") + "\n" + stderr[-4000:], agent),
                 "why": (failed or stderr or stdout)[-500:]}
     if text is None:
         return {**rec, "status": "infra_error", "why": "no final message"}
@@ -432,23 +728,43 @@ def stub_call(agent: dict, role: str, prompt: str, workspace: Path, stub: dict) 
         return {"status": stub["force"], "why": "simulated", "usage_raw": {"input": 10, "output": 5}}
     usage = {"input": 100, "cached_input": 0, "output": 20}
     model = agent.get("model")
-    if "ISOLATION PROBE" in prompt:
-        out = []
-        for ln in prompt.splitlines():
-            if ln.startswith("READ: "):
-                path = Path(ln[6:].strip())
+    if "ISOLATION PROBE" in prompt:  # follows the probe script's step markers, as a sandboxed shell would
+        script = (workspace / "PROBE.sh").read_text() if (workspace / "PROBE.sh").is_file() else ""
+        if agent.get("lazy") or not script:
+            return {"status": "ok", "text": "done", "usage_raw": usage, "model_resolved": model,
+                    "tool_uses": [], "tools_offered": ["Read", "Bash"]}
+        out = [(workspace / "PROBE_OK.txt").read_text().strip()] if (workspace / "PROBE_OK.txt").is_file() else []
+        for ln in script.splitlines():
+            tag, _, arg = ln.partition(": ")
+            path = Path(arg.strip()) if arg else None
+            if tag == "# READ":
                 inside = not path.is_absolute()
                 if inside or agent.get("leaky"):
                     try:
                         out.append((workspace / path if inside else path).read_text().strip())
                     except OSError:
                         out.append("denied")
+            elif tag == "# LIST" and agent.get("leaky") and path.is_dir():
+                out += sorted(c.name for c in path.iterdir())
+            elif tag == "# WRITE":
+                written = False
+                if agent.get("leaky"):
+                    try:
+                        (workspace / path).write_text("x")
+                        written = True
+                    except OSError:
+                        pass
+                out.append("SOURCE=written" if written else "SOURCE=denied")
+            elif tag == "# SCRATCH":
+                (path / "ok.txt").write_text("ok")
+                out.append("SCRATCH=ok")
+            m = re.search(r'PROBE-DONE-\$\(\((\d+)\*(\d+)\)\)', ln)
+            if m:
+                out.append(f"PROBE-DONE-{int(m.group(1)) * int(m.group(2))}")
         out.append("COUNT=1")
-        uses = [{"name": "Bash", "input": ln[6:]} for ln in prompt.splitlines() if ln.startswith("READ: ")]
-        if not agent.get("lazy"):
-            uses.append({"name": "Bash", "input": "curl"})
+        out += [f"{v}=absent" for v in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY")]
         return {"status": "ok", "text": "\n".join(out), "usage_raw": usage, "model_resolved": model,
-                "tool_uses": [] if agent.get("lazy") else uses, "tools_offered": ["Read", "Bash"]}
+                "tool_uses": [{"name": "Bash", "input": "sh PROBE.sh"}], "tools_offered": ["Read", "Bash"]}
     if role == "author":
         p = stub.get("patch_file")
         if p and Path(p).exists():

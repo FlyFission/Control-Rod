@@ -81,7 +81,13 @@ def main(argv=None) -> None:
     p.add_argument("--confirm-redistribution", action="store_true",
                    help="you checked the task repositories' licences allow redistributing their code")
     cmd("status", help="ledger summary")
+    p = sub.add_parser("image", help="build the pinned agent image and print what it holds (no study needed)")
+    p.add_argument("--tag", default="cr-bench-agent:1")
     a = ap.parse_args(argv)
+    if a.cmd == "image":
+        from crbench import container
+        out(container.build_image(a.tag))
+        return
     study = Study(Path(a.study))
 
     if a.cmd == "init":

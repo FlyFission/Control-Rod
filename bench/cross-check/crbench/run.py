@@ -10,15 +10,17 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 import secrets
 from pathlib import Path
 
 from . import agents as ag
-from .common import HERE, Refused, Study, now, read_json, sha256_bytes, stamp, write_bytes, write_json
+from . import container as ctr
+from .common import HERE, Refused, Study, load_sizing, now, read_json, sha256_bytes, stamp, write_bytes, write_json
 from .ledger import Ledger
 from .manifest import load_manifest
-from .patches import capture, reapply_ok
-from .preflight import denied_paths, live_billing_check, versions_unchanged
+from .patches import capture, identity, reapply_ok
+from .preflight import denied_paths, live_billing_check, live_runtime_check, versions_unchanged
 from .workspace import base_rev, checker_tree, commit_count, export_base, new_dir, remove, tree_hash, workspace_root
 
 TERMINAL = ("ok", "author_timeout", "inconclusive")
@@ -30,9 +32,9 @@ class Stop(Exception):
 
 
 def render(template: str, **kw) -> str:
-    for k, v in kw.items():
-        template = template.replace("{{" + k + "}}", v)
-    return template
+    """One pass, so a `{{...}}` inside an issue or a diff is never substituted again."""
+    pat = re.compile(r"\{\{(" + "|".join(map(re.escape, kw)) + r")\}\}")
+    return pat.sub(lambda m: kw[m.group(1)], template)
 
 
 def truncate_diff(diff: str, limit: int) -> str:
@@ -77,6 +79,10 @@ class Runner:
         self.cache = study.dir / "cache"
         self.call = run_call
         self.authors = self.cfg["authors"]
+        pf = study.phase_dir("calibration") / "preflight.json"  # the image phase 0 pinned
+        pre = read_json(pf) if pf.exists() else {}
+        self.image_pin = ((pre.get("container") or {}).get("image") or {}).get("id")
+        self.label = ctr.study_label(study.dir)
         self.max_retries = self.cfg["caps"].get("max_retries", MAX_RETRIES_DEFAULT)
 
     # ------------------------------------------------------------ gates before any call
@@ -95,8 +101,12 @@ class Runner:
                 raise Refused("§4 §6 §9", f"{what} for {self.phase}: {why}")
         versions_unchanged(self.study)
         live_billing_check(self.study)
-        if self.phase == "main" and not (self.study.dir / "sizing.json").exists():
-            raise Refused("§2 sizing", "phase 1 needs a frozen sizing.json")
+        if self.phase == "main":
+            sz = load_sizing(self.study)
+            if sz is None:
+                raise Refused("§2 sizing", "phase 1 needs a frozen sizing.json")
+            if self.manifest.get("sizing_sha256") != sz["sha256"]:
+                raise Refused("§2 sizing", "the phase-1 manifest was not drawn from this sizing.json")
 
     def plan(self) -> dict:
         n = len(self.manifest["tasks"])
@@ -115,6 +125,13 @@ class Runner:
             claim = read_json(d / "claim.json") if (d / "claim.json").exists() else None
             res = d / "result.json"
             if not res.exists():
+                if (d / "pgid").exists():  # the harness died mid-call: make sure the CLI did too
+                    try:
+                        ag.kill_group(int((d / "pgid").read_text()))
+                    except ValueError:
+                        pass
+                if claim and (d / "container.json").exists():  # and that its container is gone
+                    ctr.remove(claim["launch_id"])
                 if claim and self.ledger.launched(claim["launch_id"]):
                     self.ledger.reconcile(claim["launch_id"])
                     write_json(res, {"status": "infra_error", "why": "interrupted call", "at": now()})
@@ -137,6 +154,8 @@ class Runner:
         be read is recorded as unverified, never described as pinned."""
         p = self.study.dir / "models.json"
         seen = read_json(p) if p.exists() else {}
+        if rec.get("status") not in ("ok", "inconclusive"):
+            return  # a failed call says nothing about the model
         m = rec.get("model_resolved")
         entry = seen.setdefault(name, {"resolved": None, "unverified_calls": 0, "requested": rec.get("model_requested")})
         if not m:
@@ -145,7 +164,6 @@ class Runner:
             entry["resolved"] = m
         elif entry["resolved"] != m:
             write_json(p, seen)
-            self.ledger.halt(f"{name} resolved model changed from {entry['resolved']} to {m}")
             raise Refused("§9 model change", f"{name} now resolves to {m}, not {entry['resolved']}")
         write_json(p, seen)
 
@@ -160,7 +178,13 @@ class Runner:
         write_json(d / "claim.json", {"launch_id": lid, "at": now()})
         self.ledger.launch(f"{self.phase}/{base}-a{attempt}", self.phase, self.agents[name]["vendor"],
                            "author" if role == "author" else "checker", attempt, lid)
-        return d, lid, ag.effective(self.agents[name], name)
+        a = ag.effective(self.agents[name], name)
+        if a["kind"] != "stub":  # every real call runs in the image preflight pinned (container.py)
+            if not self.image_pin or not ctr.settings(self.cfg):
+                raise Refused("§4 container", "real agents need the container settings and a pinned image")
+            a["_container"] = {"cfg": self.cfg, "image": self.image_pin, "lid": lid, "label": self.label,
+                              "root": str(self.root)}
+        return d, lid, a
 
     def call_agent(self, agent: dict, role: str, prompt: str, repo: Path, scratch: Path | None, d: Path,
                    stub: dict) -> dict:
@@ -172,10 +196,16 @@ class Runner:
             remove(priv)
 
     def finish(self, d: Path, lid: str, name: str, rec: dict) -> None:
+        """Result first, then the model check (whose halt rides on the same ledger line), then
+        the ledger's done, so a crash between them can only leave a launch to reconcile."""
         rec.update({"agent": name, "vendor": self.agents[name]["vendor"], "at": now()})
         write_json(d / "result.json", rec)
+        try:
+            self.models(name, rec)
+        except Refused as e:
+            self.ledger.done(lid, {**rec, "halt": str(e)})
+            raise
         self.ledger.done(lid, rec)
-        self.models(name, rec)
         if rec["status"] == "quota_paused":
             raise Stop(f"{name} hit its usage limit")
 
@@ -208,6 +238,7 @@ class Runner:
     def _author_attempt(self, tid: str, name: str, base: str, attempt: int) -> None:
         task = self.manifest["rows"][tid]
         repo = export_base(task, self.root, self.cache)
+        ident = identity(repo)
         try:
             if commit_count(repo) != 1:
                 raise Refused("§4", "exported tree has history")
@@ -218,9 +249,10 @@ class Runner:
             d, lid, agent = self.launch(base, name, "author", attempt)
             rec = self.call_agent(agent, "author", prompt, repo, None, d, stub)
             if rec["status"] == "ok":
-                cap = capture(repo, task, self.root, self.cache, self.cfg["test_path_rule"])
+                cap = capture(repo, task, self.root, self.cache, self.cfg["test_path_rule"], ident)
                 sub = {k: cap[k] for k in ("status", "sha256", "tree_oid", "changes", "test_paths", "lines",
                                            "skipped_special_files")}
+                sub["sandbox_stubs_dropped"] = cap.get("sandbox_stubs_dropped", [])
                 if sub["status"] == "ok":
                     ok, got = reapply_ok(task, cap["patch"], cap["tree_oid"], self.root, self.cache)
                     if not ok:
@@ -254,13 +286,15 @@ class Runner:
         sub = read_json(bdir / "submission.json")
         if sha256_bytes(patch) != sub["sha256"]:
             raise Refused("§6 digest", f"{tid}/{author} patch changed after capture")
-        repo, scratch = checker_tree(task, patch, self.root, self.cache)
+        repo, scratch = checker_tree(task, patch, self.root, self.cache,
+                                     files_only=self.agents[name]["kind"] != "stub")  # container: read-only mount
         try:
             before = tree_hash(repo)
             changed = "\n".join(f"{c['status']}\t{' -> '.join(c['paths'])}" for c in sub["changes"])
             prompt = render(self.prompts["checker.md"], issue=task["problem_statement"].strip(),
                             diff=truncate_diff(patch.decode(errors="replace"), self.cfg["caps"].get("max_diff_chars", 60000)),
-                            changed=changed, scratch=str(scratch))
+                            changed=changed,
+                            scratch=ctr.SCRATCH if self.agents[name]["kind"] != "stub" else str(scratch))
             d, lid, agent = self.launch(base, name, "checker", attempt)
             rec = self.call_agent(agent, "checker", prompt, repo, scratch, d, {})
             rec["patch_sha256"] = sub["sha256"]
@@ -268,8 +302,7 @@ class Runner:
             if tree_hash(repo) != before:
                 rec.update({"status": "infra_error", "why": "checker changed the source tree (policy error)"})
                 write_json(d / "result.json", rec)
-                self.ledger.done(lid, rec)
-                self.ledger.halt(f"checker {name} changed source on {tid}")
+                self.ledger.done(lid, {**rec, "halt": f"checker {name} changed source on {tid}"})
                 raise Refused("§5 policy", f"checker {name} changed the source tree on {tid}")
             self.finish(d, lid, name, rec)
         finally:
@@ -294,6 +327,11 @@ class Runner:
             return {"status": "planned", "plan": plan}
         status = "complete"
         with self.ledger.run_lock():
+            if ctr.settings(self.cfg):  # containers a crash or an interrupt left behind; only under the lock
+                ctr.reconcile(self.label)
+                if self.image_pin:
+                    write_json(self.pdir / f"resume-{now().replace(':', '')}.json",
+                               live_runtime_check(self.study, self.root, self.image_pin, self.phase))
             try:
                 for t in self.manifest["block_order"]:
                     self.block(t)

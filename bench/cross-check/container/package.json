@@ -1,0 +1,10 @@
+{
+  "name": "cr-bench-agent-image",
+  "private": true,
+  "description": "Pinned agent CLIs for the cross-check benchmark image. Versions match the owner's host CLIs; npm ci verifies every tarball against package-lock.json.",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.331",
+    "@anthropic-ai/sandbox-runtime": "0.0.83",
+    "@openai/codex": "0.171.0"
+  }
+}

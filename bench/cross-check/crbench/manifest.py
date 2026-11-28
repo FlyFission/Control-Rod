@@ -5,9 +5,10 @@ from __future__ import annotations
 import fnmatch
 import json
 import random
+import re
 from pathlib import Path
 
-from .common import HERE, Refused, Study, digest, git_dirty, git_head, harness_digest, now, read_json, sha256_file, write_json
+from .common import HERE, Refused, Study, digest, git_dirty, git_head, harness_digest, load_sizing, now, read_json, sha256_file, write_json
 
 REQUIRED_TASK_FIELDS = ("instance_id", "repo", "base_commit", "problem_statement", "test_patch",
                         "FAIL_TO_PASS", "PASS_TO_PASS")
@@ -16,6 +17,10 @@ PROMPTS = ("author.md", "checker.md")
 
 # ------------------------------------------------------------------ protocol
 
+
+
+# a DNS name with at least one dot and a letter in its last label: never an IP literal or a port
+HOST_NAME = re.compile(r"(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?")
 
 def validate_config(cfg: dict) -> None:
     """Refuse a protocol that leaves a frozen choice open."""
@@ -52,8 +57,9 @@ def validate_config(cfg: dict) -> None:
         raise Refused("§9", "at most 2 evaluation workers")
     if cfg["snapshot"]["kind"] == "swebench":
         snap = cfg["snapshot"]
-        if not snap.get("sha256") or not isinstance(snap.get("expected_rows"), int) or not snap.get("split"):
-            raise Refused("§3 snapshot", "a SWE-bench snapshot needs a pinned sha256, expected_rows and split")
+        if not snap.get("sha256") or not isinstance(snap.get("expected_rows"), int) \
+                or isinstance(snap.get("expected_rows"), bool) or snap["expected_rows"] <= 0 or not snap.get("split"):
+            raise Refused("§3 snapshot", "a SWE-bench snapshot needs a pinned sha256, a positive whole expected_rows and split")
         pre = cfg["selection"].get("pre_exclusions")
         if pre is not None and not (pre.get("path") and pre.get("sha256")):
             raise Refused("§3", "selection.pre_exclusions needs a path and a sha256")
@@ -74,6 +80,14 @@ def init_study(study: Study, config_path: Path, agents_path: Path = HERE / "agen
             raise Refused("§5", f"author {a!r} is not in agents.json")
     if agents[cfg["authors"][0]].get("vendor") == agents[cfg["authors"][1]].get("vendor"):
         raise Refused("§1", "the two authors must come from different vendors")
+    for a in cfg["authors"]:
+        if agents[a]["kind"] != "stub":
+            if not (cfg.get("container") or {}).get("image"):
+                raise Refused("§4 container", "real agents run only in the per-call container; set container.image")
+            hosts = agents[a].get("egress")
+            if not hosts or not all(isinstance(h, str) and HOST_NAME.fullmatch(h) for h in hosts):
+                raise Refused("§4 network", f"{a}: egress must list exact lower-case host names: no wildcards, "
+                                            "IP addresses, ports or spaces")
     frozen = {
         "config": cfg,
         "agents": {a: agents[a] for a in cfg["authors"]},
@@ -131,8 +145,8 @@ def validate_rows(rows: list[dict], expected: int | None) -> None:
         for f in ("FAIL_TO_PASS", "PASS_TO_PASS"):
             if isinstance(r[f], str):  # SWE-bench stores these lists as JSON text
                 r[f] = json.loads(r[f])
-            if not isinstance(r[f], list) or not r[f]:
-                raise Refused("§6 A1", f"{r['instance_id']} has an empty {f}")
+            if not isinstance(r[f], list):
+                raise Refused("§3 snapshot", f"{r['instance_id']} has a {f} that is not a list")
         if not r.get("patch"):
             raise Refused("§6 controls", f"{r['instance_id']} has no gold patch")
 
@@ -143,6 +157,18 @@ def validate_rows(rows: list[dict], expected: int | None) -> None:
 def exclusions(study: Study) -> dict[str, str]:
     p = study.dir / "exclusions.json"
     return read_json(p) if p.exists() else {}
+
+
+def ineligible(rows: list[dict]) -> dict[str, str]:
+    """Rows the graded pool can never hold, with why. A1 needs both hidden test sets: with no
+    FAIL_TO_PASS there is nothing to fix, and with no PASS_TO_PASS a regression cannot be seen.
+    SWE-bench Verified has a few such rows; they are left out and named, never silently dropped."""
+    out = {}
+    for r in rows:
+        empty = [f for f in ("FAIL_TO_PASS", "PASS_TO_PASS") if not r[f]]
+        if empty:
+            out[r["instance_id"]] = f"no {' and no '.join(empty)} tests: A1 undefined"
+    return dict(sorted(out.items()))
 
 
 def pool_for(study: Study, phase: str, rows: list[dict]) -> list[dict]:
@@ -162,7 +188,9 @@ def pool_for(study: Study, phase: str, rows: list[dict]) -> list[dict]:
             raise Refused("§3", f"pre-exclusion list {pre['path']} is missing or differs from its pinned sha256")
         for tid in json.loads(pp.read_text()):
             excl.setdefault(tid, "pre-sampling exclusion list")
-    pool = [r for r in rows if r["instance_id"] not in used and r["instance_id"] not in excl]
+    bad = ineligible(rows)
+    pool = [r for r in rows if r["instance_id"] not in used and r["instance_id"] not in excl
+            and r["instance_id"] not in bad]
     if sel.get("difficulty"):
         pool = [r for r in pool if r.get("difficulty") in sel["difficulty"]]
     if sel.get("repos"):
@@ -181,13 +209,9 @@ def select(study: Study, phase: str, n: int | None = None) -> dict:
     if phase == "calibration":
         n = sel["calibration_n"]
     else:
-        sizing = study.dir / "sizing.json"
-        if not sizing.exists():
+        sz = load_sizing(study)
+        if sz is None:
             raise Refused("§2 sizing", "main needs a frozen sizing.json from `size`")
-        sz = read_json(sizing)
-        if sz.get("sha256") != digest({k: v for k, v in sz.items() if k != "sha256"}) or \
-                sz.get("study_sha256") != proto["frozen_sha256"]:
-            raise Refused("§2 sizing", "sizing.json changed after it was frozen, or belongs to another study")
         n = sz["n_phase1"]
         if n < 1:
             raise Refused("§2 sizing", "sizing says stop; no phase 1")
@@ -211,8 +235,9 @@ def select(study: Study, phase: str, n: int | None = None) -> dict:
     manifest = {
         "phase": phase, "created": now(), "source": prov, "seed": sel["seed"],
         "tasks": [r["instance_id"] for r in tasks], "reserve": [r["instance_id"] for r in reserve],
-        "block_order": order, "replaced": {}, "rows": {r["instance_id"]: r for r in tasks + reserve},
+        "block_order": order, "replaced": {}, "ineligible": ineligible(rows), "rows": {r["instance_id"]: r for r in tasks + reserve},
         "study_sha256": proto["frozen_sha256"],
+        "sizing_sha256": sz["sha256"] if phase == "main" else None,
     }
     manifest["manifest_sha256"] = digest({k: v for k, v in manifest.items() if k != "manifest_sha256"})
     write_json(pdir / "manifest.json", manifest)
@@ -227,6 +252,9 @@ def write_audit(pdir: Path, manifest: dict) -> None:
          "than its issue does, or whose base or gold behavior is flaky, with",
          "`bench.py exclude --study DIR --phase PHASE --task ID --reason TEXT`. It is replaced from the",
          "frozen reserve, in order. Exclusions are refused once any agent call has run.", ""]
+    if manifest.get("ineligible"):
+        L += [f"Left out of the pool before drawing ({len(manifest['ineligible'])}):", "",
+              *[f"- `{t}`: {why}" for t, why in manifest["ineligible"].items()], ""]
     for tid in manifest["tasks"]:
         r = manifest["rows"][tid]
         L += [f"## {tid}", "", f"Repo `{r['repo']}` at `{r['base_commit']}`, difficulty `{r.get('difficulty', 'n/a')}`.",
@@ -253,11 +281,23 @@ def exclude(study: Study, phase: str, task: str, reason: str) -> dict:
         raise Refused("§3 audit", f"{task} is not a selected task in {phase}")
     if not m["reserve"]:
         raise Refused("§3 quotas", "the reserve is empty; nothing can replace this task")
-    nxt = m["reserve"].pop(0)
+    cap = study.protocol()["frozen"]["config"]["selection"].get("max_per_repo")
+    stratum = m["rows"][task].get("difficulty")
+    left = [t for t in m["tasks"] if t != task]
+
+    def fits(r):
+        row = m["rows"][r]
+        return row.get("difficulty") == stratum and (
+            not cap or sum(m["rows"][t]["repo"] == row["repo"] for t in left) < cap)
+    nxt = next((r for r in m["reserve"] if fits(r)), None)
+    if nxt is None:
+        raise Refused("§3 quotas", f"no reserve task in the same difficulty stratum ({stratum!r}) within the "
+                      "repository cap; the phase cannot keep its sampling design")
+    m["reserve"].remove(nxt)
     i = m["tasks"].index(task)
     m["tasks"][i] = nxt
     m["block_order"] = [nxt if t == task else t for t in m["block_order"]]
-    m["replaced"][task] = {"by": nxt, "reason": reason, "at": now()}
+    m["replaced"][task] = {"by": nxt, "stratum": stratum, "reason": reason, "at": now()}
     excl = exclusions(study)
     excl[task] = reason
     write_json(study.dir / "exclusions.json", excl)

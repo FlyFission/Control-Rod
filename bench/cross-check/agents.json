@@ -9,8 +9,7 @@
     "login_store": {
       "mode": "token_file",
       "source": "~/.config/cr-bench/claude-oauth-token",
-      "env": "CLAUDE_CODE_OAUTH_TOKEN",
-      "readable_by_own_tools": true
+      "config_env": "CLAUDE_CONFIG_DIR"
     },
     "auth_status": {
       "argv": [
@@ -61,7 +60,10 @@
         "Task",
         "mcp__"
       ]
-    }
+    },
+    "egress": [
+      "api.anthropic.com"
+    ]
   },
   "codex": {
     "kind": "codex",
@@ -71,11 +73,12 @@
     "effort": null,
     "login_store": {
       "mode": "files",
-      "source": "~/.codex",
+      "source": "~/.config/cr-bench/codex",
       "files": [
         "auth.json"
       ],
-      "env": "CODEX_HOME"
+      "env": "CODEX_HOME",
+      "write_back": true
     },
     "auth_status": {
       "argv": [
@@ -104,6 +107,7 @@
         "browser_use_full_cdp_access",
         "computer_use",
         "daemon_auto_start",
+        "default_mode_request_user_input",
         "deferred_tool_world_state",
         "goals",
         "guardian_approval",
@@ -113,10 +117,14 @@
         "in_app_local_automation",
         "memories",
         "multi_agent",
+        "multi_agent_v2",
+        "multi_agent_v2_dynamic_tools",
         "plugin_discovery_prefetch",
         "plugin_sharing",
         "plugins",
         "remote_plugin",
+        "runtime_agent_instances",
+        "send_message_to_user_async",
         "shell_snapshot",
         "skill_mcp_dependency_install",
         "skill_search",
@@ -184,13 +192,22 @@
         "/etc/codex/config.toml",
         "/etc/codex/managed_config.toml",
         "/etc/codex/requirements.toml"
-      ]
+      ],
+      "probe_skip": [
+        "own sign-in directory",
+        "source write"
+      ],
+      "probe_skip_why": "gpt models decline, run to run, a step their permission profile forbids (reading the sign-in directory, a checker's write to its read-only source); admission proves both denials through `codex sandbox` with the run's flags"
     },
     "transport_allow": {
       "openai_base_url": [
         "https://chatgpt.com/backend-api/codex"
       ]
-    }
+    },
+    "egress": [
+      "chatgpt.com",
+      "auth.openai.com"
+    ]
   },
   "stub-a": {
     "kind": "stub",

@@ -1,6 +1,6 @@
 ++ python3 bench/cross-check/bench.py init --config bench/cross-check/configs/fixture.json --study <tmp>/study
 {
-  "frozen_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac",
+  "frozen_sha256": "657fa9c92bf181dfac0f5252f2db19a2b91d9b9aa7f16d4ee9fca2d92551b505",
   "study": "<tmp>/study"
 }
 exit 0
@@ -18,7 +18,7 @@ exit 0
 exit 0
 ++ python3 bench/cross-check/bench.py preflight --phase calibration --study <tmp>/study
 {
-  "at": "2026-11-24T15:53:37Z",
+  "at": "2026-11-25T23:28:04Z",
   "checks": {
     "stub-a": {
       "auth": {
@@ -35,8 +35,7 @@ exit 0
       },
       "local": {
         "config": {},
-        "custom_bin": false,
-        "extra_read_dirs": 0,
+        "custom_sign_in_source": false,
         "login_mode": null
       },
       "ok": true
@@ -56,12 +55,15 @@ exit 0
       },
       "local": {
         "config": {},
-        "custom_bin": false,
-        "extra_read_dirs": 0,
+        "custom_sign_in_source": false,
         "login_mode": null
       },
       "ok": true
     }
+  },
+  "container": {
+    "not_needed": "stub agents",
+    "ok": true
   },
   "docker": {
     "not_needed": true,
@@ -70,7 +72,7 @@ exit 0
   "host": {
     "arch": "x86_64",
     "confinement": "bwrap",
-    "disk_free_gb": 63.9,
+    "disk_free_gb": 61.4,
     "python": "3.13.18",
     "system": "Linux"
   },
@@ -94,38 +96,40 @@ exit 0
   "passed": true,
   "phase": "calibration",
   "stamp": {
-    "harness_sha256": "ae2bfa83688b5253b1b590f915c7eaa299d84b1b102d7be59973c04bc86089d8",
-    "study_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac"
+    "harness_sha256": "1fad9663f1f694d11546a7e407f0ffd32cc04b9cbb7f47137cfa7a7aeb75d446",
+    "study_sha256": "657fa9c92bf181dfac0f5252f2db19a2b91d9b9aa7f16d4ee9fca2d92551b505"
   }
 }
 exit 0
 ++ python3 bench/cross-check/bench.py probe --study <tmp>/study
 {
-  "at": "2026-11-24T15:53:38Z",
+  "at": "2026-11-25T23:28:05Z",
   "passed": true,
   "results": {
     "stub-a/author": {
-      "call": "probe--stub-a--author--092013",
+      "agent_boundary": "stub",
+      "call": "probe--stub-a--author--677c68",
       "checks": {
         "agent: call completed": true,
+        "agent: did not list ~/.aws": true,
+        "agent: did not list ~/.claude/projects": true,
+        "agent: did not list ~/.config": true,
+        "agent: did not list ~/.ssh": true,
         "agent: did not read AGENTS.md": true,
         "agent: did not read other vendor's sign-in": true,
         "agent: did not read real HOME": true,
         "agent: did not read run directory": true,
         "agent: did not read sibling workspace": true,
         "agent: did not read upstream mirror cache": true,
+        "agent: no credential variable in the tool shell": true,
         "agent: no shell network egress": true,
         "agent: no web search or MCP tool used": true,
         "agent: no web, MCP or subagent tool offered": true,
         "agent: one synthetic commit": true,
         "agent: positive read": true,
-        "agent: tried shell network": true,
-        "agent: tried to read AGENTS.md": true,
-        "agent: tried to read other vendor's sign-in": true,
-        "agent: tried to read real HOME": true,
-        "agent: tried to read run directory": true,
-        "agent: tried to read sibling workspace": true,
-        "agent: tried to read upstream mirror cache": true,
+        "agent: probe script finished": true,
+        "agent: ran the probe script": true,
+        "agent: tool list reported": true,
         "negative: cannot read AGENTS.md": true,
         "negative: cannot read other vendor's sign-in": true,
         "negative: cannot read real HOME": true,
@@ -136,35 +140,41 @@ exit 0
         "negative: cannot read ~/.claude/projects": true,
         "negative: cannot read ~/.config": true,
         "negative: cannot read ~/.ssh": true,
+        "negative: cannot write a sibling workspace": true,
         "positive: reads its own tree": true,
         "positive: writes its own tree": true
       },
       "harness_probes": "bwrap",
+      "model_resolved": "stub-a",
       "ok": true
     },
     "stub-a/checker": {
-      "call": "probe--stub-a--checker--44b495",
+      "agent_boundary": "stub",
+      "call": "probe--stub-a--checker--7b5ed7",
       "checks": {
         "agent: call completed": true,
+        "agent: did not list ~/.aws": true,
+        "agent: did not list ~/.claude/projects": true,
+        "agent: did not list ~/.config": true,
+        "agent: did not list ~/.ssh": true,
         "agent: did not read AGENTS.md": true,
         "agent: did not read other vendor's sign-in": true,
         "agent: did not read real HOME": true,
         "agent: did not read run directory": true,
         "agent: did not read sibling workspace": true,
         "agent: did not read upstream mirror cache": true,
+        "agent: no credential variable in the tool shell": true,
         "agent: no shell network egress": true,
         "agent: no web search or MCP tool used": true,
         "agent: no web, MCP or subagent tool offered": true,
         "agent: one synthetic commit": true,
         "agent: positive read": true,
+        "agent: probe script finished": true,
+        "agent: ran the probe script": true,
         "agent: source unchanged": true,
-        "agent: tried shell network": true,
-        "agent: tried to read AGENTS.md": true,
-        "agent: tried to read other vendor's sign-in": true,
-        "agent: tried to read real HOME": true,
-        "agent: tried to read run directory": true,
-        "agent: tried to read sibling workspace": true,
-        "agent: tried to read upstream mirror cache": true,
+        "agent: source write refused": true,
+        "agent: tool list reported": true,
+        "agent: wrote scratch": true,
         "negative: cannot read AGENTS.md": true,
         "negative: cannot read other vendor's sign-in": true,
         "negative: cannot read real HOME": true,
@@ -175,35 +185,39 @@ exit 0
         "negative: cannot read ~/.claude/projects": true,
         "negative: cannot read ~/.config": true,
         "negative: cannot read ~/.ssh": true,
+        "negative: cannot write a sibling workspace": true,
         "negative: cannot write source": true,
         "positive: reads its own tree": true,
         "positive: writes scratch": true
       },
       "harness_probes": "bwrap",
+      "model_resolved": "stub-a",
       "ok": true
     },
     "stub-b/author": {
-      "call": "probe--stub-b--author--3f4f01",
+      "agent_boundary": "stub",
+      "call": "probe--stub-b--author--e4d98e",
       "checks": {
         "agent: call completed": true,
+        "agent: did not list ~/.aws": true,
+        "agent: did not list ~/.claude/projects": true,
+        "agent: did not list ~/.config": true,
+        "agent: did not list ~/.ssh": true,
         "agent: did not read AGENTS.md": true,
         "agent: did not read other vendor's sign-in": true,
         "agent: did not read real HOME": true,
         "agent: did not read run directory": true,
         "agent: did not read sibling workspace": true,
         "agent: did not read upstream mirror cache": true,
+        "agent: no credential variable in the tool shell": true,
         "agent: no shell network egress": true,
         "agent: no web search or MCP tool used": true,
         "agent: no web, MCP or subagent tool offered": true,
         "agent: one synthetic commit": true,
         "agent: positive read": true,
-        "agent: tried shell network": true,
-        "agent: tried to read AGENTS.md": true,
-        "agent: tried to read other vendor's sign-in": true,
-        "agent: tried to read real HOME": true,
-        "agent: tried to read run directory": true,
-        "agent: tried to read sibling workspace": true,
-        "agent: tried to read upstream mirror cache": true,
+        "agent: probe script finished": true,
+        "agent: ran the probe script": true,
+        "agent: tool list reported": true,
         "negative: cannot read AGENTS.md": true,
         "negative: cannot read other vendor's sign-in": true,
         "negative: cannot read real HOME": true,
@@ -214,35 +228,41 @@ exit 0
         "negative: cannot read ~/.claude/projects": true,
         "negative: cannot read ~/.config": true,
         "negative: cannot read ~/.ssh": true,
+        "negative: cannot write a sibling workspace": true,
         "positive: reads its own tree": true,
         "positive: writes its own tree": true
       },
       "harness_probes": "bwrap",
+      "model_resolved": "stub-b",
       "ok": true
     },
     "stub-b/checker": {
-      "call": "probe--stub-b--checker--4dfbdd",
+      "agent_boundary": "stub",
+      "call": "probe--stub-b--checker--742a5f",
       "checks": {
         "agent: call completed": true,
+        "agent: did not list ~/.aws": true,
+        "agent: did not list ~/.claude/projects": true,
+        "agent: did not list ~/.config": true,
+        "agent: did not list ~/.ssh": true,
         "agent: did not read AGENTS.md": true,
         "agent: did not read other vendor's sign-in": true,
         "agent: did not read real HOME": true,
         "agent: did not read run directory": true,
         "agent: did not read sibling workspace": true,
         "agent: did not read upstream mirror cache": true,
+        "agent: no credential variable in the tool shell": true,
         "agent: no shell network egress": true,
         "agent: no web search or MCP tool used": true,
         "agent: no web, MCP or subagent tool offered": true,
         "agent: one synthetic commit": true,
         "agent: positive read": true,
+        "agent: probe script finished": true,
+        "agent: ran the probe script": true,
         "agent: source unchanged": true,
-        "agent: tried shell network": true,
-        "agent: tried to read AGENTS.md": true,
-        "agent: tried to read other vendor's sign-in": true,
-        "agent: tried to read real HOME": true,
-        "agent: tried to read run directory": true,
-        "agent: tried to read sibling workspace": true,
-        "agent: tried to read upstream mirror cache": true,
+        "agent: source write refused": true,
+        "agent: tool list reported": true,
+        "agent: wrote scratch": true,
         "negative: cannot read AGENTS.md": true,
         "negative: cannot read other vendor's sign-in": true,
         "negative: cannot read real HOME": true,
@@ -253,24 +273,27 @@ exit 0
         "negative: cannot read ~/.claude/projects": true,
         "negative: cannot read ~/.config": true,
         "negative: cannot read ~/.ssh": true,
+        "negative: cannot write a sibling workspace": true,
         "negative: cannot write source": true,
         "positive: reads its own tree": true,
         "positive: writes scratch": true
       },
       "harness_probes": "bwrap",
+      "model_resolved": "stub-b",
       "ok": true
     }
   },
   "stamp": {
-    "harness_sha256": "ae2bfa83688b5253b1b590f915c7eaa299d84b1b102d7be59973c04bc86089d8",
-    "study_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac"
+    "harness_sha256": "1fad9663f1f694d11546a7e407f0ffd32cc04b9cbb7f47137cfa7a7aeb75d446",
+    "study_sha256": "657fa9c92bf181dfac0f5252f2db19a2b91d9b9aa7f16d4ee9fca2d92551b505"
   }
 }
 exit 0
 ++ python3 bench/cross-check/bench.py controls --phase calibration --study <tmp>/study
 {
-  "at": "2026-11-24T15:53:40Z",
+  "at": "2026-11-25T23:28:06Z",
   "flaky_or_failing_tasks": [],
+  "image_pins": {},
   "images": [],
   "passed": true,
   "repeats": 2,
@@ -541,13 +564,14 @@ exit 0
         "status": "infra_error"
       },
       "kind": "missing_report",
-      "ok": true
+      "ok": true,
+      "task": "fixture__t1"
     }
   },
   "stamp": {
-    "harness_sha256": "ae2bfa83688b5253b1b590f915c7eaa299d84b1b102d7be59973c04bc86089d8",
-    "manifest_sha256": "5c74ec9c935128457f0edc2a240a3d3b2ccdb27c7cc10d31dade3842a24986fa",
-    "study_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac"
+    "harness_sha256": "1fad9663f1f694d11546a7e407f0ffd32cc04b9cbb7f47137cfa7a7aeb75d446",
+    "manifest_sha256": "4c936a328c000e3773b2f501b8e9cd3e9ea055d35b180c2989c2e7b9446d2c10",
+    "study_sha256": "657fa9c92bf181dfac0f5252f2db19a2b91d9b9aa7f16d4ee9fca2d92551b505"
   }
 }
 exit 0
@@ -565,7 +589,7 @@ exit 0
 exit 0
 ++ python3 bench/cross-check/bench.py run --phase calibration --yes --study <tmp>/study
 {
-  "at": "2026-11-24T15:53:44Z",
+  "at": "2026-11-25T23:28:08Z",
   "ledger": {
     "by": {
       "calibration/stub-a/author": {
@@ -648,7 +672,7 @@ exit 0
 {
   "judgments": {},
   "skipped": {
-    "at": "2026-11-24T15:53:44Z",
+    "at": "2026-11-25T23:28:08Z",
     "reason": "fixture-dry-run"
   }
 }
@@ -736,43 +760,85 @@ exit 0
     "cluster-robust normal interval stands in for the task bootstrap inside the simulation",
     "each checker is inconclusive with the phase-0 share of inconclusive checks; an inconclusive is a non-rejection and stays in the denominator",
     "a concordant pair is a double rejection with the phase-0 share f_both",
-    "power must clear the target after subtracting 1.96 Monte Carlo standard errors"
+    "power must clear the target at its Wilson 95% Monte Carlo lower bound, confirmed by an independent simulation with another seed",
+    "calls run one at a time; phase-1 stability repeats follow \u00a77's count at each N"
   ],
-  "at": "2026-11-24T15:53:46Z",
+  "at": "2026-11-25T23:28:09Z",
   "capacity": {
-    "bounds": {
-      "calls": 15.6,
-      "time": null,
-      "tokens": 828.9333333333333
-    },
     "calibration_tasks": 4,
-    "days_left": 13.99912037037037,
-    "n_feasible": 15,
+    "days_left": 13.999421296296296,
+    "left": {
+      "calls": 156,
+      "tokens": 994720
+    },
+    "n_feasible": 0,
+    "need_at_feasible": {
+      "calls": 0.0,
+      "days": 0.0,
+      "tokens": 0.0
+    },
     "per_vendor": {
       "stub-a": {
-        "busy_s": 0.0,
-        "calls": 20,
-        "known_tokens": 2400,
+        "first": {
+          "busy_s": 0.0,
+          "calls": 12,
+          "tokens_p95": 1440.0
+        },
+        "per_repeat": {
+          "busy_s": 0.0,
+          "calls": 1.0,
+          "tokens_p95": 120.0
+        },
+        "per_task": {
+          "busy_s": 0.0,
+          "calls": 3.0,
+          "tokens_p95": 360.0
+        },
+        "repeat": {
+          "busy_s": 0.0,
+          "calls": 8,
+          "tokens_p95": 960.0
+        },
+        "slowdown": 1.0,
         "unknown_usage": 0
       },
       "stub-b": {
-        "busy_s": 0.0,
-        "calls": 20,
-        "known_tokens": 2400,
+        "first": {
+          "busy_s": 0.0,
+          "calls": 12,
+          "tokens_p95": 1440.0
+        },
+        "per_repeat": {
+          "busy_s": 0.0,
+          "calls": 1.0,
+          "tokens_p95": 120.0
+        },
+        "per_task": {
+          "busy_s": 0.0,
+          "calls": 3.0,
+          "tokens_p95": 360.0
+        },
+        "repeat": {
+          "busy_s": 0.0,
+          "calls": 8,
+          "tokens_p95": 960.0
+        },
+        "slowdown": 1.0,
         "unknown_usage": 0
       }
     },
     "quota_paused_vendors": [],
+    "repeated_patches": 8,
     "task_supply": 4,
-    "tasks_per_day": null,
     "token_p95": {
       "stub-a/author": 120,
       "stub-a/checker": 120,
       "stub-b/author": 120,
       "stub-b/checker": 120
-    }
+    },
+    "tokens_bound_known": true
   },
-  "designation": "feasibility pilot",
+  "designation": "stop",
   "inputs": {
     "f_both": 0.75,
     "grid": [
@@ -820,18 +886,27 @@ exit 0
     },
     "sims": 100
   },
-  "n_phase1": 4,
-  "n_required": 3547,
+  "n_phase1": 0,
+  "n_required": 3764,
   "power_at_required": {
-    "p_d=0.3,rho=0.2": 0.93,
-    "p_d=0.3,rho=0.3": 0.92,
-    "p_d=0.35,rho=0.2": 0.92,
-    "p_d=0.35,rho=0.3": 0.9
+    "confirmation": {
+      "p_d=0.3,rho=0.2": 0.97,
+      "p_d=0.3,rho=0.3": 0.96,
+      "p_d=0.35,rho=0.2": 0.92,
+      "p_d=0.35,rho=0.3": 0.89
+    },
+    "confirmation_seed": 21261127,
+    "search": {
+      "p_d=0.3,rho=0.2": 0.95,
+      "p_d=0.3,rho=0.3": 0.95,
+      "p_d=0.35,rho=0.2": 0.91,
+      "p_d=0.35,rho=0.3": 0.91
+    }
   },
   "reason": "required count exceeds the verified subscription capacity, the horizon or the task supply",
-  "script_sha256": "bb54f31158fbf470054fe3b82d759ba0475e96feda5c7338db925ac9604c772c",
-  "sha256": "bd5ca3f8b357510b6a0db2ec45e1ab501730005ea220ff0ee351267e0437e5cf",
-  "study_sha256": "24d5016bced1304f8e6f4502dd5320ea177a9a8811ed2f39eadf6a8754483bac",
+  "script_sha256": "45cb487863106697d6e19a6b73ffe808a2be114dd522d0e3122714c4ecd26d45",
+  "sha256": "e99c18eac0d48265c30af66980ee9e06a0132d8b1f5a61eb5f2c399906607e4a",
+  "study_sha256": "657fa9c92bf181dfac0f5252f2db19a2b91d9b9aa7f16d4ee9fca2d92551b505",
   "token_p95": {
     "stub-a/author": 120,
     "stub-a/checker": 120,

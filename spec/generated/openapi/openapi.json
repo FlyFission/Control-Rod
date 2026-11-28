@@ -13589,6 +13589,10 @@
           "at": {
             "type": "string",
             "format": "date-time"
+          },
+          "watch": {
+            "$ref": "#/components/schemas/PullRequestWatch",
+            "description": "What GitHub says about an opened pull request, read live and read-only. Absent when it could not be read."
           }
         },
         "description": "The draft pull request Control Rod opened, or tried to open, for accepted work on a repository checkout."
@@ -13860,6 +13864,39 @@
           }
         },
         "description": "A recorded person verification with the package revision it verified."
+      },
+      "PullRequestWatch": {
+        "type": "object",
+        "required": [
+          "state",
+          "checks",
+          "read_at"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "merged",
+              "closed"
+            ]
+          },
+          "checks": {
+            "type": "string",
+            "enum": [
+              "passing",
+              "failing",
+              "pending",
+              "none"
+            ],
+            "description": "passing: every check finished well; failing: one failed; pending: one is still running; none: the repository runs no checks."
+          },
+          "read_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "An opened pull request as GitHub last reported it. Only these fixed words are read, never any text\nfrom GitHub. A draft counts as open: Control Rod always opens drafts."
       },
       "RegistryCredential": {
         "type": "object",

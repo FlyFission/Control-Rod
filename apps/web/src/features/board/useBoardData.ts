@@ -223,6 +223,7 @@ export function useBoardData(): BoardData {
         heldPreCheck: (view?.runs ?? []).some((r) => r.role === "pre-check" && r.status === "queued" && r.waiting_reason !== undefined),
         runs: view?.runs ?? [],
         checkBlocked: view?.check_blocked,
+        pullRequest: view?.pull_request,
       });
       offered = offeredNow;
     }

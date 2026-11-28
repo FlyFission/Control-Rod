@@ -1,5 +1,5 @@
 import { plainError } from "./plainError.js";
-import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, Run, WorkPackage } from "../api/types.js";
+import type { ActionDescriptor, AdminView, OfficeItem, PackageView, PersonVerificationEntry, Run, WorkPackage } from "../api/types.js";
 import { blockUnverifiedAccept, boardColumn, isVerified, preCheckState } from "./board.js";
 
 export type NextLine = {
@@ -121,7 +121,23 @@ export type NextInput = {
   waitingCause?: Run["waiting_cause"];
   /** The server's refusal of another check of this deliverable (a sticky fail with no unused override). */
   checkBlocked?: { reason?: string } | undefined;
+  /** Where accepted work went, with what GitHub last said about its pull request (change record pr-watch). */
+  pullRequest?: PackageView["pull_request"];
 };
+
+/**
+ * An accepted card's line once its pull request is out: what GitHub last said, in fixed words. A draft
+ * counts as ready, since Control Rod always opens drafts. Unread, the line is "Accepted" as before.
+ */
+export function acceptedLine(pr: PackageView["pull_request"]): NextLine {
+  const w = pr?.state === "opened" ? pr.watch : undefined;
+  if (w?.state === "merged") return { tone: "ok", text: "Merged" };
+  if (w?.state === "closed") return { tone: "ok", text: "Pull request closed" };
+  if (w?.checks === "failing") return { tone: "needs", text: "Checks failing on the pull request" };
+  if (w?.checks === "pending") return { tone: "wait", text: "Checks running on the pull request" };
+  if (w) return { tone: "needs", text: "Pull request ready for you to merge" };
+  return { tone: "ok", text: "Accepted" };
+}
 
 /** Why an action is refused, in the API's own words where it gave them. */
 function refusalText(a: ActionDescriptor): string {
@@ -139,7 +155,7 @@ const ESCAPE_HATCHES: ReadonlySet<string> = new Set(["return", "reject"]);
 
 export function nextLine(i: NextInput): NextLine {
   const { pkg } = i;
-  if (pkg.status === "accepted") return { tone: "ok", text: "Accepted" };
+  if (pkg.status === "accepted") return acceptedLine(i.pullRequest);
   if (pkg.status === "closed") return { tone: "ok", text: "Closed" };
 
   // A run that ended without a result needs the person, and the step is to run it again. Returning

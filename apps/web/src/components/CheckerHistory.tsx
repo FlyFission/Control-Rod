@@ -1,5 +1,6 @@
 import type { PackageView } from "../api/types.js";
 import { shortDigest, time } from "../lib/format.js";
+import { sitePathOrHttpsHref } from "../lib/links.js";
 import { VendorBadge } from "./VendorBadge.js";
 
 type Attempt = NonNullable<PackageView["checker_attempts"]>[number];
@@ -62,6 +63,12 @@ export function CheckerHistory({
   );
 }
 
+/** The evidence address as a link only when it is a path on this site or an https address. */
+function EvidenceLink({ value }: { value: string }) {
+  const href = sitePathOrHttpsHref(value);
+  return href ? <a href={href}>{value}</a> : <span>{value}</span>;
+}
+
 function AttemptLine({ attempt }: { attempt: Attempt }) {
   const tone = attempt.counts_as === "pass" || attempt.counts_as === "fail" ? attempt.counts_as : "inconclusive";
   return (
@@ -78,7 +85,7 @@ function AttemptLine({ attempt }: { attempt: Attempt }) {
         <span className="mono">{attempt.digest_unknown ? "unknown" : shortDigest(attempt.deliverable_digest)}</span>
       </p>
       <p className="muted small">
-        Evidence <a href={attempt.evidence}>{attempt.evidence}</a>
+        Evidence <EvidenceLink value={attempt.evidence} />
         {attempt.recheck_override && ` · override by ${attempt.recheck_override.by}: ${attempt.recheck_override.reason}`}
       </p>
     </li>

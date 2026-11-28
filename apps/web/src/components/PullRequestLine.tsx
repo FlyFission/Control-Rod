@@ -1,4 +1,5 @@
 import type { PackageView } from "../api/types.js";
+import { httpsHref } from "../lib/links.js";
 
 /** The pull request in words, from what GitHub last said; as before when it has not been read. */
 function openedWords(w: NonNullable<PackageView["pull_request"]>["watch"]): string {
@@ -17,12 +18,19 @@ function openedWords(w: NonNullable<PackageView["pull_request"]>["watch"]): stri
 export function PullRequestLine({ pr }: { pr: PackageView["pull_request"] }) {
   if (!pr) return null;
   if (pr.state === "opened" && pr.url) {
+    // Only an https address is a link; anything else is shown as text.
+    const href = httpsHref(pr.url);
+    const text = pr.url.replace(/^https:\/\/github\.com\//, "");
     return (
       <p className="pr-line small" role="status">
         {openedWords(pr.watch)}:{" "}
-        <a href={pr.url} target="_blank" rel="noreferrer">
-          {pr.url.replace(/^https:\/\/github\.com\//, "")}
-        </a>
+        {href ? (
+          <a href={href} target="_blank" rel="noreferrer">
+            {text}
+          </a>
+        ) : (
+          <span>{text}</span>
+        )}
       </p>
     );
   }

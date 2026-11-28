@@ -195,6 +195,12 @@ type ArtifactStager interface {
 	StagesArtifact() bool
 }
 
+// ExecCopier launches from a staged copy of its single-file executable where the platform
+// starts a runtime by its path after hashing it (not Linux; see copiesBeforeExec).
+type ExecCopier interface {
+	CopiesBeforeExec() bool
+}
+
 // OutputCopier fills out/ when Command returns no process. Only the fake runtime implements it.
 type OutputCopier interface {
 	CopyOutputs(ws *Workspace) error

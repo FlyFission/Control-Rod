@@ -95,4 +95,30 @@ describe("checker attempt history", () => {
     expect(screen.getByRole("status").textContent).toContain("inconclusive");
     expect(screen.getByRole("list", { name: "Checker attempts" }).textContent).toContain("timeout");
   });
+
+  it("shows evidence that is not a path on this site or an https address as text, not a link", async () => {
+    await renderPage(
+      <CheckerHistory
+        blocked={undefined}
+        attempts={[{
+          schema_version: "0.1.0",
+          id: "CA-bad",
+          package_id: "WP-1",
+          package_revision: 0,
+          run_id: "R-bad",
+          round: 1,
+          checker_runtime: "codex",
+          deliverable_digest: digest("a".repeat(64)),
+          outcome: "fail",
+          counts_as: "fail",
+          started_at: "2026-11-14T15:02:00.000Z",
+          finished_at: "2026-11-14T15:03:00.000Z",
+          evidence: "javascript:alert(1)",
+        }]}
+        overrides={[]}
+      />,
+    );
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByRole("list", { name: "Checker attempts" }).textContent).toContain("javascript:alert(1)");
+  });
 });

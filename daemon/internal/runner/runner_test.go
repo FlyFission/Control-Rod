@@ -413,11 +413,10 @@ func TestDaemonRunsAFakeJobEndToEnd(t *testing.T) {
 	cancel()
 	<-stopped
 
+	// The completion carries the outputs, so the run folder is removed once it is in the outbox.
 	ws := filepath.Join(home, "work", "WP-0007", "r2", "pre-check-1-run-e2e")
-	for _, p := range []string{"inputs/BRIEF.md", "inputs/criteria/acceptance.md", "out/report.md", "out/maps/site.svg"} {
-		if _, err := os.Stat(filepath.Join(ws, p)); err != nil {
-			t.Errorf("workspace missing %s: %v", p, err)
-		}
+	if _, err := os.Lstat(ws); !os.IsNotExist(err) {
+		t.Errorf("run folder %s was kept after the completion was sent: %v", ws, err)
 	}
 
 	api.mu.Lock()
@@ -491,7 +490,16 @@ func TestDaemonRunsAFakeJobEndToEnd(t *testing.T) {
 			t.Errorf("Authorization header %q", a)
 		}
 	}
-	env := mustRead(t, filepath.Join(ws, "out", "env.txt"))
+	var env string
+	for _, o := range comp.Outputs {
+		if o.Name == "env.txt" {
+			raw, _ := base64.StdEncoding.DecodeString(o.ContentBase64)
+			env = string(raw)
+		}
+	}
+	if env == "" {
+		t.Fatal("no env.txt output")
+	}
 	for _, where := range map[string]string{"agent environment": env, "daemon logs": logs.String()} {
 		if strings.Contains(where, testToken) {
 			t.Error("token leaked")
@@ -551,7 +559,9 @@ func TestTimeoutKillsTheWholeProcessGroup(t *testing.T) {
 		t.Skip("process groups are unix only")
 	}
 	home := t.TempDir()
-	script := `sleep 60 & echo $! > out/child.pid; sleep 60`
+	// Outside the run folder, which is removed once the completion is sent.
+	pidFile := filepath.Join(t.TempDir(), "child.pid")
+	script := `sleep 60 & echo $! > ` + pidFile + `; sleep 60`
 	job := &Job{Run: testRun("run-slow", "author"), Inputs: []NamedFile{
 		{Name: "BRIEF.md", ContentBase64: b64("x")},
 		{Name: "FAKE.sh", ContentBase64: b64(script)},
@@ -568,7 +578,7 @@ func TestTimeoutKillsTheWholeProcessGroup(t *testing.T) {
 	if comp.Status != "failed" || comp.Error != "timeout" {
 		t.Fatalf("got status %q error %q", comp.Status, comp.Error)
 	}
-	pidText := mustRead(t, filepath.Join(home, "work", "WP-0007", "r2", "author-1-run-slow", "out", "child.pid"))
+	pidText := mustRead(t, pidFile)
 	pid, err := strconv.Atoi(strings.TrimSpace(pidText))
 	if err != nil {
 		t.Fatal(err)

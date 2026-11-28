@@ -14,8 +14,13 @@ import (
 	"time"
 )
 
+// setProcessGroup starts cmd as the leader of a new session, which also makes it the leader of
+// a new process group (group id == pid), so the whole group can be signalled. The new session
+// has no controlling terminal, so the child cannot read from or inject input into the terminal
+// the daemon was started from (review DMN-21). Setpgid must not be set as well: setpgid on a
+// session leader fails with EPERM. A nil cmd.Stdin already reads from /dev/null.
 func setProcessGroup(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 }
 
 // errNotRunning means the process exists only as a zombie: it has exited and waits to be reaped.

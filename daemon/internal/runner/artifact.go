@@ -385,7 +385,7 @@ func StageArtifact(a RuntimeArtifact, base string) (RuntimeArtifact, error) {
 		}
 		fi, err = os.Lstat(base)
 	}
-	if err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
+	if err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 || !fileOwnedByUser(fi) {
 		return a, fmt.Errorf("%s must be a private folder (mode 0700) to stage runtimes in", base)
 	}
 	// One stager per digest at a time, across daemons: a copy another launch is using is never
@@ -511,6 +511,22 @@ func StageRoot() string {
 	return filepath.Join(tmp, fmt.Sprintf("controlrod-runtimes-%d", os.Getuid()))
 }
 
+// copiesBeforeExec reports whether a runtime that is not staged anyway is launched from a staged
+// copy on this platform. Outside Linux the runtime is started by its path after it is hashed, so
+// the bytes that run could be swapped in between at the install path, which the user's other
+// programs can write. The staged copy sits in the daemon's private stage folder (mode 0700,
+// owned by this user) and is hashed again at launch (review DMN-17). On Linux the open, hashed
+// descriptor is what runs, so no copy is needed. Only Claude Code's single-file native build
+// opts in (ExecCopier): a runtime that reads files beside its own program (a tree) is already
+// staged whole (Codex), and Antigravity and Grok are fenced by their own program path.
+// launchGOOS is the platform VerifyLaunch decides the copy for. A variable so a Linux test can
+// take the macOS path.
+var launchGOOS = runtime.GOOS
+
+func copiesBeforeExec(c ExecCopier, a RuntimeArtifact, goos string) bool {
+	return goos != "linux" && c != nil && c.CopiesBeforeExec() && a.Root == ""
+}
+
 // ErrArtifactMismatch means the executable on disk is not the one the run may launch.
 var ErrArtifactMismatch = errors.New("runtime artifact mismatch")
 
@@ -547,9 +563,11 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	// for Claude and Codex that name equals the id.
 	binary := runtimeName
 	var stager ArtifactStager
+	var copier ExecCopier
 	if a, ok := AdapterFor(runtimeName); ok {
 		binary = a.Binary()
 		stager, _ = a.(ArtifactStager)
+		copier, _ = a.(ExecCopier)
 	}
 	got, err := resolveArtifact(binary)
 	if err != nil {
@@ -604,6 +622,26 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 			ErrArtifactMismatch, runtimeName, got.Path, short(digest.Value), short(probed.Digest.Value)))
 	case pin == nil && probed == nil:
 		return fail(fmt.Errorf("%w: %s has not been checked on this machine yet", ErrArtifactMismatch, runtimeName))
+	}
+	if copiesBeforeExec(copier, got, launchGOOS) {
+		// The install passed its checks above, with the same refusals as everywhere else. What runs
+		// is a copy of exactly those bytes in the private stage folder, opened and hashed again.
+		staged, err := StageArtifact(RuntimeArtifact{Path: got.Path, Digest: digest, Env: got.Env}, StageRoot())
+		if err != nil {
+			return fail(fmt.Errorf("%w: %s at %s could not be copied into the private folder it is started from (%s); it is checked again on the next attempt: %v",
+				ErrArtifactMismatch, runtimeName, got.Path, StageRoot(), err))
+		}
+		sf, err := os.Open(staged.Path)
+		if err != nil {
+			return fail(fmt.Errorf("%w: the copy of %s cannot be opened: %v", ErrArtifactMismatch, runtimeName, err))
+		}
+		sum, err := readerDigest(sf)
+		if err != nil || sum != digest.Value {
+			sf.Close()
+			return fail(fmt.Errorf("%w: the copy of %s does not match the checked file; it is checked again on the next attempt", ErrArtifactMismatch, runtimeName))
+		}
+		f.Close()
+		f, got.Path = sf, staged.Path
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return fail(err)

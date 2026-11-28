@@ -29,6 +29,10 @@ func (claudeAdapter) CheckerEnv() []string {
 	return []string{"CLAUDE_CODE_DISABLE_AUTO_MEMORY=1"}
 }
 
+// CopiesBeforeExec: on macOS the native single-file build starts from a verified copy in the
+// private stage folder (review DMN-17).
+func (claudeAdapter) CopiesBeforeExec() bool { return true }
+
 func (claudeAdapter) ID() string                  { return RuntimeClaude }
 func (claudeAdapter) Binary() string              { return "claude" }
 func (claudeAdapter) DisplayName() string         { return "Claude Code" }

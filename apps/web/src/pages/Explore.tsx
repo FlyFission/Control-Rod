@@ -16,6 +16,7 @@ export function Explore() {
   const runCheckpoint = async () => {
     if (!repoPath.trim()) return;
     setBusy(true);
+    setStatus(null);
     setError(null);
     try {
       const res = await api.checkpointRepo({
@@ -33,6 +34,7 @@ export function Explore() {
   const runFreeze = async () => {
     if (!repoPath.trim()) return;
     setBusy(true);
+    setStatus(null);
     setError(null);
     try {
       const res = await api.freezeRepo({

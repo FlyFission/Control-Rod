@@ -78,6 +78,74 @@ describe("Wave 3/4 workbench pages", () => {
     expect(await screen.findByText(/Frozen: deadbeef12345678/i)).toBeTruthy();
   });
 
+  it("Save checkpoint: success message is cleared when a subsequent Save is refused", async () => {
+    const user = userEvent.setup();
+    let callCount = 0;
+    server.use(
+      http.post("*/repos/checkpoint", () => {
+        callCount++;
+        if (callCount === 1) {
+          return HttpResponse.json({
+            ok: true,
+            ref: "refs/cr-checkpoints/explore-cp-1",
+            commit_sha: "cafebabe1234567890",
+            tree_sha: "fedcba9876543210",
+          });
+        }
+        return HttpResponse.json(
+          { code: "validation_error", message: "repo_path must be inside the workspace root" },
+          { status: 400 },
+        );
+      }),
+    );
+    await renderPage(<Explore />);
+    const pathInput = screen.getByLabelText(/Worktree or repository path/i);
+    await user.type(pathInput, "/home/flyfission/projects/Control-Rod");
+    await user.click(screen.getByRole("button", { name: /Save checkpoint/i }));
+    expect(await screen.findByText(/Checkpoint saved at refs\/cr-checkpoints\/explore-cp-1/i)).toBeTruthy();
+
+    await user.clear(pathInput);
+    await user.type(pathInput, "demo");
+    await user.click(screen.getByRole("button", { name: /Save checkpoint/i }));
+    expect(await screen.findByText(/repo_path must be inside the workspace root/i)).toBeTruthy();
+    expect(screen.queryByText(/Checkpoint saved at/i)).toBeNull();
+  });
+
+  it("Freeze: success message is cleared when a subsequent Freeze is refused", async () => {
+    const user = userEvent.setup();
+    let callCount = 0;
+    server.use(
+      http.post("*/repos/freeze", () => {
+        callCount++;
+        if (callCount === 1) {
+          return HttpResponse.json({
+            ok: true,
+            checkpoint_ref: "refs/cr-checkpoints/explore-1",
+            commit_sha: "abc1234567890",
+            tree_sha: "def1234567890",
+            manifest_digest: "deadbeef1234567890abcdef",
+            file_count: 14,
+          });
+        }
+        return HttpResponse.json(
+          { code: "validation_error", message: "repo_path must be inside the workspace root" },
+          { status: 400 },
+        );
+      }),
+    );
+    await renderPage(<Explore />);
+    const pathInput = screen.getByLabelText(/Worktree or repository path/i);
+    await user.type(pathInput, "/home/flyfission/projects/Control-Rod");
+    await user.click(screen.getByRole("button", { name: /^Freeze$/i }));
+    expect(await screen.findByText(/Frozen: deadbeef12345678/i)).toBeTruthy();
+
+    await user.clear(pathInput);
+    await user.type(pathInput, "demo");
+    await user.click(screen.getByRole("button", { name: /^Freeze$/i }));
+    expect(await screen.findByText(/repo_path must be inside the workspace root/i)).toBeTruthy();
+    expect(screen.queryByText(/Frozen:/i)).toBeNull();
+  });
+
   it("Compare renders side-by-side candidates, adds temporary local notes, and shows retry on error", async () => {
     const user = userEvent.setup();
     let fail = true;

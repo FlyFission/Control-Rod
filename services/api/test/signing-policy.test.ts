@@ -2,11 +2,13 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PRESETS, parseSteps } from "../src/signing-policy.js";
 import { command } from "../src/commands/executor.js";
 import { appendEvent } from "../src/events.js";
 import { pullRequestWatcher } from "../src/pr-watch.js";
+import { PR_CLAIM_MS } from "../src/publish-claim.js";
+import { publishAccepted } from "../src/work.js";
 import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
@@ -39,6 +41,7 @@ beforeAll(async () => {
 afterAll(async () => h?.stop());
 
 type Json = Record<string, any>;
+const SYSTEM_ACTOR = { kind: "system" as const, id: "control-rod" };
 const asOwner = (method: "GET" | "POST" | "PATCH", url: string, payload?: unknown) =>
   h.app.inject({
     method,
@@ -227,6 +230,38 @@ describe("signing policy on a project", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it("never leaves the pull request at opening: a failed or hung attempt ends not opened, with the reason (review API-5)", async () => {
+    // The card from the test above: accepted, with a checkout, and a non-final outcome, so it may be tried again.
+    const id = (await asOwner("GET", "/packages")).json().find((p: { id: string }) => p.id.endsWith("-PROUT")).id;
+    const prEvents = async () => (await h.db.query<{ body: Json }>("select body from events where body->>'subject' = $1 and body->>'type' like 'package.pr-%' order by seq", [id])).rows.map((e) => e.body);
+
+    await publishAccepted(h.db, id, 0, false, { publish: async () => { throw new Error("git: index.lock exists\nanother git process is running."); } });
+    expect((await view(id)).pull_request).toMatchObject({
+      state: "not-opened",
+      detail: "Control Rod could not open the pull request: git: index.lock exists another git process is running. It tries again the next time it starts.",
+    });
+    let events = await prEvents();
+    expect(events.at(-1)!.data.claim).toBe(events.at(-2)!.data.claim);
+
+    await publishAccepted(h.db, id, 0, false, { publish: () => new Promise(() => undefined), attemptMs: 20 });
+    expect((await view(id)).pull_request).toMatchObject({ state: "not-opened", detail: expect.stringMatching(/^Opening the pull request took longer than 15 minutes, so Control Rod stopped waiting for it\. It tries again the next time it starts\.$/) });
+    events = await prEvents();
+    expect(events.slice(-2).map((e) => e.type)).toEqual(["package.pr-started", "package.pr-not-opened"]);
+    expect(events.at(-1)!.data).toMatchObject({ reason: "failed", claim: events.at(-2)!.data.claim });
+
+    // A claim left with no outcome (the server stopped mid-way) reads as not opened once it runs out.
+    await command(h.db, "package.open-pr", (c) => appendEvent(c, "package.pr-started", id, SYSTEM_ACTOR, { revision: 0, branch: "controlrod/x-r0", claim: "left" }));
+    expect((await view(id)).pull_request).toMatchObject({ state: "opening" });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(Date.now() + PR_CLAIM_MS + 1000);
+      expect((await view(id)).pull_request).toMatchObject({ state: "not-opened", detail: "Opening the pull request stopped without an answer. Control Rod tries again the next time it starts." });
+    } finally {
+      vi.useRealTimers();
+    }
+    await command(h.db, "package.open-pr", (c) => appendEvent(c, "package.pr-not-opened", id, SYSTEM_ACTOR, { revision: 0, reason: "failed", detail: "x", claim: "left" }));
   });
 
   it("shows what GitHub says about the opened pull request, and nothing when it cannot be read (change record pr-watch)", async () => {

@@ -19,6 +19,7 @@ import { teach } from "../src/refusals.js";
 import {
   CAPITAL_PROJECT_DIRS,
   HOST_GIT_ARGS,
+  type HeldCheckout,
   createCheckpoint,
   hostGitEnv,
   isDangerousWorktreeRemovalPath,
@@ -27,7 +28,7 @@ import {
   scaffoldCapitalProjectDirs,
 } from "../src/repos.js";
 
-function buildTestApp(): FastifyInstance {
+function buildTestApp(held?: () => Promise<HeldCheckout[]>): FastifyInstance {
   const app = Fastify({ logger: false });
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof Refusal) {
@@ -36,12 +37,12 @@ function buildTestApp(): FastifyInstance {
     }
     throw err;
   });
-  repoRoutes(app, async () => "person-test");
+  repoRoutes(app, async () => "person-test", held);
   return app;
 }
 
-async function withTestApp<T>(fn: (app: FastifyInstance) => Promise<T>): Promise<T> {
-  const app = buildTestApp();
+async function withTestApp<T>(fn: (app: FastifyInstance) => Promise<T>, held?: () => Promise<HeldCheckout[]>): Promise<T> {
+  const app = buildTestApp(held);
   try {
     return await fn(app);
   } finally {
@@ -118,6 +119,41 @@ describe("repos Wave 1 hardening", () => {
     }
     return { workspaceRoot, repoDir };
   }
+
+  it("refuses to remove a worktree while a run is working in it (review API-11)", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    let held: HeldCheckout[] = [];
+    await withTestApp(async (app) => {
+      const wtRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: { repo: "sample-repo", branch: "feat/held", strategy: "worktree", workspace_root: workspaceRoot },
+      });
+      expect(wtRes.statusCode, wtRes.body).toBe(200);
+      const wtPath = wtRes.json().local_path as string;
+      const remove = () => app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: wtPath, repo_path: repoDir, workspace_root: workspaceRoot, force: true },
+      });
+      // The run names the checkout by another spelling of the same path, and force does not override it.
+      held = [{ run: "R-held0001", path: `${wtPath}/` }];
+      const refused = await remove();
+      expect(refused.statusCode, refused.body).toBe(409);
+      expect(refused.json()).toMatchObject({
+        code: "worktree-in-use",
+        message: "Run R-held0001 is working in this worktree, so it was not removed. Wait for the run to finish, or stop it, then remove the worktree.",
+      });
+      expect(existsSync(wtPath)).toBe(true);
+      // A run in a folder inside the worktree holds it too; a run elsewhere does not.
+      held = [{ run: "R-held0002", path: join(wtPath, "sub") }];
+      expect((await remove()).statusCode).toBe(409);
+      held = [{ run: "R-other001", path: join(workspaceRoot, "elsewhere") }];
+      const removed = await remove();
+      expect(removed.statusCode, removed.body).toBe(200);
+      expect(existsSync(wtPath)).toBe(false);
+    }, async () => held);
+  });
 
   it("HOST_GIT_ARGS neutralizes hooks, fsmonitor, ext protocol, and submodules", () => {
     expect(HOST_GIT_ARGS).toContain("core.hooksPath=/dev/null");

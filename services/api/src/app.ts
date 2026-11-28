@@ -73,6 +73,8 @@ import {
   currentPackage,
   packageView,
   recordRuntimeStatus,
+  parseRuntimeStatus,
+  claimProtocolRefusal,
   requeueRun,
   runLog,
   runtimeStatus,
@@ -82,6 +84,7 @@ import {
   reconcileSubject,
   reconcileRun,
   updateDraft,
+  checkoutsHeld,
   publishAccepted,
   resumePublishing,
 } from "./work.js";
@@ -375,7 +378,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     executeAdminCommand(req, req.params.name));
 
   preparationRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { id: string }).id), auth);
-  repoRoutes(app, person);
+  repoRoutes(app, person, () => checkoutsHeld(db));
   grantRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { packageId: string }).packageId));
 
   /* ---- workspace projects (audited project defaults & soft-archive) ---- */
@@ -891,14 +894,28 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown; supports_checkouts?: unknown; usage_limits?: unknown; agent_updates?: unknown; agent_updates_unchecked?: unknown; claim_protocol?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
-    if (req.body?.agent_updates !== undefined) await recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked);
+    // A daemon older than the jobs this server hands out could not read one: refused before any run
+    // is handed out, in words that say what to do (review DMN-4).
+    const outdated = claimProtocolRefusal(req.body?.claim_protocol);
+    if (outdated) throw outdated;
+    // What the daemon reports beside its claim is bookkeeping: a failure to record it is logged and
+    // never fails the claim, so one bad report cannot stop every run (review API-20).
+    const keep = async (what: string, fn: () => Promise<unknown>) => {
+      try {
+        await fn();
+      } catch (e) {
+        (opts.onError ?? ((err) => console.error(`[control-rod] claim: could not record ${what}:`, err)))(e);
+      }
+    };
+    if (req.body?.agent_updates !== undefined) await keep("agent updates", () => recordAgentUpdates(db, req.body.agent_updates, req.body.agent_updates_unchecked));
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
-    // left out even if it is also listed.
-    const status = await recordRuntimeStatus(db, req.body?.runtime_status);
-    if (req.body?.subscription_report !== undefined) await recordSubscriptionReport(db, req.body.subscription_report);
-    if (req.body?.usage_limits !== undefined) await recordUsageLimits(db, req.body.usage_limits);
+    // left out even if it is also listed. A status that cannot be stored is still read.
+    let status = parseRuntimeStatus(req.body?.runtime_status);
+    await keep("runtime status", async () => { status = await recordRuntimeStatus(db, req.body?.runtime_status); });
+    if (req.body?.subscription_report !== undefined) await keep("the subscription report", () => recordSubscriptionReport(db, req.body.subscription_report));
+    if (req.body?.usage_limits !== undefined) await keep("usage limits", () => recordUsageLimits(db, req.body.usage_limits));
     const notReady = new Set(status.filter((s) => !s.ready).map((s) => s.runtime));
     const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])

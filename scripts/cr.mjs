@@ -316,7 +316,7 @@ function agentChecks() {
     : spawnSync("go", ["run", "./cmd/controlrod", "runtimes"], { cwd: join(root, "daemon"), encoding: "utf8", timeout: 300000 });
   const out = (r.stdout ?? "").trim();
   if (r.status !== 0 || !out) {
-    console.log("--    agents: the daemon's checks could not run here; `${me} start` reports each agent when it starts");
+    console.log(`--    agents: the daemon's checks could not run here; \`${me} start\` reports each agent when it starts`);
     return;
   }
   console.log("\nAgents, as the daemon will find them:");

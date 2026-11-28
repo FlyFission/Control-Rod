@@ -15,7 +15,9 @@ export const LANE_ORDER: readonly DataLane[] = ["public", "internal", "proprieta
 /** Runtimes that keep everything on this machine: the test runtime, and local model runtimes when they arrive. */
 // Ollama is not here: a model name can route `ollama run` to a hosted model, so it is not local by
 // runtime alone. Local models join through a harness that pins the endpoint.
-const LOCAL_RUNTIMES = ["fake"];
+// The practice runtimes are fixed routines inside the daemon: no model, no network, nothing leaves
+// this computer. The claim gives them work of the practice project only (practice.ts).
+const LOCAL_RUNTIMES = ["fake", "practice", "practice-check"];
 
 /**
  * Which runtimes each lane admits. Public and internal work may use the subscription CLIs. The

@@ -38,6 +38,7 @@ import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
 import { RUNNABLE } from "./runtimes.js";
+import { PRACTICE_RUNTIMES, practiceCardText, startPracticeProject, activePracticeProject, defaultPracticeDir } from "./practice.js";
 import { recordUsageLimits, usageLimitsView } from "./usage-limits.js";
 import { recordSeat, recordSetup, setupView } from "./setup.js";
 import { listWorkspaceProjects } from "./workspace-projects.js";
@@ -117,6 +118,8 @@ export interface AppOptions {
   streamReplayMax?: number;
   /** Open a draft pull request when work bound to a repository checkout is accepted. Default on; CONTROLROD_PUBLISH_PULL_REQUESTS=0 turns it off. */
   publishPullRequests?: boolean;
+  /** Control Rod's own folder for the practice project's sample copy. Default ~/.controlrod/practice. */
+  practiceDir?: string;
 }
 
 const OUTPUT_PATH = /^\/packages\/[^/?#]+\/(?:outputs\/|verification-evidence\/[^/?#]+\/)/;
@@ -144,7 +147,7 @@ const MIME: Record<string, string> = {
  */
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
-  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.preparationLanes?{preparationLanes:opts.preparationLanes}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
+  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.preparationLanes?{preparationLanes:opts.preparationLanes}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}), practiceDir: opts.practiceDir ?? defaultPracticeDir() };
   // Accepted work bound to a repository checkout opens its draft pull request after the accept commits.
   const resumePullRequests = opts.publishPullRequests ?? process.env.CONTROLROD_PUBLISH_PULL_REQUESTS !== "0";
   if (resumePullRequests) cfg.publish = (id, revision) => void publishAccepted(db, id, revision).catch((e) => console.error("[control-rod] pull request:", e));
@@ -391,6 +394,19 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     executeAdminCommand(req, "project.workspace-update", req.params.id));
   app.post<{ Params: { id: string }; Body: AdminCommandBody }>("/workspace/projects/:id/archive", async (req) =>
     executeAdminCommand(req, "project.workspace-archive", req.params.id));
+
+  /* ---- practice (change record practice-agent) ---- */
+  // A new practice card on the practice project: the fixed request, with the sample's files attached.
+  // The project itself is made by the signed project.practice-start command.
+  app.post("/practice/cards", async (req, reply) => {
+    const user = await person(req);
+    const caller = await callerFor(db, user);
+    const projectId = await activePracticeProject(db, caller.orgId);
+    if (!projectId) throw new Refusal(409, "practice-not-started", "Start the practice project first. It needs your passkey, as any new project does.");
+    const { text, sample_dir } = practiceCardText(cfg.root, cfg.practiceDir ?? defaultPracticeDir(), projectId);
+    const capture = await createCapture(db, cfg, user, text, "web", "public");
+    return reply.code(201).send({ project_id: projectId, sample_dir, capture });
+  });
 
   /* ---- captures ---- */
   app.get("/captures", async (req) => {
@@ -903,7 +919,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])
       .map(String)
-      .filter((r) => [...RUNNABLE, "fake"].includes(r) && !notReady.has(r));
+      .filter((r) => [...RUNNABLE, "fake", ...PRACTICE_RUNTIMES].includes(r) && !notReady.has(r));
     await sweep();
     // The daemon's run ceiling sizes budget reservations; one it did not report is never guessed.
     const ceiling = req.body?.run_ceiling_seconds;

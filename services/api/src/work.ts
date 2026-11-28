@@ -25,6 +25,7 @@ import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captur
 import { Refusal } from "./refusal.js";
 import { bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
+import { CHANGE_PATCH, changePatches, changedRepoFiles, patchFiles } from "./change-files.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
@@ -465,48 +466,7 @@ function findingDetail(f: Json): Json {
   return out;
 }
 
-/** The patch name the author is asked for (runner checkoutPrompt). */
-export const CHANGE_PATCH = "changes.patch";
-
-/**
- * Which of an author's patch outputs make up the change to the repository. Agents often write more
- * than one: a copy under a work folder, or the fix and its tests as two files. A patch at the top of
- * the output wins over ones in folders; among top-level patches, one named changes.patch wins;
- * otherwise patches that touch disjoint files are the change together, in name order. Patches that
- * touch the same file are refused, since applying both could double a change.
- */
-export function changePatches<T extends { name: string }>(outputs: T[], filesOf: (o: T) => string[]): { use: T[] } | { refused: string } {
-  const all = outputs.filter((o) => /\.(patch|diff)$/i.test(o.name));
-  if (all.length <= 1) return { use: all };
-  const top = all.filter((o) => !o.name.includes("/"));
-  const pool = top.length ? top : all;
-  if (pool.length === 1) return { use: pool };
-  const named = pool.find((o) => o.name.toLowerCase() === CHANGE_PATCH);
-  if (named) return { use: [named] };
-  const seen = new Map<string, string>();
-  for (const o of pool) {
-    for (const f of filesOf(o)) {
-      const other = seen.get(f);
-      if (other !== undefined && other !== o.name) {
-        return { refused: `The accepted work has ${pool.length} patch files, and ${other} and ${o.name} both change ${f}, so Control Rod cannot tell which is the change to open a pull request for.` };
-      }
-      seen.set(f, o.name);
-    }
-  }
-  return { use: [...pool].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) };
-}
-
-/** The files a unified diff touches, in order, from its `diff --git` and `+++`/`---` headers. */
-export function patchFiles(patch: string): string[] {
-  const seen = new Set<string>();
-  for (const line of patch.split(/\r?\n/)) {
-    const git = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
-    if (git) { seen.add(git[2]!); if (git[1] !== git[2]) seen.add(git[1]!); continue; }
-    const hdr = /^(?:\+\+\+|---) [ab]\/(.+?)(?:\t.*)?$/.exec(line);
-    if (hdr) seen.add(hdr[1]!);
-  }
-  return [...seen];
-}
+export { CHANGE_PATCH, changePatches, patchFiles } from "./change-files.js";
 
 /**
  * For a card on a repository checkout, the pull request is built from the bound commit plus the
@@ -571,7 +531,9 @@ async function scopeDrift(q: Db | Tx, id: string, rev: number, round: number, au
   const prev = await succeededAuthorRun(q, id, rev, round - 1);
   const cur = authorRunId ? { id: authorRunId } : await succeededAuthorRun(q, id, rev, round);
   if (!prev || !cur) return null;
-  const outside = outsideScope(changedPaths(await outputDigestsOf(q, prev.id), await outputDigestsOf(q, cur.id)), scope);
+  // Compare what each round changed in the repository: per file of the patch on a checkout card,
+  // otherwise by output name (change-files.ts).
+  const outside = outsideScope(changedRepoFiles(await outputsOf(q, prev.id), await outputsOf(q, cur.id)), scope);
   return { round, scope_paths: scope, outside };
 }
 

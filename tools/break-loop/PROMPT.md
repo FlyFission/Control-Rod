@@ -16,7 +16,7 @@ Read first, by section: `AGENTS.md` (rules), `apps/web/e2e/live/README.md` (the 
 
 ## Never
 
-- Edit trust surfaces: `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/`, `kernel/` decision functions. A finding there is marked `owner`.
+- Edit trust surfaces: any path in `.github/CODEOWNERS` (`policies/`, `tests/redteam/`, `.github/`, `spec/`, `kernel/`, `services/api/kernel/`, `docs/adr/`, `daemon/internal/runner/`, `scripts/`, `packages/check-action/action.yml`, `services/api/src/auth.ts`). A finding there is marked `owner`.
 - Skip, delete, loosen or `test.fixme` a test to make a pass green. A test that is wrong is fixed in its own commit that says why.
 - Change the API's refusal rules, signing, data-lane or custody behavior to make a test pass. Those findings are `owner`.
 - Type an engineering number yourself (AGENTS.md rule 5).

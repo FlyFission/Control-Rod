@@ -122,7 +122,9 @@ export async function startHarness(
       },
     };
   }
-  const system = process.env.CONTROLROD_TEST_PG_DIR ?? systemPostgres();
+  // tools/test-api.mjs sets CONTROLROD_TEST_PG_SERVER=bundled when it chose the embedded server, so
+  // a host server is not picked here behind its back (its pg_dump would not match).
+  const system = process.env.CONTROLROD_TEST_PG_SERVER === "bundled" ? null : (process.env.CONTROLROD_TEST_PG_DIR ?? systemPostgres());
   if (system && process.getuid?.() !== 0) {
     // CI runners ship PostgreSQL binaries; start a throwaway cluster with them.
     const dir = mkdtempSync(join(tmpdir(), "cr-pg-"));

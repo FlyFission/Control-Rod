@@ -15,7 +15,19 @@ How work moves from an idea to `main`. The rules that cannot bend are in [AGENTS
 
 ## Who reviews what
 
-[CODEOWNERS](../.github/CODEOWNERS) lists the trust surfaces: `policies/`, `tests/redteam/`, `.github/`, `kernel/`, `spec/` and `docs/adr/`. A change there needs a maintainer who did not author it. That includes agent-authored changes: the person who prompted the agent counts as the author. The one exception is [sole-maintainer sign-off](#sole-maintainer-sign-off) below.
+[CODEOWNERS](../.github/CODEOWNERS) lists the trust surfaces, and this list matches it:
+
+- `policies/` and `tests/redteam/`.
+- Everything under `.github/`: workflows, templates and CODEOWNERS.
+- `kernel/`, where the decision functions live, and `services/api/kernel/`, the WebAssembly build of the kernel that the control plane runs. CI rebuilds that build from the Rust source and fails if it differs.
+- `spec/` major versions. CODEOWNERS asks for review on every change under `spec/`.
+- `docs/adr/`.
+- `daemon/internal/runner/`, which starts agents and holds their sandbox.
+- `scripts/`, which sets up, starts and updates Control Rod on a person's machine.
+- `packages/check-action/action.yml`, the check other repositories run in their own CI.
+- `services/api/src/auth.ts`, passkey sign-in.
+
+A change there needs a maintainer who did not author it. That includes agent-authored changes: the person who prompted the agent counts as the author. The one exception is [sole-maintainer sign-off](#sole-maintainer-sign-off) below.
 
 The same rule works as a team habit: with two people building, each reviews the other's pull requests. Neither approves their own.
 
@@ -102,13 +114,15 @@ Seed the backlog from [status.md](status.md) (the stubbed and planned list) and 
 Settings, then Branches, then a rule for `main`. Recommended:
 
 - Require a pull request, with at least 1 approving review and review from Code Owners.
-- Require the seven CI checks to pass: `typescript`, `rust`, `go`, `python`, `licenses`, `change-records` and `sbom`.
+- Require the ten CI checks to pass: `typescript`, `rust`, `go`, `kernel-wasm`, `product`, `gates`, `python`, `licenses`, `change-records` and `sbom`. The owner adds the three new ones (`kernel-wasm`, `product`, `gates`) to the rule by hand once they have passed on `main`.
 - Require conversation resolution before merging.
 - Require branches to be up to date before merging.
 - Do not allow bypassing the above, including for administrators.
 - Allow squash merging only.
 
 A pull request that shows as `blocked` with green CI is usually waiting on one of these requirements, most often a review. Check the merge box on the PR before assuming CI is at fault.
+
+When the readme-shots workflow pushes new pictures to a pull request, that commit starts no CI run, because GitHub does not start workflows for pushes made with a workflow's own token. The pull request then waits on checks that never come. Start them by hand: open *Actions*, choose *ci*, *Run workflow*, and pick the pull request's branch. Closing and reopening the pull request also starts them.
 
 ## Dependabot
 

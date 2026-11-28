@@ -11,10 +11,10 @@ Three visual rounds on the Plant view (#153 twice, then #165) ended at about the
 
 ## Owner decisions
 
-| Decision | Owner's words | Where | When |
-|---|---|---|---|
-| Pick the references from evidence, not his taste | "We can probably find an objectively best 5 to 10 that have similar gravitas and are known for looking amazing and feeling great. I'm not sure you want me making that call. There's probably an objectively best set of fits" | Project chat | 2026-11-24 00:26 UTC |
-| Work carefully | "Let's be just more meticulous and systematic and thorough" | Project chat | 2026-11-24 00:14 UTC |
+| # | Decision | Owner's words | Given | Reading | Out of scope |
+|---|---|---|---|---|---|
+| D1 | Pick the references from evidence, not his taste | "We can probably find an objectively best 5 to 10 that have similar gravitas and are known for looking amazing and feeling great. I'm not sure you want me making that call. There's probably an objectively best set of fits" | 2026-11-24, 00:26 UTC, project chat | Choose 5 to 10 references by award and review evidence and keep them in the repository. | Any code, style or test change. |
+| D2 | Work carefully | "Let's be just more meticulous and systematic and thorough" | 2026-11-24, 00:14 UTC, project chat | Each reference carries its evidence and source, and each screen gets a pass or fail bar. | Any change outside the reference board. |
 
 ## Scope
 

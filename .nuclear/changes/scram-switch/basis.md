@@ -11,9 +11,9 @@ The top bar showed a rod gauge plate reading "No SCRAM" beside the SCRAM button.
 
 ## Owner decisions
 
-| Decision | Owner's words | Where | When |
-|---|---|---|---|
-| One SCRAM button, a light that flashes on SCRAM, a short explainer | "We just need the 'Scram' button ... a beacon or a red light right by it that flashes when you hit scram. And a small infographic by the scram button that says, 'Stops all agent activity.' Or pauses it. That way, it can be resumed." | Project thread "Simplify the SCRAM button" | 2026-11-24 23:11 UTC |
+| # | Decision | Owner's words | Given | Reading | Out of scope |
+|---|---|---|---|---|---|
+| D1 | One SCRAM button, a light that flashes on SCRAM, a short explainer | "We just need the 'Scram' button ... a beacon or a red light right by it that flashes when you hit scram. And a small infographic by the scram button that says, 'Stops all agent activity.' Or pauses it. That way, it can be resumed." | 2026-11-24, 23:11 UTC, project thread "Simplify the SCRAM button" | The top bar keeps one SCRAM button with a lamp that flashes while SCRAM holds and a short card that says what it does; the copy follows what SCRAM really does (see the next section). | SCRAM behaviour, the banner, the Plant's SCRAM dialog, spec, policies and kernel. |
 
 ## What SCRAM really does (copy must match)
 

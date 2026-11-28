@@ -42,7 +42,7 @@ body:
     id: trust
     attributes:
       label: Touches a trust surface?
-      description: policies/, tests/redteam/, anything under .github/, spec/ major versions, kernel decision functions or docs/adr/. These need a maintainer who did not author the change, or the sole maintainer's recorded yes (docs/collaboration.md).
+      description: A path in .github/CODEOWNERS, such as policies/, tests/redteam/, anything under .github/, spec/ major versions, the kernel, docs/adr/, the daemon's runner, scripts/ or passkey sign-in. These need a maintainer who did not author the change, or the sole maintainer's recorded yes (docs/collaboration.md).
       options:
         - No
         - Yes

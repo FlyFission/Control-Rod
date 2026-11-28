@@ -10,6 +10,12 @@ name: readme-shots-commit
 # repository come from GitHub's event, not from the artifact. Only pull requests from this
 # repository are served; a fork's pull request is refused. Any workflow named readme-shots can start
 # this, including one a branch adds, so the checks below, not the name, are what hold.
+#
+# GitHub starts no workflow for a push made with this job's own token, so the commit pushed here
+# gets no ci run and the pull request waits on its checks. Run ci by hand on the branch (Actions,
+# ci, Run workflow) or close and reopen the pull request (docs/collaboration.md, Branch
+# protection). A token that would start ci itself needs a GitHub App or a personal token, which
+# is the owner's choice.
 on:
   workflow_run: # zizmor: ignore[dangerous-triggers] see the header: the run is checked, and the artifact is untrusted
     workflows: [readme-shots]

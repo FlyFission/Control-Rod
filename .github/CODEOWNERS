@@ -1,8 +1,14 @@
 # Trust surfaces need review from a maintainer who did not author the change.
 # While only one maintainer is listed, their recorded yes is the sign-off instead (docs/collaboration.md#sole-maintainer-sign-off).
-/policies/            @FlyFission
-/tests/redteam/       @FlyFission
-/.github/             @FlyFission
-/kernel/              @FlyFission
-/spec/                @FlyFission
-/docs/adr/            @FlyFission
+# Keep this list and the one in docs/collaboration.md#who-reviews-what the same.
+/policies/                        @FlyFission
+/tests/redteam/                   @FlyFission
+/.github/                         @FlyFission
+/kernel/                          @FlyFission
+/services/api/kernel/             @FlyFission
+/spec/                            @FlyFission
+/docs/adr/                        @FlyFission
+/daemon/internal/runner/          @FlyFission
+/scripts/                         @FlyFission
+/packages/check-action/action.yml @FlyFission
+/services/api/src/auth.ts         @FlyFission

@@ -1,7 +1,7 @@
 # Verification: Typed failure reasons and one safe retry for author runs
 
 - E-01: `tsc --noEmit` passes for services/api and apps/web.
-- E-02: `tools/test-api.mjs` (PostgreSQL 16, cloud container): signing-policy, 32 tests pass (3 new); runs, publish-checkout, work-lanes, run-attestation: 107 pass.
+- E-02: `tools/test-api.mjs` (PostgreSQL 16, cloud container): signing-policy, 33 tests pass (4 new); runs, publish-checkout, work-lanes, run-attestation: 107 pass.
 - E-03: `go test ./internal/runner/ -run TestFailKind` and `go test ./internal/wire/` pass. Other runner tests that need bubblewrap, and the egress-filter test, fail in the cloud container the same way on `main`.
 - Blind check: a separate Claude Sonnet reviewer on the PR. Codex review quota was used up on 2026-11-28.
 

@@ -6,7 +6,9 @@
 | Kind stored on a failed run | `work.ts` applyCompletion | `signing-policy.test.ts` "runs an author run again once when its agent quit..." |
 | One retry for exited with containment, not twice | `work.ts` retryFailedRun | same |
 | No retry for timeout, breaker, unplaced error, no containment | same | "does not run an author run again for a timeout, the breaker..." |
-| Unknown kind refused, no retry | Run.json schema | "refuses a completion with a failure kind the daemon does not know..." |
+| Unknown or non-string kind dropped, kind never kept on success | `work.ts` FAILURE_KINDS | "drops a failure kind it does not know..." |
+| Out-of-contact retried once under a cgroup | `work.ts` retryFailedRun | "runs an author run again once after the daemon lost contact..." |
+| Kind cleared when a later check changes the failure | `daemon.go` Handle | code review (blind reviewer finding 1) |
 | Existing restart and failed-check retries unchanged | same | "runs an author run again on its own when Control Rod stopped it to restart", "runs a check that failed without a verdict again once" |
 
 ## Required links

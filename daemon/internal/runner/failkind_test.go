@@ -27,6 +27,8 @@ func TestFailKind(t *testing.T) {
 		{errOutOfContact, "out-of-contact"},
 		{errSettled, "unfinished-turn"},
 		{errBreaker{reason: "too many tool calls"}, "breaker"},
+		{fmt.Errorf("run: %w", errBreaker{reason: "x"}), "breaker"},
+		{fmt.Errorf("run: %w", errOutOfContact), "out-of-contact"},
 		{fmt.Errorf("agent: %w", exitErr), "exited"},
 		{errors.New("boom"), ""},
 	}

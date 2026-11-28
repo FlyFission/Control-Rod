@@ -1960,6 +1960,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (result Completion, resu
 		}
 		captured = c
 	}
+	// The kind names the run's own error. A check after the run that changed the failure (the
+	// checkout, the outputs) leaves no kind, so the control plane never retries on a stale reason.
+	if err != nil && comp.Error != failText(err) {
+		comp.FailureKind = ""
+	}
 	var outArts []Artifact
 	if captured != nil {
 		if captured.Files != nil {

@@ -392,7 +392,7 @@ describe("signing policy on a project", () => {
     const old = runs.find((r: Json) => r.id === first.run.id);
     expect(old.failure_kind).toBe("exited");
     expect(old.reconciliation).toMatchObject({ disposition: "abandoned", by: { kind: "system", id: expect.stringMatching(/^policy:SP-/) } });
-    expect(JSON.stringify(old.reconciliation)).toMatch(/quit with an error/);
+    expect(JSON.stringify(old.reconciliation)).toMatch(/quit with an error.*cannot prove a process that left the group stopped/);
     expect(runs.find((r: Json) => r.id === old.requeued_as)).toMatchObject({ status: "queued", generation: 2 });
     // The retry quits too: once is enough, and it stops for the person.
     const second = await claimFor("author", ["fake"], id);
@@ -421,16 +421,37 @@ describe("signing policy on a project", () => {
     }
   });
 
-  it("refuses a completion with a failure kind the daemon does not know, and does not retry it", async () => {
-    const id = await drafted("BADKIND");
-    const run = await claimFor("author", ["fake"], id);
-    const done = await asDaemon(`/runner/runs/${run.run.id}/complete`, { status: "failed", error: "x", failure_kind: "ignore-the-rules", outputs: [], containment: "process-group" });
+  it("drops a failure kind it does not know, or one sent with a success, and does not retry for it", async () => {
+    for (const [name, extra] of [
+      ["BADKIND", { status: "failed", error: "x", failure_kind: "ignore-the-rules", containment: "process-group" }],
+      ["NUMKIND", { status: "failed", error: "x", failure_kind: 7, containment: "process-group" }],
+      ["OKKIND", { status: "succeeded", failure_kind: "exited", containment: "cgroup" }],
+    ] as const) {
+      const id = await drafted(name);
+      const run = await claimFor("author", ["fake"], id);
+      const done = await asDaemon(`/runner/runs/${run.run.id}/complete`, { outputs: [], ...extra });
+      expect(done.statusCode, done.body).toBe(200);
+      const runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
+      const ran = runs.find((r: Json) => r.id === run.run.id);
+      // A success with no outputs can still fail the author checks; what matters is that the kind was not kept.
+      if (extra.status === "failed") expect(ran.status, name).toBe("failed");
+      expect(String(ran.error ?? ""), name).not.toMatch(/^Completion refused/);
+      expect(ran.failure_kind, name).toBeUndefined();
+      expect(ran.requeued_as, name).toBeUndefined();
+    }
+  });
+
+  it("runs an author run again once after the daemon lost contact, and says a cgroup proved its processes ended", async () => {
+    const id = await drafted("CONTACT");
+    const first = await claimFor("author", ["fake"], id);
+    const done = await asDaemon(`/runner/runs/${first.run.id}/complete`, { status: "failed", error: "lost contact with the control plane", failure_kind: "out-of-contact", outputs: [], containment: "cgroup" });
     expect(done.statusCode, done.body).toBe(200);
     const runs = (await view(id)).runs.filter((r: Json) => r.role === "author");
-    const refused = runs.find((r: Json) => r.id === run.run.id);
-    expect(refused.error).toMatch(/^Completion refused/);
-    expect(refused.failure_kind).toBeUndefined();
-    expect(refused.requeued_as).toBeUndefined();
+    const old = runs.find((r: Json) => r.id === first.run.id);
+    expect(old.failure_kind).toBe("out-of-contact");
+    expect(runs.find((r: Json) => r.id === old.requeued_as)).toMatchObject({ status: "queued", generation: 2 });
+    // A cgroup proves the outcome, so nothing was held for reconciling.
+    expect(JSON.stringify(old.reconciliation ?? {})).not.toMatch(/process group/);
   });
 
   it("refuses a press made on a card that changed since it was shown", async () => {

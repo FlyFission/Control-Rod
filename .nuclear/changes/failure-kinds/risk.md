@@ -1,8 +1,8 @@
 # Risk: Typed failure reasons and one safe retry for author runs
 
-- R-01: a retry while a process of the first run is still alive. A retry needs the daemon's containment report. On macOS that is the process group, which cannot see a process that left its group. This is the same footing the existing restart retry already accepts under a signed auto policy, and the retry's reconciliation records it.
+- R-01: a retry while a process of the first run is still alive. A retry needs the daemon's containment report. On macOS that is the process group, which cannot see a process that left its group. This is the same footing the existing restart retry already accepts under a signed auto policy, and the retry's reconciliation says in words that a process group cannot prove a process that left the group stopped. A cgroup claim is cross-checked against the receipt on record, the same rule that settles an unknown outcome.
 - R-02: a retry that costs tokens and fails again. It happens once per run chain, never after a requeue by the owner, and never for a timeout or the breaker.
-- R-03: the kind steering the server is agent-written. It is not. The daemon sets it from its own error values, and the API accepts only the enum: a completion with any other value is refused and recorded as refused.
+- R-03: the kind steering the server is agent-written. It is not. The daemon sets it from its own error values, and the API keeps only a value of the enum. Any other value, from a newer daemon for example, is dropped without refusing the run, so it never decides a retry. A kind also never outlives a later check: when the checkout or output collection changes the failure, the daemon sends no kind.
 - R-04: older daemons send no kind. They behave exactly as before, because the restart text check stays.
 - Trust surface: `spec/` gains an additive enum and optional fields, not a major version. The owner's merge-on-green permission is the recorded yes.
 

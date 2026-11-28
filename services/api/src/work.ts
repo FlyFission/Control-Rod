@@ -2411,6 +2411,9 @@ const DAEMON_SHUTDOWN = "daemon shutdown";
  * runaway breaker, a lost run, a failed result and the owner's stop are not retried: running again
  * would likely end the same way, or the person chose it. Product default (change record failure-kinds).
  */
+/** The FailureKind enum in spec/work.tsp. */
+const FAILURE_KINDS: ReadonlySet<unknown> = new Set(["shutdown", "timeout", "lost", "out-of-contact", "stopped", "breaker", "unfinished-turn", "exited"]);
+
 const AUTHOR_RETRY_KINDS: ReadonlyMap<string, string> = new Map([
   ["exited", "quit with an error"],
   ["out-of-contact", "was stopped when the daemon lost contact with Control Rod"],
@@ -2425,8 +2428,13 @@ async function retryFailedRun(c: Tx, cfg: WorkConfig, runId: string, containment
   const shutdown = kind === "shutdown" || String(row.body.error ?? "").startsWith(DAEMON_SHUTDOWN);
   // An author whose agent failed in a way that is usually passing gets one more try too, but only
   // when the daemon accounted for the run's processes (its group or scope is gone, or none started).
+  // A cgroup (cross-checked with the receipt on record) or no process proves every process ended. A
+  // process group cannot see a process that left it; the retry still runs (macOS has no stronger
+  // boundary) and its record says so.
+  const proven = provesEnded(row, { containment });
+  const grouped = !proven && (containment ?? row.body.receipt?.containment) === "process-group";
   const passing = row.role === "author" && !shutdown && kind !== undefined && AUTHOR_RETRY_KINDS.has(kind)
-    && (containment === "cgroup" || containment === "process-group" || containment === "none");
+    && containment !== undefined && (proven || grouped);
   if (row.role !== "pre-check" && !(row.role === "author" && (shutdown || passing))) return;
   // Once per run chain for a failure; every time for a restart, which is never the run's doing.
   if (row.body.requeued_as || row.body.stop_requested_at) return;
@@ -2452,7 +2460,7 @@ async function retryFailedRun(c: Tx, cfg: WorkConfig, runId: string, containment
       shutdown
         ? `Control Rod stopped this run itself while restarting and ran it again once, under signing policy ${policy.id} v${policy.version}.`
         : passing
-          ? `The agent ${AUTHOR_RETRY_KINDS.get(kind!)}, and the daemon found its processes gone, so Control Rod ran it again once, under signing policy ${policy.id} v${policy.version}.`
+          ? `The agent ${AUTHOR_RETRY_KINDS.get(kind!)}, and the daemon ${proven ? "proved every process of the run ended" : "stopped the run's process group (which cannot prove a process that left the group stopped)"}, so Control Rod ran it again once, under signing policy ${policy.id} v${policy.version}.`
           : `Control Rod ran this failed check again once, under signing policy ${policy.id} v${policy.version}; a checker works read-only in its sandbox.`, by);
   }
   const fresh = (await c.query<RunRow>("select * from runs where id = $1", [runId])).rows[0]!;
@@ -2919,7 +2927,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   delete finished.lease_expires_at;
   if (body.error) finished.error = String(body.error).slice(0, 2000);
   // The daemon's own placing of the failure (spec FailureKind), never read from agent output.
-  if (body.failure_kind && body.status !== "succeeded") finished.failure_kind = body.failure_kind;
+  // A kind this server does not know (a newer daemon) is dropped, never a reason to refuse the run.
+  if (FAILURE_KINDS.has(body.failure_kind) && body.status !== "succeeded") finished.failure_kind = body.failure_kind;
   if (body.status === "stopped") {
     if (row.body.stop_requested_at) {
       finished.status = "stopped";

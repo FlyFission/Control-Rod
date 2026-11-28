@@ -54,6 +54,7 @@ export const REASONS: Record<string, Reason> = {
   "passkey-other-person": r("The passkey that signed belongs to someone else.", "Sign with a passkey registered to your own account."),
   "passkey-origin": r("The passkey signed for a different web address from this Control Rod.", "Open Control Rod at the address it gave when it started, then sign again."),
   "passkey-counter": r("The passkey's use count did not go forward. A passkey that was copied to another device can do this.", "If you did not expect this, revoke that passkey and sign with another one. If you did, sign again."),
+  "passkey-overtaken": r("Another signature from the same passkey was accepted while this one was being checked.", "Check whether the other one did what you wanted. If not, sign again."),
   "passkey-not-verified": r("The passkey did not confirm it was you with a fingerprint, face or PIN.", "Try again, and confirm with your fingerprint, face or PIN when asked."),
   "passkey-bad-signature": r("The passkey signature did not check out.", "Try again. If it keeps failing, sign with another passkey registered to you."),
   "signature-mismatch": r("The signature does not cover this exact request.", "Request a fresh prompt for the request as it now stands and sign that."),

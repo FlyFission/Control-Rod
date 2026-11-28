@@ -205,10 +205,13 @@ export async function assertionOptions(
  * - inactive: the passkey's owner is not an active member.
  * - origin: it was signed for another web address or relying party.
  * - counter: its use count did not go forward, which can mean a copied passkey.
+ * - overtaken: it verified, but a signature with a higher use count from the same passkey was
+ *   recorded while it was being checked. Honest signatures from two tabs do this, so it is not
+ *   read as a copy. Two signatures with the same count still are.
  * - not-verified: the authenticator did not confirm the person (fingerprint, face or PIN).
  * - bad-signature: anything else that failed verification, including a malformed response.
  */
-export type AssertionFailure = "expired" | "unknown-passkey" | "other-person" | "inactive" | "origin" | "counter" | "not-verified" | "bad-signature";
+export type AssertionFailure = "expired" | "unknown-passkey" | "other-person" | "inactive" | "origin" | "counter" | "overtaken" | "not-verified" | "bad-signature";
 
 export type AssertionCheck =
   | { ok: true; user: string; credentialId: string; data: Record<string, unknown> }
@@ -275,10 +278,15 @@ export async function checkAssertion(
   const next = result.authenticationInfo.newCounter;
   // The same rule the verification applied, held at the write: forward, or zero for a passkey that
   // never counts. A concurrent answer that moved the counter past this one wins, and this one is refused.
-  const moved = await command(db, "auth.record-assertion", (c) =>
-    c.query("update credentials set counter = $2 where id = $1 and (counter < $2 or (counter = 0 and $2 = 0))", [row.id, next]),
-  );
-  if (!moved.rowCount) return { ok: false, reason: "counter" };
+  // When it loses, the count it lost to says why: higher means another honest signature from the same
+  // passkey landed first; the same count means two signatures carried one count, which a copy does.
+  const outcome = await command(db, "auth.record-assertion", async (c) => {
+    const moved = await c.query("update credentials set counter = $2 where id = $1 and (counter < $2 or (counter = 0 and $2 = 0))", [row.id, next]);
+    if (moved.rowCount) return "moved" as const;
+    const now = await c.query<{ counter: string }>("select counter from credentials where id = $1", [row.id]);
+    return Number(now.rows[0]?.counter ?? 0) > next ? ("overtaken" as const) : ("counter" as const);
+  });
+  if (outcome !== "moved") return { ok: false, reason: outcome };
   return { ok: true, user: row.user_name, credentialId: row.id, data };
 }
 
@@ -290,6 +298,7 @@ const FAILURE_REFUSAL: Record<AssertionFailure, [code: string, message: string]>
   inactive: ["member-inactive", "The account this passkey belongs to is not active"],
   origin: ["passkey-origin", "The passkey signed for a different web address from this Control Rod"],
   counter: ["passkey-counter", "Your passkey's use count went backwards, so the signature was refused. That can mean the passkey was copied"],
+  overtaken: ["passkey-overtaken", "Another signature from this passkey was accepted at the same moment, so this one was not used. Sign again if you still need to"],
   "not-verified": ["passkey-not-verified", "Your passkey did not confirm it was you with a fingerprint, face or PIN"],
   "bad-signature": ["passkey-bad-signature", "The passkey signature did not check out"],
 };

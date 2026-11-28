@@ -4,7 +4,7 @@ Release decision: **pending**. Merging is the owner's decision.
 
 - Rollback: revert the merge. Migration 029 only adds an index; a reverted app starts against a database that has it only if 029 is also removed from schema_migrations (its down SQL does both).
 - Monitoring after merge: a refused passkey on sign-in or a signed step names its reason; a capture with a misspelt lane is refused with the list of lanes; the sign-in page on Windows names Windows Hello; a daemon with `CONTROLROD_ALLOW_FAKE` unset never claims a fake run.
-- Limits: tests use a virtual authenticator and jsdom, never a real passkey window. Clients that read refusal codes see new ones: `passkey-*`, `signature-mismatch`, `too-many-attachments`, `not-json`, and 409 or 422 for three kernel denials. Migration 029 may need renumbering if another branch merges a 029 first. Lane floors still read as the default when the stored preferences are unreadable, until the next write keeps the old value aside.
+- Limits: tests use a virtual authenticator and jsdom, never a real passkey window. Clients that read refusal codes see new ones: `passkey-*` (including `passkey-overtaken` for a signature that lost a race to a newer one from the same passkey), `signature-mismatch`, `too-many-attachments`, `not-json`, and 409 or 422 for three kernel denials. Migration 029 may need renumbering if another branch merges a 029 first. Lane floors still read as the default when the stored preferences are unreadable, until the next write keeps the old value aside. An honest older signature checked after a newer one is recorded still reads `passkey-counter`. The runs.test capture-dismissal test runs 0.6 to 5 s in CI on main and other branches for a cause not yet found (verification E-10).
 
 ## Required links
 

@@ -507,8 +507,11 @@ describe("review findings", () => {
       post(ben, "/admin/commands/policy.approve", { payload, assertion: benKey.assert(o1.json().options) }),
       post(ben, "/admin/commands/policy.approve", { payload, assertion: benKey.assert(o2.json().options) }),
     ]);
-    const codes = [r1, r2].map((r) => (r.statusCode === 200 ? "ok" : r.json().code)).sort();
-    expect(codes).toEqual(["not-proposed", "ok"]);
+    // The two signatures carry rising counters, so the passkey check can refuse the second before
+    // the approval does. Either way exactly one approval goes through.
+    const codes = [r1, r2].map((r) => (r.statusCode === 200 ? "ok" : r.json().code));
+    expect(codes.filter((c) => c === "ok")).toHaveLength(1);
+    expect(["not-proposed", "passkey-overtaken", "passkey-counter"]).toContain(codes.find((c) => c !== "ok"));
   });
 
   it("SEC-13: policy settings are typed; unknown or invalid values are refused", async () => {

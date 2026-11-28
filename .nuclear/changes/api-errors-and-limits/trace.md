@@ -3,7 +3,7 @@
 | Need | Code | Test |
 | --- | --- | --- |
 | A refused passkey says why (API-2, #207) | `auth.ts` checkAssertion, passkeyRefused | `api-errors-limits.test.ts` "names a wrong origin...", `admin.test.ts`, `scram.test.ts`, `checker-attempts.test.ts`, `signing-policy.test.ts` |
-| Counter only moves forward (API-26) | `auth.ts` compare-and-swap update | "refuses a counter that went backwards", "lets only one of two signatures..." |
+| Counter only moves forward (API-26) | `auth.ts` compare-and-swap update | "refuses a counter that went backwards", "lets only one of two signatures...", "gives a calm refusal when a later signature...", `admin.test.ts` SEC-12 |
 | Body limits before sign-in (API-6, #200) | `app.ts` bodyLimit, asPerson, asDaemon | "refuses an unauthenticated large body...", "still takes a signed-in capture..." |
 | One capture contract (API-7, #205) | `spec/work.tsp`, `work.ts` captureRequest, `apps/web/src/lib/attachments.ts` | "captures follow one shared contract", `components.test.tsx` |
 | Plain JSON refusals (API-4) | `app.ts` canonicalJsonProblem | "plain refusals for JSON..." |

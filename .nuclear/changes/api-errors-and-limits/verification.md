@@ -7,6 +7,8 @@
 - E-05: web, full `vitest run` in apps/web: 1075 pass, 2 failed under load (diff-view long patch, office SCRAM waiver timer); both files pass when run on their own (16 pass). New: passkey-errors (6), signin (2 more), components (2 more).
 - E-06: scripts: `node --test scripts/test/*.test.mjs`: 72 pass, 4 skipped, 0 fail (cards 6, one new).
 - E-07: `pnpm spec` regenerates with no drift on a second run; the generated diff only adds CaptureRequest.json and CaptureLimits.json and changes descriptions on NewCapture.
+- E-09: PR 262 CI follow-up. `admin.test.ts` SEC-12 sends two approvals signed with rising counters at once, and CI got `passkey-counter` for the loser. The counter check can refuse the second before the approval does, which is correct; the loser now reads `passkey-overtaken` when it lost the write, and the test asserts one approval and the other refused with `not-proposed`, `passkey-overtaken` or `passkey-counter`. A new race test ran 40 rounds once: 10 hit the lost write and all 10 read `passkey-overtaken`. admin, api-errors-limits (23), refusals, runs, app, scram, signing-policy and authority together: 209 pass. Typecheck passes.
+- E-10: `runs.test.ts` "stops queued intake and keeps the dismissal on a repeated request" timed out at 5008 ms in PR 262 CI. The same test runs long in CI without this change: 629, 927 and 989 ms on three main runs and 620 to 3676 ms on nine other branches' runs (CI logs read with `gh run view`), while every other test in the file stays normal. Here it takes 30 to 90 ms alone, with the whole file, with three copies in parallel, under four CPU-bound loops and under heavy disk writes. During the test it starts no process and looks up no host, and every query it runs plans at a cost under 50 (no JIT). The cause is not found; it predates this change and is logged here for the owner.
 - E-08: repo gates: `check_public_claims.py` passes. `check_agents_map.py` (AGENTS.md byte budget) and `check_owner_decisions.py` (scram-switch and visual-reference-board tables) report problems in files this change does not touch; both fail the same way without this change. `pytest -q tools` was not run: pytest is not installed on this machine, and this change touches nothing under tools/.
 
 ## Evidence custody and coupling
@@ -20,6 +22,8 @@
 | E-05 | PR-01 | yes | vitest output for apps/web | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 | E-06 | PR-01 | no | node test runner output | Implementing agent | node --test | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 | E-07 | PR-01 | no | checksums of generated files before and after a second `pnpm spec` | Implementing agent | TypeSpec | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
+| E-09 | PR-01 | yes | vitest output for the counter race follow-up | Implementing agent | vitest | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
+| E-10 | PR-01 | no | CI logs of main and other branches, local timing runs | Implementing agent | vitest, gh | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 | E-08 | PR-01 | no | gate script output | Implementing agent | repo gate scripts | Implementing agent | Implementing agent | Local toolchain | PR checks | Implementing agent | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -31,6 +35,8 @@
 | E-05 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, no real passkey window [Ship limits](ship.md) |
 | E-06 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | stand-in app only [Ship limits](ship.md) |
 | E-07 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | CI repeats the drift check [Ship limits](ship.md) |
+| E-09 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | race timing varies [Ship limits](ship.md) |
+| E-10 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | cause not found, predates change [Ship limits](ship.md) |
 | E-08 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | gate problems predate this change [Ship limits](ship.md) |
 
 ## Required links

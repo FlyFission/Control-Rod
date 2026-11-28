@@ -71,6 +71,22 @@ describe("a refused passkey says why (API-2, #207)", () => {
     expect(results.find((r) => r.statusCode === 401)!.json().code).toBe("passkey-counter");
   });
 
+  it("gives a calm refusal when a later signature from the same passkey lands first", async () => {
+    // Two honest prompts signed in two tabs carry rising counters. Whichever arrives second is
+    // refused, and only the same counter twice reads as a possible copy.
+    for (let i = 0; i < 6; i++) {
+      const [o1, o2] = [await loginOptions(), await loginOptions()];
+      const [a1, a2] = [key.assert(o1), key.assert(o2)];
+      const results = await Promise.all([loginWith(a1), loginWith(a2)]);
+      const ok = results.filter((r) => r.statusCode === 200);
+      expect(ok.length).toBeGreaterThanOrEqual(1);
+      for (const r of results.filter((r) => r.statusCode !== 200)) {
+        expect(["passkey-overtaken", "passkey-counter"]).toContain(r.json().code);
+        if (r.json().code === "passkey-overtaken") expect(r.json().message).not.toMatch(/copied/);
+      }
+    }
+  });
+
   it("keeps 'needs your passkey' for a command sent with no signature at all", async () => {
     const r = await asOwner("/admin/commands/chain.seal", { payload: { purpose: "x" } });
     expect(r.json()).toMatchObject({ code: "signature-required" });

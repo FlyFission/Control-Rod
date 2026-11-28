@@ -37,8 +37,10 @@ jobs:
           git diff --exit-code -- spec/generated daemon/internal/wire/schemas services/api/src/preparation/schema.d.ts
           test -z "$(git status --porcelain -- spec/generated daemon/internal/wire/schemas services/api/src/preparation/schema.d.ts)"
       - name: PostgreSQL 17 client tools for the backup and restore rehearsal
-        # The API tests run on the bundled PostgreSQL, as `controlrod start` does. Only the backup
-        # and restore rehearsal needs pg_dump and pg_restore, which the bundle does not ship.
+        # The API tests run on the bundled PostgreSQL 17, as `controlrod start` does, even though
+        # the runner image has a newer PostgreSQL of its own. Only the backup and restore rehearsal
+        # needs pg_dump and pg_restore, which the bundle does not ship; they must be the same major
+        # version as the server, and tools/test-api.mjs refuses a mismatch before any test runs.
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends postgresql-common
@@ -48,6 +50,7 @@ jobs:
       - run: pnpm -r run typecheck
       - run: pnpm -r run test
         env:
+          CONTROLROD_TEST_PG_SERVER: bundled
           CONTROLROD_TEST_PG_BIN: /usr/lib/postgresql/17/bin
           CONTROLROD_TEST_REQUIRE_PG_CLIENT: "1"
 

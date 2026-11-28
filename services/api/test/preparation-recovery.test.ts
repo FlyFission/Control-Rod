@@ -73,6 +73,18 @@ describe.skipIf(!tools)(
   () => {
     beforeAll(async () => {
       f = await preparedHarness();
+      // pg_dump refuses a server of another major version. Say so before the rehearsal starts.
+      const server = Math.floor(
+        Number((await f.h.admin.query("select current_setting('server_version_num') as v")).rows[0].v) / 10000,
+      );
+      const dump = Number(
+        /PostgreSQL\)?\s+(\d+)/.exec(execFileSync(join(tools!, "pg_dump"), ["--version"], { encoding: "utf8" }))?.[1],
+      );
+      if (dump !== server)
+        throw new Error(
+          `CONTROLROD_TEST_PG_BIN (${tools}) holds pg_dump ${dump}, but the test server is PostgreSQL ${server}. ` +
+            `Point CONTROLROD_TEST_PG_BIN at PostgreSQL ${server} client tools, or run the tests on a PostgreSQL ${dump} server.`,
+        );
     }, 120_000);
     afterAll(async () => f?.h.stop());
     it("restores controlled records, signatures, evidence and event chain and refuses unaware legacy writes", async () => {

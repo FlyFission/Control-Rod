@@ -3,6 +3,7 @@
 - R-01: a new job fails on GitHub for a reason this machine cannot show (runner images, network, the PGDG repository, the bundled PostgreSQL's libraries on Ubuntu). The jobs are new checks: if one fails, the PR shows it, and the fix is in the job, never a skip. The product job's failure step prints the app's log.
 - R-02: the WebAssembly rebuild differs on the runner. Mitigated: the build script maps the cargo home to one fixed name, and a rebuild with a different cargo home matched the committed file byte for byte here. Rust and wasm-bindgen versions are pinned.
 - R-03: the API suite now runs on the bundled PostgreSQL instead of a compiled one. That is the PostgreSQL users run. The backup rehearsal keeps running in CI with PGDG client tools, and CI fails if they are missing.
+- R-03a: the runner image's own PostgreSQL differs from the bundled one (Ubuntu 26.04 ships 18). CI names the bundled server (`CONTROLROD_TEST_PG_SERVER=bundled`), and the bootstrap and the rehearsal refuse client tools of another major version before any test runs.
 - R-04: the race detector finds a real race or slows a timing-sensitive test. A race is a bug to fix. Locally, `go test -race ./...` found no race.
 - R-05: wider CODEOWNERS (`scripts/` especially) asks for the owner's yes on more pull requests. That is the point of the finding; the owner may narrow it.
 - R-06: `pnpm cr link` in the product job edits the runner's `~/.bashrc`. The runner is thrown away after the job.

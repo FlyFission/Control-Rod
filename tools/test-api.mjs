@@ -31,21 +31,23 @@ const programs = [...server, ...client];
 // What the source fallback needs before anything is downloaded. Since PostgreSQL 17 the source
 // archive no longer carries generated parser files, so Flex, Bison and Perl are required.
 const buildTools = ["curl", "tar", "bzip2", "cc", "make", "perl", "flex", "bison", "m4"];
+/** The major version a PostgreSQL program in `bin` reports, or null when it does not run. */
+function majorOf(bin, program) {
+  try {
+    const text = execFileSync(join(bin, program), ["--version"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 5000,
+    });
+    const major = Number(/PostgreSQL\)?\s+(\d+)/.exec(text)?.[1]);
+    return Number.isInteger(major) ? major : null;
+  } catch {
+    return null;
+  }
+}
 function usable(bin, needed = programs) {
   if (!bin) return false;
-  try {
-    return needed.every((p) => {
-      const text = execFileSync(join(bin, p), ["--version"], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout: 5000,
-      });
-      const major = /PostgreSQL\)?\s+(\d+)/.exec(text)?.[1];
-      return Number(major) >= 17;
-    });
-  } catch {
-    return false;
-  }
+  return needed.every((p) => (majorOf(bin, p) ?? 0) >= 17);
 }
 function hostDirs() {
   const base = "/usr/lib/postgresql";
@@ -64,19 +66,20 @@ function onPath(command) {
     .filter(Boolean)
     .some((d) => existsSync(join(d, command)));
 }
-function embeddedWorks() {
+/** The bundled embedded PostgreSQL's program folder when its server programs run, else null. */
+function embeddedBin() {
   // The npm binary is optional by platform. Inspect the installed package,
   // without assuming the package manager exposes transitive packages at root.
   const base = join(repo, "node_modules/.pnpm");
-  if (!existsSync(base)) return false;
-  return readdirSync(base)
-    .filter((n) =>
-      n.startsWith(
-        `@embedded-postgres+${process.platform}-${process.arch}@${version}`,
-      ),
-    )
-    .some((n) =>
-      usable(
+  if (!existsSync(base)) return null;
+  return (
+    readdirSync(base)
+      .filter((n) =>
+        n.startsWith(
+          `@embedded-postgres+${process.platform}-${process.arch}@${version}`,
+        ),
+      )
+      .map((n) =>
         join(
           base,
           n,
@@ -84,9 +87,9 @@ function embeddedWorks() {
           `${process.platform}-${process.arch}`,
           "native/bin",
         ),
-        server,
-      ),
-    );
+      )
+      .find((d) => usable(d, server)) ?? null
+  );
 }
 function buildPostgres() {
   if (process.platform !== "linux" || process.getuid?.() === 0)
@@ -210,39 +213,86 @@ function buildPostgres() {
 try {
   const env = { ...process.env };
   if (!env.TEST_DATABASE_URL) {
+    // CONTROLROD_TEST_PG_SERVER=bundled insists on the embedded PostgreSQL that
+    // `controlrod start` runs, even where the host has a newer server (CI does).
+    const choice = env.CONTROLROD_TEST_PG_SERVER;
+    if (choice !== undefined && choice !== "bundled")
+      throw new Error(
+        `CONTROLROD_TEST_PG_SERVER can only be "bundled", not "${choice}".`,
+      );
     let bin = env.CONTROLROD_TEST_PG_DIR;
+    if (choice && bin)
+      throw new Error(
+        "Set CONTROLROD_TEST_PG_SERVER=bundled or CONTROLROD_TEST_PG_DIR, not both.",
+      );
     if (bin && !usable(bin, server))
       throw new Error(
         "CONTROLROD_TEST_PG_DIR must contain usable PostgreSQL17+ server programs (initdb, postgres, pg_ctl).",
       );
-    bin ??= findHost(server);
-    if (!bin && !embeddedWorks()) bin = buildPostgres();
+    // As root the harness always runs the bundled server (a host server will not start as root).
+    const root = process.getuid?.() === 0;
+    if (root && bin)
+      throw new Error(
+        "CONTROLROD_TEST_PG_DIR is not used as root: the test harness runs the bundled PostgreSQL then. Run as an ordinary user, or unset it.",
+      );
+    let embedded = null;
+    if (choice || root) {
+      embedded = embeddedBin();
+      if (!embedded)
+        throw new Error(
+          "The bundled PostgreSQL cannot run here, and it is the one the tests need (CONTROLROD_TEST_PG_SERVER=bundled, or running as root). `pnpm cr doctor` says why.",
+        );
+    } else {
+      bin ??= findHost(server);
+      if (!bin) embedded = embeddedBin();
+      if (!bin && !embedded) bin = buildPostgres();
+    }
     if (bin) {
       env.CONTROLROD_TEST_PG_DIR = bin;
       console.error(`[test-api] PostgreSQL fixture binaries: ${bin}`);
     } else {
-      console.error("[test-api] PostgreSQL fixture binaries: the bundled embedded PostgreSQL");
+      // Tell the harness, so it does not pick a host server of its own.
+      env.CONTROLROD_TEST_PG_SERVER = "bundled";
+      console.error(
+        "[test-api] PostgreSQL fixture binaries: the bundled embedded PostgreSQL",
+      );
     }
-    if (!env.CONTROLROD_TEST_PG_BIN) {
-      const tools = usable(bin, client) ? bin : findHost(client);
+    // pg_dump refuses a server of another major version, so the rehearsal's
+    // tools must match the server just chosen.
+    const major = majorOf(bin ?? embedded, "postgres");
+    const given = env.CONTROLROD_TEST_PG_BIN;
+    if (given) {
+      const found = majorOf(given, "pg_dump");
+      if (!usable(given, client) || found !== major)
+        throw new Error(
+          `CONTROLROD_TEST_PG_BIN (${given}) holds pg_dump ${found ?? "that does not run"}, but the test server is PostgreSQL ${major}. ` +
+            `Point it at PostgreSQL ${major} client tools` +
+            (found !== null && found >= 17
+              ? `, or run the tests on a PostgreSQL ${found} server (CONTROLROD_TEST_PG_DIR).`
+              : "."),
+        );
+    } else {
+      const tools = [bin, ...hostDirs()].find(
+        (d) => d && usable(d, client) && majorOf(d, "pg_dump") === major,
+      );
       if (tools) env.CONTROLROD_TEST_PG_BIN = tools;
     }
-  }
-  if (env.CONTROLROD_TEST_PG_BIN && !usable(env.CONTROLROD_TEST_PG_BIN, client))
+    if (env.CONTROLROD_TEST_PG_BIN) {
+      console.error(
+        `[test-api] Backup and restore rehearsal tools (PostgreSQL ${major}): ${env.CONTROLROD_TEST_PG_BIN}`,
+      );
+    } else if (env.CONTROLROD_TEST_REQUIRE_PG_CLIENT === "1") {
+      throw new Error(
+        `CONTROLROD_TEST_REQUIRE_PG_CLIENT is set, but no PostgreSQL ${major} pg_dump and pg_restore were found. Set CONTROLROD_TEST_PG_BIN to their folder.`,
+      );
+    } else {
+      console.error(
+        `[test-api] No PostgreSQL ${major} pg_dump and pg_restore found, so the backup and restore rehearsal (test/preparation-recovery.test.ts) is skipped. Every other test runs. To run it, install the PostgreSQL ${major} client tools or set CONTROLROD_TEST_PG_BIN to their folder.`,
+      );
+    }
+  } else if (env.CONTROLROD_TEST_PG_BIN && !usable(env.CONTROLROD_TEST_PG_BIN, client)) {
     throw new Error(
       "CONTROLROD_TEST_PG_BIN must contain PostgreSQL17+ pg_dump and pg_restore.",
-    );
-  if (env.CONTROLROD_TEST_PG_BIN) {
-    console.error(
-      `[test-api] Backup and restore rehearsal tools: ${env.CONTROLROD_TEST_PG_BIN}`,
-    );
-  } else if (env.CONTROLROD_TEST_REQUIRE_PG_CLIENT === "1") {
-    throw new Error(
-      "CONTROLROD_TEST_REQUIRE_PG_CLIENT is set, but no PostgreSQL 17+ pg_dump and pg_restore were found. Set CONTROLROD_TEST_PG_BIN to their folder.",
-    );
-  } else {
-    console.error(
-      "[test-api] No PostgreSQL 17+ pg_dump and pg_restore found, so the backup and restore rehearsal (test/preparation-recovery.test.ts) is skipped. Every other test runs. To run it, install the PostgreSQL 17 client tools or set CONTROLROD_TEST_PG_BIN to their folder.",
     );
   }
   const result = spawnSync(

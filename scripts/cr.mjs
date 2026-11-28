@@ -268,6 +268,7 @@ function agentChecks() {
 }
 
 function setup() {
+  if (process.env.CONTROLROD_PACKAGED === "1") return;
   mkdirSync(bin, { recursive: true });
   if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
   // An update builds everything again: a change to a build config or a workspace package does
@@ -360,7 +361,8 @@ async function start() {
     return;
   }
   process.on("exit", () => clearRecord(home));
-  if (!doctor().ok) process.exit(1);
+  const packaged = process.env.CONTROLROD_PACKAGED === "1";
+  if (!packaged && !doctor().ok) process.exit(1);
   setup();
   // On a first run the database package was not installed yet when `doctor` looked; look again now.
   if (!databaseOk()) process.exit(1);
@@ -375,7 +377,8 @@ async function start() {
     env.CONTROLROD_ORIGIN = `https://${host}`;
     env.CONTROLROD_RP_ID ??= host;
   }
-  env.PATH = [bin, env.PATH].filter(Boolean).join(delimiter);
+  const daemonBin = process.env.CONTROLROD_DAEMON_BIN || join(bin, "controlrod");
+  env.PATH = [dirname(daemonBin), bin, env.PATH].filter(Boolean).join(delimiter);
 
   let apiExited = false;
   let apiExitCode = 0;
@@ -399,7 +402,7 @@ async function start() {
   // so the daemon's final completions still have somewhere to go. The control plane also stops by
   // itself if this launcher disappears (CONTROLROD_LAUNCHER_PID).
   const runningCommit = gitRunner(root)(["rev-parse", "--verify", "HEAD"]).out;
-  const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], {
+  const api = spawn(process.execPath, [join(root, "services", "api", "dist", "server.js")], {
     env: { ...env, CONTROLROD_LAUNCHER_PID: String(process.pid), CONTROLROD_RUNNING_COMMIT: runningCommit },
     stdio: "inherit",
     detached: true,
@@ -465,7 +468,7 @@ async function start() {
   // plane restarts and writes a new one; passing it in the environment would pin the old token.
   const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}`, CONTROLROD_LAUNCHER_PID: String(process.pid) };
   delete daemonEnv.CONTROLROD_DAEMON_TOKEN;
-  daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
+  daemon = spawn(daemonBin, ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
     env: daemonEnv,
     stdio: "inherit",
   });

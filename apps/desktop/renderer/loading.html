@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';" />
+    <title>Control Rod</title>
+    <style>
+      :root {
+        --bg: #0a0a0c;
+        --surface: #121317;
+        --border: rgba(255, 255, 255, 0.08);
+        --ink: #eceef2;
+        --muted: #8b92a0;
+        --accent: #e5a02c;
+        --accent-dim: #6f511c;
+        --danger: #e5a02c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+      }
+
+      main {
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 440px;
+        text-align: center;
+      }
+
+      .mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        margin-bottom: 20px;
+      }
+
+      .rod-center {
+        fill: var(--accent);
+      }
+
+      .rod-side {
+        fill: var(--accent-dim);
+      }
+
+      .loading .rod-center {
+        animation: calm-pulse 2.2s ease-in-out infinite;
+      }
+
+      @keyframes calm-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.45;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .loading .rod-center {
+          animation: none;
+        }
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        color: var(--ink);
+      }
+
+      .status {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .actions {
+        margin-top: 24px;
+        display: none;
+        justify-content: center;
+      }
+
+      .error .actions {
+        display: flex;
+      }
+
+      button.primary {
+        appearance: none;
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        background: var(--accent);
+        color: #111214;
+        cursor: pointer;
+        transition: filter 120ms ease;
+      }
+
+      button.primary:hover {
+        filter: brightness(1.06);
+      }
+
+      button.primary:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      details {
+        display: none;
+        margin-top: 20px;
+        text-align: left;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+      }
+
+      .error details {
+        display: block;
+      }
+
+      summary {
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--muted);
+        list-style: none;
+      }
+
+      summary::-webkit-details-marker {
+        display: none;
+      }
+
+      summary::before {
+        content: "▸ ";
+        display: inline-block;
+        transition: transform 120ms ease;
+      }
+
+      details[open] summary::before {
+        content: "▾ ";
+      }
+
+      pre {
+        margin: 10px 0 0;
+        max-height: 180px;
+        overflow: auto;
+        font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #c2c8d4;
+        white-space: pre-wrap;
+        word-break: break-word;
+        user-select: text;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section id="shell" class="card loading" aria-live="polite">
+        <div class="mark" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28">
+            <rect class="rod-center" x="12" y="2" width="4" height="24" rx="2" />
+            <rect class="rod-side" x="4" y="8" width="4" height="12" rx="2" />
+            <rect class="rod-side" x="20" y="8" width="4" height="12" rx="2" />
+          </svg>
+        </div>
+        <h1 id="title">Control Rod</h1>
+        <p id="status" class="status">Starting Control Rod…</p>
+        <div class="actions">
+          <button id="retry" type="button" class="primary">Try again</button>
+        </div>
+        <details id="details-box">
+          <summary>Technical details</summary>
+          <pre id="details"></pre>
+        </details>
+      </section>
+    </main>
+    <script>
+      const shell = document.getElementById("shell");
+      const titleEl = document.getElementById("title");
+      const statusEl = document.getElementById("status");
+      const detailsBox = document.getElementById("details-box");
+      const detailsEl = document.getElementById("details");
+      const retryBtn = document.getElementById("retry");
+
+      function render(state) {
+        if (!state) return;
+        if (state.phase === "error") {
+          shell.className = "card error";
+          titleEl.textContent = state.title || "Control Rod could not start";
+          statusEl.textContent = state.message || "The local services did not become ready.";
+          detailsEl.textContent = state.details || "";
+          detailsBox.open = false;
+          return;
+        }
+        shell.className = "card loading";
+        titleEl.textContent = "Control Rod";
+        statusEl.textContent = state.message || "Starting Control Rod…";
+      }
+
+      retryBtn.addEventListener("click", () => {
+        render({ phase: "starting", message: "Starting Control Rod…" });
+        window.controlrodDesktop?.retryStart?.();
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("preview") === "error") {
+        render({
+          phase: "error",
+          title: "Port 7300 is already in use",
+          message: "Another program is using Control Rod's local port. Close that program, then try again.",
+          details: "Port: 7300\nPID: 48210\nCommand: node /path/to/other-server.js",
+        });
+      } else if (window.controlrodDesktop) {
+        window.controlrodDesktop.onStatus(render);
+        window.controlrodDesktop.requestStatus().then(render).catch(() => undefined);
+      }
+    </script>
+  </body>
+</html>

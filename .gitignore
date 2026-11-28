@@ -40,3 +40,7 @@ data/
 apps/web/test-results/
 apps/web/playwright-report/
 tools/break-loop/.state/
+
+# Desktop app staging and packaged installers
+apps/desktop/release/
+apps/desktop/runtime/

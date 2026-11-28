@@ -118,4 +118,38 @@ describe("notifications", () => {
     rerender({ u: "dora", read: ok([item({ package_id: "WP-9" })]) });
     expect(FakeNotification.shown).toEqual([]);
   });
+
+  it("uses the native desktop notification bridge when running inside the desktop app", () => {
+    const notify = vi.fn().mockResolvedValue(true);
+    const closeNotification = vi.fn().mockResolvedValue(undefined);
+    let openHandler: ((route: string) => void) | undefined;
+    const onOpenInbox = vi.fn((fn: (route: string) => void) => {
+      openHandler = fn;
+      return () => {
+        openHandler = undefined;
+      };
+    });
+    (window as unknown as { controlrodDesktop?: unknown }).controlrodDesktop = {
+      isDesktop: true,
+      notify,
+      closeNotification,
+      onOpenInbox,
+    };
+    try {
+      const { rerender, unmount, open } = mount("ben", ok([]));
+      rerender({ u: "ben", read: ok([item({ kind: "accept" })]) });
+      expect(FakeNotification.shown).toEqual([]);
+      expect(notify).toHaveBeenCalledWith({
+        title: "Needs you: Accept",
+        body: "Open Control Rod to see it.",
+        route: "/inbox",
+      });
+      openHandler?.("/inbox");
+      expect(open).toHaveBeenCalledOnce();
+      unmount();
+      expect(closeNotification).toHaveBeenCalled();
+    } finally {
+      delete (window as unknown as { controlrodDesktop?: unknown }).controlrodDesktop;
+    }
+  });
 });

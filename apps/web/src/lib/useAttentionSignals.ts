@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { InboxView } from "../api/types.js";
-import { attentionKey, newArrivals, notificationText, notifySupport, readNotifyChoice, titleWithCount } from "./attention.js";
+import { attentionKey, desktopBridge, newArrivals, notificationText, notifySupport, readNotifyChoice, titleWithCount } from "./attention.js";
 
 /** The parts of the shell's Inbox read the signals use. */
 export type InboxRead = { data: InboxView | undefined; isSuccess: boolean; isError: boolean; dataUpdatedAt: number };
@@ -10,6 +10,7 @@ const COUNT_PREFIX = /^\(\d+\)\s+/;
 /**
  * Keeps the tab title's count in step with what waits on the viewer, and, when they turned it on,
  * shows one browser notification for items that arrive while the tab is hidden (pattern AW1, AW2).
+ * Inside the Control Rod desktop app, uses the native OS notification bridge instead.
  *
  * The count shows only after a successful read; after a failed refresh the title drops it rather
  * than show a number that may be stale. The first successful read for a person is the baseline, so
@@ -40,10 +41,19 @@ export function useAttentionSignals(user: string | undefined, inbox: InboxRead, 
     [],
   );
 
+  useEffect(() => {
+    const bridge = desktopBridge();
+    if (!bridge?.onOpenInbox) return;
+    return bridge.onOpenInbox(() => {
+      open.current();
+    });
+  }, []);
+
   useEffect(
     () => () => {
       shown.current?.close();
       shown.current = null;
+      void desktopBridge()?.closeNotification?.();
     },
     [user],
   );
@@ -58,9 +68,17 @@ export function useAttentionSignals(user: string | undefined, inbox: InboxRead, 
     const arrived = newArrivals(before.keys, items);
     if (arrived.length === 0) return;
     if (!readNotifyChoice(user) || notifySupport() !== "granted") return;
-    if (document.visibilityState !== "hidden") return;
+    const bridge = desktopBridge();
+    const away = bridge
+      ? document.visibilityState === "hidden" || (typeof document.hasFocus === "function" && !document.hasFocus())
+      : document.visibilityState === "hidden";
+    if (!away) return;
     const text = notificationText(arrived);
     if (text === null) return;
+    if (bridge?.notify) {
+      void bridge.notify({ title: text.title, body: text.body, route: "/inbox" });
+      return;
+    }
     try {
       shown.current?.close();
       const n = new window.Notification(text.title, { body: text.body, tag: "cr-inbox" });

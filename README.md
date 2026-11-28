@@ -145,6 +145,14 @@ Switch between **Software**, **Capital Projects**, and **Nuclear-Grade** modes o
 
 ---
 
+## Download the app
+
+Prefer a double-click app over running `controlrod start` from a terminal? The macOS desktop app wraps the same local launcher, embedded PostgreSQL, and web workspace in a standalone **Control Rod** window with a Dock icon and native notifications, while reusing any instance you already started from the command line and keeping your data in `~/.controlrod`.
+
+- **macOS (unsigned `.dmg` preview):** download the `.dmg` artifact from a pull request's **Desktop DMG** workflow run, or build one locally on macOS with `node scripts/build-desktop.mjs` (output in `apps/desktop/release/`). Because preview builds are unsigned, macOS Gatekeeper will ask you to right-click **Control Rod.app -> Open** on first launch.
+- **Sign-ins and passkeys:** Control Rod reads your login shell `PATH` so signed-in agent CLIs (`claude`, `codex`, `agy`, `grok`, `opencode`) work from the app just as they do in a terminal. Use **Control Rod -> Open in Browser** (`Cmd+Shift+O`) anytime if you want to sign with a browser passkey against the same local instance.
+- **Coming next:** Apple Developer code signing and notarization, Windows and Linux installers, and auto-update (all stubbed in `apps/desktop/electron-builder.config.mjs`).
+
 ## Install the full workspace
 
 Control Rod runs locally on your own account and sign-ins. Install [mise](https://mise.jdx.dev) to fetch the pinned toolchain, or bring [Node 22.12+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and Python 3 (the first build runs a Python check), plus [uv](https://docs.astral.sh/uv/getting-started/installation/) if you run the Python checks or the Python SDK. Sign in to [Claude Code](https://claude.com/claude-code) (its native build: `curl -fsSL https://claude.ai/install.sh | bash`), [Codex](https://github.com/openai/codex), or both, and use a non-root user account (embedded PostgreSQL refuses root). On Linux, agent runs also need bubblewrap and socat; `controlrod doctor` checks both.

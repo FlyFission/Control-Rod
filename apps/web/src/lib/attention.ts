@@ -76,7 +76,21 @@ export const NOTIFY_CHOICE_EVENT = "cr:notify-choice";
 
 export type NotifySupport = "unsupported" | "default" | "granted" | "denied";
 
+export interface ControlRodDesktopBridge {
+  readonly isDesktop: true;
+  notify?: (input: { title: string; body: string; route?: string }) => Promise<boolean>;
+  closeNotification?: () => Promise<void>;
+  onOpenInbox?: (listener: (route: string) => void) => () => void;
+}
+
+export function desktopBridge(): ControlRodDesktopBridge | undefined {
+  if (typeof window === "undefined") return undefined;
+  const candidate = (window as Window & { controlrodDesktop?: ControlRodDesktopBridge }).controlrodDesktop;
+  return candidate?.isDesktop ? candidate : undefined;
+}
+
 export function notifySupport(): NotifySupport {
+  if (desktopBridge()?.notify) return "granted";
   if (typeof window === "undefined" || typeof window.Notification === "undefined") return "unsupported";
   return window.Notification.permission;
 }

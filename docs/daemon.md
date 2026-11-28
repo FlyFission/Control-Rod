@@ -26,9 +26,12 @@ The daemon finds runtimes on `PATH` and offers those that pass the probe below:
 
 - `claude`: Claude Code, in headless print mode under the run's sandbox policy (see "Sandbox" below).
 - `codex`: `codex exec --json --skip-git-repo-check -C <workspace> [-m <model>] <prompt>`, with the run's permission profile (see "Sandbox" below). Run workspaces are not Git repositories, so the repository check is skipped.
-- `fake`: test runtime. Runs `inputs/FAKE.sh` with bash, or copies `inputs/FAKE_OUT/*` into `out/`. It runs no agent CLI and takes no sandbox.
+- `grok`: Grok CLI, on macOS only, through Control Rod's own bridge (see the Grok CLI paragraph under "Checkout setup" below). Not in a repository checkout.
+- `agy`: Antigravity CLI, on macOS only, under its own terminal sandbox (see the Antigravity paragraph under "Checkout setup" below). Not in a repository checkout.
+- `opencode` and `ollama`: found and probed, then listed as not ready with the reason, and never started. Control Rod cannot yet confine them (`ConfinementGap` in `adapter_opencode.go` and `adapter_ollama.go`). Grok and Antigravity are listed the same way on Linux and WSL2.
+- `fake`: test runtime, offered only when `CONTROLROD_ALLOW_FAKE=1`. Runs `inputs/FAKE.sh` with bash, or copies `inputs/FAKE_OUT/*` into `out/`. It runs no agent CLI and takes no sandbox.
 
-Each runtime is a registered adapter. `daemon/internal/runner/adapter.go` holds the registry; `adapter_claude.go`, `adapter_codex.go` and `adapter_fake.go` build the launch, probe the CLI and normalize its stream. Detect, Command, LaunchFor, RuntimeFor and Probe dispatch through that registry.
+Each runtime is a registered adapter. `daemon/internal/runner/adapter.go` holds the registry; each `adapter_<id>.go` builds the launch, probes the CLI and normalizes its stream. Detect, Command, LaunchFor, RuntimeFor and Probe dispatch through that registry.
 
 `controlrod sandbox-args --runtime claude|codex --policy <file> --workspace <dir>` prints exactly the argument list and environment a run would get under a policy, and runs nothing.
 
@@ -91,7 +94,7 @@ This is the same step the `platforms` workflow runs before its Linux qualificati
 
 The control plane never hands a pre-check to the runtime that authored the work. When the daemon offers only the author's runtime, the pre-check stays queued with the reason "Waiting for an independent runtime: install Codex, or proceed with a recorded owner override." and shows in the office. The owner can proceed by writing why and signing the override with a passkey, the same way as a decision: the server derives the challenge from the digest of the package id, revision, run id, the words `override-independence` and the reason, and consumes it once. The kernel allows the override only as a signed human act with a reason. It is recorded as an event with the assertion, and the pre-check record shows a shared runtime with that override. The daemon can never make it. Runtime identity is the provider and the model (the model the runtime reported, else the one asked for), and both are recorded. The same provider counts as the same runtime whatever the models: Opus checking Sonnet's work still needs the override. The kernel refuses a pre-check on the author's provider without the override.
 
-A run's provider picks the runtime (`anthropic` or `claude`, `openai` or `codex`, `fake`). A job for a runtime this machine lacks fails at once without creating a workspace.
+A run's provider picks the runtime (`anthropic`, `claude` or `claude-code`; `openai` or `codex`; `grok`, `xai` or `grok-cli`; `agy`, `antigravity` or `gemini-cli`; `opencode`; `ollama` or `local-ollama`; `fake`). A job for a runtime this machine lacks fails at once without creating a workspace.
 
 ## Workspace
 

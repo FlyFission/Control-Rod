@@ -261,9 +261,16 @@ describe("office figures", () => {
     await work("WP-LANE-TAG", "Docs", ["services/api/src/a.ts"]);
     await work("WP-LANE-KEYWORD", "database migration", []);
     await work("WP-LANE-DEFAULT", undefined, []);
+    // A checkout card's outputs are a patch and a reply: it is placed by the files the patch changes.
+    await work("WP-LANE-PATCH", undefined, []);
+    const patch = "diff --git a/services/api/src/a.ts b/services/api/src/a.ts\n--- a/services/api/src/a.ts\n+++ b/services/api/src/a.ts\n@@ -1 +1 @@\n-a\n+b\n";
+    for (const [name, bytes] of [["changes.patch", patch], ["RESPONSE.md", "Done."]] as const)
+      await h.admin.query("insert into outputs (run_id, package_id, package_revision, name, sha256, bytes) values ($1, $2, 0, $3, $4, $5)", ["R-WP-LANE-PATCH", "WP-LANE-PATCH", name, "0".repeat(64), Buffer.from(bytes)]);
     const floor = await get("/office/figures");
     // Lane i stands in slot i: Frontend, Backend, Platform, Data, Tests, Docs.
     expect(figure(floor, "WP-LANE-PATH")).toMatchObject({ place: "process", lane: "frontend", lane_name: "Frontend" });
+    // Not the Docs bay (RESPONSE.md is a .md name) and not the default: Backend, by the patched file.
+    expect(figure(floor, "WP-LANE-PATCH")).toMatchObject({ lane: "backend", lane_name: "Backend" });
     expect(figure(floor, "WP-LANE-TAG")).toMatchObject({ place: "project-controls", lane: "docs", lane_name: "Docs" });
     expect(figure(floor, "WP-LANE-KEYWORD")).toMatchObject({ place: "civil", lane: "data" });
     expect(figure(floor, "WP-LANE-DEFAULT")).toMatchObject({ place: "electrical", lane: "platform", place_defaulted: true });

@@ -19,12 +19,13 @@ import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScramm
 import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "./sandbox.js";
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
-import { FOCUS_WRITING, RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "./brief.js";
+import { FOCUS_WRITING, RULES, briefHeader, composeBrief, findingsSection, nuclearProStageSkillsSection, scopePathItem } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureTags, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
 import { bindCheckout, publishCheckout } from "./repos.js";
 import { verifyRecordedOutput } from "./run-outputs.js";
+import { CHANGE_PATCH, changePatches, changedRepoFiles, patchFiles } from "./change-files.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, CHECKER_ORDER, CHECKOUT_AUTHORS, RUNNABLE, activePin, recordProbes } from "./runtimes.js";
@@ -465,48 +466,7 @@ function findingDetail(f: Json): Json {
   return out;
 }
 
-/** The patch name the author is asked for (runner checkoutPrompt). */
-export const CHANGE_PATCH = "changes.patch";
-
-/**
- * Which of an author's patch outputs make up the change to the repository. Agents often write more
- * than one: a copy under a work folder, or the fix and its tests as two files. A patch at the top of
- * the output wins over ones in folders; among top-level patches, one named changes.patch wins;
- * otherwise patches that touch disjoint files are the change together, in name order. Patches that
- * touch the same file are refused, since applying both could double a change.
- */
-export function changePatches<T extends { name: string }>(outputs: T[], filesOf: (o: T) => string[]): { use: T[] } | { refused: string } {
-  const all = outputs.filter((o) => /\.(patch|diff)$/i.test(o.name));
-  if (all.length <= 1) return { use: all };
-  const top = all.filter((o) => !o.name.includes("/"));
-  const pool = top.length ? top : all;
-  if (pool.length === 1) return { use: pool };
-  const named = pool.find((o) => o.name.toLowerCase() === CHANGE_PATCH);
-  if (named) return { use: [named] };
-  const seen = new Map<string, string>();
-  for (const o of pool) {
-    for (const f of filesOf(o)) {
-      const other = seen.get(f);
-      if (other !== undefined && other !== o.name) {
-        return { refused: `The accepted work has ${pool.length} patch files, and ${other} and ${o.name} both change ${f}, so Control Rod cannot tell which is the change to open a pull request for.` };
-      }
-      seen.set(f, o.name);
-    }
-  }
-  return { use: [...pool].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) };
-}
-
-/** The files a unified diff touches, in order, from its `diff --git` and `+++`/`---` headers. */
-export function patchFiles(patch: string): string[] {
-  const seen = new Set<string>();
-  for (const line of patch.split(/\r?\n/)) {
-    const git = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
-    if (git) { seen.add(git[2]!); if (git[1] !== git[2]) seen.add(git[1]!); continue; }
-    const hdr = /^(?:\+\+\+|---) [ab]\/(.+?)(?:\t.*)?$/.exec(line);
-    if (hdr) seen.add(hdr[1]!);
-  }
-  return [...seen];
-}
+export { CHANGE_PATCH, changePatches, patchFiles } from "./change-files.js";
 
 /**
  * For a card on a repository checkout, the pull request is built from the bound commit plus the
@@ -571,7 +531,9 @@ async function scopeDrift(q: Db | Tx, id: string, rev: number, round: number, au
   const prev = await succeededAuthorRun(q, id, rev, round - 1);
   const cur = authorRunId ? { id: authorRunId } : await succeededAuthorRun(q, id, rev, round);
   if (!prev || !cur) return null;
-  const outside = outsideScope(changedPaths(await outputDigestsOf(q, prev.id), await outputDigestsOf(q, cur.id)), scope);
+  // Compare what each round changed in the repository: per file of the patch on a checkout card,
+  // otherwise by output name (change-files.ts).
+  const outside = outsideScope(changedRepoFiles(await outputsOf(q, prev.id), await outputsOf(q, cur.id)), scope);
   return { round, scope_paths: scope, outside };
 }
 
@@ -1471,11 +1433,12 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     if (run.round > 1) {
       const prevVer = await latestVerification(c, pkg.id, pkg.revision, run.round - 1);
       findings = prevVer?.body.findings ?? [];
-      extra.push(`## Findings to fix from the pre-check\n\n${JSON.stringify(findings, null, 2)}\n`);
+      inputs.push(file("findings.json", Buffer.from(JSON.stringify(findings, null, 2))));
+      extra.push(findingsSection(findings ?? []));
       const scope = fixScope(findings);
       if (scope.length)
         extra.push(
-          `## Scope of this fix\n\nChange only these files:\n\n${scope.map((p) => `- \`${p}\``).join("\n")}\n\nKeep every other file as it is in previous/. If the fix truly needs another file, change it and say why. Control Rod reports any file changed outside this list to the checker and on the card.\n`,
+          `## Scope of this fix\n\nChange only these files:\n\n${scope.map(scopePathItem).join("\n")}\n\nKeep every other file as it is in previous/. If the fix truly needs another file, change it and say why. Control Rod reports any file changed outside this list to the checker and on the card.\n`,
         );
       const prev = await c.query<{ id: string }>(
         "select id from runs where package_id = $1 and package_revision = $2 and role = 'author' and round = $3 and status = 'succeeded' order by created_at desc, id desc limit 1",

@@ -7,6 +7,7 @@ import { effectiveLane } from "./markings.js";
 import { scramHoldIndex } from "./scram.js";
 import type { WorkConfig } from "./work.js";
 import { type WorkLaneSet, laneSetOf, placeWork } from "./work-lanes.js";
+import { touchedFiles } from "./change-files.js";
 
 /**
  * The AgentFigure projection (specification 13 and 18; plan task 4.6): one figure per agent at the
@@ -161,16 +162,26 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
   const laneSets = new Map(
     (await db.query<{ id: string; lanes: unknown }>("select id, body->'work_lanes' as lanes from projects where org_id = $1", [orgId])).rows.map((r) => [r.id, laneSetOf(r.lanes)]),
   );
-  const touched = new Map(
-    (
-      await db.query<{ package_id: string; names: string[] }>(
-        `select o.package_id, array_agg(distinct o.name) as names
-           from outputs o join (select distinct on (id) id, revision from packages order by id, revision desc) c
-             on c.id = o.package_id and c.revision = o.package_revision
-          group by o.package_id`,
-      )
-    ).rows.map((r) => [r.package_id, r.names]),
-  );
+  // Paths come from the outputs of the latest author run that has any: the files its change patch touches on a checkout
+  // card, otherwise the output names (change-files.ts). Only patch bytes are loaded.
+  const latestOutputs = new Map<string, { name: string; bytes: Buffer | null }[]>();
+  for (const r of (
+    await db.query<{ package_id: string; name: string; bytes: Buffer | null }>(
+      `select o.package_id, o.name, case when o.name ~* '\\.(patch|diff)$' then o.bytes end as bytes
+         from outputs o
+         join (select distinct on (r.package_id) r.id
+                 from runs r join (select distinct on (id) id, revision from packages order by id, revision desc) c
+                   on c.id = r.package_id and c.revision = r.package_revision
+                where r.role = 'author' and exists (select 1 from outputs x where x.run_id = r.id)
+                order by r.package_id, r.round desc, r.created_at desc, r.id desc) a on a.id = o.run_id
+        order by o.package_id, o.name`,
+    )
+  ).rows) {
+    const list = latestOutputs.get(r.package_id) ?? [];
+    list.push({ name: r.name, bytes: r.bytes });
+    latestOutputs.set(r.package_id, list);
+  }
+  const touched = new Map([...latestOutputs].map(([id, outs]) => [id, touchedFiles(outs)]));
   const shownSets = new Map<string, WorkLaneSet>();
   // SCRAM holds for every agent from one load of the active SCRAMs, owners and restarts.
   const holdOf = await scramHoldIndex(db);

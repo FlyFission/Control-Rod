@@ -22,10 +22,19 @@ const version = "17.10";
 const sourceHash =
   "078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90";
 const sourceUrl = `https://ftp.postgresql.org/pub/source/v${version}/postgresql-${version}.tar.bz2`;
-const programs = ["initdb", "postgres", "pg_ctl", "pg_dump", "pg_restore"];
-function usable(bin) {
+// The server programs start a test cluster. The client programs are needed only by the backup
+// and restore rehearsal (test/preparation-recovery.test.ts); the bundled embedded PostgreSQL
+// ships the server programs alone, so it must not be refused for lacking them.
+const server = ["initdb", "postgres", "pg_ctl"];
+const client = ["pg_dump", "pg_restore"];
+const programs = [...server, ...client];
+// What the source fallback needs before anything is downloaded. Since PostgreSQL 17 the source
+// archive no longer carries generated parser files, so Flex, Bison and Perl are required.
+const buildTools = ["curl", "tar", "bzip2", "cc", "make", "perl", "flex", "bison", "m4"];
+function usable(bin, needed = programs) {
+  if (!bin) return false;
   try {
-    return programs.every((p) => {
+    return needed.every((p) => {
       const text = execFileSync(join(bin, p), ["--version"], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
@@ -38,15 +47,22 @@ function usable(bin) {
     return false;
   }
 }
-function findHost() {
+function hostDirs() {
   const base = "/usr/lib/postgresql";
   const dirs = existsSync(base)
     ? readdirSync(base)
         .sort((a, b) => Number(b) - Number(a))
         .map((v) => join(base, v, "bin"))
     : [];
-  dirs.push(...(process.env.PATH ?? "").split(":"));
-  return dirs.find(usable);
+  dirs.push(...(process.env.PATH ?? "").split(":").filter(Boolean));
+  return dirs;
+}
+const findHost = (needed) => hostDirs().find((d) => usable(d, needed));
+function onPath(command) {
+  return (process.env.PATH ?? "")
+    .split(":")
+    .filter(Boolean)
+    .some((d) => existsSync(join(d, command)));
 }
 function embeddedWorks() {
   // The npm binary is optional by platform. Inspect the installed package,
@@ -68,6 +84,7 @@ function embeddedWorks() {
           `${process.platform}-${process.arch}`,
           "native/bin",
         ),
+        server,
       ),
     );
 }
@@ -75,6 +92,12 @@ function buildPostgres() {
   if (process.platform !== "linux" || process.getuid?.() === 0)
     throw new Error(
       "Provide TEST_DATABASE_URL or working PG17 binaries; the source fallback requires non-root Linux.",
+    );
+  const missing = buildTools.filter((c) => !onPath(c));
+  if (missing.length)
+    throw new Error(
+      `No usable PostgreSQL 17 was found, and building one from source needs ${missing.join(", ")}, which ${missing.length === 1 ? "is" : "are"} not installed. ` +
+        `Install ${missing.length === 1 ? "it" : "them"}, install PostgreSQL 17, or set TEST_DATABASE_URL to a PostgreSQL 17 test server. See docs/test-database.md.`,
     );
   const cache = join(homedir(), ".cache/controlrod-test-postgres", sourceHash);
   const bin = join(cache, "install/bin"),
@@ -188,17 +211,39 @@ try {
   const env = { ...process.env };
   if (!env.TEST_DATABASE_URL) {
     let bin = env.CONTROLROD_TEST_PG_DIR;
-    if (bin && !usable(bin))
+    if (bin && !usable(bin, server))
       throw new Error(
-        "CONTROLROD_TEST_PG_DIR must contain usable PostgreSQL17+ server and client tools.",
+        "CONTROLROD_TEST_PG_DIR must contain usable PostgreSQL17+ server programs (initdb, postgres, pg_ctl).",
       );
-    bin ??= findHost();
+    bin ??= findHost(server);
     if (!bin && !embeddedWorks()) bin = buildPostgres();
     if (bin) {
       env.CONTROLROD_TEST_PG_DIR = bin;
-      env.CONTROLROD_TEST_PG_BIN ??= bin;
       console.error(`[test-api] PostgreSQL fixture binaries: ${bin}`);
+    } else {
+      console.error("[test-api] PostgreSQL fixture binaries: the bundled embedded PostgreSQL");
     }
+    if (!env.CONTROLROD_TEST_PG_BIN) {
+      const tools = usable(bin, client) ? bin : findHost(client);
+      if (tools) env.CONTROLROD_TEST_PG_BIN = tools;
+    }
+  }
+  if (env.CONTROLROD_TEST_PG_BIN && !usable(env.CONTROLROD_TEST_PG_BIN, client))
+    throw new Error(
+      "CONTROLROD_TEST_PG_BIN must contain PostgreSQL17+ pg_dump and pg_restore.",
+    );
+  if (env.CONTROLROD_TEST_PG_BIN) {
+    console.error(
+      `[test-api] Backup and restore rehearsal tools: ${env.CONTROLROD_TEST_PG_BIN}`,
+    );
+  } else if (env.CONTROLROD_TEST_REQUIRE_PG_CLIENT === "1") {
+    throw new Error(
+      "CONTROLROD_TEST_REQUIRE_PG_CLIENT is set, but no PostgreSQL 17+ pg_dump and pg_restore were found. Set CONTROLROD_TEST_PG_BIN to their folder.",
+    );
+  } else {
+    console.error(
+      "[test-api] No PostgreSQL 17+ pg_dump and pg_restore found, so the backup and restore rehearsal (test/preparation-recovery.test.ts) is skipped. Every other test runs. To run it, install the PostgreSQL 17 client tools or set CONTROLROD_TEST_PG_BIN to their folder.",
+    );
   }
   const result = spawnSync(
     "pnpm",
